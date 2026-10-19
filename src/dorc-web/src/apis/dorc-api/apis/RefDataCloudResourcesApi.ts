@@ -18,6 +18,8 @@ import type { OperationOpts, HttpHeaders } from '../runtime';
 import type {
     ApiBoolResult,
     CloudResourceApiModel,
+    ResourceTagsUpdate,
+    SharedResourceCapabilities,
 } from '../models';
 
 export interface RefDataCloudResourcesByEnvIdEnvIdGetRequest {
@@ -26,6 +28,10 @@ export interface RefDataCloudResourcesByEnvIdEnvIdGetRequest {
 
 export interface RefDataCloudResourcesByIdIdGetRequest {
     id: number;
+}
+
+export interface RefDataCloudResourcesCapabilitiesEnvIdGetRequest {
+    envId: number;
 }
 
 export interface RefDataCloudResourcesIdDeleteRequest {
@@ -45,6 +51,11 @@ export interface RefDataCloudResourcesIdEnvironmentsEnvIdPutRequest {
 export interface RefDataCloudResourcesIdPutRequest {
     id: number;
     cloudResourceApiModel?: CloudResourceApiModel;
+}
+
+export interface RefDataCloudResourcesIdTagsPutRequest {
+    id: number;
+    resourceTagsUpdate?: ResourceTagsUpdate;
 }
 
 export interface RefDataCloudResourcesPostRequest {
@@ -99,6 +110,30 @@ export class RefDataCloudResourcesApi extends BaseAPI {
 
         return this.request<CloudResourceApiModel>({
             url: '/RefDataCloudResources/ById/{id}'.replace('{id}', encodeURI(id)),
+            method: 'GET',
+            headers,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    refDataCloudResourcesCapabilitiesEnvIdGet({ envId }: RefDataCloudResourcesCapabilitiesEnvIdGetRequest): Observable<SharedResourceCapabilities>
+    refDataCloudResourcesCapabilitiesEnvIdGet({ envId }: RefDataCloudResourcesCapabilitiesEnvIdGetRequest, opts?: OperationOpts): Observable<AjaxResponse<SharedResourceCapabilities>>
+    refDataCloudResourcesCapabilitiesEnvIdGet({ envId }: RefDataCloudResourcesCapabilitiesEnvIdGetRequest, opts?: OperationOpts): Observable<SharedResourceCapabilities | AjaxResponse<SharedResourceCapabilities>> {
+        throwIfNullOrUndefined(envId, 'envId', 'refDataCloudResourcesCapabilitiesEnvIdGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<SharedResourceCapabilities>({
+            url: '/RefDataCloudResources/Capabilities/{envId}'.replace('{envId}', encodeURI(envId)),
             method: 'GET',
             headers,
         }, opts?.responseOpts);
@@ -223,6 +258,33 @@ export class RefDataCloudResourcesApi extends BaseAPI {
             method: 'PUT',
             headers,
             body: cloudResourceApiModel,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     * Update only tags, comparing ExpectedTags atomically; unrelated definition fields are preserved.
+     */
+    refDataCloudResourcesIdTagsPut({ id, resourceTagsUpdate }: RefDataCloudResourcesIdTagsPutRequest): Observable<CloudResourceApiModel>
+    refDataCloudResourcesIdTagsPut({ id, resourceTagsUpdate }: RefDataCloudResourcesIdTagsPutRequest, opts?: OperationOpts): Observable<AjaxResponse<CloudResourceApiModel>>
+    refDataCloudResourcesIdTagsPut({ id, resourceTagsUpdate }: RefDataCloudResourcesIdTagsPutRequest, opts?: OperationOpts): Observable<CloudResourceApiModel | AjaxResponse<CloudResourceApiModel>> {
+        throwIfNullOrUndefined(id, 'id', 'refDataCloudResourcesIdTagsPut');
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<CloudResourceApiModel>({
+            url: '/RefDataCloudResources/{id}/tags'.replace('{id}', encodeURI(id)),
+            method: 'PUT',
+            headers,
+            body: resourceTagsUpdate,
         }, opts?.responseOpts);
     };
 

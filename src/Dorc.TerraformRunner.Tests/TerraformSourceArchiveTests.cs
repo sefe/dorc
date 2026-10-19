@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using Dorc.TerraformRunner.CodeSources;
 
 namespace Dorc.TerraformRunner.Tests
 {
@@ -11,9 +12,9 @@ namespace Dorc.TerraformRunner.Tests
         [TestInitialize]
         public void Setup()
         {
-            _workDir = Path.Join(Path.GetTempPath(), $"tf-archive-test-{Guid.NewGuid()}");
+            _workDir = Path.Join(Directory.GetCurrentDirectory(), $"tf-archive-test-{Guid.NewGuid()}");
             Directory.CreateDirectory(_workDir);
-            _archivePath = Path.Join(Path.GetTempPath(), $"tf-archive-test-{Guid.NewGuid()}.zip");
+            _archivePath = _workDir + ".zip";
         }
 
         [TestCleanup]
@@ -50,7 +51,7 @@ namespace Dorc.TerraformRunner.Tests
             WriteFile("terraform.tfstate", "{}");
             WriteFile("terraform.tfstate.backup", "{}");
 
-            var count = TerraformSourceArchive.Create(_workDir, _archivePath, "{\"a\":1}", s => s);
+            var count = TerraformSourceArchive.Create(_workDir, _archivePath, "{\"a\":1}");
 
             var entries = ReadArchive();
             Assert.IsTrue(entries.ContainsKey(TerraformSourceArchive.ProvenanceEntryName));
@@ -66,22 +67,19 @@ namespace Dorc.TerraformRunner.Tests
         }
 
         [TestMethod]
-        public void Create_RedactsTfvarsContent_LeavesOtherFilesVerbatim()
+        public void Create_OmitsAllVariableFilesIncludingBackupAndCaseVariants()
         {
             WriteFile("terraform.tfvars", "password = \"s3cret\"\nname = \"app\"");
             WriteFile("extra.tfvars.json", "{\"password\":\"s3cret\"}");
+            WriteFile("nested/secret.TFVARS.JSON.backup", "{\"UnrelatedDatabasePassword\":\"unflagged\"}");
+            WriteFile("extra.auto.tfvars.bak", "secret = \"unflagged\"");
             WriteFile("main.tf", "# s3cret is not redacted here by the archive itself");
 
             TerraformSourceArchive.Create(
-                _workDir, _archivePath, "{}",
-                s => s.Replace("s3cret", "[REDACTED]"));
+                _workDir, _archivePath, "{}");
 
             var entries = ReadArchive();
-            StringAssert.Contains(entries["terraform.tfvars"], "[REDACTED]");
-            Assert.IsFalse(entries["terraform.tfvars"].Contains("s3cret"));
-            StringAssert.Contains(entries["extra.tfvars.json"], "[REDACTED]");
-            // Non-tfvars files are copied verbatim; redaction targets the
-            // rendered variables file where resolved properties live.
+            Assert.IsFalse(entries.Keys.Any(k => k.Contains(".tfvars", StringComparison.OrdinalIgnoreCase)));
             StringAssert.Contains(entries["main.tf"], "s3cret");
         }
 
@@ -90,7 +88,38 @@ namespace Dorc.TerraformRunner.Tests
         {
             WriteFile(TerraformSourceArchive.ProvenanceEntryName, "{\"GitCommitSha\":\"spoofed\"}");
             Assert.ThrowsExactly<InvalidDataException>(() =>
-                TerraformSourceArchive.Create(_workDir, _archivePath, "{}", s => s));
+                TerraformSourceArchive.Create(_workDir, _archivePath, "{}"));
+        }
+
+        [TestMethod]
+        [DataRow(1, 100L, 100L, UnsafeArchiveReason.EntryCountExceeded)]
+        [DataRow(10, 4L, 100L, UnsafeArchiveReason.EntrySizeExceeded)]
+        [DataRow(10, 100L, 6L, UnsafeArchiveReason.TotalSizeExceeded)]
+        public void Create_RejectsUnrestorableArchiveBeforeApproval(int count, long perEntry, long total,
+            UnsafeArchiveReason reason)
+        {
+            WriteFile("oversized.txt", "12345");
+            var error = Assert.ThrowsExactly<UnsafeArchiveException>(() =>
+                TerraformSourceArchive.Create(_workDir, _archivePath, "{}", new ZipArchiveExtractionOptions
+                {
+                    MaxEntryCount = count, MaxBytesPerEntry = perEntry, MaxBytesTotal = total
+                }));
+            Assert.AreEqual(reason, error.Reason);
+            StringAssert.Contains(error.Message, "oversized.txt");
+        }
+
+        [TestMethod]
+        public void Create_AtLimits_RestoresWithSameLimits()
+        {
+            WriteFile("main.tf", "12345");
+            var limits = new ZipArchiveExtractionOptions
+            {
+                MaxEntryCount = 2, MaxBytesPerEntry = 5, MaxBytesTotal = 7
+            };
+            TerraformSourceArchive.Create(_workDir, _archivePath, "{}", limits);
+            var restored = Path.Join(_workDir, "restored");
+            new ZipArchiveExtractor(limits).Extract(_archivePath, restored);
+            Assert.AreEqual("12345", File.ReadAllText(Path.Join(restored, "main.tf")));
         }
     }
 }

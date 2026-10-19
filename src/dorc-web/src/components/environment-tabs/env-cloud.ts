@@ -25,10 +25,13 @@ import { keyed } from 'lit/directives/keyed.js';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import { navigate } from '../../router/router';
 import { PageEnvBase } from './page-env-base';
+import { confirmSharedResourceChange } from '../../helpers/shared-resource-confirm';
 
 @customElement('env-cloud')
 export class EnvCloud extends PageEnvBase {
-  @property({ type: Boolean }) private envReadOnly = false;
+  @property({ type: Boolean }) private envReadOnly = true;
+
+  @state() private canCreateDefinition = false;
 
   @property({ type: Array }) private cloudResources: CloudResourceApiModel[] =
     [];
@@ -168,7 +171,7 @@ export class EnvCloud extends PageEnvBase {
             >
             <vaadin-button
               title="New Cloud Resource"
-              .disabled="${this.envReadOnly}"
+              .disabled="${this.envReadOnly || !this.canCreateDefinition}"
               @click="${this.openCreateDialog}"
             >
               <vaadin-icon icon="vaadin:plus" slot="prefix"></vaadin-icon>
@@ -221,7 +224,7 @@ export class EnvCloud extends PageEnvBase {
             <vaadin-grid-column
               ${columnBodyRenderer(this.actionsRenderer, [this.envReadOnly])}
               flex-grow="0"
-              width="220px"
+              width="270px"
             ></vaadin-grid-column>
           </vaadin-grid>
         </div>
@@ -302,7 +305,7 @@ export class EnvCloud extends PageEnvBase {
   `;
 
   private actionsRenderer = (item: CloudResourceApiModel) => {
-    const editColor = this.envReadOnly
+    const editColor = !item.CanEditDefinition
       ? 'var(--dorc-text-secondary)'
       : 'var(--dorc-link-color)';
     const detachColor = this.envReadOnly
@@ -328,7 +331,7 @@ export class EnvCloud extends PageEnvBase {
         class="row-button"
         aria-label="Edit cloud resource"
         theme="icon"
-        ?disabled="${this.envReadOnly}"
+        ?disabled="${!item.CanEditDefinition}"
         @click="${() => this.openEditDialog(item)}"
       >
         <vaadin-tooltip
@@ -344,7 +347,7 @@ export class EnvCloud extends PageEnvBase {
         class="row-button"
         aria-label="Edit Cloud Resource Tags"
         theme="icon"
-        ?disabled="${this.envReadOnly}"
+        ?disabled="${!item.CanEditDefinition}"
         @click="${() => this.openTagsDialog(item)}"
       >
         <vaadin-tooltip
@@ -372,6 +375,19 @@ export class EnvCloud extends PageEnvBase {
           style="color: ${detachColor}"
         ></vaadin-icon>
       </vaadin-button>
+      <vaadin-button
+        class="row-button"
+        aria-label="Delete cloud resource definition globally"
+        theme="icon error"
+        ?disabled="${!item.CanEditDefinition}"
+        @click="${() => this.deleteDefinition(item)}"
+      >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Delete definition from all environments"
+        ></vaadin-tooltip>
+        <vaadin-icon icon="vaadin:trash"></vaadin-icon>
+      </vaadin-button>
     `;
   };
 
@@ -382,7 +398,8 @@ export class EnvCloud extends PageEnvBase {
   }
 
   override notifyEnvironmentReady() {
-    this.envReadOnly = !this.environment?.UserEditable;
+    this.envReadOnly = true;
+    this.canCreateDefinition = false;
     // The base class assigns `environment` (which fires this hook) before it assigns
     // `environmentId` on the cold-cache path, so derive the id from the environment.
     this.loadCloudResources(
@@ -392,6 +409,18 @@ export class EnvCloud extends PageEnvBase {
 
   private loadCloudResources(envId: number = this.environmentId) {
     if (envId <= 0) return;
+    new RefDataCloudResourcesApi(dorcApiConfiguration)
+      .refDataCloudResourcesCapabilitiesEnvIdGet({ envId })
+      .subscribe({
+        next: capabilities => {
+          this.envReadOnly = !capabilities.CanManageMembership;
+          this.canCreateDefinition = !!capabilities.CanCreateDefinition;
+        },
+        error: () => {
+          this.envReadOnly = true;
+          this.canCreateDefinition = false;
+        }
+      });
     new RefDataCloudResourcesApi(dorcApiConfiguration)
       .refDataCloudResourcesByEnvIdEnvIdGet({ envId })
       .subscribe({
@@ -403,27 +432,32 @@ export class EnvCloud extends PageEnvBase {
   }
 
   private openCreateDialog() {
+    if (this.envReadOnly || !this.canCreateDefinition) return;
     this.editing = {};
     this.editDialogOpened = true;
   }
 
   private openEditDialog(item: CloudResourceApiModel) {
+    if (!item.CanEditDefinition) return;
     this.editing = { ...item };
     this.editDialogOpened = true;
   }
 
   private openTagsDialog(item: CloudResourceApiModel) {
+    if (!item.CanEditDefinition) return;
     this.tagsItem = item;
     this.tagsDialogOpened = true;
   }
 
-  private saveTags(e: CustomEvent) {
-    const item = this.tagsItem;
+  private async saveTags(e: CustomEvent) {
+    const item = this.tagsItem && { ...this.tagsItem };
+    const tags = joinTags(e.detail.tags);
     if (!item?.Id) return;
+    if (!(await confirmSharedResourceChange(item, 'edit tags'))) return;
     new RefDataCloudResourcesApi(dorcApiConfiguration)
-      .refDataCloudResourcesIdPut({
+      .refDataCloudResourcesIdTagsPut({
         id: item.Id,
-        cloudResourceApiModel: { ...item, Tags: joinTags(e.detail.tags) }
+        resourceTagsUpdate: { ExpectedTags: item.Tags, Tags: tags }
       })
       .subscribe({
         next: () => {
@@ -466,6 +500,21 @@ export class EnvCloud extends PageEnvBase {
             { theme: 'error', position: 'bottom-start', duration: 5000 }
           );
         }
+      });
+  }
+
+  private async deleteDefinition(item: CloudResourceApiModel) {
+    if (!item.Id || !item.CanEditDefinition) return;
+    if (!(await confirmSharedResourceChange(item, 'delete'))) return;
+    new RefDataCloudResourcesApi(dorcApiConfiguration)
+      .refDataCloudResourcesIdDelete({ id: item.Id })
+      .subscribe({
+        next: () => this.loadCloudResources(),
+        error: (err: any) =>
+          Notification.show(
+            `Failed to delete cloud resource definition: ${err.response ?? err.message ?? err}`,
+            { theme: 'error', position: 'bottom-start', duration: 5000 }
+          )
       });
   }
 

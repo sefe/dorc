@@ -7,6 +7,7 @@ using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.VisualStudio.Services.Common;
 using System.Security.Principal;
+using System.Data;
 
 namespace Dorc.PersistentData.Sources
 {
@@ -298,6 +299,103 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public TerraformPlanApproval? GetTerraformPlanApproval(int deploymentResultId)
+        {
+            using var context = _contextFactory.GetContext();
+            return context.TerraformPlanApprovals.AsNoTracking()
+                .Where(approval => approval.DeploymentResultId == deploymentResultId)
+                .OrderByDescending(approval => approval.Id)
+                .FirstOrDefault();
+        }
+
+        public bool TryConfirmTerraformPlan(DeploymentResultApiModel result, TerraformPlanApproval approval)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(approval.ApprovedBy);
+            if (approval.DeploymentResultId != result.Id || approval.DeploymentRequestId != result.RequestId)
+                throw new ArgumentException("Approval identity does not match the deployment result.", nameof(approval));
+
+            using var strategyContext = _contextFactory.GetContext();
+            return strategyContext.Database.CreateExecutionStrategy().Execute(() =>
+            {
+                using var context = _contextFactory.GetContext();
+                using var transaction = context.Database.BeginTransaction(IsolationLevel.Serializable);
+                var parentUpdated = context.DeploymentRequests
+                    .Where(request => request.Id == result.RequestId &&
+                        (request.Status == DeploymentRequestStatus.WaitingConfirmation.ToString() ||
+                         request.Status == DeploymentRequestStatus.Confirmed.ToString()))
+                    .ExecuteUpdate(setters => setters.SetProperty(request => request.Status,
+                        DeploymentRequestStatus.Confirmed.ToString()));
+                if (parentUpdated == 0)
+                    return false;
+
+                var resultUpdated = context.DeploymentResults
+                    .Where(item => item.Id == result.Id && item.DeploymentRequest.Id == result.RequestId &&
+                        item.Status == DeploymentResultStatus.WaitingConfirmation.ToString())
+                    .ExecuteUpdate(setters => setters.SetProperty(item => item.Status,
+                        DeploymentResultStatus.Confirmed.ToString()));
+                if (resultUpdated == 0)
+                    return false;
+
+                context.TerraformPlanApprovals.Add(new TerraformPlanApproval
+                {
+                    DeploymentResultId = approval.DeploymentResultId,
+                    DeploymentRequestId = approval.DeploymentRequestId,
+                    ApprovedBy = approval.ApprovedBy,
+                    ApprovedAt = approval.ApprovedAt,
+                    PlanSha256 = approval.PlanSha256,
+                    SourceSha256 = approval.SourceSha256,
+                    PlanContentSha256 = approval.PlanContentSha256
+                });
+                context.SaveChanges();
+                transaction.Commit();
+                result.Status = DeploymentResultStatus.Confirmed.ToString();
+                return true;
+            });
+        }
+
+        public bool TryDeclineTerraformPlan(DeploymentResultApiModel result, string user, DateTimeOffset declinedAt)
+        {
+            using var strategyContext = _contextFactory.GetContext();
+            return strategyContext.Database.CreateExecutionStrategy().Execute(() =>
+            {
+                using var context = _contextFactory.GetContext();
+                using var transaction = context.Database.BeginTransaction(IsolationLevel.Serializable);
+                var parentUpdated = context.DeploymentRequests
+                    .Where(request => request.Id == result.RequestId &&
+                        (request.Status == DeploymentRequestStatus.WaitingConfirmation.ToString() ||
+                         request.Status == DeploymentRequestStatus.Confirmed.ToString()))
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(request => request.Status, DeploymentRequestStatus.Cancelled.ToString())
+                        .SetProperty(request => request.CancelledBy, user)
+                        .SetProperty(request => request.CancelledTime, declinedAt)
+                        .SetProperty(request => request.CompletedTime, declinedAt));
+                if (parentUpdated == 0)
+                    return false;
+
+                var resultUpdated = context.DeploymentResults
+                    .Where(item => item.Id == result.Id && item.DeploymentRequest.Id == result.RequestId &&
+                        item.Status == DeploymentResultStatus.WaitingConfirmation.ToString())
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(item => item.Status, DeploymentResultStatus.Cancelled.ToString())
+                        .SetProperty(item => item.CompletedTime, declinedAt));
+                if (resultUpdated == 0)
+                    return false;
+
+                context.DeploymentResults
+                    .Where(item => item.DeploymentRequest.Id == result.RequestId &&
+                        (item.Status == DeploymentResultStatus.Pending.ToString() ||
+                         item.Status == DeploymentResultStatus.WaitingConfirmation.ToString() ||
+                         item.Status == DeploymentResultStatus.Confirmed.ToString()))
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(item => item.Status, DeploymentResultStatus.Cancelled.ToString())
+                        .SetProperty(item => item.CompletedTime, declinedAt));
+                transaction.Commit();
+                result.Status = DeploymentResultStatus.Cancelled.ToString();
+                result.CompletedTime = declinedAt;
+                return true;
+            });
+        }
+
         public void UpdateRequestStatus(int requestId, DeploymentRequestStatus status, string user, DateTimeOffset CancelledTime)
         {
             using (var context = _contextFactory.GetContext())
@@ -396,7 +494,7 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 int affectedRows = context.DeploymentRequests
-                    .Where(r => r.Id == deploymentRequest.Id)
+                    .Where(r => r.Id == deploymentRequest.Id && r.Status == deploymentRequest.Status)
                     .ExecuteUpdate(setters => setters
                         .SetProperty(b => b.Status, status.ToString())
                         .SetProperty(b => b.StartedTime, startedTime));
@@ -420,7 +518,10 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 context.DeploymentRequests
-                    .Where(r => r.Id == requestId)
+                    .Where(r => r.Id == requestId &&
+                        r.Status != DeploymentRequestStatus.Cancelling.ToString() &&
+                        r.Status != DeploymentRequestStatus.Cancelled.ToString() &&
+                        r.Status != DeploymentRequestStatus.Abandoned.ToString())
                     .ExecuteUpdate(setters => setters
                         .SetProperty(b => b.Status, status.ToString())
                         .SetProperty(b => b.CompletedTime, completionTime)
@@ -456,7 +557,8 @@ namespace Dorc.PersistentData.Sources
                 var expected = expectedCurrentStatus.ToString();
 
                 int updatedResultCount = context.DeploymentResults
-                    .Where(result => result.Id == deploymentResultModel.Id && result.Status == expected)
+                    .Where(result => result.Id == deploymentResultModel.Id && result.Status == expected &&
+                        (!isRunning || result.DeploymentRequest.Status == DeploymentRequestStatus.Running.ToString()))
                     .ExecuteUpdate(setters => setters
                                             .SetProperty(b => b.Status, status.ToString())
                                             .SetProperty(r => r.StartedTime, dr => isRunning ? now : dr.StartedTime)

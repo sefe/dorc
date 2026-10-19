@@ -4,6 +4,7 @@ source:
   kind: git
   locator: https://github.com/sefe/dorc-terraform-modules.git
   ref: stock-modules/clickhouse-database/v1.0.0
+  commit_sha: 9e219f84cb286788c69a7bb93602bac5035f74c0
 parameters:
   - name: project
     type: String

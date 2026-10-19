@@ -26,6 +26,19 @@ namespace Dorc.PersistentData.Sources
                 .ToList();
         }
 
+        public T ExecuteMutation<T>(Func<T> mutation) => SharedResourceMutation.Execute(_contextFactory, mutation);
+
+        public CloudResourceApiModel? UpdateTags(int id, string? tags)
+        {
+            using var context = _contextFactory.GetContext();
+            var entity = context.CloudResources.Include(c => c.Environments).FirstOrDefault(c => c.Id == id);
+            if (entity == null)
+                return null;
+            entity.Tags = tags;
+            context.SaveChanges();
+            return MapToApiModel(entity);
+        }
+
         public CloudResourceApiModel? GetById(int id)
         {
             using var context = _contextFactory.GetContext();
@@ -173,6 +186,8 @@ namespace Dorc.PersistentData.Sources
                 ResourceIdentifier = cloudResource.ResourceIdentifier,
                 Subscription = cloudResource.Subscription,
                 Tags = cloudResource.Tags,
+                Revision = SharedResourceRevision.ForFields(cloudResource.Name, cloudResource.Provider,
+                    cloudResource.ResourceType, cloudResource.ResourceIdentifier, cloudResource.Subscription, cloudResource.Tags),
                 EnvironmentNames = cloudResource.Environments.Select(e => e.Name).ToList()
             };
         }

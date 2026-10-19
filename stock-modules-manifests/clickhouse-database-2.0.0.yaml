@@ -4,6 +4,7 @@ source:
   kind: git
   locator: https://github.com/sefe/dorc-terraform-modules.git
   ref: stock-modules/clickhouse-database/v2.0.0
+  commit_sha: 2fca133531db79c896bd197f31f1835660ab1703
 parameters:
   - name: project
     type: String
@@ -13,7 +14,7 @@ parameters:
   - name: create_service
     type: Bool
     required: false
-    description: Create the Aiven ClickHouse service layer as part of this deployment (the default). Set false to re-use an existing service named service_name instead.
+    description: Create and own the Aiven ClickHouse service (default). Keep this value unchanged after first apply; false is for an existing externally managed service, not a handoff of a service already in this state.
     default: "true"
   - name: service_name
     type: String

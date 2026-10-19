@@ -15,9 +15,9 @@ namespace Dorc.TerraformRunner
     //                  from mutable refs between plan and apply.
     //   - *.tfstate*   state never belongs in the archive; it lives in the
     //                  remote backend.
-    // tfvars files (every resolved deployment property in cleartext) are kept
-    // but passed through the caller's redaction function first, matching the
-    // posture that led to the working directory being deleted even on failure.
+    // Variable files are never retained: saved plans already contain their
+    // execution inputs. Value-based redaction cannot safely sanitize arbitrary
+    // inherited properties or source-provided variable files.
     internal static class TerraformSourceArchive
     {
         public const string ProvenanceEntryName = "_dorc_provenance.json";
@@ -41,39 +41,53 @@ namespace Dorc.TerraformRunner
             string workingDirectory,
             string archiveFilePath,
             string provenanceJson,
-            Func<string, string> redact)
+            ZipArchiveExtractionOptions? limits = null,
+            CancellationToken cancellationToken = default)
         {
+            limits ??= ZipArchiveExtractionOptions.Default;
             var root = Path.GetFullPath(workingDirectory);
 
             using var stream = new FileStream(archiveFilePath, FileMode.Create, FileAccess.Write);
             using var archive = new ZipArchive(stream, ZipArchiveMode.Create);
 
-            var provenanceEntry = archive.CreateEntry(ProvenanceEntryName, CompressionLevel.Optimal);
-            using (var writer = new StreamWriter(provenanceEntry.Open(), Encoding.UTF8))
+            var entryCount = 0;
+            long totalBytes = 0;
+            void AddEntry(string name, Stream source)
             {
-                writer.Write(provenanceJson);
+                cancellationToken.ThrowIfCancellationRequested();
+                if (++entryCount > limits.MaxEntryCount)
+                    throw new UnsafeArchiveException(UnsafeArchiveReason.EntryCountExceeded, name,
+                        $"Source archive exceeds {limits.MaxEntryCount} entries at '{name}'; reduce the source before creating a new plan.");
+                var entry = archive.CreateEntry(name, CompressionLevel.Optimal);
+                using var destination = entry.Open();
+                var buffer = new byte[81920];
+                long entryBytes = 0;
+                int read;
+                while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    entryBytes += read;
+                    totalBytes += read;
+                    if (entryBytes > limits.MaxBytesPerEntry)
+                        throw new UnsafeArchiveException(UnsafeArchiveReason.EntrySizeExceeded, name,
+                            $"Source file '{name}' exceeds {limits.MaxBytesPerEntry} bytes; reduce it before creating a new plan.");
+                    if (totalBytes > limits.MaxBytesTotal)
+                        throw new UnsafeArchiveException(UnsafeArchiveReason.TotalSizeExceeded, name,
+                            $"Source archive exceeds {limits.MaxBytesTotal} uncompressed bytes at '{name}'; reduce the source before creating a new plan.");
+                    destination.Write(buffer, 0, read);
+                }
             }
 
-            var entryCount = 1;
+            using (var provenance = new MemoryStream(Encoding.UTF8.GetBytes(provenanceJson)))
+                AddEntry(ProvenanceEntryName, provenance);
             foreach (var file in EnumerateArchivableFiles(root))
             {
                 var relativePath = Path.GetRelativePath(root, file).Replace('\\', '/');
-                var fileName = Path.GetFileName(file);
                 if (relativePath.Equals(ProvenanceEntryName, StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException($"Source must not contain reserved file '{ProvenanceEntryName}'.");
 
-                if (IsTfvarsFile(fileName))
-                {
-                    var entry = archive.CreateEntry(relativePath, CompressionLevel.Optimal);
-                    using var writer = new StreamWriter(entry.Open(), Encoding.UTF8);
-                    writer.Write(redact(File.ReadAllText(file)));
-                }
-                else
-                {
-                    archive.CreateEntryFromFile(file, relativePath, CompressionLevel.Optimal);
-                }
-
-                entryCount++;
+                using var source = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read);
+                AddEntry(relativePath, source);
             }
 
             return entryCount;
@@ -96,7 +110,8 @@ namespace Dorc.TerraformRunner
                 }
 
                 var fileName = segments[^1];
-                if (fileName.Contains(".tfstate", StringComparison.OrdinalIgnoreCase))
+                if (fileName.Contains(".tfstate", StringComparison.OrdinalIgnoreCase)
+                    || fileName.Contains(".tfvars", StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
@@ -105,8 +120,5 @@ namespace Dorc.TerraformRunner
             }
         }
 
-        private static bool IsTfvarsFile(string fileName) =>
-            fileName.EndsWith(".tfvars", StringComparison.OrdinalIgnoreCase)
-            || fileName.EndsWith(".tfvars.json", StringComparison.OrdinalIgnoreCase);
     }
 }

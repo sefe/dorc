@@ -298,9 +298,14 @@ namespace Dorc.Core
                         tagWithNames.Add(tag, new List<string> { item.Name });
             }
 
+            var emittedKeys = new Dictionary<string, string>(TagString.Comparer);
             foreach (var tag in tagWithNames)
             {
                 var tagName = tag.Key.Replace(" ", "_");
+                if (emittedKeys.TryGetValue(tagName, out var conflictingTag))
+                    throw new InvalidOperationException(
+                        $"Tags '{conflictingTag}' and '{tag.Key}' both produce deployment variable '{prefix}{tagName}'. Rename one tag before deployment.");
+                emittedKeys.Add(tagName, tag.Key);
                 if (tag.Value.Count > 1)
                 {
                     var names = tag.Value.ToArray();

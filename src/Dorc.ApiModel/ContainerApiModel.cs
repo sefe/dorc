@@ -8,5 +8,7 @@ namespace Dorc.ApiModel
         public string Registry { set; get; }
         public string HostServerName { set; get; }
         public string Tags { set; get; }
+        public string Revision { get; set; }
+        public bool CanEditDefinition { get; set; }
     }
 }

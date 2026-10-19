@@ -2,7 +2,7 @@ namespace Dorc.Terraform.Catalog
 {
     // Manifest for one published version of a stock template.
     // Resolved by ITemplateCatalog implementations (e.g. GitTemplateCatalog).
-    // Schema mirrored as docs/Terraform/MANIFEST-SCHEMA.json (planned).
+    // Schema validation lives in GitTemplateCatalog and the CI release gate.
     // additive fields: TerraformTemplateSource.SubPath defaults to null 
     // the resolver falls back to stock-modules/<Name>. TerraformTemplateParameter.Sensitive
     // defaults to false.
@@ -19,13 +19,22 @@ namespace Dorc.Terraform.Catalog
         string RequiredTerraformVersion,
         string? Owner,
         bool Deprecated,
-        string? DeprecationReason);
+        string? DeprecationReason,
+        IReadOnlyList<TerraformParameterConflict>? ParameterConflicts = null);
+
+    public sealed record TerraformParameterConflict(
+        string Parameter,
+        string Value,
+        string WhenParameter,
+        string WhenValue,
+        string Message);
 
     public sealed record TerraformTemplateSource(
         string Kind,
         string Locator,
         string Ref,
-        string? SubPath = null);
+        string? SubPath = null,
+        string? CommitSha = null);
 
     public sealed record TerraformTemplateParameter(
         string Name,
@@ -37,7 +46,8 @@ namespace Dorc.Terraform.Catalog
         string? Pattern,
         decimal? Min,
         decimal? Max,
-        bool Sensitive = false);
+        bool Sensitive = false,
+        bool Integer = false);
 
     public sealed record TerraformTemplateOutput(
         string Name,

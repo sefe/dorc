@@ -8,6 +8,7 @@ using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
+using Dorc.PersistentData.Model;
 using Dorc.Terraform.Catalog;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -30,6 +31,7 @@ namespace Dorc.Api.Tests.Controllers
         private const int ResultId = 42;
         private const int RequestId = 7;
         private const string Environment = "PROD ENV 01";
+        private static readonly string PlanDigest = TerraformPlanArtifactIntegrity.HashPlanContent("plan output");
 
         private ILogger<TerraformController> _logger = null!;
         private IRequestsPersistentSource _requestsPersistentSource = null!;
@@ -80,9 +82,13 @@ namespace Dorc.Api.Tests.Controllers
             GivenCaller(@"CORP\bob");
             _privilegesChecker.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(true);
             _requestsPersistentSource
-                .UpdateResultStatus(Arg.Any<DeploymentResultApiModel>(), Arg.Any<DeploymentResultStatus>(),
-                    Arg.Any<DeploymentResultStatus>())
+                .TryConfirmTerraformPlan(Arg.Any<DeploymentResultApiModel>(), Arg.Any<TerraformPlanApproval>())
                 .Returns(true);
+            _requestsPersistentSource
+                .TryDeclineTerraformPlan(Arg.Any<DeploymentResultApiModel>(), Arg.Any<string>(), Arg.Any<DateTimeOffset>())
+                .Returns(true);
+            _storage.LoadFileFromBlobs(Arg.Any<string>()).Returns("plan output");
+            _storage.GetFileSha256FromBlobs(Arg.Any<string>()).Returns(new string('A', 64));
         }
 
         // ---------------------------------------------------------------- helpers
@@ -99,6 +105,7 @@ namespace Dorc.Api.Tests.Controllers
             _requestsPersistentSource.GetRequest(RequestId).Returns(new DeploymentRequestApiModel
             {
                 Id = RequestId,
+                Status = DeploymentRequestStatus.WaitingConfirmation.ToString(),
                 EnvironmentName = environment!,
                 IsProd = isProd,
                 UserName = submitter!
@@ -150,6 +157,10 @@ namespace Dorc.Api.Tests.Controllers
                 .UpdateResultStatus(default!, default, default);
             _requestsPersistentSource.DidNotReceiveWithAnyArgs()
                 .UpdateRequestStatus(default, default);
+            _requestsPersistentSource.DidNotReceiveWithAnyArgs()
+                .TryConfirmTerraformPlan(default!, default!);
+            _requestsPersistentSource.DidNotReceiveWithAnyArgs()
+                .TryDeclineTerraformPlan(default!, default!, default);
         }
 
         // ---------------------------------------------- environment authority (R2, R4)
@@ -182,7 +193,7 @@ namespace Dorc.Api.Tests.Controllers
         {
             _privilegesChecker.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), Environment).Returns(false);
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
             AssertNoStateChanged();
@@ -207,7 +218,7 @@ namespace Dorc.Api.Tests.Controllers
         [TestMethod]
         public void ConfirmTerraformPlan_ConsultsThePrivilegesCheckerWithTheRequestsEnvironment()
         {
-            _controller.ConfirmTerraformPlan(ResultId);
+            _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             _privilegesChecker.Received(1).CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), Environment);
         }
@@ -219,7 +230,7 @@ namespace Dorc.Api.Tests.Controllers
         {
             _requestsPersistentSource.GetRequest(RequestId).Returns((DeploymentRequestApiModel)null!);
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
             AssertNoStateChanged();
@@ -236,7 +247,7 @@ namespace Dorc.Api.Tests.Controllers
             GivenRequest("   ", isProd: true, submitter: @"CORP\alice");
             _privilegesChecker.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(true);
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
             _privilegesChecker.DidNotReceiveWithAnyArgs().CanModifyEnvironment(default!, default!);
@@ -248,7 +259,7 @@ namespace Dorc.Api.Tests.Controllers
         {
             _requestsPersistentSource.GetRequest(RequestId).Returns(_ => throw new InvalidOperationException("database unavailable"));
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
             AssertNoStateChanged();
@@ -259,7 +270,7 @@ namespace Dorc.Api.Tests.Controllers
         {
             _requestsPersistentSource.GetDeploymentResults(ResultId).Returns((DeploymentResultApiModel)null!);
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.IsInstanceOfType(response, typeof(NotFoundObjectResult));
         }
@@ -272,7 +283,7 @@ namespace Dorc.Api.Tests.Controllers
             GivenRequest(Environment, isProd: true, submitter: @"CORP\alice");
             GivenCaller(@"CORP\alice");
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
             AssertNoStateChanged();
@@ -284,7 +295,7 @@ namespace Dorc.Api.Tests.Controllers
             GivenRequest(Environment, isProd: false, submitter: @"CORP\alice");
             GivenCaller(@"CORP\alice");
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.IsInstanceOfType(response, typeof(OkObjectResult));
         }
@@ -301,7 +312,7 @@ namespace Dorc.Api.Tests.Controllers
             GivenRequest(Environment, isProd: true, submitter: @"CORP\jsmith");
             GivenCaller("jsmith@corp.example.com");
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
             AssertNoStateChanged();
@@ -321,7 +332,7 @@ namespace Dorc.Api.Tests.Controllers
                 login: "jsmith",
                 safeIdentifier: "user-123");
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
             AssertNoStateChanged();
@@ -338,7 +349,7 @@ namespace Dorc.Api.Tests.Controllers
             GivenRestartedBy(restarter: @"CORP\bob", originalSubmitter: @"CORP\alice");
             GivenCaller(@"CORP\alice");
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
             AssertNoStateChanged();
@@ -350,7 +361,7 @@ namespace Dorc.Api.Tests.Controllers
             GivenRestartedBy(restarter: @"CORP\bob", originalSubmitter: @"CORP\alice");
             GivenCaller(@"CORP\bob");
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.IsInstanceOfType(response, typeof(OkObjectResult));
         }
@@ -361,7 +372,7 @@ namespace Dorc.Api.Tests.Controllers
             GivenRequest(Environment, isProd: true, submitter: "   ");
             GivenCaller(@"CORP\bob");
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
             AssertNoStateChanged();
@@ -373,7 +384,7 @@ namespace Dorc.Api.Tests.Controllers
             GivenRequest(Environment, isProd: true, submitter: @"CORP\alice");
             GivenCaller(fullDomainName: "   ", login: "bob");
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
             AssertNoStateChanged();
@@ -385,7 +396,7 @@ namespace Dorc.Api.Tests.Controllers
             GivenRequest(Environment, isProd: true, submitter: @"CORP\alice");
             GivenCaller(fullDomainName: "bob@corp.example.com", login: "   ");
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
             AssertNoStateChanged();
@@ -403,7 +414,7 @@ namespace Dorc.Api.Tests.Controllers
             GivenRequest(Environment, isProd: true, submitter: @"CORP\alice");
             GivenCaller(@"CORP\alice");
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
         }
@@ -415,7 +426,7 @@ namespace Dorc.Api.Tests.Controllers
             GivenRequest(Environment, isProd: true, submitter: @"CORP\alice");
             GivenCaller(@"CORP\alice");
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.IsInstanceOfType(response, typeof(OkObjectResult));
         }
@@ -427,7 +438,7 @@ namespace Dorc.Api.Tests.Controllers
             GivenRequest(Environment, isProd: false, submitter: @"CORP\alice");
             GivenCaller(@"CORP\alice");
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
         }
@@ -459,12 +470,10 @@ namespace Dorc.Api.Tests.Controllers
         public void ConfirmTerraformPlan_WhenResultLeftWaitingConfirmationConcurrently_Returns409()
         {
             _requestsPersistentSource
-                .UpdateResultStatus(Arg.Any<DeploymentResultApiModel>(),
-                    Status(DeploymentResultStatus.Confirmed),
-                    Status(DeploymentResultStatus.WaitingConfirmation))
+                .TryConfirmTerraformPlan(Arg.Any<DeploymentResultApiModel>(), Arg.Any<TerraformPlanApproval>())
                 .Returns(false);
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.IsInstanceOfType(response, typeof(ConflictObjectResult));
             _requestsPersistentSource.DidNotReceiveWithAnyArgs().UpdateRequestStatus(default, default);
@@ -473,21 +482,24 @@ namespace Dorc.Api.Tests.Controllers
         [TestMethod]
         public void ConfirmTerraformPlan_TransitionsOnlyFromWaitingConfirmation()
         {
-            _controller.ConfirmTerraformPlan(ResultId);
+            _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
-            _requestsPersistentSource.Received(1).UpdateResultStatus(
+            _requestsPersistentSource.Received(1).TryConfirmTerraformPlan(
                 Arg.Any<DeploymentResultApiModel>(),
-                Status(DeploymentResultStatus.Confirmed),
-                Status(DeploymentResultStatus.WaitingConfirmation));
+                Arg.Is<TerraformPlanApproval>(approval =>
+                    approval.DeploymentResultId == ResultId &&
+                    approval.DeploymentRequestId == RequestId &&
+                    approval.ApprovedBy == @"CORP\bob" &&
+                    approval.PlanContentSha256 == PlanDigest &&
+                    approval.PlanSha256.Length == 64 && approval.SourceSha256.Length == 64));
         }
 
         [TestMethod]
         public void DeclineTerraformPlan_WhenResultLeftWaitingConfirmationConcurrently_Returns409()
         {
             _requestsPersistentSource
-                .UpdateResultStatus(Arg.Any<DeploymentResultApiModel>(),
-                    Status(DeploymentResultStatus.Cancelled),
-                    Status(DeploymentResultStatus.WaitingConfirmation))
+                .TryDeclineTerraformPlan(Arg.Any<DeploymentResultApiModel>(),
+                    Arg.Any<string>(), Arg.Any<DateTimeOffset>())
                 .Returns(false);
 
             var response = _controller.DeclineTerraformPlan(ResultId);
@@ -501,10 +513,9 @@ namespace Dorc.Api.Tests.Controllers
         {
             _controller.DeclineTerraformPlan(ResultId);
 
-            _requestsPersistentSource.Received(1).UpdateResultStatus(
+            _requestsPersistentSource.Received(1).TryDeclineTerraformPlan(
                 Arg.Any<DeploymentResultApiModel>(),
-                Status(DeploymentResultStatus.Cancelled),
-                Status(DeploymentResultStatus.WaitingConfirmation));
+                @"CORP\bob", Arg.Any<DateTimeOffset>());
         }
 
         [TestMethod]
@@ -512,10 +523,63 @@ namespace Dorc.Api.Tests.Controllers
         {
             GivenResult(DeploymentResultStatus.Running);
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
 
             Assert.IsInstanceOfType(response, typeof(BadRequestObjectResult));
             AssertNoStateChanged();
+        }
+
+        [DataTestMethod]
+        [DataRow(DeploymentRequestStatus.Cancelled)]
+        [DataRow(DeploymentRequestStatus.Cancelling)]
+        [DataRow(DeploymentRequestStatus.Completed)]
+        [DataRow(DeploymentRequestStatus.Failed)]
+        [DataRow(DeploymentRequestStatus.Abandoned)]
+        [DataRow(DeploymentRequestStatus.Running)]
+        public void ConfirmTerraformPlan_WhenParentIsNotAwaitingApproval_DoesNotReadArtifactsOrResurrect(
+            DeploymentRequestStatus status)
+        {
+            var request = _requestsPersistentSource.GetRequest(RequestId);
+            request.Status = status.ToString();
+
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
+
+            Assert.AreEqual(StatusCodes.Status409Conflict, StatusOf(response));
+            AssertNoStateChanged();
+            _storage.DidNotReceiveWithAnyArgs().DownloadFileFromBlobs(default!, default!);
+        }
+
+        [TestMethod]
+        public void ConfirmTerraformPlan_WhenReviewedContentHasChanged_DoesNotConfirm()
+        {
+            _storage.LoadFileFromBlobs(Arg.Any<string>()).Returns("a different plan");
+
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
+
+            Assert.AreEqual(StatusCodes.Status409Conflict, StatusOf(response));
+            AssertNoStateChanged();
+        }
+
+        [TestMethod]
+        public void ConfirmTerraformPlan_WhenArtifactsAreMissing_RequiresReplan()
+        {
+            _storage.GetFileSha256FromBlobs(Arg.Any<string>())
+                .Returns(_ => throw new FileNotFoundException("Synthetic missing artifact."));
+
+            var response = _controller.ConfirmTerraformPlan(ResultId, PlanDigest);
+
+            Assert.AreEqual(StatusCodes.Status409Conflict, StatusOf(response));
+            AssertNoStateChanged();
+        }
+
+        [TestMethod]
+        public void ConfirmTerraformPlan_WithoutReviewedDigest_RequiresReload()
+        {
+            var response = _controller.ConfirmTerraformPlan(ResultId);
+
+            Assert.AreEqual(StatusCodes.Status409Conflict, StatusOf(response));
+            AssertNoStateChanged();
+            _storage.DidNotReceiveWithAnyArgs().DownloadFileFromBlobs(default!, default!);
         }
     }
 }

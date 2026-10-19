@@ -57,7 +57,7 @@ Echoing the input name (e.g. `vnet_name`) is also encouraged for human-readable 
 
 ## Versioning
 
-Modules use **semantic versioning** with Git tags:
+Modules use **stable semantic versions** with Git tags:
 
 ```
 stock-modules/<name>/v<major>.<minor>.<patch>
@@ -69,20 +69,51 @@ stock-modules/<name>/v<major>.<minor>.<patch>
 
 A breaking change requires a new major tag *and* a deprecation notice on the previous major (see below).
 
+Catalog versions currently support `major.minor.patch` (an optional leading `v`
+is accepted for compatibility), with no leading zeroes. Prerelease and build
+labels are rejected rather than sorted as arbitrary strings. Latest-version
+selection compares all three numeric components, including large components.
+
+Each release manifest must supply `source.kind: git`, its HTTPS `locator`,
+the intended release tag in `ref`, and a full 40-hex-character `commit_sha`.
+The runner resolves that tag explicitly (a branch with the same name cannot
+shadow it), peels annotated tags to their commit, and verifies the commit
+against `commit_sha` before using the code. Moving a published tag causes a
+deployment failure, not an unnoticed code upgrade. Publish a new tag and
+manifest version for any source change; never retag a published release.
+
+Scalar inputs remain strings at the DOrc property boundary. Manifest `Bool`
+inputs accept only lowercase `true`/`false`; `Number` inputs accept invariant
+decimal/exponent syntax within .NET decimal's exact range/precision, not
+grouping separators (`1,000`), whitespace, locale-specific numbers or values
+that silently round/underflow. The runner emits these as HCL scalars, not quoted
+strings, and escapes real `String` inputs as HCL strings. A `Number` parameter
+may declare `integer: true` for integral values (Kafka partitions, replication
+and minimum in-sync replicas). Cross-input exclusions are declared as
+`parameter_conflicts`: `parameter`, `value`, `when_parameter`, `when_value`,
+and a clear `message`. Validation uses supplied values or declared defaults;
+it rejects a matching pair before plan. The PostgreSQL v2 release excludes
+`database_name=defaultdb` when `create_service=true`, including its default.
+
 ## Deprecation policy
 
 A module version is deprecated when its successor has been published and is the recommended path forward. Deprecation requires:
 
 1. The module's `README.md` carries a banner pointing to the successor.
 2. The catalog manifest sets `deprecated: true` with a `deprecation_reason` string.
-3. The deprecation announcement gives consumers **at least 90 days** before the deprecated version is removed from the catalog. Removal does not delete the Git tag; existing pinned references continue to resolve via Git.
+3. Retain the published manifest, Git tag and commit indefinitely. Deprecation
+   hides a release from normal discovery; it must not prevent pinned
+   components from resolving and deploying it. Give consumers at least 90 days
+   to plan migration, not a deletion deadline. Deprecation is one-way; a
+   corrected/recommended successor is a new release, not `true -> false`.
 
 ## Ownership
 
 Each module's README declares an `Owner:` field in the metadata table. Initial owner of every stock module is **DOrc platform team** until reassigned. Aggregated ownership lives in `docs/Terraform/MODULES.md`.
 
 ## Module CI
-The repository CI runs against every module under `stock-modules/`:
+The upstream [`sefe/dorc-terraform-modules`](https://github.com/sefe/dorc-terraform-modules)
+CI runs against modules under `stock-modules/`:
 
 - `terraform fmt -check`
 - `terraform init -backend=false`
@@ -92,20 +123,60 @@ The repository CI runs against every module under `stock-modules/`:
 
 Failure blocks merge.
 
-> Note: provider-version lock-file (`.terraform.lock.hcl`) verification and a
-> committed plugin mirror are planned but not yet enforced by
-> `terraform-modules-ci.yml`.
+> Provider-version lock-file (`.terraform.lock.hcl`) verification and a
+> committed plugin mirror are not currently enforced by upstream module CI
+> or this repository's `terraform-modules-ci.yml`. A source commit pin is not
+> a provider binary pin. Provider constraints may select newer compatible
+> binaries on a fresh init; operators must retain/review the root lock file
+> and use the same CLI/provider selections for plan and apply. The CI
+> Terraform version is not a guarantee about every installed runner's CLI.
 
 ## Manifest immutability
-`stock-modules-manifests/<name>-<version>.yaml` files are **immutable per `(name, version)`**. The CI immutability gate rejects any pull request that modifies an existing manifest version file. Allowed operations:
+`stock-modules-manifests/<name>-<version>.yaml` releases are **immutable per
+`(name, version)`**, not merely per filename. The PR gate compares the complete
+base (merge-base) and head catalogs. It rejects duplicate identities
+(case-insensitively), deletion of any published identity, and any change to its
+parsed YAML payload, including identity, source/tag/SHA, inputs, defaults and
+outputs. A delete/re-add, earlier-sorting filename or rename cannot replace a
+release. The runtime loader also fails closed on duplicate identities rather
+than choosing the first file.
 
-- **Add** a new version file (`<name>-<next>.yaml`).
-- **Delete** a version file (so a future v2 can reinstate a previously-removed module at a new path).
-- **Rename with identical content** (git diff status `R100`) is treated as a (delete + add) pair. A rename that also changes content (`R` with similarity below 100) is a modification of the old path in disguise and is rejected.
+Allowed evolution:
 
-Forbidden: editing the body of an existing version file — including via rename. To publish a fix to a stock module's interface, create a new version with a bumped `version:` field.
+- Add a genuinely new version and identity.
+- Rename a manifest while preserving its identity and parsed payload.
+- Set `deprecated: false -> true` with a nonempty `deprecation_reason`, or
+  clarify that reason on an already deprecated release. These are the **only**
+  mutable lifecycle fields. Reactivation (`true -> false`) is forbidden.
+- Reformat YAML/comments without changing its parsed meaning.
 
-The gate runs on every PR (not on `push: main`) and lives in `scripts/manifest-immutability.sh`. It fails closed: a git error (e.g. unreachable base commit) fails the build rather than passing the gate. The script's `--self-test` flag exercises the gate's real classification function against synthetic diff-status fixtures (`A`, `D`, `R100`, `R<sim>`, `M`, `T`, and unknown statuses).
+Do not remove deprecated manifests. A pinned deployment still resolves through
+the catalog, even when the source tag remains available upstream.
+
+The gate lives in `scripts/manifest-immutability.sh` and
+`scripts/manifest_immutability.py`, with Python dependencies pinned in
+`scripts/manifest-requirements.txt`. It fails closed on Git/YAML errors and
+duplicate YAML keys. `--self-test` runs identity, retention, rename/re-add,
+payload and deprecation transition regression tests, not just diff-status
+classification.
+
+## Managed operation boundary
+
+The managed catalog path is **plan, review, then apply**. Outputs are descriptive
+provenance/reference data; a `database_id` or `service_name` does not import a
+resource into Terraform state. There is no managed import, destroy, state
+handoff or resource-adoption endpoint in this feature, nor a dedicated module
+lifecycle CLI. Do not infer ownership from DOrc reference-data registration.
+Use the documented API/UI for supported operations; exceptional recovery or
+ownership migration requires an operator-controlled Terraform procedure.
+
+Saved plans are reviewed before apply. Approval does not automatically expire;
+this preserves existing behavior, not a freshness guarantee. Operators should
+decline and replan after material input, provider, infrastructure or state
+changes. Existing state keys are retained for compatibility: renaming a
+component/environment does not automatically migrate its state. Plan any such
+rename with an explicit state/backend migration and verify the destination
+before deployment; never silently start using an empty state.
 
 ## Sensitive-name lint
 A non-blocking CI lint warns when a manifest parameter's `name` matches a secret-shape substring (case-insensitive) but does not declare `sensitive: true`. Default patterns: `password`, `secret`, `key`, `token`, `connection_string`. The pattern list is configurable via `stock-modules-manifests/.sensitive-name-patterns` (one substring per line; `#` comments and blank lines are stripped).

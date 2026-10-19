@@ -20,7 +20,7 @@ namespace Dorc.Terraform.Catalog.Tests
         [TestInitialize]
         public void CreateTempDir()
         {
-            _tempDir = Path.Join(Path.GetTempPath(), Path.GetRandomFileName());
+            _tempDir = Path.Join(Directory.GetCurrentDirectory(), "catalog-test-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_tempDir);
         }
 
@@ -49,6 +49,7 @@ source:
   kind: git
   locator: https://example.com/repo.git
   ref: v1.0.0
+  commit_sha: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
   sub_path: modules/custom
 parameters:
   - name: alpha
@@ -145,6 +146,7 @@ source:
   kind: git
   locator: https://example.com/repo.git
   ref: v0.9.0
+  commit_sha: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 parameters:
   - name: alpha
     type: String
@@ -178,6 +180,7 @@ source:
   kind: git
   locator: https://example.com/repo.git
   ref: v1.0.0
+  commit_sha: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 parameters:
   - name: bad-name
     type: String
@@ -215,6 +218,7 @@ version: 1.0.0
 source:
   kind: git
   locator: https://example.com/repo.git
+  commit_sha: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 parameters:
   - name: alpha
     type: String
@@ -239,6 +243,78 @@ deprecated: false
                 "WARNING should say the ref is required.");
         }
 
+        [TestMethod]
+        public async Task RejectsManifest_WithoutFullCommitPin()
+        {
+            foreach (var pin in new[] { "", "abc123", new string('z', 40) })
+            {
+                var yaml = BuildSingleParamYaml("testmod", "1.0.0", "value", "String")
+                    .Replace("commit_sha: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "commit_sha: " + pin);
+                File.WriteAllText(Path.Join(_tempDir, "test.yaml"), yaml);
+                var catalog = new GitTemplateCatalog(_tempDir, NullLogger<GitTemplateCatalog>.Instance);
+                Assert.IsEmpty(await catalog.ListAsync());
+            }
+        }
+
+        [TestMethod]
+        public async Task RejectsPrereleaseVersions_InsteadOfSortingThemBelowOlderStable()
+        {
+            File.WriteAllText(Path.Join(_tempDir, "test.yaml"),
+                BuildSingleParamYaml("testmod", "2.0.0-rc.1", "value", "String"));
+            var catalog = new GitTemplateCatalog(_tempDir, NullLogger<GitTemplateCatalog>.Instance);
+            Assert.IsEmpty(await catalog.ListAsync());
+        }
+
+        [TestMethod]
+        public async Task PublishedManifests_KeepPinnedDeprecatedResolutionAndValidateModuleConstraints()
+        {
+            var directory = new DirectoryInfo(Directory.GetCurrentDirectory());
+            while (directory is not null && !Directory.Exists(Path.Join(directory.FullName, "stock-modules-manifests")))
+                directory = directory.Parent;
+            Assert.IsNotNull(directory, "Tests must run within the repository tree.");
+            var manifestsDirectory = Path.Join(directory.FullName, "stock-modules-manifests");
+            var catalog = new GitTemplateCatalog(manifestsDirectory,
+                NullLogger<GitTemplateCatalog>.Instance);
+            var manifests = await catalog.ListAsync();
+            Assert.HasCount(Directory.GetFiles(manifestsDirectory, "*.yaml").Length, manifests,
+                "Every published manifest must pass schema validation, including future releases.");
+            var validator = new ParameterValidator();
+            foreach (var kafka in manifests.Where(m => m.Name == "kafka-topic"))
+            {
+                foreach (var name in new[] { "partitions", "replication", "min_insync_replicas" })
+                {
+                    var supplied = kafka.Parameters.Where(p => p.Required).ToDictionary(p => p.Name, _ => (string?)"unused");
+                    supplied[name] = "2.5";
+                    Assert.IsTrue(validator.Validate(kafka, supplied).Errors.Any(e =>
+                        e.ParameterName == name && e.Kind == ParameterValidationErrorKind.TypeMismatch));
+                }
+            }
+            var pg = await catalog.GetAsync("postgresql-database", "2.0.0");
+            Assert.IsNotNull(pg);
+            var values = new Dictionary<string, string?> {
+                ["project"] = "project", ["service_name"] = "service", ["database_name"] = "defaultdb"
+            };
+            var result = validator.Validate(pg, values);
+            Assert.IsFalse(result.IsValid, "The create_service=true default must reject defaultdb.");
+            StringAssert.Contains(result.Errors.Single().Message, "already creates defaultdb");
+            values["create_service"] = "true";
+            Assert.IsFalse(validator.Validate(pg, values).IsValid);
+            values["create_service"] = "false";
+            Assert.IsTrue(validator.Validate(pg, values).IsValid,
+                "An externally managed existing service is permitted (existing DBs still require external import).");
+            values.Remove("create_service");
+            values["database_name"] = "application";
+            Assert.IsTrue(validator.Validate(pg, values).IsValid);
+
+            var yaml = BuildSingleParamYaml("old", "1.0.0", "value", "String")
+                .Replace("deprecated: false", "deprecated: true\ndeprecation_reason: use 2.0.0");
+            File.WriteAllText(Path.Join(_tempDir, "old.yaml"), yaml);
+            var retained = await new GitTemplateCatalog(_tempDir, NullLogger<GitTemplateCatalog>.Instance)
+                .GetAsync("old", "1.0.0");
+            Assert.IsNotNull(retained, "Deprecation must never break pinned deployment resolution.");
+            Assert.IsTrue(retained.Deprecated);
+        }
+
         // Reject manifest whose ref carries characters the git sanitiser
         // would strip: silent rewriting would check out a different ref than
         // the manifest declares.
@@ -251,6 +327,7 @@ source:
   kind: git
   locator: https://example.com/repo.git
   ref: ""v1.0.0;rm -rf""
+  commit_sha: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 parameters: []
 outputs: []
 description: manifest with hostile ref
@@ -360,6 +437,7 @@ source:
   kind: git
   locator: https://github.com/sefe/dorc.git
   ref: stock-modules/vnet/v1.0.0
+  commit_sha: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 parameters:
   - name: resource_group_name
     type: String
@@ -430,13 +508,9 @@ deprecated: false
                 "WARNING should include the offending file path.");
         }
 
-        // Two DIFFERENT filenames both declaring the same (name, version):
-        // the first in ordinal filename order wins; the second is warn-skipped.
         [TestMethod]
-        public async Task KeepsFirstFile_WhenSecondFileDeclaresDuplicateIdentity()
+        public async Task RejectsWholeCatalog_WhenEarlierFileShadowsPublishedIdentity()
         {
-            // "adup..." sorts before "bdup..." ordinally, so the alpha-parameter
-            // manifest is the first seen and must be the one kept.
             File.WriteAllText(Path.Join(_tempDir, "adup-1.0.0.yaml"),
                 BuildSingleParamYaml("dup", "1.0.0", "alpha", "String"));
             File.WriteAllText(Path.Join(_tempDir, "bdup-1.0.0.yaml"),
@@ -444,20 +518,8 @@ deprecated: false
 
             var recordingLogger = new RecordingLogger<GitTemplateCatalog>();
             var catalog = new GitTemplateCatalog(_tempDir, recordingLogger);
-            var manifests = await catalog.ListAsync();
-
-            Assert.AreEqual(1, manifests.Count,
-                "Exactly one manifest per (name, version) identity must be returned.");
-            Assert.AreEqual("dup", manifests[0].Name);
-            Assert.AreEqual("1.0.0", manifests[0].Version);
-            Assert.AreEqual("alpha", manifests[0].Parameters.Single().Name,
-                "The FIRST file in ordinal filename order (adup...) must win.");
-            Assert.AreEqual(1, recordingLogger.Warnings.Count,
-                "Exactly one WARNING should be emitted for the duplicate file.");
-            StringAssert.Contains(recordingLogger.Warnings[0], "bdup-1.0.0.yaml",
-                "WARNING should name the duplicate (skipped) file.");
-            StringAssert.Contains(recordingLogger.Warnings[0], "dup@1.0.0",
-                "WARNING should carry the contested identity.");
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(() => catalog.ListAsync());
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(() => catalog.GetAsync("dup", "1.0.0"));
         }
 
         // Template name flows into runner git arguments / sub-path fallback,
@@ -519,6 +581,18 @@ deprecated: false
         }
 
         [TestMethod]
+        public async Task GetAsyncLatest_OrdersStableComponentsBeyondSystemVersionRange()
+        {
+            foreach (var version in new[] { "3.0.0", "999999999999999999999.0.0" })
+                File.WriteAllText(Path.Join(_tempDir, version + ".yaml"),
+                    BuildSingleParamYaml("large", version, "value", "String"));
+            var latest = await new GitTemplateCatalog(_tempDir, NullLogger<GitTemplateCatalog>.Instance)
+                .GetAsync("large");
+            Assert.IsNotNull(latest);
+            Assert.AreEqual("999999999999999999999.0.0", latest.Version);
+        }
+
+        [TestMethod]
         public async Task GetAsyncLatest_VPrefixedVersionParsesAndWins()
         {
             File.WriteAllText(Path.Join(_tempDir, "testmod-1.9.0.yaml"),
@@ -546,6 +620,7 @@ source:
   kind: git
   locator: https://example.com/repo.git
   ref: v{version}
+  commit_sha: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 parameters:
   - name: {paramName}
     type: {paramType}

@@ -9,6 +9,7 @@ import {
   RefDataApiRegistrationsApi
 } from '../apis/dorc-api';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { confirmSharedResourceChange } from '../helpers/shared-resource-confirm';
 
 /**
  * Create/edit form for an API registration. Fires `api-registration-saved`.
@@ -100,8 +101,10 @@ export class AddEditApiRegistration extends LitElement {
     this._apiRegistration = { ...this._apiRegistration, [field]: value };
   }
 
-  private save() {
-    if (!this._apiRegistration.Name || !this._apiRegistration.BaseUrl) {
+  private async save() {
+    const apiRegistration = { ...this._apiRegistration };
+    const envId = this.envId;
+    if (!apiRegistration.Name || !apiRegistration.BaseUrl) {
       Notification.show('Name and Base URL are required', {
         theme: 'error',
         position: 'bottom-start',
@@ -111,24 +114,29 @@ export class AddEditApiRegistration extends LitElement {
     }
 
     const api = new RefDataApiRegistrationsApi(dorcApiConfiguration);
-    const isUpdate = !!this._apiRegistration.Id;
+    const isUpdate = !!apiRegistration.Id;
+    if (
+      isUpdate &&
+      !(await confirmSharedResourceChange(apiRegistration, 'edit'))
+    )
+      return;
     const request = isUpdate
       ? api.refDataApiRegistrationsIdPut({
-          id: this._apiRegistration.Id!,
-          apiRegistrationApiModel: this._apiRegistration
+          id: apiRegistration.Id!,
+          apiRegistrationApiModel: apiRegistration
         })
       : api.refDataApiRegistrationsPost({
-          apiRegistrationApiModel: this._apiRegistration
+          apiRegistrationApiModel: apiRegistration
         });
 
     request.subscribe({
       next: (saved: ApiRegistrationApiModel) => {
-        if (!isUpdate && this.envId > 0 && saved?.Id) {
-          this.attachToEnvironment(api, saved);
+        if (!isUpdate && envId > 0 && saved?.Id) {
+          this.attachToEnvironment(api, saved, envId);
           return;
         }
         Notification.show(
-          `API registration ${this._apiRegistration.Name} ${isUpdate ? 'updated' : 'created'}`,
+          `API registration ${apiRegistration.Name} ${isUpdate ? 'updated' : 'created'}`,
           { theme: 'success', position: 'bottom-start', duration: 5000 }
         );
         this.fireSaved();
@@ -144,12 +152,13 @@ export class AddEditApiRegistration extends LitElement {
 
   private attachToEnvironment(
     api: RefDataApiRegistrationsApi,
-    saved: ApiRegistrationApiModel
+    saved: ApiRegistrationApiModel,
+    envId: number
   ) {
     api
       .refDataApiRegistrationsIdEnvironmentsEnvIdPut({
         id: saved.Id!,
-        envId: this.envId
+        envId
       })
       .subscribe({
         next: () => {

@@ -17,6 +17,17 @@
  */
 export interface CloudResourceApiModel {
     /**
+     * Content revision from the last read; required unchanged when updating the full definition.
+     * @type {string}
+     * @memberof CloudResourceApiModel
+     */
+    Revision?: string | null;
+    /**
+     * @type {boolean}
+     * @memberof CloudResourceApiModel
+     */
+    readonly CanEditDefinition?: boolean;
+    /**
      * @type {Array<string>}
      * @memberof CloudResourceApiModel
      */

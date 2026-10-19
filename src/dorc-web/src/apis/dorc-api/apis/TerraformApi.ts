@@ -25,6 +25,7 @@ import type {
 
 export interface TerraformPlanDeploymentResultIdConfirmPostRequest {
     deploymentResultId: number;
+    planContentSha256?: string | null;
 }
 
 export interface TerraformPlanDeploymentResultIdDeclinePostRequest {
@@ -64,9 +65,9 @@ export class TerraformApi extends BaseAPI {
 
     /**
      */
-    terraformPlanDeploymentResultIdConfirmPost({ deploymentResultId }: TerraformPlanDeploymentResultIdConfirmPostRequest): Observable<void>
-    terraformPlanDeploymentResultIdConfirmPost({ deploymentResultId }: TerraformPlanDeploymentResultIdConfirmPostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
-    terraformPlanDeploymentResultIdConfirmPost({ deploymentResultId }: TerraformPlanDeploymentResultIdConfirmPostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
+    terraformPlanDeploymentResultIdConfirmPost({ deploymentResultId, planContentSha256 }: TerraformPlanDeploymentResultIdConfirmPostRequest): Observable<void>
+    terraformPlanDeploymentResultIdConfirmPost({ deploymentResultId, planContentSha256 }: TerraformPlanDeploymentResultIdConfirmPostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
+    terraformPlanDeploymentResultIdConfirmPost({ deploymentResultId, planContentSha256 }: TerraformPlanDeploymentResultIdConfirmPostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
         throwIfNullOrUndefined(deploymentResultId, 'deploymentResultId', 'terraformPlanDeploymentResultIdConfirmPost');
 
         const headers: HttpHeaders = {
@@ -79,10 +80,15 @@ export class TerraformApi extends BaseAPI {
             ),
         };
 
+        const query: HttpQuery = {};
+
+        if (planContentSha256 != null) { query['planContentSha256'] = planContentSha256; }
+
         return this.request<void>({
             url: '/Terraform/plan/{deploymentResultId}/confirm'.replace('{deploymentResultId}', encodeURI(deploymentResultId)),
             method: 'POST',
             headers,
+            query,
         }, opts?.responseOpts);
     };
 

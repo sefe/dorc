@@ -26,6 +26,19 @@ namespace Dorc.PersistentData.Sources
                 .ToList();
         }
 
+        public T ExecuteMutation<T>(Func<T> mutation) => SharedResourceMutation.Execute(_contextFactory, mutation);
+
+        public ApiRegistrationApiModel? UpdateTags(int id, string? tags)
+        {
+            using var context = _contextFactory.GetContext();
+            var entity = context.ApiRegistrations.Include(c => c.Environments).FirstOrDefault(c => c.Id == id);
+            if (entity == null)
+                return null;
+            entity.Tags = tags;
+            context.SaveChanges();
+            return MapToApiModel(entity);
+        }
+
         public ApiRegistrationApiModel? GetById(int id)
         {
             using var context = _contextFactory.GetContext();
@@ -170,6 +183,8 @@ namespace Dorc.PersistentData.Sources
                 Version = apiRegistration.Version,
                 HealthCheckUrl = apiRegistration.HealthCheckUrl,
                 Tags = apiRegistration.Tags,
+                Revision = SharedResourceRevision.ForFields(apiRegistration.Name, apiRegistration.BaseUrl,
+                    apiRegistration.Version, apiRegistration.HealthCheckUrl, apiRegistration.Tags),
                 EnvironmentNames = apiRegistration.Environments.Select(e => e.Name).ToList()
             };
         }

@@ -20,8 +20,16 @@ namespace Dorc.TerraformRunner.CodeSources
             _logger = logger;
         }
 
-        public async Task ProvisionCodeAsync(ScriptGroup scriptGroup, string workingDir, CancellationToken cancellationToken)
+        public Task ProvisionCodeAsync(ScriptGroup scriptGroup, string workingDir, CancellationToken cancellationToken)
+            => ProvisionCodeAsync(scriptGroup, workingDir, cancellationToken, null);
+
+        // A catalog release must resolve its tag explicitly, never a branch
+        // with the same name, and must still point at its published commit.
+        public async Task ProvisionCodeAsync(
+            ScriptGroup scriptGroup, string workingDir, CancellationToken cancellationToken, string? expectedCommitSha)
         {
+            if (expectedCommitSha is not null && !Regex.IsMatch(expectedCommitSha, @"\A[0-9a-fA-F]{40}\z"))
+                throw new InvalidOperationException("Expected Git commit SHA must contain exactly 40 hexadecimal characters.");
             if (string.IsNullOrEmpty(scriptGroup.TerraformGitRepoUrl))
             {
                 throw new InvalidOperationException("Git repository URL is not configured.");
@@ -59,7 +67,10 @@ namespace Dorc.TerraformRunner.CodeSources
                 {
                     var repoPath = Repository.Clone(scriptGroup.TerraformGitRepoUrl, workingDir, cloneOptions);
                     using var repo = new Repository(repoPath);
-                    CheckoutRef(repo, gitRef);
+                    if (expectedCommitSha is null)
+                        CheckoutRef(repo, gitRef);
+                    else
+                        CheckoutPinnedTag(repo, gitRef, expectedCommitSha);
 
                     // Record the exact commit the ref resolved to for the
                     // deployment's provenance record. Captured here because
@@ -74,6 +85,19 @@ namespace Dorc.TerraformRunner.CodeSources
                     throw new InvalidOperationException($"Failed to clone Git repository: {ex.Message}", ex);
                 }
             }, cancellationToken);
+        }
+
+        private static void CheckoutPinnedTag(Repository repo, string gitRef, string expectedCommitSha)
+        {
+            var tagName = gitRef.StartsWith("refs/tags/", StringComparison.Ordinal)
+                ? gitRef["refs/tags/".Length..] : gitRef;
+            var tag = repo.Tags[tagName]
+                ?? throw new InvalidOperationException($"Catalog release tag '{gitRef}' was not found.");
+            var commit = tag.PeeledTarget as Commit ?? tag.Target.Peel<Commit>();
+            if (commit is null || !string.Equals(commit.Sha, expectedCommitSha, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    $"Catalog release tag '{gitRef}' does not match expected commit '{expectedCommitSha}'.");
+            Commands.Checkout(repo, commit);
         }
 
         // Resolves gitRef against a freshly cloned repo as a branch, tag, or

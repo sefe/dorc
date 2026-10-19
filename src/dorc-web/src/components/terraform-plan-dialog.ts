@@ -501,7 +501,8 @@ ${lines.map(line => {
     this.error = null;
     const operation = confirm
       ? this.terraformApi.terraformPlanDeploymentResultIdConfirmPost({
-          deploymentResultId
+          deploymentResultId,
+          planContentSha256: plan.PlanContentSha256
         })
       : this.terraformApi.terraformPlanDeploymentResultIdDeclinePost({
           deploymentResultId

@@ -43,6 +43,20 @@ daemons audit feature:
   are retained and render as *(deleted)*.
 
 ## Behaviour changes
+- Shared definition writes now authorize the complete current membership and save
+  their audit in one serializable SQL transaction, retried as a unit. The database's
+  membership range locks also block concurrent clone/registrar/direct-SQL attachment
+  inserts until the write completes; membership cannot change between authorization
+  and mutation. Audit failures roll back create/update/delete/attach/detach.
+- Full-definition `PUT` requires the `Revision` returned by the last read; stale
+  definitions return **409** rather than overwrite concurrent edits. Tag editing uses
+  `PUT /RefData{Containers|CloudResources|ApiRegistrations}/{id}/tags` with only
+  `ExpectedTags` and `Tags`, preserving unrelated fields and rejecting stale tags.
+- All three grids distinguish PowerUser/Admin creation, local environment
+  attach/detach, and global definition edit/tags/delete permissions. Capabilities are
+  advisory UI hints; the write transaction always re-authorizes current membership.
+  Global edits and deletion explicitly confirm all affected environments. Definition
+  deletion removes DOrc metadata and attachments only, never deployed infrastructure.
 - A server with a **null** tag string no longer crashes variable resolution (previously
   an unhandled NullReferenceException aborted the deployment); it now simply yields no
   per-tag variables.
@@ -52,13 +66,8 @@ daemons audit feature:
   environment id does not exist.
 
 ## Known follow-ups (out of this change's scope)
-- **Generated web client drift**: the committed `dorc-api` client, committed
-  `swagger.json`, and the running API had drifted apart independently (generator pin said
-  6.6.0, client was built with 7.13.0, spec lagged several controllers). This change
-  added its six client files via a minimal faithful splice and corrected the pin; a
-  dedicated maintenance change should regenerate everything and absorb the app fallout.
-  Details: `SPEC-S-006-client-regeneration.md`.
+- The complete DOrc web client is now regenerated from committed Swagger using the
+  pinned generator; a second generation is byte-identical. Historical initial-client
+  drift is described in `SPEC-S-006-client-regeneration.md`.
 - **Tag capacity expansion** (servers/databases, >250 chars) ships separately; carry-over
   findings live in `REVIEW-HLPS-round1.md`.
-- Deferred concurrency edges: concurrent double-detach and duplicate-name unique-index
-  races can still surface as 500s (recorded in `REVIEW-STEPS.md`, S-004).

@@ -22,6 +22,7 @@ namespace Dorc.PersistentData.Contexts
         DbSet<DeploymentRequestProcess> DeploymentRequestProcesses { get; set; }
         DbSet<DeploymentRequest> DeploymentRequests { get; set; }
         DbSet<DeploymentResult> DeploymentResults { get; set; }
+        DbSet<TerraformPlanApproval> TerraformPlanApprovals { get; set; }
         DbSet<DeploymentRequestAttempt> DeploymentRequestAttempts { get; set; }
         DbSet<DeploymentResultAttempt> DeploymentResultAttempts { get; set; }
         DbSet<Environment> Environments { get; set; }

@@ -6,6 +6,7 @@ import '@vaadin/button';
 import { Notification } from '@vaadin/notification';
 import { ContainerApiModel, RefDataContainersApi } from '../apis/dorc-api';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { confirmSharedResourceChange } from '../helpers/shared-resource-confirm';
 
 /**
  * Create/edit form for a container definition. Fires `container-saved` on success.
@@ -98,8 +99,10 @@ export class AddEditContainer extends LitElement {
     this._container = { ...this._container, [field]: value };
   }
 
-  private save() {
-    if (!this._container.Name || !this._container.Image) {
+  private async save() {
+    const container = { ...this._container };
+    const envId = this.envId;
+    if (!container.Name || !container.Image) {
       Notification.show('Name and Image are required', {
         theme: 'error',
         position: 'bottom-start',
@@ -109,22 +112,24 @@ export class AddEditContainer extends LitElement {
     }
 
     const api = new RefDataContainersApi(dorcApiConfiguration);
-    const isUpdate = !!this._container.Id;
+    const isUpdate = !!container.Id;
+    if (isUpdate && !(await confirmSharedResourceChange(container, 'edit')))
+      return;
     const request = isUpdate
       ? api.refDataContainersIdPut({
-          id: this._container.Id!,
-          containerApiModel: this._container
+          id: container.Id!,
+          containerApiModel: container
         })
-      : api.refDataContainersPost({ containerApiModel: this._container });
+      : api.refDataContainersPost({ containerApiModel: container });
 
     request.subscribe({
       next: (saved: ContainerApiModel) => {
-        if (!isUpdate && this.envId > 0 && saved?.Id) {
-          this.attachToEnvironment(api, saved);
+        if (!isUpdate && envId > 0 && saved?.Id) {
+          this.attachToEnvironment(api, saved, envId);
           return;
         }
         Notification.show(
-          `Container ${this._container.Name} ${isUpdate ? 'updated' : 'created'}`,
+          `Container ${container.Name} ${isUpdate ? 'updated' : 'created'}`,
           { theme: 'success', position: 'bottom-start', duration: 5000 }
         );
         this.fireSaved();
@@ -140,12 +145,13 @@ export class AddEditContainer extends LitElement {
 
   private attachToEnvironment(
     api: RefDataContainersApi,
-    saved: ContainerApiModel
+    saved: ContainerApiModel,
+    envId: number
   ) {
     api
       .refDataContainersIdEnvironmentsEnvIdPut({
         id: saved.Id!,
-        envId: this.envId
+        envId
       })
       .subscribe({
         next: () => {

@@ -70,6 +70,11 @@ export interface TerraformTemplateParameter {
      * @memberof TerraformTemplateParameter
      */
     Sensitive: boolean;
+    /**
+     * @type {boolean}
+     * @memberof TerraformTemplateParameter
+     */
+    Integer?: boolean;
 }
 
 

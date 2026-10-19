@@ -108,6 +108,7 @@ namespace Dorc.Api.Tests.Controllers
             _requests.GetRequest(RequestId).Returns(new DeploymentRequestApiModel
             {
                 Id = RequestId,
+                Status = DeploymentRequestStatus.WaitingConfirmation.ToString(),
                 EnvironmentName = EnvName,
                 Project = ProjectName
             });
@@ -1328,15 +1329,16 @@ namespace Dorc.Api.Tests.Controllers
         {
             GivenStandardDeploymentResult();
             _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
-            // The transition is guarded (WaitingConfirmation -> Confirmed);
-            // an unmocked bool would read as a lost race and return 409.
-            _requests.UpdateResultStatus(
-                    Arg.Any<DeploymentResultApiModel>(),
-                    Arg.Any<DeploymentResultStatus>(),
-                    Arg.Any<DeploymentResultStatus>())
+            _requests.TryConfirmTerraformPlan(
+                    Arg.Any<DeploymentResultApiModel>(), Arg.Any<TerraformPlanApproval>())
                 .Returns(true);
+            _claimsReader.GetUserFullDomainName(Arg.Any<System.Security.Principal.IPrincipal>())
+                .Returns("TestUser");
+            _storage.LoadFileFromBlobs(Arg.Any<string>()).Returns("reviewed plan");
+            _storage.GetFileSha256FromBlobs(Arg.Any<string>()).Returns(new string('A', 64));
 
-            var result = _controller.ConfirmTerraformPlan(DeploymentResultId);
+            var result = _controller.ConfirmTerraformPlan(DeploymentResultId,
+                TerraformPlanArtifactIntegrity.HashPlanContent("reviewed plan"));
 
             Assert.IsInstanceOfType(result, typeof(OkObjectResult));
         }
@@ -1359,10 +1361,8 @@ namespace Dorc.Api.Tests.Controllers
         {
             GivenStandardDeploymentResult();
             _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
-            _requests.UpdateResultStatus(
-                    Arg.Any<DeploymentResultApiModel>(),
-                    Arg.Any<DeploymentResultStatus>(),
-                    Arg.Any<DeploymentResultStatus>())
+            _requests.TryDeclineTerraformPlan(
+                    Arg.Any<DeploymentResultApiModel>(), Arg.Any<string>(), Arg.Any<DateTimeOffset>())
                 .Returns(true);
 
             var result = _controller.DeclineTerraformPlan(DeploymentResultId);

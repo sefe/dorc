@@ -45,6 +45,7 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<DeploymentRequestProcess> DeploymentRequestProcesses { get; set; }
         public DbSet<DeploymentRequest> DeploymentRequests { get; set; }
         public DbSet<DeploymentResult> DeploymentResults { get; set; }
+        public DbSet<TerraformPlanApproval> TerraformPlanApprovals { get; set; }
         public DbSet<DeploymentsByProjectDate> AnalyticsDeploymentsByProjectDate { get; set; }
         public DbSet<DeploymentsByProjectMonth> AnalyticsDeploymentsByProjectMonth { get; set; }
         public DbSet<AnalyticsEnvironmentUsage> AnalyticsEnvironmentUsage { get; set; }
@@ -104,6 +105,16 @@ namespace Dorc.PersistentData.Contexts
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            modelBuilder.Entity<TerraformPlanApproval>(entity =>
+            {
+                entity.ToTable("TerraformPlanApproval", "deploy");
+                entity.HasKey(x => x.Id);
+                entity.Property(x => x.ApprovedBy).HasMaxLength(256);
+                entity.Property(x => x.PlanSha256).HasMaxLength(64).IsUnicode(false);
+                entity.Property(x => x.SourceSha256).HasMaxLength(64).IsUnicode(false);
+                entity.Property(x => x.PlanContentSha256).HasMaxLength(64).IsUnicode(false);
+            });
 
             modelBuilder.Entity<RequestStatuses>()
                 .ToTable("RequestStatusView", "deploy")

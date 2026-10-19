@@ -1,6 +1,7 @@
 ﻿using Azure.Identity;
 using Azure.Storage.Blobs;
 using Dorc.Core.Configuration;
+using System.Security.Cryptography;
 
 namespace Dorc.Core.AzureStorageAccount
 {
@@ -66,6 +67,16 @@ namespace Dorc.Core.AzureStorageAccount
             }
 
             blobClient.DownloadTo(filePath);
+        }
+
+        public string GetFileSha256FromBlobs(string blobName)
+        {
+            var blobClient = _blobServiceClient.GetBlobContainerClient(_blobContainerName)
+                .GetBlobClient(Path.GetFileName(blobName));
+            if (!blobClient.Exists())
+                throw new FileNotFoundException($"Blob {blobName} does not exist in container {_blobContainerName}");
+            using var stream = blobClient.OpenRead();
+            return Convert.ToHexString(SHA256.HashData(stream));
         }
     }
 }

@@ -120,12 +120,19 @@ namespace Dorc.Monitor
 
             if (updatedCount > 0)
             {
-                SwitchDeploymentResultsStatus(
-                    requestsToCancel,
-                    Methods.Cancel,
+                foreach (var status in new[]
+                {
                     DeploymentResultStatus.Pending,
-                    DeploymentResultStatus.Cancelled,
-                    monitorCancellationToken);
+                    DeploymentResultStatus.WaitingConfirmation,
+                    DeploymentResultStatus.Confirmed,
+                    DeploymentResultStatus.Running
+                })
+                    SwitchDeploymentResultsStatus(
+                        requestsToCancel,
+                        Methods.Cancel,
+                        status,
+                        DeploymentResultStatus.Cancelled,
+                        monitorCancellationToken);
             }
         }
 

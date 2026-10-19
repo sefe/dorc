@@ -7,6 +7,7 @@ using Dorc.TerraformRunner.Pipes;
 using Dorc.TerraformRunner.State;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel;
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -18,6 +19,10 @@ namespace Dorc.TerraformRunner
         private readonly IRunnerLogger logger;
         private readonly IScriptGroupPipeClient _scriptGroupPipeClient;
         private readonly TerraformCodeSourceProviderFactory _codeSourceFactory;
+        private readonly ITemplateCatalog _catalog;
+        private TerraformTemplateManifest? _manifest;
+        private IReadOnlyDictionary<string, TerraformTemplateParameter> _parameters =
+            new Dictionary<string, TerraformTemplateParameter>();
 
         // Azure subscription catalog deployments fall back to when the
         // environment designates no subscription (neither a 'Subscription'
@@ -53,6 +58,7 @@ namespace Dorc.TerraformRunner
             this.logger = logger;
             this._scriptGroupPipeClient = scriptGroupPipeClient;
             this._codeSourceFactory = new TerraformCodeSourceProviderFactory(logger, catalog);
+            _catalog = catalog;
             this._defaultSubscriptionId = defaultSubscriptionId;
         }
 
@@ -62,19 +68,30 @@ namespace Dorc.TerraformRunner
         // Monitor dispatcher from the request's IsSensitive flags); values
         // come from CommonProperties. Only non-empty values are kept - an
         // empty value would otherwise redact the entire output.
-        private static IReadOnlyList<string> CollectSensitiveValues(ScriptGroup scriptGroup)
+        private async Task CollectSensitiveValuesAsync(ScriptGroup scriptGroup, CancellationToken cancellationToken)
         {
-            var names = scriptGroup.SensitivePropertyNames;
-            if (names is null || names.Count == 0) return Array.Empty<string>();
+            _parameters = new Dictionary<string, TerraformTemplateParameter>();
+            _manifest = null;
+            if (scriptGroup.TerraformSourceType == TerraformSourceType.Catalog)
+            {
+                var manifest = await _catalog.GetAsync(scriptGroup.TerraformTemplateName,
+                    scriptGroup.TerraformTemplateVersion, cancellationToken)
+                    ?? throw new InvalidOperationException("The catalog template version is no longer available.");
+                _parameters = manifest.Parameters.ToDictionary(p => p.Name, StringComparer.Ordinal);
+                _manifest = manifest;
+            }
+            var names = (scriptGroup.SensitivePropertyNames ?? new List<string>())
+                .Concat(_parameters.Values.Where(p => p.Sensitive).Select(p => p.Name))
+                .Distinct(StringComparer.Ordinal);
             var props = scriptGroup.CommonProperties;
-            if (props is null) return Array.Empty<string>();
 
             // IsNullOrWhiteSpace, not IsNullOrEmpty: a whitespace-only value
             // can never be a meaningful secret, and redacting it would rewrite
             // every matching run of spaces in the terraform log. Values that
             // merely CONTAIN spaces are still kept and redacted.
-            return names
-                .Select(name => props.TryGetValue(name, out var vv) ? vv?.Value?.ToString() : null)
+            _sensitiveValues = names
+                .Select(name => props is not null && props.TryGetValue(name, out var vv) ? vv?.Value?.ToString()
+                    : _parameters.TryGetValue(name, out var parameter) ? parameter.Default : null)
                 .Where(v => !string.IsNullOrWhiteSpace(v))
                 .Select(v => v!)
                 .ToList();
@@ -87,10 +104,7 @@ namespace Dorc.TerraformRunner
             {
                 var jsonEscaped = JsonSerializer.Serialize(value)[1..^1];
                 var jsonNetEscaped = Newtonsoft.Json.JsonConvert.SerializeObject(value)[1..^1];
-                var hclEscaped = value.Replace("${", "$${");
-                hclEscaped = Regex.Replace(hclEscaped, @"(?<!\\)\\(?!\\|\"")", @"\\");
-                hclEscaped = hclEscaped.Replace("\"", "\\\"");
-                hclEscaped = Regex.Replace(hclEscaped, @"^\\{2}", @"\\\\").Replace("\r\n", " ");
+                var hclEscaped = QuoteHclString(value)[1..^1];
                 return new[] { value, jsonEscaped, jsonNetEscaped, hclEscaped };
             }).Where(value => value.Length > 0).Distinct().OrderByDescending(value => value.Length);
             foreach (var representation in representations)
@@ -110,7 +124,6 @@ namespace Dorc.TerraformRunner
             ScriptGroup scriptGroupProperties = this._scriptGroupPipeClient.GetScriptGroupProperties(pipeName);
             var deployResultId = scriptGroupProperties.DeployResultId;
             var properties = scriptGroupProperties.CommonProperties;
-            _sensitiveValues = CollectSensitiveValues(scriptGroupProperties);
 
             this.logger.SetRequestId(requestId);
             this.logger.SetDeploymentResultId(deployResultId);
@@ -121,6 +134,9 @@ namespace Dorc.TerraformRunner
 
             try
             {
+                TerraformStateConfiguration.Resolve(scriptGroupProperties);
+                await CollectSensitiveValuesAsync(scriptGroupProperties, cancellationToken);
+                properties = ResolvePlanProperties(properties);
                 terraformWorkingDir = CreateTerraformWorkingDirectory(requestId);
                 await ProvisionTerraformWorkingDirectoryAsync(terraformWorkingDir, scriptGroupProperties, cancellationToken);
 
@@ -138,15 +154,17 @@ namespace Dorc.TerraformRunner
 
                 WriteSourceArchive(
                     terraformWorkingDir, TerraformSourceArchive.PlanArchivePath(resultFilePath),
-                    scriptGroupProperties, requestId);
+                    scriptGroupProperties, requestId, cancellationToken);
 
+                cancellationToken.ThrowIfCancellationRequested();
                 logger.Information($"Terraform plan created for request '{requestId}'. Waiting for confirmation.");
 
                 return true;
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                logger.Error(ex, $"Failed to create Terraform plan for request '{requestId}': {ex.Message}");
+                logger.Error($"Failed to create Terraform plan for request '{requestId}': {RedactSensitiveValues(ex.Message)}");
                 return false;
             }
             finally
@@ -157,6 +175,29 @@ namespace Dorc.TerraformRunner
                 // be looked at by someone other than the deployment account.
                 DeleteTempTerraformFolder(terraformWorkingDir);
             }
+        }
+
+        private IDictionary<string, VariableValue> ResolvePlanProperties(IDictionary<string, VariableValue> properties)
+        {
+            // CommonProperties also contains unrelated deployment settings.
+            // Only catalog parameters are Terraform inputs; legacy sources
+            // retain the historical complete property set.
+            if (_manifest is null) return properties;
+            var effective = new Dictionary<string, VariableValue>(StringComparer.Ordinal);
+            foreach (var parameter in _manifest.Parameters)
+            {
+                if (properties.TryGetValue(parameter.Name, out var supplied))
+                    effective[parameter.Name] = supplied;
+                else if (parameter.Default is not null)
+                    effective[parameter.Name] = new VariableValue { Value = parameter.Default, Type = typeof(string) };
+            }
+            var validation = new ParameterValidator().Validate(_manifest,
+                effective.ToDictionary(p => p.Key,
+                    p => Convert.ToString(p.Value.Value, CultureInfo.InvariantCulture)));
+            if (!validation.IsValid)
+                throw new InvalidOperationException("Invalid Terraform catalog inputs: " +
+                    string.Join("; ", validation.Errors.Select(error => error.Message)));
+            return effective;
         }
 
         // Retained as a standalone diagnostic artifact as well as in the
@@ -421,16 +462,24 @@ namespace Dorc.TerraformRunner
             foreach (var property in properties)
             {
                 // Convert DOrc properties to Terraform variable format
-                var value = property.Value.Value?.ToString() ?? "";
+                var value = Convert.ToString(property.Value.Value, CultureInfo.InvariantCulture) ?? "";
 
-                // Escape quotes and handle different types
-                if (property.Value.Type == typeof(string))
+                _parameters.TryGetValue(property.Key, out var parameter);
+                if (parameter?.Type == TerraformParameterType.Bool)
                 {
-                    value = value.Replace("${", "$${");
-                    value = Regex.Replace(value, @"(?<!\\)\\(?!\\|\"")", @"\\");
-                    value = $"\"{value.Replace("\"", "\\\"")}\"";
-                    value = Regex.Replace(value, @"^""\\{2}", @"""\\\\");
-                    value = value.Replace("\r\n", " ");
+                    if (!bool.TryParse(value, out var boolean))
+                        throw new InvalidOperationException($"Terraform parameter '{property.Key}' must be a boolean.");
+                    value = boolean ? "true" : "false";
+                }
+                else if (parameter?.Type == TerraformParameterType.Number)
+                {
+                    if (!ParameterValidator.TryParseNumberExact(value, out var number))
+                        throw new InvalidOperationException($"Terraform parameter '{property.Key}' must be an invariant number.");
+                    value = number.ToString(CultureInfo.InvariantCulture);
+                }
+                else if (parameter?.Type == TerraformParameterType.String || property.Value.Type == typeof(string))
+                {
+                    value = QuoteHclString(value);
                 }
                 else if (property.Value.Type == typeof(bool))
                 {
@@ -449,6 +498,25 @@ namespace Dorc.TerraformRunner
 
             var variablesFilePath = Path.Combine(workingDir, "terraform.tfvars");
             await File.WriteAllTextAsync(variablesFilePath, variablesContent.ToString(), cancellationToken);
+        }
+
+        internal static string QuoteHclString(string value)
+        {
+            var escaped = new StringBuilder("\"");
+            foreach (var character in value)
+            {
+                escaped.Append(character switch
+                {
+                    '\\' => "\\\\",
+                    '"' => "\\\"",
+                    '\n' => "\\n",
+                    '\r' => "\\r",
+                    '\t' => "\\t",
+                    < ' ' => $"\\u{(int)character:x4}",
+                    _ => character.ToString()
+                });
+            }
+            return escaped.ToString().Replace("${", "$${").Replace("%{", "%%{") + "\"";
         }
 
         protected virtual async Task<string> RunTerraformCommandAsync(
@@ -526,6 +594,8 @@ namespace Dorc.TerraformRunner
                             // provider plugins are also reaped.
                             process.Kill(entireProcessTree: true);
                         }
+                        if (!process.WaitForExit(3000))
+                            logger.Warning("Terraform did not exit within the cancellation cleanup deadline.");
                     }
                     catch (InvalidOperationException killEx)
                     {
@@ -538,7 +608,7 @@ namespace Dorc.TerraformRunner
                         // not re-throw so the cancellation flow proceeds.
                         logger.Warning($"OS-level kill failed for terraform process: {killEx.Message}");
                     }
-                    logger.Warning($"Terraform command {command} was cancelled; killed process tree.");
+                    logger.Warning($"Terraform command {command} was cancelled; process-tree termination requested.");
                     throw;
                 }
             }
@@ -617,7 +687,6 @@ namespace Dorc.TerraformRunner
 
             ScriptGroup scriptGroupProperties = this._scriptGroupPipeClient.GetScriptGroupProperties(pipeName);
             var deployResultId = scriptGroupProperties.DeployResultId;
-            _sensitiveValues = CollectSensitiveValues(scriptGroupProperties);
 
             this.logger.SetRequestId(requestId);
             this.logger.SetDeploymentResultId(deployResultId);
@@ -643,6 +712,8 @@ namespace Dorc.TerraformRunner
             try
             {
                 terraformWorkingDir = CreateTerraformWorkingDirectory(requestId);
+                TerraformStateConfiguration.Resolve(scriptGroup);
+                await CollectSensitiveValuesAsync(scriptGroup, cancellationToken);
                 ConfigureOperation(scriptGroup);
                 TerraformSourceArchive.RestorePlanSource(planFile, terraformWorkingDir);
                 _usesPlatformBackend |= File.Exists(Path.Join(terraformWorkingDir, TerraformBackendRenderer.BackendFileName));
@@ -675,11 +746,13 @@ namespace Dorc.TerraformRunner
 
                 await WriteAppliedResourcesAsync(terraformWorkingDir, appliedResourcesFilePath, cancellationToken);
 
+                cancellationToken.ThrowIfCancellationRequested();
                 return true;
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                logger.Error(ex, $"Terraform apply failed for request ID {requestId}: {ex.Message}");
+                logger.Error($"Terraform apply failed for request ID {requestId}: {RedactSensitiveValues(ex.Message)}");
                 return false;
             }
             finally
@@ -726,6 +799,7 @@ namespace Dorc.TerraformRunner
                 logger.Information(
                     $"Recorded {resources.Count} applied cloud resource{(resources.Count == 1 ? "" : "s")} for environment registration.");
             }
+            catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
                 logger.Warning(
@@ -734,7 +808,7 @@ namespace Dorc.TerraformRunner
         }
 
         // Preserves what was planned: the working directory's terraform
-        // configuration (tfvars redacted; history/provider binaries/state excluded)
+        // configuration (variable files/history/provider binaries/state excluded)
         // plus a provenance record pinning the module reference and the exact
         // git commit the code came from. This must succeed before approval:
         // apply restores this exact source and publishes these exact bytes.
@@ -742,7 +816,8 @@ namespace Dorc.TerraformRunner
             string terraformWorkingDir,
             string? sourceArchiveFilePath,
             ScriptGroup scriptGroup,
-            int requestId)
+            int requestId,
+            CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(sourceArchiveFilePath)) return;
 
@@ -778,7 +853,7 @@ namespace Dorc.TerraformRunner
                 terraformWorkingDir,
                 canonicalArchivePath,
                 JsonSerializer.Serialize(provenance, new JsonSerializerOptions { WriteIndented = true }),
-                RedactSensitiveValues);
+                cancellationToken: cancellationToken);
 
             logger.Information(
                 $"Archived the planned terraform source ({entryCount} entries) " +

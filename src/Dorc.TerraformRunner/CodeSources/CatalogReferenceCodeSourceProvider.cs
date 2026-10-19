@@ -1,6 +1,7 @@
 using Dorc.ApiModel;
 using Dorc.Runner.Logger;
 using Dorc.Terraform.Catalog;
+using System.Text.RegularExpressions;
 
 namespace Dorc.TerraformRunner.CodeSources
 {
@@ -68,7 +69,7 @@ namespace Dorc.TerraformRunner.CodeSources
                     "Only 'git' source kind is supported by the runner today.");
             }
 
-            // The ref is the immutability pin behind name@version. The catalog
+            // The ref names the release tag and commit_sha pins its contents. The catalog
             // rejects ref-less manifests at load time; this guard is defence in
             // depth so a manifest that slips through any other path fails
             // loudly instead of silently deploying the clone default branch (a
@@ -79,12 +80,15 @@ namespace Dorc.TerraformRunner.CodeSources
                     $"Stock template '{manifest.Name}@{manifest.Version}' has no source ref; " +
                     "a tag or commit pinning the module version is required. Fix the manifest.");
             }
+            if (!Regex.IsMatch(manifest.Source.CommitSha ?? string.Empty, @"\A[0-9a-fA-F]{40}\z"))
+                throw new InvalidOperationException(
+                    $"Stock template '{manifest.Name}@{manifest.Version}' requires a full source commit_sha.");
 
             // Set the Git fields on the script group so GitCodeSourceProvider
             // sees an unambiguous Git clone target. The original Catalog mode
             // values are preserved on scriptGroup for downstream consumers.
             scriptGroup.TerraformGitRepoUrl = manifest.Source.Locator;
-            scriptGroup.TerraformGitBranch = manifest.Source.Ref; // tag or branch ref
+            scriptGroup.TerraformGitBranch = manifest.Source.Ref; // explicitly resolved as a tag below
             // Sub-path precedence: explicit scriptGroup.TerraformSubPath > manifest
             // SubPath > stock-modules/<name> convention. The first level is enforced
             // by the if-wrapper here; the latter two are encoded in ResolveSubPath.
@@ -97,7 +101,8 @@ namespace Dorc.TerraformRunner.CodeSources
                 $"Resolved catalog reference '{manifest.Name}@{manifest.Version}' to " +
                 $"git {manifest.Source.Locator} ref {manifest.Source.Ref}; delegating fetch to GitCodeSourceProvider.");
 
-            await _gitProvider.ProvisionCodeAsync(scriptGroup, workingDir, cancellationToken).ConfigureAwait(false);
+            await _gitProvider.ProvisionCodeAsync(
+                scriptGroup, workingDir, cancellationToken, manifest.Source.CommitSha).ConfigureAwait(false);
         }
 
         // Adjudicates between the manifest's optional Source.SubPath and the

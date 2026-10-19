@@ -13,8 +13,6 @@ using Dorc.Monitor.TerraformSourceConfig;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using System.ComponentModel;
-using System.Runtime.InteropServices;
 using System.Text;
 using Dorc.Kafka.Events.Publisher;
 
@@ -30,6 +28,7 @@ namespace Dorc.Monitor
         private readonly ILogger logger;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
+        private readonly IPropertiesPersistentSource _propertiesPersistentSource;
         private readonly IConfigurationSettings _configurationSettingsEngine;
         private readonly IDeploymentRequestProcessesPersistentSource _processesPersistentSource;
         private readonly IScriptGroupPipeServer _scriptGroupPipeServer;
@@ -53,11 +52,13 @@ namespace Dorc.Monitor
             ICloudResourcesPersistentSource cloudResourcesPersistentSource,
             ICloudResourceAuditPersistentSource cloudResourceAuditPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            IDatabasesPersistentSource databasesPersistentSource)
+            IDatabasesPersistentSource databasesPersistentSource,
+            IPropertiesPersistentSource propertiesPersistentSource)
         {
             this.logger = logger;
             this._requestsPersistentSource = requestsPersistentSource;
             this._configValuesPersistentSource = configValuesPersistentSource;
+            _propertiesPersistentSource = propertiesPersistentSource;
             this._configurationSettingsEngine = configurationSettingsEngine;
             this._processesPersistentSource = processesPersistentSource;
             this._scriptGroupPipeServer = scriptGroupPipeServer;
@@ -159,28 +160,9 @@ namespace Dorc.Monitor
             // The state key is keyed by project + environment +
             // component so plan and apply for the same logical (env, component)
             // operation share the same state.
-            var stateConfig = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                .GetSection("Terraform:State");
-            var stateAccount = stateConfig["StorageAccount"];
-            var stateContainer = stateConfig["ContainerName"];
-            var stateRg = stateConfig["ResourceGroup"];
-            scriptGroup.TerraformStateStorageAccount = stateAccount;
-            scriptGroup.TerraformStateContainerName = stateContainer;
-            scriptGroup.TerraformStateResourceGroup = stateRg;
-            scriptGroup.TerraformStateSubscriptionId = stateConfig["SubscriptionId"];
-            if (new[] { stateAccount, stateContainer, stateRg, stateConfig["SubscriptionId"] }
-                .Any(value => !string.IsNullOrWhiteSpace(value)))
-            {
-                // {project}/{component}/{environment}.tfstate per
-                // docs/Terraform/STATE-MODEL.md. Project is a mandatory
-                // dimension: environments (e.g. "Prod") are shared across
-                // projects and component names are not globally unique, so
-                // omitting it lets two projects share one state file.
-                scriptGroup.TerraformStateKey =
-                    TerraformStateKeySanitizer.Sanitize(projectName) + "/" +
-                    TerraformStateKeySanitizer.Sanitize(component.ComponentName) + "/" +
-                    TerraformStateKeySanitizer.Sanitize(environmentName) + ".tfstate";
-            }
+            ConfigurePlatformState(scriptGroup, projectName, component.ComponentName, environmentName,
+                new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
+                    .GetSection("Terraform:State"));
 
             var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
             var contextBuilder = new ProcessSecurityContextBuilder(logger)
@@ -194,7 +176,6 @@ namespace Dorc.Monitor
             using (var securityContext = contextBuilder.Build())
             {
                 var startedScriptGroupPipeName = $"DOrcMonitor-{HostInstanceId.Value}-{requestId}";
-
                 // The script group is made available to the account the Runner will be started
                 // as, taken from the same credential resolution that built the process security
                 // context rather than assumed to be the Monitor's own identity.
@@ -241,7 +222,7 @@ namespace Dorc.Monitor
                         ? Path.Join(planStorageDir, $"{deploymentResult.Id}.applied-resources.json")
                         : string.Empty;
                     // Written by the runner after a successful apply: the exact
-                    // terraform configuration deployed (tfvars redacted) plus a
+                    // terraform configuration deployed (without tfvars) plus a
                     // provenance record (module ref + resolved commit SHA).
                     // Uploaded below to the same blob container as the plan.
                     var sourceArchiveFileName = $"{deploymentResult.Id}.terraform-source.zip";
@@ -252,7 +233,8 @@ namespace Dorc.Monitor
                     stagedFiles.AddRange(new[]
                     {
                         terraformPlanFilePath, terraformPlanContentFilePath, terraformLockFilePath,
-                        planSourceArchiveFilePath, appliedResourcesFilePath, sourceArchiveFilePath
+                        planSourceArchiveFilePath, appliedResourcesFilePath, sourceArchiveFilePath,
+                        terraformPlanFilePath + ".cancel"
                     });
                     // Never let an earlier failed dispatch supply stale artifacts.
                     foreach (var file in stagedFiles) TryDeleteFile(file);
@@ -263,6 +245,9 @@ namespace Dorc.Monitor
                         // Required: an approved plan may never be paired with a
                         // fresh checkout of a mutable ref. Older plans must be recreated.
                         TerraformPlanSourceArtifacts.Download(_azureStorageAccountWorker, terraformPlanFilePath);
+                        TerraformPlanArtifactIntegrity.Verify(
+                            _requestsPersistentSource.GetTerraformPlanApproval(deploymentResult.Id),
+                            requestId, deploymentResult.Id, terraformPlanFilePath, planSourceArchiveFilePath);
                         // The source snapshot includes the authoritative provider
                         // lock; never replace it with a separately downloaded file.
                     }
@@ -289,24 +274,11 @@ namespace Dorc.Monitor
                         var process = processStarter.Start(startupInfo, securityContext);
                         try
                         {
-                            if (Marshal.GetLastWin32Error() != 0)
-                            {
-                                logger.LogError("The process creation was not successful.");
-                                throw new Win32Exception(Marshal.GetLastWin32Error());
-                            }
-
                             _processesPersistentSource.AssociateProcessWithRequest((int)process.Id, requestId);
 
-                            if (cancellationToken.IsCancellationRequested)
-                            {
-                                logger.LogDebug("Trying to terminate the Runner process.");
-                                process.Kill();
-                                logger.LogInformation("The Runner process is terminated.");
-                                throw new OperationCanceledException("The Runner process is terminated.");
-                            }
-
                             logger.LogDebug("Waiting for process to exit.");
-                            var resultCode = process.WaitForExit();
+                            var resultCode = process.WaitForExit(cancellationToken,
+                                () => File.WriteAllText(terraformPlanFilePath + ".cancel", string.Empty));
                             logger.LogInformation($"Runner finished for request ID '{requestId}' with result code [{resultCode}]");
 
                             cancellationToken.ThrowIfCancellationRequested();
@@ -319,31 +291,14 @@ namespace Dorc.Monitor
                             else if (resultCode != 0)
                             {
                                 isScriptExecutionSuccessful = false;
-                                Exception? ex = new Win32Exception(Marshal.GetLastWin32Error());
-
-                                if (ex != null)
-                                {
-                                    logger.LogError("The Win32 exception with HRESULT error code is detected immediately after WaitForExit invocation."
-                                                           + " Message:" + ex.Message
-                                                           + "; Source: " + ex.Source
-                                                           + "; Data: " + ex.Data
-                                                           + "; HelpLink: " + ex.HelpLink
-                                                           + "; InnerException: " + ex.InnerException
-                                                           + "; TargetSite: " + ex.TargetSite + ".");
-                                }
-                            }
-
-                            if (Marshal.GetLastWin32Error() != 0)
-                            {
-                                logger.LogError("Waiting the process to exit was not successful.");
-                                throw new Win32Exception(Marshal.GetLastWin32Error());
+                                logger.LogError("Terraform Runner failed with exit code {ExitCode}.", resultCode);
                             }
                         }
                         finally
                         {
                             pipeCancellationTokenSource.Cancel();
-                            _processesPersistentSource.RemoveProcess((int)process.Id);
-                            process.Dispose();
+                            try { _processesPersistentSource.RemoveProcess((int)process.Id); }
+                            finally { process.Dispose(); }
                         }
                     }
                     catch (Exception e)
@@ -353,6 +308,7 @@ namespace Dorc.Monitor
                         throw;
                     }
                 
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (isScriptExecutionSuccessful)
                     switch (terreformOperation)
                     {
@@ -373,6 +329,7 @@ namespace Dorc.Monitor
                             }
 
                             // Update status to WaitingConfirmation
+                            cancellationToken.ThrowIfCancellationRequested();
                             _requestsPersistentSource.UpdateResultStatus(
                                 deploymentResult,
                                 DeploymentResultStatus.WaitingConfirmation);
@@ -410,7 +367,7 @@ namespace Dorc.Monitor
                             }
                             TryDeleteFile(sourceArchiveFilePath);
 
-                            // Update status to WaitingConfirmation
+                            cancellationToken.ThrowIfCancellationRequested();
                             _requestsPersistentSource.UpdateResultStatus(
                                 deploymentResult,
                                 DeploymentResultStatus.Complete);
@@ -491,8 +448,28 @@ namespace Dorc.Monitor
 
             // Use the configurator to set Terraform-specific fields based on source type
             _sourceConfigurator.ConfigureScriptGroup(scriptGroup, component, request, project, properties);
+            scriptGroup.SensitivePropertyNames = scriptGroup.SensitivePropertyNames
+                .Concat(_propertiesPersistentSource.GetAllProperties().Where(p => p.Secure).Select(p => p.Name))
+                .Concat(_configValuesPersistentSource.GetAllConfigValues(false).Where(c => c.Secure).Select(c => c.Key))
+                .Distinct(StringComparer.Ordinal).ToList();
 
             return scriptGroup;
+        }
+
+        internal static void ConfigurePlatformState(ScriptGroup scriptGroup, string projectName,
+            string componentName, string environmentName, IConfiguration stateConfig)
+        {
+            // Global settings are not consent to migrate an existing component.
+            // Explicitly supplied legacy ScriptGroup state is left untouched.
+            if (scriptGroup.TerraformSourceType != TerraformSourceType.Catalog) return;
+            scriptGroup.TerraformStateStorageAccount = stateConfig["StorageAccount"];
+            scriptGroup.TerraformStateContainerName = stateConfig["ContainerName"];
+            scriptGroup.TerraformStateResourceGroup = stateConfig["ResourceGroup"];
+            scriptGroup.TerraformStateSubscriptionId = stateConfig["SubscriptionId"];
+            scriptGroup.TerraformStateKey =
+                TerraformStateKeySanitizer.Sanitize(projectName) + "/" +
+                TerraformStateKeySanitizer.Sanitize(componentName) + "/" +
+                TerraformStateKeySanitizer.Sanitize(environmentName) + ".tfstate";
         }
 
         private IDisposable? TryAcquireConcurrencyGuard(

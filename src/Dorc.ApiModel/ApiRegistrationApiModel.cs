@@ -8,5 +8,7 @@ namespace Dorc.ApiModel
         public string Version { set; get; }
         public string HealthCheckUrl { set; get; }
         public string Tags { set; get; }
+        public string Revision { get; set; }
+        public bool CanEditDefinition { get; set; }
     }
 }

@@ -7,7 +7,6 @@ using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using Swashbuckle.AspNetCore.Annotations;
 
 namespace Dorc.Api.Controllers
@@ -49,7 +48,7 @@ namespace Dorc.Api.Controllers
         [HttpGet]
         public IActionResult Get()
         {
-            return Ok(_cloudResourcesPersistentSource.GetAll().ToList());
+            return Ok(_cloudResourcesPersistentSource.GetAll().Select(WithCapabilities).ToList());
         }
 
         /// <summary>
@@ -64,7 +63,7 @@ namespace Dorc.Api.Controllers
             var cloudResource = _cloudResourcesPersistentSource.GetById(id);
             if (cloudResource == null)
                 return NotFound($"Cloud resource with id {id} not found");
-            return Ok(cloudResource);
+            return Ok(WithCapabilities(cloudResource));
         }
 
         /// <summary>
@@ -75,7 +74,21 @@ namespace Dorc.Api.Controllers
         [Route("ByEnvId/{envId}")]
         public IActionResult GetByEnvId(int envId)
         {
-            return Ok(_cloudResourcesPersistentSource.GetForEnvironmentId(envId).ToList());
+            return Ok(_cloudResourcesPersistentSource.GetForEnvironmentId(envId).Select(WithCapabilities).ToList());
+        }
+
+        [HttpGet("Capabilities/{envId}")]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(SharedResourceCapabilities))]
+        public IActionResult Capabilities(int envId)
+        {
+            var environment = _environmentsPersistentSource.GetEnvironment(envId, User);
+            if (environment == null)
+                return NotFound($"Environment with id {envId} not found");
+            return Ok(new SharedResourceCapabilities
+            {
+                CanCreateDefinition = _rolePrivilegesChecker.IsPowerUser(User) || _rolePrivilegesChecker.IsAdmin(User),
+                CanManageMembership = _securityPrivilegesChecker.CanModifyEnvironment(User, environment.EnvironmentName)
+            });
         }
 
         /// <summary>
@@ -86,6 +99,7 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status409Conflict, Type = typeof(string))]
         [HttpPost]
         public IActionResult Post([FromBody] CloudResourceApiModel model)
+            => _cloudResourcesPersistentSource.ExecuteMutation<IActionResult>(() =>
         {
             if (!_rolePrivilegesChecker.IsPowerUser(User) && !_rolePrivilegesChecker.IsAdmin(User))
                 return StatusCode(StatusCodes.Status403Forbidden,
@@ -104,7 +118,7 @@ namespace Dorc.Api.Controllers
                 toValue: JsonSerializer.Serialize(created, _auditJsonOptions));
 
             return Ok(created);
-        }
+        });
 
         /// <summary>
         /// Update cloud resource definition
@@ -116,6 +130,7 @@ namespace Dorc.Api.Controllers
         [HttpPut]
         [Route("{id}")]
         public IActionResult Put(int id, [FromBody] CloudResourceApiModel model)
+            => _cloudResourcesPersistentSource.ExecuteMutation<IActionResult>(() =>
         {
             var forbidden = CheckWritePermissionForItem(id, "modify");
             if (forbidden != null)
@@ -124,6 +139,8 @@ namespace Dorc.Api.Controllers
             var before = _cloudResourcesPersistentSource.GetById(id);
             if (before == null)
                 return NotFound($"Cloud resource with id {id} not found");
+            if (model.Revision != before.Revision)
+                return Conflict("The cloud resource definition has changed. Reload it before saving.");
 
             var sameName = _cloudResourcesPersistentSource.GetByName(model.Name);
             if (sameName != null && sameName.Id != id)
@@ -141,7 +158,30 @@ namespace Dorc.Api.Controllers
                 toValue: JsonSerializer.Serialize(updated, _auditJsonOptions));
 
             return Ok(updated);
-        }
+        });
+
+        [HttpPut("{id}/tags")]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(CloudResourceApiModel))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status409Conflict, Type = typeof(string))]
+        public IActionResult PutTags(int id, [FromBody] ResourceTagsUpdate model)
+            => _cloudResourcesPersistentSource.ExecuteMutation<IActionResult>(() =>
+        {
+            var forbidden = CheckWritePermissionForItem(id, "modify");
+            if (forbidden != null)
+                return forbidden;
+            var before = _cloudResourcesPersistentSource.GetById(id);
+            if (before == null)
+                return NotFound($"Cloud resource with id {id} not found");
+            if (before.Tags != model.ExpectedTags)
+                return Conflict("The cloud resource tags have changed. Reload them before saving.");
+            var updated = _cloudResourcesPersistentSource.UpdateTags(id, model.Tags);
+            _cloudResourceAuditPersistentSource.InsertCloudResourceAudit(
+                _claimsPrincipalReader.GetUserFullDomainName(User), ActionType.Update, id,
+                JsonSerializer.Serialize(before, _auditJsonOptions), JsonSerializer.Serialize(updated, _auditJsonOptions));
+            return Ok(updated);
+        });
 
         /// <summary>
         /// Delete cloud resource definition
@@ -152,6 +192,7 @@ namespace Dorc.Api.Controllers
         [HttpDelete]
         [Route("{id}")]
         public IActionResult Delete(int id)
+            => _cloudResourcesPersistentSource.ExecuteMutation<IActionResult>(() =>
         {
             var forbidden = CheckWritePermissionForItem(id, "delete");
             if (forbidden != null)
@@ -173,7 +214,7 @@ namespace Dorc.Api.Controllers
                 toValue: null);
 
             return Ok(new ApiBoolResult { Result = true });
-        }
+        });
 
         /// <summary>
         /// Attach cloud resource to an environment
@@ -185,41 +226,33 @@ namespace Dorc.Api.Controllers
         [HttpPut]
         [Route("{id}/environments/{envId}")]
         public IActionResult Attach(int id, int envId)
+            => _cloudResourcesPersistentSource.ExecuteMutation<IActionResult>(() =>
         {
             var (environment, error) = CheckWritePermissionForEnvironment(envId, "attach to");
             if (error != null)
                 return error;
 
-            try
+            var outcome = _cloudResourcesPersistentSource.AttachToEnvironment(id, envId);
+            switch (outcome)
             {
-                var outcome = _cloudResourcesPersistentSource.AttachToEnvironment(id, envId);
-                switch (outcome)
-                {
-                    case EnvironmentAttachmentOutcome.ItemNotFound:
-                        return NotFound($"Cloud resource with id {id} not found");
-                    case EnvironmentAttachmentOutcome.EnvironmentNotFound:
-                        return NotFound($"Environment with id {envId} not found");
-                    case EnvironmentAttachmentOutcome.AlreadyAttached:
-                        return Conflict("Cloud resource is already attached to this environment");
-                    case EnvironmentAttachmentOutcome.Attached:
-                        _cloudResourceAuditPersistentSource.InsertCloudResourceAudit(
-                            _claimsPrincipalReader.GetUserFullDomainName(User),
-                            ActionType.Attach,
-                            id,
-                            fromValue: null,
-                            toValue: $"Attached to environment '{environment!.EnvironmentName}'");
-                        return Ok(new ApiBoolResult { Result = true });
-                    default:
-                        throw new InvalidOperationException($"Unexpected attach outcome: {outcome}");
-                }
+                case EnvironmentAttachmentOutcome.ItemNotFound:
+                    return NotFound($"Cloud resource with id {id} not found");
+                case EnvironmentAttachmentOutcome.EnvironmentNotFound:
+                    return NotFound($"Environment with id {envId} not found");
+                case EnvironmentAttachmentOutcome.AlreadyAttached:
+                    return Conflict("Cloud resource is already attached to this environment");
+                case EnvironmentAttachmentOutcome.Attached:
+                    _cloudResourceAuditPersistentSource.InsertCloudResourceAudit(
+                        _claimsPrincipalReader.GetUserFullDomainName(User),
+                        ActionType.Attach,
+                        id,
+                        fromValue: null,
+                        toValue: $"Attached to environment '{environment!.EnvironmentName}'");
+                    return Ok(new ApiBoolResult { Result = true });
+                default:
+                    throw new InvalidOperationException($"Unexpected attach outcome: {outcome}");
             }
-            catch (DbUpdateException)
-            {
-                // Composite-PK backstop: a concurrent attach slipped past the
-                // behavioural exists-check — surface as the same conflict.
-                return Conflict("Cloud resource is already attached to this environment");
-            }
-        }
+        });
 
         /// <summary>
         /// Detach cloud resource from an environment
@@ -231,6 +264,7 @@ namespace Dorc.Api.Controllers
         [HttpDelete]
         [Route("{id}/environments/{envId}")]
         public IActionResult Detach(int id, int envId)
+            => _cloudResourcesPersistentSource.ExecuteMutation<IActionResult>(() =>
         {
             var (environment, error) = CheckWritePermissionForEnvironment(envId, "detach from");
             if (error != null)
@@ -254,6 +288,15 @@ namespace Dorc.Api.Controllers
                 default:
                     throw new InvalidOperationException($"Unexpected detach outcome: {outcome}");
             }
+        });
+
+        private CloudResourceApiModel WithCapabilities(CloudResourceApiModel model)
+        {
+            var environments = model.EnvironmentNames ?? new List<string>();
+            model.CanEditDefinition = environments.Count == 0
+                ? _rolePrivilegesChecker.IsPowerUser(User) || _rolePrivilegesChecker.IsAdmin(User)
+                : environments.All(name => _securityPrivilegesChecker.CanModifyEnvironment(User, name));
+            return model;
         }
 
         // Update/Delete gating (HLPS §5.3): environment-write on every mapped

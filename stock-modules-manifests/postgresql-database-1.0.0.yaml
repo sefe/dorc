@@ -4,6 +4,7 @@ source:
   kind: git
   locator: https://github.com/sefe/dorc-terraform-modules.git
   ref: stock-modules/postgresql-database/v1.0.0
+  commit_sha: dd069e49598ecc4d9b0c8b7a9f588b951dd75360
 parameters:
   - name: project
     type: String

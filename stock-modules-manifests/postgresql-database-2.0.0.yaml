@@ -4,6 +4,13 @@ source:
   kind: git
   locator: https://github.com/sefe/dorc-terraform-modules.git
   ref: stock-modules/postgresql-database/v2.0.0
+  commit_sha: 2fca133531db79c896bd197f31f1835660ab1703
+parameter_conflicts:
+  - parameter: database_name
+    value: defaultdb
+    when_parameter: create_service
+    when_value: "true"
+    message: Creating an Aiven PostgreSQL service already creates defaultdb. Choose a different database_name; create_service=false is only for an existing externally managed service and does not adopt its existing databases.
 parameters:
   - name: project
     type: String
@@ -13,7 +20,7 @@ parameters:
   - name: create_service
     type: Bool
     required: false
-    description: Create the Aiven PostgreSQL service layer as part of this deployment (the default). Set false to re-use an existing service named service_name instead.
+    description: Create and own the Aiven PostgreSQL service (default). Keep this value unchanged after first apply; false is for an existing externally managed service, not a handoff of a service already in this state.
     default: "true"
   - name: service_name
     type: String

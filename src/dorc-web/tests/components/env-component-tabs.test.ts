@@ -11,8 +11,13 @@ import '../../src/components/attach-container.js';
 import '../../src/components/resource-tags.js';
 import type { AddEditContainer } from '../../src/components/add-edit-container.js';
 import type { ResourceTags } from '../../src/components/resource-tags.js';
-import { RefDataContainersApi } from '../../src/apis/dorc-api';
+import {
+  RefDataContainersApi,
+  RefDataCloudResourcesApi,
+  RefDataApiRegistrationsApi
+} from '../../src/apis/dorc-api';
 import { of } from 'rxjs';
+import { vi } from 'vitest';
 
 // tags-input drives @yaireo/tagify via window.Tagify, which the app loads
 // globally but the test browser does not (same shim as database-tags-ui.test.ts).
@@ -37,6 +42,10 @@ class FakeTagify {
 const tabCases = [
   {
     tag: 'env-containers',
+    api: RefDataContainersApi,
+    prefix: 'refDataContainers',
+    list: 'containers',
+    newLabel: 'New Container',
     grid: 'containers-grid',
     attachLabel: 'Attach Container',
     form: 'add-edit-container',
@@ -44,6 +53,10 @@ const tabCases = [
   },
   {
     tag: 'env-cloud',
+    api: RefDataCloudResourcesApi,
+    prefix: 'refDataCloudResources',
+    list: 'cloudResources',
+    newLabel: 'New Cloud Resource',
     grid: 'cloud-resources-grid',
     attachLabel: 'Attach Cloud Resource',
     form: 'add-edit-cloud-resource',
@@ -58,6 +71,10 @@ const tabCases = [
   },
   {
     tag: 'env-apis',
+    api: RefDataApiRegistrationsApi,
+    prefix: 'refDataApiRegistrations',
+    list: 'apiRegistrations',
+    newLabel: 'New API',
     grid: 'api-registrations-grid',
     attachLabel: 'Attach API',
     form: 'add-edit-api-registration',
@@ -67,6 +84,8 @@ const tabCases = [
 
 for (const c of tabCases) {
   describe(`${c.tag} tab`, () => {
+    afterEach(() => vi.restoreAllMocks());
+
     it('discards canceled edits on reopening the same row, but retains edits during rerenders', async () => {
       const el = await fixture<LitElement>(
         html`${document.createElement(c.tag)}`
@@ -75,7 +94,7 @@ for (const c of tabCases) {
         openEditDialog(item: { Id: number; Name: string }): void;
         editDialogOpened: boolean;
       };
-      const row = { Id: 7, Name: 'Original' };
+      const row = { Id: 7, Name: 'Original', CanEditDefinition: true };
       const nameField = () =>
         el
           .shadowRoot!.querySelector(c.form)!
@@ -151,19 +170,128 @@ for (const c of tabCases) {
       }
     });
 
-    it('enables write controls when the environment is editable', async () => {
+    it('separates create permission from environment membership permission', async () => {
       const el = await fixture(
         document.createElement(c.tag) as unknown as ReturnType<typeof html>
       );
       (el as any).envReadOnly = false;
+      (el as any).canCreateDefinition = false;
       await (el as any).updateComplete;
 
-      const buttons = Array.from(
-        el.shadowRoot!.querySelectorAll('vaadin-button')
+      const attach = el.shadowRoot!.querySelector(
+        `vaadin-button[title="${c.attachLabel}"]`
+      ) as any;
+      const create = el.shadowRoot!.querySelector(
+        `vaadin-button[title="${c.newLabel}"]`
+      ) as any;
+      expect(attach.disabled).to.be.false;
+      expect(create.disabled).to.be.true;
+      (el as any).canCreateDefinition = true;
+      await (el as any).updateComplete;
+      expect(create.disabled).to.be.false;
+    });
+
+    it('requires all-mapped-environment permission for global edit/tags/delete, but only current-environment permission to detach', async () => {
+      const el = await fixture<LitElement>(
+        html`${document.createElement(c.tag)}`
       );
-      for (const button of buttons) {
-        expect(button.disabled).to.be.false;
-      }
+      (el as any).envReadOnly = false;
+      const row = { Id: 7, Name: 'shared', CanEditDefinition: false };
+      const actions = await fixture(
+        html`<div>${(el as any).actionsRenderer(row)}</div>`
+      );
+      const buttons = Array.from(actions.querySelectorAll('vaadin-button'));
+      expect(buttons).to.have.length(5);
+      expect(buttons[0].disabled, 'audit remains readable').to.be.false;
+      expect(buttons[1].disabled, 'edit globally').to.be.true;
+      expect(buttons[2].disabled, 'edit tags globally').to.be.true;
+      expect(buttons[3].disabled, 'detach locally').to.be.false;
+      expect(buttons[4].disabled, 'delete globally').to.be.true;
+    });
+
+    it('sends only tags plus expected tags, and refreshes after a global tags change', async () => {
+      const proto = c.api.prototype as any;
+      const requests: unknown[] = [];
+      vi.spyOn(proto, `${c.prefix}IdTagsPut`).mockImplementation(
+        (request: unknown) => {
+          requests.push(request);
+          return of({});
+        }
+      );
+      vi.spyOn(proto, `${c.prefix}CapabilitiesEnvIdGet`).mockReturnValue(
+        of({
+          CanCreateDefinition: false,
+          CanManageMembership: true
+        })
+      );
+      const reload = vi
+        .spyOn(proto, `${c.prefix}ByEnvIdEnvIdGet`)
+        .mockReturnValue(of([]));
+      const el = await fixture<LitElement>(
+        html`${document.createElement(c.tag)}`
+      );
+      (el as any).environmentId = 42;
+      (el as any).tagsItem = {
+        Id: 7,
+        Name: 'stale name',
+        Tags: 'old',
+        Image: 'stale image',
+        EnvironmentNames: ['allowed', 'another'],
+        CanEditDefinition: true
+      };
+      const pending = (el as any).saveTags(
+        new CustomEvent('save', { detail: { tags: ['new'] } })
+      );
+      const prompt = document.querySelector('vaadin-confirm-dialog')!;
+      expect(prompt.textContent).to.include('ALL attached environments');
+      expect(prompt.textContent).to.include('allowed, another');
+      prompt.dispatchEvent(new CustomEvent('confirm'));
+      await pending;
+      expect(requests).to.deep.equal([
+        { id: 7, resourceTagsUpdate: { ExpectedTags: 'old', Tags: 'new' } }
+      ]);
+      expect(reload.mock.calls).to.have.length(1);
+      expect((el as any).tagsDialogOpened).to.be.false;
+    });
+
+    it('warns before metadata-only global deletion, supports cancel, and refreshes on success', async () => {
+      const proto = c.api.prototype as any;
+      const remove = vi
+        .spyOn(proto, `${c.prefix}IdDelete`)
+        .mockReturnValue(of({ Result: true }));
+      vi.spyOn(proto, `${c.prefix}CapabilitiesEnvIdGet`).mockReturnValue(
+        of({})
+      );
+      const reload = vi
+        .spyOn(proto, `${c.prefix}ByEnvIdEnvIdGet`)
+        .mockReturnValue(of([]));
+      const el = await fixture<LitElement>(
+        html`${document.createElement(c.tag)}`
+      );
+      (el as any).environmentId = 42;
+      const row = {
+        Id: 7,
+        Name: 'shared',
+        EnvironmentNames: ['one', 'two'],
+        CanEditDefinition: true
+      };
+      let pending = (el as any).deleteDefinition(row);
+      let prompt = document.querySelector('vaadin-confirm-dialog')!;
+      expect(prompt.textContent).to.include('ALL environments');
+      expect(prompt.textContent).to.include('metadata only');
+      expect(prompt.textContent).to.include(
+        'does NOT destroy deployed infrastructure'
+      );
+      expect(prompt.textContent).to.include('one, two');
+      prompt.dispatchEvent(new CustomEvent('cancel'));
+      await pending;
+      expect(remove.mock.calls).to.have.length(0);
+      pending = (el as any).deleteDefinition(row);
+      prompt = document.querySelector('vaadin-confirm-dialog')!;
+      prompt.dispatchEvent(new CustomEvent('confirm'));
+      await pending;
+      expect(remove.mock.calls[0]).to.deep.equal([{ id: 7 }]);
+      expect(reload.mock.calls).to.have.length(1);
     });
   });
 }
@@ -177,6 +305,14 @@ describe('env-containers self-fetch lifecycle', () => {
     const items = [{ Id: 1, Name: 'web01', Image: 'nginx:1' }];
     const original =
       RefDataContainersApi.prototype.refDataContainersByEnvIdEnvIdGet;
+    const capability = vi
+      .spyOn(
+        RefDataContainersApi.prototype as any,
+        'refDataContainersCapabilitiesEnvIdGet'
+      )
+      .mockReturnValue(
+        of({ CanCreateDefinition: false, CanManageMembership: true })
+      );
     const calls: number[] = [];
     (RefDataContainersApi.prototype as any).refDataContainersByEnvIdEnvIdGet =
       function (req: { envId: number }) {
@@ -203,14 +339,23 @@ describe('env-containers self-fetch lifecycle', () => {
     } finally {
       (RefDataContainersApi.prototype as any).refDataContainersByEnvIdEnvIdGet =
         original;
+      capability.mockRestore();
     }
   });
 
-  it('derives read-only gating from environment.UserEditable', async () => {
+  it('uses server operation capabilities instead of environment.UserEditable', async () => {
     const original =
       RefDataContainersApi.prototype.refDataContainersByEnvIdEnvIdGet;
     (RefDataContainersApi.prototype as any).refDataContainersByEnvIdEnvIdGet =
       () => of([]);
+    const capability = vi
+      .spyOn(
+        RefDataContainersApi.prototype as any,
+        'refDataContainersCapabilitiesEnvIdGet'
+      )
+      .mockReturnValue(
+        of({ CanCreateDefinition: true, CanManageMembership: true })
+      );
 
     try {
       const el = await fixture(
@@ -220,14 +365,18 @@ describe('env-containers self-fetch lifecycle', () => {
       );
       (el as any).environment = { EnvironmentId: 42, UserEditable: false };
       await (el as any).updateComplete;
-      expect((el as any).envReadOnly).to.be.true;
+      expect((el as any).envReadOnly).to.be.false;
 
+      capability.mockReturnValue(
+        of({ CanCreateDefinition: false, CanManageMembership: false })
+      );
       (el as any).environment = { EnvironmentId: 42, UserEditable: true };
       await (el as any).updateComplete;
-      expect((el as any).envReadOnly).to.be.false;
+      expect((el as any).envReadOnly).to.be.true;
     } finally {
       (RefDataContainersApi.prototype as any).refDataContainersByEnvIdEnvIdGet =
         original;
+      capability.mockRestore();
     }
   });
 });
@@ -355,6 +504,10 @@ describe('add-edit-container create with environment context', () => {
       `);
       await updated.updateComplete;
       updated.shadowRoot!.querySelector('vaadin-button')!.click();
+      document
+        .querySelector('vaadin-confirm-dialog')!
+        .dispatchEvent(new CustomEvent('confirm'));
+      await settle();
 
       expect(attachCalls).to.deep.equal([]);
     } finally {

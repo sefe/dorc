@@ -12,6 +12,7 @@
  */
 
 import type {
+    TerraformParameterConflict,
     TerraformTemplateOutput,
     TerraformTemplateParameter,
     TerraformTemplateSource,
@@ -87,4 +88,9 @@ export interface TerraformTemplateManifest {
      * @memberof TerraformTemplateManifest
      */
     DeprecationReason?: string | null;
+    /**
+     * @type {Array<TerraformParameterConflict>}
+     * @memberof TerraformTemplateManifest
+     */
+    ParameterConflicts?: Array<TerraformParameterConflict> | null;
 }

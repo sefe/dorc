@@ -9,5 +9,7 @@ namespace Dorc.ApiModel
         public string ResourceIdentifier { set; get; }
         public string Subscription { set; get; }
         public string Tags { set; get; }
+        public string Revision { get; set; }
+        public bool CanEditDefinition { get; set; }
     }
 }

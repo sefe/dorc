@@ -17,6 +17,17 @@
  */
 export interface ApiRegistrationApiModel {
     /**
+     * Content revision from the last read; required unchanged when updating the full definition.
+     * @type {string}
+     * @memberof ApiRegistrationApiModel
+     */
+    Revision?: string | null;
+    /**
+     * @type {boolean}
+     * @memberof ApiRegistrationApiModel
+     */
+    readonly CanEditDefinition?: boolean;
+    /**
      * @type {Array<string>}
      * @memberof ApiRegistrationApiModel
      */

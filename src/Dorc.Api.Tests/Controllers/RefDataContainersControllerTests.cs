@@ -35,6 +35,7 @@ namespace Dorc.Api.Tests.Controllers
         public void Setup()
         {
             _source = Substitute.For<IContainersPersistentSource>();
+            _source.ExecuteMutation(Arg.Any<Func<IActionResult>>()).Returns(call => call.Arg<Func<IActionResult>>()());
             _audit = Substitute.For<IContainerAuditPersistentSource>();
             _environments = Substitute.For<IEnvironmentsPersistentSource>();
             _roles = Substitute.For<IRolePrivilegesChecker>();
@@ -252,13 +253,13 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
-        public void Attach_CompositePkRace_Returns409NotServerError()
+        public void Attach_DatabaseFailure_IsNotMisreportedAsAlreadyAttached()
         {
             SetupEnvironment();
             GrantEnvWrite("DV 01");
             _source.AttachToEnvironment(9, 1).Returns(_ => throw new DbUpdateException("PK violation"));
 
-            Assert.AreEqual(409, StatusOf(_controller.Attach(9, 1)));
+            Assert.ThrowsExactly<DbUpdateException>(() => _controller.Attach(9, 1));
         }
 
         [TestMethod]

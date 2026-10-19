@@ -24,6 +24,7 @@ beforeEach(() => {
     of({
       DeploymentResultId: 42,
       Status: 'WaitingConfirmation',
+      PlanContentSha256: 'reviewed-plan-digest',
       PlanContent: '+ storage account'
     })
   );
@@ -55,6 +56,14 @@ describe('Terraform plan decisions', () => {
       action().click();
       await settle();
       expect(operation.mock.calls).to.have.length(1);
+      expect(operation.mock.calls[0][0]).to.deep.equal(
+        confirm
+          ? {
+              deploymentResultId: 42,
+              planContentSha256: 'reviewed-plan-digest'
+            }
+          : { deploymentResultId: 42 }
+      );
       expect(completed.mock.calls).to.have.length(0);
       expect(host.opened).to.equal(true);
       response.error({ response: 'The server rejected the decision.' });

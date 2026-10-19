@@ -29,6 +29,8 @@ namespace Dorc.Monitor.Tests.Terraform
         public void Setup()
         {
             _cloudResources = Substitute.For<ICloudResourcesPersistentSource>();
+            _cloudResources.ExecuteMutation(Arg.Any<Func<bool>>())
+                .Returns(call => call.Arg<Func<bool>>()());
             _audit = Substitute.For<ICloudResourceAuditPersistentSource>();
             _environments = Substitute.For<IEnvironmentsPersistentSource>();
             _databases = Substitute.For<IDatabasesPersistentSource>();

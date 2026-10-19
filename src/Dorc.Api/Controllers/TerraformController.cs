@@ -683,7 +683,8 @@ namespace Dorc.Api.Controllers
                     DeploymentResultId = deploymentResultId,
                     PlanContent = planContent,
                     CreatedAt = deploymentResult.StartedTime?.DateTime ?? DateTime.UtcNow,
-                    Status = deploymentResult.Status ?? "Unknown"
+                    Status = deploymentResult.Status ?? "Unknown",
+                    PlanContentSha256 = TerraformPlanArtifactIntegrity.HashPlanContent(planContent)
                 };
 
                 return Ok(plan);
@@ -713,7 +714,7 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status404NotFound)]
         [SwaggerResponse(StatusCodes.Status409Conflict)]
         [HttpPost("plan/{deploymentResultId}/confirm")]
-        public IActionResult ConfirmTerraformPlan(int deploymentResultId)
+        public IActionResult ConfirmTerraformPlan(int deploymentResultId, [FromQuery] string? planContentSha256 = null)
         {
             try
             {
@@ -741,13 +742,32 @@ namespace Dorc.Api.Controllers
                     return BadRequest($"Deployment result {deploymentResultId} is not in WaitingConfirmation status. Current status: {deploymentResult.Status}");
                 }
 
-                // Guarded transition. The status was read before the authorization checks, so
-                // it may have moved since - a confirm racing the Monitor would otherwise push
-                // a running result back to Confirmed and cause a second apply dispatch.
-                var transitioned = _requestsPersistentSource.UpdateResultStatus(
-                    deploymentResult,
-                    DeploymentResultStatus.Confirmed,
-                    DeploymentResultStatus.WaitingConfirmation);
+                if (deploymentRequest.Status != DeploymentRequestStatus.WaitingConfirmation.ToString() &&
+                    deploymentRequest.Status != DeploymentRequestStatus.Confirmed.ToString())
+                    return Conflict("The request is not awaiting approval. It may be processing, cancelled, or complete.");
+
+                if (string.IsNullOrWhiteSpace(planContentSha256))
+                    return Conflict("Reload and review the plan before confirming it.");
+
+                var digests = TerraformPlanArtifactIntegrity.Calculate(_azureStorageAccountWorker, deploymentResultId);
+                if (!string.Equals(planContentSha256, digests.PlanContentSha256, StringComparison.OrdinalIgnoreCase))
+                    return Conflict("The plan has changed since it was displayed. Reload and review it before confirming.");
+
+                var userName = _claimsPrincipalReader.GetUserFullDomainName(User);
+                if (string.IsNullOrWhiteSpace(userName))
+                    return StatusCode(StatusCodes.Status403Forbidden, "Unable to establish the approver identity.");
+                var confirmedAt = DateTimeOffset.UtcNow;
+                var transitioned = _requestsPersistentSource.TryConfirmTerraformPlan(deploymentResult,
+                    new TerraformPlanApproval
+                    {
+                        DeploymentResultId = deploymentResultId,
+                        DeploymentRequestId = deploymentRequest.Id,
+                        ApprovedBy = userName,
+                        ApprovedAt = confirmedAt,
+                        PlanSha256 = digests.PlanSha256,
+                        SourceSha256 = digests.SourceSha256,
+                        PlanContentSha256 = digests.PlanContentSha256
+                    });
 
                 if (!transitioned)
                 {
@@ -755,11 +775,6 @@ namespace Dorc.Api.Controllers
                     return Conflict($"Deployment result {deploymentResultId} is no longer awaiting confirmation. It may have been confirmed, declined, or started already.");
                 }
 
-                _requestsPersistentSource.UpdateRequestStatus(
-                    deploymentResult.RequestId,
-                    DeploymentRequestStatus.Confirmed);
-
-                var userName = _claimsPrincipalReader.GetUserName(User);
                 _log.LogInformation($"Terraform plan confirmed for deployment result ID: {deploymentResultId} by user: {userName}");
 
                 // Note: The actual execution will be handled by the Monitor service when it picks up the Confirmed status
@@ -769,8 +784,13 @@ namespace Dorc.Api.Controllers
                     message = "Terraform plan confirmed successfully",
                     deploymentResultId = deploymentResultId,
                     confirmedBy = userName,
-                    confirmedAt = DateTime.UtcNow
+                    confirmedAt
                 });
+            }
+            catch (FileNotFoundException ex)
+            {
+                _log.LogWarning(ex, "Approval artifacts are missing for result {DeploymentResultId}.", deploymentResultId);
+                return Conflict("Required plan artifacts are missing. Replan and review a fresh plan.");
             }
             catch (Exception ex)
             {
@@ -811,10 +831,9 @@ namespace Dorc.Api.Controllers
                     return BadRequest($"Deployment result {deploymentResultId} is not in WaitingConfirmation status. Current status: {deploymentResult.Status}");
                 }
 
-                var transitioned = _requestsPersistentSource.UpdateResultStatus(
-                    deploymentResult,
-                    DeploymentResultStatus.Cancelled,
-                    DeploymentResultStatus.WaitingConfirmation);
+                var userName = _claimsPrincipalReader.GetUserFullDomainName(User);
+                var declinedAt = DateTimeOffset.UtcNow;
+                var transitioned = _requestsPersistentSource.TryDeclineTerraformPlan(deploymentResult, userName, declinedAt);
 
                 if (!transitioned)
                 {
@@ -822,11 +841,6 @@ namespace Dorc.Api.Controllers
                     return Conflict($"Deployment result {deploymentResultId} is no longer awaiting confirmation. It may have been confirmed, declined, or started already.");
                 }
 
-                _requestsPersistentSource.UpdateRequestStatus(
-                    deploymentResult.RequestId,
-                    DeploymentRequestStatus.Cancelled);
-
-                var userName = _claimsPrincipalReader.GetUserName(User);
                 _log.LogInformation($"Terraform plan declined for deployment result ID: {deploymentResultId} by user: {userName}");
 
                 return Ok(new
@@ -834,7 +848,7 @@ namespace Dorc.Api.Controllers
                     message = "Terraform plan declined successfully",
                     deploymentResultId = deploymentResultId,
                     declinedBy = userName,
-                    declinedAt = DateTime.UtcNow
+                    declinedAt
                 });
             }
             catch (Exception ex)

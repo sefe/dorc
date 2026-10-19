@@ -52,14 +52,35 @@ resolved in IS v2).
 - R-6: Monitor container resolves the resolver with its new dependencies —
   `PersistentSourcesRegistryResolutionTests` (S-003) covers source resolution; add
   resolver-level resolution to the Monitor test.
-- R-7 (variable-namespace collision): precedence rule documented here — fixed scope
-  emissions are applied via `SetPropertyValue` at resolution time and therefore override
-  any user-defined property of the same name for that deployment, exactly as
-  `AllServers`/`ServerNames_*` already do. Deployment operators must treat
+- R-7 (variable-namespace collision): explicit request overrides take precedence over
+  topology emissions; topology values take precedence over configuration/repository
+  fallback values. `SetPropertyValue` does not supersede an explicit request override.
+  Deployment operators should treat
   `EnvironmentContainers`, `EnvironmentCloudResources`, `EnvironmentApiRegistrations`,
-  `ContainerNames_*`, `CloudResourceNames_*`, `ApiRegistrationNames_*` as reserved. A
+  `ContainerNames_*`, `CloudResourceNames_*`, `ApiRegistrationNames_*` as reserved unless
+  deliberately overriding topology for the approved request. A
   live-DB query for collisions is an ops action recorded in S-008's checklist (cannot be
   run here — no database; TOOLCHAIN-S-001 #8).
+
+### Attachment and naming policy
+
+These three collections describe **direct attachments to the requested environment**,
+not attachments inherited through parent environments. This differs deliberately from
+inherited property-value lookup: attaching a resource to a parent is not an implicit
+deployment target grant to every child. Clone options attach existing definitions only
+when explicitly selected.
+
+Tag grouping is case-insensitive and preserves the first encountered spelling, matching
+the existing server-variable convention. Variable lookup remains case-sensitive; use
+one consistent spelling of a tag across definitions and scripts. Spaces become
+underscores. Distinct tags such as `web api` and `web_api` that normalize to the same
+variable key now fail resolution explicitly rather than silently replacing a value.
+Changing this convention to canonical lower-case names would rename existing variables
+and requires a separately approved compatibility change.
+
+Membership and definition edits affect subsequent requests, not an already approved
+Terraform binary plan. Review a fresh plan after topology changes; applying an old
+approval does not re-resolve the planned resource targeting.
 
 ## Gate
 Characterization tests pass with wiring-only edit (verify via git diff of the test file);

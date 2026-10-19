@@ -9,6 +9,7 @@ import {
   RefDataCloudResourcesApi
 } from '../apis/dorc-api';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { confirmSharedResourceChange } from '../helpers/shared-resource-confirm';
 
 /**
  * Create/edit form for a cloud resource definition. Fires `cloud-resource-saved`.
@@ -111,12 +112,14 @@ export class AddEditCloudResource extends LitElement {
     this._cloudResource = { ...this._cloudResource, [field]: value };
   }
 
-  private save() {
+  private async save() {
+    const cloudResource = { ...this._cloudResource };
+    const envId = this.envId;
     if (
-      !this._cloudResource.Name ||
-      !this._cloudResource.Provider ||
-      !this._cloudResource.ResourceType ||
-      !this._cloudResource.ResourceIdentifier
+      !cloudResource.Name ||
+      !cloudResource.Provider ||
+      !cloudResource.ResourceType ||
+      !cloudResource.ResourceIdentifier
     ) {
       Notification.show(
         'Name, Provider, Resource Type and Resource Identifier are required',
@@ -130,24 +133,26 @@ export class AddEditCloudResource extends LitElement {
     }
 
     const api = new RefDataCloudResourcesApi(dorcApiConfiguration);
-    const isUpdate = !!this._cloudResource.Id;
+    const isUpdate = !!cloudResource.Id;
+    if (isUpdate && !(await confirmSharedResourceChange(cloudResource, 'edit')))
+      return;
     const request = isUpdate
       ? api.refDataCloudResourcesIdPut({
-          id: this._cloudResource.Id!,
-          cloudResourceApiModel: this._cloudResource
+          id: cloudResource.Id!,
+          cloudResourceApiModel: cloudResource
         })
       : api.refDataCloudResourcesPost({
-          cloudResourceApiModel: this._cloudResource
+          cloudResourceApiModel: cloudResource
         });
 
     request.subscribe({
       next: (saved: CloudResourceApiModel) => {
-        if (!isUpdate && this.envId > 0 && saved?.Id) {
-          this.attachToEnvironment(api, saved);
+        if (!isUpdate && envId > 0 && saved?.Id) {
+          this.attachToEnvironment(api, saved, envId);
           return;
         }
         Notification.show(
-          `Cloud resource ${this._cloudResource.Name} ${isUpdate ? 'updated' : 'created'}`,
+          `Cloud resource ${cloudResource.Name} ${isUpdate ? 'updated' : 'created'}`,
           { theme: 'success', position: 'bottom-start', duration: 5000 }
         );
         this.fireSaved();
@@ -163,12 +168,13 @@ export class AddEditCloudResource extends LitElement {
 
   private attachToEnvironment(
     api: RefDataCloudResourcesApi,
-    saved: CloudResourceApiModel
+    saved: CloudResourceApiModel,
+    envId: number
   ) {
     api
       .refDataCloudResourcesIdEnvironmentsEnvIdPut({
         id: saved.Id!,
-        envId: this.envId
+        envId
       })
       .subscribe({
         next: () => {

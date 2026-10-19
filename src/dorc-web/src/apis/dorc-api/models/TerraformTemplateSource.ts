@@ -36,4 +36,9 @@ export interface TerraformTemplateSource {
      * @memberof TerraformTemplateSource
      */
     SubPath?: string | null;
+    /**
+     * @type {string}
+     * @memberof TerraformTemplateSource
+     */
+    CommitSha?: string | null;
 }

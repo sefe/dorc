@@ -34,6 +34,67 @@ In DOrc, the template reference belongs to the **project component**:
 `TerraformTemplateVersion`. Input values belong to the target environment's
 DOrc properties, with optional request-specific overrides.
 
+Every catalog release also pins a full `source.commit_sha` verified against
+the intended tag at deployment time. A tag name alone is mutable; branches
+with the same name are not considered for catalog releases. Consumers using
+the raw Terraform Git source syntax above do not get DOrc's tag/SHA
+verification and should use a reviewed full commit SHA for an immutable pin.
+Catalog version ordering supports stable `major.minor.patch` releases only
+(legacy leading `v` accepted); prerelease/build labels are not supported.
+
+## Service ownership and v1 to v2 upgrades
+
+ClickHouse/PostgreSQL v1 manages a database on an existing Aiven service.
+Their v2 modules **create and own the service by default**. Changing the
+component's pinned version from v1 to v2 is therefore not a routine patch:
+
+- For a v1 database on an externally managed service, explicitly persist
+  `create_service=false` before the v2 plan, retain the existing state identity,
+  and inspect the plan for unintended service/database creation or replacement.
+- For a new v2 deployment that creates its service, persist
+  `create_service=true` for its entire lifetime. Switching to false does not
+  hand off ownership: the counted service resource disappears from the
+  configuration and Terraform may plan its destruction (or protection may
+  reject the plan). Enabling it later on an existing externally managed
+  service may instead attempt duplicate creation. Neither is an import.
+- Any genuine ownership transfer requires a separately reviewed, backed-up,
+  operator-controlled state/import procedure. Do not disable termination
+  protection just to force an upgrade through. Keep component/environment
+  state keys stable; renames require explicit state/backend migration, not a
+  fresh empty state.
+
+Aiven PostgreSQL service creation pre-creates `defaultdb`. PostgreSQL v2
+therefore rejects `database_name=defaultdb` with `create_service=true`
+(including when omitted, because true is the default) **before plan**.
+Use a different database name for a new service. `create_service=false` means
+an already existing, externally managed service, not adoption of its existing
+databases; `defaultdb` on that service still needs a reviewed external import
+if it already exists. If an earlier failed apply created the service before
+the duplicate-database error, stop retries, inspect real infrastructure and
+the current state, back it up, then have an operator reconcile/import the
+existing resources or choose a new database through a reviewed plan. Do not
+flip `create_service` merely to bypass the error.
+
+The current upstream v2 source itself still attempts to create the database;
+the guard is a DOrc manifest contract. An upstream correction needs its own
+new module release and review, not mutation of the published tag.
+
+## Supported operations and reproducibility
+
+This feature provides plan/review/apply only. Returned module outputs describe
+resources and provenance; they are not managed import/adoption or destroy
+commands. DOrc reference-data deletion is not Terraform resource destruction.
+There is no dedicated module lifecycle CLI or managed destroy/import endpoint.
+Use the UI or documented API; exceptional state recovery is an operator task.
+Approval has no automatic expiry. Decline and replan after material changes
+rather than treating an old approval as a promise that infrastructure is current.
+
+Module commit pins do not lock providers or the Terraform CLI. Both this
+repository and upstream CI run formatting/validation with a selected CI CLI;
+neither currently enforces committed `.terraform.lock.hcl` files or a plugin
+mirror. Fresh init may resolve a newer compatible provider. Preserve/review
+the root lock file and ensure plan/apply use the same CLI and provider binaries.
+
 ## Plan infrastructure in a DOrc environment
 
 Open the **Terraform module catalog**, or use **Plan Terraform for this
@@ -256,9 +317,9 @@ with the same name and template reuses it.
 ## Adding a new module
 
 1. Open a PR creating `stock-modules/<name>/` per the contract in [`sefe/dorc-terraform-modules`](https://github.com/sefe/dorc-terraform-modules).
-2. That repo's CI validates structure, formatting, provider lock, and the secret-output rule.
+2. That repo's CI runs formatting, init/validate, tflint and the secret-output rule. Provider lock-file verification is not currently enforced.
 3. After merge, tag the commit `stock-modules/<name>/v1.0.0` in that repo.
-4. In this repo, add a manifest `stock-modules-manifests/<name>-1.0.0.yaml` pointing at the tag, and add the row above.
+4. Resolve the tag to its full commit (peel annotated tags), inspect the actual tagged inputs/outputs/provider constraints, then add `stock-modules-manifests/<name>-1.0.0.yaml` with that tag and its `source.commit_sha`. Add the row above. Do not publish duplicate identities or change an existing release payload; fixes require a new version.
 
 ## Deprecation
 
@@ -266,4 +327,4 @@ When a module is superseded:
 
 1. Open a PR adding the deprecation banner to its README and setting `deprecated: true` in the manifest.
 2. Update this index's **Status** column.
-3. Wait at least 90 days before removing the module's manifest entry from the catalog.
+3. Give consumers at least 90 days to plan migration, but retain every published manifest, tag and commit indefinitely. Deprecation hides normal discovery, not pinned resolution. CI allows only the deprecation flag/reason lifecycle changes on existing releases; it rejects deletion, payload edits, duplicate identities and reactivation.

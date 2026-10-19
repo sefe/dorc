@@ -37,6 +37,9 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor = Substitute.For<IComponentProcessor>();
             mockVariableScopeOptionsResolver = Substitute.For<IVariableScopeOptionsResolver>();
             mockRequestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
+            mockRequestsPersistentSource.SetRequestStartStatus(
+                Arg.Any<DeploymentRequestApiModel>(), Arg.Any<DeploymentRequestStatus>(), Arg.Any<DateTimeOffset>())
+                .Returns(true);
             mockPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
             mockEnvironmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
             mockManageProjectsPersistentSource = Substitute.For<IManageProjectsPersistentSource>();
@@ -281,6 +284,60 @@ namespace Dorc.Monitor.Tests
         }
 
         // -------- GitHub artifact cleanup path --------
+
+        [TestMethod]
+        public void Execute_ConfirmationResume_DoesNotDispatchUnapprovedOrCompletedSiblings()
+        {
+            var components = new List<ComponentApiModel>
+            {
+                new() { ComponentId = 1, ComponentName = "Approved", IsEnabled = true, ComponentType = ComponentType.Terraform },
+                new() { ComponentId = 2, ComponentName = "Unapproved", IsEnabled = true, ComponentType = ComponentType.Terraform },
+                new() { ComponentId = 3, ComponentName = "AlreadyComplete", IsEnabled = true, ComponentType = ComponentType.PowerShell }
+            };
+            SetupOrderedComponents(components);
+            mockRequestsPersistentSource.GetDeploymentResultsForRequest(100).Returns(new[]
+            {
+                new DeploymentResultApiModel { Id = 1, ComponentId = 1, RequestId = 100, Status = DeploymentResultStatus.Confirmed.ToString() },
+                new DeploymentResultApiModel { Id = 2, ComponentId = 2, RequestId = 100, Status = DeploymentResultStatus.WaitingConfirmation.ToString() },
+                new DeploymentResultApiModel { Id = 3, ComponentId = 3, RequestId = 100, Status = DeploymentResultStatus.Complete.ToString() }
+            });
+            mockComponentProcessor.DeployComponent(
+                components[0], Arg.Any<DeploymentResultApiModel>(),
+                Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
+                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>()).Returns(true);
+
+            sut.Execute(CreateRequest(components), CancellationToken.None, mockLoggerFactory);
+
+            mockComponentProcessor.Received(1).DeployComponent(
+                components[0], Arg.Any<DeploymentResultApiModel>(),
+                Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
+                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>());
+            Assert.AreEqual(1, mockComponentProcessor.ReceivedCalls()
+                .Count(call => call.GetMethodInfo().Name == nameof(IComponentProcessor.DeployComponent)));
+            mockRequestsPersistentSource.Received().SetRequestCompletionStatus(
+                100, DeploymentRequestStatus.WaitingConfirmation, Arg.Any<DateTimeOffset>(), Arg.Any<string?>());
+        }
+
+        [TestMethod]
+        public void Execute_WhenRequestChangedBeforeStart_DoesNotDispatchOrOverwriteStatus()
+        {
+            mockRequestsPersistentSource.SetRequestStartStatus(
+                Arg.Any<DeploymentRequestApiModel>(), Arg.Any<DeploymentRequestStatus>(), Arg.Any<DateTimeOffset>())
+                .Returns(false);
+            var components = new List<ComponentApiModel>
+            {
+                new() { ComponentId = 1, ComponentName = "Cancelled", IsEnabled = true }
+            };
+            SetupOrderedComponents(components);
+
+            sut.Execute(CreateRequest(components), CancellationToken.None, mockLoggerFactory);
+
+            Assert.IsFalse(mockComponentProcessor.ReceivedCalls().Any());
+            mockRequestsPersistentSource.DidNotReceiveWithAnyArgs()
+                .SetRequestCompletionStatus(default, default, default, default);
+        }
 
         [TestMethod]
         public void Execute_WithGitHubArtifactDropLocation_CleansUpResolvedPathAfterDeployment()

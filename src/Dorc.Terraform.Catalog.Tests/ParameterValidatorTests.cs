@@ -76,11 +76,37 @@ namespace Dorc.Terraform.Catalog.Tests
         public void Validate_BoolTypeAcceptsTrueFalse()
         {
             var manifest = Manifest(Param("flag", TerraformParameterType.Bool));
-            foreach (var v in new[] { "true", "false", "True", "FALSE" })
+            foreach (var v in new[] { "true", "false" })
             {
                 var supplied = new Dictionary<string, string?> { ["flag"] = v };
                 Assert.IsTrue(validator.Validate(manifest, supplied).IsValid, $"value '{v}' should be a valid bool");
             }
+        }
+
+        [TestMethod]
+        public void Validate_RejectsDotNetOnlyBoolAndNumberRepresentations()
+        {
+            foreach (var value in new[] { "TRUE", "False", " true", "false " })
+                Assert.IsFalse(validator.Validate(Manifest(Param("value", TerraformParameterType.Bool)),
+                    new Dictionary<string, string?> { ["value"] = value }).IsValid, value);
+            foreach (var value in new[] { "1,000", "1 000", "1 ", "+1", ".5", "01", "NaN",
+                         "1e-30", "1.12345678901234567890123456789012345" })
+                Assert.IsFalse(validator.Validate(Manifest(Param("value", TerraformParameterType.Number)),
+                    new Dictionary<string, string?> { ["value"] = value }).IsValid, value);
+            foreach (var value in new[] { "1000", "-1", "2.5", "2e2", "1.5E-2" })
+                Assert.IsTrue(validator.Validate(Manifest(Param("value", TerraformParameterType.Number)),
+                    new Dictionary<string, string?> { ["value"] = value }).IsValid, value);
+        }
+
+        [TestMethod]
+        public void Validate_IntegerConstraintRejectsFractionButAcceptsWholeExponent()
+        {
+            var manifest = Manifest(Param("partitions", TerraformParameterType.Number) with { Integer = true });
+            foreach (var value in new[] { "2", "2.0", "2e1" })
+                Assert.IsTrue(validator.Validate(manifest,
+                    new Dictionary<string, string?> { ["partitions"] = value }).IsValid, value);
+            Assert.IsFalse(validator.Validate(manifest,
+                new Dictionary<string, string?> { ["partitions"] = "2.5" }).IsValid);
         }
 
         [TestMethod]

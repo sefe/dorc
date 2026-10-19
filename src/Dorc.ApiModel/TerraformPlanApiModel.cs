@@ -8,5 +8,6 @@ namespace Dorc.ApiModel
         public string PlanContent { get; set; }
         public DateTime CreatedAt { get; set; }
         public string Status { get; set; }
+        public string PlanContentSha256 { get; set; } = string.Empty;
     }
 }

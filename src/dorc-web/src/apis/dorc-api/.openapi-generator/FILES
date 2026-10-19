@@ -155,14 +155,17 @@ models/RefDataAuditApiModel.ts
 models/RequestDto.ts
 models/RequestProperty.ts
 models/RequestStatusDto.ts
+models/ResourceTagsUpdate.ts
 models/Response.ts
 models/ScriptApiModel.ts
 models/ScriptAuditApiModel.ts
 models/ServerApiModel.ts
 models/ServerAuditApiModel.ts
 models/ServerOperatingSystemApiModel.ts
+models/SharedResourceCapabilities.ts
 models/SourceControlType.ts
 models/SqlPortApiModel.ts
+models/TerraformParameterConflict.ts
 models/TerraformParameterResolutionApiModel.ts
 models/TerraformParameterResolutionStatus.ts
 models/TerraformParameterType.ts

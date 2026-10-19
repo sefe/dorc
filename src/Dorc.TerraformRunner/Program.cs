@@ -32,6 +32,15 @@ namespace Dorc.TerraformRunner
         private static async Task Main(string[] args)
         {
             bool result = false;
+            using var cancellation = new CancellationTokenSource();
+            ConsoleCancelEventHandler cancelHandler = (_, e) =>
+            {
+                e.Cancel = true;
+                cancellation.Cancel();
+            };
+            Console.CancelKeyPress += cancelHandler;
+            using var stopWatching = new CancellationTokenSource();
+            Task? cancellationWatcher = null;
 
             try
             {
@@ -63,6 +72,8 @@ namespace Dorc.TerraformRunner
                 }
 
                 options = arguments.Value;
+                cancellationWatcher = WatchCancellationAsync(options.PlanFilePath + ".cancel",
+                    cancellation, stopWatching.Token);
                 var loggerRegistry = new LoggerRegistry();
                 var config = new ConfigurationBuilder()
                     .AddJsonFile("appsettings.json")
@@ -128,10 +139,10 @@ namespace Dorc.TerraformRunner
                 switch (options.TerraformRunnerOperation)
                 {
                     case TerraformRunnerOperations.CreatePlan:
-                        result = await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, options.LockFilePath, CancellationToken.None);
+                        result = await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, options.LockFilePath, cancellation.Token);
                         break;
                     case TerraformRunnerOperations.ApplyPlan:
-                        result = await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, options.LockFilePath, options.AppliedResourcesFilePath, options.SourceArchiveFilePath, CancellationToken.None);
+                        result = await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, options.LockFilePath, options.AppliedResourcesFilePath, options.SourceArchiveFilePath, cancellation.Token);
                         break;
                 }
             }
@@ -142,14 +153,33 @@ namespace Dorc.TerraformRunner
             }
             finally
             {
-                Exit(result ? 0 : 1);
+                Console.CancelKeyPress -= cancelHandler;
+                stopWatching.Cancel();
+                if (cancellationWatcher is not null) await cancellationWatcher;
+                Exit(result && !cancellation.IsCancellationRequested ? 0 : 1);
             }
+        }
+
+        internal static async Task WatchCancellationAsync(string markerPath,
+            CancellationTokenSource operation, CancellationToken stopWatching)
+        {
+            try
+            {
+                while (!stopWatching.IsCancellationRequested)
+                {
+                    if (File.Exists(markerPath))
+                    {
+                        operation.Cancel();
+                        return;
+                    }
+                    await Task.Delay(200, stopWatching);
+                }
+            }
+            catch (OperationCanceledException) when (stopWatching.IsCancellationRequested) { }
         }
 
         static void FinalizeProgram()
         {
-            Thread.Sleep(10000);
-
             runnerLogger?.FileLogger.LogInformation(RunnerConstants.StandardStreamEndString);
             runnerLogger?.FlushLogMessages();
         }

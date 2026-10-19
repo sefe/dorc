@@ -20,6 +20,8 @@ namespace Dorc.TerraformRunner.Tests
         private string _root = null!;
         private ScriptGroup _scriptGroup = null!;
         private FakeProcessor _processor = null!;
+        private IRunnerLogger _logger = null!;
+        private ITemplateCatalog _catalog = null!;
 
         [TestInitialize]
         public void Setup()
@@ -36,9 +38,10 @@ namespace Dorc.TerraformRunner.Tests
                 TerraformResolvedGitSha = "approved-sha"
             };
             var pipe = new FakePipe(_scriptGroup);
-            var logger = Substitute.For<IRunnerLogger>();
-            logger.FileLogger.Returns(NullLogger.Instance);
-            _processor = new FakeProcessor(_root, logger, pipe);
+            _logger = Substitute.For<IRunnerLogger>();
+            _logger.FileLogger.Returns(NullLogger.Instance);
+            _catalog = Substitute.For<ITemplateCatalog>();
+            _processor = new FakeProcessor(_root, _logger, pipe, _catalog);
         }
 
         [TestCleanup]
@@ -135,10 +138,12 @@ namespace Dorc.TerraformRunner.Tests
         [DataRow("quoted\"secret\\path${value}")]
         [DataRow("\\secret\r\nwith-newline")]
         [DataRow("secret-ü-\"quoted\"")]
-        public async Task ApplyAfterSourceRefMoves_UsesApprovedSourceProvenanceAndRedactedTfvars(string secret)
+        public async Task ApplyAfterSourceRefMoves_UsesApprovedSourceProvenanceWithoutVariableFiles(string secret)
         {
             _scriptGroup.CommonProperties["password"] = new VariableValue { Value = secret, Type = typeof(string) };
             _scriptGroup.SensitivePropertyNames.Add("password");
+            _scriptGroup.CommonProperties["UnrelatedDatabasePassword"] =
+                new VariableValue { Value = "not-flagged-or-used-by-legacy", Type = typeof(string) };
             Assert.IsTrue(await Plan());
             var archived = File.ReadAllBytes(TerraformSourceArchive.PlanArchivePath(Path.Join(_root, "plan.bin")));
             // The standalone lock is no longer authoritative; the snapshot's
@@ -159,10 +164,8 @@ namespace Dorc.TerraformRunner.Tests
             using var provenance = JsonDocument.Parse(provenanceReader.ReadToEnd());
             Assert.AreEqual("approved-sha", provenance.RootElement.GetProperty("GitCommitSha").GetString());
             Assert.AreEqual("main", provenance.RootElement.GetProperty("GitRef").GetString());
-            using var tfvarsReader = new StreamReader(zip.GetEntry("terraform.tfvars")!.Open());
-            var tfvars = tfvarsReader.ReadToEnd();
-            StringAssert.Contains(tfvars, "[REDACTED]");
-            Assert.IsFalse(tfvars.Contains("secret"));
+            Assert.IsNull(zip.GetEntry("terraform.tfvars"));
+            StringAssert.Contains(_processor.PlannedSource["terraform.tfvars"], "not-flagged-or-used-by-legacy");
             Assert.IsFalse(Directory.Exists(_processor.LastWorkingDirectory));
         }
 
@@ -191,6 +194,107 @@ namespace Dorc.TerraformRunner.Tests
             Assert.IsFalse(Directory.Exists(_processor.LastWorkingDirectory));
         }
 
+        [TestMethod]
+        [DataRow(false)]
+        [DataRow(true)]
+        public async Task CatalogInheritedSensitiveScalars_AreEncodedByManifestAndRedactedInErrors(bool useManifestDefault)
+        {
+            _scriptGroup.TerraformSourceType = TerraformSourceType.Catalog;
+            _scriptGroup.TerraformTemplateName = "test";
+            _scriptGroup.TerraformTemplateVersion = "1.0.0";
+            var secret = "quoted\"\\path\n\r%{if x}${x}\t";
+            var parameters = new[]
+            {
+                new TerraformTemplateParameter("text", TerraformParameterType.String, true,
+                    null, useManifestDefault ? secret : null, null, null, null, null, true),
+                new TerraformTemplateParameter("count", TerraformParameterType.Number, true,
+                    null, null, null, null, null, null),
+                new TerraformTemplateParameter("enabled", TerraformParameterType.Bool, true,
+                    null, "true", null, null, null, null)
+            };
+            var manifest = new TerraformTemplateManifest("test", "1.0.0",
+                new TerraformTemplateSource("git", "https://example.invalid/test", "v1"), parameters,
+                Array.Empty<TerraformTemplateOutput>(), null, Array.Empty<string>(), null,
+                new Dictionary<string, string>(), ">=1.9", null, false, null);
+            _catalog.GetAsync("test", "1.0.0", Arg.Any<CancellationToken>()).Returns(manifest);
+            if (!useManifestDefault)
+                _scriptGroup.CommonProperties["text"] = new VariableValue { Value = secret, Type = typeof(string) };
+            _scriptGroup.CommonProperties["count"] = new VariableValue { Value = "1.25e2", Type = typeof(string) };
+            _scriptGroup.CommonProperties["UnrelatedDatabasePassword"] =
+                new VariableValue { Value = "not-a-catalog-input", Type = typeof(string) };
+            await (Task)typeof(TerraformProcessor).GetMethod("CollectSensitiveValuesAsync",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_processor,
+                new object[] { _scriptGroup, CancellationToken.None })!;
+            var effective = (IDictionary<string, VariableValue>)typeof(TerraformProcessor).GetMethod("ResolvePlanProperties",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_processor, new object[] { _scriptGroup.CommonProperties })!;
+            await (Task)typeof(TerraformProcessor).GetMethod("CreateTerraformVariablesFileAsync",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_processor,
+                new object[] { _root, effective, CancellationToken.None })!;
+            var variables = File.ReadAllText(Path.Join(_root, "terraform.tfvars"));
+            StringAssert.Contains(variables, "count = 125");
+            StringAssert.Contains(variables, "enabled = true");
+            Assert.IsFalse(variables.Contains("UnrelatedDatabasePassword"));
+            StringAssert.Contains(variables, "text = \"quoted\\\"\\\\path\\n\\r%%{if x}$${x}\\t\"");
+            var redact = typeof(TerraformProcessor).GetMethod("RedactSensitiveValues",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            Assert.AreEqual("[REDACTED]", redact.Invoke(_processor, new object[] { secret }));
+            StringAssert.Contains((string)redact.Invoke(_processor, new object[] { variables })!, "text = \"[REDACTED]\"");
+            var error = Assert.ThrowsExactly<TargetInvocationException>(() => typeof(TerraformProcessor)
+                .GetMethod("InterpretExitCode", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .Invoke(_processor, new object[] { TerraformCommand.PlanDetailedExitCode, 1, "error " + secret }));
+            Assert.IsInstanceOfType<InvalidOperationException>(error.InnerException);
+            _logger.Received().Error(Arg.Is<string>(message => message.Contains("error [REDACTED]")
+                && !message.Contains(secret)));
+        }
+
+        [TestMethod]
+        public async Task CatalogEffectiveDefaultConflict_FailsBeforeFetchingSourceOrRunningTerraform()
+        {
+            ConfigureState();
+            _scriptGroup.TerraformSourceType = TerraformSourceType.Catalog;
+            _scriptGroup.TerraformTemplateName = "test";
+            _scriptGroup.TerraformTemplateVersion = "1.0.0";
+            var manifest = new TerraformTemplateManifest("test", "1.0.0",
+                new TerraformTemplateSource("git", "https://example.invalid/test", "v1"),
+                new[]
+                {
+                    new TerraformTemplateParameter("database_name", TerraformParameterType.String, true,
+                        null, null, null, null, null, null),
+                    new TerraformTemplateParameter("create_service", TerraformParameterType.Bool, false,
+                        null, "true", null, null, null, null)
+                },
+                Array.Empty<TerraformTemplateOutput>(), null, Array.Empty<string>(), null,
+                new Dictionary<string, string>(), ">=1.9", null, false, null,
+                new[] { new TerraformParameterConflict("database_name", "defaultdb", "create_service", "true",
+                    "Cannot create reserved default database.") });
+            _catalog.GetAsync("test", "1.0.0", Arg.Any<CancellationToken>()).Returns(manifest);
+            _scriptGroup.CommonProperties["database_name"] = new VariableValue { Value = "defaultdb", Type = typeof(string) };
+            Assert.IsFalse(await Plan());
+            Assert.AreEqual(0, _processor.Commands.Count);
+            _logger.Received().Error(Arg.Is<string>(message => message.Contains("Cannot create reserved default database.")));
+        }
+
+        [TestMethod]
+        public async Task CancellationDuringPlan_PropagatesAndCleansWorkingDirectory()
+        {
+            _processor.CancelCommand = true;
+            await Assert.ThrowsAsync<OperationCanceledException>(() => Plan());
+            Assert.IsFalse(Directory.Exists(_processor.LastWorkingDirectory));
+            Assert.IsFalse(File.Exists(TerraformSourceArchive.PlanArchivePath(Path.Join(_root, "plan.bin"))));
+        }
+
+        [TestMethod]
+        public async Task CancellationMarker_CancelsRunnerOperation()
+        {
+            var marker = Path.Join(_root, "plan.cancel");
+            using var operation = new CancellationTokenSource();
+            using var stop = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            var watch = Program.WatchCancellationAsync(marker, operation, stop.Token);
+            File.WriteAllText(marker, string.Empty);
+            await watch;
+            Assert.IsTrue(operation.IsCancellationRequested);
+        }
+
         private sealed class FakePipe(ScriptGroup scriptGroup) : IScriptGroupPipeClient
         {
             public ScriptGroup GetScriptGroupProperties(string pipeName) => scriptGroup;
@@ -205,9 +309,10 @@ namespace Dorc.TerraformRunner.Tests
             public string? AppliedLock { get; private set; }
             public string LastWorkingDirectory { get; private set; } = "";
             public bool FailCommand { get; set; }
+            public bool CancelCommand { get; set; }
 
-            public FakeProcessor(string root, IRunnerLogger logger, IScriptGroupPipeClient pipe)
-                : base(logger, pipe, Substitute.For<ITemplateCatalog>()) => _root = root;
+            public FakeProcessor(string root, IRunnerLogger logger, IScriptGroupPipeClient pipe, ITemplateCatalog catalog)
+                : base(logger, pipe, catalog) => _root = root;
 
             protected override string CreateTerraformWorkingDirectory(int requestId)
             {
@@ -220,6 +325,7 @@ namespace Dorc.TerraformRunner.Tests
                 string workingDir, TerraformCommand command, IReadOnlyList<string> args, CancellationToken cancellationToken)
             {
                 Commands.Add(command);
+                if (CancelCommand) throw new OperationCanceledException();
                 if (FailCommand) throw new InvalidOperationException("Terraform failed");
                 if (command == TerraformCommand.Init)
                 {

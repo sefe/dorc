@@ -38,5 +38,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Dorc.ApiModel\Dorc.ApiModel.csproj" />
+    <ProjectReference Include="..\Dorc.PersistentData\Dorc.PersistentData.csproj" />
   </ItemGroup>
 </Project>

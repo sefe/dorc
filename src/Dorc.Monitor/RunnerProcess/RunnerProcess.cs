@@ -1,5 +1,4 @@
 ﻿using Microsoft.Win32.SafeHandles;
-using System.ComponentModel;
 using System.Runtime.InteropServices;
 
 namespace Dorc.Monitor.RunnerProcess
@@ -15,6 +14,8 @@ namespace Dorc.Monitor.RunnerProcess
         private readonly IntPtr processHandle;
         private readonly IntPtr primaryThreadHandle;
         private uint processId;
+        private RunnerProcessJob? job;
+        private int terminationRequested;
 
         private ProcessWaitHandle completeEvent;
 
@@ -30,14 +31,22 @@ namespace Dorc.Monitor.RunnerProcess
         private RunnerProcess() { }
 
         internal RunnerProcess(
-            Interop.Windows.Kernel32.Interop.Kernel32.PROCESS_INFORMATION processInfo)
+            Interop.Windows.Kernel32.Interop.Kernel32.PROCESS_INFORMATION processInfo,
+            RunnerProcessJob? job = null)
+            : this(processInfo.Process, processInfo.Thread, processInfo.ProcessId, job)
         {
-            this.processHandle = processInfo.Process;
-            this.primaryThreadHandle = processInfo.Thread;
+        }
 
-            this.processId = processInfo.ProcessId;
+        internal RunnerProcess(IntPtr processHandle, IntPtr primaryThreadHandle, uint processId,
+            RunnerProcessJob? job = null)
+        {
+            this.processHandle = processHandle;
+            this.primaryThreadHandle = primaryThreadHandle;
 
-            this.completeEvent = new ProcessWaitHandle(processInfo.Process);
+            this.processId = processId;
+            this.job = job;
+
+            this.completeEvent = new ProcessWaitHandle(processHandle);
         }
 
         public uint WaitForExit()
@@ -47,7 +56,10 @@ namespace Dorc.Monitor.RunnerProcess
             uint exitCode;
             if (Interop.Windows.Kernel32.Interop.Kernel32.GetExitCodeProcess(this.processHandle, out exitCode))
             {
-                return exitCode;
+                // Managed whole-tree termination uses an OS-specific exit code.
+                // Keep the cancellation contract used by ScriptDispatcher, even
+                // when the waiter wakes before the Kill call has returned.
+                return Volatile.Read(ref terminationRequested) != 0 ? ProcessTerminatedExitCode : exitCode;
             }
 
             Interop.Windows.Kernel32.Interop.Kernel32.CloseHandle(this.processHandle);
@@ -56,29 +68,58 @@ namespace Dorc.Monitor.RunnerProcess
             throw new ExternalException("GetExitCodeProcess Error " + lastError, lastError);
         }
 
+        public uint WaitForExit(CancellationToken cancellationToken, Action? requestCancellation = null)
+        {
+            if (WaitHandle.WaitAny(new[] { completeEvent, cancellationToken.WaitHandle }) == 1
+                || cancellationToken.IsCancellationRequested)
+            {
+                try
+                {
+                    requestCancellation?.Invoke();
+                    if (requestCancellation is not null)
+                        completeEvent.WaitOne(TimeSpan.FromSeconds(5));
+                }
+                finally
+                {
+                    // Also terminate surviving descendants if the runner has
+                    // exited, rather than relying on its parent-child relation.
+                    Kill();
+                }
+                if (!completeEvent.WaitOne(TimeSpan.FromSeconds(5)))
+                    throw new InvalidOperationException("Runner did not stop within the cancellation deadline.");
+                throw new OperationCanceledException(cancellationToken);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return WaitForExit();
+        }
+
         public void Kill()
         {
-            SafeProcessHandle? handle = null;
+            if (job is not null)
+            {
+                Volatile.Write(ref terminationRequested, 1);
+                job.Terminate();
+                return;
+            }
+            if (completeEvent.WaitOne(0)) return;
             try
             {
-                handle = new SafeProcessHandle(this.processHandle, ownsHandle: false);
-                if (!Interop.Windows.Kernel32.Interop.Kernel32.TerminateProcess(handle, ProcessTerminatedExitCode))
-                {
-                    if (Marshal.GetLastWin32Error() != 0)
-                    {
-                        throw new Win32Exception(Marshal.GetLastWin32Error());
-                    }
-                    throw new Win32Exception("The RunnerProcess was not terminated successfully.");
-                }
+                using var process = System.Diagnostics.Process.GetProcessById((int)processId);
+                if (process.HasExited) return;
+                Volatile.Write(ref terminationRequested, 1);
+                process.Kill(entireProcessTree: true);
             }
-            finally
+            catch (ArgumentException) when (completeEvent.WaitOne(0))
             {
-                handle?.Close();
+                // Another cancellation caller terminated the process between
+                // the exit check and opening its managed process wrapper.
             }
         }
 
         public void Close()
         {
+            job?.Dispose();
+            job = null;
             // We need to lock to ensure we don't run concurrently with CompletionCallback.
             // Without this lock we could reset _raisedOnExited which causes CompletionCallback to
             // raise the Exited event a second time for the same process.

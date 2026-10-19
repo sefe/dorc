@@ -17,6 +17,11 @@
  */
 export interface TerraformPlanApiModel {
     /**
+     * @type {string}
+     * @memberof TerraformPlanApiModel
+     */
+    PlanContentSha256?: string | null;
+    /**
      * @type {number}
      * @memberof TerraformPlanApiModel
      */

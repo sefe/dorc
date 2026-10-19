@@ -8220,6 +8220,12 @@
         ],
         "parameters": [
           {
+            "name": "planContentSha256",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "nullable": true }
+          },
+          {
             "name": "deploymentResultId",
             "in": "path",
             "required": true,
@@ -8233,8 +8239,14 @@
           "200": {
             "description": "OK"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "404": {
             "description": "Not Found"
+          },
+          "409": {
+            "description": "Plan or request state changed; reload and review the current plan before confirming"
           }
         }
       }
@@ -9728,6 +9740,69 @@
               }
             }
           }
+        }
+      }
+    },
+    "/RefDataContainers/Capabilities/{envId}": {
+      "get": {
+        "tags": ["RefDataContainers"],
+        "parameters": [{"name": "envId", "in": "path", "required": true, "schema": {"type": "integer", "format": "int32"}}],
+        "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SharedResourceCapabilities"}}}}}
+      }
+    },
+    "/RefDataCloudResources/Capabilities/{envId}": {
+      "get": {
+        "tags": ["RefDataCloudResources"],
+        "parameters": [{"name": "envId", "in": "path", "required": true, "schema": {"type": "integer", "format": "int32"}}],
+        "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SharedResourceCapabilities"}}}}}
+      }
+    },
+    "/RefDataApiRegistrations/Capabilities/{envId}": {
+      "get": {
+        "tags": ["RefDataApiRegistrations"],
+        "parameters": [{"name": "envId", "in": "path", "required": true, "schema": {"type": "integer", "format": "int32"}}],
+        "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SharedResourceCapabilities"}}}}}
+      }
+    },
+    "/RefDataContainers/{id}/tags": {
+      "put": {
+        "tags": ["RefDataContainers"],
+        "description": "Update only tags, comparing ExpectedTags atomically; unrelated definition fields are preserved.",
+        "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "integer", "format": "int32"}}],
+        "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/ResourceTagsUpdate"}}}},
+        "responses": {
+          "200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ContainerApiModel"}}}},
+          "403": {"description": "Forbidden"},
+          "404": {"description": "Not Found"},
+          "409": {"description": "Tags have changed; reload before saving"}
+        }
+      }
+    },
+    "/RefDataCloudResources/{id}/tags": {
+      "put": {
+        "tags": ["RefDataCloudResources"],
+        "description": "Update only tags, comparing ExpectedTags atomically; unrelated definition fields are preserved.",
+        "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "integer", "format": "int32"}}],
+        "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/ResourceTagsUpdate"}}}},
+        "responses": {
+          "200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CloudResourceApiModel"}}}},
+          "403": {"description": "Forbidden"},
+          "404": {"description": "Not Found"},
+          "409": {"description": "Tags have changed; reload before saving"}
+        }
+      }
+    },
+    "/RefDataApiRegistrations/{id}/tags": {
+      "put": {
+        "tags": ["RefDataApiRegistrations"],
+        "description": "Update only tags, comparing ExpectedTags atomically; unrelated definition fields are preserved.",
+        "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "integer", "format": "int32"}}],
+        "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/ResourceTagsUpdate"}}}},
+        "responses": {
+          "200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiRegistrationApiModel"}}}},
+          "403": {"description": "Forbidden"},
+          "404": {"description": "Not Found"},
+          "409": {"description": "Tags have changed; reload before saving"}
         }
       }
     },
@@ -12799,6 +12874,10 @@
       "TerraformPlanApiModel": {
         "type": "object",
         "properties": {
+          "PlanContentSha256": {
+            "type": "string",
+            "nullable": true
+          },
           "DeploymentResultId": {
             "type": "integer",
             "format": "int32"
@@ -12879,6 +12958,18 @@
         },
         "additionalProperties": false
       },
+      "TerraformParameterConflict": {
+        "type": "object",
+        "required": ["Parameter", "Value", "WhenParameter", "WhenValue", "Message"],
+        "properties": {
+          "Parameter": {"type": "string"},
+          "Value": {"type": "string"},
+          "WhenParameter": {"type": "string"},
+          "WhenValue": {"type": "string"},
+          "Message": {"type": "string"}
+        },
+        "additionalProperties": false
+      },
       "TerraformTemplateManifest": {
         "type": "object",
         "required": [
@@ -12947,6 +13038,13 @@
           "DeprecationReason": {
             "type": "string",
             "nullable": true
+          },
+          "ParameterConflicts": {
+            "type": "array",
+            "nullable": true,
+            "items": {
+              "$ref": "#/components/schemas/TerraformParameterConflict"
+            }
           }
         },
         "additionalProperties": false
@@ -13024,6 +13122,10 @@
           },
           "Sensitive": {
             "type": "boolean"
+          },
+          "Integer": {
+            "type": "boolean",
+            "default": false
           }
         },
         "additionalProperties": false
@@ -13046,6 +13148,10 @@
             "type": "string"
           },
           "SubPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "CommitSha": {
             "type": "string",
             "nullable": true
           }
@@ -13488,9 +13594,34 @@
         },
         "additionalProperties": false
       },
+      "SharedResourceCapabilities": {
+        "type": "object",
+        "properties": {
+          "CanCreateDefinition": {"type": "boolean"},
+          "CanManageMembership": {"type": "boolean"}
+        },
+        "additionalProperties": false
+      },
+      "ResourceTagsUpdate": {
+        "type": "object",
+        "properties": {
+          "ExpectedTags": {"type": "string", "nullable": true},
+          "Tags": {"type": "string", "nullable": true}
+        },
+        "additionalProperties": false
+      },
       "ContainerApiModel": {
         "type": "object",
         "properties": {
+          "Revision": {
+            "type": "string",
+            "nullable": true,
+            "description": "Content revision from the last read; required unchanged when updating the full definition."
+          },
+          "CanEditDefinition": {
+            "type": "boolean",
+            "readOnly": true
+          },
           "EnvironmentNames": {
             "type": "array",
             "items": {
@@ -13531,6 +13662,15 @@
       "CloudResourceApiModel": {
         "type": "object",
         "properties": {
+          "Revision": {
+            "type": "string",
+            "nullable": true,
+            "description": "Content revision from the last read; required unchanged when updating the full definition."
+          },
+          "CanEditDefinition": {
+            "type": "boolean",
+            "readOnly": true
+          },
           "EnvironmentNames": {
             "type": "array",
             "items": {
@@ -13575,6 +13715,15 @@
       "ApiRegistrationApiModel": {
         "type": "object",
         "properties": {
+          "Revision": {
+            "type": "string",
+            "nullable": true,
+            "description": "Content revision from the last read; required unchanged when updating the full definition."
+          },
+          "CanEditDefinition": {
+            "type": "boolean",
+            "readOnly": true
+          },
           "EnvironmentNames": {
             "type": "array",
             "items": {

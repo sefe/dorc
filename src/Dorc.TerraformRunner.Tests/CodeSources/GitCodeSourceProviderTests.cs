@@ -3,6 +3,7 @@ using Dorc.Runner.Logger;
 using Dorc.TerraformRunner.CodeSources;
 using LibGit2Sharp;
 using NSubstitute;
+using Dorc.Terraform.Catalog;
 
 namespace Dorc.TerraformRunner.Tests.CodeSources
 {
@@ -30,7 +31,7 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
         [TestInitialize]
         public void Setup()
         {
-            _tempRoot = Path.Join(Path.GetTempPath(), "gcsp-" + Guid.NewGuid().ToString("N"));
+            _tempRoot = Path.Join(Directory.GetCurrentDirectory(), "gcsp-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(_tempRoot);
             _sourceRepoPath = CreateSourceRepository();
             _provider = new GitCodeSourceProvider(Substitute.For<IRunnerLogger>());
@@ -94,6 +95,88 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
         }
 
         private string NewWorkingDir() => Path.Join(_tempRoot, "work-" + Guid.NewGuid().ToString("N"));
+
+        [TestMethod]
+        public async Task CatalogReference_UsesVerifiedPin_AndRetainsDeprecatedReleases()
+        {
+            var manifest = new TerraformTemplateManifest(
+                "module", "1.0.0", new TerraformTemplateSource("git", _sourceRepoPath, TagName,
+                    CommitSha: _firstCommitSha),
+                Array.Empty<TerraformTemplateParameter>(), Array.Empty<TerraformTemplateOutput>(),
+                null, Array.Empty<string>(), null, new Dictionary<string, string>(), ">= 1.5.0",
+                null, true, "Use 2.0.0");
+            var catalog = Substitute.For<ITemplateCatalog>();
+            catalog.GetAsync("module", "1.0.0", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<TerraformTemplateManifest?>(manifest));
+            var provider = new CatalogReferenceCodeSourceProvider(Substitute.For<IRunnerLogger>(), catalog);
+            var group = new ScriptGroup {
+                TerraformTemplateName = "module", TerraformTemplateVersion = "1.0.0",
+                TerraformSourceType = TerraformSourceType.Catalog, TerraformGitPat = "dummy"
+            };
+            var workingDir = NewWorkingDir();
+            await provider.ProvisionCodeAsync(group, workingDir, CancellationToken.None);
+            Assert.AreEqual(ContentV1, File.ReadAllText(Path.Join(workingDir, FileName)));
+            Assert.AreEqual(_firstCommitSha, group.TerraformResolvedGitSha);
+
+            catalog.GetAsync("module", "1.0.0", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<TerraformTemplateManifest?>(manifest with {
+                    Source = manifest.Source with { CommitSha = null }
+                }));
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                provider.ProvisionCodeAsync(group, NewWorkingDir(), CancellationToken.None));
+        }
+
+        [TestMethod]
+        public async Task CatalogTag_IsNotShadowedByBranchWithSameName()
+        {
+            using (var repo = new Repository(_sourceRepoPath))
+                repo.CreateBranch(TagName, repo.Head.Tip);
+            var scriptGroup = BuildScriptGroup(TagName);
+            var workingDir = NewWorkingDir();
+
+            await _provider.ProvisionCodeAsync(scriptGroup, workingDir, CancellationToken.None, _firstCommitSha);
+
+            Assert.AreEqual(ContentV1, File.ReadAllText(Path.Join(workingDir, FileName)));
+            Assert.AreEqual(_firstCommitSha, scriptGroup.TerraformResolvedGitSha);
+        }
+
+        [TestMethod]
+        public async Task CatalogTag_RejectsMovedTag()
+        {
+            using (var repo = new Repository(_sourceRepoPath))
+            {
+                repo.Tags.Remove(TagName);
+                repo.ApplyTag(TagName);
+            }
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                _provider.ProvisionCodeAsync(BuildScriptGroup(TagName), NewWorkingDir(),
+                    CancellationToken.None, _firstCommitSha));
+        }
+
+        [TestMethod]
+        public async Task CatalogTag_RejectsBranchOnlyAndAbbreviatedPin()
+        {
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                _provider.ProvisionCodeAsync(BuildScriptGroup(BranchName), NewWorkingDir(),
+                    CancellationToken.None, _firstCommitSha));
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                _provider.ProvisionCodeAsync(BuildScriptGroup(TagName), NewWorkingDir(),
+                    CancellationToken.None, _firstCommitSha[..8]));
+        }
+
+        [TestMethod]
+        public async Task CatalogTag_ResolvesAnnotatedFullyQualifiedTag()
+        {
+            using (var repo = new Repository(_sourceRepoPath))
+            {
+                var signature = new Signature("Test User", "test.user@example.com", DateTimeOffset.Now);
+                repo.ApplyTag("annotated", _firstCommitSha, signature, "release");
+            }
+            var workingDir = NewWorkingDir();
+            await _provider.ProvisionCodeAsync(BuildScriptGroup("refs/tags/annotated"), workingDir,
+                CancellationToken.None, _firstCommitSha);
+            Assert.AreEqual(ContentV1, File.ReadAllText(Path.Join(workingDir, FileName)));
+        }
 
         [TestMethod]
         public async Task ProvisionCodeAsync_TagRef_ChecksOutTaggedCommit()

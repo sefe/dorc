@@ -97,6 +97,15 @@ namespace Dorc.Monitor.Terraform
 
         private void RegisterResource(CloudResourceApiModel resource, EnvironmentApiModel environment, string username)
         {
+            _cloudResourcesPersistentSource.ExecuteMutation(() =>
+            {
+                RegisterResourceCore(resource, environment, username);
+                return true;
+            });
+        }
+
+        private void RegisterResourceCore(CloudResourceApiModel resource, EnvironmentApiModel environment, string username)
+        {
             var persisted = Upsert(resource, username);
             if (persisted is null) return;
 

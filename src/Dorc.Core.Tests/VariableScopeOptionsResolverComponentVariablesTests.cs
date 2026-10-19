@@ -196,5 +196,21 @@ namespace Dorc.Core.Tests
             Assert.IsNotNull(ValueOf("EnvironmentCloudResources"));
             Assert.IsNotNull(ValueOf("EnvironmentApiRegistrations"));
         }
+
+        [TestMethod]
+        public void NormalizedTagCollision_RefusesDeploymentInsteadOfOverwritingAVariable()
+        {
+            _containers.GetForEnvironmentId(42).Returns(new[]
+            {
+                new ContainerApiModel { Name = "first", Image = "image", Tags = "web api" },
+                new ContainerApiModel { Name = "second", Image = "image", Tags = "web_api" }
+            });
+
+            var error = Assert.Throws<InvalidOperationException>(() =>
+                _resolver.SetPropertyValues(CreateRecordingVariableResolver(), _environment));
+
+            StringAssert.Contains(error.Message, "ContainerNames_web_api");
+            StringAssert.Contains(error.Message, "Rename one tag");
+        }
     }
 }

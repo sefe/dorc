@@ -4,6 +4,7 @@ source:
   kind: git
   locator: https://github.com/sefe/dorc-terraform-modules.git
   ref: stock-modules/kafka-topic/v1.0.0
+  commit_sha: 9e219f84cb286788c69a7bb93602bac5035f74c0
 parameters:
   - name: project
     type: String
@@ -77,6 +78,7 @@ parameters:
     pattern: "^[a-z0-9_-]*$"
   - name: partitions
     type: Number
+    integer: true
     required: false
     description: Number of partitions. Can be increased later but never decreased.
     default: "3"
@@ -84,6 +86,7 @@ parameters:
     max: 1000
   - name: replication
     type: Number
+    integer: true
     required: false
     description: Replication factor; Aiven requires at least 2.
     default: "2"
@@ -100,6 +103,7 @@ parameters:
       - compact,delete
   - name: min_insync_replicas
     type: Number
+    integer: true
     required: false
     description: Minimum number of in-sync replicas required to acknowledge a write.
     default: "2"

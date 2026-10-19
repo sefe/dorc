@@ -18,6 +18,8 @@ import type { OperationOpts, HttpHeaders } from '../runtime';
 import type {
     ApiBoolResult,
     ApiRegistrationApiModel,
+    ResourceTagsUpdate,
+    SharedResourceCapabilities,
 } from '../models';
 
 export interface RefDataApiRegistrationsByEnvIdEnvIdGetRequest {
@@ -26,6 +28,10 @@ export interface RefDataApiRegistrationsByEnvIdEnvIdGetRequest {
 
 export interface RefDataApiRegistrationsByIdIdGetRequest {
     id: number;
+}
+
+export interface RefDataApiRegistrationsCapabilitiesEnvIdGetRequest {
+    envId: number;
 }
 
 export interface RefDataApiRegistrationsIdDeleteRequest {
@@ -45,6 +51,11 @@ export interface RefDataApiRegistrationsIdEnvironmentsEnvIdPutRequest {
 export interface RefDataApiRegistrationsIdPutRequest {
     id: number;
     apiRegistrationApiModel?: ApiRegistrationApiModel;
+}
+
+export interface RefDataApiRegistrationsIdTagsPutRequest {
+    id: number;
+    resourceTagsUpdate?: ResourceTagsUpdate;
 }
 
 export interface RefDataApiRegistrationsPostRequest {
@@ -99,6 +110,30 @@ export class RefDataApiRegistrationsApi extends BaseAPI {
 
         return this.request<ApiRegistrationApiModel>({
             url: '/RefDataApiRegistrations/ById/{id}'.replace('{id}', encodeURI(id)),
+            method: 'GET',
+            headers,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    refDataApiRegistrationsCapabilitiesEnvIdGet({ envId }: RefDataApiRegistrationsCapabilitiesEnvIdGetRequest): Observable<SharedResourceCapabilities>
+    refDataApiRegistrationsCapabilitiesEnvIdGet({ envId }: RefDataApiRegistrationsCapabilitiesEnvIdGetRequest, opts?: OperationOpts): Observable<AjaxResponse<SharedResourceCapabilities>>
+    refDataApiRegistrationsCapabilitiesEnvIdGet({ envId }: RefDataApiRegistrationsCapabilitiesEnvIdGetRequest, opts?: OperationOpts): Observable<SharedResourceCapabilities | AjaxResponse<SharedResourceCapabilities>> {
+        throwIfNullOrUndefined(envId, 'envId', 'refDataApiRegistrationsCapabilitiesEnvIdGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<SharedResourceCapabilities>({
+            url: '/RefDataApiRegistrations/Capabilities/{envId}'.replace('{envId}', encodeURI(envId)),
             method: 'GET',
             headers,
         }, opts?.responseOpts);
@@ -223,6 +258,33 @@ export class RefDataApiRegistrationsApi extends BaseAPI {
             method: 'PUT',
             headers,
             body: apiRegistrationApiModel,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     * Update only tags, comparing ExpectedTags atomically; unrelated definition fields are preserved.
+     */
+    refDataApiRegistrationsIdTagsPut({ id, resourceTagsUpdate }: RefDataApiRegistrationsIdTagsPutRequest): Observable<ApiRegistrationApiModel>
+    refDataApiRegistrationsIdTagsPut({ id, resourceTagsUpdate }: RefDataApiRegistrationsIdTagsPutRequest, opts?: OperationOpts): Observable<AjaxResponse<ApiRegistrationApiModel>>
+    refDataApiRegistrationsIdTagsPut({ id, resourceTagsUpdate }: RefDataApiRegistrationsIdTagsPutRequest, opts?: OperationOpts): Observable<ApiRegistrationApiModel | AjaxResponse<ApiRegistrationApiModel>> {
+        throwIfNullOrUndefined(id, 'id', 'refDataApiRegistrationsIdTagsPut');
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<ApiRegistrationApiModel>({
+            url: '/RefDataApiRegistrations/{id}/tags'.replace('{id}', encodeURI(id)),
+            method: 'PUT',
+            headers,
+            body: resourceTagsUpdate,
         }, opts?.responseOpts);
     };
 

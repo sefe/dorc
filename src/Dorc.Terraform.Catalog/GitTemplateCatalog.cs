@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using System.Numerics;
 using Microsoft.Extensions.Logging;
 using YamlDotNet.Serialization;
 using YamlDotNet.Serialization.NamingConventions;
@@ -32,21 +33,23 @@ namespace Dorc.Terraform.Catalog
         // tfvars writer maps faithfully; complex types are deferred
         // to v2 alongside runner support.
         private static readonly Regex ParameterNameRegex =
-            new("^[a-zA-Z0-9_]+$", RegexOptions.Compiled);
+            new(@"\A[a-zA-Z0-9_]+\z", RegexOptions.Compiled);
         // Template name/version flow into the runner's git arguments and the
         // stock-modules/{name} sub-path fallback, and into DB columns
         // (name<=256, version<=64). Constrain both to a safe charset+length so
         // a manifest cannot smuggle path/argument metacharacters downstream.
         private static readonly Regex TemplateNameRegex =
-            new(@"^[a-zA-Z0-9._-]{1,256}$", RegexOptions.Compiled);
+            new(@"\A[a-zA-Z0-9._-]{1,256}\z", RegexOptions.Compiled);
         private static readonly Regex TemplateVersionRegex =
-            new(@"^[a-zA-Z0-9._-]{1,64}$", RegexOptions.Compiled);
+            new(@"\Av?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\z", RegexOptions.Compiled);
+        private static readonly Regex CommitShaRegex =
+            new(@"\A[0-9a-fA-F]{40}\z", RegexOptions.Compiled);
         // Must stay in lockstep with GitCodeSourceProvider.SanitizeGitParameter:
         // a ref accepted here is passed to git verbatim (sanitisation is a
         // no-op on this charset), so validation failure - not silent
         // rewriting - is the only outcome for a hostile ref.
         private static readonly Regex TemplateSourceRefRegex =
-            new(@"^[a-zA-Z0-9\-_/.]{1,256}$", RegexOptions.Compiled);
+            new(@"\A[a-zA-Z0-9\-_/.]{1,256}\z", RegexOptions.Compiled);
         private static readonly HashSet<TerraformParameterType> AllowedParameterTypes =
             new() { TerraformParameterType.String, TerraformParameterType.Number, TerraformParameterType.Bool };
 
@@ -93,6 +96,15 @@ namespace Dorc.Terraform.Catalog
                     continue;
                 }
 
+                // Fail closed for the whole catalog: choosing either duplicate
+                // would let filename order replace a published release.
+                if (!string.IsNullOrEmpty(dto?.Name) && !string.IsNullOrEmpty(dto.Version)
+                    && !seenIdentities.Add(dto.Name + "@" + dto.Version))
+                {
+                    throw new InvalidDataException(
+                        $"Duplicate catalog identity '{dto.Name}@{dto.Version}' at '{file}'.");
+                }
+
                 var (manifest, rejectReason) = TryValidateAndProject(dto);
                 if (rejectReason is not null)
                 {
@@ -102,19 +114,6 @@ namespace Dorc.Terraform.Catalog
                 }
                 if (manifest is not null)
                 {
-                    // Reject a second file declaring the same (name, version):
-                    // the per-(name,version) immutability CI gate only guards
-                    // edits to an existing file, not a duplicate-identity file
-                    // added elsewhere, which would otherwise make resolution
-                    // ambiguous. Keep the first (ordinal filename order) and warn.
-                    var identity = manifest.Name + "@" + manifest.Version;
-                    if (!seenIdentities.Add(identity))
-                    {
-                        logger.LogWarning(
-                            "Catalog manifest at {File} declares duplicate identity {Identity}; ignoring in favour of the first file seen.",
-                            file, identity);
-                        continue;
-                    }
                     manifests.Add(manifest);
                 }
                 // (manifest == null && rejectReason == null) preserves the
@@ -137,8 +136,8 @@ namespace Dorc.Terraform.Catalog
 
             if (!TemplateNameRegex.IsMatch(dto.Name))
                 return (null, $"template name '{dto.Name}' is invalid (only [a-zA-Z0-9._-], up to 256 chars)");
-            if (!TemplateVersionRegex.IsMatch(dto.Version))
-                return (null, $"template version '{dto.Version}' is invalid (only [a-zA-Z0-9._-], up to 64 chars)");
+            if (dto.Version.Length > 64 || !TemplateVersionRegex.IsMatch(dto.Version))
+                return (null, $"template version '{dto.Version}' is invalid (stable major.minor.patch, optionally prefixed v, is required; prerelease/build versions are not supported)");
 
             // The runner presents the environment's Terraform PAT to whatever
             // host the locator resolves to, so an unvalidated locator (a
@@ -153,7 +152,13 @@ namespace Dorc.Terraform.Catalog
                 return (null, $"template source locator '{locator}' is invalid (an absolute https:// URL is required)");
             }
 
-            // The ref is the immutability pin: without it the runner would
+            if (!string.Equals(dto.Source.Kind, "git", StringComparison.Ordinal))
+                return (null, "template source kind must be git");
+            if (!CommitShaRegex.IsMatch(dto.Source.CommitSha ?? string.Empty))
+                return (null, "template source commit_sha must be a full 40-character Git commit SHA");
+
+            // The ref identifies the release tag; commit_sha is the immutable pin.
+            // Without the ref the runner would
             // fall back to the clone default branch, a moving target, while
             // the UI and DB record claim the fixed name@version was deployed.
             // The charset mirrors GitCodeSourceProvider.SanitizeGitParameter
@@ -182,6 +187,18 @@ namespace Dorc.Terraform.Catalog
                 {
                     return (null, $"parameter '{name}' has unsupported type '{p.Type}' (only String/Number/Bool are accepted in v1)");
                 }
+                if (p.Integer && p.Type != TerraformParameterType.Number)
+                    return (null, $"parameter '{name}' integer constraint requires Number type");
+            }
+
+            var parameterNames = (dto.Parameters ?? new()).Select(p => p.Name).ToHashSet(StringComparer.Ordinal);
+            if (parameterNames.Count != (dto.Parameters?.Count ?? 0))
+                return (null, "parameter names must be unique");
+            foreach (var conflict in dto.ParameterConflicts ?? new())
+            {
+                if (!parameterNames.Contains(conflict.Parameter) || !parameterNames.Contains(conflict.WhenParameter)
+                    || conflict.Value is null || conflict.WhenValue is null || string.IsNullOrWhiteSpace(conflict.Message))
+                    return (null, "parameter_conflicts must name declared parameters, values and a nonempty message");
             }
 
             return (ToManifest(dto), null);
@@ -190,33 +207,30 @@ namespace Dorc.Terraform.Catalog
         public async Task<TerraformTemplateManifest?> GetAsync(string name, CancellationToken cancellationToken = default)
         {
             var all = await ListAsync(cancellationToken).ConfigureAwait(false);
-            // Highest version wins, compared numerically per dotted component
-            // (lexical ordering would pick 1.9.0 over 1.10.0). Versions that
-            // do not parse sort below any parseable version and fall back to
-            // ordinal comparison amongst themselves.
+            // Stable major.minor.patch only; prerelease/build labels are
+            // rejected at load time rather than incorrectly ordered.
             return all.Where(m => string.Equals(m.Name, name, StringComparison.Ordinal))
-                      .OrderByDescending(m => TryParseVersion(m.Version), NullsFirstVersionComparer.Instance)
+                      .OrderByDescending(m => m.Version, StableVersionComparer.Instance)
                       .ThenByDescending(m => m.Version, StringComparer.Ordinal)
                       .FirstOrDefault();
         }
 
-        private static Version? TryParseVersion(string version)
+        private sealed class StableVersionComparer : IComparer<string>
         {
-            var v = version.StartsWith("v", StringComparison.OrdinalIgnoreCase) ? version[1..] : version;
-            // System.Version needs at least major.minor.
-            if (!v.Contains('.')) v += ".0";
-            return Version.TryParse(v, out var parsed) ? parsed : null;
-        }
-
-        private sealed class NullsFirstVersionComparer : IComparer<Version?>
-        {
-            public static readonly NullsFirstVersionComparer Instance = new();
-            public int Compare(Version? x, Version? y)
+            public static readonly StableVersionComparer Instance = new();
+            public int Compare(string? x, string? y)
             {
                 if (x is null && y is null) return 0;
                 if (x is null) return -1;
                 if (y is null) return 1;
-                return x.CompareTo(y);
+                var left = x.TrimStart('v').Split('.');
+                var right = y.TrimStart('v').Split('.');
+                for (var i = 0; i < 3; i++)
+                {
+                    var comparison = BigInteger.Parse(left[i]).CompareTo(BigInteger.Parse(right[i]));
+                    if (comparison != 0) return comparison;
+                }
+                return 0;
             }
         }
 
@@ -255,6 +269,16 @@ namespace Dorc.Terraform.Catalog
             public string? Owner { get; set; }
             public bool Deprecated { get; set; }
             public string? DeprecationReason { get; set; }
+            public List<ConflictDto>? ParameterConflicts { get; set; }
+        }
+
+        private sealed class ConflictDto
+        {
+            public string Parameter { get; set; } = string.Empty;
+            public string? Value { get; set; }
+            public string WhenParameter { get; set; } = string.Empty;
+            public string? WhenValue { get; set; }
+            public string Message { get; set; } = string.Empty;
         }
 
         private sealed class SourceDto
@@ -263,6 +287,7 @@ namespace Dorc.Terraform.Catalog
             public string? Locator { get; set; }
             public string? Ref { get; set; }
             public string? SubPath { get; set; }
+            public string? CommitSha { get; set; }
         }
 
         private sealed class ParameterDto
@@ -277,6 +302,7 @@ namespace Dorc.Terraform.Catalog
             public decimal? Min { get; set; }
             public decimal? Max { get; set; }
             public bool Sensitive { get; set; }
+            public bool Integer { get; set; }
         }
 
         private sealed class OutputDto
@@ -312,7 +338,9 @@ namespace Dorc.Terraform.Catalog
                 RequiredTerraformVersion: dto.RequiredTerraformVersion ?? string.Empty,
                 Owner: dto.Owner,
                 Deprecated: dto.Deprecated,
-                DeprecationReason: dto.DeprecationReason);
+                DeprecationReason: dto.DeprecationReason,
+                ParameterConflicts: dto.ParameterConflicts?.Select(c => new TerraformParameterConflict(
+                    c.Parameter, c.Value!, c.WhenParameter, c.WhenValue!, c.Message)).ToList());
         }
 
         private static TerraformTemplateSource ToSource(SourceDto? dto)
@@ -323,7 +351,8 @@ namespace Dorc.Terraform.Catalog
                 Kind: dto.Kind ?? string.Empty,
                 Locator: dto.Locator ?? string.Empty,
                 Ref: dto.Ref ?? string.Empty,
-                SubPath: dto.SubPath);
+                SubPath: dto.SubPath,
+                CommitSha: dto.CommitSha);
         }
 
         private static TerraformTemplateParameter ToParameter(ParameterDto dto)
@@ -338,7 +367,8 @@ namespace Dorc.Terraform.Catalog
                 Pattern: dto.Pattern,
                 Min: dto.Min,
                 Max: dto.Max,
-                Sensitive: dto.Sensitive);
+                Sensitive: dto.Sensitive,
+                Integer: dto.Integer);
         }
 
         private static TerraformTemplateOutput ToOutput(OutputDto dto)

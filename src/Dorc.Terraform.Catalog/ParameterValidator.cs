@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Numerics;
 using System.Text.RegularExpressions;
 
 namespace Dorc.Terraform.Catalog
@@ -13,6 +14,40 @@ namespace Dorc.Terraform.Catalog
         // Upper bound on a single manifest-pattern match against a
         // user-supplied value; guards the request thread against ReDoS.
         private static readonly TimeSpan RegexMatchTimeout = TimeSpan.FromSeconds(1);
+        private static readonly Regex NumberSyntax = new(
+            @"\A-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?\z",
+            RegexOptions.CultureInvariant, RegexMatchTimeout);
+
+        // Decimal.TryParse can succeed after rounding/underflow. Reject those
+        // values so normalizing a property cannot change the Terraform input.
+        public static bool TryParseNumberExact(string raw, out decimal value)
+        {
+            value = default;
+            try
+            {
+                return NumberSyntax.IsMatch(raw)
+                    && decimal.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out value)
+                    && NumberIdentity(raw) == NumberIdentity(value.ToString(CultureInfo.InvariantCulture));
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                return false;
+            }
+        }
+
+        private static (bool Negative, string Digits, BigInteger Exponent) NumberIdentity(string raw)
+        {
+            var parts = raw.TrimStart('-').Split(new[] { 'e', 'E' }, 2);
+            var exponent = parts.Length == 2
+                ? BigInteger.Parse(parts[1], CultureInfo.InvariantCulture) : BigInteger.Zero;
+            var dot = parts[0].IndexOf('.');
+            if (dot >= 0) exponent -= parts[0].Length - dot - 1;
+            var digits = parts[0].Replace(".", "").TrimStart('0');
+            if (digits.Length == 0) return (false, "0", BigInteger.Zero);
+            var significant = digits.TrimEnd('0');
+            exponent += digits.Length - significant.Length;
+            return (raw.StartsWith('-'), significant, exponent);
+        }
 
         public ParameterValidationResult Validate(
             TerraformTemplateManifest manifest,
@@ -26,8 +61,26 @@ namespace Dorc.Terraform.Catalog
             ValidateRequired(manifest, suppliedValues, errors);
             ValidateValues(manifest, suppliedValues, errors);
             ValidateUnknown(manifest, suppliedValues, errors);
+            ValidateConflicts(manifest, suppliedValues, errors);
 
             return new ParameterValidationResult(errors.Count == 0, errors);
+        }
+
+        private static void ValidateConflicts(
+            TerraformTemplateManifest manifest,
+            IReadOnlyDictionary<string, string?> supplied,
+            List<ParameterValidationError> errors)
+        {
+            string? EffectiveValue(string name) =>
+                supplied.TryGetValue(name, out var value) && !string.IsNullOrEmpty(value)
+                    ? value : manifest.Parameters.First(p => p.Name == name).Default;
+            foreach (var conflict in manifest.ParameterConflicts ?? Array.Empty<TerraformParameterConflict>())
+            {
+                if (EffectiveValue(conflict.Parameter) == conflict.Value
+                    && EffectiveValue(conflict.WhenParameter) == conflict.WhenValue)
+                    errors.Add(new ParameterValidationError(
+                        conflict.Parameter, ParameterValidationErrorKind.NotAllowed, conflict.Message));
+            }
         }
 
         private static void ValidateRequired(
@@ -88,6 +141,13 @@ namespace Dorc.Terraform.Catalog
                         $"parameter '{p.Name}' value {displayValue} is not a valid {p.Type}"));
                     continue;
                 }
+                if (p.Integer && decimal.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var integer)
+                    && integer != decimal.Truncate(integer))
+                {
+                    errors.Add(new ParameterValidationError(p.Name, ParameterValidationErrorKind.TypeMismatch,
+                        $"parameter '{p.Name}' must be an integer"));
+                    continue;
+                }
 
                 if (p.AllowedValues is { Count: > 0 } && !p.AllowedValues.Contains(raw))
                 {
@@ -138,7 +198,7 @@ namespace Dorc.Terraform.Catalog
 
                 if ((p.Min is not null || p.Max is not null)
                     && p.Type == TerraformParameterType.Number
-                    && decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out var n))
+                    && decimal.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var n))
                 {
                     if (p.Min is not null && n < p.Min)
                     {
@@ -180,9 +240,9 @@ namespace Dorc.Terraform.Catalog
                 case TerraformParameterType.String:
                     return true;
                 case TerraformParameterType.Number:
-                    return decimal.TryParse(raw, NumberStyles.Number, CultureInfo.InvariantCulture, out _);
+                    return TryParseNumberExact(raw, out _);
                 case TerraformParameterType.Bool:
-                    return bool.TryParse(raw, out _);
+                    return raw is "true" or "false";
                 case TerraformParameterType.List:
                 case TerraformParameterType.Map:
                 case TerraformParameterType.Object:

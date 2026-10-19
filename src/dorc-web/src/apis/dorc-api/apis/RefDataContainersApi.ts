@@ -18,6 +18,8 @@ import type { OperationOpts, HttpHeaders } from '../runtime';
 import type {
     ApiBoolResult,
     ContainerApiModel,
+    ResourceTagsUpdate,
+    SharedResourceCapabilities,
 } from '../models';
 
 export interface RefDataContainersByEnvIdEnvIdGetRequest {
@@ -26,6 +28,10 @@ export interface RefDataContainersByEnvIdEnvIdGetRequest {
 
 export interface RefDataContainersByIdIdGetRequest {
     id: number;
+}
+
+export interface RefDataContainersCapabilitiesEnvIdGetRequest {
+    envId: number;
 }
 
 export interface RefDataContainersIdDeleteRequest {
@@ -45,6 +51,11 @@ export interface RefDataContainersIdEnvironmentsEnvIdPutRequest {
 export interface RefDataContainersIdPutRequest {
     id: number;
     containerApiModel?: ContainerApiModel;
+}
+
+export interface RefDataContainersIdTagsPutRequest {
+    id: number;
+    resourceTagsUpdate?: ResourceTagsUpdate;
 }
 
 export interface RefDataContainersPostRequest {
@@ -99,6 +110,30 @@ export class RefDataContainersApi extends BaseAPI {
 
         return this.request<ContainerApiModel>({
             url: '/RefDataContainers/ById/{id}'.replace('{id}', encodeURI(id)),
+            method: 'GET',
+            headers,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    refDataContainersCapabilitiesEnvIdGet({ envId }: RefDataContainersCapabilitiesEnvIdGetRequest): Observable<SharedResourceCapabilities>
+    refDataContainersCapabilitiesEnvIdGet({ envId }: RefDataContainersCapabilitiesEnvIdGetRequest, opts?: OperationOpts): Observable<AjaxResponse<SharedResourceCapabilities>>
+    refDataContainersCapabilitiesEnvIdGet({ envId }: RefDataContainersCapabilitiesEnvIdGetRequest, opts?: OperationOpts): Observable<SharedResourceCapabilities | AjaxResponse<SharedResourceCapabilities>> {
+        throwIfNullOrUndefined(envId, 'envId', 'refDataContainersCapabilitiesEnvIdGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<SharedResourceCapabilities>({
+            url: '/RefDataContainers/Capabilities/{envId}'.replace('{envId}', encodeURI(envId)),
             method: 'GET',
             headers,
         }, opts?.responseOpts);
@@ -223,6 +258,33 @@ export class RefDataContainersApi extends BaseAPI {
             method: 'PUT',
             headers,
             body: containerApiModel,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     * Update only tags, comparing ExpectedTags atomically; unrelated definition fields are preserved.
+     */
+    refDataContainersIdTagsPut({ id, resourceTagsUpdate }: RefDataContainersIdTagsPutRequest): Observable<ContainerApiModel>
+    refDataContainersIdTagsPut({ id, resourceTagsUpdate }: RefDataContainersIdTagsPutRequest, opts?: OperationOpts): Observable<AjaxResponse<ContainerApiModel>>
+    refDataContainersIdTagsPut({ id, resourceTagsUpdate }: RefDataContainersIdTagsPutRequest, opts?: OperationOpts): Observable<ContainerApiModel | AjaxResponse<ContainerApiModel>> {
+        throwIfNullOrUndefined(id, 'id', 'refDataContainersIdTagsPut');
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<ContainerApiModel>({
+            url: '/RefDataContainers/{id}/tags'.replace('{id}', encodeURI(id)),
+            method: 'PUT',
+            headers,
+            body: resourceTagsUpdate,
         }, opts?.responseOpts);
     };
 
