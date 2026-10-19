@@ -109,10 +109,10 @@ namespace Dorc.Monitor.RunnerProcess
                 Volatile.Write(ref terminationRequested, 1);
                 process.Kill(entireProcessTree: true);
             }
-            catch (ArgumentException) when (completeEvent.WaitOne(0))
+            catch (ArgumentException) when (completeEvent.WaitOne(TimeSpan.FromSeconds(5)))
             {
-                // Another cancellation caller terminated the process between
-                // the exit check and opening its managed process wrapper.
+                // Windows can remove a terminated PID before signalling its
+                // process handle. Confirm exit within the cancellation deadline.
             }
         }
 
