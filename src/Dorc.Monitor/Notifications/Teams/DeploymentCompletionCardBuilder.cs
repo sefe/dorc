@@ -102,6 +102,93 @@ namespace Dorc.Monitor.Notifications.Teams
         }
 
         /// <summary>
+        /// Card for a MakeLikeProd-style bundle where request statuses can differ.
+        /// Shows a compact dropdown with each request and its current status.
+        /// </summary>
+        public string BuildBundle(
+            IReadOnlyCollection<DeploymentRequestApiModel> requests,
+            DateTimeOffset completedTime)
+        {
+            if (requests.Count == 0)
+                throw new ArgumentException("A bundle card needs at least one request.", nameof(requests));
+
+            var ordered = requests.OrderBy(r => r.Id).ToList();
+            var baseUrl = _dorcUiBaseUrl.TrimEnd('/');
+            var succeededCount = ordered.Count(r => string.Equals(r.Status, "Completed", StringComparison.OrdinalIgnoreCase));
+            var failedCount = ordered.Count(r =>
+                string.Equals(r.Status, "Failed", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(r.Status, "Errored", StringComparison.OrdinalIgnoreCase));
+
+            var environmentName = ordered
+                .Select(r => r.EnvironmentName)
+                .FirstOrDefault(v => !string.IsNullOrWhiteSpace(v));
+
+            var environmentDeploymentsUrl = !string.IsNullOrWhiteSpace(environmentName)
+                ? $"{baseUrl}/environment/{Uri.EscapeDataString(environmentName)}/deployments"
+                : $"{baseUrl}/monitor-requests";
+
+            var body = new List<object>
+            {
+                new Dictionary<string, object?>
+                {
+                    ["type"]   = "TextBlock",
+                    ["text"]   = $"📦 Bundle deployment update ({ordered.Count} requests)",
+                    ["weight"] = "Bolder",
+                    ["size"]   = "Medium",
+                    ["wrap"]   = true
+                },
+                new Dictionary<string, object?>
+                {
+                    ["type"]  = "FactSet",
+                    ["facts"] = new object[]
+                    {
+                        new Dictionary<string, object?> { ["title"] = "Requester", ["value"] = ordered[0].UserName ?? "—" },
+                        new Dictionary<string, object?> { ["title"] = "Requests",  ["value"] = ordered.Count.ToString() },
+                        new Dictionary<string, object?> { ["title"] = "Failed",    ["value"] = failedCount.ToString() },
+                        new Dictionary<string, object?> { ["title"] = "Succeeded", ["value"] = succeededCount.ToString() },
+                        new Dictionary<string, object?> { ["title"] = "At",        ["value"] = completedTime.ToString("yyyy-MM-dd HH:mm:ss zzz") }
+                    }
+                }
+            };
+
+            if (_showInstanceBanner)
+            {
+                body.Add(new Dictionary<string, object?>
+                {
+                    ["type"]   = "TextBlock",
+                    ["text"]   = _instanceBannerText,
+                    ["color"]  = "Attention",
+                    ["weight"] = "Bolder",
+                    ["wrap"]   = true
+                });
+            }
+
+            var card = new Dictionary<string, object?>
+            {
+                ["type"]         = "AdaptiveCard",
+                ["version"]      = "1.4",
+                ["fallbackText"] = $"Bundle deployment update ({ordered.Count} requests)",
+                ["body"]         = body,
+                ["$schema"]      = "http://adaptivecards.io/schemas/adaptive-card.json"
+            };
+
+            if (!string.IsNullOrWhiteSpace(_dorcUiBaseUrl))
+            {
+                card["actions"] = new object[]
+                {
+                    new Dictionary<string, object?>
+                    {
+                        ["type"]  = "Action.OpenUrl",
+                        ["title"] = "Open Environment Deployment page",
+                        ["url"]   = environmentDeploymentsUrl
+                    }
+                };
+            }
+
+            return JsonSerializer.Serialize(card);
+        }
+
+        /// <summary>
         /// Card for a set of requests that reached the same status together, so a bulk sweep
         /// sends one message per requester instead of one per request.
         /// </summary>

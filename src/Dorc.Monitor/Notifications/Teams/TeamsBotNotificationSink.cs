@@ -1,11 +1,14 @@
 using Dorc.ApiModel;
+using Dorc.Core;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.Rest;
 using Polly;
 using Polly.Retry;
 using Polly.Timeout;
+using System.Collections.Concurrent;
 
 namespace Dorc.Monitor.Notifications.Teams
 {
@@ -17,8 +20,17 @@ namespace Dorc.Monitor.Notifications.Teams
         private readonly HashSet<string> _notifyOnStatuses;
         private readonly IActiveDirectorySearcher _directorySearcher;
         private readonly ITeamsConversationClient _conversationClient;
+        private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly DeploymentCompletionCardBuilder _cardBuilder;
         private readonly ILogger<TeamsBotNotificationSink> _logger;
+        private readonly DeploymentRequestDetailSerializer _requestDetailSerializer = new();
+        private readonly ConcurrentDictionary<string, byte> _sentBundleNotifications = new();
+
+        private enum BundleNotificationResult
+        {
+            Deferred,
+            Sent
+        }
 
         // Internal (not private) so unit tests can collapse the exponential back-off between retries.
         internal Func<int, TimeSpan> RetryDelayProvider { get; set; } = attempt => TimeSpan.FromSeconds(Math.Pow(2, attempt));
@@ -27,12 +39,14 @@ namespace Dorc.Monitor.Notifications.Teams
             IOptions<TeamsBotOptions> options,
             IActiveDirectorySearcher directorySearcher,
             ITeamsConversationClient conversationClient,
+            IRequestsPersistentSource requestsPersistentSource,
             DeploymentCompletionCardBuilder cardBuilder,
             ILoggerFactory loggerFactory)
         {
             _options            = options.Value;
             _directorySearcher  = directorySearcher;
             _conversationClient = conversationClient;
+            _requestsPersistentSource = requestsPersistentSource;
             _cardBuilder        = cardBuilder;
             _logger             = loggerFactory.CreateLogger<TeamsBotNotificationSink>();
             _notifyOnStatuses   = ParseNotifyOnStatuses(_options.NotifyOnStatuses);
@@ -76,6 +90,15 @@ namespace Dorc.Monitor.Notifications.Teams
 
             try
             {
+                if (TryGetBundleRequestIds(request, out var bundleRequestIds) && bundleRequestIds.Count > 1)
+                {
+                    var bundleResult = await TryNotifyBundleAsync(bundleRequestIds, completedTime);
+                    if (bundleResult is BundleNotificationResult.Sent or BundleNotificationResult.Deferred)
+                    {
+                        return;
+                    }
+                }
+
                 var aadObjectId = ResolveAadObjectId(request.UserName);
                 if (aadObjectId is null)
                 {
@@ -237,6 +260,152 @@ namespace Dorc.Monitor.Notifications.Teams
                 CancellationToken.None);
 
             _logger.LogDebug("Batch adaptive card sent to conversation {ConversationId}", conversationId);
+        }
+
+        private async Task DispatchBundleCardAsync(
+            IReadOnlyCollection<DeploymentRequestApiModel> requests,
+            DateTimeOffset completedTime,
+            string aadObjectId)
+        {
+            var policy = BuildResiliencePolicy($"bundle ({requests.Count} requests)");
+
+            var conversationId = await policy.ExecuteAsync(
+                ct => _conversationClient.CreateConversationAsync(aadObjectId, ct),
+                CancellationToken.None);
+
+            var cardJson = _cardBuilder.BuildBundle(requests, completedTime);
+
+            await policy.ExecuteAsync(
+                ct => _conversationClient.SendCardAsync(conversationId, cardJson, ct),
+                CancellationToken.None);
+
+            _logger.LogDebug("Bundle adaptive card sent to conversation {ConversationId}", conversationId);
+        }
+
+        private async Task<BundleNotificationResult> TryNotifyBundleAsync(
+            IReadOnlyCollection<int> bundleRequestIds,
+            DateTimeOffset completedTime)
+        {
+            var orderedIds = bundleRequestIds.OrderBy(id => id).ToArray();
+            var bundleKey = string.Join(",", orderedIds);
+
+            if (_sentBundleNotifications.ContainsKey(bundleKey))
+                return BundleNotificationResult.Sent;
+
+            var requests = orderedIds
+                .Select(TryGetRequest)
+                .Where(r => r is not null)
+                .Select(r => r!)
+                .ToList();
+
+            if (requests.Count != orderedIds.Length)
+                return BundleNotificationResult.Deferred;
+
+            if (!requests.All(r => IsTerminalStatus(r.Status)))
+                return BundleNotificationResult.Deferred;
+
+            if (!_sentBundleNotifications.TryAdd(bundleKey, 0))
+                return BundleNotificationResult.Sent;
+
+            var bundleCompletedTime = requests
+                .Select(r => r.CompletedTime)
+                .Where(t => t.HasValue)
+                .Select(t => t!.Value)
+                .DefaultIfEmpty(completedTime)
+                .Max();
+
+            var byRequester = requests
+                .Where(r => !string.IsNullOrWhiteSpace(r.UserName))
+                .GroupBy(r => r.UserName!, StringComparer.OrdinalIgnoreCase);
+
+            foreach (var group in byRequester)
+            {
+                var userName = group.Key;
+                var forUser = group.ToList();
+
+                try
+                {
+                    var aadObjectId = ResolveAadObjectId(userName);
+                    if (aadObjectId is null)
+                    {
+                        _logger.LogWarning(
+                            "Cannot send bundle Teams notification for requests [{RequestIds}]: could not resolve AAD object ID for user '{UserName}'.",
+                            string.Join(",", forUser.Select(r => r.Id)), userName);
+                        continue;
+                    }
+
+                    await DispatchBundleCardAsync(forUser, bundleCompletedTime, aadObjectId);
+
+                    _logger.LogInformation(
+                        "Bundle Teams notification sent to user '{UserName}' covering {Count} request(s).",
+                        userName, forUser.Count);
+                }
+                catch (Exception ex) when (!FatalExceptions.Is(ex))
+                {
+                    _logger.LogError(ex,
+                        "Failed to send bundle Teams notification to user '{UserName}' for requests [{RequestIds}].",
+                        userName, string.Join(",", forUser.Select(r => r.Id)));
+                }
+            }
+
+            return BundleNotificationResult.Sent;
+        }
+
+        private bool TryGetBundleRequestIds(DeploymentRequestApiModel request, out List<int> requestIds)
+        {
+            requestIds = new List<int>();
+            if (string.IsNullOrWhiteSpace(request.RequestDetails))
+                return false;
+
+            try
+            {
+                var details = _requestDetailSerializer.Deserialize(request.RequestDetails);
+                var allRequestIds = details.Properties
+                    .FirstOrDefault(p => string.Equals(p.Name, "AllRequestIds", StringComparison.OrdinalIgnoreCase))
+                    ?.Value;
+
+                if (string.IsNullOrWhiteSpace(allRequestIds))
+                    return false;
+
+                requestIds = allRequestIds
+                    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                    .Select(value => int.TryParse(value, out var id) ? id : 0)
+                    .Where(id => id > 0)
+                    .Distinct()
+                    .ToList();
+
+                return requestIds.Count > 0;
+            }
+            catch (Exception ex) when (!FatalExceptions.Is(ex))
+            {
+                _logger.LogDebug(ex, "Failed to parse bundle request IDs from request {RequestId} details.", request.Id);
+                return false;
+            }
+        }
+
+        private DeploymentRequestApiModel? TryGetRequest(int requestId)
+        {
+            try
+            {
+                return _requestsPersistentSource.GetRequest(requestId);
+            }
+            catch (Exception ex) when (!FatalExceptions.Is(ex))
+            {
+                _logger.LogWarning(ex, "Failed to load request {RequestId} while building bundle notification.", requestId);
+                return null;
+            }
+        }
+
+        private static bool IsTerminalStatus(string? status)
+        {
+            if (!Enum.TryParse<DeploymentRequestStatus>(status, true, out var parsed))
+                return false;
+
+            return parsed is DeploymentRequestStatus.Completed
+                or DeploymentRequestStatus.Failed
+                or DeploymentRequestStatus.Errored
+                or DeploymentRequestStatus.Cancelled
+                or DeploymentRequestStatus.Abandoned;
         }
 
         private AsyncPolicy BuildResiliencePolicy(string context)
