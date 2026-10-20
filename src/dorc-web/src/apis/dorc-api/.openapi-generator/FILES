@@ -184,6 +184,7 @@ models/TerraformParameterType.ts
 models/TerraformPlanApiModel.ts
 models/TerraformReadinessApiModel.ts
 models/TerraformSourceType.ts
+models/TerraformStateBackendApiModel.ts
 models/TerraformTemplateInstantiateRequestApiModel.ts
 models/TerraformTemplateInstantiateResponseApiModel.ts
 models/TerraformTemplateManifest.ts

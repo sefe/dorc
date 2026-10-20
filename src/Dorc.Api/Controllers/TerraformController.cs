@@ -232,7 +232,7 @@ namespace Dorc.Api.Controllers
                 ProjectName = project.ProjectName,
                 EnvironmentName = environment.EnvironmentName,
                 Parameters = parameters,
-                Readiness = DescribeReadiness(manifest, resolved),
+                Readiness = DescribeReadiness(manifest, resolved, project, environment.EnvironmentId),
                 SavedConfiguration = new CatalogEnvironmentInputsApiModel
                 {
                     Revision = configuration?.Revision ?? 0,
@@ -377,9 +377,20 @@ namespace Dorc.Api.Controllers
         }
 
         private TerraformReadinessApiModel DescribeReadiness(TerraformTemplateManifest manifest,
-            IDictionary<string, VariableValue> resolved)
+            IDictionary<string, VariableValue> resolved, ProjectApiModel project, int environmentId)
         {
             var readiness = new TerraformReadinessApiModel();
+            try
+            {
+                var backend = TerraformStateBackends.Require(project.TerraformStateBackends, environmentId);
+                readiness.BackendStatus = $"{(backend.EnvironmentId.HasValue ? "Environment override" : "Project default")}: " +
+                    $"{backend.StorageAccount}/{backend.ContainerName} (subscription {backend.SubscriptionId}; access not checked)";
+            }
+            catch (Exception error) when (error is ArgumentException or InvalidOperationException)
+            {
+                readiness.BackendStatus = "Missing or invalid project/environment state backend";
+                readiness.Warnings.Add("Configure a valid Terraform state backend in Project Ref Data before submitting a Catalog deployment. Monitor-wide settings are not used.");
+            }
             try
             {
                 readiness.AzureCredentialMode = TerraformArmCredentials.Resolve(resolved) == null
@@ -563,6 +574,12 @@ namespace Dorc.Api.Controllers
                         if (previous != null) return Ok(previous);
                     }
                     catch (CatalogSubmissionConflictException ex) { return Conflict(ex.Message); }
+                }
+
+                try { TerraformStateBackends.Require(project.TerraformStateBackends, deployEnvironment.EnvironmentId); }
+                catch (Exception error) when (error is ArgumentException or InvalidOperationException)
+                {
+                    return BadRequest(error.Message);
                 }
 
                 // Resolve only manifest-declared inputs. Explicit request

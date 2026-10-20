@@ -13098,6 +13098,13 @@
             "type": "string",
             "nullable": true
           },
+          "TerraformStateBackends": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TerraformStateBackendApiModel"
+            },
+            "nullable": true
+          },
           "LeanIXUrl": {
             "type": "string",
             "nullable": true
@@ -14643,13 +14650,15 @@
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "nullable": true
           },
           "InvalidInputs": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -15133,6 +15142,33 @@
           "CurrentPage": {
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformStateBackendApiModel": {
+        "type": "object",
+        "properties": {
+          "EnvironmentId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "StorageAccount": {
+            "type": "string",
+            "nullable": true
+          },
+          "ContainerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "SubscriptionId": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResourceGroup": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

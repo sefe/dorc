@@ -156,16 +156,7 @@ namespace Dorc.Monitor
                 .Single(d => d.ComponentId == component.ComponentId).DefinitionRevision;
             scriptGroup.SourceBuildIdentity = request.BuildNumber;
 
-            // Per  : render a platform-managed Azure Blob backend in
-            // the runner working dir before `terraform init`. Configuration is
-            // sourced from appsettings.json under Terraform:State. Catalog
-            // sources and partial configurations fail closed in the runner.
-            // The state key is keyed by project + environment +
-            // component so plan and apply for the same logical (env, component)
-            // operation share the same state.
-            ConfigurePlatformState(scriptGroup, projectName, component.ComponentName, environmentName,
-                new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                    .GetSection("Terraform:State"));
+            ConfigurePlatformState(scriptGroup, project, component.ComponentName, environmentName);
 
             var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
             var contextBuilder = new ProcessSecurityContextBuilder(logger)
@@ -523,18 +514,17 @@ namespace Dorc.Monitor
             return scriptGroup;
         }
 
-        internal static void ConfigurePlatformState(ScriptGroup scriptGroup, string projectName,
-            string componentName, string environmentName, IConfiguration stateConfig)
+        internal static void ConfigurePlatformState(ScriptGroup scriptGroup, ProjectApiModel submittedProject,
+            string componentName, string environmentName)
         {
-            // Global settings are not consent to migrate an existing component.
-            // Explicitly supplied legacy ScriptGroup state is left untouched.
             if (scriptGroup.TerraformSourceType != TerraformSourceType.Catalog) return;
-            scriptGroup.TerraformStateStorageAccount = stateConfig["StorageAccount"];
-            scriptGroup.TerraformStateContainerName = stateConfig["ContainerName"];
-            scriptGroup.TerraformStateResourceGroup = stateConfig["ResourceGroup"];
-            scriptGroup.TerraformStateSubscriptionId = stateConfig["SubscriptionId"];
+            var backend = TerraformStateBackends.RequireSubmitted(submittedProject.TerraformStateBackends);
+            scriptGroup.TerraformStateStorageAccount = backend.StorageAccount;
+            scriptGroup.TerraformStateContainerName = backend.ContainerName;
+            scriptGroup.TerraformStateResourceGroup = backend.ResourceGroup;
+            scriptGroup.TerraformStateSubscriptionId = backend.SubscriptionId;
             scriptGroup.TerraformStateKey =
-                TerraformStateKeySanitizer.Sanitize(projectName) + "/" +
+                TerraformStateKeySanitizer.Sanitize(submittedProject.ProjectName) + "/" +
                 TerraformStateKeySanitizer.Sanitize(componentName) + "/" +
                 TerraformStateKeySanitizer.Sanitize(environmentName) + ".tfstate";
         }

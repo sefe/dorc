@@ -144,8 +144,11 @@ necessarily a property owned directly by that environment. A sensitive input's s
 value is disclosed. Configuration preflight uses the same Azure credential
 and subscription-cloud-resource rules as the runner. It reports invalid
 inherited input names without their values. This is **not a cloud permission
-probe**. Monitor-effective backend settings and runner ambient credentials/
-default subscription remain explicitly unknown to the API. Known non-secret
+probe**. Configure Catalog state storage under Project Ref Data > Definitions >
+Terraform state backends: a project default or complete per-environment override.
+The API shows the selected backend and scope; submission pins that selection
+through plan/apply and retries. There is no Monitor-wide state fallback. Runner ambient credentials/
+default workload subscription remain explicitly unknown to the API. Known non-secret
 subscription and standard Aiven project/service identifiers are shown where
 available; other or sensitive targets remain undisclosed/unknown. One-off
 overrides can change the target, so the final plan remains authoritative. Verify workload

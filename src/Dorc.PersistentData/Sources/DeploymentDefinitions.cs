@@ -154,6 +154,7 @@ public sealed class DeploymentDefinitions(IDeploymentContextFactory factory) : I
             if (!create && !canModify(project.Id)) throw new UnauthorizedAccessException();
             var before = create ? null : Read(context, project.Id);
             if (!create) RequireRevision(input.Revision, before!.Revision);
+            ProjectTerraformBackends.ValidateChange(context, project, input.Project.TerraformStateBackends);
             ValidateNonSecret(input.Project.TerraformGitRepoUrl);
             ValidateNonSecret(input.Project.ArtefactsUrl);
             foreach (var component in Flatten(input.Components ?? []))
@@ -173,6 +174,7 @@ public sealed class DeploymentDefinitions(IDeploymentContextFactory factory) : I
             project.ArtefactsSubPaths = input.Project.ArtefactsSubPaths;
             project.ArtefactsBuildRegex = input.Project.ArtefactsBuildRegex;
             project.TerraformGitRepoUrl = input.Project.TerraformGitRepoUrl;
+            project.TerraformStateBackendsJson = JsonSerializer.Serialize(input.Project.TerraformStateBackends ?? []);
             project.LeanIXUrl = input.Project.LeanIXUrl;
             project.SourceControlType = input.Project.SourceControlType;
             if (create) context.Projects.Add(project);

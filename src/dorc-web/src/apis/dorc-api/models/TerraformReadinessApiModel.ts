@@ -50,10 +50,10 @@ export interface TerraformReadinessApiModel {
      * @type {Array<string>}
      * @memberof TerraformReadinessApiModel
      */
-    Warnings?: Array<string>;
+    Warnings?: Array<string> | null;
     /**
      * @type {Array<string>}
      * @memberof TerraformReadinessApiModel
      */
-    InvalidInputs?: Array<string>;
+    InvalidInputs?: Array<string> | null;
 }

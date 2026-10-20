@@ -410,34 +410,6 @@
           "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": false,
-          "Name": "TERRAFORM_STATE_STORAGEACCOUNT",
-          "Value": ""
-        },
-        {
-          "AccountNameProperty": "",
-          "IsPath": false,
-          "IsSecure": false,
-          "Name": "TERRAFORM_STATE_CONTAINERNAME",
-          "Value": ""
-        },
-        {
-          "AccountNameProperty": "",
-          "IsPath": false,
-          "IsSecure": false,
-          "Name": "TERRAFORM_STATE_RESOURCEGROUP",
-          "Value": ""
-        },
-        {
-          "AccountNameProperty": "",
-          "IsPath": false,
-          "IsSecure": false,
-          "Name": "TERRAFORM_STATE_SUBSCRIPTIONID",
-          "Value": ""
-        },
-        {
-          "AccountNameProperty": "",
-          "IsPath": false,
-          "IsSecure": false,
           "Name": "KAFKA_ENABLED",
           "Value": "true"
         },

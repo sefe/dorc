@@ -14,6 +14,7 @@
 import type {
     DatabaseApiModel,
     SourceControlType,
+    TerraformStateBackendApiModel,
 } from './';
 
 /**
@@ -61,6 +62,11 @@ export interface ProjectApiModel {
      * @memberof ProjectApiModel
      */
     TerraformGitRepoUrl?: string | null;
+    /**
+     * @type {Array<TerraformStateBackendApiModel>}
+     * @memberof ProjectApiModel
+     */
+    TerraformStateBackends?: Array<TerraformStateBackendApiModel> | null;
     /**
      * @type {string}
      * @memberof ProjectApiModel

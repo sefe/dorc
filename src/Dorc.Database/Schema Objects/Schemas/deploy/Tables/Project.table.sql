@@ -8,8 +8,8 @@
     [ArtefactsBuildRegex]   NVARCHAR(MAX)    NULL,
     [SourceDatabaseId]      INT NULL,
     [TerraformGitRepoUrl]   NVARCHAR (512)   NULL,
+    [TerraformStateBackendsJson] NVARCHAR (MAX) NULL,
     [SourceControlType]     INT              NOT NULL DEFAULT 0,
     [LeanIXUrl]             NVARCHAR (512)   NULL,
     CONSTRAINT [FK_Project_ToDatabase] FOREIGN KEY ([SourceDatabaseId]) REFERENCES [deploy].[Database]([Id])
 );
-

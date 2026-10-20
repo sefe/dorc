@@ -53,6 +53,16 @@ Legacy requests with no snapshots are explicitly unsupported: drain/cancel or
 resubmit them as new requests. No automatic historical backfill claims to know
 what was originally submitted.
 
+Catalog projects configure `Project.TerraformStateBackends` with an optional
+default (`EnvironmentId: null`) and complete overrides for mapped environment
+IDs. These non-secret coordinates participate in project revisions and change
+history. Submission selects and freezes the effective backend in `ProjectJson`;
+Monitor does not consult live backend settings for plan/apply or retries.
+Existing submitted scopes cannot be moved by an ordinary edit. See
+[backend configuration](Terraform/BACKEND-CONFIGURATION.md) for setup, legacy
+adoption and migration precautions. Workload subscriptions and secure
+credentials continue to use the existing environment setup.
+
 Environment properties and credentials retain their existing dynamic-resolution
 policy. Pinning a Git branch name records requested intent, not immutable source
 bytes. Terraform's existing approved plan/source archive and hashes remain

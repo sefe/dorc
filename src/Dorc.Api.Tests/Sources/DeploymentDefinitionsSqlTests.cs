@@ -78,6 +78,132 @@ public class DeploymentDefinitionsSqlTests
     }, true, "creator", _ => true, () => { });
 
     [TestMethod]
+    public void BackendOverride_IsPinnedAndCannotMoveAfterSubmission()
+    {
+        var document = Create();
+        var component = document.Components.Single();
+        component.ComponentType = ComponentType.Terraform;
+        component.TerraformSourceType = TerraformSourceType.Catalog;
+        component.TerraformTemplateName = "module";
+        component.TerraformTemplateVersion = "1.0.0";
+        component.ScriptPath = "";
+        var environmentName = Guid.NewGuid().ToString("N");
+        int environmentId;
+        using (var context = factory.GetContext())
+        {
+            context.Database.ExecuteSqlInterpolated(
+                $"INSERT [deploy].[Environment] ([Name], [ObjectId], [Secure], [IsProd]) VALUES ({environmentName}, NEWID(), 0, 0)");
+            var environment = context.Environments.Single(e => e.Name == environmentName);
+            environment.Projects.Add(context.Projects.Single(p => p.Id == document.Project.ProjectId));
+            context.SaveChanges();
+            environmentId = environment.Id;
+        }
+        TerraformStateBackendApiModel Backend(string account, int? scope = null) => new()
+        {
+            EnvironmentId = scope, StorageAccount = account, ContainerName = "tfstate",
+            SubscriptionId = "11111111-1111-1111-1111-111111111111"
+        };
+        document.Project.TerraformStateBackends = [Backend("projectstate"), Backend("envstate", environmentId)];
+        document = definitions.Save(document, false, "editor", _ => true, () => { });
+        var requests = new RequestsPersistentSource(factory, Substitute.For<IClaimsPrincipalReader>());
+        var requestId = requests.SubmitRequest(new DeploymentRequest
+        {
+            Project = document.Project.ProjectName, Environment = environmentName, Components = component.ComponentName,
+            RequestDetails = "<root/>", UserName = "requester", RequestedTime = DateTimeOffset.UtcNow
+        });
+        document.Project.TerraformStateBackends[0].StorageAccount = "futurestate";
+        document = definitions.Save(document, false, "editor", _ => true, () => { });
+        var pinned = requests.GetSubmittedProject(requestId, component.ComponentId!.Value).TerraformStateBackends.Single();
+        Assert.AreEqual("envstate", pinned.StorageAccount);
+        Assert.AreEqual(environmentId, pinned.EnvironmentId, "The submitted backend retains its stable environment identity.");
+        using (var context = factory.GetContext())
+        {
+            context.Components.Single(c => c.Id == component.ComponentId).TerraformSourceType = TerraformSourceType.Git;
+            context.Environments.Single(e => e.Id == environmentId).Name = environmentName + "-renamed";
+            context.SaveChanges();
+        }
+        document = definitions.Get(document.Project.ProjectId);
+        document.Project.TerraformStateBackends.RemoveAt(1);
+        Assert.Throws<ArgumentException>(() => definitions.Save(document, false, "editor", _ => true, () => { }));
+        Assert.AreEqual(document.Revision, definitions.Get(document.Project.ProjectId).Revision);
+    }
+
+    [TestMethod]
+    public void LegacyReceipt_RequiresAdoptingObservedBackendEvenWithoutCurrentMapping()
+    {
+        var document = Create();
+        using (var context = factory.GetContext())
+        {
+            context.TerraformDeploymentReceipts.Add(new TerraformDeploymentReceipt
+            {
+                DeploymentResultId = 100000 + document.Project.ProjectId,
+                ProjectName = document.Project.ProjectName, EnvironmentName = "detached-environment",
+                ComponentName = document.Components[0].ComponentName, TemplateName = "legacy-module",
+                StateStorageAccount = "legacyaccount", StateContainerName = "tfstate",
+                PlannedAt = DateTimeOffset.UtcNow
+            });
+            context.SaveChanges();
+        }
+        document.Project.TerraformStateBackends =
+        [
+            new() { StorageAccount = "differentaccount", ContainerName = "tfstate",
+                SubscriptionId = "11111111-1111-1111-1111-111111111111" }
+        ];
+        Assert.Throws<ArgumentException>(() => definitions.Save(document, false, "editor", _ => true, () => { }));
+        Assert.AreEqual(document.Revision, definitions.Get(document.Project.ProjectId).Revision);
+        document.Project.TerraformStateBackends[0].StorageAccount = "legacyaccount";
+        var saved = definitions.Save(document, false, "editor", _ => true, () => { });
+        Assert.AreEqual("legacyaccount", saved.Project.TerraformStateBackends.Single().StorageAccount);
+    }
+
+    [TestMethod]
+    public void MissingBackend_RejectsCatalogRequestWithoutPersistingSubmission()
+    {
+        var document = Create();
+        var component = document.Components.Single();
+        component.ComponentType = ComponentType.Terraform;
+        component.TerraformSourceType = TerraformSourceType.Catalog;
+        component.TerraformTemplateName = "module";
+        component.TerraformTemplateVersion = "1.0.0";
+        component.ScriptPath = "";
+        document = definitions.Save(document, false, "editor", _ => true, () => { });
+        var environmentName = Guid.NewGuid().ToString("N");
+        using (var context = factory.GetContext())
+        {
+            context.Database.ExecuteSqlInterpolated(
+                $"INSERT [deploy].[Environment] ([Name], [ObjectId], [Secure], [IsProd]) VALUES ({environmentName}, NEWID(), 0, 0)");
+            context.Environments.Single(e => e.Name == environmentName).Projects.Add(context.Projects.Single(p => p.Id == document.Project.ProjectId));
+            context.SaveChanges();
+        }
+        var requests = new RequestsPersistentSource(factory, Substitute.For<IClaimsPrincipalReader>());
+        var error = Assert.Throws<InvalidOperationException>(() => requests.SubmitRequest(new DeploymentRequest
+        {
+            Project = document.Project.ProjectName, Environment = environmentName, Components = component.ComponentName,
+            RequestDetails = "<root/>", UserName = "requester"
+        }));
+        StringAssert.Contains(error.Message, "Project Ref Data");
+        using var check = factory.GetContext();
+        Assert.IsFalse(check.DeploymentRequests.Any(r => r.Project == document.Project.ProjectName));
+    }
+
+    [TestMethod]
+    [DataRow("invalid-account", false, null)]
+    [DataRow("validaccount", true, null)]
+    [DataRow("validaccount", false, 2147483647)]
+    public void InvalidBackendScopeOrCoordinates_RollBackDefinition(string account, bool duplicate, int? environmentId)
+    {
+        var document = Create();
+        var backend = new TerraformStateBackendApiModel
+        {
+            EnvironmentId = environmentId, StorageAccount = account, ContainerName = "tfstate",
+            SubscriptionId = "11111111-1111-1111-1111-111111111111"
+        };
+        document.Project.TerraformStateBackends = duplicate ? [backend, backend] : [backend];
+        Assert.Throws<ArgumentException>(() => definitions.Save(document, false, "editor", _ => true, () => { }));
+        Assert.AreEqual(document.Revision, definitions.Get(document.Project.ProjectId).Revision);
+    }
+
+    [TestMethod]
     public void MissingAndStaleRevision_DoNotMutateOrAudit()
     {
         var document = Create();

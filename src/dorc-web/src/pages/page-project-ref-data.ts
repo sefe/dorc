@@ -11,9 +11,12 @@ import {
   ComponentType,
   PowerShellVersionsApi,
   RefDataApi,
+  RefDataProjectEnvironmentMappingsApi,
   SourceControlType,
   TerraformSourceType,
   type ComponentApiModel,
+  type EnvironmentApiModel,
+  type TerraformStateBackendApiModel,
   type RefDataApiModel
 } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
@@ -80,6 +83,10 @@ export class PageProjectRefData extends PageElement {
   @state() private error = '';
   @state() private powerShellVersions: string[] = [];
   @state() private jsonDirty = false;
+  @state() private backendEnvironments: EnvironmentApiModel[] = [];
+  @state() private backendEnvironmentError = '';
+  private backendEnvironmentsLoading = false;
+  private backendEnvironmentsLoaded = false;
   private projectId = 0;
   private editor: ace.Ace.Editor | undefined;
   private syncingEditor = false;
@@ -195,6 +202,15 @@ export class PageProjectRefData extends PageElement {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: var(--lumo-space-m);
+    }
+    .backend-row {
+      border: 1px solid var(--dorc-border-color);
+      padding: var(--lumo-space-m);
+      margin-block: var(--lumo-space-m);
+      min-width: 0;
+    }
+    .backend-row legend {
+      padding-inline: var(--lumo-space-xs);
     }
     vaadin-text-field,
     vaadin-combo-box {
@@ -531,6 +547,187 @@ export class PageProjectRefData extends PageElement {
     ></vaadin-text-field>`;
   }
 
+  private loadBackendEnvironments(event: Event) {
+    if (
+      !(event.currentTarget as HTMLDetailsElement).open ||
+      this.backendEnvironmentsLoaded ||
+      this.backendEnvironmentsLoading ||
+      !this.document?.Project?.ProjectName
+    )
+      return;
+    this.backendEnvironmentsLoading = true;
+    this.backendEnvironmentError = '';
+    const token = this.loadToken;
+    new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration)
+      .refDataProjectEnvironmentMappingsGet({
+        project: this.document.Project.ProjectName,
+        includeRead: true
+      })
+      .subscribe({
+        next: result => {
+          this.backendEnvironmentsLoading = false;
+          if (token !== this.loadToken) return;
+          this.backendEnvironments = result.Items ?? [];
+          this.backendEnvironmentsLoaded = true;
+        },
+        error: error => {
+          this.backendEnvironmentsLoading = false;
+          if (token !== this.loadToken) return;
+          this.backendEnvironmentError =
+            retrieveErrorMessage(error) ||
+            'Could not load mapped environments. Close and reopen this section to retry.';
+        }
+      });
+  }
+
+  private setBackends(backends: TerraformStateBackendApiModel[]) {
+    if (!this.editable || !this.document?.Project) return;
+    this.setDocument({
+      ...this.document,
+      Project: { ...this.document.Project, TerraformStateBackends: backends }
+    });
+  }
+
+  private backendField(
+    index: number,
+    label: string,
+    field:
+      'StorageAccount' | 'ContainerName' | 'SubscriptionId' | 'ResourceGroup'
+  ) {
+    const backends = this.document?.Project?.TerraformStateBackends ?? [];
+    return html`<vaadin-text-field
+      .label=${label}
+      .value=${live(backends[index]?.[field] ?? '')}
+      .disabled=${!this.editable}
+      ?required=${field !== 'ResourceGroup'}
+      @change=${(event: Event) =>
+        this.setBackends(
+          backends.map((backend, row) =>
+            row === index
+              ? {
+                  ...backend,
+                  [field]: (event.currentTarget as HTMLInputElement).value
+                }
+              : backend
+          )
+        )}
+    ></vaadin-text-field>`;
+  }
+
+  private renderBackends() {
+    const backends = this.document?.Project?.TerraformStateBackends ?? [];
+    const scopes = [
+      { label: 'Project default', value: 'default' },
+      ...this.backendEnvironments.map(environment => ({
+        label:
+          environment.EnvironmentName ??
+          `Environment ${environment.EnvironmentId}`,
+        value: String(environment.EnvironmentId)
+      }))
+    ];
+    for (const backend of backends) {
+      if (
+        backend.EnvironmentId != null &&
+        !scopes.some(scope => scope.value === String(backend.EnvironmentId))
+      )
+        scopes.push({
+          label: `Environment ${backend.EnvironmentId} (not in current mappings)`,
+          value: String(backend.EnvironmentId)
+        });
+    }
+    return html`<details
+      class="backends"
+      @toggle=${this.loadBackendEnvironments}
+    >
+      <summary>Terraform state backends</summary>
+      <p>
+        Configure this project's Catalog state storage. An environment override
+        replaces the complete project default; fields are not merged. Workload
+        subscription and credentials stay on the target environment. There is no
+        DOrc-wide backend fallback.
+      </p>
+      <p>
+        Requests retain the backend selected at submission. Moving a backend
+        already used by a request or plan requires an operator-reviewed state
+        migration. Storage accounts and containers must already exist.
+      </p>
+      ${this.backendEnvironmentError ? html`<p role="alert">${this.backendEnvironmentError}</p>` : nothing}
+      ${backends.length === 0 ? html`<p>No backend configured. Add a project default or an environment override before deploying a Catalog module.</p>` : nothing}
+      ${backends.map(
+        (backend, index) =>
+          html`<fieldset class="backend-row">
+            <legend>
+              ${scopes.find(scope => scope.value === (backend.EnvironmentId == null ? 'default' : String(backend.EnvironmentId)))?.label}
+            </legend>
+            <div class="project-fields">
+              <vaadin-combo-box
+                label="Backend scope"
+                .items=${scopes}
+                item-label-path="label"
+                item-value-path="value"
+                .value=${backend.EnvironmentId == null ? 'default' : String(backend.EnvironmentId)}
+                .disabled=${!this.editable}
+                @change=${(event: Event) => {
+                  const value = (event.currentTarget as HTMLInputElement).value;
+                  if (scopes.some(scope => scope.value === value))
+                    this.setBackends(
+                      backends.map((item, row) =>
+                        row === index
+                          ? {
+                              ...item,
+                              EnvironmentId:
+                                value === 'default' ? null : Number(value)
+                            }
+                          : item
+                      )
+                    );
+                }}
+              ></vaadin-combo-box>
+              ${this.backendField(index, 'State storage account', 'StorageAccount')}
+              ${this.backendField(index, 'State container', 'ContainerName')}
+              ${this.backendField(index, 'State subscription ID', 'SubscriptionId')}
+              ${this.backendField(index, 'State resource group (optional)', 'ResourceGroup')}
+            </div>
+            <vaadin-button
+              .disabled=${!this.editable}
+              @click=${() => this.setBackends(backends.filter((_, row) => row !== index))}
+              >Remove backend</vaadin-button
+            >
+          </fieldset>`
+      )}
+      <vaadin-button
+        .disabled=${
+          !this.editable ||
+          (backends.some(backend => backend.EnvironmentId == null) &&
+            !this.backendEnvironments.some(
+              environment =>
+                !backends.some(
+                  backend => backend.EnvironmentId === environment.EnvironmentId
+                )
+            ))
+        }
+        @click=${() => {
+          const environment = backends.some(
+            backend => backend.EnvironmentId == null
+          )
+            ? this.backendEnvironments.find(
+                environment =>
+                  !backends.some(
+                    backend =>
+                      backend.EnvironmentId === environment.EnvironmentId
+                  )
+              )
+            : undefined;
+          this.setBackends([
+            ...backends,
+            { EnvironmentId: environment?.EnvironmentId ?? null }
+          ]);
+        }}
+        >Add backend</vaadin-button
+      >
+    </details>`;
+  }
+
   private previewSave() {
     if (!this.editable || !this.readJson() || !this.document) return;
     this.preview = structuredClone(this.document);
@@ -740,6 +937,7 @@ export class PageProjectRefData extends PageElement {
               ></vaadin-combo-box>
             </div>
           </details>
+          ${this.renderBackends()}
         </section>
       </div>
       <div class="advanced" ?hidden=${this.tab !== 1}>

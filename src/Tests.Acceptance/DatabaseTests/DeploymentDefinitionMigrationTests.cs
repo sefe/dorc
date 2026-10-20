@@ -7,6 +7,28 @@ public class DeploymentDefinitionMigrationTests : DatabaseTestBase
 {
     [TestMethod]
     [TestCategory("Database")]
+    public void ProjectBackend_UpgradesLegacyRowsAndPreservesConfigurationOnRepublish()
+    {
+        PublishDacpac();
+        ExecuteEphemeral("""
+            ALTER TABLE [deploy].[Project] DROP COLUMN [TerraformStateBackendsJson];
+            INSERT [deploy].[Project] ([Name], [ObjectId]) VALUES (N'backend-upgrade', NEWID());
+            """);
+        var originalId = ExecuteScalarInt("SELECT Id FROM [deploy].[Project] WHERE Name = N'backend-upgrade'");
+        PublishDacpac();
+        Assert.AreEqual(1, ExecuteScalarInt("SELECT COUNT(*) FROM [deploy].[Project] WHERE Name = N'backend-upgrade' AND TerraformStateBackendsJson IS NULL"));
+        ExecuteEphemeral("""
+            UPDATE [deploy].[Project]
+            SET TerraformStateBackendsJson = N'[{"StorageAccount":"projectstate","ContainerName":"tfstate","SubscriptionId":"11111111-1111-1111-1111-111111111111"}]'
+            WHERE Name = N'backend-upgrade';
+            """);
+        PublishDacpac();
+        Assert.AreEqual(originalId, ExecuteScalarInt("SELECT Id FROM [deploy].[Project] WHERE Name = N'backend-upgrade'"));
+        Assert.AreEqual(1, ExecuteScalarInt("SELECT COUNT(*) FROM [deploy].[Project] WHERE Name = N'backend-upgrade' AND JSON_VALUE(TerraformStateBackendsJson, '$[0].StorageAccount') = N'projectstate'"));
+    }
+
+    [TestMethod]
+    [TestCategory("Database")]
     public void DefinitionEvidence_UpgradesAndRepublishesWithoutMutableForeignKeys()
     {
         PublishDacpac();

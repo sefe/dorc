@@ -153,6 +153,116 @@ afterEach(() => {
 });
 
 describe('unified reference-data editing', () => {
+  it('reviews and saves project-default and mapped-environment backends with the project revision', async () => {
+    const page = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+    page.shadowRoot!.querySelector<HTMLDetailsElement>('.backends')!.open =
+      true;
+    await settle();
+    clickButton(page.shadowRoot!, 'Add backend');
+    await settle();
+    const fillBackend = async (row: number, account: string) => {
+      const values: Record<string, string> = {
+        'State storage account': account,
+        'State container': 'tfstate',
+        'State subscription ID': '11111111-1111-1111-1111-111111111111'
+      };
+      for (const [label, value] of Object.entries(values)) {
+        const field = [
+          ...page
+            .shadowRoot!.querySelectorAll('.backend-row')
+            [row].querySelectorAll<TextField>('vaadin-text-field')
+        ].find(field => field.label === label)!;
+        field.value = value;
+        field.dispatchEvent(new Event('change'));
+        await settle();
+      }
+    };
+    await fillBackend(0, 'projectstate');
+    clickButton(page.shadowRoot!, 'Add backend');
+    await settle();
+    await fillBackend(1, 'utstate');
+    clickButton(page.shadowRoot!, 'Review changes');
+    await settle();
+    expect(mocks.save.mock.calls).to.have.length(0);
+    clickButton(page.shadowRoot!, 'Confirm save');
+    await settle();
+    const saved = mocks.save.mock.calls[0][0].refDataApiModel;
+    expect(saved.Revision).to.equal('revision-1');
+    expect(saved.Project.TerraformStateBackends).to.deep.equal([
+      {
+        EnvironmentId: null,
+        StorageAccount: 'projectstate',
+        ContainerName: 'tfstate',
+        SubscriptionId: '11111111-1111-1111-1111-111111111111'
+      },
+      {
+        EnvironmentId: 2,
+        StorageAccount: 'utstate',
+        ContainerName: 'tfstate',
+        SubscriptionId: '11111111-1111-1111-1111-111111111111'
+      }
+    ]);
+  });
+
+  it('preserves backend edits when the server refuses an unsafe state move', async () => {
+    const data = reference();
+    mocks.get.mockReturnValue(
+      of({
+        ...data,
+        Project: {
+          ...data.Project,
+          TerraformStateBackends: [
+            {
+              EnvironmentId: null,
+              StorageAccount: 'existingstate',
+              ContainerName: 'tfstate',
+              SubscriptionId: '11111111-1111-1111-1111-111111111111'
+            }
+          ]
+        }
+      })
+    );
+    mocks.save.mockReturnValue(
+      throwError(() => ({
+        response:
+          'Backend is bound to submitted requests; state migration requires operator review.'
+      }))
+    );
+    const page = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+    const field = [
+      ...page.shadowRoot!.querySelectorAll<TextField>(
+        '.backend-row vaadin-text-field'
+      )
+    ].find(field => field.label === 'State storage account')!;
+    field.value = 'differentstate';
+    field.dispatchEvent(new Event('change'));
+    await settle();
+    clickButton(page.shadowRoot!, 'Review changes');
+    await settle();
+    clickButton(page.shadowRoot!, 'Confirm save');
+    await settle();
+    expect(page.shadowRoot!.textContent).to.include(
+      'state migration requires operator review'
+    );
+    expect(
+      mocks.save.mock.calls[0][0].refDataApiModel.Project
+        .TerraformStateBackends[0].StorageAccount
+    ).to.equal('differentstate');
+    page.shadowRoot!.querySelector<Tabs>('vaadin-tabs')!.selected = 1;
+    await settle();
+    expect(
+      JSON.parse(mocks.editor.value).Project.TerraformStateBackends[0]
+        .StorageAccount
+    ).to.equal('differentstate');
+    expect(JSON.parse(mocks.editor.value).Revision).to.equal('revision-1');
+  });
+
   it('preserves nested configuration and project-owned fields through a structured edit and reviewed save', async () => {
     const page = await fixture(
       html`<page-project-ref-data></page-project-ref-data>`

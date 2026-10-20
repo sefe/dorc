@@ -1,12 +1,12 @@
 # Terraform state model
 
-This document is the canonical reference for how Terraform state is managed by DOrc. Catalog state is **platform-owned**: DOrc renders the backend configuration at deploy time and requires an operator-provisioned durable backend. Legacy non-catalog sources retain their own backend: global platform settings do not opt existing components into a state migration.
+This document is the canonical reference for how Terraform state is managed by DOrc. Catalog state storage is **project/environment-owned**: DOrc renders a backend from the configuration pinned at request submission and requires an operator-provisioned durable store. Legacy non-catalog sources retain their own backend; project settings do not opt them into a state migration.
 
 > **Status of this document.** Sections marked **[planned]** are unimplemented design proposals, not switchable features. There is no `Terraform:UseConsolidatedLifecycle` setting in the application.
 
 ## State container
 
-State lives in an Azure Blob Storage container nominated by DOrc configuration. Required posture:
+State lives in an Azure Blob Storage container selected in Project Ref Data, using an environment override or project default. Required posture:
 
 - **Access level**: `private` (no anonymous access).
 - **Network access**: restricted to the DOrc deployment subnet (or the DOrc service identity's allowed networks).
@@ -41,9 +41,9 @@ Introducing stable-ID keys later requires a separate, explicit migration; this r
 
 ## Backend rendering
 
-Before `terraform init`, DOrc writes a `_dorc_backend.tf` file into the working directory containing only the `terraform { backend "azurerm" { ... } }` block, configured with the resolved storage account, container, state key, and **backend subscription ID**. Configure `Terraform:State:StorageAccount`, `ContainerName`, and `SubscriptionId` in Monitor settings; `ResourceGroup` is optional. See [backend configuration](BACKEND-CONFIGURATION.md) for installer propagation.
+Before `terraform init`, DOrc writes a `_dorc_backend.tf` file into the working directory containing only the `terraform { backend "azurerm" { ... } }` block, configured with the submitted storage account, container, state key, and **backend subscription ID**. Configure `Project.TerraformStateBackends` through Project Ref Data; `ResourceGroup` is optional. See [backend configuration](BACKEND-CONFIGURATION.md) for scope selection, immutable request binding and cutover from Monitor-wide settings.
 
-Catalog deployments fail before source retrieval or any Terraform command if durable state is absent or incomplete. Monitor only supplies global `Terraform:State` settings for catalog components. Explicitly supplied component-level backend coordinates remain supported on the runner contract; a partially configured explicit backend never silently falls back to local state. There is currently no component-level adoption switch in the UI/API. Do not change a legacy component to catalog mode as a substitute for migrating/importing its existing state.
+Catalog submissions fail if their project/environment has no complete backend. Monitor uses the captured backend, not live project settings, request properties or global `Terraform:State` settings. Existing requests lacking that snapshot must be resubmitted and replanned. Explicit backend coordinates remain supported on the runner contract for non-Catalog callers; partial configuration never falls back to local state. Do not change a legacy component to Catalog mode as a substitute for migrating/importing its existing state.
 
 The backend's explicit subscription is independent of the workload provider's environment subscription / `ARM_SUBSCRIPTION_ID`. Setting `Terraform:DefaultSubscriptionId` or attaching an environment subscription resource does not configure backend storage discovery.
 

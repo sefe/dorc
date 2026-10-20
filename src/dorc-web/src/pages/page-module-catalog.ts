@@ -895,7 +895,7 @@ export class PageModuleCatalog extends PageElement {
                 Then set all three service-principal properties, or none to fall
                 back to the runner host's ambient identity. The actual Terraform
                 Azure identity needs workload RBAC on the target subscription
-                and Storage Blob Data Contributor on the separately configured
+                and Storage Blob Data Contributor on the project's selected
                 state container. Backend access uses Azure AD, not storage keys.
               </p>
               <table>
@@ -912,6 +912,25 @@ export class PageModuleCatalog extends PageElement {
                   <td>Entra tenant ID GUID</td>
                 </tr>
               </table>
+              <h3>Terraform state storage (all Catalog modules)</h3>
+              <p>
+                Open the destination project's
+                <strong>Project Ref Data</strong>, then
+                <strong>Definitions &rsaquo; Terraform state backends</strong>.
+                Add a project default or a complete override for a mapped
+                environment: state storage account, container, subscription ID
+                and optional resource group. The account and container must
+                already exist. This is separate from the workload subscription
+                above; they may use the same subscription, but neither is
+                inferred from the other.
+              </p>
+              <p>
+                DOrc does not require a global state store. Requests pin the
+                selected backend through plan and apply. Existing backend moves
+                require an operator-reviewed state migration, not just a
+                settings edit. Keep credentials in secure environment
+                properties, not backend fields.
+              </p>
             </div>
             <div>
               <h3>Aiven modules (ClickHouse, Kafka topics, PostgreSQL)</h3>

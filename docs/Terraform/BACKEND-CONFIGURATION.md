@@ -1,40 +1,88 @@
 # Terraform backend configuration
 
-Configure state storage on **both Monitor tiers**, separately from the plan/artifact store:
+Configure state storage in **Project Ref Data > Definitions > Terraform state
+backends**, separately from the workload subscription/credentials and the DOrc
+plan/artifact store. Add a project default, environment overrides, or only explicit
+environment entries. Each override is complete; missing fields never inherit
+from the default. Only mapped environments can be added as overrides.
+
+The same configuration round-trips through Advanced JSON and the revision-checked
+project APIs as `Project.TerraformStateBackends`:
 
 ```json
 {
-  "Terraform": {
-    "State": {
-      "StorageAccount": "stdorcstate",
+  "TerraformStateBackends": [
+    {
+      "EnvironmentId": null,
+      "StorageAccount": "stprojectstate",
       "ContainerName": "tfstate",
       "SubscriptionId": "11111111-1111-1111-1111-111111111111",
-      "ResourceGroup": "rg-dorc-state"
+      "ResourceGroup": "rg-project-state"
+    },
+    {
+      "EnvironmentId": 42,
+      "StorageAccount": "stprojectprodstate",
+      "ContainerName": "tfstate",
+      "SubscriptionId": "22222222-2222-2222-2222-222222222222",
+      "ResourceGroup": "rg-project-prod-state"
     }
-  }
+  ]
 }
 ```
 
-The account and private container must already exist. `StorageAccount`, `ContainerName`, and a valid Azure subscription GUID are required for catalog deployments; `ResourceGroup` is optional. Monitor derives the state key from project/component/environment and sends all backend settings to the runner through `ScriptGroup`.
+Replace `42` with the actual mapped DOrc environment ID. The account and private
+container must already exist. `StorageAccount`, `ContainerName`, and a nonempty
+Azure subscription GUID are required; `ResourceGroup` is optional. Do not put
+credentials, URLs, keys or SAS tokens in these fields. Monitor retains the existing
+project/component/environment state key and sends the submitted backend to the runner.
 
-The backend explicitly sets `subscription_id` and `use_azuread_auth = true`. Grant **Storage Blob Data Contributor** on the container to the identity Terraform actually uses: the environment service principal when configured, otherwise the runner's ambient identity. It does not need permission to list storage account keys. Authentication errors are fatal; platform backends do not fall back to account keys, SAS tokens, or local state. These global settings apply only to catalog components. Legacy Git, shared-folder and artifact sources retain their own intentional backend/authentication modes even when global settings are populated; configuring the platform does not silently migrate their state.
+The backend explicitly sets `subscription_id` and `use_azuread_auth = true`.
+Grant **Storage Blob Data Contributor** on the container to the identity Terraform
+actually uses: the environment service principal when configured, otherwise the
+runner's ambient identity. It does not need permission to list storage account
+keys. Authentication errors are fatal; there is no key, SAS, local-state or
+Monitor-wide fallback. These settings apply to Catalog components. Legacy Git,
+shared-folder and artifact sources retain their own backend/authentication modes;
+configuring a project does not silently migrate their state.
 
-Workload targeting remains independent: an environment subscription resource, `TerraformSubscriptionId`, or the runner's `Terraform:DefaultSubscriptionId` configures the workload provider, not the backend subscription. Cross-subscription deployments must configure the state subscription above even when all workloads use another subscription.
+Workload targeting remains independent: an environment subscription resource,
+`TerraformSubscriptionId`, or the runner's `Terraform:DefaultSubscriptionId`
+configures the workload provider. State and workload subscriptions may match, but
+neither is inferred from the other. Aiven workloads still need the Azure state backend.
 
-## Installer wiring
+## Submitted requests and existing state
 
-`install-scripts\DeploySettings.template.json` exposes these deployment properties, mapped through `Setup.Dorc.msi.json` to MSI properties and written to the Prod and NonProd Monitor configuration:
+The effective backend is selected and captured in the request's project snapshot
+inside the submission transaction. Plan, approval, apply and retries use that
+selection, never live project settings or request-property overrides. Missing
+backend configuration refuses a new Catalog submission. Readiness shows whether
+the selection is a project default or environment override, without claiming
+storage existence, connectivity or permissions have been checked.
 
-| Deployment property | MSI property | Monitor setting |
-| --- | --- | --- |
-| `TERRAFORM_STATE_STORAGEACCOUNT` | `TERRAFORM.STATE.STORAGEACCOUNT` | `Terraform:State:StorageAccount` |
-| `TERRAFORM_STATE_CONTAINERNAME` | `TERRAFORM.STATE.CONTAINERNAME` | `Terraform:State:ContainerName` |
-| `TERRAFORM_STATE_SUBSCRIPTIONID` | `TERRAFORM.STATE.SUBSCRIPTIONID` | `Terraform:State:SubscriptionId` |
-| `TERRAFORM_STATE_RESOURCEGROUP` | `TERRAFORM.STATE.RESOURCEGROUP` | `Terraform:State:ResourceGroup` |
+Once submitted, ordinary project edits cannot move/remove that scope's backend.
+This deliberately also protects requests that have not yet run. Existing Catalog
+receipts guard the previously observed storage account/container when adopting
+configuration from the older Monitor-wide model. An actual move requires an
+operator-reviewed migration and controlled configuration/binding update; the UI
+does not provide a bypass. Preserve state lineage, resource addresses and the
+existing key, then submit and approve a fresh plan.
 
-These are not the `AzureStorageAccount:*` artifact-storage credentials. Keep the artifact container private too: binary plans embed secrets even though the companion source snapshot omits all tfvars files.
+There is no automatic adoption from Monitor settings and no reconstruction of
+legacy submitted intent. Before cutover, record and verify the backend used by
+each existing deployment, configure matching project/environment entries, and
+drain/cancel old requests. Catalog requests whose project snapshot lacks a backend
+must be resubmitted and replanned. Where historical evidence is missing, verify
+the actual state under the approved operator process before submitting anything.
 
-On upgrade, configure the backend subscription explicitly and recreate pending plans without the current snapshot/approval contract. Never apply an older plan by checking out its mutable source ref again.
+## Installer configuration
+
+`TERRAFORM_STATE_*` deployment properties and their MSI/Monitor configuration
+mappings are no longer required or consumed. The installer does not configure
+project state storage. Existing unused Monitor values are not a fallback.
+
+`AzureStorageAccount:*` remains DOrc-wide **artifact storage**, not Terraform
+state storage. Keep that container private: binary plans embed secrets even
+though source snapshots omit tfvars files.
 
 ## Coordinated rollout and acceptance
 

@@ -54,6 +54,12 @@ public class CatalogComponentCreationTests
             "INSERT [deploy].[Project] ([Name], [ObjectId], [SourceControlType]) VALUES ('catalog-project', NEWID(), 0), ('other-project', NEWID(), 0)");
         _projectId = context.Projects.Single(p => p.Name == "catalog-project").Id;
         _otherProjectId = context.Projects.Single(p => p.Name == "other-project").Id;
+        context.Projects.Single(p => p.Id == _projectId).TerraformStateBackendsJson =
+            """[{"StorageAccount":"teststate","ContainerName":"tfstate","SubscriptionId":"11111111-1111-1111-1111-111111111111"}]""";
+        context.Database.ExecuteSqlRaw(
+            "INSERT [deploy].[Environment] ([Name], [ObjectId], [Secure], [IsProd]) VALUES ('catalog-environment', NEWID(), 0, 0)");
+        context.Environments.Single(e => e.Name == "catalog-environment").Projects.Add(context.Projects.Single(p => p.Id == _projectId));
+        context.SaveChanges();
         Source().CreateCatalogComponent(Component("receipt-component"), _projectId, null, false);
     }
 
@@ -520,6 +526,8 @@ public class CatalogComponentCreationTests
             context.Database.ExecuteSqlInterpolated(
                 $"INSERT [deploy].[Environment] ([Name], [ObjectId], [Secure], [IsProd]) VALUES ({environmentName}, NEWID(), 0, 0)");
             var project = context.Projects.Single(row => row.Name == projectName);
+            project.TerraformStateBackendsJson =
+                """[{"StorageAccount":"upgradestate","ContainerName":"tfstate","SubscriptionId":"11111111-1111-1111-1111-111111111111"}]""";
             var environment = context.Environments.Single(row => row.Name == environmentName);
             environment.Projects.Add(project);
             context.SaveChanges();

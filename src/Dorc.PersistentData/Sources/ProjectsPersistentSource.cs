@@ -467,6 +467,8 @@ namespace Dorc.PersistentData.Sources
                 ArtefactsUrl = project.ArtefactsUrl,
                 ArtefactsBuildRegex = project.ArtefactsBuildRegex,
                 TerraformGitRepoUrl = project.TerraformGitRepoUrl,
+                TerraformStateBackends = System.Text.Json.JsonSerializer.Deserialize<List<TerraformStateBackendApiModel>>(
+                    project.TerraformStateBackendsJson ?? "[]"),
                 LeanIXUrl = project.LeanIXUrl,
                 SourceDatabase = project.SourceDatabase != null ? DatabasesPersistentSource.MapToDatabaseApiModel(project.SourceDatabase) : null,
                 SourceControlType = project.SourceControlType

@@ -33,6 +33,8 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .Property(e => e.TerraformGitRepoUrl)
                 .HasMaxLength(512);
 
+            builder.Property(e => e.TerraformStateBackendsJson).HasColumnType("nvarchar(max)");
+
             builder
                 .Property(e => e.LeanIXUrl)
                 .HasMaxLength(512);

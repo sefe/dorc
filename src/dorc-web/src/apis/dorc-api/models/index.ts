@@ -119,6 +119,7 @@ export * from './TerraformParameterType';
 export * from './TerraformPlanApiModel';
 export * from './TerraformReadinessApiModel';
 export * from './TerraformSourceType';
+export * from './TerraformStateBackendApiModel';
 export * from './TerraformTemplateInstantiateRequestApiModel';
 export * from './TerraformTemplateInstantiateResponseApiModel';
 export * from './TerraformTemplateManifest';

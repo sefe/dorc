@@ -256,7 +256,12 @@ namespace Dorc.Api.Tests.Controllers
             _projects.GetProject(ProjectId).Returns(new ProjectApiModel
             {
                 ProjectId = ProjectId,
-                ProjectName = ProjectName
+                ProjectName = ProjectName,
+                TerraformStateBackends = new List<TerraformStateBackendApiModel>
+                {
+                    new() { StorageAccount = "teststate", ContainerName = "tfstate",
+                        SubscriptionId = "11111111-1111-1111-1111-111111111111" }
+                }
             });
             _environments.GetEnvironment(Arg.Any<string>())
                 .Returns(new EnvironmentApiModel { EnvironmentName = EnvName });
@@ -1270,13 +1275,37 @@ namespace Dorc.Api.Tests.Controllers
             var readiness = ((TerraformTemplateResolutionApiModel)((OkObjectResult)response).Value!).Readiness;
             StringAssert.Contains(readiness.AzureCredentialMode, "Invalid");
             StringAssert.Contains(readiness.AivenCredentialMode, "configured");
-            StringAssert.Contains(readiness.BackendStatus, "Unknown");
+            StringAssert.Contains(readiness.BackendStatus, "Project default: teststate/tfstate");
             StringAssert.Contains(readiness.AccessStatus, "Not checked");
             CollectionAssert.Contains(readiness.InvalidInputs, "required_input");
             var json = System.Text.Json.JsonSerializer.Serialize(readiness);
             Assert.IsFalse(json.Contains("not-a-guid-private-value"));
             Assert.IsFalse(json.Contains("secret-value"));
             Assert.IsFalse(json.Contains("aiven-private-token"));
+        }
+
+        [TestMethod]
+        public async Task ScopedBackend_ReadinessSelectsOverrideAndMissingBackendPreventsCreation()
+        {
+            GivenTemplateAndProject(Manifest());
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _environments.GetEnvironment(Arg.Any<string>()).Returns(new EnvironmentApiModel { EnvironmentId = 12, EnvironmentName = EnvName });
+            var project = _projects.GetProject(ProjectId);
+            project.TerraformStateBackends.Add(new TerraformStateBackendApiModel
+            {
+                EnvironmentId = 12, StorageAccount = "envstate", ContainerName = "envstate",
+                SubscriptionId = "22222222-2222-2222-2222-222222222222"
+            });
+            var response = await _controller.ResolveTemplateInputs(TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+            StringAssert.Contains(((TerraformTemplateResolutionApiModel)((OkObjectResult)response).Value!).Readiness.BackendStatus,
+                "Environment override: envstate/envstate");
+
+            project.TerraformStateBackends.Clear();
+            var refused = await _controller.InstantiateTemplate(TemplateName, TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel { ProjectId = ProjectId, EnvironmentName = EnvName }, CancellationToken.None);
+            Assert.IsInstanceOfType<BadRequestObjectResult>(refused);
+            StringAssert.Contains((string)((BadRequestObjectResult)refused).Value!, "Project Ref Data");
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateCatalogComponent(default!, default, default, default, default!);
         }
 
         [TestMethod]

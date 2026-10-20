@@ -63,12 +63,32 @@ public partial class RequestsPersistentSource
             component.Children = new List<ComponentApiModel>();
             var revision = DeploymentDefinitions.Observe(context, current.Project, component);
             var script = context.Components.Where(c => c.Id == component.ComponentId).Select(c => c.Script).SingleOrDefault();
+            var submittedProject = JsonSerializer.Deserialize<ProjectApiModel>(JsonSerializer.Serialize(current.Project))!;
+            if (component.ComponentType == ComponentType.Terraform &&
+                component.TerraformSourceType == TerraformSourceType.Catalog && !skipped.Contains(component.ComponentName))
+            {
+                var environmentId = context.Environments.Where(e => e.Name == request.Environment &&
+                    e.Projects.Any(p => p.Id == project.Id)).Select(e => (int?)e.Id).SingleOrDefault()
+                    ?? throw new InvalidOperationException("The Catalog request environment must be mapped to its project.");
+                var backend = TerraformStateBackends.Require(current.Project.TerraformStateBackends, environmentId);
+                // Only the effective backend travels with this request. It must not be
+                // reselected from live mappings or overridden by request properties.
+                submittedProject.TerraformStateBackends =
+                [
+                    new TerraformStateBackendApiModel
+                    {
+                        EnvironmentId = environmentId,
+                        StorageAccount = backend.StorageAccount, ContainerName = backend.ContainerName,
+                        SubscriptionId = backend.SubscriptionId, ResourceGroup = backend.ResourceGroup
+                    }
+                ];
+            }
             result.Add(new DeploymentRequestDefinition
             {
                 Ordinal = result.Count, ProjectId = project.Id, ComponentId = component.ComponentId!.Value,
                 ComponentName = component.ComponentName, DefinitionRevisionId = revision.Id,
                 DefinitionRevision = revision.Revision, DefinitionJson = JsonSerializer.Serialize(component),
-                ProjectJson = JsonSerializer.Serialize(current.Project), IsSkipped = skipped.Contains(component.ComponentName),
+                ProjectJson = JsonSerializer.Serialize(submittedProject), IsSkipped = skipped.Contains(component.ComponentName),
                 ScriptJson = script == null ? null : JsonSerializer.Serialize(new ScriptApiModel
                 {
                     Id = script.Id, Name = script.Name, Path = script.Path, IsPathJSON = script.IsPathJSON,

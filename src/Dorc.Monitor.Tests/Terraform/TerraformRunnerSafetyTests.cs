@@ -22,21 +22,23 @@ public class TerraformRunnerSafetyTests
     [TestMethod]
     [DataRow(TerraformSourceType.Git)]
     [DataRow(TerraformSourceType.SharedFolder)]
-    public void GlobalBackend_DoesNotAdoptLegacyComponents(TerraformSourceType source)
+    public void ProjectBackend_DoesNotAdoptLegacyComponents(TerraformSourceType source)
     {
         var group = new ScriptGroup { TerraformSourceType = source };
-        TerraformDispatcher.ConfigurePlatformState(group, "project", "component", "prod", StateConfiguration());
+        TerraformDispatcher.ConfigurePlatformState(group, StateConfiguration(), "component", "prod");
         Assert.IsNull(group.TerraformStateStorageAccount);
         Assert.IsNull(group.TerraformStateKey);
     }
 
     [TestMethod]
-    public void GlobalBackend_IsMandatoryForCatalog()
+    public void SubmittedBackend_IsMandatoryForCatalog()
     {
         var group = new ScriptGroup { TerraformSourceType = TerraformSourceType.Catalog };
-        TerraformDispatcher.ConfigurePlatformState(group, "project", "component", "prod", StateConfiguration());
+        TerraformDispatcher.ConfigurePlatformState(group, StateConfiguration(), "component", "prod");
         Assert.AreEqual("platform", group.TerraformStateStorageAccount);
         Assert.AreEqual("project/component/prod.tfstate", group.TerraformStateKey);
+        Assert.Throws<InvalidOperationException>(() => TerraformDispatcher.ConfigurePlatformState(group,
+            new ProjectApiModel { ProjectName = "project" }, "component", "prod"));
     }
 
     [TestMethod]
@@ -128,13 +130,20 @@ public class TerraformRunnerSafetyTests
         }
     }
 
-    private static IConfiguration StateConfiguration() => new ConfigurationBuilder()
-        .AddInMemoryCollection(new Dictionary<string, string?>
+    private static ProjectApiModel StateConfiguration() => new()
+    {
+        ProjectName = "project",
+        TerraformStateBackends =
+        [
+            new()
         {
-            ["StorageAccount"] = "platform",
-            ["ContainerName"] = "state",
-            ["SubscriptionId"] = "11111111-1111-1111-1111-111111111111"
-        }).Build();
+            EnvironmentId = 17,
+            StorageAccount = "platform",
+            ContainerName = "state",
+            SubscriptionId = "11111111-1111-1111-1111-111111111111"
+        }
+        ]
+    };
 
     [DllImport("kernel32.dll")]
     private static extern IntPtr GetCurrentProcess();
