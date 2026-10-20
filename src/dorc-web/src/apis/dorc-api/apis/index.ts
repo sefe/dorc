@@ -60,3 +60,4 @@ export * from './ScriptsAuditApi';
 export * from './ServerAuditApi';
 export * from './ServerDaemonsApi';
 export * from './TerraformApi';
+export * from './TerraformBackendCutoversApi';

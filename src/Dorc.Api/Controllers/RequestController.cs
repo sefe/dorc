@@ -222,6 +222,8 @@ namespace Dorc.Api.Controllers
                         $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
                 }
 
+                _requestsPersistentSource.EnsureRequestBackendNotRetired(requestId);
+
                 // Archive the current attempt before restarting
                 try
                 {
@@ -249,6 +251,10 @@ namespace Dorc.Api.Controllers
 
                 return StatusCode(StatusCodes.Status200OK,
                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
+            }
+            catch (TerraformBackendRetiredException e)
+            {
+                return Conflict(e.Message);
             }
             catch (Exception e)
             {

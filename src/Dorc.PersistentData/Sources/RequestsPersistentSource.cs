@@ -443,11 +443,14 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                context.DeploymentRequests
-                    .Where(r => r.Id == requestId)
+                var affected = context.DeploymentRequests
+                    .Where(r => r.Id == requestId && r.TerraformBackendRetiredByChangeId == null)
                     .ExecuteUpdate(setters => setters
                         .SetProperty(b => b.Status, status.ToString())
                         .SetProperty(b => b.UserName, user));
+                if (affected == 0 && context.DeploymentRequests.Any(r =>
+                        r.Id == requestId && r.TerraformBackendRetiredByChangeId != null))
+                    throw new TerraformBackendRetiredException();
             }
         }
 

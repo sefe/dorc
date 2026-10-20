@@ -74,6 +74,39 @@ drain/cancel old requests. Catalog requests whose project snapshot lacks a backe
 must be resubmitted and replanned. Where historical evidence is missing, verify
 the actual state under the approved operator process before submitting anything.
 
+### Audited cutover of an empty testing backend
+
+For a backend that failed before any retained Catalog plan, administrators can
+use `POST /Projects/{projectId}/terraform-state-backend-cutovers`. This is an
+operator API, not an ordinary reference-data edit or a state-copy operation.
+It requires project and environment write access as well as the Admin role.
+
+Stop external writers and verify both the old and replacement containers are
+empty using authorized blob-data access. Retain a non-secret verification record
+with the resource identities, UTC time and checks performed; calculate its SHA-256.
+The API records the operator's attestation and evidence digest. It does **not**
+independently check Azure storage, connectivity or permissions.
+
+Submit the current reference-data `Revision`, mapped `EnvironmentId`, the
+`ExpectedBackend` coordinates, a complete environment-scoped replacement `Backend`,
+`ConfirmBothContainersEmpty: true`, and the 64-character `VerificationSha256`.
+The operation refuses active requests, retained runner processes, retained
+Catalog plans/receipts, and missing or conflicting submitted backend evidence.
+It cannot be used to migrate nonempty state or deployments with existing plans.
+
+The project change, before/after history, verification digest and request-retirement
+markers commit in one transaction. Old submitted definitions and results are not
+rewritten. Retired requests remain readable but cannot restart or dispatch; submit
+a fresh request against the new backend. Other environment overrides and the
+project default remain unchanged. A repeated call with an old revision conflicts
+rather than performing another cutover.
+
+Deploy the additive request-retirement columns on both live and archive tables
+before upgrading API and Monitor. After cutover, verify the new project revision
+and backend, and check the old container is still empty and unused before deleting
+only that explicitly identified container. Never delete its parent account as part
+of a container cleanup.
+
 ## Installer configuration
 
 `TERRAFORM_STATE_*` deployment properties and their MSI/Monitor configuration

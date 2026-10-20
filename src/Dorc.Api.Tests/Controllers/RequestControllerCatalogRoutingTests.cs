@@ -24,6 +24,7 @@ public class RequestControllerCatalogRoutingTests
     private IRequestService _service = null!;
     private IProjectsPersistentSource _projects = null!;
     private ISecurityPrivilegesChecker _security = null!;
+    private IRequestsPersistentSource _requests = null!;
     private RequestController _controller = null!;
 
     [TestInitialize]
@@ -32,6 +33,7 @@ public class RequestControllerCatalogRoutingTests
         _service = Substitute.For<IRequestService>();
         _projects = Substitute.For<IProjectsPersistentSource>();
         _security = Substitute.For<ISecurityPrivilegesChecker>();
+        _requests = Substitute.For<IRequestsPersistentSource>();
         var environments = Substitute.For<IEnvironmentsPersistentSource>();
         var directoryFactory = Substitute.For<IDirectorySearcherFactory>();
         directoryFactory.GetEntraSearcher().Returns(Substitute.For<IActiveDirectorySearcher>());
@@ -42,7 +44,7 @@ public class RequestControllerCatalogRoutingTests
             .Returns(new RequestStatusDto { Id = 42, Status = "Pending" });
         _controller = new RequestController(
             _service, _security, NullLogger<RequestController>.Instance,
-            Substitute.For<IRequestsManager>(), Substitute.For<IRequestsPersistentSource>(),
+            Substitute.For<IRequestsManager>(), _requests,
             _projects, Substitute.For<IClaimsPrincipalReader>(), Substitute.For<IDeploymentEventsPublisher>(),
             Substitute.For<IConfigurationSettings>(), environments, directoryFactory,
             Substitute.For<IDeploymentLogService>())
@@ -65,6 +67,20 @@ public class RequestControllerCatalogRoutingTests
         Environment = Environment,
         Components = components
     };
+
+    [TestMethod]
+    public void Restart_RetiredBackendReturnsConflictWithoutArchivingOrRequeueing()
+    {
+        _requests.GetRequestForUser(42, Arg.Any<ClaimsPrincipal>()).Returns(new DeploymentRequestApiModel
+        {
+            Id = 42, EnvironmentName = Environment, Status = "Failed"
+        });
+        _requests.When(r => r.EnsureRequestBackendNotRetired(42))
+            .Do(_ => throw new TerraformBackendRetiredException());
+        Assert.IsInstanceOfType<ConflictObjectResult>(_controller.RestartPost(42));
+        _requests.DidNotReceive().ArchiveCurrentAttempt(Arg.Any<int>());
+        _requests.DidNotReceive().UpdateRequestStatus(Arg.Any<int>(), Arg.Any<DeploymentRequestStatus>(), Arg.Any<string>());
+    }
 
     [TestMethod]
     public void Post_AllCatalogWithoutAnyBuildMetadata_SubmitsVerifiedCatalogRequest()

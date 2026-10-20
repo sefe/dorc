@@ -7,6 +7,30 @@ public class DeploymentDefinitionMigrationTests : DatabaseTestBase
 {
     [TestMethod]
     [TestCategory("Database")]
+    public void BackendRetirement_UpgradesAndPreservesArchiveColumnAlignment()
+    {
+        PublishDacpac();
+        ExecuteEphemeral("""
+            ALTER TABLE [deploy].[DeploymentRequest] DROP COLUMN [TerraformBackendRetiredByChangeId];
+            ALTER TABLE [archive].[DeploymentRequest] DROP COLUMN [TerraformBackendRetiredByChangeId];
+            """);
+        PublishDacpac();
+        ExecuteEphemeral("""
+            INSERT [deploy].[DeploymentRequest] ([RequestDetails],[UserName],[Status],[TerraformBackendRetiredByChangeId])
+            VALUES (N'<root/>', N'cutover-test', N'Failed', '11111111-1111-1111-1111-111111111111');
+            DELETE FROM [deploy].[DeploymentRequest]
+            OUTPUT DELETED.* INTO [archive].[DeploymentRequest]
+            WHERE [UserName] = N'cutover-test';
+            """);
+        PublishDacpac();
+        Assert.AreEqual(1, ExecuteScalarInt("""
+            SELECT COUNT(*) FROM [archive].[DeploymentRequest]
+            WHERE [UserName] = N'cutover-test' AND [TerraformBackendRetiredByChangeId] = '11111111-1111-1111-1111-111111111111'
+            """));
+    }
+
+    [TestMethod]
+    [TestCategory("Database")]
     public void ProjectBackend_UpgradesLegacyRowsAndPreservesConfigurationOnRepublish()
     {
         PublishDacpac();

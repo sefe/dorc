@@ -77,6 +77,209 @@ public class DeploymentDefinitionsSqlTests
         }
     }, true, "creator", _ => true, () => { });
 
+    private static (RefDataApiModel Document, TerraformBackendCutoverApiModel Cutover, int RequestId, string EnvironmentName)
+        CreateCutover(string status = "Failed")
+    {
+        var document = Create();
+        var component = document.Components.Single();
+        component.ComponentType = ComponentType.Terraform;
+        component.TerraformSourceType = TerraformSourceType.Catalog;
+        component.TerraformTemplateName = "module";
+        component.TerraformTemplateVersion = "1.0.0";
+        component.ScriptPath = "";
+        var name = Guid.NewGuid().ToString("N");
+        int environmentId;
+        using (var context = factory.GetContext())
+        {
+            context.Database.ExecuteSqlInterpolated(
+                $"INSERT [deploy].[Environment] ([Name], [ObjectId], [Secure], [IsProd]) VALUES ({name}, NEWID(), 0, 0)");
+            var environment = context.Environments.Single(e => e.Name == name);
+            environment.Projects.Add(context.Projects.Single(p => p.Id == document.Project.ProjectId));
+            context.SaveChanges();
+            environmentId = environment.Id;
+        }
+        var oldBackend = new TerraformStateBackendApiModel
+        {
+            StorageAccount = "oldstate", ContainerName = "tfstate",
+            SubscriptionId = "11111111-1111-1111-1111-111111111111"
+        };
+        document.Project.TerraformStateBackends = [oldBackend];
+        document = definitions.Save(document, false, "editor", _ => true, () => { });
+        var requests = new RequestsPersistentSource(factory, Substitute.For<IClaimsPrincipalReader>());
+        var requestId = requests.SubmitRequest(new DeploymentRequest
+        {
+            Project = document.Project.ProjectName, Environment = name, Components = component.ComponentName,
+            RequestDetails = "<root/>", UserName = "requester", RequestedTime = DateTimeOffset.UtcNow,
+            Status = status
+        });
+        return (document, new TerraformBackendCutoverApiModel
+        {
+            Revision = document.Revision, EnvironmentId = environmentId, ExpectedBackend = oldBackend,
+            Backend = new TerraformStateBackendApiModel
+            {
+                EnvironmentId = environmentId, StorageAccount = "newstate", ContainerName = "tfstate",
+                SubscriptionId = oldBackend.SubscriptionId
+            },
+            ConfirmBothContainersEmpty = true, VerificationSha256 = new string('a', 64)
+        }, requestId, name);
+    }
+
+    [TestMethod]
+    public void EmptyBackendCutover_AuditsAndRetiresRequestsWithoutRewritingSnapshots()
+    {
+        var fixture = CreateCutover();
+        var requests = new RequestsPersistentSource(factory, Substitute.For<IClaimsPrincipalReader>());
+        var snapshot = requests.GetRequestDefinitions(fixture.RequestId).Single().ProjectJson;
+        var saved = definitions.CutoverEmptyTerraformBackend(fixture.Document.Project.ProjectId,
+            fixture.Cutover, "operator", _ => true, _ => true);
+        Assert.AreEqual("newstate", saved.Project.TerraformStateBackends.Single(b => b.EnvironmentId.HasValue).StorageAccount);
+        Assert.AreEqual("oldstate", saved.Project.TerraformStateBackends.Single(b => !b.EnvironmentId.HasValue).StorageAccount);
+        Assert.AreNotEqual(fixture.Document.Revision, saved.Revision);
+        Assert.AreEqual(snapshot, requests.GetRequestDefinitions(fixture.RequestId).Single().ProjectJson);
+        Assert.Throws<TerraformBackendRetiredException>(() => requests.GetSubmittedComponents(fixture.RequestId));
+        Assert.Throws<TerraformBackendRetiredException>(() => requests.GetSubmittedProject(fixture.RequestId,
+            fixture.Document.Components.Single().ComponentId!.Value));
+        Assert.Throws<TerraformBackendRetiredException>(() =>
+            requests.UpdateRequestStatus(fixture.RequestId, DeploymentRequestStatus.Restarting, "restarter"));
+        using var context = factory.GetContext();
+        var request = context.DeploymentRequests.Single(r => r.Id == fixture.RequestId);
+        Assert.AreEqual("Failed", request.Status);
+        Assert.AreEqual("requester", request.UserName);
+        var change = context.DeploymentDefinitionChanges.Single(c => c.Id == request.TerraformBackendRetiredByChangeId);
+        Assert.AreEqual("operator", change.Actor);
+        Assert.AreEqual("TerraformBackend.EmptyCutover", change.Operation);
+        Assert.AreEqual("sha256:" + fixture.Cutover.VerificationSha256, change.SourceRecordId);
+        Assert.IsTrue(change.BeforeJson.Contains("oldstate"));
+        Assert.IsTrue(change.AfterJson.Contains("newstate"));
+        var newRequestId = requests.SubmitRequest(new DeploymentRequest
+        {
+            Project = saved.Project.ProjectName, Environment = fixture.EnvironmentName,
+            Components = saved.Components.Single().ComponentName, RequestDetails = "<root/>", UserName = "new-requester"
+        });
+        Assert.AreEqual("newstate", requests.GetSubmittedProject(newRequestId,
+            saved.Components.Single().ComponentId!.Value).TerraformStateBackends.Single().StorageAccount);
+        saved.Project.TerraformStateBackends.Single(b => b.EnvironmentId.HasValue).StorageAccount = "thirdstate";
+        Assert.Throws<ArgumentException>(() => definitions.Save(saved, false, "editor", _ => true, () => { }));
+    }
+
+    [TestMethod]
+    [DataRow("Pending")]
+    [DataRow("Running")]
+    [DataRow("WaitingConfirmation")]
+    [DataRow("Paused")]
+    public void EmptyBackendCutover_RejectsActiveRequests(string status)
+    {
+        var fixture = CreateCutover(status);
+        Assert.Throws<InvalidOperationException>(() => definitions.CutoverEmptyTerraformBackend(
+            fixture.Document.Project.ProjectId, fixture.Cutover, "operator", _ => true, _ => true));
+        Assert.AreEqual(fixture.Document.Revision, definitions.Get(fixture.Document.Project.ProjectId).Revision);
+    }
+
+    [TestMethod]
+    public void EmptyBackendCutover_RequiresRevisionAuthorizationAndVerification()
+    {
+        var fixture = CreateCutover();
+        var projectId = fixture.Document.Project.ProjectId;
+        Assert.Throws<UnauthorizedAccessException>(() =>
+            definitions.CutoverEmptyTerraformBackend(projectId, fixture.Cutover, "operator", _ => false, _ => true));
+        Assert.Throws<UnauthorizedAccessException>(() =>
+            definitions.CutoverEmptyTerraformBackend(projectId, fixture.Cutover, "operator", _ => true, _ => false));
+        fixture.Cutover.Revision = "stale";
+        Assert.Throws<DefinitionPreconditionException>(() =>
+            definitions.CutoverEmptyTerraformBackend(projectId, fixture.Cutover, "operator", _ => true, _ => true));
+        fixture.Cutover.Revision = fixture.Document.Revision;
+        fixture.Cutover.ConfirmBothContainersEmpty = false;
+        Assert.Throws<ArgumentException>(() =>
+            definitions.CutoverEmptyTerraformBackend(projectId, fixture.Cutover, "operator", _ => true, _ => true));
+        fixture.Cutover.ConfirmBothContainersEmpty = true;
+        fixture.Cutover.VerificationSha256 = "unverified";
+        Assert.Throws<ArgumentException>(() =>
+            definitions.CutoverEmptyTerraformBackend(projectId, fixture.Cutover, "operator", _ => true, _ => true));
+        Assert.AreEqual(fixture.Document.Revision, definitions.Get(projectId).Revision);
+        using var context = factory.GetContext();
+        Assert.IsNull(context.DeploymentRequests.Single(r => r.Id == fixture.RequestId).TerraformBackendRetiredByChangeId);
+        Assert.IsFalse(context.DeploymentDefinitionChanges.Any(c => c.ProjectId == projectId && c.Operation == "TerraformBackend.EmptyCutover"));
+    }
+
+    [TestMethod]
+    public void EmptyBackendCutover_RejectsRetainedPlanEvidence()
+    {
+        var fixture = CreateCutover();
+        using (var context = factory.GetContext())
+        {
+            context.TerraformDeploymentReceipts.Add(new TerraformDeploymentReceipt
+            {
+                DeploymentResultId = 200000 + fixture.RequestId, DeploymentRequestId = fixture.RequestId,
+                ProjectId = fixture.Document.Project.ProjectId, ProjectName = fixture.Document.Project.ProjectName,
+                EnvironmentId = fixture.Cutover.EnvironmentId, EnvironmentName = fixture.EnvironmentName,
+                ComponentName = fixture.Document.Components.Single().ComponentName, TemplateName = "module",
+                StateStorageAccount = "oldstate", StateContainerName = "tfstate", PlannedAt = DateTimeOffset.UtcNow
+            });
+            context.SaveChanges();
+        }
+        Assert.Throws<InvalidOperationException>(() => definitions.CutoverEmptyTerraformBackend(
+            fixture.Document.Project.ProjectId, fixture.Cutover, "operator", _ => true, _ => true));
+        Assert.AreEqual(fixture.Document.Revision, definitions.Get(fixture.Document.Project.ProjectId).Revision);
+    }
+
+    [TestMethod]
+    public void EmptyBackendCutover_EndpointRequiresAdminBeforeDatabaseAccess()
+    {
+        var roles = Substitute.For<IRolePrivilegesChecker>();
+        var security = Substitute.For<ISecurityPrivilegesChecker>();
+        var claims = Substitute.For<IClaimsPrincipalReader>();
+        var controller = new TerraformBackendCutoversController(definitions, roles, security, claims);
+        Assert.IsInstanceOfType<ForbidResult>(controller.Post(0, new TerraformBackendCutoverApiModel()));
+    }
+
+    [TestMethod]
+    public void EmptyBackendCutover_AuditFailureRollsBackConfigurationAndRetirement()
+    {
+        var fixture = CreateCutover();
+        using var context = factory.GetContext();
+        context.Database.ExecuteSqlRaw("CREATE TRIGGER [deploy].[RejectCutoverAudit] ON [deploy].[DeploymentDefinitionChange] AFTER INSERT AS THROW 51000, 'Injected audit failure', 1;");
+        try
+        {
+            Assert.Throws<DbUpdateException>(() => definitions.CutoverEmptyTerraformBackend(
+                fixture.Document.Project.ProjectId, fixture.Cutover, "operator", _ => true, _ => true));
+        }
+        finally
+        {
+            context.Database.ExecuteSqlRaw("DROP TRIGGER [deploy].[RejectCutoverAudit]");
+        }
+        Assert.AreEqual(fixture.Document.Revision, definitions.Get(fixture.Document.Project.ProjectId).Revision);
+        Assert.IsNull(context.DeploymentRequests.Single(r => r.Id == fixture.RequestId).TerraformBackendRetiredByChangeId);
+    }
+
+    [TestMethod]
+    public async Task EmptyBackendCutover_ConcurrentAttemptsCommitOnlyOnce()
+    {
+        var fixture = CreateCutover();
+        using var ready = new CountdownEvent(2);
+        using var start = new ManualResetEventSlim();
+        Task<bool> Attempt() => Task.Run(() =>
+        {
+            ready.Signal();
+            start.Wait();
+            try
+            {
+                definitions.CutoverEmptyTerraformBackend(fixture.Document.Project.ProjectId,
+                    fixture.Cutover, "operator", _ => true, _ => true);
+                return true;
+            }
+            catch (DefinitionPreconditionException) { return false; }
+        });
+        var first = Attempt();
+        var second = Attempt();
+        Assert.IsTrue(ready.Wait(TimeSpan.FromSeconds(10)));
+        start.Set();
+        var results = await Task.WhenAll(first, second);
+        Assert.AreEqual(1, results.Count(succeeded => succeeded));
+        using var context = factory.GetContext();
+        Assert.AreEqual(1, context.DeploymentDefinitionChanges.Count(c =>
+            c.ProjectId == fixture.Document.Project.ProjectId && c.Operation == "TerraformBackend.EmptyCutover"));
+    }
+
     [TestMethod]
     public void BackendOverride_IsPinnedAndCannotMoveAfterSubmission()
     {

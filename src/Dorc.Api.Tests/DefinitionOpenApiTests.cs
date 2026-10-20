@@ -44,11 +44,11 @@ public class DefinitionOpenApiTests
         var existing = JsonNode.Parse(File.ReadAllText(target))!;
         // Refresh the affected authoritative paths and their referenced schemas,
         // preserving unrelated security metadata and existing spec maintenance.
-        foreach (var path in new[] { "/DeploymentDefinitions", "/DeploymentDefinitions/history", "/RefDataProjects/{projectId}", "/RefData", "/RefDataScripts/edit" })
+        foreach (var path in new[] { "/DeploymentDefinitions", "/DeploymentDefinitions/history", "/RefDataProjects/{projectId}", "/RefData", "/RefDataScripts/edit", "/Projects/{projectId}/terraform-state-backend-cutovers" })
             existing["paths"]![path] = generated["paths"]![path]!.DeepClone();
         foreach (var schema in new[]
         {
-            "RefDataApiModel", "ProjectApiModel", "TerraformStateBackendApiModel", "TerraformReadinessApiModel",
+            "RefDataApiModel", "ProjectApiModel", "TerraformStateBackendApiModel", "TerraformBackendCutoverApiModel", "TerraformReadinessApiModel",
             "ComponentApiModel", "ScriptApiModel", "DeploymentDefinitionApiModel",
             "GetDeploymentDefinitionsResponse", "DeploymentDefinitionHistoryApiModel", "GetDeploymentDefinitionHistoryResponse",
             "DeploymentResultApiModel", "DeploymentResultAttemptApiModel", "EnvironmentContentBuildsApiModel", "TerraformDeploymentReceiptApiModel"

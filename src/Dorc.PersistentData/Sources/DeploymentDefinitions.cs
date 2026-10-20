@@ -13,7 +13,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Dorc.PersistentData.Sources;
 
 /// <summary>Owns definition writes and their evidence on one context and transaction.</summary>
-public sealed class DeploymentDefinitions(IDeploymentContextFactory factory) : Interfaces.IDeploymentDefinitions
+public sealed partial class DeploymentDefinitions(IDeploymentContextFactory factory) : Interfaces.IDeploymentDefinitions
 {
     internal static string Hash(string value) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
@@ -296,10 +296,10 @@ public sealed class DeploymentDefinitions(IDeploymentContextFactory factory) : I
         }
     }
 
-    internal static void Record(IDeploymentContext context, RefDataApiModel? before, RefDataApiModel after,
+    internal static Guid? Record(IDeploymentContext context, RefDataApiModel? before, RefDataApiModel after,
         string actor, string operation, string? sourceRecordId = null)
     {
-        if (before?.Revision == after.Revision) return;
+        if (before?.Revision == after.Revision) return null;
         var change = new DeploymentDefinitionChange
         {
             Id = Guid.NewGuid(), ProjectId = after.Project.ProjectId, ProjectName = after.Project.ProjectName,
@@ -341,6 +341,7 @@ public sealed class DeploymentDefinitions(IDeploymentContextFactory factory) : I
         }
         foreach (var component in Flatten(after.Components))
             Observe(context, after.Project, component, change.Id);
+        return change.Id;
     }
 
     internal static DeploymentDefinitionRevision Observe(IDeploymentContext context, ProjectApiModel project,

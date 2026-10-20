@@ -11084,6 +11084,77 @@
           }
         }
       }
+    },
+    "/Projects/{projectId}/terraform-state-backend-cutovers": {
+      "post": {
+        "tags": [
+          "TerraformBackendCutovers"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerraformBackendCutoverApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerraformBackendCutoverApiModel"
+              }
+            },
+            "application/*\u002Bjson": {
+              "schema": {
+                "$ref": "#/components/schemas/TerraformBackendCutoverApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefDataApiModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefDataApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefDataApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "428": {
+            "description": "Precondition Required"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -15167,6 +15238,33 @@
             "nullable": true
           },
           "ResourceGroup": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformBackendCutoverApiModel": {
+        "type": "object",
+        "properties": {
+          "Revision": {
+            "type": "string",
+            "nullable": true
+          },
+          "EnvironmentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ExpectedBackend": {
+            "$ref": "#/components/schemas/TerraformStateBackendApiModel"
+          },
+          "Backend": {
+            "$ref": "#/components/schemas/TerraformStateBackendApiModel"
+          },
+          "ConfirmBothContainersEmpty": {
+            "type": "boolean"
+          },
+          "VerificationSha256": {
             "type": "string",
             "nullable": true
           }

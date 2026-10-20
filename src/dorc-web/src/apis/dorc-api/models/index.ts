@@ -109,6 +109,7 @@ export * from './ServerOperatingSystemApiModel';
 export * from './SharedResourceCapabilities';
 export * from './SourceControlType';
 export * from './SqlPortApiModel';
+export * from './TerraformBackendCutoverApiModel';
 export * from './TerraformDeploymentOutcomeApiModel';
 export * from './TerraformDeploymentReceiptApiModel';
 export * from './TerraformInventoryProvenanceApiModel';

@@ -7,6 +7,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
     public interface IRequestsPersistentSource
     {
         IList<DeploymentRequestDefinition> GetRequestDefinitions(int requestId);
+        void EnsureRequestBackendNotRetired(int requestId);
         IList<ComponentApiModel> GetSubmittedComponents(int requestId);
         ScriptApiModel GetSubmittedScript(int requestId, int componentId);
         ProjectApiModel GetSubmittedProject(int requestId, int componentId);

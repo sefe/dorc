@@ -61,6 +61,7 @@ apis/ScriptsAuditApi.ts
 apis/ServerAuditApi.ts
 apis/ServerDaemonsApi.ts
 apis/TerraformApi.ts
+apis/TerraformBackendCutoversApi.ts
 apis/index.ts
 index.ts
 models/AccessControlApiModel.ts
@@ -174,6 +175,7 @@ models/ServerOperatingSystemApiModel.ts
 models/SharedResourceCapabilities.ts
 models/SourceControlType.ts
 models/SqlPortApiModel.ts
+models/TerraformBackendCutoverApiModel.ts
 models/TerraformDeploymentOutcomeApiModel.ts
 models/TerraformDeploymentReceiptApiModel.ts
 models/TerraformInventoryProvenanceApiModel.ts

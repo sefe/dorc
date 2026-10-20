@@ -8,6 +8,15 @@ namespace Dorc.PersistentData.Sources;
 
 internal static class ProjectTerraformBackends
 {
+    internal static IQueryable<DeploymentRequestDefinition> CatalogDefinitions(IDeploymentContext context, int projectId) =>
+        context.DeploymentRequestDefinitions.FromSqlRaw(
+            "SELECT * FROM [deploy].[DeploymentRequestDefinition] WHERE [ProjectId] = {0} " +
+            "AND JSON_VALUE([DefinitionJson], '$.TerraformSourceType') IN ({1}, {2}) " +
+            "AND JSON_VALUE([DefinitionJson], '$.ComponentType') IN ({3}, {4})",
+            projectId, ((int)TerraformSourceType.Catalog).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            nameof(TerraformSourceType.Catalog), ((int)ComponentType.Terraform).ToString(System.Globalization.CultureInfo.InvariantCulture),
+            nameof(ComponentType.Terraform));
+
     internal static void ValidateChange(IDeploymentContext context, Project project,
         IEnumerable<TerraformStateBackendApiModel>? backends)
     {
@@ -22,16 +31,11 @@ internal static class ProjectTerraformBackends
             !previous.Any(old => old.EnvironmentId == b.EnvironmentId && TerraformStateBackends.SameLocation(old, b))))
             throw new ArgumentException("Terraform backend overrides must target environments mapped to this project.");
 
-        var catalogDefinitions = context.DeploymentRequestDefinitions.FromSqlRaw(
-            "SELECT * FROM [deploy].[DeploymentRequestDefinition] WHERE [ProjectId] = {0} " +
-            "AND JSON_VALUE([DefinitionJson], '$.TerraformSourceType') IN ({1}, {2}) " +
-            "AND JSON_VALUE([DefinitionJson], '$.ComponentType') IN ({3}, {4})",
-            project.Id, ((int)TerraformSourceType.Catalog).ToString(System.Globalization.CultureInfo.InvariantCulture),
-            nameof(TerraformSourceType.Catalog), ((int)ComponentType.Terraform).ToString(System.Globalization.CultureInfo.InvariantCulture),
-            nameof(ComponentType.Terraform));
+        var catalogDefinitions = CatalogDefinitions(context, project.Id);
         var scopes = mapped.Select(e => (e.Id, e.Name)).ToList();
         var submitted = (from definition in catalogDefinitions
                          join request in context.DeploymentRequests on definition.DeploymentRequestId equals request.Id
+                         where request.TerraformBackendRetiredByChangeId == null
                          select new { request.Environment, definition.ProjectJson }).Distinct().ToList()
             .Select(row => new
             {

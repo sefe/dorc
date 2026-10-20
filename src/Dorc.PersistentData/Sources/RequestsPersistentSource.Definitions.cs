@@ -9,6 +9,13 @@ namespace Dorc.PersistentData.Sources;
 
 public partial class RequestsPersistentSource
 {
+    public void EnsureRequestBackendNotRetired(int requestId)
+    {
+        using var context = _contextFactory.GetContext();
+        if (context.DeploymentRequests.Any(r => r.Id == requestId && r.TerraformBackendRetiredByChangeId != null))
+            throw new TerraformBackendRetiredException();
+    }
+
     public void SavePowerShellEvidence(PowerShellEvidence evidence)
     {
         using var context = _contextFactory.GetContext();
@@ -115,6 +122,7 @@ public partial class RequestsPersistentSource
 
     public IList<ComponentApiModel> GetSubmittedComponents(int requestId)
     {
+        EnsureRequestBackendNotRetired(requestId);
         return GetRequestDefinitions(requestId).Where(x => !x.IsSkipped).Select(row =>
         {
             var component = JsonSerializer.Deserialize<ComponentApiModel>(row.DefinitionJson)
@@ -134,7 +142,10 @@ public partial class RequestsPersistentSource
         return script;
     }
 
-    public ProjectApiModel GetSubmittedProject(int requestId, int componentId) =>
-        JsonSerializer.Deserialize<ProjectApiModel>(GetRequestDefinitions(requestId)
+    public ProjectApiModel GetSubmittedProject(int requestId, int componentId)
+    {
+        EnsureRequestBackendNotRetired(requestId);
+        return JsonSerializer.Deserialize<ProjectApiModel>(GetRequestDefinitions(requestId)
             .Single(x => x.ComponentId == componentId).ProjectJson)!;
+    }
 }
