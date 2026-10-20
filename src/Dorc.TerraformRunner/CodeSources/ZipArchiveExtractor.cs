@@ -14,10 +14,11 @@ namespace Dorc.TerraformRunner.CodeSources
             this.options = options ?? throw new ArgumentNullException(nameof(options));
         }
 
-        public void Extract(string archivePath, string targetDirectory)
+        public void Extract(string archivePath, string targetDirectory, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(archivePath)) throw new ArgumentException("archivePath required", nameof(archivePath));
             if (string.IsNullOrEmpty(targetDirectory)) throw new ArgumentException("targetDirectory required", nameof(targetDirectory));
+            cancellationToken.ThrowIfCancellationRequested();
 
             Directory.CreateDirectory(targetDirectory);
             var canonicalTarget = NormalizeWithSeparator(Path.GetFullPath(targetDirectory));
@@ -29,6 +30,7 @@ namespace Dorc.TerraformRunner.CodeSources
 
             foreach (var entry in archive.Entries)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 ValidateEntryShape(entry);
                 var destinationFullPath = ResolveAndContain(canonicalTarget, entry.FullName, entry);
 
@@ -79,7 +81,7 @@ namespace Dorc.TerraformRunner.CodeSources
                 var remainingTotalBudget = options.MaxBytesTotal - totalBytes;
                 var effectiveCap = Math.Min(options.MaxBytesPerEntry, remainingTotalBudget);
                 var written = CopyWithCap(sourceStream, destinationStream, effectiveCap, entry.FullName,
-                    remainingTotalBudget < options.MaxBytesPerEntry);
+                    remainingTotalBudget < options.MaxBytesPerEntry, cancellationToken);
                 totalBytes += written;
             }
         }
@@ -158,13 +160,15 @@ namespace Dorc.TerraformRunner.CodeSources
         // is true the cap represents the remaining whole-archive budget, so an
         // overrun is reported as TotalSizeExceeded rather than a per-entry
         // violation.
-        private static long CopyWithCap(Stream source, Stream destination, long cap, string entryName, bool capIsTotalBudget)
+        private static long CopyWithCap(Stream source, Stream destination, long cap, string entryName, bool capIsTotalBudget,
+            CancellationToken cancellationToken)
         {
             var buffer = new byte[81920];
             long copied = 0L;
             int read;
             while ((read = source.Read(buffer, 0, buffer.Length)) > 0)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 copied += read;
                 if (copied > cap)
                 {

@@ -50,7 +50,7 @@ namespace Dorc.Monitor.Terraform
                 var environment = _environmentsPersistentSource.GetEnvironment(environmentName);
                 if (environment is null)
                 {
-                    logger.LogWarning($"Terraform applied-resource registration skipped: environment '{environmentName}' was not found.");
+                    logger.LogWarning("Terraform applied-resource registration skipped: environment {EnvironmentName} was not found.", environmentName);
                     return;
                 }
 
@@ -63,7 +63,8 @@ namespace Dorc.Monitor.Terraform
                     }
                     catch (Exception ex)
                     {
-                        logger.LogWarning(ex, $"Could not register terraform-applied cloud resource '{resource.Name}' ({resource.ResourceType}) on environment '{environmentName}'.");
+                        logger.LogWarning(ex, "Could not register terraform-applied cloud resource {ResourceName} ({ResourceType}, {Provider}) on environment {EnvironmentName}.",
+                            resource.Name, resource.ResourceType, resource.Provider, environmentName);
                     }
 
                     try
@@ -72,13 +73,14 @@ namespace Dorc.Monitor.Terraform
                     }
                     catch (Exception ex)
                     {
-                        logger.LogWarning(ex, $"Could not register terraform-applied database '{resource.Name}' ({resource.ResourceType}) on environment '{environmentName}'.");
+                        logger.LogWarning(ex, "Could not register terraform-applied database {ResourceName} ({ResourceType}) on environment {EnvironmentName}.",
+                            resource.Name, resource.ResourceType, environmentName);
                     }
                 }
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, $"Terraform applied-resource registration failed for environment '{environmentName}'. The deployment itself succeeded.");
+                logger.LogWarning(ex, "Terraform applied-resource registration failed for environment {EnvironmentName}. The deployment itself succeeded.", environmentName);
             }
         }
 
@@ -123,8 +125,7 @@ namespace Dorc.Monitor.Terraform
                 case EnvironmentAttachmentOutcome.AlreadyAttached:
                     break;
                 default:
-                    logger.LogWarning($"Could not attach cloud resource '{persisted.Name}' (id {persisted.Id}) to environment '{environment.EnvironmentName}': {outcome}.");
-                    break;
+                    throw new InvalidOperationException($"Could not attach cloud resource {persisted.Id} to environment {environment.EnvironmentId}: {outcome}.");
             }
         }
 
@@ -132,8 +133,21 @@ namespace Dorc.Monitor.Terraform
         {
             if (string.IsNullOrWhiteSpace(resource.ResourceIdentifier))
                 throw new ArgumentException("Applied cloud resources must have a resource identifier.", nameof(resource));
-            // Preserve existing display names, then fall back to a stable,
-            // identity-qualified name when other environments use the same name.
+            if (string.IsNullOrWhiteSpace(resource.Provider) || string.IsNullOrWhiteSpace(resource.ResourceType))
+                throw new ArgumentException("Applied cloud resources must have a provider and resource type.", nameof(resource));
+
+            var matches = _cloudResourcesPersistentSource.GetByIdentity(
+                resource.Provider, resource.ResourceType, resource.ResourceIdentifier);
+            if (matches.Count > 1)
+            {
+                logger.LogWarning("Ambiguous terraform cloud resource identity for {Provider}/{ResourceType}: matching definition IDs {CloudResourceIds}. Registration skipped; resolve duplicate definitions explicitly.",
+                    resource.Provider, resource.ResourceType, string.Join(", ", matches.Select(match => match.Id)));
+                return null;
+            }
+            if (matches.Count == 1)
+                return UpdateIfChanged(matches[0], resource, username);
+
+            // Display-name availability is relevant only for a new remote identity.
             foreach (var candidateName in CandidateNames(resource))
             {
                 var existing = _cloudResourcesPersistentSource.GetByName(candidateName);
@@ -158,11 +172,6 @@ namespace Dorc.Monitor.Terraform
 
                     return created;
                 }
-
-                if (SameIdentity(existing, resource))
-                {
-                    return UpdateIfChanged(existing, resource, username);
-                }
             }
 
             throw new InvalidOperationException($"All identity-qualified names for cloud resource '{resource.Name}' are occupied by different resources.");
@@ -179,7 +188,7 @@ namespace Dorc.Monitor.Terraform
                 if (typedName.Length <= maxNameLength)
                     yield return typedName;
             }
-            var identity = resource.ResourceIdentifier.ToUpperInvariant();
+            var identity = CloudResourceIdentity.FingerprintInput(resource.Provider, resource.ResourceType, resource.ResourceIdentifier);
             var suffix = $" ({Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))})";
             yield return resource.Name[..Math.Min(resource.Name.Length, maxNameLength - suffix.Length)] + suffix;
         }
@@ -208,7 +217,8 @@ namespace Dorc.Monitor.Terraform
             var persisted = existing ?? _databasesPersistentSource.AddDatabase(database);
             if (persisted is null)
             {
-                logger.LogWarning($"Could not add database '{database.Name}' on '{database.ServerName}' for environment '{environment.EnvironmentName}'.");
+                logger.LogWarning("Could not add database {DatabaseName} on {ServerName} for environment {EnvironmentName}.",
+                    database.Name, database.ServerName, environment.EnvironmentName);
                 return;
             }
 
@@ -283,10 +293,6 @@ namespace Dorc.Monitor.Terraform
             }
             return null;
         }
-
-        private static bool SameIdentity(CloudResourceApiModel existing, CloudResourceApiModel incoming) =>
-            !string.IsNullOrWhiteSpace(incoming.ResourceIdentifier)
-            && string.Equals(existing.ResourceIdentifier, incoming.ResourceIdentifier, StringComparison.OrdinalIgnoreCase);
 
         private CloudResourceApiModel? UpdateIfChanged(CloudResourceApiModel existing, CloudResourceApiModel incoming, string username)
         {

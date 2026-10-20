@@ -135,7 +135,9 @@ namespace Dorc.TerraformRunner
                 // subscription standard.
                 var defaultSubscriptionId = config.GetSection("Terraform")["DefaultSubscriptionId"];
 
-                var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader, templateCatalog, defaultSubscriptionId);
+                var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader, templateCatalog,
+                    new Dorc.TerraformRunner.CodeSources.TerraformCodeSourceProviderFactory(runnerLogger, templateCatalog),
+                    defaultSubscriptionId);
                 switch (options.TerraformRunnerOperation)
                 {
                     case TerraformRunnerOperations.CreatePlan:

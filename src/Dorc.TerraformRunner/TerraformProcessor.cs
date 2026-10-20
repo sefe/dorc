@@ -18,7 +18,7 @@ namespace Dorc.TerraformRunner
     {
         private readonly IRunnerLogger logger;
         private readonly IScriptGroupPipeClient _scriptGroupPipeClient;
-        private readonly TerraformCodeSourceProviderFactory _codeSourceFactory;
+        private readonly ITerraformCodeSourceProviderFactory _codeSourceFactory;
         private readonly ITemplateCatalog _catalog;
         private TerraformTemplateManifest? _manifest;
         private IReadOnlyDictionary<string, TerraformTemplateParameter> _parameters =
@@ -53,11 +53,12 @@ namespace Dorc.TerraformRunner
             IRunnerLogger logger,
             IScriptGroupPipeClient scriptGroupPipeClient,
             ITemplateCatalog catalog,
+            ITerraformCodeSourceProviderFactory codeSourceFactory,
             string? defaultSubscriptionId = null)
         {
             this.logger = logger;
             this._scriptGroupPipeClient = scriptGroupPipeClient;
-            this._codeSourceFactory = new TerraformCodeSourceProviderFactory(logger, catalog);
+            this._codeSourceFactory = codeSourceFactory;
             _catalog = catalog;
             this._defaultSubscriptionId = defaultSubscriptionId;
         }
@@ -85,14 +86,12 @@ namespace Dorc.TerraformRunner
                 .Distinct(StringComparer.Ordinal);
             var props = scriptGroup.CommonProperties;
 
-            // IsNullOrWhiteSpace, not IsNullOrEmpty: a whitespace-only value
-            // can never be a meaningful secret, and redacting it would rewrite
-            // every matching run of spaces in the terraform log. Values that
-            // merely CONTAIN spaces are still kept and redacted.
+            // Sensitivity is metadata, not a guess based on the value. Even
+            // whitespace can be a credential; only the empty value is skipped.
             _sensitiveValues = names
                 .Select(name => props is not null && props.TryGetValue(name, out var vv) ? vv?.Value?.ToString()
                     : _parameters.TryGetValue(name, out var parameter) ? parameter.Default : null)
-                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Where(v => !string.IsNullOrEmpty(v))
                 .Select(v => v!)
                 .ToList();
         }
@@ -221,7 +220,7 @@ namespace Dorc.TerraformRunner
             var destDir = Path.GetDirectoryName(lockFilePath);
             if (!string.IsNullOrEmpty(destDir)) Directory.CreateDirectory(destDir);
             File.Copy(source, lockFilePath, true);
-            logger.FileLogger.LogInformation($"Persisted .terraform.lock.hcl to {lockFilePath}");
+            logger.FileLogger.LogInformation("Persisted .terraform.lock.hcl to {LockFilePath}.", lockFilePath);
         }
 
         /// <summary>
@@ -311,7 +310,7 @@ namespace Dorc.TerraformRunner
             if (!string.IsNullOrEmpty(scriptGroup.TerraformSubPath))
             {
                 await TerraformSourceSubPath.ApplyAsync(workingDir, scriptGroup.TerraformSubPath, cancellationToken);
-                logger.FileLogger.LogInformation($"Successfully extracted path {scriptGroup.TerraformSubPath}");
+                logger.FileLogger.LogInformation("Successfully extracted path {SubPath}.", scriptGroup.TerraformSubPath);
             }
 
             // "DOrc owns the backend" applies only when DOrc actually renders
@@ -334,7 +333,7 @@ namespace Dorc.TerraformRunner
                     workingDir,
                     backend);
                 logger.FileLogger.LogInformation(
-                    $"Rendered platform backend (key={scriptGroup.TerraformStateKey})");
+                    "Rendered platform backend with state key {StateKey}.", scriptGroup.TerraformStateKey);
             }
 
             // Catalog modules follow the module contract (no provider blocks;
@@ -433,11 +432,11 @@ namespace Dorc.TerraformRunner
                     new[] { "plan", $"-out={resultFilePath}", "-detailed-exitcode", "-no-color" },
                     cancellationToken);
 
-                var planContent = await RunTerraformCommandAsync(
+                var planContent = RedactSensitiveValues(await RunTerraformCommandAsync(
                     terraformWorkingDir,
                     TerraformCommand.Show,
                     new[] { "show", resultFilePath, "-no-color" },
-                    cancellationToken);
+                    cancellationToken));
                 if (!String.IsNullOrEmpty(planContent))
                 {
                     File.WriteAllText(planContentFilePath, planContent);
@@ -715,7 +714,7 @@ namespace Dorc.TerraformRunner
                 TerraformStateConfiguration.Resolve(scriptGroup);
                 await CollectSensitiveValuesAsync(scriptGroup, cancellationToken);
                 ConfigureOperation(scriptGroup);
-                TerraformSourceArchive.RestorePlanSource(planFile, terraformWorkingDir);
+                TerraformSourceArchive.RestorePlanSource(planFile, terraformWorkingDir, cancellationToken);
                 _usesPlatformBackend |= File.Exists(Path.Join(terraformWorkingDir, TerraformBackendRenderer.BackendFileName));
 
                 if (!string.IsNullOrWhiteSpace(sourceArchiveFilePath))

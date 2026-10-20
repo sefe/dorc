@@ -54,6 +54,19 @@ namespace Dorc.TerraformRunner.Tests.CodeSources
         }
 
         [TestMethod]
+        public void Extract_CancelledBeforeRestore_DoesNotCreateOutput()
+        {
+            BuildArchive(archive => WriteEntry(archive, "source.tf", "approved source"));
+            using var cancellation = new CancellationTokenSource();
+            cancellation.Cancel();
+
+            Assert.Throws<OperationCanceledException>(() =>
+                new ZipArchiveExtractor(ZipArchiveExtractionOptions.Default)
+                    .Extract(ArchivePath(), TargetDir(), cancellation.Token));
+            Assert.IsFalse(Directory.Exists(TargetDir()));
+        }
+
+        [TestMethod]
         public void Extract_NormalArchive_FilesAreCreated()
         {
             BuildArchive(a =>

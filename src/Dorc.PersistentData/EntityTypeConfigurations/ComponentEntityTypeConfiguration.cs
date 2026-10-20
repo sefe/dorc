@@ -15,6 +15,9 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
             builder
                 .HasOne(x => x.Script);
 
+            builder.Property(x => x.Name).HasMaxLength(64).IsRequired();
+            builder.HasIndex(x => x.Name).IsUnique().HasDatabaseName("IX_Component_Name");
+
             builder
                 .Property(x => x.ComponentType)
                 .HasConversion<int>();

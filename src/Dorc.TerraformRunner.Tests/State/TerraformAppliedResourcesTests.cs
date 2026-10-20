@@ -141,6 +141,23 @@ namespace Dorc.TerraformRunner.Tests.State
         }
 
         [TestMethod]
+        public void ParseShowJson_OpaqueIdentifiers_PreserveCaseAndProviderType()
+        {
+            var json = """
+            {
+              "values": { "root_module": { "resources": [
+                { "mode": "managed", "type": "aiven_kafka_topic", "values": { "name": "Orders", "id": "project/service/Orders" } },
+                { "mode": "managed", "type": "aiven_kafka_topic", "values": { "name": "orders", "id": "project/service/orders" } },
+                { "mode": "managed", "type": "aiven_pg_database", "values": { "name": "orders-db", "id": "project/service/orders" } }
+              ] } }
+            }
+            """;
+            var resources = TerraformAppliedResources.ParseShowJson(json);
+            Assert.HasCount(3, resources);
+            Assert.HasCount(2, resources.Where(resource => resource.ResourceType == "aiven_kafka_topic").ToArray());
+        }
+
+        [TestMethod]
         public void ParseShowJson_UnknownProvider_FallsBackToLastSourceSegment()
         {
             var json = """
@@ -195,7 +212,7 @@ namespace Dorc.TerraformRunner.Tests.State
         }
 
         [TestMethod]
-        public void ParseShowJson_LongIdentifier_IsTruncatedToColumnWidth()
+        public void ParseShowJson_LongIdentifier_RefusesLossyRegistration()
         {
             var longId = "/subscriptions/7c7c1f8f-f295-456c-81e4-5d508579d93e/" + new string('x', 600);
             var json = $$"""
@@ -210,11 +227,9 @@ namespace Dorc.TerraformRunner.Tests.State
             }
             """;
 
-            var resources = TerraformAppliedResources.ParseShowJson(json);
-
-            Assert.AreEqual(1, resources.Count);
-            Assert.AreEqual(500, resources[0].ResourceIdentifier.Length);
-            Assert.AreEqual("7c7c1f8f-f295-456c-81e4-5d508579d93e", resources[0].Subscription);
+            var error = Assert.Throws<InvalidDataException>(() => TerraformAppliedResources.ParseShowJson(json));
+            StringAssert.Contains(error.Message, "must not be truncated");
+            Assert.IsFalse(error.Message.Contains(longId));
         }
 
         [TestMethod]

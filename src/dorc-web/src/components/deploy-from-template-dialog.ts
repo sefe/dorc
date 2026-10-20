@@ -33,6 +33,10 @@ import {
   TerraformTemplateParameter
 } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import {
+  resourceGroupNameFromArmId,
+  sanitizeTerraformStateKeyPart
+} from '../helpers/terraform-identity';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 export interface TemplateDeploymentContext {
@@ -46,6 +50,18 @@ const STEPS = [
   { title: 'Review & submit', hint: 'Generates a plan, applies nothing' }
 ] as const;
 
+// Inspect decimal digits rather than IEEE-754 rounding (e.g. 2.0000000000000001).
+const isWholeNumber = (value: string): boolean => {
+  const [coefficient, exponent = '0'] = value.toLowerCase().split('e');
+  const fractionLength = coefficient.split('.')[1]?.length ?? 0;
+  const digits = coefficient.replace(/[-.]/g, '');
+  const significant = digits.replace(/0+$/, '');
+  return (
+    significant.length === 0 ||
+    Number(exponent) + digits.length - significant.length >= fractionLength
+  );
+};
+
 /**
  * Validates one override against the manifest's constraints. Mirrors the
  * server-side ParameterValidator so a typo is caught before the request is
@@ -56,19 +72,27 @@ export const overrideError = (
   value: string
 ): string | null => {
   if (value === '') {
-    return p.Required
-      ? 'Enter a value, or use the environment value instead.'
-      : null;
+    if (p.Required)
+      return 'Enter a value, or use the environment value instead.';
+    if (p.Type !== 'Number' && p.Type !== 'Bool') return null;
   }
   if (p.AllowedValues?.length && !p.AllowedValues.includes(value)) {
     return `Choose one of: ${p.AllowedValues.join(', ')}.`;
   }
   if (p.Type === 'Number') {
     const number = Number(value);
-    if (!Number.isFinite(number)) return 'Must be a finite number.';
+    if (
+      !/^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?$/.test(value) ||
+      value.trim() !== value ||
+      !Number.isFinite(number)
+    )
+      return 'Must be a finite number.';
+    if (p.Integer && !isWholeNumber(value)) return 'Must be an integer.';
     if (p.Min != null && number < p.Min) return `Must be at least ${p.Min}.`;
     if (p.Max != null && number > p.Max) return `Must be at most ${p.Max}.`;
   }
+  if (p.Type === 'Bool' && value !== 'true' && value !== 'false')
+    return 'Must be true or false.';
   if (p.Pattern) {
     try {
       if (!new RegExp(p.Pattern).test(value)) {
@@ -615,7 +639,6 @@ export class DeployFromTemplateDialog extends LitElement {
           e => e.EnvironmentName === this.context.environmentName
         );
         this.selectedEnvironmentName = environment?.EnvironmentName ?? '';
-        this.prefillFromEnvironmentCloudResources();
       },
       error: err => {
         if (token !== this.requestToken || !this.opened) return;
@@ -667,31 +690,35 @@ export class DeployFromTemplateDialog extends LitElement {
   /**
    * Prefills resource_group_name from the environment's Cloud tab when the
    * template declares that input and the environment carries exactly one
-   * resource-group cloud resource — an unambiguous designation, like the
-   * subscription targeting the server applies. The value lands as a normal
-   * override the user can still edit or clear; any failure or ambiguity
-   * silently leaves the input empty.
+   * resource-group ARM identity. Only unresolved inputs are eligible; inherited
+   * values and defaults are never fetched or shadowed. The value lands as an
+   * editable override; failure or ambiguity leaves the input unchanged.
    */
   private prefillFromEnvironmentCloudResources() {
     const paramName = 'resource_group_name';
     const environmentName = this.selectedEnvironmentName;
+    const status = this.resolution?.[paramName];
     const envId = this.environments.find(
       e => e.EnvironmentName === environmentName
     )?.EnvironmentId;
     if (
       !envId ||
+      (status !== TerraformParameterResolutionStatus.Missing &&
+        status !== TerraformParameterResolutionStatus.Unset) ||
       !this.parameters.some(p => p.Name === paramName) ||
       this.paramValues[paramName] !== undefined
     ) {
       return;
     }
     const token = this.requestToken;
+    const resolutionToken = this.resolutionToken;
     this.cloudResourcesApi
       .refDataCloudResourcesByEnvIdEnvIdGet({ envId })
       .subscribe({
         next: (resources: CloudResourceApiModel[]) => {
           if (
             token !== this.requestToken ||
+            resolutionToken !== this.resolutionToken ||
             !this.opened ||
             environmentName !== this.selectedEnvironmentName ||
             this.paramValues[paramName] !== undefined
@@ -704,13 +731,15 @@ export class DeployFromTemplateDialog extends LitElement {
               .replace(/[^a-z0-9]/g, '');
             return type === 'resourcegroup' || type === 'azurermresourcegroup';
           };
-          const groups = (resources ?? []).filter(
-            r => isResourceGroup(r) && r.Name
-          );
-          if (groups.length === 1) {
+          const groups = (resources ?? []).filter(isResourceGroup);
+          const groupName =
+            groups.length === 1
+              ? resourceGroupNameFromArmId(groups[0].ResourceIdentifier)
+              : null;
+          if (groupName) {
             this.paramValues = {
               ...this.paramValues,
-              [paramName]: groups[0].Name!
+              [paramName]: groupName
             };
           }
         },
@@ -744,6 +773,7 @@ export class DeployFromTemplateDialog extends LitElement {
             (data?.Parameters ?? []).map(r => [r.Name, r.Status])
           );
           this.resolutionLoading = false;
+          this.prefillFromEnvironmentCloudResources();
         },
         error: err => {
           if (token !== this.resolutionToken || !this.opened) return;
@@ -788,7 +818,7 @@ export class DeployFromTemplateDialog extends LitElement {
     const component = this.targetComponentName;
     const environment = this.selectedEnvironmentName;
     if (!project || !component || !environment) return null;
-    return `${project}/${component}/${environment}.tfstate`;
+    return `${[project, component, environment].map(sanitizeTerraformStateKeyPart).join('/')}.tfstate`;
   }
 
   private targetError(): string | null {
@@ -1025,7 +1055,6 @@ export class DeployFromTemplateDialog extends LitElement {
             this.selectedEnvironmentName = name;
             this.paramValues = {};
             this.clearResolution();
-            this.prefillFromEnvironmentCloudResources();
           }
         }}
         helper-text="Only mapped environments you can deploy to are listed. Inputs and state belong to this target."

@@ -7,7 +7,7 @@ namespace Dorc.TerraformRunner.CodeSources
     /// <summary>
     /// Factory for creating Terraform code source providers
     /// </summary>
-    public class TerraformCodeSourceProviderFactory
+    public class TerraformCodeSourceProviderFactory : ITerraformCodeSourceProviderFactory
     {
         private readonly IRunnerLogger _logger;
         private readonly Dictionary<TerraformSourceType, ITerraformCodeSourceProvider> _providers;

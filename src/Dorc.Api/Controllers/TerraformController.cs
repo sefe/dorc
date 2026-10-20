@@ -231,6 +231,7 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status400BadRequest)]
         [SwaggerResponse(StatusCodes.Status403Forbidden)]
         [SwaggerResponse(StatusCodes.Status404NotFound)]
+        [SwaggerResponse(StatusCodes.Status409Conflict)]
         [HttpPost("templates/{name}/{version}/instantiate")]
         public async Task<IActionResult> InstantiateTemplate(
             string name,
@@ -289,11 +290,6 @@ namespace Dorc.Api.Controllers
 
             var component = new ComponentApiModel
             {
-                // Explicitly 0 (not the int? default of null): the Post
-                // validation pipeline requires ids to be 0, and
-                // ManageProjectsPersistentSource.CreateComponent only
-                // performs the insert inside `if (ComponentId == 0)` - a null
-                // id silently no-ops the create.
                 ComponentId = 0,
                 ComponentName = componentName,
                 ScriptPath = string.Empty,
@@ -305,7 +301,6 @@ namespace Dorc.Api.Controllers
                 StopOnFailure = true,
             };
 
-            var username = _claimsPrincipalReader.GetUserFullDomainName(User);
             // Sanitize user-supplied strings before they reach the logger -
             // strip CR/LF so an attacker cannot inject forged log lines via
             // the component-name field. Non-printable control characters are
@@ -315,24 +310,6 @@ namespace Dorc.Api.Controllers
             // pattern used by the rest of this controller; avoids leaking
             // an email-classed PII into platform logs.
             var safeUserId = SanitizeForLog(_claimsPrincipalReader.GetUserName(User));
-
-            // Same validation pipeline as RefDataController's component
-            // create/update paths: charset, 64-char limit, and cross-project
-            // name ownership. Without this, CreateComponent's legacy
-            // duplicate handler would silently rename an existing same-named
-            // component - even one owned by a different project - to a GUID
-            // and hand its name to the one created here.
-            try
-            {
-                _manageProjectsPersistentSource.ValidateComponents(
-                    new List<ComponentApiModel> { component }, request.ProjectId, HttpRequestType.Post);
-            }
-            catch (ArgumentException ex)
-            {
-                return BadRequest(ex.Message);
-            }
-
-            var projectComponents = _projectsPersistentSource.GetComponentsForProject(project.ProjectName).ToList();
 
             if (deployEnvironment is not null)
             {
@@ -367,94 +344,30 @@ namespace Dorc.Api.Controllers
                 }
             }
 
-            // A duplicate inside the destination project passes the
-            // cross-project validation above but would still trigger the
-            // legacy rename-the-existing-component behaviour: reject it
-            // explicitly instead.
-            //
-            // One exception, for retryability: a previous create-and-deploy
-            // call may have persisted the component and then failed to submit
-            // the deploy request (we deliberately leave the component in
-            // place — see the comment above the deploy block). When the
-            // caller retries the same create-and-deploy request and the
-            // existing component is an identical Catalog-mode instantiation
-            // of this template version, reuse it and proceed to the deploy
-            // instead of trapping the caller behind a 409.
-            var existingComponent = projectComponents.FirstOrDefault(c =>
-                string.Equals(c.ComponentName, componentName, StringComparison.OrdinalIgnoreCase));
-            if (existingComponent is not null)
+            CatalogComponentCreation creation;
+            try
             {
-                var isIdenticalCatalogComponent =
-                    existingComponent.ComponentType == ComponentType.Terraform
-                    && existingComponent.TerraformSourceType == TerraformSourceType.Catalog
-                    && string.Equals(existingComponent.TerraformTemplateName, manifest.Name, StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(existingComponent.TerraformTemplateVersion, manifest.Version, StringComparison.OrdinalIgnoreCase);
-                if (request.ParentComponentId.HasValue
-                    && existingComponent.ParentId != request.ParentComponentId.Value)
-                {
-                    return Conflict(
-                        $"A component named '{componentName}' already exists in project '{project.ProjectName}' under a different parent. Choose a different component name or retry with the original parent.");
-                }
-                if (deployEnvironment is null || !isIdenticalCatalogComponent)
-                {
-                    return Conflict(
-                        $"A component named '{componentName}' already exists in project '{project.ProjectName}'. Choose a different component name.");
-                }
-                if (!existingComponent.IsEnabled)
-                {
-                    return BadRequest(
-                        $"Component '{componentName}' in project '{project.ProjectName}' is disabled. Enable it before retrying the deployment.");
-                }
+                creation = _manageProjectsPersistentSource.CreateCatalogComponent(
+                    component, request.ProjectId, request.ParentComponentId, allowReuse: deployEnvironment is not null);
             }
-
-            // The parent, when supplied, must belong to the destination
-            // project - otherwise the new component is grafted into another
-            // project's component tree.
-            if (request.ParentComponentId is int parentComponentId
-                && !projectComponents.Any(c => c.ComponentId == parentComponentId))
+            catch (ArgumentException ex)
             {
-                return BadRequest(
-                    $"Parent component id {parentComponentId} does not belong to project '{project.ProjectName}'.");
+                return BadRequest(ex.Message);
             }
-
-            if (existingComponent is not null)
+            switch (creation.Status)
             {
-                // Retry path: the identical Catalog-mode component already
-                // exists from a previous partially-failed create-and-deploy
-                // call; reuse it instead of creating a second one.
-                component = existingComponent;
-                _log.LogInformation(
-                    "Stock template '{Manifest}' retry: reusing existing component '{Component}' in project '{ProjectName}' (id {ProjectId}) by {UserId}.",
-                    $"{manifest.Name}@{manifest.Version}", safeComponentName, project.ProjectName, request.ProjectId, safeUserId);
+                case CatalogComponentCreationStatus.Conflict:
+                    return Conflict(creation.Message);
+                case CatalogComponentCreationStatus.Disabled:
+                case CatalogComponentCreationStatus.InvalidParent:
+                    return BadRequest(creation.Message);
+                case CatalogComponentCreationStatus.ProjectNotFound:
+                    return NotFound(creation.Message);
             }
-            else
-            {
-                try
-                {
-                    _manageProjectsPersistentSource.CreateComponent(
-                        component,
-                        request.ProjectId,
-                        request.ParentComponentId,
-                        username);
-                }
-                catch (InvalidOperationException ex)
-                {
-                    // Persistence-layer business/state failures (duplicate component
-                    // name, project-shape violation, etc.) are the expected,
-                    // actionable case here. Anything else bubbles up to the
-                    // framework's centralized handler so stacks and types are
-                    // preserved instead of being masked as a flat 500.
-                    _log.LogError(ex,
-                        "Failed to instantiate template '{Manifest}' as component '{Component}' in project {ProjectId}.",
-                        $"{manifest.Name}@{manifest.Version}", safeComponentName, request.ProjectId);
-                    return StatusCode(StatusCodes.Status500InternalServerError,
-                        "Failed to create the component for the chosen template. See server logs.");
-                }
-
-                _log.LogInformation(
-                    "Stock template '{Manifest}' instantiated as component '{Component}' in project '{ProjectName}' (id {ProjectId}) by {UserId}.",
-                    $"{manifest.Name}@{manifest.Version}", safeComponentName, project.ProjectName, request.ProjectId, safeUserId);
-            }
+            component = creation.Component!;
+            _log.LogInformation(
+                "Stock template '{Manifest}' component '{Component}' in project '{ProjectName}' (id {ProjectId}) {Outcome} by {UserId}.",
+                $"{manifest.Name}@{manifest.Version}", safeComponentName, project.ProjectName, request.ProjectId, creation.Status, safeUserId);
 
             // create-and-deploy mode. When the wizard supplies an
             // environment + parameter values, compose a Catalog-mode
@@ -492,7 +405,7 @@ namespace Dorc.Api.Controllers
                     BuildUrl = BuildDetails.CatalogSentinel,
                     BuildText = string.Empty,
                     BuildNum = string.Empty,
-                    Components = new List<string> { componentName },
+                    Components = new List<string> { component.ComponentName },
                     RequestProperties = requestProperties,
                 };
 

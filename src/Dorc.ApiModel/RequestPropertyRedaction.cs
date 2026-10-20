@@ -8,17 +8,9 @@ using System.Xml.Linq;
 namespace Dorc.ApiModel
 {
     /// <summary>
-    /// central helper for redacting <see cref="RequestProperty"/>
-    /// values at emission boundaries. Used by every code path that surfaces
-    /// per-deployment property values (logs, API responses, request-history
-    /// grid, audit records) so that values flagged <see cref="RequestProperty.IsSensitive"/>
-    /// are replaced with a redaction marker.
-    ///
-    /// This is the mechanism. Wiring at each of the seven  surfaces
-    /// happens incrementally as those surfaces gain new emission paths in
-    /// / /. The helper is single-source-of-truth for the
-    /// redaction marker and the behaviour of each emission shape, so a
-    /// future audit can grep for usage and find every redaction site at once.
+    /// Redacts classified request properties in API responses, request details
+    /// and logs. Stored execution inputs retain their values. Terraform display
+    /// artifacts are sanitized separately by the runner before upload.
     /// </summary>
     public static class RequestPropertyRedaction
     {

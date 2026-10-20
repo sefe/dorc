@@ -12,7 +12,12 @@ import {
 import type { DeployFromTemplateDialog } from '../../src/components/deploy-from-template-dialog';
 import type { PageModuleCatalog } from '../../src/pages/page-module-catalog';
 import { overrideError } from '../../src/components/deploy-from-template-dialog';
+import {
+  resourceGroupNameFromArmId,
+  sanitizeTerraformStateKeyPart
+} from '../../src/helpers/terraform-identity';
 import type {
+  CloudResourceApiModel,
   ComponentApiModelTemplateApiModel,
   EnvironmentApiModelTemplateApiModel,
   TerraformTemplateInstantiateResponseApiModel,
@@ -27,6 +32,7 @@ const mocks = vi.hoisted(() => ({
   instantiate: vi.fn(),
   templates: vi.fn(),
   resolution: vi.fn(),
+  cloudResources: vi.fn(),
   navigate: vi.fn()
 }));
 
@@ -41,6 +47,9 @@ vi.mock('../../src/apis/dorc-api', async importOriginal => ({
   },
   RefDataComponentsApi: class {
     refDataComponentsGet = mocks.components;
+  },
+  RefDataCloudResourcesApi: class {
+    refDataCloudResourcesByEnvIdEnvIdGet = mocks.cloudResources;
   },
   TerraformApi: class {
     terraformTemplateInstantiatePost = mocks.instantiate;
@@ -116,6 +125,7 @@ beforeEach(() => {
   mocks.projects.mockReturnValue(of([project]));
   mocks.environments.mockReturnValue(of({ Items: [environment] }));
   mocks.components.mockReturnValue(of({ Items: [] }));
+  mocks.cloudResources.mockReturnValue(of([]));
   mocks.templates.mockReturnValue(of([template]));
   mocks.instantiate.mockReturnValue(of({ requestId: 73 }));
   mocks.resolution.mockReturnValue(
@@ -159,11 +169,11 @@ afterEach(() => {
   expect(browserErrors).to.deep.equal([]);
 });
 
-const open = async () => {
+const open = async (manifest = template) => {
   const host = await fixture<InstanceType<typeof DeployFromTemplateDialog>>(
     html`<deploy-from-template-dialog></deploy-from-template-dialog>`
   );
-  host.open(template, {
+  host.open(manifest, {
     projectName: project.ProjectName,
     environmentName: environment.EnvironmentName
   });
@@ -204,6 +214,65 @@ describe('catalog environment deployment workflow', () => {
       Parameters: {}
     });
     expect(mocks.navigate.mock.calls[0][0]).to.equal('/monitor-result/73');
+  });
+
+  it('previews the sanitized state key without changing the submitted component name', async () => {
+    const { dialog } = await open();
+    dialog.querySelector<TextField>(
+      'vaadin-text-field[label="New component name"]'
+    )!.value = 'Service_Bus 02';
+    await settle();
+    expect(dialog.querySelector('.identity-path')?.textContent).to.equal(
+      'exampleproject/service_005fbus_002002/testenvironment.tfstate'
+    );
+    await click(dialog, 'Continue');
+    await click(dialog, 'Continue');
+    await click(dialog, 'Submit plan request');
+    expect(mocks.instantiate.mock.calls[0][0].body.ComponentName).to.equal(
+      'Service_Bus 02'
+    );
+  });
+
+  it('blocks blank and fractional optional integer overrides but allows omission and an empty String', async () => {
+    const manifest = {
+      ...template,
+      Parameters: [
+        {
+          Name: 'count',
+          Type: TerraformParameterType.Number,
+          Required: false,
+          Sensitive: false,
+          Integer: true
+        },
+        {
+          Name: 'label',
+          Type: TerraformParameterType.String,
+          Required: false,
+          Sensitive: false
+        }
+      ]
+    };
+    const { dialog } = await open(manifest);
+    await click(dialog, 'Continue');
+    await click(dialog, 'Override count for this request');
+    await click(dialog, 'Continue');
+    expect(dialog.querySelector('h2')?.textContent).to.contain('Inputs');
+    expect(dialog.querySelector('[role="alert"]')?.textContent).to.contain(
+      'count: Must be a finite number'
+    );
+    dialog.querySelector<TextField>('vaadin-number-field')!.value = '2.5';
+    await settle();
+    await click(dialog, 'Continue');
+    expect(dialog.querySelector('[role="alert"]')?.textContent).to.contain(
+      'count: Must be an integer'
+    );
+    await click(dialog, 'Use environment value for count');
+    await click(dialog, 'Override label for this request');
+    await click(dialog, 'Continue');
+    await click(dialog, 'Submit plan request');
+    expect(mocks.instantiate.mock.calls[0][0].body.Parameters).to.deep.equal({
+      label: ''
+    });
   });
 
   it('reuses an existing component and preserves its parent instead of creating a duplicate', async () => {
@@ -512,6 +581,160 @@ describe('catalog environment deployment workflow', () => {
   });
 });
 
+describe('resource-group convenience fill', () => {
+  const groupTemplate: TerraformTemplateManifest = {
+    ...template,
+    Parameters: [
+      {
+        Name: 'resource_group_name',
+        Type: TerraformParameterType.String,
+        Required: true,
+        Sensitive: false
+      }
+    ]
+  };
+  const group: CloudResourceApiModel = {
+    Name: 'Friendly label (collision-qualified)',
+    ResourceType: 'azurerm_resource_group',
+    Provider: 'Azure',
+    ResourceIdentifier:
+      '/subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/rg-real'
+  };
+  const resolution = (Status: TerraformParameterResolutionStatus) =>
+    of({
+      Parameters: [
+        {
+          Name: 'resource_group_name',
+          Required: true,
+          Sensitive: false,
+          Status
+        }
+      ]
+    });
+  beforeEach(() => {
+    mocks.cloudResources.mockReturnValue(of([group]));
+    mocks.resolution.mockReturnValue(
+      resolution(TerraformParameterResolutionStatus.Missing)
+    );
+  });
+  const input = (dialog: ParentNode) =>
+    Array.from(dialog.querySelectorAll<TextField>('vaadin-text-field')).find(
+      field => field.label === 'resource_group_name'
+    ) ?? null;
+
+  it('uses the ARM group segment rather than the editable display name', async () => {
+    const { dialog } = await open(groupTemplate);
+    expect(mocks.cloudResources.mock.calls).to.have.length(0);
+    await click(dialog, 'Continue');
+    expect(mocks.cloudResources.mock.calls[0][0]).to.deep.equal({ envId: 9 });
+    expect(input(dialog)?.value).to.equal('rg-real');
+    expect(dialog.textContent).not.to.contain('Friendly label');
+    await click(dialog, 'Continue');
+    await click(dialog, 'Submit plan request');
+    expect(mocks.instantiate.mock.calls[0][0].body.Parameters).to.deep.equal({
+      resource_group_name: 'rg-real'
+    });
+  });
+
+  for (const status of [
+    TerraformParameterResolutionStatus.Environment,
+    TerraformParameterResolutionStatus.Default
+  ]) {
+    it(`does not shadow a ${status} value or retrieve its contents`, async () => {
+      mocks.resolution.mockReturnValue(resolution(status));
+      const { dialog } = await open(groupTemplate);
+      await click(dialog, 'Continue');
+      expect(mocks.cloudResources.mock.calls).to.have.length(0);
+      expect(input(dialog)).to.equal(null);
+      await click(dialog, 'Continue');
+      await click(dialog, 'Submit plan request');
+      expect(mocks.instantiate.mock.calls[0][0].body.Parameters).to.deep.equal(
+        {}
+      );
+    });
+  }
+
+  for (const resources of [
+    [],
+    [group, { ...group, ResourceIdentifier: null }],
+    [{ ...group, ResourceIdentifier: null }],
+    [{ ...group, ResourceIdentifier: 'friendly label' }],
+    [{ ...group, ResourceType: 'storage_account' }]
+  ]) {
+    it(`leaves ambiguous or unusable groups unset: ${JSON.stringify(resources)}`, async () => {
+      mocks.cloudResources.mockReturnValue(of(resources));
+      const { dialog } = await open(groupTemplate);
+      await click(dialog, 'Continue');
+      expect(input(dialog)).to.equal(null);
+      await click(dialog, 'Continue');
+      expect(dialog.querySelector('[role="alert"]')?.textContent).to.contain(
+        'resource_group_name: not set'
+      );
+      expect(mocks.instantiate.mock.calls).to.have.length(0);
+    });
+  }
+
+  it('leaves the input inherited when resolution cannot be checked', async () => {
+    mocks.resolution.mockReturnValue(
+      throwError(() => new Error('unavailable'))
+    );
+    const { dialog } = await open(groupTemplate);
+    await click(dialog, 'Continue');
+    expect(mocks.cloudResources.mock.calls).to.have.length(0);
+    expect(input(dialog)).to.equal(null);
+  });
+
+  it('preserves a local override entered while the cloud lookup is pending', async () => {
+    const response = new Subject<CloudResourceApiModel[]>();
+    mocks.cloudResources.mockReturnValue(response);
+    const { dialog } = await open(groupTemplate);
+    await click(dialog, 'Continue');
+    await click(dialog, 'Override resource_group_name for this request');
+    input(dialog)!.value = 'rg-local';
+    await settle();
+    response.next([group]);
+    response.complete();
+    await settle();
+    expect(input(dialog)?.value).to.equal('rg-local');
+  });
+
+  it('ignores an old lookup even after switching back to its original environment', async () => {
+    const stale = new Subject<CloudResourceApiModel[]>();
+    mocks.environments.mockReturnValue(
+      of({
+        Items: [
+          environment,
+          { EnvironmentId: 10, EnvironmentName: 'OtherEnvironment' }
+        ]
+      })
+    );
+    mocks.cloudResources.mockReturnValueOnce(stale);
+    const { dialog } = await open(groupTemplate);
+    await click(dialog, 'Continue');
+    await click(dialog, 'Back');
+    const environments = dialog.querySelector<ComboBox>(
+      'vaadin-combo-box[label="DOrc environment"]'
+    )!;
+    environments.value = 'OtherEnvironment';
+    await settle();
+    environments.value = environment.EnvironmentName;
+    await settle();
+    mocks.resolution.mockReturnValue(
+      resolution(TerraformParameterResolutionStatus.Environment)
+    );
+    await click(dialog, 'Continue');
+    stale.next([group]);
+    stale.complete();
+    await settle();
+    expect(input(dialog)).to.equal(null);
+    await click(dialog, 'Continue');
+    await click(dialog, 'Submit plan request');
+    expect(mocks.instantiate.mock.calls[0][0].body.Parameters).to.deep.equal(
+      {}
+    );
+  });
+});
+
 describe('module catalog discovery', () => {
   it('groups versions into one card whose selector defaults to the latest active version', async () => {
     mocks.templates.mockReturnValue(
@@ -655,7 +878,79 @@ describe('override validation mirrors the manifest constraints', () => {
     expect(overrideError(n, '10')).to.equal(null);
   });
 
+  it('rejects explicitly blank optional scalars even when a default exists', () => {
+    for (const Type of [
+      TerraformParameterType.Number,
+      TerraformParameterType.Bool
+    ]) {
+      for (const Default of [undefined, Type === 'Number' ? '2' : 'true']) {
+        const p = { ...base, Type, Required: false, Default };
+        for (const value of ['', ' ', '\t']) {
+          expect(overrideError(p, value)).not.to.equal(null);
+        }
+      }
+    }
+    expect(
+      overrideError({ ...base, Type: TerraformParameterType.Bool }, 'false')
+    ).to.equal(null);
+  });
+
+  it('accepts whole numbers and exponents for Integer but rejects fractional values', () => {
+    const p = { ...base, Type: TerraformParameterType.Number, Integer: true };
+    for (const value of ['2', '2.0', '2e1', '20e-1', '-2', '0', '0e-1000']) {
+      expect(overrideError(p, value)).to.equal(null);
+    }
+    for (const value of ['2.5', '2e-1', '2.0000000000000001', '1e-1000']) {
+      expect(overrideError(p, value)).to.contain('integer');
+    }
+    expect(overrideError({ ...p, Integer: false }, '2.5')).to.equal(null);
+  });
+
   it('defers an unparseable pattern to the server', () => {
     expect(overrideError({ ...base, Pattern: '(' }, 'anything')).to.equal(null);
+  });
+
+  describe('Terraform identity parity', () => {
+    it('matches Monitor UTF-16 escaping and invariant ASCII case-folding', () => {
+      const cases = [
+        ['', 'unknown'],
+        ['Prod EU', 'prod_0020eu'],
+        ['Prod-EU', 'prod-eu'],
+        ['Prod_EU', 'prod_005feu'],
+        ['UT 02', 'ut_002002'],
+        ['PROD', 'prod'],
+        ['prod-eu-1', 'prod-eu-1'],
+        ['a/b\\c.d', 'a_002fb_005cc_002ed'],
+        ['ÉéİıK', '_00c9_00e9_0130_0131k'],
+        ['🚀', '_d83d_de80']
+      ];
+      for (const [raw, expected] of cases) {
+        expect(sanitizeTerraformStateKeyPart(raw), raw).to.equal(expected);
+      }
+    });
+
+    it('extracts only a usable resource-group ARM identity', () => {
+      const prefix =
+        '/subscriptions/11111111-2222-3333-4444-555555555555/resourceGroups/';
+      expect(resourceGroupNameFromArmId(`${prefix}rg-real`)).to.equal(
+        'rg-real'
+      );
+      expect(
+        resourceGroupNameFromArmId(`${prefix.toUpperCase()}RG-Real`)
+      ).to.equal('RG-Real');
+      for (const identity of [
+        undefined,
+        '',
+        'friendly label',
+        '/subscriptions/not-a-guid/resourceGroups/rg-real',
+        `${prefix}`,
+        `${prefix}rg-real/providers/Microsoft.Storage/storageAccounts/account`,
+        `${prefix}rg-real?api-version=1`,
+        `${prefix}rg-real.`,
+        `${prefix}rg-real\n`
+      ]) {
+        expect(resourceGroupNameFromArmId(identity)).to.equal(null);
+      }
+    });
   });
 });

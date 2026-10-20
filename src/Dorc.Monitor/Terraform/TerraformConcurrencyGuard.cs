@@ -1,5 +1,3 @@
-using System.Collections.Concurrent;
-
 namespace Dorc.Monitor.Terraform
 {
     // Serialises plan/apply on the same (environment, component) key so two
@@ -8,16 +6,14 @@ namespace Dorc.Monitor.Terraform
     // cross-process state locking via blob lease; this guard surfaces a clean
     // operator-visible error when DOrc itself sees concurrent operations
     // before terraform is invoked.
-    //
-    // partial. Cross-monitor explicit blob-lease acquisition is a
-    // follow-up under the lifecycle owner.
     public sealed class TerraformConcurrencyGuard
     {
         // Process-wide map of (env|component) -> semaphore. SemaphoreSlim with
         // initial = 1 enforces single-flight; the guard records the acquiring
         // operation's correlation token so a denied attempt can report what
         // is currently running.
-        private static readonly ConcurrentDictionary<string, KeyedSlot> Slots = new();
+        private static readonly Dictionary<string, KeyedSlot> Slots = new();
+        private static readonly object SlotsLock = new();
 
         public static TerraformConcurrencyGuard Instance { get; } = new();
 
@@ -25,27 +21,60 @@ namespace Dorc.Monitor.Terraform
         // forever. Caller may override.
         public TimeSpan DefaultAcquisitionTimeout { get; init; } = TimeSpan.FromMinutes(2);
 
-        public IDisposable Acquire(string project, string environment, string component, string operationCorrelationId)
-            => Acquire(project, environment, component, operationCorrelationId, DefaultAcquisitionTimeout);
+        internal int RetainedKeyCount
+        {
+            get { lock (SlotsLock) return Slots.Count; }
+        }
 
-        public IDisposable Acquire(string project, string environment, string component, string operationCorrelationId, TimeSpan timeout)
+        public IDisposable Acquire(string project, string environment, string component, string operationCorrelationId,
+            CancellationToken cancellationToken = default)
+            => Acquire(project, environment, component, operationCorrelationId, DefaultAcquisitionTimeout, cancellationToken);
+
+        public IDisposable Acquire(string project, string environment, string component, string operationCorrelationId,
+            TimeSpan timeout, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(environment)) throw new ArgumentException("environment required", nameof(environment));
             if (string.IsNullOrEmpty(component)) throw new ArgumentException("component required", nameof(component));
+            cancellationToken.ThrowIfCancellationRequested();
 
             var key = MakeKey(project, environment, component);
-            var slot = Slots.GetOrAdd(key, _ => new KeyedSlot());
-
-            if (!slot.Semaphore.Wait(timeout))
+            var slot = ReferenceSlot(key);
+            try
             {
-                throw new TerraformConcurrentOperationException(
-                    environment,
-                    component,
-                    slot.CurrentOperationId,
-                    timeout);
+                if (!slot.Semaphore.Wait(timeout, cancellationToken))
+                    throw new TerraformConcurrentOperationException(
+                        environment, component, Volatile.Read(ref slot.CurrentOperationId), timeout);
+                Volatile.Write(ref slot.CurrentOperationId, operationCorrelationId);
+                return new Release(key, slot);
             }
-            slot.CurrentOperationId = operationCorrelationId;
-            return new Release(slot);
+            catch
+            {
+                ReleaseReference(key, slot);
+                throw;
+            }
+        }
+
+        private static KeyedSlot ReferenceSlot(string key)
+        {
+            lock (SlotsLock)
+            {
+                if (!Slots.TryGetValue(key, out var slot))
+                    Slots.Add(key, slot = new KeyedSlot());
+                slot.References++;
+                return slot;
+            }
+        }
+
+        private static void ReleaseReference(string key, KeyedSlot slot)
+        {
+            lock (SlotsLock)
+            {
+                // References include waiters, so retiring a slot cannot split
+                // one state identity across two live semaphores.
+                if (--slot.References != 0) return;
+                Slots.Remove(key);
+                slot.Semaphore.Dispose();
+            }
         }
 
         // Uses the same normalization and the same (project, environment,
@@ -63,22 +92,24 @@ namespace Dorc.Monitor.Terraform
         private sealed class KeyedSlot
         {
             public SemaphoreSlim Semaphore { get; } = new SemaphoreSlim(1, 1);
-            public string? CurrentOperationId { get; set; }
+            public string? CurrentOperationId;
+            public int References;
         }
 
         private sealed class Release : IDisposable
         {
-            private readonly KeyedSlot slot;
-            private bool disposed;
+            private readonly string key;
+            private KeyedSlot? slot;
 
-            public Release(KeyedSlot slot) { this.slot = slot; }
+            public Release(string key, KeyedSlot slot) { this.key = key; this.slot = slot; }
 
             public void Dispose()
             {
-                if (disposed) return;
-                disposed = true;
-                slot.CurrentOperationId = null;
-                slot.Semaphore.Release();
+                var owned = Interlocked.Exchange(ref slot, null);
+                if (owned is null) return;
+                Volatile.Write(ref owned.CurrentOperationId, null);
+                owned.Semaphore.Release();
+                ReleaseReference(key, owned);
             }
         }
     }

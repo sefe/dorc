@@ -12654,6 +12654,9 @@
           "PropertyValue": {
             "type": "string",
             "nullable": true
+          },
+          "IsSensitive": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false

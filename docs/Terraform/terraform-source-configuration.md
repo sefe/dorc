@@ -17,6 +17,32 @@ Terraform code can come from one of three source types per component:
 
 The source type is configured on the component; project-level settings provide shared configuration such as the Git repository URL.
 
+### Applied cloud-resource registration
+
+Registration after a successful apply is best-effort and cannot fail the deployment.
+Before allocating a display name, the Monitor looks up the provider-side identity,
+preserving the existing definition's ID, display name, operator tags and environment
+mappings after a rename or removal of an earlier name collision. Subscription metadata
+can be refreshed. Azure ARM paths are case-insensitive and already identify the resource
+kind, so their Terraform resource type can also be corrected. Other provider identifiers
+are compared ordinally and qualified by Terraform resource type (an Aiven topic and
+database can have the same identifier). Providers are compared case-insensitively.
+
+Multiple definitions for one identity are not automatically merged or arbitrarily
+selected: registration logs their IDs and skips that cloud resource. An operator must
+explicitly reconcile the duplicates and their mappings. Each cloud definition update,
+attachment and associated audits share one serializable transaction. Failed attachment
+or audit rolls back that resource's registration; other resources and the separate
+database-tab registration remain best-effort. Identity lookup reads the provider/type
+range (the entire provider for ARM identities), then compares identifiers independently
+of SQL collation; existing schema/name uniqueness remains unchanged.
+
+Container, Cloud and API definition capabilities use the same authorization policy:
+creation and edits of unattached definitions require PowerUser/Admin; edits of mapped
+definitions require write access to **every** mapped environment, without a role bypass.
+Attaching/detaching requires write access only to the target environment. Mutation
+authorization and membership reads remain inside the existing transaction boundary.
+
 ## Data Model: Projects and Components
 
 ### Project-level fields

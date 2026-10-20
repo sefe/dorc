@@ -46,10 +46,12 @@ namespace Dorc.TerraformRunner.State
                 var resources = new List<CloudResourceApiModel>();
                 CollectModule(rootModule, resources);
 
-                // The same resource can appear once per module instance when
-                // modules are reused; the identifier is the real identity.
+                // Use the same provider-aware identity as the registrar:
+                // opaque provider IDs are not case-insensitive ARM paths.
                 return resources
-                    .GroupBy(r => r.ResourceIdentifier ?? r.Name, StringComparer.OrdinalIgnoreCase)
+                    .GroupBy(r => CloudResourceIdentity.FingerprintInput(
+                        r.Provider, r.ResourceType, string.IsNullOrEmpty(r.ResourceIdentifier) ? r.Name : r.ResourceIdentifier),
+                        StringComparer.Ordinal)
                     .Select(g => g.First())
                     .ToArray();
             }
@@ -108,7 +110,8 @@ namespace Dorc.TerraformRunner.State
 
             if (identifier is { Length: > MaxResourceIdentifierLength })
             {
-                identifier = identifier[..MaxResourceIdentifierLength];
+                throw new InvalidDataException(
+                    $"A resource identifier exceeds the {MaxResourceIdentifierLength}-character registration limit; it must not be truncated.");
             }
 
             return new CloudResourceApiModel

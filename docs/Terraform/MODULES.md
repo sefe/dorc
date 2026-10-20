@@ -113,15 +113,23 @@ page also links to the catalog without requiring a dummy build artifact.
    Terraform uses the module's default. Manifest defaults must describe those
    module defaults accurately. Enable **Override ... for this request** only for
    one-off differences. An omitted Boolean differs from an explicit `false`.
+   Blank optional Number and Bool overrides are invalid; turn off the override
+   to inherit or use the module default. Optional String overrides can be empty.
+   Number inputs marked `integer` reject fractional values before submission.
    Overrides do not change saved environment variables; changing target clears
    entered overrides. Inherited values are not fetched into the form.
+   An unresolved `resource_group_name` can be filled from the environment's
+   single resource-group ARM identity in the Cloud tab, never its display name.
+   Inherited/default values are preserved; ambiguous or invalid identities are
+   left unset.
 4. **Review:** inspect project, component, environment, template version and
    overrides. Sensitive overrides remain hidden. Submit the plan request.
 5. DOrc opens that request's deployment results. When the plan is ready, review
    it and choose **Confirm & Apply** or **Decline**. Submission alone does not
    apply infrastructure changes, and a failed decision stays visible for retry.
 
-The project/component/environment identity determines the state key. Reuse the
+The project/component/environment identity determines the state key. The wizard
+previews the same case-folded, hex-escaped key used by Monitor. Reuse the
 same component in the same environment for later updates; deploy it to another
 mapped environment for separate state. Do not create a new component for every
 deployment. See [the state model](./STATE-MODEL.md) for backend configuration.
@@ -312,7 +320,19 @@ target and effective inputs before creating a component, then submits a
 deployment request. Only explicitly supplied `Parameters` become request
 overrides. Omitting `EnvironmentName` creates only the component. If request
 submission fails after component creation, the component remains; retrying
-with the same name and template reuses it.
+with the same name, project, template version and parent reuses it when enabled.
+
+Component creation and reuse are one serializable database operation. Names
+are checked globally using DOrc's case-insensitive SQL collation; a collision
+never renames, replaces, reparents or enables an existing component. Reuse is
+available only with `EnvironmentName` supplied and only for a Catalog component
+owned exclusively by the destination project with the same template name,
+version and parent. An omitted `ParentComponentId` means top-level placement,
+not an unspecified parent. Create-only duplicates and incompatible identities
+return HTTP 409, disabled reusable components and invalid parents return 400,
+and a project deleted before persistence returns 404. Concurrent matching
+deployments may reuse the same component, but each successful submission still
+creates its own deployment request; this is not request-level idempotency.
 
 ## Adding a new module
 

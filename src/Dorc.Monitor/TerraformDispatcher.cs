@@ -86,7 +86,8 @@ namespace Dorc.Monitor
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            logger.LogInformation($"TerraformDispatcher.DispatchAsync called for component '{component.ComponentName}' with id '{component.ComponentId}', deployment result id '{deploymentResult.Id}', environment '{environmentName}'.");
+            logger.LogInformation("Dispatching Terraform component {Component} ({ComponentId}), result {ResultId}, environment {Environment}.",
+                component.ComponentName, component.ComponentId, deploymentResult.Id, environmentName);
 
             // The request is loaded before the guard because the project name
             // is part of the state identity: environments are shared across
@@ -102,7 +103,7 @@ namespace Dorc.Monitor
             // relies on the azurerm backend's blob-lease state lock under the
             // hood.
             using var concurrencyGuard = TryAcquireConcurrencyGuard(
-                projectName, environmentName, component.ComponentName, deploymentResult.Id, terreformOperation);
+                projectName, environmentName, component.ComponentName, deploymentResult.Id, terreformOperation, cancellationToken);
             if (concurrencyGuard is null)
             {
                 isScriptExecutionSuccessful = false;
@@ -114,7 +115,7 @@ namespace Dorc.Monitor
                 deploymentResult,
                 DeploymentResultStatus.Running);
 
-            logger.LogInformation($"Updated deployment result {deploymentResult.Id} status to Running.");
+            logger.LogInformation("Updated deployment result {ResultId} status to Running.", deploymentResult.Id);
 
             isScriptExecutionSuccessful = true;
 
@@ -124,7 +125,7 @@ namespace Dorc.Monitor
             if (string.IsNullOrEmpty(processAccountName)
                 || string.IsNullOrEmpty(processAccountPassword))
             {
-                logger.LogError($"Unable to find a valid DOrc Username or Password for environment '{environmentName}'.");
+                logger.LogError("Unable to find valid DOrc credentials for environment {Environment}.", environmentName);
 
                 isScriptExecutionSuccessful = false;
                 return isScriptExecutionSuccessful;
@@ -141,7 +142,7 @@ namespace Dorc.Monitor
                 }
                 catch (Exception ex)
                 {
-                    logger.LogWarning(ex, $"Could not retrieve project '{request.Project}' for request {requestId}");
+                    logger.LogWarning(ex, "Could not retrieve project {Project} for request {RequestId}.", request.Project, requestId);
                 }
             }
 
@@ -189,7 +190,7 @@ namespace Dorc.Monitor
                             scriptGroup,
                             readerIdentity,
                             pipeCancellationTokenSource.Token);
-                    logger.LogInformation($"Server named pipe with the name '{startedScriptGroupPipeName}' has started.");
+                    logger.LogInformation("Server named pipe {PipeName} has started.", startedScriptGroupPipeName);
 
                     var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
                     .GetSection("AppSettings")["RunnerLogPath"]!;
@@ -279,7 +280,7 @@ namespace Dorc.Monitor
                             logger.LogDebug("Waiting for process to exit.");
                             var resultCode = process.WaitForExit(cancellationToken,
                                 () => File.WriteAllText(terraformPlanFilePath + ".cancel", string.Empty));
-                            logger.LogInformation($"Runner finished for request ID '{requestId}' with result code [{resultCode}]");
+                            logger.LogInformation("Runner finished for request {RequestId} with result code {ResultCode}.", requestId, resultCode);
 
                             cancellationToken.ThrowIfCancellationRequested();
 
@@ -304,7 +305,7 @@ namespace Dorc.Monitor
                     catch (Exception e)
                     {
                         pipeCancellationTokenSource.Cancel();
-                        logger.LogError($"Exception is thrown while operating with the Runner process. Exception: {e}");
+                        logger.LogError(e, "Failure while operating the Runner process for request {RequestId}.", requestId);
                         throw;
                     }
                 
@@ -334,7 +335,7 @@ namespace Dorc.Monitor
                                 deploymentResult,
                                 DeploymentResultStatus.WaitingConfirmation);
 
-                            logger.LogInformation($"Terraform plan created for component '{component.ComponentName}'. Waiting for confirmation.");
+                            logger.LogInformation("Terraform plan created for component {Component}. Waiting for confirmation.", component.ComponentName);
                             break;
 
                         case TerraformRunnerOperations.ApplyPlan:
@@ -358,11 +359,11 @@ namespace Dorc.Monitor
                                 try
                                 {
                                     _azureStorageAccountWorker.SaveFileToBlobs(sourceArchiveFilePath);
-                                    logger.LogInformation($"Deployed terraform source archived to blob '{sourceArchiveFileName}'.");
+                                    logger.LogInformation("Deployed Terraform source archived to blob {ArtifactName}.", sourceArchiveFileName);
                                 }
                                 catch (Exception ex)
                                 {
-                                    logger.LogWarning(ex, $"Could not upload the deployed terraform source archive '{sourceArchiveFileName}'; the deployment itself succeeded.");
+                                    logger.LogWarning(ex, "Could not upload deployed Terraform source archive {ArtifactName}; the deployment itself succeeded.", sourceArchiveFileName);
                                 }
                             }
                             TryDeleteFile(sourceArchiveFilePath);
@@ -372,7 +373,7 @@ namespace Dorc.Monitor
                                 deploymentResult,
                                 DeploymentResultStatus.Complete);
 
-                            logger.LogInformation($"Terraform plan applied for component '{component.ComponentName}'. Completed.");
+                            logger.LogInformation("Terraform plan applied for component {Component}. Completed.", component.ComponentName);
                             break;
                     }
                 }
@@ -400,7 +401,7 @@ namespace Dorc.Monitor
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, $"Could not delete staged terraform file '{path}'.");
+                logger.LogWarning(ex, "Could not delete staged Terraform file {ArtifactPath}.", path);
             }
         }
 
@@ -477,7 +478,8 @@ namespace Dorc.Monitor
             string environmentName,
             string componentName,
             int deploymentResultId,
-            TerraformRunnerOperations operation)
+            TerraformRunnerOperations operation,
+            CancellationToken cancellationToken)
         {
             try
             {
@@ -489,12 +491,14 @@ namespace Dorc.Monitor
                     projectName,
                     environmentName,
                     componentName,
-                    operationCorrelationId: $"{operation}:{deploymentResultId}");
+                    operationCorrelationId: $"{operation}:{deploymentResultId}",
+                    cancellationToken: cancellationToken);
             }
             catch (TerraformConcurrentOperationException ex)
             {
                 logger.LogError(ex,
-                    $"Refused to start Terraform {operation} for component '{componentName}' on project '{projectName}' / environment '{environmentName}': another operation in flight (correlation '{ex.ContendingOperationId}').");
+                    "Refused Terraform {Operation} for {Component} in {Project}/{Environment}: operation {ContendingOperation} is in flight.",
+                    operation, componentName, projectName, environmentName, ex.ContendingOperationId);
                 return null;
             }
         }

@@ -31,12 +31,14 @@ namespace Dorc.Monitor.Tests.Terraform
             _cloudResources = Substitute.For<ICloudResourcesPersistentSource>();
             _cloudResources.ExecuteMutation(Arg.Any<Func<bool>>())
                 .Returns(call => call.Arg<Func<bool>>()());
+            _cloudResources.GetByIdentity(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns(Array.Empty<CloudResourceApiModel>());
             _audit = Substitute.For<ICloudResourceAuditPersistentSource>();
             _environments = Substitute.For<IEnvironmentsPersistentSource>();
             _databases = Substitute.For<IDatabasesPersistentSource>();
             _registrar = new TerraformCloudResourceRegistrar(
                 Substitute.For<ILogger>(), _cloudResources, _audit, _environments, _databases);
-            _file = Path.Combine(Path.GetTempPath(), $"applied-{Guid.NewGuid():N}.json");
+            _file = Path.Combine(Directory.GetCurrentDirectory(), $"applied-{Guid.NewGuid():N}.json");
 
             _environments.GetEnvironment("Terraform Dev").Returns(Environment);
             _cloudResources.Add(Arg.Any<CloudResourceApiModel>())
@@ -98,7 +100,7 @@ namespace Dorc.Monitor.Tests.Terraform
         {
             var applied = AppliedResourceGroup();
             WriteResources(applied);
-            _cloudResources.GetByName("rg-sh-dv-demo").Returns(new CloudResourceApiModel
+            _cloudResources.GetByIdentity(applied.Provider, applied.ResourceType, applied.ResourceIdentifier).Returns(new[] { new CloudResourceApiModel
             {
                 Id = 7,
                 Name = applied.Name,
@@ -107,7 +109,7 @@ namespace Dorc.Monitor.Tests.Terraform
                 ResourceIdentifier = applied.ResourceIdentifier.ToUpperInvariant(),
                 Subscription = applied.Subscription,
                 Tags = "owner=team"
-            });
+            } });
 
             _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
 
@@ -131,7 +133,7 @@ namespace Dorc.Monitor.Tests.Terraform
                 Subscription = applied.Subscription,
                 Tags = "owner=team"
             };
-            _cloudResources.GetByName("rg-sh-dv-demo").Returns(existing);
+            _cloudResources.GetByIdentity(applied.Provider, applied.ResourceType, applied.ResourceIdentifier).Returns(new[] { existing });
             _cloudResources.Update(7, Arg.Any<CloudResourceApiModel>())
                 .Returns(call => call.Arg<CloudResourceApiModel>());
 
@@ -140,6 +142,70 @@ namespace Dorc.Monitor.Tests.Terraform
             _cloudResources.Received(1).Update(7, Arg.Is<CloudResourceApiModel>(m =>
                 m.ResourceType == "azurerm_resource_group" && m.Tags == "owner=team"));
             _audit.Received(1).InsertCloudResourceAudit("user", ActionType.Update, 7, Arg.Any<string?>(), Arg.Any<string?>());
+        }
+
+        [TestMethod]
+        public void RenamedDefinition_IsReusedBeforeConsideringFreeDisplayName()
+        {
+            var applied = AppliedResourceGroup();
+            WriteResources(applied);
+            var existing = AppliedResourceGroup();
+            existing.Id = 7;
+            existing.Name = "Operator friendly name";
+            existing.Tags = "owner=team";
+            existing.EnvironmentNames = new List<string> { "Other environment" };
+            _cloudResources.GetByIdentity(applied.Provider, applied.ResourceType, applied.ResourceIdentifier)
+                .Returns(new[] { existing });
+
+            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
+            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
+
+            _cloudResources.DidNotReceiveWithAnyArgs().GetByName(default!);
+            _cloudResources.DidNotReceiveWithAnyArgs().Add(default!);
+            _cloudResources.DidNotReceiveWithAnyArgs().Update(default, default!);
+            _cloudResources.Received(2).AttachToEnvironment(7, 2598);
+            Assert.AreEqual("Operator friendly name", existing.Name);
+            Assert.AreEqual("owner=team", existing.Tags);
+            CollectionAssert.AreEqual(new[] { "Other environment" }, existing.EnvironmentNames);
+        }
+
+        [TestMethod]
+        [DataRow(false)]
+        [DataRow(true)]
+        public void EarlierCollisionDisappears_ReusesTypedOrHashedDefinition(bool hashed)
+        {
+            var applied = AppliedResourceGroup();
+            WriteResources(applied);
+            var existing = AppliedResourceGroup();
+            existing.Id = 7;
+            existing.Name = hashed ? $"{applied.Name} (stable-identity-hash)" : $"{applied.Name} ({applied.ResourceType})";
+            _cloudResources.GetByIdentity(applied.Provider, applied.ResourceType, applied.ResourceIdentifier)
+                .Returns(new[] { existing });
+
+            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
+
+            _cloudResources.DidNotReceiveWithAnyArgs().GetByName(default!);
+            _cloudResources.DidNotReceiveWithAnyArgs().Add(default!);
+            _cloudResources.Received(1).AttachToEnvironment(7, 2598);
+        }
+
+        [TestMethod]
+        public void AmbiguousIdentity_SkipsWithoutMutatingEitherDuplicateAndContinues()
+        {
+            var applied = AppliedResourceGroup();
+            var second = AppliedResourceGroup();
+            second.Name = "second";
+            second.ResourceIdentifier += "-second";
+            WriteResources(applied, second);
+            _cloudResources.GetByIdentity(applied.Provider, applied.ResourceType, applied.ResourceIdentifier)
+                .Returns(new[] { new CloudResourceApiModel { Id = 7 }, new CloudResourceApiModel { Id = 8 } });
+
+            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "user");
+
+            _cloudResources.Received(1).Add(Arg.Is<CloudResourceApiModel>(model => model.Name == "second"));
+            _cloudResources.DidNotReceiveWithAnyArgs().Update(default, default!);
+            _cloudResources.DidNotReceive().AttachToEnvironment(7, 2598);
+            _cloudResources.DidNotReceive().AttachToEnvironment(8, 2598);
         }
 
         [TestMethod]
@@ -184,6 +250,10 @@ namespace Dorc.Monitor.Tests.Terraform
             var persisted = new Dictionary<string, CloudResourceApiModel>();
             _cloudResources.GetByName(Arg.Any<string>())
                 .Returns(call => persisted.GetValueOrDefault(call.Arg<string>()));
+            _cloudResources.GetByIdentity(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns(call => persisted.Values.Where(model => CloudResourceIdentity.Matches(
+                    call.ArgAt<string>(0), call.ArgAt<string>(1), call.ArgAt<string>(2),
+                    model.Provider, model.ResourceType, model.ResourceIdentifier)).ToArray());
             _cloudResources.Add(Arg.Any<CloudResourceApiModel>())
                 .Returns(call =>
                 {

@@ -217,7 +217,7 @@ namespace Dorc.TerraformRunner.CodeSources
                 if (sourcePath.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
                 {
                     _logger.FileLogger.LogInformation($"Extracting ZIP file from {sourcePath} to {workingDir}");
-                    new ZipArchiveExtractor(ZipArchiveExtractionOptions.Default).Extract(sourcePath, workingDir);
+                    new ZipArchiveExtractor(ZipArchiveExtractionOptions.Default).Extract(sourcePath, workingDir, cancellationToken);
                 }
                 else
                 {
@@ -261,7 +261,7 @@ namespace Dorc.TerraformRunner.CodeSources
                         await response.Content.CopyToAsync(fileStream, cancellationToken);
                     }
 
-                    new ZipArchiveExtractor(ZipArchiveExtractionOptions.Default).Extract(tempZipFile, workingDir);
+                    new ZipArchiveExtractor(ZipArchiveExtractionOptions.Default).Extract(tempZipFile, workingDir, cancellationToken);
 
                     return true;
                 }

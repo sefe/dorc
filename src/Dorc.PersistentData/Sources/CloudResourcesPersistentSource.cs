@@ -76,6 +76,27 @@ namespace Dorc.PersistentData.Sources
             return MapToApiModel(entity);
         }
 
+        public IReadOnlyList<CloudResourceApiModel> GetByIdentity(string provider, string resourceType, string resourceIdentifier)
+        {
+            using var context = _contextFactory.GetContext();
+            var normalizedProvider = provider.ToUpperInvariant();
+            var identifierIncludesResourceType = CloudResourceIdentity.IsAzureResourceManagerIdentifier(provider, resourceIdentifier);
+            // Read the provider/type range inside the caller's serializable mutation.
+            // Compare opaque identifiers in memory, independently of SQL collation
+            // (including SQL's trailing-space equivalence). Do not choose a first
+            // match: old/manual definitions can contain duplicate remote identities.
+            return context.CloudResources
+                .Include(c => c.Environments)
+                .AsNoTracking()
+                .Where(c => c.Provider.ToUpper() == normalizedProvider
+                    && (identifierIncludesResourceType || c.ResourceType == resourceType))
+                .AsEnumerable()
+                .Where(c => CloudResourceIdentity.Matches(provider, resourceType, resourceIdentifier,
+                    c.Provider, c.ResourceType, c.ResourceIdentifier))
+                .Select(MapToApiModel)
+                .ToList();
+        }
+
         public CloudResourceApiModel? Update(int id, CloudResourceApiModel cloudResource)
         {
             using var context = _contextFactory.GetContext();

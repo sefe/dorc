@@ -3,11 +3,69 @@ using Dorc.Monitor.Terraform;
 namespace Dorc.Monitor.Tests.Terraform
 {
     [TestClass]
+    [DoNotParallelize]
     public class TerraformConcurrencyGuardTests
     {
-        // Use a fresh guard per test (rather than the static Instance) so
-        // tests are isolated from each other's slot state.
+        // Slots are process-wide; each test must release all of its leases.
         private TerraformConcurrencyGuard NewGuard() => new() { DefaultAcquisitionTimeout = TimeSpan.FromMilliseconds(500) };
+
+        [TestMethod]
+        public async Task Acquire_CancelledWaiter_DoesNotReleaseOwnerOrRetainSlot()
+        {
+            var guard = NewGuard();
+            var before = guard.RetainedKeyCount;
+            using (guard.Acquire("project", "cancel-env", "component", "owner"))
+            {
+                using var cancellation = new CancellationTokenSource();
+                var waiting = Task.Run(() => guard.Acquire("project", "cancel-env", "component", "waiter",
+                    TimeSpan.FromSeconds(30), cancellation.Token));
+                cancellation.CancelAfter(30);
+                await Assert.ThrowsAsync<OperationCanceledException>(
+                    async () => await waiting.WaitAsync(TimeSpan.FromSeconds(5)));
+                Assert.Throws<TerraformConcurrentOperationException>(() =>
+                    guard.Acquire("project", "cancel-env", "component", "contender", TimeSpan.Zero));
+                Assert.AreEqual(before + 1, guard.RetainedKeyCount);
+            }
+            Assert.AreEqual(before, guard.RetainedKeyCount);
+        }
+
+        [TestMethod]
+        public async Task Acquire_ConcurrentWaitersAndRetirement_NeverSplitTheLock()
+        {
+            var guard = NewGuard();
+            var before = guard.RetainedKeyCount;
+            var executing = 0;
+            var overlap = 0;
+            var operations = Enumerable.Range(0, 12).Select(index => Task.Run(async () =>
+            {
+                for (var round = 0; round < 8; round++)
+                {
+                    using (guard.Acquire("project", "churn-env", "component", index.ToString(), TimeSpan.FromSeconds(10)))
+                    {
+                        if (Interlocked.Increment(ref executing) != 1) Interlocked.Increment(ref overlap);
+                        await Task.Yield();
+                        Interlocked.Decrement(ref executing);
+                    }
+                }
+            }));
+            await Task.WhenAll(operations);
+            Assert.AreEqual(0, overlap);
+            Assert.AreEqual(before, guard.RetainedKeyCount);
+        }
+
+        [TestMethod]
+        public async Task Release_ConcurrentDisposal_RetiresExactlyOnce()
+        {
+            var guard = NewGuard();
+            var before = guard.RetainedKeyCount;
+            var lease = guard.Acquire("project", "dispose-env", "component", "first");
+            await Task.WhenAll(Task.Run(lease.Dispose), Task.Run(lease.Dispose));
+            Assert.AreEqual(before, guard.RetainedKeyCount);
+            using (guard.Acquire("project", "dispose-env", "component", "second"))
+                Assert.Throws<TerraformConcurrentOperationException>(() =>
+                    guard.Acquire("project", "dispose-env", "component", "third", TimeSpan.Zero));
+            Assert.AreEqual(before, guard.RetainedKeyCount);
+        }
 
         [TestMethod]
         public void Acquire_FirstAttempt_Succeeds()

@@ -3,6 +3,7 @@ using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Runner.Logger;
 using Dorc.Terraform.Catalog;
 using Dorc.TerraformRunner.Pipes;
+using Dorc.TerraformRunner.CodeSources;
 using Dorc.TerraformRunner.State;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
@@ -197,8 +198,9 @@ namespace Dorc.TerraformRunner.Tests
         [TestMethod]
         [DataRow(false)]
         [DataRow(true)]
-        public async Task CatalogInheritedSensitiveScalars_AreEncodedByManifestAndRedactedInErrors(bool useManifestDefault)
+        public async Task CatalogInheritedSensitiveScalars_AreEncodedAndRedactedBeforePlanEmission(bool useManifestDefault)
         {
+            ConfigureState();
             _scriptGroup.TerraformSourceType = TerraformSourceType.Catalog;
             _scriptGroup.TerraformTemplateName = "test";
             _scriptGroup.TerraformTemplateVersion = "1.0.0";
@@ -222,29 +224,35 @@ namespace Dorc.TerraformRunner.Tests
             _scriptGroup.CommonProperties["count"] = new VariableValue { Value = "1.25e2", Type = typeof(string) };
             _scriptGroup.CommonProperties["UnrelatedDatabasePassword"] =
                 new VariableValue { Value = "not-a-catalog-input", Type = typeof(string) };
-            await (Task)typeof(TerraformProcessor).GetMethod("CollectSensitiveValuesAsync",
-                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_processor,
-                new object[] { _scriptGroup, CancellationToken.None })!;
-            var effective = (IDictionary<string, VariableValue>)typeof(TerraformProcessor).GetMethod("ResolvePlanProperties",
-                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_processor, new object[] { _scriptGroup.CommonProperties })!;
-            await (Task)typeof(TerraformProcessor).GetMethod("CreateTerraformVariablesFileAsync",
-                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(_processor,
-                new object[] { _root, effective, CancellationToken.None })!;
-            var variables = File.ReadAllText(Path.Join(_root, "terraform.tfvars"));
+            _processor.ShowOutput = "plain=" + secret + "\njson=" + JsonSerializer.Serialize(secret)
+                + "\nhcl=\"quoted\\\"\\\\path\\n\\r%%{if x}$${x}\\t\"";
+            Assert.IsTrue(await Plan());
+            var variables = _processor.PlannedSource["terraform.tfvars"];
             StringAssert.Contains(variables, "count = 125");
             StringAssert.Contains(variables, "enabled = true");
             Assert.IsFalse(variables.Contains("UnrelatedDatabasePassword"));
             StringAssert.Contains(variables, "text = \"quoted\\\"\\\\path\\n\\r%%{if x}$${x}\\t\"");
-            var redact = typeof(TerraformProcessor).GetMethod("RedactSensitiveValues",
-                BindingFlags.Instance | BindingFlags.NonPublic)!;
-            Assert.AreEqual("[REDACTED]", redact.Invoke(_processor, new object[] { secret }));
-            StringAssert.Contains((string)redact.Invoke(_processor, new object[] { variables })!, "text = \"[REDACTED]\"");
-            var error = Assert.ThrowsExactly<TargetInvocationException>(() => typeof(TerraformProcessor)
-                .GetMethod("InterpretExitCode", BindingFlags.Instance | BindingFlags.NonPublic)!
-                .Invoke(_processor, new object[] { TerraformCommand.PlanDetailedExitCode, 1, "error " + secret }));
-            Assert.IsInstanceOfType<InvalidOperationException>(error.InnerException);
+            Assert.AreEqual("plain=[REDACTED]\njson=\"[REDACTED]\"\nhcl=\"[REDACTED]\"",
+                File.ReadAllText(Path.Join(_root, "plan.txt")));
+            Assert.AreEqual("binary plan", File.ReadAllText(Path.Join(_root, "plan.bin")));
+            _processor.FailCommand = true;
+            _processor.FailureMessage = "error " + secret;
+            Assert.IsFalse(await Plan());
             _logger.Received().Error(Arg.Is<string>(message => message.Contains("error [REDACTED]")
                 && !message.Contains(secret)));
+        }
+
+        [TestMethod]
+        [DataRow(" ")]
+        [DataRow("\t")]
+        public async Task Plan_WhitespaceSensitiveValue_IsStillMasked(string secret)
+        {
+            _scriptGroup.CommonProperties["password"] = new VariableValue { Value = secret, Type = typeof(string) };
+            _scriptGroup.SensitivePropertyNames.Add("password");
+            _processor.ShowOutput = "password=\"" + secret + "\"";
+
+            Assert.IsTrue(await Plan());
+            Assert.AreEqual("password=\"[REDACTED]\"", File.ReadAllText(Path.Join(_root, "plan.txt")));
         }
 
         [TestMethod]
@@ -310,9 +318,18 @@ namespace Dorc.TerraformRunner.Tests
             public string LastWorkingDirectory { get; private set; } = "";
             public bool FailCommand { get; set; }
             public bool CancelCommand { get; set; }
+            public string FailureMessage { get; set; } = "Terraform failed";
+            public string ShowOutput { get; set; } = "plan output";
 
             public FakeProcessor(string root, IRunnerLogger logger, IScriptGroupPipeClient pipe, ITemplateCatalog catalog)
-                : base(logger, pipe, catalog) => _root = root;
+                : base(logger, pipe, catalog, LocalCodeSource(logger)) => _root = root;
+
+            private static ITerraformCodeSourceProviderFactory LocalCodeSource(IRunnerLogger logger)
+            {
+                var factory = Substitute.For<ITerraformCodeSourceProviderFactory>();
+                factory.GetProvider(Arg.Any<TerraformSourceType>()).Returns(new SharedFolderCodeSourceProvider(logger));
+                return factory;
+            }
 
             protected override string CreateTerraformWorkingDirectory(int requestId)
             {
@@ -326,7 +343,7 @@ namespace Dorc.TerraformRunner.Tests
             {
                 Commands.Add(command);
                 if (CancelCommand) throw new OperationCanceledException();
-                if (FailCommand) throw new InvalidOperationException("Terraform failed");
+                if (FailCommand) throw new InvalidOperationException(FailureMessage);
                 if (command == TerraformCommand.Init)
                 {
                     var lockFile = Path.Join(workingDir, ".terraform.lock.hcl");
@@ -343,7 +360,7 @@ namespace Dorc.TerraformRunner.Tests
                     AppliedSource = File.ReadAllText(Path.Join(workingDir, "main.tf"));
                     AppliedLock = File.ReadAllText(Path.Join(workingDir, ".terraform.lock.hcl"));
                 }
-                return Task.FromResult("plan output");
+                return Task.FromResult(command == TerraformCommand.Show ? ShowOutput : "plan output");
             }
         }
     }

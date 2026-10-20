@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
+using Dorc.Core.Security;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources;
@@ -21,8 +22,7 @@ namespace Dorc.Api.Controllers
         private readonly IContainersPersistentSource _containersPersistentSource;
         private readonly IContainerAuditPersistentSource _containerAuditPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
-        private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
-        private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
+        private readonly SharedResourceAccessPolicy _accessPolicy;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
         public RefDataContainersController(
@@ -36,8 +36,7 @@ namespace Dorc.Api.Controllers
             _containersPersistentSource = containersPersistentSource;
             _containerAuditPersistentSource = containerAuditPersistentSource;
             _environmentsPersistentSource = environmentsPersistentSource;
-            _rolePrivilegesChecker = rolePrivilegesChecker;
-            _securityPrivilegesChecker = securityPrivilegesChecker;
+            _accessPolicy = new SharedResourceAccessPolicy(rolePrivilegesChecker, securityPrivilegesChecker);
             _claimsPrincipalReader = claimsPrincipalReader;
         }
 
@@ -86,8 +85,8 @@ namespace Dorc.Api.Controllers
                 return NotFound($"Environment with id {envId} not found");
             return Ok(new SharedResourceCapabilities
             {
-                CanCreateDefinition = _rolePrivilegesChecker.IsPowerUser(User) || _rolePrivilegesChecker.IsAdmin(User),
-                CanManageMembership = _securityPrivilegesChecker.CanModifyEnvironment(User, environment.EnvironmentName)
+                CanCreateDefinition = _accessPolicy.CanCreateDefinition(User),
+                CanManageMembership = _accessPolicy.CanManageMembership(User, environment.EnvironmentName)
             });
         }
 
@@ -101,7 +100,7 @@ namespace Dorc.Api.Controllers
         public IActionResult Post([FromBody] ContainerApiModel model)
             => _containersPersistentSource.ExecuteMutation<IActionResult>(() =>
         {
-            if (!_rolePrivilegesChecker.IsPowerUser(User) && !_rolePrivilegesChecker.IsAdmin(User))
+            if (!_accessPolicy.CanCreateDefinition(User))
                 return StatusCode(StatusCodes.Status403Forbidden,
                     "Containers can only be created by PowerUsers or Admins!");
 
@@ -292,10 +291,7 @@ namespace Dorc.Api.Controllers
 
         private ContainerApiModel WithCapabilities(ContainerApiModel model)
         {
-            var environments = model.EnvironmentNames ?? new List<string>();
-            model.CanEditDefinition = environments.Count == 0
-                ? _rolePrivilegesChecker.IsPowerUser(User) || _rolePrivilegesChecker.IsAdmin(User)
-                : environments.All(name => _securityPrivilegesChecker.CanModifyEnvironment(User, name));
+            model.CanEditDefinition = _accessPolicy.DefinitionAccess(User, model.EnvironmentNames).IsAllowed;
             return model;
         }
 
@@ -305,21 +301,12 @@ namespace Dorc.Api.Controllers
         {
             var environmentNames = _containersPersistentSource.GetEnvironmentNamesForId(id).ToList();
 
-            if (environmentNames.Count == 0)
-            {
-                if (!_rolePrivilegesChecker.IsPowerUser(User) && !_rolePrivilegesChecker.IsAdmin(User))
-                    return StatusCode(StatusCodes.Status403Forbidden,
-                        $"Unattached containers can only be {action}d by PowerUsers or Admins!");
+            var access = _accessPolicy.DefinitionAccess(User, environmentNames);
+            if (access.IsAllowed)
                 return null;
-            }
-
-            var unauthorizedEnvironment = environmentNames.FirstOrDefault(
-                environmentName => !_securityPrivilegesChecker.CanModifyEnvironment(User, environmentName));
-            if (unauthorizedEnvironment != null)
-                return StatusCode(StatusCodes.Status403Forbidden,
-                    $"You need write permission on environment '{unauthorizedEnvironment}' to {action} this container");
-
-            return null;
+            return StatusCode(StatusCodes.Status403Forbidden, access.DeniedEnvironment == null
+                ? $"Unattached containers can only be {action}d by PowerUsers or Admins!"
+                : $"You need write permission on environment '{access.DeniedEnvironment}' to {action} this container");
         }
 
         private (EnvironmentApiModel? Environment, IActionResult? Error) CheckWritePermissionForEnvironment(
@@ -329,7 +316,7 @@ namespace Dorc.Api.Controllers
             if (environment == null)
                 return (null, NotFound($"Environment with id {envId} not found"));
 
-            if (!_securityPrivilegesChecker.CanModifyEnvironment(User, environment.EnvironmentName))
+            if (!_accessPolicy.CanManageMembership(User, environment.EnvironmentName))
                 return (environment, StatusCode(StatusCodes.Status403Forbidden,
                     $"You need write permission on environment '{environment.EnvironmentName}' to {action} it"));
 

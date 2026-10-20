@@ -7,6 +7,8 @@ namespace Dorc.PersistentData.Sources.Interfaces
         IEnumerable<CloudResourceApiModel> GetAll();
         CloudResourceApiModel? GetById(int id);
         CloudResourceApiModel? GetByName(string name);
+        /// <summary>Returns every matching remote identity, including ambiguous legacy duplicates.</summary>
+        IReadOnlyList<CloudResourceApiModel> GetByIdentity(string provider, string resourceType, string resourceIdentifier);
         CloudResourceApiModel Add(CloudResourceApiModel cloudResource);
         CloudResourceApiModel? Update(int id, CloudResourceApiModel cloudResource);
         CloudResourceApiModel? UpdateTags(int id, string? tags);

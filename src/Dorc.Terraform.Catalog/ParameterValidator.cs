@@ -72,7 +72,7 @@ namespace Dorc.Terraform.Catalog
             List<ParameterValidationError> errors)
         {
             string? EffectiveValue(string name) =>
-                supplied.TryGetValue(name, out var value) && !string.IsNullOrEmpty(value)
+                supplied.TryGetValue(name, out var value)
                     ? value : manifest.Parameters.First(p => p.Name == name).Default;
             foreach (var conflict in manifest.ParameterConflicts ?? Array.Empty<TerraformParameterConflict>())
             {
@@ -109,24 +109,16 @@ namespace Dorc.Terraform.Catalog
             IReadOnlyDictionary<string, string?> supplied,
             List<ParameterValidationError> errors)
         {
-            // Project (parameter, raw-value) pairs for parameters that the
-            // caller actually supplied with a non-empty value. The filter
-            // hoists the previous in-loop guard into the sequence expression.
-            var pairs = manifest.Parameters
-                .Select(p =>
-                {
-                    string? raw = null;
-                    if (supplied.TryGetValue(p.Name, out var v)) raw = v;
-                    return (Param: p, Raw: raw);
-                })
-                .Where(t => !string.IsNullOrEmpty(t.Raw));
-
-            foreach (var (p, rawNullable) in pairs)
+            foreach (var p in manifest.Parameters)
             {
-                // The Where above guarantees Raw is non-null and non-empty;
-                // bind to a non-nullable local so callees with non-null
-                // string parameters do not fire CS8604.
-                var raw = rawNullable!;
+                if (!supplied.TryGetValue(p.Name, out var suppliedValue)) continue;
+                // Required blanks are already reported as Missing. Optional
+                // strings retain intentional empty values, but a present blank
+                // scalar cannot fall back to a default in the runner.
+                if (string.IsNullOrEmpty(suppliedValue)
+                    && (p.Required || p.Type is not (TerraformParameterType.Number or TerraformParameterType.Bool)))
+                    continue;
+                var raw = suppliedValue ?? string.Empty;
 
                 // Validation errors travel back in HTTP 400 bodies and are
                 // rendered in the deploy wizard, so a Sensitive parameter's
@@ -158,42 +150,11 @@ namespace Dorc.Terraform.Catalog
                     continue;
                 }
 
-                if (!string.IsNullOrEmpty(p.Pattern))
+                var patternError = ValidatePattern(p, raw, displayValue);
+                if (patternError is not null)
                 {
-                    Regex regex;
-                    // Bound every match: a manifest pattern with catastrophic
-                    // backtracking (e.g. `^(a+)+$`) run against an unbounded
-                    // user-supplied value on the request thread is a ReDoS
-                    // vector. A timeout turns a hang into a validation error.
-                    try { regex = new Regex(p.Pattern, RegexOptions.CultureInvariant, RegexMatchTimeout); }
-                    catch (ArgumentException)
-                    {
-                        // Bad regex in the manifest itself; surface as a TypeMismatch
-                        // against the parameter so the manifest author sees it.
-                        errors.Add(new ParameterValidationError(
-                            p.Name,
-                            ParameterValidationErrorKind.PatternMismatch,
-                            $"parameter '{p.Name}' has an invalid regex pattern in the manifest"));
-                        continue;
-                    }
-                    bool patternMatched;
-                    try { patternMatched = regex.IsMatch(raw); }
-                    catch (RegexMatchTimeoutException)
-                    {
-                        errors.Add(new ParameterValidationError(
-                            p.Name,
-                            ParameterValidationErrorKind.PatternMismatch,
-                            $"parameter '{p.Name}' could not be validated against its pattern within the time limit"));
-                        continue;
-                    }
-                    if (!patternMatched)
-                    {
-                        errors.Add(new ParameterValidationError(
-                            p.Name,
-                            ParameterValidationErrorKind.PatternMismatch,
-                            $"parameter '{p.Name}' value {displayValue} does not match required pattern"));
-                        continue;
-                    }
+                    errors.Add(patternError);
+                    continue;
                 }
 
                 if ((p.Min is not null || p.Max is not null)
@@ -216,6 +177,29 @@ namespace Dorc.Terraform.Catalog
                     }
                 }
             }
+        }
+
+        private static ParameterValidationError? ValidatePattern(
+            TerraformTemplateParameter parameter, string raw, string displayValue)
+        {
+            if (string.IsNullOrEmpty(parameter.Pattern)) return null;
+            string message;
+            try
+            {
+                var regex = new Regex(parameter.Pattern, RegexOptions.CultureInvariant, RegexMatchTimeout);
+                if (regex.IsMatch(raw)) return null;
+                message = $"parameter '{parameter.Name}' value {displayValue} does not match required pattern";
+            }
+            catch (ArgumentException)
+            {
+                message = $"parameter '{parameter.Name}' has an invalid regex pattern in the manifest";
+            }
+            catch (RegexMatchTimeoutException)
+            {
+                message = $"parameter '{parameter.Name}' could not be validated against its pattern within the time limit";
+            }
+            return new ParameterValidationError(
+                parameter.Name, ParameterValidationErrorKind.PatternMismatch, message);
         }
 
         private static void ValidateUnknown(

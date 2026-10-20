@@ -19,7 +19,7 @@ namespace Dorc.PersistentData.Sources
         Put
     }
 
-    public class ManageProjectsPersistentSource : IManageProjectsPersistentSource
+    public partial class ManageProjectsPersistentSource : IManageProjectsPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IRequestsPersistentSource _requestsPersistentSource;

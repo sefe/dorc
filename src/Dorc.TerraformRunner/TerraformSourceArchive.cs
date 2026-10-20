@@ -24,15 +24,16 @@ namespace Dorc.TerraformRunner
 
         public static string PlanArchivePath(string planFilePath) => planFilePath + ".source.zip";
 
-        public static void RestorePlanSource(string planFilePath, string workingDirectory)
+        public static void RestorePlanSource(string planFilePath, string workingDirectory, CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var archivePath = PlanArchivePath(planFilePath);
             if (!File.Exists(archivePath))
                 throw new FileNotFoundException(
                     "The approved plan's source archive is missing. Create and approve a new plan; mutable source refs cannot be re-fetched for apply.",
                     archivePath);
 
-            new ZipArchiveExtractor(new ZipArchiveExtractionOptions()).Extract(archivePath, workingDirectory);
+            new ZipArchiveExtractor(new ZipArchiveExtractionOptions()).Extract(archivePath, workingDirectory, cancellationToken);
             if (!File.Exists(Path.Join(workingDirectory, ProvenanceEntryName)))
                 throw new InvalidDataException("The approved plan's source archive has no provenance. Create and approve a new plan.");
         }

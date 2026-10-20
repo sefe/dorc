@@ -73,6 +73,39 @@ namespace Dorc.Api.Tests.Sources
         }
 
         [TestMethod]
+        public void GetByIdentity_ArmTypeDriftAndCaseAreMetadata_NotNewIdentity()
+        {
+            SetupCloudResources(new CloudResource
+            {
+                Id = 3, Name = "renamed", Provider = "Azure", ResourceType = "legacy-type",
+                ResourceIdentifier = "/SUBSCRIPTIONS/1/RESOURCEGROUPS/DEMO", Tags = "owner",
+                Environments = new List<Environment> { Env(1, "existing") }
+            });
+
+            var match = _source.GetByIdentity("Azure", "azurerm_resource_group", "/subscriptions/1/resourceGroups/demo").Single();
+
+            Assert.AreEqual(3, match.Id);
+            Assert.AreEqual("renamed", match.Name);
+            Assert.AreEqual("owner", match.Tags);
+            CollectionAssert.AreEqual(new[] { "existing" }, match.EnvironmentNames);
+        }
+
+        [TestMethod]
+        public void GetByIdentity_SeparatesProviderTypeAndCase_AndReturnsAllDuplicates()
+        {
+            SetupCloudResources(
+                new CloudResource { Id = 1, Name = "one", Provider = "Aiven", ResourceType = "aiven_kafka_topic", ResourceIdentifier = "p/s/Topic" },
+                new CloudResource { Id = 2, Name = "duplicate", Provider = "Aiven", ResourceType = "aiven_kafka_topic", ResourceIdentifier = "p/s/Topic" },
+                new CloudResource { Id = 3, Name = "case", Provider = "Aiven", ResourceType = "aiven_kafka_topic", ResourceIdentifier = "p/s/topic" },
+                new CloudResource { Id = 4, Name = "type", Provider = "Aiven", ResourceType = "aiven_pg_database", ResourceIdentifier = "p/s/Topic" },
+                new CloudResource { Id = 5, Name = "provider", Provider = "Other", ResourceType = "aiven_kafka_topic", ResourceIdentifier = "p/s/Topic" });
+
+            var matches = _source.GetByIdentity("Aiven", "aiven_kafka_topic", "p/s/Topic");
+
+            CollectionAssert.AreEquivalent(new[] { 1, 2 }, matches.Select(model => model.Id).ToArray());
+        }
+
+        [TestMethod]
         public void Update_ExistingItem_MapsAllFields()
         {
             SetupCloudResources(new CloudResource

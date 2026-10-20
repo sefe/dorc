@@ -61,6 +61,61 @@ namespace Dorc.Terraform.Catalog.Tests
         }
 
         [TestMethod]
+        public void Validate_OptionalScalarsDistinguishOmissionFromBlank()
+        {
+            foreach (var type in new[] { TerraformParameterType.Number, TerraformParameterType.Bool })
+            {
+                foreach (var defaultValue in new[] { null, type == TerraformParameterType.Number ? "2" : "true" })
+                {
+                    var manifest = Manifest(Param("value", type, required: false) with { Default = defaultValue });
+                    Assert.IsTrue(validator.Validate(manifest, new Dictionary<string, string?>()).IsValid);
+                    foreach (var blank in new[] { null, "", " ", "\t" })
+                    {
+                        var result = validator.Validate(manifest,
+                            new Dictionary<string, string?> { ["value"] = blank });
+                        Assert.IsFalse(result.IsValid, $"{type} must reject an explicitly blank value");
+                        Assert.HasCount(1, result.Errors);
+                        Assert.AreEqual(ParameterValidationErrorKind.TypeMismatch, result.Errors[0].Kind);
+                    }
+                }
+            }
+        }
+
+        [TestMethod]
+        public void Validate_RequiredBlanksRemainMissingAndOptionalStringsMayBeEmpty()
+        {
+            foreach (var type in new[] { TerraformParameterType.String, TerraformParameterType.Number, TerraformParameterType.Bool })
+            {
+                foreach (var blank in new[] { null, "" })
+                {
+                    var result = validator.Validate(Manifest(Param("value", type)),
+                        new Dictionary<string, string?> { ["value"] = blank });
+                    Assert.HasCount(1, result.Errors);
+                    Assert.AreEqual(ParameterValidationErrorKind.Missing, result.Errors[0].Kind);
+                }
+            }
+            var optional = Manifest(Param("value", required: false) with { Default = "fallback" });
+            Assert.IsTrue(validator.Validate(optional, new Dictionary<string, string?> { ["value"] = "" }).IsValid);
+        }
+
+        [TestMethod]
+        public void Validate_ConflictChecksDoNotReplaceExplicitEmptyStringWithDefault()
+        {
+            var manifest = Manifest(
+                Param("name", required: false) with { Default = "defaultdb" },
+                Param("create", TerraformParameterType.Bool, required: false) with { Default = "true" })
+                with
+                {
+                    ParameterConflicts = new[]
+                    {
+                        new TerraformParameterConflict("name", "defaultdb", "create", "true", "conflict")
+                    }
+                };
+            Assert.IsFalse(validator.Validate(manifest, new Dictionary<string, string?>()).IsValid);
+            Assert.IsTrue(validator.Validate(manifest, new Dictionary<string, string?> { ["name"] = "" }).IsValid);
+        }
+
+        [TestMethod]
         public void Validate_TypeMismatchOnNumber_ReportsTypeMismatch()
         {
             var manifest = Manifest(Param("count", TerraformParameterType.Number));

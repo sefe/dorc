@@ -69,6 +69,10 @@ namespace Dorc.Api.Tests.Controllers
                     Arg.Any<TerraformTemplateManifest>(),
                     Arg.Any<IReadOnlyDictionary<string, string?>>())
                 .Returns(new ParameterValidationResult(true, Array.Empty<ParameterValidationError>()));
+            _manageProjects.CreateCatalogComponent(
+                    Arg.Any<ComponentApiModel>(), Arg.Any<int>(), Arg.Any<int?>(), Arg.Any<bool>())
+                .Returns(call => new CatalogComponentCreation(
+                    CatalogComponentCreationStatus.Created, call.Arg<ComponentApiModel>()));
 
             _controller = new TerraformController(
                 NullLogger<TerraformController>.Instance,
@@ -114,6 +118,20 @@ namespace Dorc.Api.Tests.Controllers
             });
         }
 
+        [TestCleanup]
+        public void NoLegacyComponentMutation()
+        {
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateComponent(default!, default, default, default!);
+            _manageProjects.DidNotReceiveWithAnyArgs().UpdateComponent(default!, default, default, default!);
+        }
+
+        private void GivenCreationOutcome(CatalogComponentCreationStatus status, string message)
+        {
+            _manageProjects.CreateCatalogComponent(
+                    Arg.Any<ComponentApiModel>(), ProjectId, Arg.Any<int?>(), Arg.Any<bool>())
+                .Returns(new CatalogComponentCreation(status, Message: message));
+        }
+
         // ---------- InstantiateTemplate ----------
 
         private const int ProjectId = 7;
@@ -152,10 +170,6 @@ namespace Dorc.Api.Tests.Controllers
                 {
                     new ProjectApiModel { ProjectName = ProjectName }
                 });
-            // Destination project has no existing components by default, so the
-            // duplicate-name conflict and parent-in-project checks pass; a test
-            // that wants a collision overrides this.
-            _projects.GetComponentsForProject(ProjectName).Returns(new List<ComponentApiModel>());
             _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(true);
         }
 
@@ -242,6 +256,8 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ForbidResult),
                 "Create-path RBAC failure (not project owner/admin) returns Forbid.");
             _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateCatalogComponent(default!, default, default, default);
+            _manageProjects.DidNotReceiveWithAnyArgs()
                 .CreateComponent(default!, default, default, default!);
             _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
         }
@@ -266,6 +282,8 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult), "Deploy-path RBAC failure returns StatusCode(403, message).");
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateCatalogComponent(default!, default, default, default);
             _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
         }
 
@@ -304,6 +322,8 @@ namespace Dorc.Api.Tests.Controllers
                 CancellationToken.None);
 
             Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult), "Validation failure must produce 400.");
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateCatalogComponent(default!, default, default, default);
             var badRequest = (BadRequestObjectResult)result;
             Assert.IsInstanceOfType(badRequest.Value, typeof(string), "400 body is the validation message string.");
             var body = (string)badRequest.Value!;
@@ -352,9 +372,9 @@ namespace Dorc.Api.Tests.Controllers
                 CancellationToken.None);
 
             Assert.IsInstanceOfType(result, typeof(OkObjectResult));
-            _manageProjects.Received(1).CreateComponent(
+            _manageProjects.Received(1).CreateCatalogComponent(
                 Arg.Is<ComponentApiModel>(c => c.ComponentId == 0),
-                ProjectId, Arg.Any<int?>(), Arg.Any<string>());
+                ProjectId, Arg.Any<int?>(), true);
             _requestService.Received(1).CreateRequest(
                 Arg.Is<RequestDto>(dto =>
                     dto.Environment == EnvName
@@ -415,9 +435,9 @@ namespace Dorc.Api.Tests.Controllers
                 CancellationToken.None);
 
             Assert.IsInstanceOfType(result, typeof(OkObjectResult));
-            _manageProjects.Received(1).CreateComponent(
+            _manageProjects.Received(1).CreateCatalogComponent(
                 Arg.Is<ComponentApiModel>(c => c.ComponentId == 0),
-                ProjectId, Arg.Any<int?>(), Arg.Any<string>());
+                ProjectId, Arg.Any<int?>(), true);
             _requestService.Received(1).CreateRequest(
                 Arg.Is<RequestDto>(dto =>
                     dto.Environment == EnvName
@@ -693,9 +713,9 @@ namespace Dorc.Api.Tests.Controllers
             // validation pipeline requires it, and CreateComponent only
             // inserts inside `if (ComponentId == 0)`. A null id would pass the
             // mock here but silently no-op the real persistence.
-            _manageProjects.Received(1).CreateComponent(
+            _manageProjects.Received(1).CreateCatalogComponent(
                 Arg.Is<ComponentApiModel>(c => c.ComponentId == 0),
-                ProjectId, Arg.Any<int?>(), Arg.Any<string>());
+                ProjectId, Arg.Any<int?>(), true);
             _requestService.Received(1).CreateRequest(
                 Arg.Is<RequestDto>(dto =>
                     dto.Environment == EnvName
@@ -839,9 +859,9 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual(TemplateName, envelope.Component.TerraformTemplateName);
             Assert.AreEqual(TemplateVersion, envelope.Component.TerraformTemplateVersion);
             Assert.AreEqual(0, envelope.RequestId, "Create-only mode submits no deploy request.");
-            _manageProjects.Received(1).CreateComponent(
+            _manageProjects.Received(1).CreateCatalogComponent(
                 Arg.Is<ComponentApiModel>(c => c.ComponentId == 0),
-                ProjectId, Arg.Any<int?>(), Arg.Any<string>());
+                ProjectId, Arg.Any<int?>(), false);
             _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
             _environments.DidNotReceiveWithAnyArgs().GetEnvironment(default!);
         }
@@ -850,14 +870,7 @@ namespace Dorc.Api.Tests.Controllers
         public async Task InstantiateTemplate_DuplicateComponentNameInProject_Returns409()
         {
             GivenTemplateAndProject(Manifest());
-            // Destination project already owns a component with the manifest's
-            // name (the default when the request omits ComponentName); the
-            // legacy rename-the-existing-component behaviour must be rejected
-            // with an explicit conflict instead.
-            _projects.GetComponentsForProject(ProjectName).Returns(new List<ComponentApiModel>
-            {
-                new ComponentApiModel { ComponentId = 55, ComponentName = TemplateName }
-            });
+            GivenCreationOutcome(CatalogComponentCreationStatus.Conflict, $"Component '{TemplateName}' already exists.");
 
             var result = await _controller.InstantiateTemplate(
                 TemplateName,
@@ -879,19 +892,7 @@ namespace Dorc.Api.Tests.Controllers
         public async Task InstantiateTemplate_RetryWithDifferentParent_Returns409()
         {
             GivenTemplateAndProject(Manifest());
-            _projects.GetComponentsForProject(ProjectName).Returns(new List<ComponentApiModel>
-            {
-                new ComponentApiModel
-                {
-                    ComponentId = 55,
-                    ComponentName = TemplateName,
-                    ParentId = 10,
-                    ComponentType = ComponentType.Terraform,
-                    TerraformSourceType = TerraformSourceType.Catalog,
-                    TerraformTemplateName = TemplateName,
-                    TerraformTemplateVersion = TemplateVersion,
-                }
-            });
+            GivenCreationOutcome(CatalogComponentCreationStatus.Conflict, "Different parent.");
             _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
             _parameterValidator.Validate(
                     Arg.Any<TerraformTemplateManifest>(),
@@ -928,9 +929,9 @@ namespace Dorc.Api.Tests.Controllers
             const int existingComponentId = 55;
             const int newRequestId = 321;
             GivenTemplateAndProject(Manifest());
-            _projects.GetComponentsForProject(ProjectName).Returns(new List<ComponentApiModel>
-            {
-                new ComponentApiModel
+            _manageProjects.CreateCatalogComponent(
+                    Arg.Any<ComponentApiModel>(), ProjectId, null, true)
+                .Returns(new CatalogComponentCreation(CatalogComponentCreationStatus.Reused, new ComponentApiModel
                 {
                     ComponentId = existingComponentId,
                     ComponentName = TemplateName,
@@ -939,8 +940,7 @@ namespace Dorc.Api.Tests.Controllers
                     TerraformTemplateName = TemplateName,
                     TerraformTemplateVersion = TemplateVersion,
                     IsEnabled = true,
-                }
-            });
+                }));
             _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
             _parameterValidator.Validate(
                     Arg.Any<TerraformTemplateManifest>(),
@@ -994,7 +994,11 @@ namespace Dorc.Api.Tests.Controllers
                 TerraformTemplateVersion = TemplateVersion,
                 IsEnabled = false
             };
-            _projects.GetComponentsForProject(ProjectName).Returns(new[] { existing });
+            _manageProjects.CreateCatalogComponent(
+                    Arg.Any<ComponentApiModel>(), ProjectId, null, true)
+                .Returns(_ => existing.IsEnabled
+                    ? new CatalogComponentCreation(CatalogComponentCreationStatus.Reused, existing)
+                    : new CatalogComponentCreation(CatalogComponentCreationStatus.Disabled, Message: "Enable it before retrying."));
             _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
             _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
                 .Returns(new RequestStatusDto { Id = 321, Status = "Pending" });
@@ -1032,18 +1036,7 @@ namespace Dorc.Api.Tests.Controllers
             // existing same-named Catalog component of a DIFFERENT template
             // version must still be rejected with 409.
             GivenTemplateAndProject(Manifest());
-            _projects.GetComponentsForProject(ProjectName).Returns(new List<ComponentApiModel>
-            {
-                new ComponentApiModel
-                {
-                    ComponentId = 55,
-                    ComponentName = TemplateName,
-                    ComponentType = ComponentType.Terraform,
-                    TerraformSourceType = TerraformSourceType.Catalog,
-                    TerraformTemplateName = TemplateName,
-                    TerraformTemplateVersion = "0.9.0",
-                }
-            });
+            GivenCreationOutcome(CatalogComponentCreationStatus.Conflict, "Different template version.");
             _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
 
             var result = await _controller.InstantiateTemplate(
@@ -1065,12 +1058,12 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
-        public async Task InstantiateTemplate_ValidateComponentsRejects_Returns400()
+        public async Task InstantiateTemplate_InvalidComponentName_Returns400()
         {
             GivenTemplateAndProject(Manifest());
-            _manageProjects.When(x => x.ValidateComponents(
-                    Arg.Any<IList<ComponentApiModel>>(), ProjectId, HttpRequestType.Post))
-                .Do(_ => throw new ArgumentException("bad component name"));
+            _manageProjects.CreateCatalogComponent(
+                    Arg.Any<ComponentApiModel>(), ProjectId, Arg.Any<int?>(), Arg.Any<bool>())
+                .Returns(_ => throw new ArgumentException("bad component name"));
 
             var result = await _controller.InstantiateTemplate(
                 TemplateName,
@@ -1079,7 +1072,7 @@ namespace Dorc.Api.Tests.Controllers
                 CancellationToken.None);
 
             Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult),
-                "ValidateComponents rejection surfaces as 400 Bad Request.");
+                "Component validation rejection surfaces as 400 Bad Request.");
             var badRequest = (BadRequestObjectResult)result;
             Assert.IsInstanceOfType(badRequest.Value, typeof(string), "400 body is the validation message.");
             StringAssert.Contains((string)badRequest.Value!, "bad component name",
@@ -1092,12 +1085,7 @@ namespace Dorc.Api.Tests.Controllers
         public async Task InstantiateTemplate_ParentComponentNotInProject_Returns400()
         {
             GivenTemplateAndProject(Manifest());
-            // The project has one component (id 10); the requested parent id
-            // does not belong to it, so the graft must be rejected.
-            _projects.GetComponentsForProject(ProjectName).Returns(new List<ComponentApiModel>
-            {
-                new ComponentApiModel { ComponentId = 10, ComponentName = "existing-other" }
-            });
+            GivenCreationOutcome(CatalogComponentCreationStatus.InvalidParent, "Parent component id 999 does not belong to project.");
 
             var result = await _controller.InstantiateTemplate(
                 TemplateName,
