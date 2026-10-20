@@ -132,7 +132,8 @@ namespace Dorc.Monitor
                             "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
 
                         // Handle PowerShell components
-                        var script = GetScripts(component.ComponentId);
+                        var script = requestsPersistentSource.GetSubmittedScript(requestId,
+                            component.ComponentId ?? throw new InvalidOperationException("Component ID is missing."));
 
                         if (isProductionEnvironment && script.NonProdOnly)
                         {
@@ -226,15 +227,5 @@ namespace Dorc.Monitor
             return deploymentResultStatus != DeploymentResultStatus.Failed;
         }
 
-        private ScriptApiModel GetScripts(
-            int? enabledComponentId)
-        {
-            if (!enabledComponentId.HasValue)
-            {
-                throw new InvalidOperationException("Component ID is not specified.");
-            }
-
-            return componentsPersistentSource.GetScripts(enabledComponentId.Value);
-        }
     }
 }

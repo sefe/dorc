@@ -75,7 +75,7 @@
                 "$ref": "#/components/schemas/AccessSecureApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/AccessSecureApiModel"
               }
@@ -838,7 +838,7 @@
                 "$ref": "#/components/schemas/BundledRequestsApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/BundledRequestsApiModel"
               }
@@ -867,7 +867,7 @@
                 "$ref": "#/components/schemas/BundledRequestsApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/BundledRequestsApiModel"
               }
@@ -1046,7 +1046,7 @@
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
@@ -1110,7 +1110,7 @@
                 "$ref": "#/components/schemas/CopyEnvBuildDto"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/CopyEnvBuildDto"
               }
@@ -1221,7 +1221,7 @@
                 "$ref": "#/components/schemas/DaemonStatusApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/DaemonStatusApiModel"
               }
@@ -1627,7 +1627,7 @@
                 "$ref": "#/components/schemas/MakeLikeProdRequest"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/MakeLikeProdRequest"
               }
@@ -1746,7 +1746,7 @@
                 }
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "type": "object",
                 "additionalProperties": {
@@ -1802,7 +1802,7 @@
                 }
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "type": "array",
                 "items": {
@@ -1858,7 +1858,7 @@
                 }
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "type": "array",
                 "items": {
@@ -1944,7 +1944,7 @@
                 }
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "type": "object",
                 "additionalProperties": {
@@ -2000,7 +2000,7 @@
                 }
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "type": "array",
                 "items": {
@@ -2056,7 +2056,7 @@
                 }
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "type": "array",
                 "items": {
@@ -2304,7 +2304,7 @@
                 }
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "type": "array",
                 "items": {
@@ -2360,7 +2360,7 @@
                 }
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "type": "array",
                 "items": {
@@ -2416,7 +2416,7 @@
                 }
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "type": "array",
                 "items": {
@@ -2518,7 +2518,7 @@
                 }
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "type": "array",
                 "items": {
@@ -2574,7 +2574,7 @@
                 }
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "type": "array",
                 "items": {
@@ -2630,7 +2630,7 @@
                 }
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "type": "array",
                 "items": {
@@ -2710,7 +2710,7 @@
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
@@ -2787,7 +2787,7 @@
                 "$ref": "#/components/schemas/RefDataApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/RefDataApiModel"
               }
@@ -2798,6 +2798,11 @@
           "200": {
             "description": "OK",
             "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefDataApiModel"
+                }
+              },
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RefDataApiModel"
@@ -2813,6 +2818,51 @@
           "400": {
             "description": "Bad Request",
             "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Precondition Required",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              },
               "application/json": {
                 "schema": {
                   "type": "string"
@@ -2843,7 +2893,7 @@
                 "$ref": "#/components/schemas/RefDataApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/RefDataApiModel"
               }
@@ -2854,6 +2904,11 @@
           "200": {
             "description": "OK",
             "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefDataApiModel"
+                }
+              },
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RefDataApiModel"
@@ -3021,7 +3076,7 @@
                 "$ref": "#/components/schemas/ConfigValueApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/ConfigValueApiModel"
               }
@@ -3072,7 +3127,7 @@
                 "$ref": "#/components/schemas/ConfigValueApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/ConfigValueApiModel"
               }
@@ -3178,7 +3233,7 @@
                 "$ref": "#/components/schemas/DaemonApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/DaemonApiModel"
               }
@@ -3229,7 +3284,7 @@
                 "$ref": "#/components/schemas/DaemonApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/DaemonApiModel"
               }
@@ -3376,7 +3431,7 @@
                 "$ref": "#/components/schemas/DatabaseApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/DatabaseApiModel"
               }
@@ -3494,7 +3549,7 @@
                 "$ref": "#/components/schemas/DatabaseApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/DatabaseApiModel"
               }
@@ -3698,7 +3753,7 @@
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
@@ -3914,7 +3969,7 @@
                 "$ref": "#/components/schemas/EnvironmentApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/EnvironmentApiModel"
               }
@@ -3955,7 +4010,7 @@
                 "$ref": "#/components/schemas/EnvironmentApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/EnvironmentApiModel"
               }
@@ -3996,7 +4051,7 @@
                 "$ref": "#/components/schemas/EnvironmentApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/EnvironmentApiModel"
               }
@@ -4117,7 +4172,7 @@
                 "$ref": "#/components/schemas/CloneEnvironmentRequest"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/CloneEnvironmentRequest"
               }
@@ -4533,7 +4588,7 @@
                 "$ref": "#/components/schemas/EnvironmentHistoryApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/EnvironmentHistoryApiModel"
               }
@@ -4562,7 +4617,7 @@
                 "$ref": "#/components/schemas/UpdateEnvironmentHistoryRequest"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/UpdateEnvironmentHistoryRequest"
               }
@@ -4752,7 +4807,7 @@
                 "$ref": "#/components/schemas/EnvironmentOwnerApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/EnvironmentOwnerApiModel"
               }
@@ -4927,7 +4982,7 @@
                 "$ref": "#/components/schemas/PermissionDto"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PermissionDto"
               }
@@ -4966,7 +5021,7 @@
                 "$ref": "#/components/schemas/PermissionDto"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PermissionDto"
               }
@@ -5045,7 +5100,7 @@
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
@@ -5247,7 +5302,7 @@
                 "$ref": "#/components/schemas/ProjectApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/ProjectApiModel"
               }
@@ -5288,7 +5343,7 @@
                 "$ref": "#/components/schemas/ProjectApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/ProjectApiModel"
               }
@@ -5396,6 +5451,13 @@
             "schema": {
               "type": "integer",
               "format": "int32"
+            }
+          },
+          {
+            "name": "expectedRevision",
+            "in": "query",
+            "schema": {
+              "type": "string"
             }
           }
         ],
@@ -5557,7 +5619,7 @@
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
@@ -5635,7 +5697,7 @@
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
@@ -5678,7 +5740,7 @@
                 "$ref": "#/components/schemas/ScriptApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/ScriptApiModel"
               }
@@ -5689,6 +5751,11 @@
           "200": {
             "description": "OK",
             "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "boolean"
+                }
+              },
               "application/json": {
                 "schema": {
                   "type": "boolean"
@@ -5697,6 +5764,46 @@
               "text/json": {
                 "schema": {
                   "type": "boolean"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Precondition Required",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -5741,7 +5848,7 @@
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
@@ -6003,7 +6110,7 @@
                 "$ref": "#/components/schemas/ServerApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/ServerApiModel"
               }
@@ -6089,7 +6196,7 @@
                 "$ref": "#/components/schemas/ServerApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/ServerApiModel"
               }
@@ -6241,7 +6348,7 @@
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
@@ -6312,7 +6419,7 @@
                 "$ref": "#/components/schemas/SqlPortApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/SqlPortApiModel"
               }
@@ -6341,7 +6448,7 @@
                 "$ref": "#/components/schemas/SqlPortApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/SqlPortApiModel"
               }
@@ -6620,7 +6727,7 @@
                 "$ref": "#/components/schemas/UserApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/UserApiModel"
               }
@@ -6782,7 +6889,7 @@
                 "$ref": "#/components/schemas/DeploymentRequestIds"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/DeploymentRequestIds"
               }
@@ -6863,7 +6970,7 @@
                 "$ref": "#/components/schemas/RequestDto"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/RequestDto"
               }
@@ -7414,7 +7521,7 @@
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
@@ -7535,7 +7642,7 @@
                 "type": "string"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "type": "string"
               }
@@ -7789,7 +7896,7 @@
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
@@ -8137,7 +8244,7 @@
                 "$ref": "#/components/schemas/TerraformTemplateInstantiateRequestApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/TerraformTemplateInstantiateRequestApiModel"
               }
@@ -8223,7 +8330,10 @@
             "name": "planContentSha256",
             "in": "query",
             "required": false,
-            "schema": { "type": "string", "nullable": true }
+            "schema": {
+              "type": "string",
+              "nullable": true
+            }
           },
           {
             "name": "deploymentResultId",
@@ -8314,7 +8424,7 @@
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
@@ -8377,7 +8487,7 @@
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
@@ -8410,6 +8520,15 @@
         ],
         "operationId": "TerraformTemplateResolutionGet",
         "parameters": [
+          {
+            "name": "componentId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "nullable": true
+            }
+          },
           {
             "name": "name",
             "in": "path",
@@ -8470,6 +8589,319 @@
         }
       }
     },
+    "/Terraform/plan/{deploymentResultId}/recover": {
+      "post": {
+        "tags": [
+          "Terraform"
+        ],
+        "operationId": "TerraformRecoverPost",
+        "parameters": [
+          {
+            "name": "deploymentResultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "expectedRevision",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "recoverInventory",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "name": "recoverArchive",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metadata recovery completed; no Terraform apply",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformDeploymentOutcomeApiModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Administrator and environment authority required"
+          },
+          "409": {
+            "description": "Changed receipt, missing material or incomplete recovery"
+          }
+        }
+      }
+    },
+    "/Terraform/plan/{deploymentResultId}/inventory": {
+      "get": {
+        "tags": [
+          "Terraform"
+        ],
+        "operationId": "TerraformInventoryGet",
+        "parameters": [
+          {
+            "name": "deploymentResultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current provenance for the original component and environment",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TerraformInventoryProvenanceApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Terraform/plan/{deploymentResultId}/inventory/{cloudResourceId}/review": {
+      "post": {
+        "tags": [
+          "Terraform"
+        ],
+        "operationId": "TerraformInventoryReviewPost",
+        "parameters": [
+          {
+            "name": "deploymentResultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "cloudResourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "expectedRevision",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Missing inventory reviewed; no deletion or detach"
+          },
+          "409": {
+            "description": "Inventory changed"
+          }
+        }
+      }
+    },
+    "/Terraform/components/{componentId}/upgrade/{name}/{version}": {
+      "parameters": [
+        {
+          "name": "componentId",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        {
+          "name": "name",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "version",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "string"
+          }
+        },
+        {
+          "name": "projectId",
+          "in": "query",
+          "required": true,
+          "schema": {
+            "type": "integer",
+            "format": "int32"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Terraform"
+        ],
+        "operationId": "TerraformUpgradePreviewGet",
+        "responses": {
+          "200": {
+            "description": "Upgrade impact",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogUpgradePreviewApiModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Component changed"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Terraform"
+        ],
+        "operationId": "TerraformUpgradePost",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogUpgradeRequestApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Pin upgraded; no deployment submitted"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Active request, incompatible inputs or revision conflict"
+          }
+        }
+      }
+    },
+    "/Terraform/templates/{name}/{version}/configuration": {
+      "put": {
+        "tags": [
+          "Terraform"
+        ],
+        "operationId": "TerraformTemplateConfigurationPut",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "componentId",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "environmentName",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveCatalogEnvironmentInputsApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogEnvironmentInputsApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid or sensitive inputs"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Revision, pin or mapping changed"
+          }
+        }
+      }
+    },
     "/ApiRegistrationAudit": {
       "put": {
         "tags": [
@@ -8515,7 +8947,7 @@
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
@@ -8586,7 +9018,7 @@
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
@@ -8657,7 +9089,7 @@
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/PagedDataOperators"
               }
@@ -8728,7 +9160,7 @@
                 "$ref": "#/components/schemas/ApiRegistrationApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/ApiRegistrationApiModel"
               }
@@ -8903,7 +9335,7 @@
                 "$ref": "#/components/schemas/ApiRegistrationApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/ApiRegistrationApiModel"
               }
@@ -9258,7 +9690,7 @@
                 "$ref": "#/components/schemas/CloudResourceApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/CloudResourceApiModel"
               }
@@ -9433,7 +9865,7 @@
                 "$ref": "#/components/schemas/CloudResourceApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/CloudResourceApiModel"
               }
@@ -9745,64 +10177,238 @@
     },
     "/RefDataContainers/Capabilities/{envId}": {
       "get": {
-        "tags": ["RefDataContainers"],
-        "parameters": [{"name": "envId", "in": "path", "required": true, "schema": {"type": "integer", "format": "int32"}}],
-        "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SharedResourceCapabilities"}}}}}
+        "tags": [
+          "RefDataContainers"
+        ],
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedResourceCapabilities"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/RefDataCloudResources/Capabilities/{envId}": {
       "get": {
-        "tags": ["RefDataCloudResources"],
-        "parameters": [{"name": "envId", "in": "path", "required": true, "schema": {"type": "integer", "format": "int32"}}],
-        "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SharedResourceCapabilities"}}}}}
+        "tags": [
+          "RefDataCloudResources"
+        ],
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedResourceCapabilities"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/RefDataApiRegistrations/Capabilities/{envId}": {
       "get": {
-        "tags": ["RefDataApiRegistrations"],
-        "parameters": [{"name": "envId", "in": "path", "required": true, "schema": {"type": "integer", "format": "int32"}}],
-        "responses": {"200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/SharedResourceCapabilities"}}}}}
+        "tags": [
+          "RefDataApiRegistrations"
+        ],
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedResourceCapabilities"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/RefDataContainers/{id}/tags": {
       "put": {
-        "tags": ["RefDataContainers"],
+        "tags": [
+          "RefDataContainers"
+        ],
         "description": "Update only tags, comparing ExpectedTags atomically; unrelated definition fields are preserved.",
-        "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "integer", "format": "int32"}}],
-        "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/ResourceTagsUpdate"}}}},
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceTagsUpdate"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ContainerApiModel"}}}},
-          "403": {"description": "Forbidden"},
-          "404": {"description": "Not Found"},
-          "409": {"description": "Tags have changed; reload before saving"}
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerApiModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Tags have changed; reload before saving"
+          }
         }
       }
     },
     "/RefDataCloudResources/{id}/tags": {
       "put": {
-        "tags": ["RefDataCloudResources"],
+        "tags": [
+          "RefDataCloudResources"
+        ],
         "description": "Update only tags, comparing ExpectedTags atomically; unrelated definition fields are preserved.",
-        "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "integer", "format": "int32"}}],
-        "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/ResourceTagsUpdate"}}}},
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceTagsUpdate"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CloudResourceApiModel"}}}},
-          "403": {"description": "Forbidden"},
-          "404": {"description": "Not Found"},
-          "409": {"description": "Tags have changed; reload before saving"}
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudResourceApiModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Tags have changed; reload before saving"
+          }
         }
       }
     },
     "/RefDataApiRegistrations/{id}/tags": {
       "put": {
-        "tags": ["RefDataApiRegistrations"],
+        "tags": [
+          "RefDataApiRegistrations"
+        ],
         "description": "Update only tags, comparing ExpectedTags atomically; unrelated definition fields are preserved.",
-        "parameters": [{"name": "id", "in": "path", "required": true, "schema": {"type": "integer", "format": "int32"}}],
-        "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/ResourceTagsUpdate"}}}},
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceTagsUpdate"
+              }
+            }
+          }
+        },
         "responses": {
-          "200": {"description": "OK", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/ApiRegistrationApiModel"}}}},
-          "403": {"description": "Forbidden"},
-          "404": {"description": "Not Found"},
-          "409": {"description": "Tags have changed; reload before saving"}
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRegistrationApiModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Tags have changed; reload before saving"
+          }
         }
       }
     },
@@ -9851,7 +10457,7 @@
                 "$ref": "#/components/schemas/ContainerApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/ContainerApiModel"
               }
@@ -10026,7 +10632,7 @@
                 "$ref": "#/components/schemas/ContainerApiModel"
               }
             },
-            "application/*+json": {
+            "application/*\u002Bjson": {
               "schema": {
                 "$ref": "#/components/schemas/ContainerApiModel"
               }
@@ -10329,6 +10935,149 @@
               "text/json": {
                 "schema": {
                   "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/DeploymentDefinitions": {
+      "get": {
+        "tags": [
+          "DeploymentDefinitions"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "componentType",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/ComponentType"
+            }
+          },
+          {
+            "name": "sourceType",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/TerraformSourceType"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDeploymentDefinitionsResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDeploymentDefinitionsResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDeploymentDefinitionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/DeploymentDefinitions/history": {
+      "get": {
+        "tags": [
+          "DeploymentDefinitions"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "componentId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDeploymentDefinitionHistoryResponse"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDeploymentDefinitionHistoryResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDeploymentDefinitionHistoryResponse"
                 }
               }
             }
@@ -10888,6 +11637,13 @@
       "ComponentApiModel": {
         "type": "object",
         "properties": {
+          "Children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComponentApiModel"
+            },
+            "nullable": true
+          },
           "ComponentId": {
             "type": "integer",
             "format": "int32",
@@ -11412,6 +12168,19 @@
       "DeploymentResultApiModel": {
         "type": "object",
         "properties": {
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "DefinitionRevision": {
+            "type": "string",
+            "nullable": true
+          },
+          "SourceRevisionLabel": {
+            "type": "string",
+            "nullable": true
+          },
           "Id": {
             "type": "integer",
             "format": "int32"
@@ -11445,6 +12214,9 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "IsTerraform": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -11452,6 +12224,23 @@
       "DeploymentResultAttemptApiModel": {
         "type": "object",
         "properties": {
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "IsTerraform": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "DefinitionRevision": {
+            "type": "string",
+            "nullable": true
+          },
+          "SourceRevisionLabel": {
+            "type": "string",
+            "nullable": true
+          },
           "Id": {
             "type": "integer",
             "format": "int32"
@@ -11490,6 +12279,9 @@
           "Log": {
             "type": "string",
             "nullable": true
+          },
+          "HasTerraformPlan": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -11682,6 +12474,24 @@
       "EnvironmentContentBuildsApiModel": {
         "type": "object",
         "properties": {
+          "ComponentId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "DefinitionRevision": {
+            "type": "string",
+            "nullable": true
+          },
+          "SourceRevisionLabel": {
+            "type": "string",
+            "nullable": true
+          },
           "ComponentName": {
             "type": "string",
             "nullable": true
@@ -12256,6 +13066,10 @@
       "ProjectApiModel": {
         "type": "object",
         "properties": {
+          "Revision": {
+            "type": "string",
+            "nullable": true
+          },
           "ProjectId": {
             "type": "integer",
             "format": "int32"
@@ -12537,6 +13351,16 @@
       "RefDataApiModel": {
         "type": "object",
         "properties": {
+          "Revision": {
+            "type": "string",
+            "nullable": true
+          },
+          "CanEdit": {
+            "type": "boolean"
+          },
+          "CanDeploy": {
+            "type": "boolean"
+          },
           "Project": {
             "$ref": "#/components/schemas/ProjectApiModel"
           },
@@ -12691,6 +13515,24 @@
       "ScriptApiModel": {
         "type": "object",
         "properties": {
+          "Revision": {
+            "type": "string",
+            "nullable": true
+          },
+          "AffectedProjectIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "ConfirmImpact": {
+            "type": "boolean"
+          },
+          "CanEdit": {
+            "type": "boolean"
+          },
           "Id": {
             "type": "integer",
             "format": "int32"
@@ -12877,6 +13719,24 @@
       "TerraformPlanApiModel": {
         "type": "object",
         "properties": {
+          "Outcome": {
+            "$ref": "#/components/schemas/TerraformDeploymentOutcomeApiModel"
+          },
+          "Receipt": {
+            "$ref": "#/components/schemas/TerraformDeploymentReceiptApiModel"
+          },
+          "ApprovedBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "ApprovedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "IsHistorical": {
+            "type": "boolean"
+          },
           "PlanContentSha256": {
             "type": "string",
             "nullable": true
@@ -12889,13 +13749,10 @@
             "type": "string",
             "nullable": true
           },
-          "BlobUrl": {
-            "type": "string",
-            "nullable": true
-          },
           "CreatedAt": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "nullable": true
           },
           "Status": {
             "type": "string",
@@ -12917,6 +13774,12 @@
       "TerraformTemplateInstantiateRequestApiModel": {
         "type": "object",
         "properties": {
+          "SubmissionKey": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true,
+            "description": "Stable random UUID per logical create-and-deploy submission; omitted keys preserve legacy behavior."
+          },
           "ProjectId": {
             "type": "integer",
             "format": "int32"
@@ -12963,13 +13826,29 @@
       },
       "TerraformParameterConflict": {
         "type": "object",
-        "required": ["Parameter", "Value", "WhenParameter", "WhenValue", "Message"],
+        "required": [
+          "Parameter",
+          "Value",
+          "WhenParameter",
+          "WhenValue",
+          "Message"
+        ],
         "properties": {
-          "Parameter": {"type": "string"},
-          "Value": {"type": "string"},
-          "WhenParameter": {"type": "string"},
-          "WhenValue": {"type": "string"},
-          "Message": {"type": "string"}
+          "Parameter": {
+            "type": "string"
+          },
+          "Value": {
+            "type": "string"
+          },
+          "WhenParameter": {
+            "type": "string"
+          },
+          "WhenValue": {
+            "type": "string"
+          },
+          "Message": {
+            "type": "string"
+          }
         },
         "additionalProperties": false
       },
@@ -13478,7 +14357,8 @@
           "Environment",
           "Default",
           "Missing",
-          "Unset"
+          "Unset",
+          "SavedConfiguration"
         ],
         "type": "string"
       },
@@ -13514,6 +14394,12 @@
         ],
         "type": "object",
         "properties": {
+          "SavedConfiguration": {
+            "$ref": "#/components/schemas/CatalogEnvironmentInputsApiModel"
+          },
+          "Readiness": {
+            "$ref": "#/components/schemas/TerraformReadinessApiModel"
+          },
           "ProjectName": {
             "type": "string"
           },
@@ -13525,6 +14411,337 @@
             "items": {
               "$ref": "#/components/schemas/TerraformParameterResolutionApiModel"
             }
+          }
+        },
+        "additionalProperties": false
+      },
+      "CatalogUpgradePreviewApiModel": {
+        "type": "object",
+        "properties": {
+          "ComponentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "CurrentVersion": {
+            "type": "string"
+          },
+          "TargetVersion": {
+            "type": "string"
+          },
+          "Environments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentApiModel"
+            }
+          },
+          "InputChanges": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ConfigurationRevisions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "RequiresExistingServiceOwnership": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CatalogUpgradeRequestApiModel": {
+        "type": "object",
+        "properties": {
+          "ExpectedRevision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ExpectedVersion": {
+            "type": "string"
+          },
+          "EnvironmentIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "ConfigurationRevisions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "ConfirmImpact": {
+            "type": "boolean"
+          },
+          "PreserveExistingServiceOwnership": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CatalogEnvironmentInputsApiModel": {
+        "type": "object",
+        "properties": {
+          "Revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ParameterNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "SaveCatalogEnvironmentInputsApiModel": {
+        "type": "object",
+        "properties": {
+          "ExpectedRevision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Inputs": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformDeploymentOutcomeApiModel": {
+        "type": "object",
+        "properties": {
+          "DeploymentResultId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ApplyOutcome": {
+            "type": "string"
+          },
+          "InventoryOutcome": {
+            "type": "string"
+          },
+          "ArchiveOutcome": {
+            "type": "string"
+          },
+          "RegisteredCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "FailedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "AppliedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "InventoryRecoveryAvailable": {
+            "type": "boolean"
+          },
+          "InventoryWarnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformInventoryProvenanceApiModel": {
+        "type": "object",
+        "properties": {
+          "ComponentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "EnvironmentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "CloudResourceId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DatabaseId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "FirstSeenResultId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "LastSeenResultId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "LastSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ResourceIdentifier": {
+            "type": "string"
+          },
+          "ReconciliationState": {
+            "type": "string"
+          },
+          "Revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformReadinessApiModel": {
+        "type": "object",
+        "properties": {
+          "AzureCredentialMode": {
+            "type": "string",
+            "nullable": true
+          },
+          "AzureTargetSource": {
+            "type": "string",
+            "nullable": true
+          },
+          "WorkloadTarget": {
+            "type": "string",
+            "nullable": true
+          },
+          "AivenCredentialMode": {
+            "type": "string",
+            "nullable": true
+          },
+          "BackendStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "AccessStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "Warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "InvalidInputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformDeploymentReceiptApiModel": {
+        "type": "object",
+        "properties": {
+          "DeploymentRequestId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "DefinitionRevision": {
+            "type": "string",
+            "nullable": true
+          },
+          "SourceType": {
+            "type": "string",
+            "nullable": true
+          },
+          "RequestedSource": {
+            "type": "string",
+            "nullable": true
+          },
+          "RequestedRef": {
+            "type": "string",
+            "nullable": true
+          },
+          "SourceSubPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "BuildIdentity": {
+            "type": "string",
+            "nullable": true
+          },
+          "ComponentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "EnvironmentId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "WorkloadTarget": {
+            "type": "string",
+            "nullable": true
+          },
+          "ProjectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "EnvironmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ComponentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "TemplateName": {
+            "type": "string",
+            "nullable": true
+          },
+          "TemplateVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "GitCommitSha": {
+            "type": "string",
+            "nullable": true
+          },
+          "StateStorageAccount": {
+            "type": "string",
+            "nullable": true
+          },
+          "StateContainerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "StateKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "PlannedAt": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "additionalProperties": false
@@ -13600,16 +14817,26 @@
       "SharedResourceCapabilities": {
         "type": "object",
         "properties": {
-          "CanCreateDefinition": {"type": "boolean"},
-          "CanManageMembership": {"type": "boolean"}
+          "CanCreateDefinition": {
+            "type": "boolean"
+          },
+          "CanManageMembership": {
+            "type": "boolean"
+          }
         },
         "additionalProperties": false
       },
       "ResourceTagsUpdate": {
         "type": "object",
         "properties": {
-          "ExpectedTags": {"type": "string", "nullable": true},
-          "Tags": {"type": "string", "nullable": true}
+          "ExpectedTags": {
+            "type": "string",
+            "nullable": true
+          },
+          "Tags": {
+            "type": "string",
+            "nullable": true
+          }
         },
         "additionalProperties": false
       },
@@ -13760,6 +14987,152 @@
           "Tags": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeploymentDefinitionApiModel": {
+        "type": "object",
+        "properties": {
+          "Component": {
+            "$ref": "#/components/schemas/ComponentApiModel"
+          },
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ProjectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Revision": {
+            "type": "string",
+            "nullable": true
+          },
+          "CanEdit": {
+            "type": "boolean"
+          },
+          "CanDeploy": {
+            "type": "boolean"
+          },
+          "SourceSummary": {
+            "type": "string",
+            "nullable": true
+          },
+          "ScriptId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetDeploymentDefinitionsResponse": {
+        "type": "object",
+        "properties": {
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentDefinitionApiModel"
+            },
+            "nullable": true
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeploymentDefinitionHistoryApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "string",
+            "nullable": true
+          },
+          "EventType": {
+            "type": "string",
+            "nullable": true
+          },
+          "OccurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "Actor": {
+            "type": "string",
+            "nullable": true
+          },
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ComponentId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "ComponentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Summary": {
+            "type": "string",
+            "nullable": true
+          },
+          "RequestId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "DeploymentResultId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "DefinitionRevision": {
+            "type": "string",
+            "nullable": true
+          },
+          "BeforeJson": {
+            "type": "string",
+            "nullable": true
+          },
+          "AfterJson": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsLegacy": {
+            "type": "boolean"
+          },
+          "SourceSummary": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetDeploymentDefinitionHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentDefinitionHistoryApiModel"
+            },
+            "nullable": true
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false

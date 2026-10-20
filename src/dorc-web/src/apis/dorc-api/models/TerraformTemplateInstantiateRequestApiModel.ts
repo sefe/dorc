@@ -17,6 +17,12 @@
  */
 export interface TerraformTemplateInstantiateRequestApiModel {
     /**
+     * Stable random UUID per logical create-and-deploy submission; omitted keys preserve legacy behavior.
+     * @type {string}
+     * @memberof TerraformTemplateInstantiateRequestApiModel
+     */
+    SubmissionKey?: string | null;
+    /**
      * @type {number}
      * @memberof TerraformTemplateInstantiateRequestApiModel
      */

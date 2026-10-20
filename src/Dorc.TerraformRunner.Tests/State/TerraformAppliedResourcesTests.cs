@@ -6,6 +6,19 @@ namespace Dorc.TerraformRunner.Tests.State
     public class TerraformAppliedResourcesTests
     {
         [TestMethod]
+        public void CompleteExport_DistinguishesEmptyStateFromMalformedOrPartialState()
+        {
+            Assert.IsTrue(TerraformAppliedResources.TryParseCompleteShowJson("""{"values":{"root_module":{}}}""", out var empty));
+            Assert.HasCount(0, empty);
+            Assert.IsFalse(TerraformAppliedResources.TryParseCompleteShowJson("{}", out _));
+            Assert.IsFalse(TerraformAppliedResources.TryParseCompleteShowJson("""{"values":{"root_module":{"resources":{}}}}""", out _));
+            Assert.IsFalse(TerraformAppliedResources.TryParseCompleteShowJson(
+                """{"values":{"root_module":{"resources":[{"mode":"managed","type":"aiven_service","name":"missing-id","values":{}}]}}}""", out _));
+            Assert.IsFalse(TerraformAppliedResources.TryParseCompleteShowJson(
+                """{"values":{"root_module":{"child_modules":[null]}}}""", out _));
+        }
+
+        [TestMethod]
         public void ParseShowJson_NullEmptyOrInvalid_ReturnsEmpty()
         {
             Assert.AreEqual(0, TerraformAppliedResources.ParseShowJson(null).Count);

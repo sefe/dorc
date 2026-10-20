@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
-using Dorc.TerraformRunner.State;
+using Dorc.Terraform.Catalog;
 
 namespace Dorc.TerraformRunner.Tests.State
 {

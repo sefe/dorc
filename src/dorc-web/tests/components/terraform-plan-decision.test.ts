@@ -6,13 +6,15 @@ import type { TerraformPlanDialog } from '../../src/components/terraform-plan-di
 const mocks = vi.hoisted(() => ({
   load: vi.fn(),
   confirm: vi.fn(),
-  decline: vi.fn()
+  decline: vi.fn(),
+  recover: vi.fn()
 }));
 vi.mock('../../src/apis/dorc-api/apis/TerraformApi', () => ({
   TerraformApi: class {
     terraformPlanDeploymentResultIdGet = mocks.load;
     terraformPlanDeploymentResultIdConfirmPost = mocks.confirm;
     terraformPlanDeploymentResultIdDeclinePost = mocks.decline;
+    terraformRecoverPost = mocks.recover;
   }
 }));
 const { TerraformPlanDialog: PlanDialog } =
@@ -31,6 +33,89 @@ beforeEach(() => {
 });
 
 describe('Terraform plan decisions', () => {
+  it('keeps successful apply distinct from failed audit copy and retries only that metadata operation', async () => {
+    mocks.load.mockReturnValue(
+      of({
+        DeploymentResultId: 42,
+        Status: 'Complete',
+        PlanContent: 'retained',
+        Outcome: {
+          Revision: 3,
+          ApplyOutcome: 'Succeeded',
+          InventoryOutcome: 'Succeeded',
+          ArchiveOutcome: 'Failed'
+        }
+      })
+    );
+    mocks.recover.mockReturnValue(
+      of({
+        Revision: 4,
+        ApplyOutcome: 'Succeeded',
+        InventoryOutcome: 'Succeeded',
+        ArchiveOutcome: 'Succeeded'
+      })
+    );
+    const host = await fixture<InstanceType<typeof TerraformPlanDialog>>(
+      html`<terraform-plan-dialog></terraform-plan-dialog>`
+    );
+    host.open(42);
+    await settle();
+    const dialog = host.shadowRoot!.querySelector('vaadin-dialog')!;
+    expect(dialog.textContent).to.contain('Terraform apply: Succeeded');
+    expect(dialog.textContent?.replace(/\s+/g, ' ')).to.contain(
+      'Audit source copy: Failed'
+    );
+    const retry = Array.from(dialog.querySelectorAll('vaadin-button')).find(
+      button => button.textContent?.trim() === 'Retry audit source copy only'
+    ) as HTMLElement;
+    retry.click();
+    await settle();
+    expect(mocks.recover.mock.calls[0][0]).to.deep.equal({
+      deploymentResultId: 42,
+      expectedRevision: 3,
+      recoverInventory: false,
+      recoverArchive: true
+    });
+    expect(mocks.confirm.mock.calls).to.have.length(0);
+    expect(dialog.textContent?.replace(/\s+/g, ' ')).to.contain(
+      'Audit source copy: Succeeded'
+    );
+  });
+
+  it('shows the retained receipt and approval for a historical attempt without decision buttons', async () => {
+    mocks.load.mockReturnValue(
+      of({
+        DeploymentResultId: 42,
+        Status: 'WaitingConfirmation',
+        IsHistorical: true,
+        PlanContent: 'retained plan',
+        ApprovedBy: 'domain\\approver',
+        ApprovedAt: '2026-10-20T10:00:00Z',
+        Receipt: {
+          ProjectName: 'original-project',
+          EnvironmentName: 'original-environment',
+          ComponentName: 'original-component',
+          TemplateName: 'original-module',
+          TemplateVersion: '1.0.0',
+          GitCommitSha: 'original-sha',
+          StateKey: 'original/state.tfstate'
+        }
+      })
+    );
+    const host = await fixture<InstanceType<typeof TerraformPlanDialog>>(
+      html`<terraform-plan-dialog></terraform-plan-dialog>`
+    );
+    host.open(42);
+    await settle();
+    const dialog = host.shadowRoot!.querySelector('vaadin-dialog')!;
+    expect(dialog.textContent).to.contain('original-environment');
+    expect(dialog.textContent).to.contain('original-module');
+    expect(dialog.textContent).to.contain('original-sha');
+    expect(dialog.textContent).to.contain('domain\\approver');
+    expect(dialog.textContent).to.contain('read-only');
+    expect(dialog.textContent).not.to.contain('Confirm & Apply');
+    expect(dialog.textContent).not.to.contain('Decline');
+  });
   for (const confirm of [true, false]) {
     it(`waits for a successful ${confirm ? 'confirmation' : 'decline'} and permits retry after failure`, async () => {
       const response = new Subject<void>();

@@ -1,6 +1,6 @@
 using Dorc.ApiModel.MonitorRunnerApi;
 
-namespace Dorc.TerraformRunner.State
+namespace Dorc.Terraform.Catalog
 {
     // Per-environment Azure service-principal credentials for terraform
     // execution. Each DOrc environment (and therefore each subscription) can

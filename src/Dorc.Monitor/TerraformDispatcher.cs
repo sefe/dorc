@@ -8,6 +8,7 @@ using Dorc.Monitor.Pipes;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
 using Dorc.Monitor.Terraform;
+using Dorc.Core.Terraform;
 using Dorc.Monitor.Security;
 using Dorc.Monitor.TerraformSourceConfig;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -36,6 +37,7 @@ namespace Dorc.Monitor
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly TerraformSourceConfigurator _sourceConfigurator;
         private readonly TerraformCloudResourceRegistrar _cloudResourceRegistrar;
+        private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -64,6 +66,7 @@ namespace Dorc.Monitor
             this._scriptGroupPipeServer = scriptGroupPipeServer;
             this._azureStorageAccountWorker = azureStorageAccountWorker;
             this._projectsPersistentSource = projectsPersistentSource;
+            _environmentsPersistentSource = environmentsPersistentSource;
             this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine, gitHubHostValidator);
             this._cloudResourceRegistrar = new TerraformCloudResourceRegistrar(
                 logger,
@@ -96,6 +99,12 @@ namespace Dorc.Monitor
             // key - see docs/Terraform/STATE-MODEL.md.
             var request = _requestsPersistentSource.GetRequest(requestId);
             var projectName = request?.Project ?? string.Empty;
+            var catalogInputs = component.ComponentId.HasValue
+                ? _requestsPersistentSource.GetCatalogRequestInputs(requestId, component.ComponentId.Value) : null;
+            if (catalogInputs != null)
+            {
+                properties = TerraformCatalogRequestSnapshot.Apply(component, properties, request.RequestDetails, catalogInputs);
+            }
 
             // serialise plan/apply per (project, environment, component)
             // within this monitor instance. Acquired once around the whole
@@ -133,18 +142,7 @@ namespace Dorc.Monitor
 
             // Project information for Terraform source configuration (the
             // request itself was loaded before the concurrency guard).
-            ProjectApiModel? project = null;
-            if (!string.IsNullOrEmpty(request?.Project))
-            {
-                try
-                {
-                    project = _projectsPersistentSource.GetProject(request.Project);
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Could not retrieve project {Project} for request {RequestId}.", request.Project, requestId);
-                }
-            }
+            var project = _requestsPersistentSource.GetSubmittedProject(requestId, component.ComponentId!.Value);
 
             var scriptGroup = GetScriptGroup(
                 component.ScriptPath,
@@ -153,6 +151,10 @@ namespace Dorc.Monitor
                 component,
                 request,
                 project);
+            scriptGroup.DefinitionRequestId = requestId;
+            scriptGroup.DefinitionRevision = _requestsPersistentSource.GetRequestDefinitions(requestId)
+                .Single(d => d.ComponentId == component.ComponentId).DefinitionRevision;
+            scriptGroup.SourceBuildIdentity = request.BuildNumber;
 
             // Per  : render a platform-managed Azure Blob backend in
             // the runner working dir before `terraform init`. Configuration is
@@ -240,6 +242,7 @@ namespace Dorc.Monitor
                     // Never let an earlier failed dispatch supply stale artifacts.
                     foreach (var file in stagedFiles) TryDeleteFile(file);
 
+                    Dorc.PersistentData.Model.TerraformDeploymentOutcome? postApplyOutcome = null;
                     if (terreformOperation == TerraformRunnerOperations.ApplyPlan)
                     {
                         _azureStorageAccountWorker.DownloadFileFromBlobs(terraformPlanFileName, terraformPlanFilePath);
@@ -249,6 +252,11 @@ namespace Dorc.Monitor
                         TerraformPlanArtifactIntegrity.Verify(
                             _requestsPersistentSource.GetTerraformPlanApproval(deploymentResult.Id),
                             requestId, deploymentResult.Id, terraformPlanFilePath, planSourceArchiveFilePath);
+                        postApplyOutcome = new Dorc.PersistentData.Model.TerraformDeploymentOutcome
+                        {
+                            DeploymentResultId = deploymentResult.Id
+                        };
+                        _requestsPersistentSource.SaveTerraformDeploymentOutcome(postApplyOutcome);
                         // The source snapshot includes the authoritative provider
                         // lock; never replace it with a separately downloaded file.
                     }
@@ -282,6 +290,12 @@ namespace Dorc.Monitor
                                 () => File.WriteAllText(terraformPlanFilePath + ".cancel", string.Empty));
                             logger.LogInformation("Runner finished for request {RequestId} with result code {ResultCode}.", requestId, resultCode);
 
+                            if (postApplyOutcome != null)
+                            {
+                                postApplyOutcome.ApplyOutcome = resultCode == 0 ? "Succeeded" : "FailedOrUnknown";
+                                postApplyOutcome.AppliedAt = resultCode == 0 ? DateTimeOffset.UtcNow : null;
+                                _requestsPersistentSource.SaveTerraformDeploymentOutcome(postApplyOutcome);
+                            }
                             cancellationToken.ThrowIfCancellationRequested();
 
                             if (resultCode == RunnerProcess.RunnerProcess.ProcessTerminatedExitCode)
@@ -319,6 +333,29 @@ namespace Dorc.Monitor
                             // save Terraform human-readable plan file to Azure Storage Account
                             _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanContentFilePath);
                             TerraformPlanSourceArtifacts.Upload(_azureStorageAccountWorker, terraformPlanFilePath);
+                            var receipt = new Dorc.PersistentData.Model.TerraformDeploymentReceipt
+                            {
+                                DeploymentResultId = deploymentResult.Id,
+                                DeploymentRequestId = requestId,
+                                ProjectId = project.ProjectId,
+                                DefinitionRevision = _requestsPersistentSource.GetRequestDefinitions(requestId)
+                                    .Single(d => d.ComponentId == component.ComponentId).DefinitionRevision,
+                                SourceType = component.TerraformSourceType.ToString(),
+                                RequestedSource = component.TerraformSourceType == TerraformSourceType.Git ? project.TerraformGitRepoUrl :
+                                    component.TerraformSourceType == TerraformSourceType.SharedFolder ? component.ScriptPath :
+                                    component.TerraformSourceType == TerraformSourceType.Catalog ? component.TerraformTemplateName : project.ArtefactsUrl,
+                                RequestedRef = component.TerraformGitBranch,
+                                SourceSubPath = component.TerraformSubPath,
+                                BuildIdentity = request.BuildNumber,
+                                ComponentId = component.ComponentId ?? throw new InvalidOperationException("Terraform component identity is missing."),
+                                EnvironmentId = _environmentsPersistentSource.GetEnvironment(environmentName)?.EnvironmentId,
+                                ProjectName = projectName,
+                                EnvironmentName = environmentName,
+                                ComponentName = component.ComponentName
+                            };
+                            TerraformReceiptCapture.ReadPlannedSource(receipt,
+                                planSourceArchiveFilePath, terraformPlanContentFilePath, terraformPlanFilePath);
+                            _requestsPersistentSource.SaveTerraformDeploymentReceipt(receipt);
                             // save .terraform.lock.hcl alongside the plan so
                             // the apply phase resolves identical provider versions.
                             // Lock file is only present when terraform init wrote
@@ -343,10 +380,35 @@ namespace Dorc.Monitor
                             // Cloud tab. Best-effort: the infrastructure change
                             // has already happened, so registration problems are
                             // logged, never failed.
-                            _cloudResourceRegistrar.RegisterAppliedResources(
+                            var registration = _cloudResourceRegistrar.RegisterAppliedResources(
                                 appliedResourcesFilePath,
                                 environmentName,
-                                request?.UserName ?? string.Empty);
+                                request?.UserName ?? string.Empty,
+                                deploymentResult.Id);
+                            postApplyOutcome!.InventoryOutcome = registration.Status;
+                            postApplyOutcome.RegisteredCount = registration.RegisteredCount;
+                            postApplyOutcome.FailedCount = registration.FailedCount;
+                            postApplyOutcome.InventoryWarningsJson = System.Text.Json.JsonSerializer.Serialize(registration.Warnings);
+                            try
+                            {
+                                if (File.Exists(appliedResourcesFilePath))
+                                {
+                                    _azureStorageAccountWorker.SaveFileToBlobs(appliedResourcesFilePath);
+                                    using var inventoryStream = File.OpenRead(appliedResourcesFilePath);
+                                    postApplyOutcome.InventoryArtifactSha256 = Convert.ToHexString(
+                                        System.Security.Cryptography.SHA256.HashData(inventoryStream));
+                                }
+                                var appliedReceipt = _requestsPersistentSource.GetTerraformDeploymentReceipt(deploymentResult.Id);
+                                if (appliedReceipt != null && registration.EnvironmentId > 0)
+                                    _requestsPersistentSource.RecordTerraformInventory(appliedReceipt.ComponentId, registration.EnvironmentId,
+                                        deploymentResult.Id, postApplyOutcome.AppliedAt!.Value, registration.Observed,
+                                        registration.Status == "Succeeded");
+                            }
+                            catch (Exception ex)
+                            {
+                                postApplyOutcome.InventoryOutcome = "RecoveryOrProvenanceFailed";
+                                logger.LogWarning(ex, "Terraform succeeded but inventory recovery material or provenance could not be retained.");
+                            }
                             TryDeleteFile(appliedResourcesFilePath);
 
                             // Persist the deployed-source archive next to the
@@ -359,14 +421,18 @@ namespace Dorc.Monitor
                                 try
                                 {
                                     _azureStorageAccountWorker.SaveFileToBlobs(sourceArchiveFilePath);
+                                    postApplyOutcome.ArchiveOutcome = "Succeeded";
                                     logger.LogInformation("Deployed Terraform source archived to blob {ArtifactName}.", sourceArchiveFileName);
                                 }
                                 catch (Exception ex)
                                 {
+                                    postApplyOutcome.ArchiveOutcome = "Failed";
                                     logger.LogWarning(ex, "Could not upload deployed Terraform source archive {ArtifactName}; the deployment itself succeeded.", sourceArchiveFileName);
                                 }
                             }
+                            else postApplyOutcome.ArchiveOutcome = "Unavailable";
                             TryDeleteFile(sourceArchiveFilePath);
+                            _requestsPersistentSource.SaveTerraformDeploymentOutcome(postApplyOutcome);
 
                             cancellationToken.ThrowIfCancellationRequested();
                             _requestsPersistentSource.UpdateResultStatus(

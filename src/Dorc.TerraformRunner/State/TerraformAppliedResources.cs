@@ -13,6 +13,48 @@ namespace Dorc.TerraformRunner.State
         // ResourceIdentifier column width (CloudResourceEntityTypeConfiguration).
         private const int MaxResourceIdentifierLength = 500;
 
+        public static bool TryParseCompleteShowJson(string? showJson, out IReadOnlyList<CloudResourceApiModel> resources)
+        {
+            resources = Array.Empty<CloudResourceApiModel>();
+            if (string.IsNullOrWhiteSpace(showJson)) return false;
+            try
+            {
+                using var document = JsonDocument.Parse(showJson);
+                if (document.RootElement.ValueKind != JsonValueKind.Object ||
+                    !document.RootElement.TryGetProperty("values", out var values) || values.ValueKind != JsonValueKind.Object ||
+                    !values.TryGetProperty("root_module", out var root) || root.ValueKind != JsonValueKind.Object)
+                    return false;
+                var count = 0;
+                if (!CountCompleteModule(root, ref count)) return false;
+                resources = ParseShowJson(showJson);
+                return resources.Count == count && resources.All(resource => !string.IsNullOrWhiteSpace(resource.ResourceIdentifier));
+            }
+            catch (JsonException) { return false; }
+        }
+
+        private static bool CountCompleteModule(JsonElement module, ref int managedCount)
+        {
+            if (module.ValueKind != JsonValueKind.Object) return false;
+            if (module.TryGetProperty("resources", out var resources))
+            {
+                if (resources.ValueKind != JsonValueKind.Array) return false;
+                foreach (var resource in resources.EnumerateArray())
+                {
+                    if (resource.ValueKind != JsonValueKind.Object) return false;
+                    var mode = GetString(resource, "mode");
+                    if (mode == "managed") managedCount++;
+                    else if (mode != "data") return false;
+                }
+            }
+            if (module.TryGetProperty("child_modules", out var children))
+            {
+                if (children.ValueKind != JsonValueKind.Array) return false;
+                foreach (var child in children.EnumerateArray())
+                    if (!CountCompleteModule(child, ref managedCount)) return false;
+            }
+            return true;
+        }
+
         /// <summary>
         /// Parses `terraform show -json` output into cloud resource models.
         /// Returns an empty list for unparseable or empty state rather than

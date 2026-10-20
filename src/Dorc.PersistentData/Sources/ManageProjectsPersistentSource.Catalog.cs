@@ -14,7 +14,7 @@ public partial class ManageProjectsPersistentSource
     /// Unlike legacy reference-data creation, this never renames or edits a collision.
     /// </summary>
     public CatalogComponentCreation CreateCatalogComponent(
-        ComponentApiModel component, int projectId, int? parentId, bool allowReuse)
+        ComponentApiModel component, int projectId, int? parentId, bool allowReuse, string actor = "")
     {
         ArgumentNullException.ThrowIfNull(component);
         ValidateAllComponentIdsAreZero(component, HttpRequestType.Post);
@@ -100,7 +100,10 @@ public partial class ManageProjectsPersistentSource
                 TerraformTemplateVersion = component.TerraformTemplateVersion,
                 Projects = new List<Project> { project }
             };
+            var before = DeploymentDefinitions.Read(context, projectId);
             context.Components.Add(created);
+            context.SaveChanges();
+            DeploymentDefinitions.Record(context, before, DeploymentDefinitions.Read(context, projectId), actor, "Catalog.Create", $"Component:{created.Id}");
             context.SaveChanges();
             transaction.Commit();
             return new(CatalogComponentCreationStatus.Created, MapToComponentApiModel(created));

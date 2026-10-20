@@ -113,8 +113,8 @@ namespace Dorc.Monitor.Tests
 
         private void SetupOrderedComponents(List<ComponentApiModel> components)
         {
-            mockManageProjectsPersistentSource
-                .GetOrderedComponents(Arg.Any<IEnumerable<string>>())
+            mockRequestsPersistentSource
+                .GetSubmittedComponents(Arg.Any<int>())
                 .Returns(components);
 
             // Each component has a deployment result

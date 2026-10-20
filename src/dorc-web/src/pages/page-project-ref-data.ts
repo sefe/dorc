@@ -1,217 +1,828 @@
-import { css, PropertyValues } from 'lit';
 import * as ace from 'ace-builds';
-import { customElement, property } from 'lit/decorators.js';
-import { html } from 'lit/html.js';
-import '../icons/iron-icons';
+import '@vaadin/button';
+import '@vaadin/combo-box';
+import '@vaadin/tabs';
+import '@vaadin/text-field';
 import { Notification } from '@vaadin/notification';
-import { ErrorNotification } from '../components/notifications/error-notification';
-import { PageElement } from '../helpers/page-element';
+import { css, html, nothing } from 'lit';
+import { customElement, state } from 'lit/decorators.js';
+import { live } from 'lit/directives/live.js';
 import {
+  ComponentType,
+  PowerShellVersionsApi,
   RefDataApi,
-  RefDataApiModel,
-  ComponentApiModel
+  SourceControlType,
+  TerraformSourceType,
+  type ComponentApiModel,
+  type RefDataApiModel
 } from '../apis/dorc-api';
+import { PageElement } from '../helpers/page-element';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { confirmPrompt } from '../components/confirm-prompt';
+import '../components/deployment-definition-editor';
+import '../components/deployment-definition-history';
 
-const ALLOWED_COMPONENT_NAME_REGEX = new RegExp(
-  '^[a-zA-Z0-9 ,./?|:;\'"<>()\\[\\]{}_*&$#@!\\-=+]+$'
-);
+type DefinitionNode = ComponentApiModel;
+type ReferenceDocument = RefDataApiModel;
+interface TreeRow {
+  node: DefinitionNode;
+  path: string;
+  depth: number;
+}
 
-let editorValue: string | undefined = '';
+function treeRows(nodes: DefinitionNode[], prefix = '', depth = 0): TreeRow[] {
+  return nodes.flatMap((node, index) => {
+    const path = prefix ? `${prefix}.${index}` : `${index}`;
+    return [
+      { node, path, depth },
+      ...treeRows(node.Children ?? [], path, depth + 1)
+    ];
+  });
+}
+
+function isReferenceDocument(value: unknown): value is ReferenceDocument {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !('Project' in value) ||
+    !value.Project ||
+    typeof value.Project !== 'object' ||
+    !('ProjectId' in value.Project) ||
+    typeof value.Project.ProjectId !== 'number' ||
+    !('Components' in value) ||
+    !Array.isArray(value.Components)
+  )
+    return false;
+  const validNode = (node: unknown): boolean =>
+    Boolean(
+      node &&
+      typeof node === 'object' &&
+      'ComponentName' in node &&
+      typeof node.ComponentName === 'string' &&
+      (!('Children' in node) ||
+        node.Children == null ||
+        (Array.isArray(node.Children) && node.Children.every(validNode)))
+    );
+  return value.Components.every(validNode);
+}
+
 @customElement('page-project-ref-data')
 export class PageProjectRefData extends PageElement {
+  @state() private document: ReferenceDocument | undefined;
+  @state() private baseline: ReferenceDocument | undefined;
+  @state() private preview: ReferenceDocument | undefined;
+  @state() private selectedPath = '';
+  @state() private tab = 0;
+  @state() private historyComponentId = 0;
+  @state() private loading = false;
+  @state() private saving = false;
+  @state() private error = '';
+  @state() private powerShellVersions: string[] = [];
+  @state() private jsonDirty = false;
+  private projectId = 0;
   private editor: ace.Ace.Editor | undefined;
+  private syncingEditor = false;
+  private loadToken = 0;
 
-  static get styles() {
-    return css`
-      :host {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        overflow: hidden;
+  static styles = css`
+    :host {
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+      color: var(--dorc-text-primary);
+    }
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--lumo-space-m);
+      padding: var(--lumo-space-m);
+      flex-wrap: wrap;
+      border-bottom: 1px solid var(--dorc-border-color);
+    }
+    h1 {
+      margin: 0;
+      font-size: var(--lumo-font-size-xl);
+    }
+    h2 {
+      font-size: var(--lumo-font-size-l);
+    }
+    p {
+      max-width: 75ch;
+      color: var(--dorc-text-secondary-strong);
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: var(--lumo-space-s);
+    }
+    a {
+      color: var(--dorc-link-color);
+    }
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(200px, 28%) minmax(0, 1fr);
+      gap: var(--lumo-space-l);
+      padding: var(--lumo-space-m);
+      overflow: auto;
+    }
+    aside {
+      border-inline-end: 1px solid var(--dorc-border-color);
+      padding-inline-end: var(--lumo-space-m);
+    }
+    .tree {
+      list-style: none;
+      margin: var(--lumo-space-m) 0;
+      padding: 0;
+    }
+    .tree button {
+      font: inherit;
+      color: var(--dorc-text-primary);
+      background: transparent;
+      border: 0;
+      border-radius: var(--lumo-border-radius-s);
+      padding: var(--lumo-space-s);
+      width: 100%;
+      text-align: start;
+      overflow-wrap: anywhere;
+      cursor: pointer;
+    }
+    .tree button[aria-pressed='true'] {
+      background: var(--dorc-chip-bg);
+      color: var(--dorc-chip-text);
+    }
+    .tree button:focus-visible {
+      outline: 2px solid var(--dorc-icon-interactive);
+      outline-offset: -2px;
+    }
+    .kind {
+      display: block;
+      font-size: var(--lumo-font-size-xs);
+      color: var(--dorc-text-secondary-strong);
+    }
+    .pane {
+      min-width: 0;
+    }
+    .notice,
+    .error {
+      margin: var(--lumo-space-s) var(--lumo-space-m);
+    }
+    .error {
+      color: var(--lumo-error-text-color);
+    }
+    .advanced {
+      flex: 1;
+      min-height: 300px;
+      display: flex;
+      flex-direction: column;
+      padding: var(--lumo-space-m);
+    }
+    #editor {
+      flex: 1;
+      min-height: 300px;
+    }
+    [hidden] {
+      display: none !important;
+    }
+    .history {
+      overflow: auto;
+      padding: var(--lumo-space-m);
+    }
+    .project-fields {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--lumo-space-m);
+    }
+    vaadin-text-field,
+    vaadin-combo-box {
+      width: 100%;
+      min-width: 0;
+    }
+    .preview {
+      padding: var(--lumo-space-m);
+      border-top: 1px solid var(--dorc-border-color);
+      overflow: auto;
+    }
+    .diff {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--lumo-space-m);
+    }
+    pre {
+      background: var(--dorc-bg-secondary);
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      padding: var(--lumo-space-s);
+      max-height: 20rem;
+      overflow: auto;
+    }
+    @media (max-width: 768px) {
+      .workspace,
+      .project-fields,
+      .diff {
+        grid-template-columns: 1fr;
       }
-      .btn {
-        position: fixed;
-        right: 40px;
-        bottom: 60px;
-        z-index: 999;
-
-        height: 56px;
-        width: 56px;
-        border-radius: 50%;
-        color: white;
-        cursor: pointer;
-        border: 0;
-        background-color: var(--dorc-link-color);
+      aside {
+        border-inline-end: none;
+        border-bottom: 1px solid var(--dorc-border-color);
       }
-      .btn:hover {
-        background-color: RoyalBlue;
-      }
-      button:disabled,
-      button[disabled] {
-        background-color: var(--dorc-bg-tertiary);
-        color: var(--dorc-text-secondary);
-      }
-      .loader {
-        position: fixed;
-        border: 10px solid #f3f3f3; /* Light grey */
-        border-top: 10px solid #3498db; /* Blue */
-        border-radius: 50%;
-        width: 56px;
-        height: 56px;
-        animation: spin 2s linear infinite;
-        z-index: 998;
-        right: 30px;
-        bottom: 50px;
-      }
-      @keyframes spin {
-        0% {
-          transform: rotate(0deg);
-        }
-        100% {
-          transform: rotate(360deg);
-        }
-      }
-    `;
-  }
+    }
+  `;
 
-  private projectId: number | undefined;
-
-  @property({ type: Boolean })
-  refDataLoading = false;
-
-  render() {
-    return html`
-      <div id="editor" style="width: 100%; flex: 1; min-height: 200px;">
-        Loading...
-      </div>
-      <div class="loader" ?hidden="${!this.refDataLoading}"></div>
-      <button
-        class="btn"
-        title="Save Reference Data"
-        .disabled="${this.refDataLoading}"
-        @click="${this.saveRefData}"
-      >
-        <vaadin-icon
-          icon="icons:save"
-          style="color: white; text-align: center;"
-        ></vaadin-icon>
-      </button>
-    `;
-  }
-
-  protected firstUpdated(_changedProperties: PropertyValues) {
-    super.firstUpdated(_changedProperties);
-
-    const editorDiv = this.shadowRoot?.getElementById(
-      'editor'
-    ) as HTMLDivElement;
-
-    this.editor = ace.edit(editorDiv);
-    this.editor.renderer.attachToShadowRoot();
-
-    this.editor.setTheme('ace/theme/terminal');
-    this.editor.session.setMode('ace/mode/json');
-    this.editor.getSession().setUseWorker(false);
-    this.editor.setReadOnly(false);
-    this.editor.setHighlightActiveLine(true);
-
-    this.editor.setOptions({
-      autoScrollEditorIntoView: true,
-      enableBasicAutocompletion: false,
-      enableLiveAutocompletion: false,
-      placeholder: '',
-      enableSnippets: false
-    });
-
-    this.editor.on('change', () => {
-      editorValue = this.editor?.getValue();
-    });
-
-    this.projectId = parseInt(
-      location.pathname.substring(location.pathname.lastIndexOf('/') + 1),
-      10
+  protected firstUpdated() {
+    const match = window.location.pathname.match(
+      /\/project-ref-data\/(\d+)\/?$/
     );
-
-    this.refDataLoading = true;
-    this.getProjectJson(this.projectId);
-  }
-
-  getProjectJson(projId: number) {
-    const api = new RefDataApi(dorcApiConfiguration);
-    api.refDataIdGet({ id: projId.toString() }).subscribe(value => {
-      this.editor?.setValue(JSON.stringify(value, null, 2), 0);
-      this.refDataLoading = false;
-      this.editor?.clearSelection();
-    });
-  }
-
-  saveRefData() {
-    this.refDataLoading = true;
-
-    try {
-      const rd: RefDataApiModel = JSON.parse(editorValue || '');
-
-      const invalidNames = this.findInvalidComponentNames(rd.Components ?? []);
-      if (invalidNames.length > 0) {
-        this.errorAlert(
-          `Component name(s) contain invalid characters: ${invalidNames.join(', ')}. ` +
-            `Only alphanumeric characters, spaces, and these symbols are allowed: ,./?|:;'"<>()[]{}*&$#@!-_=+`
-        );
-        this.refDataLoading = false;
-        return;
-      }
-
-      const api = new RefDataApi(dorcApiConfiguration);
-      api.refDataPut({ refDataApiModel: rd }).subscribe({
-        next: () => {
-          if (this.projectId !== undefined) {
-            this.getProjectJson(this.projectId);
-            Notification.show('Saved Reference Data', {
-              theme: 'success',
-              position: 'bottom-start',
-              duration: 10000
-            });
-          }
+    this.projectId = match ? Number(match[1]) : 0;
+    this.tab =
+      new URLSearchParams(window.location.search).get('tab') === 'history'
+        ? 2
+        : 0;
+    this.historyComponentId = Number(
+      new URLSearchParams(window.location.search).get('componentId')
+    );
+    const editorElement = this.shadowRoot?.getElementById('editor');
+    if (editorElement) {
+      this.editor = ace.edit(editorElement);
+      this.editor.renderer.attachToShadowRoot();
+      this.editor.setTheme('ace/theme/terminal');
+      this.editor.session.setMode('ace/mode/json');
+      this.editor.session.setUseWorker(false);
+      this.editor.setOptions({ showPrintMargin: false });
+      this.editor.on('change', () => {
+        if (this.syncingEditor) return;
+        this.jsonDirty = true;
+        this.preview = undefined;
+      });
+    }
+    window.addEventListener('beforeunload', this.beforeUnload);
+    this.load();
+    new PowerShellVersionsApi(dorcApiConfiguration)
+      .powerShellVersionsGet()
+      .subscribe({
+        next: versions => {
+          this.powerShellVersions = versions
+            .map(version => version.Value)
+            .filter((version): version is string => Boolean(version));
         },
-        error: (err: any) => {
-          const errMsg = retrieveErrorMessage(err);
-          this.errorAlert(errMsg);
-          console.log(err);
-          this.refDataLoading = false;
-        },
-        complete: () => {
-          console.log('completed saving project reference data');
+        error: error => {
+          this.error =
+            retrieveErrorMessage(error) ||
+            'Could not load supported PowerShell versions.';
         }
       });
-    } catch (e: any) {
-      const notification = new ErrorNotification();
-      notification.setAttribute('errorMessage', e);
-      this.shadowRoot?.appendChild(notification);
-      notification.open();
-      this.refDataLoading = false;
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.loadToken++;
+    window.removeEventListener('beforeunload', this.beforeUnload);
+    this.editor?.destroy();
+  }
+
+  private beforeUnload = (event: BeforeUnloadEvent) => {
+    if (this.dirty) {
+      event.preventDefault();
+      event.returnValue = '';
     }
+  };
+
+  private get dirty() {
+    return (
+      this.jsonDirty ||
+      JSON.stringify(this.document) !== JSON.stringify(this.baseline)
+    );
   }
 
-  errorAlert(err: string) {
-    const notification = new ErrorNotification();
-
-    notification.setAttribute('errorMessage', err);
-    this.shadowRoot?.appendChild(notification);
-    notification.open();
+  private get editable() {
+    return this.document?.CanEdit === true && !this.saving && !this.loading;
+  }
+  private get rows() {
+    return treeRows(this.document?.Components ?? []);
+  }
+  private get selected() {
+    return this.rows.find(row => row.path === this.selectedPath)?.node;
   }
 
-  private findInvalidComponentNames(components: ComponentApiModel[]): string[] {
-    const invalid: string[] = [];
-    for (const component of components) {
+  private syncEditor() {
+    this.syncingEditor = true;
+    this.editor?.setValue(JSON.stringify(this.document, null, 2) ?? '', -1);
+    this.editor?.setReadOnly(!this.editable);
+    this.syncingEditor = false;
+    this.jsonDirty = false;
+  }
+
+  private load() {
+    if (!this.projectId) {
+      this.error = 'A valid project ID is required.';
+      return;
+    }
+    const token = ++this.loadToken;
+    this.loading = true;
+    this.error = '';
+    new RefDataApi(dorcApiConfiguration)
+      .refDataIdGet({ id: String(this.projectId) })
+      .subscribe({
+        next: data => {
+          if (token !== this.loadToken) return;
+          this.document = structuredClone(data);
+          this.baseline = structuredClone(data);
+          this.preview = undefined;
+          this.loading = false;
+          const componentId = Number(
+            new URLSearchParams(window.location.search).get('componentId')
+          );
+          this.selectedPath = componentId
+            ? (this.rows.find(row => row.node.ComponentId === componentId)
+                ?.path ?? '')
+            : (this.rows[0]?.path ?? '');
+          if (componentId && !this.selectedPath) {
+            this.error =
+              'This component is no longer attached to the current project. Its retained history is still available in the History tab.';
+          }
+          this.syncEditor();
+        },
+        error: error => {
+          if (token !== this.loadToken) return;
+          this.loading = false;
+          this.error =
+            retrieveErrorMessage(error) ||
+            'Could not load project reference data.';
+        }
+      });
+  }
+
+  private async reload() {
+    if (
+      this.dirty &&
+      !(await confirmPrompt(
+        'Discard unsaved definition changes and load the current project revision?',
+        {
+          header: 'Reload reference data',
+          confirmText: 'Discard and reload'
+        }
+      ))
+    )
+      return;
+    this.load();
+  }
+
+  private readJson() {
+    if (!this.jsonDirty) return true;
+    try {
+      const value: unknown = JSON.parse(this.editor?.getValue() || '');
       if (
-        component.ComponentName &&
-        !ALLOWED_COMPONENT_NAME_REGEX.test(component.ComponentName)
+        !isReferenceDocument(value) ||
+        value.Project?.ProjectId !== this.projectId
       ) {
-        invalid.push(component.ComponentName);
+        this.error =
+          'JSON must contain this project and a valid Components tree. Project identity cannot be changed.';
+        return false;
       }
+      this.document = {
+        ...value,
+        Revision: this.baseline?.Revision,
+        CanEdit: this.baseline?.CanEdit,
+        CanDeploy: this.baseline?.CanDeploy
+      };
+      this.jsonDirty = false;
+      this.error = '';
+      return true;
+    } catch (error) {
+      this.error =
+        error instanceof Error
+          ? `Invalid reference-data JSON: ${error.message}`
+          : 'Invalid reference-data JSON.';
+      return false;
     }
-    return invalid;
+  }
+
+  private switchTab(index: number) {
+    if (this.saving || !this.readJson()) {
+      this.requestUpdate();
+      return;
+    }
+    if (index === this.tab) return;
+    this.tab = index;
+    if (index === 1) {
+      this.syncEditor();
+      void this.updateComplete.then(() => this.editor?.resize());
+    }
+  }
+
+  private setDocument(document: ReferenceDocument) {
+    this.document = document;
+    this.preview = undefined;
+    this.error = '';
+  }
+
+  private changeSelected(event: CustomEvent<ComponentApiModel>) {
+    if (!this.editable || !this.document) return;
+    const document = structuredClone(this.document);
+    const node = treeRows(document.Components ?? []).find(
+      row => row.path === this.selectedPath
+    )?.node;
+    if (!node) return;
+    Object.assign(node, event.detail);
+    this.setDocument(document);
+  }
+
+  private addComponent() {
+    if (!this.editable || !this.document) return;
+    const document = structuredClone(this.document);
+    document.Components ??= [];
+    this.selectedPath = String(document.Components.length);
+    document.Components.push({
+      ComponentId: 0,
+      ComponentName: '',
+      ComponentType: ComponentType.PowerShell,
+      TerraformSourceType: TerraformSourceType.SharedFolder,
+      ScriptPath: '',
+      IsEnabled: true,
+      StopOnFailure: true,
+      NonProdOnly: false,
+      PSVersion: '5.1',
+      ParentId: 0,
+      Children: []
+    });
+    this.setDocument(document);
+  }
+
+  private async detachSelected() {
+    if (!this.editable || !this.selected || !this.document) return;
+    const document = structuredClone(this.document);
+    const selectedPath = this.selectedPath;
+    if (
+      !(await confirmPrompt(
+        `Detach ${this.selected.ComponentName || 'this component'} and its children from this project?\n\nThis changes DOrc metadata only. It does not destroy infrastructure or erase execution history.`,
+        {
+          header: 'Detach component',
+          confirmText: 'Detach from project'
+        }
+      ))
+    )
+      return;
+    const indexes = selectedPath.split('.').map(Number);
+    let siblings = document.Components ?? [];
+    for (const index of indexes.slice(0, -1))
+      siblings = siblings[index].Children ?? [];
+    siblings.splice(indexes[indexes.length - 1], 1);
+    this.selectedPath = '';
+    this.setDocument(document);
+  }
+
+  private changeParent(parentPath: string) {
+    if (!this.editable || !this.document || !this.selected) return;
+    if (
+      parentPath === this.selectedPath ||
+      parentPath.startsWith(`${this.selectedPath}.`)
+    )
+      return;
+    const document = structuredClone(this.document);
+    const rows = treeRows(document.Components ?? []);
+    const selected = rows.find(row => row.path === this.selectedPath)?.node;
+    const parent = rows.find(row => row.path === parentPath)?.node;
+    if (!selected) return;
+    const indexes = this.selectedPath.split('.').map(Number);
+    let siblings = document.Components ?? [];
+    for (const index of indexes.slice(0, -1))
+      siblings = siblings[index].Children ?? [];
+    siblings.splice(indexes[indexes.length - 1], 1);
+    if (parent) {
+      parent.Children ??= [];
+      parent.Children.push(selected);
+    } else {
+      document.Components ??= [];
+      document.Components.push(selected);
+    }
+    selected.ParentId = parent?.ComponentId ?? 0;
+    this.selectedPath =
+      treeRows(document.Components ?? []).find(row => row.node === selected)
+        ?.path ?? '';
+    this.setDocument(document);
+  }
+
+  private projectField(
+    label: string,
+    field:
+      | 'ProjectDescription'
+      | 'TerraformGitRepoUrl'
+      | 'ArtefactsUrl'
+      | 'ArtefactsSubPaths'
+      | 'ArtefactsBuildRegex'
+  ) {
+    return html`<vaadin-text-field
+      .label=${label}
+      .value=${this.document?.Project?.[field] ?? ''}
+      .readonly=${!this.editable}
+      @change=${(event: Event) => {
+        if (!this.editable || !this.document?.Project) return;
+        this.setDocument({
+          ...this.document,
+          Project: {
+            ...this.document.Project,
+            [field]: (event.currentTarget as HTMLInputElement).value
+          }
+        });
+      }}
+    ></vaadin-text-field>`;
+  }
+
+  private previewSave() {
+    if (!this.editable || !this.readJson() || !this.document) return;
+    this.preview = structuredClone(this.document);
+  }
+
+  private save() {
+    if (!this.preview || !this.editable) return;
+    const selectedId = this.selected?.ComponentId;
+    const selectedName = this.selected?.ComponentName;
+    this.saving = true;
+    this.editor?.setReadOnly(true);
+    this.error = '';
+    new RefDataApi(dorcApiConfiguration)
+      .refDataPut({ refDataApiModel: this.preview })
+      .subscribe({
+        next: data => {
+          this.document = structuredClone(data);
+          this.baseline = structuredClone(data);
+          this.selectedPath =
+            this.rows.find(row =>
+              selectedId
+                ? row.node.ComponentId === selectedId
+                : row.node.ComponentName === selectedName
+            )?.path ?? '';
+          this.preview = undefined;
+          this.saving = false;
+          this.syncEditor();
+          Notification.show(
+            'Saved reference data and recorded the definition revision.',
+            { theme: 'success', position: 'bottom-end', duration: 5000 }
+          );
+        },
+        error: error => {
+          this.saving = false;
+          this.editor?.setReadOnly(!this.editable);
+          this.error =
+            retrieveErrorMessage(error) ||
+            'Could not save reference data. Your unsaved changes are preserved; reload to resolve a revision conflict.';
+        }
+      });
+  }
+
+  render() {
+    const selected = this.selected;
+    const project = this.document?.Project;
+    const parentPath = this.selectedPath.includes('.')
+      ? this.selectedPath.slice(0, this.selectedPath.lastIndexOf('.'))
+      : '';
+    const catalogUrl = `/module-catalog?project=${encodeURIComponent(project?.ProjectName ?? '')}`;
+    return html`
+      <header>
+        <div>
+          <h1>${project?.ProjectName ?? 'Project'} reference data</h1>
+          <span
+            >Current revision: ${this.document?.Revision ?? 'Not loaded'}</span
+          >
+        </div>
+        <div class="actions">
+          <vaadin-button
+            @click=${() => this.reload()}
+            .disabled=${this.loading || this.saving}
+            >Reload</vaadin-button
+          >
+          <vaadin-button
+            theme="primary"
+            @click=${() => this.previewSave()}
+            .disabled=${!this.editable || !this.dirty}
+            >Review changes</vaadin-button
+          >
+        </div>
+      </header>
+      ${this.error ? html`<p class="error" role="alert">${this.error}</p>` : nothing}
+      ${this.loading ? html`<p class="notice" role="status">Loading project definitions...</p>` : nothing}
+      ${this.document && !this.document.CanEdit ? html`<p class="notice">Read-only. Editing requires permission to modify this project.</p>` : nothing}
+      ${this.dirty ? html`<p class="notice" role="status">Unsaved changes. Save before deploying; submitted requests keep their original definition revision.</p>` : nothing}
+      <vaadin-tabs
+        .selected=${live(this.tab)}
+        @selected-changed=${(event: CustomEvent<{ value: number }>) => this.switchTab(event.detail.value)}
+      >
+        <vaadin-tab>Definitions</vaadin-tab
+        ><vaadin-tab>Advanced JSON</vaadin-tab><vaadin-tab>History</vaadin-tab>
+      </vaadin-tabs>
+      <div class="workspace" ?hidden=${this.tab !== 0 || !this.document}>
+        <aside>
+          <div class="actions">
+            <vaadin-button
+              @click=${() => this.addComponent()}
+              .disabled=${!this.editable}
+              >Add component</vaadin-button
+            >
+            ${this.editable && !this.dirty ? html`<a href=${catalogUrl}>Add from catalog</a>` : nothing}
+          </div>
+          <ul class="tree" aria-label="Project component hierarchy">
+            ${this.rows.map(
+              row =>
+                html`<li style="padding-inline-start:${row.depth * 16}px">
+                  <button
+                    type="button"
+                    aria-pressed=${row.path === this.selectedPath ? 'true' : 'false'}
+                    @click=${() => {
+                      this.selectedPath = row.path;
+                    }}
+                  >
+                    ${row.node.ComponentName || 'New component'}
+                    <span class="kind"
+                      >${row.node.ComponentType ?? ComponentType.PowerShell}${row.node.ComponentType === ComponentType.Terraform ? ` / ${row.node.TerraformSourceType ?? TerraformSourceType.SharedFolder}` : ''}</span
+                    >
+                  </button>
+                </li>`
+            )}
+          </ul>
+          ${!this.rows.length ? html`<p>No components yet. Add a script or choose a stock module.</p>` : nothing}
+        </aside>
+        <section class="pane">
+          <deployment-definition-editor
+            .component=${selected}
+            .project=${project}
+            .readonly=${!this.editable}
+            .powerShellVersions=${this.powerShellVersions}
+            @definition-changed=${(event: CustomEvent<ComponentApiModel>) => this.changeSelected(event)}
+          ></deployment-definition-editor>
+          ${
+            selected
+              ? html` <label
+                    >Parent component
+                    <select
+                      aria-label="Parent component"
+                      .value=${parentPath}
+                      ?disabled=${!this.editable}
+                      @change=${(event: Event) => this.changeParent((event.currentTarget as HTMLSelectElement).value)}
+                    >
+                      <option value="">Project root</option>
+                      ${this.rows
+                        .filter(
+                          row =>
+                            row.path !== this.selectedPath &&
+                            !row.path.startsWith(`${this.selectedPath}.`)
+                        )
+                        .map(
+                          row =>
+                            html`<option value=${row.path}>
+                              ${row.node.ComponentName || 'New component'}
+                            </option>`
+                        )}
+                    </select>
+                  </label>
+                  <div class="actions">
+                    <vaadin-button
+                      @click=${() => this.detachSelected()}
+                      .disabled=${!this.editable}
+                      >Detach from project</vaadin-button
+                    >
+                    ${
+                      selected.ComponentId && !this.dirty
+                        ? html`
+                            ${
+                              this.document?.CanDeploy
+                                ? html`<a
+                                    href="/deploy?projectId=${this.projectId}&amp;componentId=${selected.ComponentId}"
+                                    >Deploy this component</a
+                                  >`
+                                : nothing
+                            }
+                            <a
+                              href="/project-ref-data/${this.projectId}?componentId=${selected.ComponentId}&amp;tab=history"
+                              >Component history</a
+                            >
+                            ${this.document?.CanDeploy && selected.TerraformSourceType === TerraformSourceType.Catalog ? html`<a href="${catalogUrl}&amp;template=${encodeURIComponent(selected.TerraformTemplateName ?? '')}&amp;version=${encodeURIComponent(selected.TerraformTemplateVersion ?? '')}&amp;componentId=${selected.ComponentId}">Plan or upgrade module</a>` : nothing}
+                          `
+                        : nothing
+                    }
+                  </div>`
+              : nothing
+          }
+          <details>
+            <summary>Project source settings</summary>
+            <p>
+              These settings are shared by this project's definitions. Changing
+              them creates new revisions; queued requests retain their submitted
+              configuration.
+            </p>
+            <div class="project-fields">
+              ${this.projectField('Description', 'ProjectDescription')}
+              ${this.projectField('Terraform Git repository', 'TerraformGitRepoUrl')}
+              ${this.projectField('Artifact URL', 'ArtefactsUrl')}
+              ${this.projectField('Artifact subpaths', 'ArtefactsSubPaths')}
+              ${this.projectField('Build filter', 'ArtefactsBuildRegex')}
+              <vaadin-combo-box
+                label="Project source control"
+                .items=${Object.values(SourceControlType)}
+                .value=${project?.SourceControlType ?? SourceControlType.AzureDevOps}
+                .disabled=${!this.editable}
+                @change=${(event: Event) => {
+                  const source = Object.values(SourceControlType).find(
+                    value =>
+                      value === (event.currentTarget as HTMLInputElement).value
+                  );
+                  if (source && this.document?.Project && this.editable)
+                    this.setDocument({
+                      ...this.document,
+                      Project: {
+                        ...this.document.Project,
+                        SourceControlType: source
+                      }
+                    });
+                }}
+              ></vaadin-combo-box>
+            </div>
+          </details>
+        </section>
+      </div>
+      <div class="advanced" ?hidden=${this.tab !== 1}>
+        <p>
+          Advanced editing uses the same validation, revision and audit path.
+          Project identity and the expected revision cannot be overridden here.
+        </p>
+        <div id="editor"></div>
+      </div>
+      ${
+        this.tab === 2 && this.projectId
+          ? html`<div class="history">
+              <label
+                >History scope
+                <select
+                  aria-label="History scope"
+                  .value=${String(this.historyComponentId)}
+                  @change=${(event: Event) => {
+                    this.historyComponentId = Number(
+                      (event.currentTarget as HTMLSelectElement).value
+                    );
+                  }}
+                >
+                  <option value="0">Entire project</option>
+                  ${
+                    this.historyComponentId &&
+                    !this.rows.some(
+                      row => row.node.ComponentId === this.historyComponentId
+                    )
+                      ? html`<option value=${String(this.historyComponentId)}>
+                          Retained component #${this.historyComponentId} (not
+                          attached)
+                        </option>`
+                      : nothing
+                  }
+                  ${this.rows.filter(row => row.node.ComponentId).map(row => html`<option value=${String(row.node.ComponentId)}>${row.node.ComponentName}</option>`)}
+                </select>
+              </label>
+              <deployment-definition-history
+                .projectId=${this.projectId}
+                .componentId=${this.historyComponentId || undefined}
+                .revision=${this.document?.Revision ?? ''}
+              ></deployment-definition-history>
+            </div>`
+          : nothing
+      }
+      ${
+        this.preview
+          ? html`<section class="preview">
+              <h2>Review reference-data changes</h2>
+              <p>
+                Saving updates current definitions and their audit history. It
+                does not deploy infrastructure or change requests already
+                submitted.
+              </p>
+              <div class="diff">
+                <div>
+                  <h3>Before</h3>
+                  <pre>${JSON.stringify(this.baseline, null, 2)}</pre>
+                </div>
+                <div>
+                  <h3>After</h3>
+                  <pre>${JSON.stringify(this.preview, null, 2)}</pre>
+                </div>
+              </div>
+              <div class="actions">
+                <vaadin-button
+                  theme="primary"
+                  @click=${() => this.save()}
+                  .disabled=${this.saving}
+                  >${this.saving ? 'Saving...' : 'Confirm save'}</vaadin-button
+                >
+                <vaadin-button
+                  @click=${() => {
+                    this.preview = undefined;
+                  }}
+                  .disabled=${this.saving}
+                  >Keep editing</vaadin-button
+                >
+              </div>
+            </section>`
+          : nothing
+      }
+    `;
   }
 }

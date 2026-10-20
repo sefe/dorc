@@ -101,6 +101,101 @@ namespace Dorc.Api.Tests.Controllers
                 new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "TestUser") }, "TestAuth"));
         }
 
+        [TestMethod]
+        public async Task Upgrade_RequiresAuthorizationForEveryMappedEnvironment()
+        {
+            GivenTemplateAndProject(Manifest());
+            _projects.GetComponentsForProject(ProjectId).Returns(new List<ComponentApiModel>
+            {
+                new() { ComponentId = 12, TerraformSourceType = TerraformSourceType.Catalog, TerraformTemplateName = TemplateName }
+            });
+            _requests.GetCatalogUpgradeScope(12, ProjectId).Returns(new CatalogUpgradePreviewApiModel
+            {
+                CurrentVersion = "1.0.0", Environments = new List<EnvironmentApiModel>
+                {
+                    new() { EnvironmentId = 1, EnvironmentName = "allowed" },
+                    new() { EnvironmentId = 2, EnvironmentName = "restricted" }
+                }
+            });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), "allowed").Returns(true);
+            var result = await _controller.PreviewUpgrade(12, TemplateName, "2.0.0", ProjectId, CancellationToken.None);
+            Assert.IsInstanceOfType<ForbidResult>(result);
+        }
+
+        [TestMethod]
+        public async Task SaveEnvironmentInputs_RejectsManifestSensitiveValuesBeforePersistence()
+        {
+            GivenTemplateAndProject(Manifest(new TerraformTemplateParameter("credential", TerraformParameterType.String,
+                true, null, null, null, null, null, null, Sensitive: true)));
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _projects.GetComponentsForProject(ProjectId).Returns(new List<ComponentApiModel>
+            {
+                new() { ComponentId = 12, TerraformSourceType = TerraformSourceType.Catalog,
+                    TerraformTemplateName = TemplateName, TerraformTemplateVersion = TemplateVersion }
+            });
+            var result = await _controller.SaveEnvironmentInputs(TemplateName, TemplateVersion, ProjectId, 12, EnvName,
+                new SaveCatalogEnvironmentInputsApiModel { Inputs = new Dictionary<string, string> { ["credential"] = "never-persist" } },
+                CancellationToken.None);
+            Assert.IsInstanceOfType<BadRequestObjectResult>(result);
+            _requests.DidNotReceiveWithAnyArgs().SaveCatalogEnvironmentInputs(default, default, default, default!, default, default!);
+        }
+
+        [TestMethod]
+        public void RecoverPostApply_RequiresAdministratorBeforeReadingArtifacts()
+        {
+            GivenStandardDeploymentResult("Complete");
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            var result = _controller.RecoverPostApply(DeploymentResultId, 0, Substitute.For<IRolePrivilegesChecker>(),
+                Substitute.For<ICloudResourcesPersistentSource>(), Substitute.For<ICloudResourceAuditPersistentSource>(),
+                Substitute.For<IDatabasesPersistentSource>());
+            Assert.IsInstanceOfType<ForbidResult>(result);
+            _requests.DidNotReceive().GetTerraformDeploymentReceipt(Arg.Any<int>());
+            _storage.DidNotReceiveWithAnyArgs().CopyVerifiedBlob(default!, default!, default!);
+        }
+
+        [TestMethod]
+        public void RecoverAuditCopy_UsesApprovedSourceAndDoesNotConfirmOrRegisterAgain()
+        {
+            GivenStandardDeploymentResult("Complete");
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _environments.GetEnvironment(EnvName).Returns(new EnvironmentApiModel { EnvironmentId = 9, EnvironmentName = EnvName });
+            _claimsReader.GetUserFullDomainName(Arg.Any<ClaimsPrincipal>()).Returns("recovery-admin");
+            var roles = Substitute.For<IRolePrivilegesChecker>();
+            roles.IsAdmin(Arg.Any<ClaimsPrincipal>()).Returns(true);
+            _requests.GetTerraformDeploymentReceipt(DeploymentResultId).Returns(new TerraformDeploymentReceipt
+            {
+                DeploymentResultId = DeploymentResultId, DeploymentRequestId = RequestId, EnvironmentId = 9,
+                EnvironmentName = EnvName, SourceSha256 = new string('A', 64),
+                PlanSha256 = new string('B', 64), PlanContentSha256 = new string('C', 64)
+            });
+            _requests.GetTerraformPlanApproval(DeploymentResultId).Returns(new TerraformPlanApproval
+            {
+                DeploymentResultId = DeploymentResultId, DeploymentRequestId = RequestId,
+                SourceSha256 = new string('A', 64), PlanSha256 = new string('B', 64), PlanContentSha256 = new string('C', 64)
+            });
+            _requests.RecoverTerraformPostApply(DeploymentResultId, 4, Arg.Any<Action<TerraformDeploymentOutcome>>(), false)
+                .Returns(call =>
+                {
+                    var outcome = new TerraformDeploymentOutcome
+                    {
+                        DeploymentResultId = DeploymentResultId, ApplyOutcome = "Succeeded",
+                        AppliedAt = DateTimeOffset.UtcNow, InventoryOutcome = "Unavailable", ArchiveOutcome = "Failed"
+                    };
+                    call.Arg<Action<TerraformDeploymentOutcome>>()(outcome);
+                    return outcome;
+                });
+            var cloud = Substitute.For<ICloudResourcesPersistentSource>();
+            var result = _controller.RecoverPostApply(DeploymentResultId, 4, roles, cloud,
+                Substitute.For<ICloudResourceAuditPersistentSource>(), Substitute.For<IDatabasesPersistentSource>(),
+                recoverInventory: false, recoverArchive: true);
+            Assert.IsInstanceOfType<OkObjectResult>(result);
+            _storage.Received(1).CopyVerifiedBlob(DeploymentResultId.CreateTerraformPlanBlobName() + ".source.zip",
+                $"{DeploymentResultId}.terraform-source.zip", new string('A', 64));
+            _storage.DidNotReceiveWithAnyArgs().LoadVerifiedTextFromBlobs(default!, default!, default);
+            _requests.DidNotReceiveWithAnyArgs().TryConfirmTerraformPlan(default!, default!);
+            cloud.DidNotReceiveWithAnyArgs().ExecuteMutation(default(Func<int>)!);
+        }
+
         private void GivenStandardDeploymentResult(string status = "WaitingConfirmation")
         {
             _requests.GetDeploymentResults(DeploymentResultId).Returns(new DeploymentResultApiModel
@@ -1157,6 +1252,49 @@ namespace Dorc.Api.Tests.Controllers
             // so a resolved secret can never be serialised back to the browser.
             Assert.IsFalse(typeof(TerraformParameterResolutionApiModel).GetProperties()
                 .Any(p => p.Name.Contains("Value", StringComparison.OrdinalIgnoreCase)));
+        }
+
+        [TestMethod]
+        public async Task Readiness_UsesCredentialRulesWithoutReturningValuesOrClaimingAccess()
+        {
+            GivenTemplateAndProject(Manifest(Parameter("required_input", required: true)));
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>
+            {
+                ["TerraformClientId"] = new() { Value = "not-a-guid-private-value" },
+                ["TerraformClientSecret"] = new() { Value = "secret-value" },
+                ["TerraformAivenApiToken"] = new() { Value = "aiven-private-token" }
+            });
+            var response = await CreateController(new ParameterValidator()).ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+            var readiness = ((TerraformTemplateResolutionApiModel)((OkObjectResult)response).Value!).Readiness;
+            StringAssert.Contains(readiness.AzureCredentialMode, "Invalid");
+            StringAssert.Contains(readiness.AivenCredentialMode, "configured");
+            StringAssert.Contains(readiness.BackendStatus, "Unknown");
+            StringAssert.Contains(readiness.AccessStatus, "Not checked");
+            CollectionAssert.Contains(readiness.InvalidInputs, "required_input");
+            var json = System.Text.Json.JsonSerializer.Serialize(readiness);
+            Assert.IsFalse(json.Contains("not-a-guid-private-value"));
+            Assert.IsFalse(json.Contains("secret-value"));
+            Assert.IsFalse(json.Contains("aiven-private-token"));
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_IdempotentReplayReturnsStoredReceiptBeforeValidationOrCreation()
+        {
+            GivenTemplateAndProject(Manifest(Parameter("required_input", required: true)));
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _claimsReader.GetUserFullDomainName(Arg.Any<System.Security.Principal.IPrincipal>()).Returns(@"DOMAIN\caller");
+            var key = Guid.NewGuid();
+            _requests.FindCatalogSubmission(Arg.Is<CatalogSubmissionIdentity>(identity => identity.Key == key))
+                .Returns(new TerraformTemplateInstantiateResponseApiModel { RequestId = 92 });
+            var response = await _controller.InstantiateTemplate(TemplateName, TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel { ProjectId = ProjectId, EnvironmentName = EnvName, SubmissionKey = key },
+                CancellationToken.None);
+            Assert.AreEqual(92, ((TerraformTemplateInstantiateResponseApiModel)((OkObjectResult)response).Value!).RequestId);
+            _parameterValidator.DidNotReceiveWithAnyArgs().Validate(default!, default!);
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateCatalogComponent(default!, default, default, default);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
         }
 
         [TestMethod]

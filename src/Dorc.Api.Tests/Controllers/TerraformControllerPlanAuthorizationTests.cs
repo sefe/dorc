@@ -91,6 +91,67 @@ namespace Dorc.Api.Tests.Controllers
             _storage.GetFileSha256FromBlobs(Arg.Any<string>()).Returns(new string('A', 64));
         }
 
+        [TestMethod]
+        public void ArchivedPlan_RetainsReceiptAndApprovalButCannotBeConfirmed()
+        {
+            _requestsPersistentSource.GetDeploymentResults(ResultId).Returns((DeploymentResultApiModel)null!);
+            _requestsPersistentSource.GetArchivedDeploymentResult(ResultId).Returns(new DeploymentResultApiModel
+            {
+                Id = ResultId, RequestId = RequestId, Status = "WaitingConfirmation"
+            });
+            _requestsPersistentSource.GetTerraformDeploymentReceipt(ResultId).Returns(new TerraformDeploymentReceipt
+            {
+                DeploymentResultId = ResultId, DeploymentRequestId = RequestId,
+                EnvironmentName = Environment, ProjectName = "original-project",
+                TemplateName = "original-module", TemplateVersion = "1.0.0",
+                PlanContentSha256 = PlanDigest, PlannedAt = DateTimeOffset.Parse("2026-10-20T10:00:00Z")
+            });
+            _requestsPersistentSource.GetTerraformPlanApproval(ResultId).Returns(new TerraformPlanApproval
+            {
+                ApprovedBy = @"DOMAIN\approver", ApprovedAt = DateTimeOffset.UtcNow
+            });
+            var model = (TerraformPlanApiModel)((OkObjectResult)_controller.GetTerraformPlan(ResultId)).Value!;
+            Assert.IsTrue(model.IsHistorical);
+            Assert.AreEqual("original-module", model.Receipt.TemplateName);
+            Assert.AreEqual(@"DOMAIN\approver", model.ApprovedBy);
+            Assert.IsInstanceOfType<NotFoundObjectResult>(_controller.ConfirmTerraformPlan(ResultId, PlanDigest));
+        }
+
+        [TestMethod]
+        public void PlanReceiptEnvironment_RequiresAuthorityBeforeLoadingContent()
+        {
+            _requestsPersistentSource.GetTerraformDeploymentReceipt(ResultId).Returns(new TerraformDeploymentReceipt
+            {
+                EnvironmentName = "original-secure-environment"
+            });
+            _privilegesChecker.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), "original-secure-environment").Returns(false);
+            var response = (ObjectResult)_controller.GetTerraformPlan(ResultId);
+            Assert.AreEqual(403, response.StatusCode);
+            _storage.DidNotReceive().LoadFileFromBlobs(Arg.Any<string>());
+        }
+
+        [TestMethod]
+        public void Confirmation_RejectsArtifactsThatNoLongerMatchReceipt()
+        {
+            _requestsPersistentSource.GetTerraformDeploymentReceipt(ResultId).Returns(new TerraformDeploymentReceipt
+            {
+                DeploymentResultId = ResultId, DeploymentRequestId = RequestId,
+                EnvironmentName = Environment, PlanContentSha256 = PlanDigest,
+                SourceSha256 = new string('B', 64), PlanSha256 = new string('A', 64)
+            });
+            Assert.IsInstanceOfType<ConflictObjectResult>(_controller.ConfirmTerraformPlan(ResultId, PlanDigest));
+            _requestsPersistentSource.DidNotReceive().TryConfirmTerraformPlan(
+                Arg.Any<DeploymentResultApiModel>(), Arg.Any<TerraformPlanApproval>());
+        }
+
+        [TestMethod]
+        public void LegacyPlan_DoesNotInventPlanTimeOrReceipt()
+        {
+            var model = (TerraformPlanApiModel)((OkObjectResult)_controller.GetTerraformPlan(ResultId)).Value!;
+            Assert.IsNull(model.CreatedAt);
+            Assert.IsNull(model.Receipt);
+        }
+
         // ---------------------------------------------------------------- helpers
 
         private void GivenResult(DeploymentResultStatus status) =>

@@ -78,5 +78,31 @@ namespace Dorc.Core.AzureStorageAccount
             using var stream = blobClient.OpenRead();
             return Convert.ToHexString(SHA256.HashData(stream));
         }
+
+        public string LoadVerifiedTextFromBlobs(string blobName, string expectedSha256, int maximumBytes)
+        {
+            using var stream = _blobServiceClient.GetBlobContainerClient(_blobContainerName)
+                .GetBlobClient(Path.GetFileName(blobName)).OpenRead();
+            if (maximumBytes <= 0 || stream.Length > maximumBytes)
+                throw new InvalidDataException("The retained inventory exceeds the recovery size limit.");
+            using var memory = new MemoryStream();
+            stream.CopyTo(memory);
+            var bytes = memory.ToArray();
+            if (bytes.Length > maximumBytes ||
+                !string.Equals(Convert.ToHexString(SHA256.HashData(bytes)), expectedSha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Retained inventory does not match the recorded artifact digest.");
+            return System.Text.Encoding.UTF8.GetString(bytes);
+        }
+
+        public void CopyVerifiedBlob(string sourceBlobName, string destinationBlobName, string expectedSha256)
+        {
+            var container = _blobServiceClient.GetBlobContainerClient(_blobContainerName);
+            // OpenRead pins the source ETag (allowModifications defaults to false).
+            using var stream = container.GetBlobClient(Path.GetFileName(sourceBlobName)).OpenRead();
+            if (!string.Equals(Convert.ToHexString(SHA256.HashData(stream)), expectedSha256, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Retained source does not match the approved artifact digest.");
+            stream.Position = 0;
+            container.GetBlobClient(Path.GetFileName(destinationBlobName)).Upload(stream, true);
+        }
     }
 }

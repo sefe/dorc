@@ -355,18 +355,7 @@ namespace Dorc.PersistentData.Sources
                             EF.Functions.Collate(apiComponent.ComponentName, DeploymentContext.CaseInsensitiveCollation));
                     if (duplicateComponent != null)
                     {
-                        if (duplicateComponent.Parent != null)
-                            duplicateComponent.Parent.Children.Remove(duplicateComponent);
-                        duplicateComponent.Name = Guid.NewGuid().ToString();
-                        duplicateComponent.Description = $"Changed via api on {DateTime.Now.ToShortDateString()}";
-                        duplicateComponent.Projects.Remove(context.Projects.First(p => p.Id == projectId));
-                        var script = duplicateComponent.Script;
-                        if (script != null)
-                        {
-                            script.Name = $"{script.Name} {duplicateComponent.Name}";
-                        }
-
-                        context.SaveChanges();
+                        throw new ArgumentException("A component with this name already exists. Reuse it or choose another name.");
                     }
 
                     var component = new Component
@@ -435,6 +424,13 @@ namespace Dorc.PersistentData.Sources
                     .First(x => x.Id == apiComponent.ComponentId);
 
                 var wasOrphaned = component.Projects.Count == 0;
+                if (component.TerraformSourceType == TerraformSourceType.Catalog &&
+                    (component.Name != apiComponent.ComponentName ||
+                     apiComponent.ComponentType != ComponentType.Terraform ||
+                     apiComponent.TerraformSourceType != TerraformSourceType.Catalog ||
+                     component.TerraformTemplateName != apiComponent.TerraformTemplateName ||
+                     component.TerraformTemplateVersion != apiComponent.TerraformTemplateVersion))
+                    throw new ArgumentException("Catalog identity and version cannot be changed through reference-data edits. Use the explicit module upgrade flow; renaming or source migration requires an operator-reviewed state procedure.");
 
                 if (wasOrphaned)
                     component.Projects.Add(
@@ -450,6 +446,7 @@ namespace Dorc.PersistentData.Sources
                 var hadScript = component.Script != null;
 
                 component.Name = apiComponent.ComponentName;
+                component.IsEnabled = apiComponent.IsEnabled;
                 component.StopOnFailure = apiComponent.StopOnFailure;
                 component.ComponentType = apiComponent.ComponentType;
                 component.TerraformSourceType = apiComponent.TerraformSourceType;
@@ -629,8 +626,7 @@ namespace Dorc.PersistentData.Sources
                     EF.Functions.Collate(apiComponent.ComponentName, DeploymentContext.CaseInsensitiveCollation));
             if (duplicateComponent != null)
             {
-                duplicateComponent.Name = Guid.NewGuid().ToString();
-                context.SaveChanges();
+                throw new ArgumentException("A component with this name already exists. Choose another name.");
             }
         }
 
@@ -656,13 +652,7 @@ namespace Dorc.PersistentData.Sources
                     }
 
                     component.Description = "ProjectId:" + projectId;
-                    foreach (var project in component.Projects.ToArray())
-                    {
-                        if (component.Parent is not null)
-                            component.Parent.Children.Remove(component);
-
-                        component.Projects.Remove(project);
-                    }
+                    component.Projects.Remove(component.Projects.Single(p => p.Id == projectId));
                 }
 
                 context.SaveChanges();
@@ -879,6 +869,8 @@ namespace Dorc.PersistentData.Sources
 
                 if (component == null)
                     return;
+                if (component.Id == apiComponent.ComponentId && component.Projects.Any(p => p.Id == projectId))
+                    return;
 
                 if (component.Projects.Count == 0)
                 {
@@ -921,6 +913,8 @@ namespace Dorc.PersistentData.Sources
                 var component = context.Components
                     .Include(c => c.Projects)
                     .FirstOrDefault(x => x.Id.Equals((int)apiComponent.ComponentId));
+                if (component != null && component.Projects.Any(p => p.Id == projectId))
+                    return;
 
                 if (component != null)
                     if (component.Projects.Count == 0 && component.Description != null)

@@ -27,7 +27,7 @@ namespace Dorc.Api.Controllers
     [Authorize]
     [ApiController]
     [Route("[controller]")]
-    public class TerraformController : ControllerBase
+    public partial class TerraformController : ControllerBase
     {
         private const string NoEnvironmentAuthorityMessage =
             "You do not have permission to act on Terraform plans for this environment.";
@@ -143,7 +143,8 @@ namespace Dorc.Api.Controllers
             string version,
             [FromQuery] int projectId,
             [FromQuery] string? environmentName,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            [FromQuery] int? componentId = null)
         {
             if (projectId <= 0)
             {
@@ -189,14 +190,33 @@ namespace Dorc.Api.Controllers
                     $"Forbidden: caller cannot modify environment '{environment.EnvironmentName}'.");
             }
 
+            CatalogEnvironmentInputs? configuration = null;
+            if (componentId.HasValue)
+            {
+                var selected = _projectsPersistentSource.GetComponentsForProject(projectId)
+                    .SingleOrDefault(component => component.ComponentId == componentId);
+                if (selected?.TerraformSourceType != TerraformSourceType.Catalog ||
+                    selected.TerraformTemplateName != manifest.Name || selected.TerraformTemplateVersion != manifest.Version)
+                    return Conflict("Select a component pinned to this template version.");
+                configuration = _requestsPersistentSource.GetCatalogEnvironmentInputs(componentId.Value, environment.EnvironmentId);
+                if (configuration != null && configuration.TemplateVersion != manifest.Version)
+                    return Conflict("Saved inputs target a different module version. Review and replace the saved configuration.");
+            }
+            var savedInputs = ReadSavedInputs(configuration);
             var resolved = LoadEnvironmentProperties(manifest, new Dictionary<string, string?>(), environment);
+            foreach (var input in savedInputs)
+                resolved[input.Key] = new VariableValue { Value = input.Value, Type = typeof(string) };
+            var secureInputNames = _configValuesPersistentSource.GetAllConfigValues(true)
+                .Where(value => value.Secure).Select(value => value.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var parameters = manifest.Parameters
                 .Select(p => new TerraformParameterResolutionApiModel
                 {
                     Name = p.Name,
                     Required = p.Required,
-                    Sensitive = p.Sensitive,
-                    Status = resolved.TryGetValue(p.Name, out var value)
+                    Sensitive = p.Sensitive || _propertyValuesPersistentSource.IsCachedPropertySecure(p.Name) || secureInputNames.Contains(p.Name),
+                    Status = savedInputs.ContainsKey(p.Name)
+                        ? TerraformParameterResolutionStatus.SavedConfiguration
+                        : resolved.TryGetValue(p.Name, out var value)
                              && Convert.ToString(value?.Value, CultureInfo.InvariantCulture) is not null
                         ? TerraformParameterResolutionStatus.Environment
                         : p.Default is not null
@@ -211,8 +231,197 @@ namespace Dorc.Api.Controllers
             {
                 ProjectName = project.ProjectName,
                 EnvironmentName = environment.EnvironmentName,
-                Parameters = parameters
+                Parameters = parameters,
+                Readiness = DescribeReadiness(manifest, resolved),
+                SavedConfiguration = new CatalogEnvironmentInputsApiModel
+                {
+                    Revision = configuration?.Revision ?? 0,
+                    ParameterNames = savedInputs.Keys.ToList()
+                }
             });
+        }
+
+        private static Dictionary<string, string> ReadSavedInputs(CatalogEnvironmentInputs? configuration) =>
+            System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(configuration?.InputsJson ?? "{}")!;
+
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(CatalogEnvironmentInputsApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest)]
+        [SwaggerResponse(StatusCodes.Status403Forbidden)]
+        [SwaggerResponse(StatusCodes.Status409Conflict)]
+        [HttpPut("templates/{name}/{version}/configuration")]
+        public async Task<IActionResult> SaveEnvironmentInputs(string name, string version,
+            [FromQuery] int projectId, [FromQuery] int componentId, [FromQuery] string environmentName,
+            [FromBody] SaveCatalogEnvironmentInputsApiModel input, CancellationToken cancellationToken)
+        {
+            var project = FindProject(projectId);
+            if (project == null) return NotFound();
+            if (!_apiSecurityService.IsProjectOwnerOrAdmin(User, project.ProjectName)) return Forbid();
+            var environment = _environmentsPersistentSource.GetEnvironment(environmentName);
+            if (environment == null || !IsProjectMappedTo(project, environment)) return BadRequest("The environment is not mapped to this project.");
+            if (!_apiSecurityService.CanModifyEnvironment(User, environment.EnvironmentName)) return Forbid();
+            var component = _projectsPersistentSource.GetComponentsForProject(projectId)
+                .SingleOrDefault(item => item.ComponentId == componentId);
+            if (component?.TerraformSourceType != TerraformSourceType.Catalog ||
+                component.TerraformTemplateName != name || component.TerraformTemplateVersion != version)
+                return Conflict("The component pin changed. Reload before saving.");
+            var manifest = await _templateCatalog.GetAsync(name, version, cancellationToken);
+            if (manifest == null) return NotFound();
+            if (input?.Inputs == null || input.ExpectedRevision < 0) return BadRequest("Inputs and a nonnegative expected revision are required.");
+            if (input.Inputs.Keys.Any(key => !manifest.Parameters.Any(parameter =>
+                    parameter.Name == key && !parameter.Sensitive)))
+                return BadRequest("Only declared non-sensitive module inputs can be saved. Secrets must remain secure properties or one-off overrides.");
+            // Save validates only the supplied scalar values; missing values remain inherited.
+            var partialManifest = manifest with
+            {
+                Parameters = manifest.Parameters.Where(parameter => input.Inputs.ContainsKey(parameter.Name)).ToArray(),
+                ParameterConflicts = null
+            };
+            var validation = _parameterValidator.Validate(partialManifest,
+                input.Inputs.ToDictionary(pair => pair.Key, pair => (string?)pair.Value));
+            if (!validation.IsValid)
+                return BadRequest("Saved inputs are invalid: " + string.Join(", ", validation.Errors.Select(error => error.ParameterName)));
+            try
+            {
+                var revision = _requestsPersistentSource.SaveCatalogEnvironmentInputs(componentId, projectId,
+                    environment.EnvironmentId, version, input.ExpectedRevision, input.Inputs,
+                    _claimsPrincipalReader.GetUserFullDomainName(User));
+                return Ok(new CatalogEnvironmentInputsApiModel { Revision = revision, ParameterNames = input.Inputs.Keys.ToList() });
+            }
+            catch (InvalidOperationException ex) { return Conflict(ex.Message); }
+        }
+
+        [HttpGet("components/{componentId}/upgrade/{name}/{version}")]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(CatalogUpgradePreviewApiModel))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden)]
+        [SwaggerResponse(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> PreviewUpgrade(int componentId, string name, string version,
+            [FromQuery] int projectId, CancellationToken cancellationToken)
+        {
+            var project = FindProject(projectId);
+            if (project == null) return NotFound();
+            if (!_apiSecurityService.IsProjectOwnerOrAdmin(User, project.ProjectName)) return Forbid();
+            var component = _projectsPersistentSource.GetComponentsForProject(projectId)
+                .SingleOrDefault(item => item.ComponentId == componentId);
+            if (component?.TerraformSourceType != TerraformSourceType.Catalog || component.TerraformTemplateName != name)
+                return Conflict("Select an existing component of the same module.");
+            CatalogUpgradePreviewApiModel scope;
+            try { scope = _requestsPersistentSource.GetCatalogUpgradeScope(componentId, projectId); }
+            catch (InvalidOperationException ex) { return Conflict(ex.Message); }
+            if (scope.Environments.Any(environment => !_apiSecurityService.CanModifyEnvironment(User, environment.EnvironmentName)))
+                return Forbid();
+            var oldManifest = await _templateCatalog.GetAsync(name, scope.CurrentVersion, cancellationToken);
+            var newManifest = await _templateCatalog.GetAsync(name, version, cancellationToken);
+            if (oldManifest == null || newManifest == null) return NotFound();
+            if (!Version.TryParse(scope.CurrentVersion.TrimStart('v'), out var oldVersion) ||
+                !Version.TryParse(version.TrimStart('v'), out var newVersion) || newVersion <= oldVersion)
+                return BadRequest("Choose a newer stable version of this module.");
+            scope.TargetVersion = version;
+            foreach (var parameter in newManifest.Parameters)
+            {
+                var previous = oldManifest.Parameters.SingleOrDefault(item => item.Name == parameter.Name);
+                if (previous == null)
+                    scope.InputChanges.Add($"Added {parameter.Name}: {(parameter.Required ? "required; configure before the next plan" : "optional")}. Inherited values are not checked by upgrade.");
+                else if (System.Text.Json.JsonSerializer.Serialize(previous) != System.Text.Json.JsonSerializer.Serialize(parameter))
+                    scope.InputChanges.Add($"Changed contract for {parameter.Name}: review type, defaults, constraints and sensitivity in the module inputs.");
+            }
+            scope.InputChanges.AddRange(oldManifest.Parameters.Where(parameter =>
+                !newManifest.Parameters.Any(item => item.Name == parameter.Name)).Select(parameter => $"Removed {parameter.Name}; remove it from saved configuration before upgrading."));
+            scope.RequiresExistingServiceOwnership = !oldManifest.Parameters.Any(parameter => parameter.Name == "create_service") &&
+                newManifest.Parameters.Any(parameter => parameter.Name == "create_service" &&
+                    bool.TryParse(parameter.Default, out var createsService) && createsService);
+            foreach (var environment in scope.Environments)
+                scope.ConfigurationRevisions[environment.EnvironmentId.ToString()] =
+                    _requestsPersistentSource.GetCatalogEnvironmentInputs(componentId, environment.EnvironmentId)?.Revision ?? 0;
+            return Ok(scope);
+        }
+
+        [HttpPost("components/{componentId}/upgrade/{name}/{version}")]
+        [SwaggerResponse(StatusCodes.Status200OK)]
+        [SwaggerResponse(StatusCodes.Status403Forbidden)]
+        [SwaggerResponse(StatusCodes.Status409Conflict)]
+        public async Task<IActionResult> UpgradeComponent(int componentId, string name, string version,
+            [FromQuery] int projectId, [FromBody] CatalogUpgradeRequestApiModel request, CancellationToken cancellationToken)
+        {
+            if (request == null || !request.ConfirmImpact || request.EnvironmentIds == null || request.ConfigurationRevisions == null)
+                return BadRequest("Explicit impact confirmation, environment IDs and configuration revisions are required.");
+            var previewResult = await PreviewUpgrade(componentId, name, version, projectId, cancellationToken);
+            if (previewResult is not OkObjectResult { Value: CatalogUpgradePreviewApiModel preview }) return previewResult;
+            if (preview.RequiresExistingServiceOwnership && !request.PreserveExistingServiceOwnership)
+                return BadRequest("This ownership transition requires explicitly saving create_service=false for all mapped environments. Service adoption/import is not supported.");
+            var manifest = (await _templateCatalog.GetAsync(name, version, cancellationToken))!;
+            var inputs = new Dictionary<int, Dictionary<string, string>>();
+            foreach (var environment in preview.Environments)
+            {
+                var saved = ReadSavedInputs(_requestsPersistentSource.GetCatalogEnvironmentInputs(componentId, environment.EnvironmentId));
+                if (preview.RequiresExistingServiceOwnership) saved["create_service"] = "false";
+                if (saved.Keys.Any(key => !manifest.Parameters.Any(parameter => parameter.Name == key && !parameter.Sensitive)))
+                    return Conflict($"Saved inputs for '{environment.EnvironmentName}' include removed or sensitive parameters. Explicitly replace that configuration first.");
+                var validation = _parameterValidator.Validate(manifest with
+                {
+                    Parameters = manifest.Parameters.Where(parameter => saved.ContainsKey(parameter.Name)).ToArray(),
+                    ParameterConflicts = null
+                }, saved.ToDictionary(pair => pair.Key, pair => (string?)pair.Value));
+                if (!validation.IsValid)
+                    return Conflict($"Saved inputs for '{environment.EnvironmentName}' are incompatible: " +
+                        string.Join(", ", validation.Errors.Select(error => error.ParameterName)));
+                inputs[environment.EnvironmentId] = saved;
+            }
+            var username = _claimsPrincipalReader.GetUserFullDomainName(User);
+            if (string.IsNullOrWhiteSpace(username)) return Forbid();
+            try
+            {
+                _requestsPersistentSource.UpgradeCatalogComponent(componentId, projectId, version, request, inputs, username);
+                return Ok();
+            }
+            catch (InvalidOperationException ex) { return Conflict(ex.Message); }
+        }
+
+        private TerraformReadinessApiModel DescribeReadiness(TerraformTemplateManifest manifest,
+            IDictionary<string, VariableValue> resolved)
+        {
+            var readiness = new TerraformReadinessApiModel();
+            try
+            {
+                readiness.AzureCredentialMode = TerraformArmCredentials.Resolve(resolved) == null
+                    ? "Runner ambient Azure identity (not checked)"
+                    : "Environment service principal configured (access not checked)";
+            }
+            catch (InvalidOperationException)
+            {
+                // Resolver diagnostics can contain property values; never return them.
+                readiness.AzureCredentialMode = "Invalid environment service-principal configuration";
+                readiness.Warnings.Add("Set valid TerraformClientId and TerraformTenantId GUIDs and secure TerraformClientSecret, or remove all three to use the runner ambient identity.");
+            }
+            var target = TerraformCloudTargeting.ResolveSubscription(resolved, out var warning);
+            if (warning != null)
+                readiness.Warnings.Add("Invalid or conflicting subscription cloud-resource configuration. Review the environment Cloud tab; the runner may use a fallback target.");
+            var explicitSubscription = resolved.TryGetValue(TerraformCloudTargeting.SubscriptionIdPropertyName, out var subscription)
+                ? Convert.ToString(subscription?.Value, CultureInfo.InvariantCulture) : null;
+            readiness.AzureTargetSource = target != null
+                ? "Environment subscription cloud resource (value hidden)"
+                : !string.IsNullOrWhiteSpace(explicitSubscription)
+                    ? Guid.TryParse(explicitSubscription, out _)
+                        ? "TerraformSubscriptionId property (value hidden)"
+                        : "Invalid TerraformSubscriptionId property"
+                    : "Runner default subscription or ambient identity default (unknown to API)";
+            if (target == null && string.IsNullOrWhiteSpace(explicitSubscription))
+                readiness.Warnings.Add("No explicit Azure subscription target. The runner's fallback subscription must be checked before approving the plan.");
+            readiness.AivenCredentialMode = TerraformArmCredentials.ResolveAivenApiToken(resolved) == null
+                ? "No environment Aiven token; runner ambient configuration not checked"
+                : "Environment Aiven token configured (access not checked)";
+            var secureConfiguration = _configValuesPersistentSource.GetAllConfigValues(true)
+                .Where(value => value.Secure).Select(value => value.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            readiness.WorkloadTarget = TerraformWorkloadTarget.Describe(manifest, resolved,
+                target?.SubscriptionId ?? explicitSubscription,
+                name => _propertyValuesPersistentSource.IsCachedPropertySecure(name) || secureConfiguration.Contains(name) ||
+                    manifest.Parameters.Any(parameter => parameter.Name == name && parameter.Sensitive));
+            var inputs = manifest.Parameters.ToDictionary(parameter => parameter.Name, parameter =>
+                resolved.TryGetValue(parameter.Name, out var value)
+                    ? Convert.ToString(value?.Value, CultureInfo.InvariantCulture) ?? parameter.Default
+                    : parameter.Default);
+            readiness.InvalidInputs = _parameterValidator.Validate(manifest, inputs)?.Errors
+                .Select(error => error.ParameterName).Distinct().ToList() ?? new List<string>();
+            return readiness;
         }
 
         /// <summary>
@@ -310,6 +519,9 @@ namespace Dorc.Api.Controllers
             // pattern used by the rest of this controller; avoids leaking
             // an email-classed PII into platform logs.
             var safeUserId = SanitizeForLog(_claimsPrincipalReader.GetUserName(User));
+            CatalogSubmissionIdentity? submission = null;
+            if (request.SubmissionKey.HasValue && deployEnvironment == null)
+                return BadRequest("SubmissionKey is supported only for create-and-deploy requests.");
 
             if (deployEnvironment is not null)
             {
@@ -323,13 +535,51 @@ namespace Dorc.Api.Controllers
                         $"Forbidden: caller cannot modify environment '{deployEnvironment.EnvironmentName}'.");
                 }
 
+                if (request.SubmissionKey.HasValue)
+                {
+                    var caller = _claimsPrincipalReader.GetUserFullDomainName(User);
+                    if (string.IsNullOrWhiteSpace(caller)) return Forbid();
+                    if (request.SubmissionKey == Guid.Empty) return BadRequest("SubmissionKey must be a nonempty random UUID.");
+                    submission = new CatalogSubmissionIdentity
+                    {
+                        Caller = caller,
+                        Key = request.SubmissionKey.Value,
+                        CanonicalPayload = System.Text.Json.JsonSerializer.Serialize(new
+                        {
+                            Template = manifest.Name,
+                            Version = manifest.Version,
+                            request.ProjectId,
+                            Environment = deployEnvironment.EnvironmentName,
+                            Component = componentName,
+                            request.ParentComponentId,
+                            Parameters = (request.Parameters ?? new Dictionary<string, string>())
+                                .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+                                .Select(pair => new { pair.Key, pair.Value }).ToArray()
+                        })
+                    };
+                    try
+                    {
+                        var previous = _requestsPersistentSource.FindCatalogSubmission(submission);
+                        if (previous != null) return Ok(previous);
+                    }
+                    catch (CatalogSubmissionConflictException ex) { return Conflict(ex.Message); }
+                }
+
                 // Resolve only manifest-declared inputs. Explicit request
                 // overrides win; otherwise we inherit the environment-scoped
                 // value already configured in DOrc. Manifest defaults are used
                 // only when runtime would rely on them.
                 var supplied = (request.Parameters ?? new Dictionary<string, string>())
                     .ToDictionary(kv => kv.Key, kv => (string?)kv.Value);
-                var validationInputs = BuildValidationInputs(manifest, supplied, deployEnvironment);
+                var existing = _projectsPersistentSource.GetComponentsForProject(project.ProjectName)
+                    .SingleOrDefault(item => string.Equals(item.ComponentName, componentName, StringComparison.OrdinalIgnoreCase));
+                var configuration = existing?.TerraformSourceType == TerraformSourceType.Catalog &&
+                    existing.TerraformTemplateName == manifest.Name && existing.TerraformTemplateVersion == manifest.Version &&
+                    existing.ComponentId.HasValue
+                    ? _requestsPersistentSource.GetCatalogEnvironmentInputs(existing.ComponentId.Value, deployEnvironment.EnvironmentId) : null;
+                if (configuration != null && configuration.TemplateVersion != manifest.Version)
+                    return Conflict("Saved inputs target a different module version. Review and replace the configuration.");
+                var validationInputs = BuildValidationInputs(manifest, supplied, deployEnvironment, ReadSavedInputs(configuration));
                 var validation = _parameterValidator.Validate(manifest, validationInputs);
                 if (!validation.IsValid)
                 {
@@ -348,7 +598,8 @@ namespace Dorc.Api.Controllers
             try
             {
                 creation = _manageProjectsPersistentSource.CreateCatalogComponent(
-                    component, request.ProjectId, request.ParentComponentId, allowReuse: deployEnvironment is not null);
+                    component, request.ProjectId, request.ParentComponentId, allowReuse: deployEnvironment is not null,
+                    actor: _claimsPrincipalReader.GetUserFullDomainName(User));
             }
             catch (ArgumentException ex)
             {
@@ -365,6 +616,8 @@ namespace Dorc.Api.Controllers
                     return NotFound(creation.Message);
             }
             component = creation.Component!;
+            if (submission != null)
+                submission.ComponentJson = System.Text.Json.JsonSerializer.Serialize(component);
             _log.LogInformation(
                 "Stock template '{Manifest}' component '{Component}' in project '{ProjectName}' (id {ProjectId}) {Outcome} by {UserId}.",
                 $"{manifest.Name}@{manifest.Version}", safeComponentName, project.ProjectName, request.ProjectId, creation.Status, safeUserId);
@@ -407,6 +660,7 @@ namespace Dorc.Api.Controllers
                     BuildNum = string.Empty,
                     Components = new List<string> { component.ComponentName },
                     RequestProperties = requestProperties,
+                    CatalogSubmission = submission,
                 };
 
                 try
@@ -426,6 +680,10 @@ namespace Dorc.Api.Controllers
                         RequestId = status.Id,
                         RequestStatus = status.Status
                     });
+                }
+                catch (CatalogSubmissionConflictException ex)
+                {
+                    return Conflict(ex.Message);
                 }
                 catch (Exception ex) when (ex is InvalidOperationException
                                           || ex is WrongBuildTypeException
@@ -512,10 +770,13 @@ namespace Dorc.Api.Controllers
         private Dictionary<string, string?> BuildValidationInputs(
             TerraformTemplateManifest manifest,
             IDictionary<string, string?> supplied,
-            EnvironmentApiModel environment)
+            EnvironmentApiModel environment,
+            IDictionary<string, string>? savedInputs = null)
         {
             var resolvedProperties = LoadEnvironmentProperties(manifest, supplied, environment);
             var validationInputs = new Dictionary<string, string?>(supplied, StringComparer.Ordinal);
+            foreach (var input in savedInputs ?? new Dictionary<string, string>())
+                validationInputs.TryAdd(input.Key, input.Value);
 
             foreach (var parameter in manifest.Parameters)
             {
@@ -578,26 +839,63 @@ namespace Dorc.Api.Controllers
             {
                 _log.LogInformation($"Getting Terraform plan for deployment result ID: {deploymentResultId}");
 
-                var authorization = AuthorizeForEnvironment(deploymentResultId);
+                var authorization = AuthorizeForEnvironment(deploymentResultId, allowHistory: true);
                 if (!authorization.Succeeded)
                 {
                     return authorization.Failure!;
                 }
 
                 var deploymentResult = authorization.Result!;
+                var receipt = _requestsPersistentSource.GetTerraformDeploymentReceipt(deploymentResultId);
+                if (receipt != null && (string.IsNullOrWhiteSpace(receipt.EnvironmentName) ||
+                    !_apiSecurityService.CanModifyEnvironment(User, receipt.EnvironmentName) ||
+                    (receipt.EnvironmentId.HasValue && _environmentsPersistentSource.GetEnvironment(receipt.EnvironmentName)?.EnvironmentId != receipt.EnvironmentId)))
+                    return StatusCode(StatusCodes.Status403Forbidden, NoEnvironmentAuthorityMessage);
 
                 // Plan content is only loaded once authority is established. Ordering
                 // matters: the plan embeds resolved variable values, so a refused caller
                 // must not cause it to be read at all.
                 var planContent = LoadPlanContentFromStorage(deploymentResultId);
+                var contentDigest = TerraformPlanArtifactIntegrity.HashPlanContent(planContent);
+                if (receipt != null && !string.Equals(receipt.PlanContentSha256, contentDigest, StringComparison.OrdinalIgnoreCase))
+                    return Conflict("Retained plan content no longer matches its receipt. Do not apply it; create and review a fresh plan.");
+                var approval = _requestsPersistentSource.GetTerraformPlanApproval(deploymentResultId);
 
                 var plan = new TerraformPlanApiModel
                 {
                     DeploymentResultId = deploymentResultId,
                     PlanContent = planContent,
-                    CreatedAt = deploymentResult.StartedTime?.DateTime ?? DateTime.UtcNow,
+                    CreatedAt = receipt?.PlannedAt.UtcDateTime ?? deploymentResult.StartedTime?.UtcDateTime,
                     Status = deploymentResult.Status ?? "Unknown",
-                    PlanContentSha256 = TerraformPlanArtifactIntegrity.HashPlanContent(planContent)
+                    PlanContentSha256 = contentDigest,
+                    IsHistorical = authorization.IsHistorical,
+                    Outcome = _requestsPersistentSource.GetTerraformDeploymentOutcome(deploymentResultId)?.ToApiModel(),
+                    ApprovedBy = approval?.ApprovedBy,
+                    ApprovedAt = approval?.ApprovedAt,
+                    Receipt = receipt == null ? null : new TerraformDeploymentReceiptApiModel
+                    {
+                        DeploymentRequestId = receipt.DeploymentRequestId,
+                        ProjectId = receipt.ProjectId,
+                        DefinitionRevision = receipt.DefinitionRevision,
+                        SourceType = receipt.SourceType,
+                        RequestedSource = receipt.RequestedSource,
+                        RequestedRef = receipt.RequestedRef,
+                        SourceSubPath = receipt.SourceSubPath,
+                        BuildIdentity = receipt.BuildIdentity,
+                        ComponentId = receipt.ComponentId,
+                        EnvironmentId = receipt.EnvironmentId,
+                        WorkloadTarget = receipt.WorkloadTarget,
+                        ProjectName = receipt.ProjectName,
+                        EnvironmentName = receipt.EnvironmentName,
+                        ComponentName = receipt.ComponentName,
+                        TemplateName = receipt.TemplateName,
+                        TemplateVersion = receipt.TemplateVersion,
+                        GitCommitSha = receipt.GitCommitSha,
+                        StateStorageAccount = receipt.StateStorageAccount,
+                        StateContainerName = receipt.StateContainerName,
+                        StateKey = receipt.StateKey,
+                        PlannedAt = receipt.PlannedAt
+                    }
                 };
 
                 return Ok(plan);
@@ -662,7 +960,18 @@ namespace Dorc.Api.Controllers
                 if (string.IsNullOrWhiteSpace(planContentSha256))
                     return Conflict("Reload and review the plan before confirming it.");
 
+                var receipt = _requestsPersistentSource.GetTerraformDeploymentReceipt(deploymentResultId);
+                if (receipt?.EnvironmentId != null &&
+                    _environmentsPersistentSource.GetEnvironment(receipt.EnvironmentName)?.EnvironmentId != receipt.EnvironmentId)
+                    return Conflict("The original environment identity is unavailable. Create and review a fresh plan.");
                 var digests = TerraformPlanArtifactIntegrity.Calculate(_azureStorageAccountWorker, deploymentResultId);
+                if (receipt != null &&
+                    (receipt.DeploymentRequestId != deploymentRequest.Id ||
+                     !string.Equals(receipt.EnvironmentName, deploymentRequest.EnvironmentName, StringComparison.OrdinalIgnoreCase) ||
+                     !string.Equals(receipt.PlanSha256, digests.PlanSha256, StringComparison.OrdinalIgnoreCase) ||
+                     !string.Equals(receipt.SourceSha256, digests.SourceSha256, StringComparison.OrdinalIgnoreCase) ||
+                     !string.Equals(receipt.PlanContentSha256, digests.PlanContentSha256, StringComparison.OrdinalIgnoreCase)))
+                    return Conflict("Plan artifacts or target no longer match the plan-time receipt. Create and review a fresh plan.");
                 if (!string.Equals(planContentSha256, digests.PlanContentSha256, StringComparison.OrdinalIgnoreCase))
                     return Conflict("The plan has changed since it was displayed. Reload and review it before confirming.");
 
@@ -781,14 +1090,20 @@ namespace Dorc.Api.Controllers
         /// cannot be found, so an absent or blank environment name would otherwise permit
         /// every administrator rather than refuse.
         /// </summary>
-        private AuthorizationOutcome AuthorizeForEnvironment(int deploymentResultId)
+        private AuthorizationOutcome AuthorizeForEnvironment(int deploymentResultId, bool allowHistory = false)
         {
             DeploymentResultApiModel? deploymentResult;
             DeploymentRequestApiModel? deploymentRequest;
+            var isHistorical = false;
 
             try
             {
                 deploymentResult = _requestsPersistentSource.GetDeploymentResults(deploymentResultId);
+                if (deploymentResult == null && allowHistory)
+                {
+                    deploymentResult = _requestsPersistentSource.GetArchivedDeploymentResult(deploymentResultId);
+                    isHistorical = deploymentResult != null;
+                }
 
                 if (deploymentResult == null)
                 {
@@ -834,7 +1149,7 @@ namespace Dorc.Api.Controllers
                     StatusCode(StatusCodes.Status403Forbidden, NoEnvironmentAuthorityMessage));
             }
 
-            return AuthorizationOutcome.Allowed(deploymentResult, deploymentRequest);
+            return AuthorizationOutcome.Allowed(deploymentResult, deploymentRequest, isHistorical);
         }
 
         /// <summary>
@@ -938,6 +1253,7 @@ namespace Dorc.Api.Controllers
             public IActionResult? Failure { get; private init; }
             public DeploymentResultApiModel? Result { get; private init; }
             public DeploymentRequestApiModel? Request { get; private init; }
+            public bool IsHistorical { get; private init; }
 
             public bool Succeeded => Failure == null;
 
@@ -946,8 +1262,8 @@ namespace Dorc.Api.Controllers
 
             public static AuthorizationOutcome Allowed(
                 DeploymentResultApiModel result,
-                DeploymentRequestApiModel request) =>
-                new() { Result = result, Request = request };
+                DeploymentRequestApiModel request, bool isHistorical = false) =>
+                new() { Result = result, Request = request, IsHistorical = isHistorical };
         }
     }
 }

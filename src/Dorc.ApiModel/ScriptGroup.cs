@@ -9,6 +9,11 @@ namespace Dorc.ApiModel
     {
         public Guid ID { get; set; }
         public int DeployResultId { get; set; }
+        public int DefinitionRequestId { get; set; }
+        public string DefinitionRevision { get; set; }
+        public string PowerShellEvidenceDirectory { get; set; }
+        public int EvidenceOrdinalOffset { get; set; }
+        public string SourceBuildIdentity { get; set; }
         public string PowerShellVersionNumber { get; set; }
         public string ScriptsLocation { get; set; }
 

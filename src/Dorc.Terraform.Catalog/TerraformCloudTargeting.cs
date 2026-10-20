@@ -2,7 +2,7 @@ using System.Text.Json;
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 
-namespace Dorc.TerraformRunner.State
+namespace Dorc.Terraform.Catalog
 {
     // Resolves the Azure subscription a catalog deployment targets from the
     // environment's attached cloud resources (the Cloud tab on environment
@@ -17,6 +17,7 @@ namespace Dorc.TerraformRunner.State
         // subscription. Matching is case-insensitive; the GUID is read from
         // ResourceIdentifier first, then from the Subscription field.
         public const string SubscriptionResourceType = "Subscription";
+        public const string SubscriptionIdPropertyName = "TerraformSubscriptionId";
 
         public sealed record SubscriptionTarget(string SubscriptionId, string ResourceName);
 

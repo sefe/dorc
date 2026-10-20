@@ -34,6 +34,8 @@ const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
 const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddTransient<Dorc.PersistentData.Sources.DeploymentDefinitions>();
+builder.Services.AddTransient<Dorc.PersistentData.Sources.Interfaces.IDeploymentDefinitions, Dorc.PersistentData.Sources.DeploymentDefinitions>();
 var configBuilder = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json")
     .AddJsonFile("loggerSettings.json", optional:false, reloadOnChange: true)

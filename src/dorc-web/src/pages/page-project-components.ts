@@ -27,7 +27,7 @@ import '@vaadin/grid/vaadin-grid-column';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 interface ComponentDeploymentInfo extends ComponentApiModel {
-  Children?: ComponentDeploymentInfo[];
+  Children?: ComponentDeploymentInfo[] | null;
   environmentBuilds?: Map<string, EnvironmentContentBuildsApiModel | null>;
   displayName?: string;
   parentPath?: string[];
@@ -249,7 +249,7 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
                   >
                   </vaadin-grid-sort-column>
                   <vaadin-grid-column
-                    header="Build Number"
+                    header="Source / revision"
                     path="buildNumber"
                     resizable
                     auto-width
@@ -470,7 +470,12 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
 
       return {
         environmentName: env.EnvironmentName || '',
-        buildNumber: build.RequestBuildNum || 'N/A',
+        buildNumber:
+          build.SourceRevisionLabel ||
+          (build.RequestBuildNum
+            ? `Submitted build: ${build.RequestBuildNum}`
+            : '') ||
+          'Executed source not recorded',
         status: build.State || 'Unknown',
         updateDate: updateDate,
         requestId: build.RequestId,

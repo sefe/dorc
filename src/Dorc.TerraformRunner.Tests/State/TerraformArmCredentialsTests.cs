@@ -1,5 +1,5 @@
 using Dorc.ApiModel.MonitorRunnerApi;
-using Dorc.TerraformRunner.State;
+using Dorc.Terraform.Catalog;
 
 namespace Dorc.TerraformRunner.Tests.State
 {

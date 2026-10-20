@@ -11,7 +11,7 @@ using System.Data;
 
 namespace Dorc.PersistentData.Sources
 {
-    public class RequestsPersistentSource : IRequestsPersistentSource
+    public partial class RequestsPersistentSource : IRequestsPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
@@ -117,7 +117,7 @@ namespace Dorc.PersistentData.Sources
                     .Include(result => result.Component)
                     .Where(result => result.DeploymentRequest.Id == requestId)
                     .OrderBy(result => result.Id)
-                    .Select(MapToDeploymentResultModel).ToList();
+                    .ToList().Select(r => MapToDeploymentResultModel(r, context)).ToList();
             }
         }
 
@@ -130,7 +130,7 @@ namespace Dorc.PersistentData.Sources
                     .Include(results => results.DeploymentRequest)
                     .Where(result => result.DeploymentRequest.Id == requestId
                         && result.Component.Id == componentId)
-                    .Select(MapToDeploymentResultModel);
+                    .ToList().Select(r => MapToDeploymentResultModel(r, context));
 
                 return deploymentResult.ToList();
             }
@@ -165,7 +165,7 @@ namespace Dorc.PersistentData.Sources
                     .Include(results => results.DeploymentRequest)
                     .FirstOrDefault(x => x.Id == resultId);
                 if (deploymentResult != null)
-                    return MapToDeploymentResultModel(deploymentResult);
+                    return MapToDeploymentResultModel(deploymentResult, context);
             }
 
             return null;
@@ -215,7 +215,7 @@ namespace Dorc.PersistentData.Sources
 
                 context.SaveChanges();
 
-                return MapToDeploymentResultModel(deploymentResult);
+                return MapToDeploymentResultModel(deploymentResult, context);
             }
         }
 
@@ -306,6 +306,37 @@ namespace Dorc.PersistentData.Sources
                 .Where(approval => approval.DeploymentResultId == deploymentResultId)
                 .OrderByDescending(approval => approval.Id)
                 .FirstOrDefault();
+        }
+
+        public TerraformDeploymentReceipt? GetTerraformDeploymentReceipt(int deploymentResultId)
+        {
+            using var context = _contextFactory.GetContext();
+            return context.TerraformDeploymentReceipts.AsNoTracking()
+                .SingleOrDefault(receipt => receipt.DeploymentResultId == deploymentResultId);
+        }
+
+        public void SaveTerraformDeploymentReceipt(TerraformDeploymentReceipt receipt)
+        {
+            using var context = _contextFactory.GetContext();
+            context.TerraformDeploymentReceipts.Add(receipt);
+            context.SaveChanges();
+        }
+
+        public DeploymentResultApiModel? GetArchivedDeploymentResult(int deploymentResultId)
+        {
+            using var context = _contextFactory.GetContext();
+            return context.DeploymentResultAttempts.AsNoTracking()
+                .Where(result => result.DeploymentResultId == deploymentResultId)
+                .Select(result => new DeploymentResultApiModel
+                {
+                    Id = deploymentResultId,
+                    RequestId = result.DeploymentRequestAttempt.DeploymentRequest.Id,
+                    ComponentId = result.ComponentId,
+                    ComponentName = result.ComponentName,
+                    Status = result.Status,
+                    StartedTime = result.StartedTime,
+                    CompletedTime = result.CompletedTime
+                }).FirstOrDefault();
         }
 
         public bool TryConfirmTerraformPlan(DeploymentResultApiModel result, TerraformPlanApproval approval)
@@ -646,8 +677,14 @@ namespace Dorc.PersistentData.Sources
 
         public int SubmitRequest(DeploymentRequest deploymentRequest)
         {
-            using (var context = _contextFactory.GetContext())
+            using var strategyContext = _contextFactory.GetContext();
+            return strategyContext.Database.CreateExecutionStrategy().Execute(() =>
             {
+                using var context = _contextFactory.GetContext();
+                using var transaction = context.Database.BeginTransaction(IsolationLevel.Serializable);
+                deploymentRequest.Id = 0;
+                var definitions = CaptureDefinitions(context, deploymentRequest);
+                var snapshots = CaptureCatalogInputs(context, deploymentRequest);
                 var envIsProd = from obj in context.Environments.Where(r => r.Name == deploymentRequest.Environment)
                     select obj.IsProd;
                 foreach (var val in envIsProd)
@@ -656,8 +693,20 @@ namespace Dorc.PersistentData.Sources
 
                 var request = context.DeploymentRequests.Add(deploymentRequest);
                 context.SaveChanges();
+                foreach (var definition in definitions)
+                {
+                    definition.DeploymentRequestId = request.Entity.Id;
+                    context.DeploymentRequestDefinitions.Add(definition);
+                }
+                foreach (var snapshot in snapshots)
+                {
+                    snapshot.DeploymentRequestId = request.Entity.Id;
+                    context.CatalogRequestInputs.Add(snapshot);
+                }
+                context.SaveChanges();
+                transaction.Commit();
                 return request.Entity.Id;
-            }
+            });
         }
 
         public void UpdateRequestDetails(int requestId, string requestDetails)
@@ -757,7 +806,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                return context.DeploymentRequestAttempts
+                var attempts = context.DeploymentRequestAttempts
                     .AsNoTracking()
                     .Include(a => a.DeploymentResultAttempts)
                     .Where(a => EF.Property<int>(a, "DeploymentRequestId") == requestId)
@@ -781,10 +830,24 @@ namespace Dorc.PersistentData.Sources
                             StartedTime = r.StartedTime,
                             CompletedTime = r.CompletedTime,
                             Status = r.Status,
-                            DeploymentResultId = r.DeploymentResultId
+                            DeploymentResultId = r.DeploymentResultId,
+                            HasTerraformPlan = context.TerraformDeploymentReceipts.Any(receipt =>
+                                receipt.DeploymentResultId == r.DeploymentResultId) ||
+                                context.TerraformPlanApprovals.Any(approval =>
+                                    approval.DeploymentResultId == r.DeploymentResultId) ||
+                                r.Status == "WaitingConfirmation" || r.Status == "Confirmed"
                         }).ToList()
                     })
                     .ToList();
+                foreach (var result in attempts.SelectMany(a => a.ComponentResults))
+                {
+                    var evidence = DeploymentSourceEvidence.Read(context, requestId, result.ComponentId, result.DeploymentResultId);
+                    result.ProjectId = evidence?.ProjectId;
+                    result.IsTerraform = evidence?.IsTerraform ?? (result.HasTerraformPlan ? true : (bool?)null);
+                    result.DefinitionRevision = evidence?.Revision;
+                    result.SourceRevisionLabel = evidence?.Label;
+                }
+                return attempts;
             }
         }
 
@@ -801,8 +864,10 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        private static DeploymentResultApiModel MapToDeploymentResultModel(DeploymentResult deploymentResult)
+        private static DeploymentResultApiModel MapToDeploymentResultModel(DeploymentResult deploymentResult, IDeploymentContext context)
         {
+            var evidence = DeploymentSourceEvidence.Read(context, deploymentResult.DeploymentRequest.Id,
+                deploymentResult.Component.Id, deploymentResult.Id);
             DeploymentResultStatus status;
             if (deploymentResult.Status is null)
             {
@@ -816,9 +881,13 @@ namespace Dorc.PersistentData.Sources
             return new DeploymentResultApiModel
             {
                 Id = deploymentResult.Id,
+                ProjectId = evidence?.ProjectId,
+                DefinitionRevision = evidence?.Revision,
+                SourceRevisionLabel = evidence?.Label,
                 Status = status.ToString(),
-                ComponentName = deploymentResult.Component.Name,
+                ComponentName = evidence?.ComponentName ?? deploymentResult.Component.Name,
                 ComponentId = deploymentResult.Component.Id,
+                IsTerraform = evidence?.IsTerraform ?? deploymentResult.Component.ComponentType == ComponentType.Terraform,
                 RequestId = deploymentResult.DeploymentRequest.Id,
                 Log = deploymentResult.Log,
                 StartedTime = deploymentResult.StartedTime,

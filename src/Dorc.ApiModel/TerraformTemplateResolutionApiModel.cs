@@ -19,7 +19,10 @@ namespace Dorc.ApiModel
         Missing = 2,
 
         /// <summary>Optional input with neither an environment property nor a default.</summary>
-        Unset = 3
+        Unset = 3,
+
+        /// <summary>Explicit non-secret component/environment configuration.</summary>
+        SavedConfiguration = 4
     }
 
     public class TerraformParameterResolutionApiModel
@@ -38,5 +41,7 @@ namespace Dorc.ApiModel
         public string ProjectName { get; set; } = string.Empty;
         public string EnvironmentName { get; set; } = string.Empty;
         public List<TerraformParameterResolutionApiModel> Parameters { get; set; } = new List<TerraformParameterResolutionApiModel>();
+        public TerraformReadinessApiModel Readiness { get; set; }
+        public CatalogEnvironmentInputsApiModel SavedConfiguration { get; set; }
     }
 }

@@ -9,7 +9,10 @@ import '@vaadin/icons/vaadin-icons';
 import { css, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { TerraformPlanApiModel } from '../apis/dorc-api/models/index';
+import {
+  TerraformPlanApiModel,
+  TerraformInventoryProvenanceApiModel
+} from '../apis/dorc-api/models/index';
 import { TerraformApi } from '../apis/dorc-api/apis/TerraformApi';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
@@ -36,6 +39,8 @@ export class TerraformPlanDialog extends LitElement {
 
   private terraformApi = new TerraformApi(dorcApiConfiguration);
   private loadToken = 0;
+  @state() private inventory: TerraformInventoryProvenanceApiModel[] | null =
+    null;
 
   static get styles() {
     return css`
@@ -220,7 +225,8 @@ export class TerraformPlanDialog extends LitElement {
           this.plan,
           this.error,
           this.loading,
-          this.processing
+          this.processing,
+          this.inventory
         ])}
       >
       </vaadin-dialog>
@@ -264,6 +270,47 @@ export class TerraformPlanDialog extends LitElement {
       ${this.error ? html`<div class="error-message" role="alert">${this.error}</div>` : ''}
       <div class="plan-header">
         <h3>Deployment Result ID: ${this.plan.DeploymentResultId}</h3>
+        ${this.plan.IsHistorical ? html`<p>Archived attempt — read-only</p>` : ''}
+        ${
+          this.plan.Receipt
+            ? html` <dl aria-label="Deployment receipt">
+                <dt>Target</dt>
+                <dd>
+                  ${this.plan.Receipt.ProjectName} /
+                  ${this.plan.Receipt.EnvironmentName} /
+                  ${this.plan.Receipt.ComponentName}
+                </dd>
+                <dt>Planned module</dt>
+                <dd>
+                  ${this.plan.Receipt.TemplateName || 'Non-catalog source'} @
+                  ${this.plan.Receipt.TemplateVersion || 'Unavailable'}
+                </dd>
+                <dt>Source commit</dt>
+                <dd>${this.plan.Receipt.GitCommitSha || 'Unavailable'}</dd>
+                <dt>Planned workload target</dt>
+                <dd>
+                  ${this.plan.Receipt.WorkloadTarget || 'Unavailable; not inferred from current properties'}
+                </dd>
+                <dt>State</dt>
+                <dd>
+                  ${this.plan.Receipt.StateStorageAccount || 'Unavailable'} /
+                  ${this.plan.Receipt.StateContainerName || 'Unavailable'} /
+                  ${this.plan.Receipt.StateKey || 'Unavailable'}
+                </dd>
+              </dl>`
+            : html`<p>
+                Plan-time deployment receipt unavailable for this record.
+                Current component settings are not historical evidence.
+              </p>`
+        }
+        <p>
+          Approval:
+          ${
+            this.plan.ApprovedBy
+              ? `${this.plan.ApprovedBy} — ${this.plan.ApprovedAt ? new Date(this.plan.ApprovedAt).toLocaleString() : 'Time unavailable'}`
+              : 'No retained approval'
+          }
+        </p>
         <p>
           Created:
           ${this.plan.CreatedAt ? new Date(this.plan.CreatedAt).toLocaleString() : 'Unknown'}
@@ -273,16 +320,204 @@ export class TerraformPlanDialog extends LitElement {
         </p>
       </div>
 
-      ${this._renderPlanSummary()}
+      ${this._renderOutcomes()} ${this._renderPlanSummary()}
       <div class="plan-content">${this._renderPlanBody()}</div>
 
       <div class="actions">${this._renderActionButtons()}</div>
     `;
   };
 
+  private _renderOutcomes() {
+    const outcome = this.plan?.Outcome;
+    return html`<section aria-label="Post-apply outcomes">
+      <h4>Infrastructure and post-apply metadata</h4>
+      ${
+        outcome
+          ? html`
+              <p>
+                Terraform apply: ${outcome.ApplyOutcome}. Inventory
+                registration: ${outcome.InventoryOutcome}
+                (${outcome.RegisteredCount ?? 0} registered;
+                ${outcome.FailedCount ?? 0} failures). Audit source copy:
+                ${outcome.ArchiveOutcome}.
+              </p>
+              ${(outcome.InventoryWarnings ?? []).map(warning => html`<p>${warning}</p>`)}
+              ${
+                outcome.ApplyOutcome === 'Succeeded'
+                  ? html`
+                      <p>
+                        Metadata recovery requires an administrator. It never
+                        re-runs Terraform apply, imports, destroys or changes
+                        the approved plan.
+                      </p>
+                      ${
+                        outcome.InventoryOutcome !== 'Succeeded'
+                          ? html`
+                              <vaadin-button
+                                .disabled=${this.processing || !outcome.InventoryRecoveryAvailable}
+                                @click=${() => this._recoverMetadata(true)}
+                                >Retry inventory registration
+                                only</vaadin-button
+                              >
+                              ${!outcome.InventoryRecoveryAvailable ? html`<p>Retained inventory is unavailable; review registration manually.</p>` : ''}
+                            `
+                          : ''
+                      }
+                      ${
+                        outcome.ArchiveOutcome !== 'Succeeded'
+                          ? html`<vaadin-button
+                              .disabled=${this.processing}
+                              @click=${() => this._recoverMetadata(false)}
+                              >Retry audit source copy only</vaadin-button
+                            >`
+                          : ''
+                      }
+                    `
+                  : ''
+              }
+            `
+          : html`<p>
+              No durable apply outcome was recorded. Do not infer a successful
+              apply from current inventory.
+            </p>`
+      }
+      ${
+        this.plan?.Receipt?.EnvironmentId
+          ? html`
+              <vaadin-button
+                .disabled=${this.processing}
+                @click=${() => this._loadInventory()}
+              >
+                Show current inventory provenance
+              </vaadin-button>
+              <a
+                href=${`/environment/${encodeURIComponent(this.plan.Receipt.EnvironmentName ?? '')}/components/cloud`}
+                >Environment Cloud resources</a
+              >
+            `
+          : ''
+      }
+      ${
+        this.inventory !== null
+          ? html`
+              <p>
+                Current component/environment observations, not a historical
+                state export. Missing resources are never deleted or detached
+                automatically.
+              </p>
+              ${
+                this.inventory.length === 0
+                  ? html`<p>No provenance recorded.</p>`
+                  : html` <ul>
+                      ${this.inventory.map(
+                        row =>
+                          html`<li>
+                            Cloud definition #${row.CloudResourceId}:
+                            ${row.ResourceIdentifier} —
+                            ${row.ReconciliationState}; first result
+                            #${row.FirstSeenResultId}, last observed result
+                            #${row.LastSeenResultId} at
+                            ${row.LastSeenAt ? new Date(row.LastSeenAt).toLocaleString() : 'unknown'}.
+                            ${row.DatabaseId ? html`<a href=${`/environment/${encodeURIComponent(this.plan?.Receipt?.EnvironmentName ?? '')}/components/databases`}>Database #${row.DatabaseId}</a>` : ''}
+                            ${
+                              row.ReconciliationState ===
+                              'MissingFromLatestState'
+                                ? html`<vaadin-button
+                                    .disabled=${this.processing}
+                                    @click=${() => this._reviewInventory(row)}
+                                  >
+                                    Mark reviewed — metadata only</vaadin-button
+                                  >`
+                                : ''
+                            }
+                          </li>`
+                      )}
+                    </ul>`
+              }
+            `
+          : ''
+      }
+      <vaadin-button
+        .disabled=${this.processing}
+        @click=${() => this._loadPlan()}
+        >Reload receipt</vaadin-button
+      >
+    </section>`;
+  }
+
+  private _recoverMetadata(inventory: boolean) {
+    if (this.processing || !this.plan?.Outcome) return;
+    this.processing = true;
+    this.error = null;
+    this.terraformApi
+      .terraformRecoverPost({
+        deploymentResultId: this.deploymentResultId,
+        expectedRevision: this.plan.Outcome.Revision ?? 0,
+        recoverInventory: inventory,
+        recoverArchive: !inventory
+      })
+      .subscribe({
+        next: outcome => {
+          this.plan = { ...this.plan!, Outcome: outcome };
+          this.processing = false;
+        },
+        error: error => {
+          this.error =
+            retrieveErrorMessage(error) ??
+            'Recovery was not completed. Reload the receipt and review retained artifacts.';
+          this.processing = false;
+        }
+      });
+  }
+
+  private _loadInventory() {
+    if (this.processing) return;
+    this.processing = true;
+    this.error = null;
+    this.terraformApi
+      .terraformInventoryGet({ deploymentResultId: this.deploymentResultId })
+      .subscribe({
+        next: inventory => {
+          this.inventory = inventory;
+          this.processing = false;
+        },
+        error: error => {
+          this.error =
+            retrieveErrorMessage(error) ??
+            'Inventory provenance is unavailable.';
+          this.processing = false;
+        }
+      });
+  }
+
+  private _reviewInventory(row: TerraformInventoryProvenanceApiModel) {
+    if (this.processing || !row.CloudResourceId) return;
+    this.processing = true;
+    this.error = null;
+    this.terraformApi
+      .terraformInventoryReviewPost({
+        deploymentResultId: this.deploymentResultId,
+        cloudResourceId: row.CloudResourceId,
+        expectedRevision: row.Revision ?? 0
+      })
+      .subscribe({
+        next: () => {
+          this.processing = false;
+          this._loadInventory();
+        },
+        error: error => {
+          this.error =
+            retrieveErrorMessage(error) ??
+            'Review was not saved. Reload inventory.';
+          this.processing = false;
+        }
+      });
+  }
+
   private _renderActionButtons() {
-    const canConfirm = this.plan?.Status === 'WaitingConfirmation';
-    const canDecline = this.plan?.Status === 'WaitingConfirmation';
+    const canConfirm =
+      !this.plan?.IsHistorical && this.plan?.Status === 'WaitingConfirmation';
+    const canDecline = canConfirm;
 
     return html`
       ${
@@ -459,6 +694,7 @@ ${lines.map(line => {
     this.loading = true;
     this.error = null;
     this.plan = null;
+    this.inventory = null;
 
     this.terraformApi
       .terraformPlanDeploymentResultIdGet({

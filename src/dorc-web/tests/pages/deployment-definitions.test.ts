@@ -1,0 +1,452 @@
+import { vi } from 'vitest';
+import { of, Subject, throwError } from 'rxjs';
+import { expect, fixture, html, settle } from '../_helpers';
+import { ComponentType, TerraformSourceType } from '../../src/apis/dorc-api';
+import type { TextField } from '@vaadin/text-field';
+import type { Tabs } from '@vaadin/tabs';
+import type { DeploymentDefinitionHistory } from '../../src/components/deployment-definition-history';
+import type { DeployEnv } from '../../src/components/deploy/deploy-env';
+import type { HegsTree } from '../../src/components/deploy/component-tree/hegs-tree';
+
+const mocks = vi.hoisted(() => ({
+  get: vi.fn(),
+  save: vi.fn(),
+  history: vi.fn(),
+  definitions: vi.fn(),
+  projects: vi.fn(),
+  deleteProject: vi.fn(),
+  confirm: vi.fn(),
+  editor: { value: '', change: () => {} }
+}));
+vi.mock('../../src/components/confirm-prompt', () => ({
+  confirmPrompt: mocks.confirm
+}));
+
+vi.mock('ace-builds', () => ({
+  edit: () => ({
+    renderer: { attachToShadowRoot() {} },
+    session: { setMode() {}, setUseWorker() {} },
+    setTheme() {},
+    setOptions() {},
+    setReadOnly() {},
+    resize() {},
+    destroy() {},
+    on: (_name: string, callback: () => void) => {
+      mocks.editor.change = callback;
+    },
+    setValue: (value: string) => {
+      mocks.editor.value = value;
+      mocks.editor.change();
+    },
+    getValue: () => mocks.editor.value
+  })
+}));
+
+vi.mock('../../src/apis/dorc-api', async importOriginal => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  RefDataApi: class {
+    refDataIdGet = mocks.get;
+    refDataPut = mocks.save;
+  },
+  PowerShellVersionsApi: class {
+    powerShellVersionsGet = () => of([{ Value: '5.1' }, { Value: '7.4' }]);
+  },
+  RefDataProjectsApi: class {
+    refDataProjectsGet = mocks.projects;
+    refDataProjectsProjectIdDelete = mocks.deleteProject;
+  },
+  RefDataProjectEnvironmentMappingsApi: class {
+    refDataProjectEnvironmentMappingsGet = () =>
+      of({ Items: [{ EnvironmentId: 2, EnvironmentName: 'UT02' }] });
+  },
+  PropertiesApi: class {
+    propertiesGet = () => of([]);
+  },
+  RequestApi: class {
+    requestBuildDefinitionsGet = () => of([]);
+    requestComponentsGet = () =>
+      of([
+        { Id: 10, Name: 'Parent', ParentId: 0, NumOfChildren: 1 },
+        { Id: 11, Name: 'Nested script', ParentId: 10, NumOfChildren: 0 }
+      ]);
+  },
+  DeploymentDefinitionsApi: class {
+    deploymentDefinitionsHistoryGet = mocks.history;
+    deploymentDefinitionsGet = mocks.definitions;
+  }
+}));
+vi.mock('../../src/apis/dorc-api/apis', async importOriginal => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  RefDataProjectsApi: class {
+    refDataProjectsGet = mocks.projects;
+    refDataProjectsProjectIdDelete = mocks.deleteProject;
+  }
+}));
+
+await import('../../src/pages/page-project-ref-data');
+await import('../../src/pages/page-deployment-definitions');
+await import('../../src/pages/page-deploy');
+const { PageProjectsList } = await import('../../src/pages/page-projects-list');
+
+const reference = () => ({
+  Project: {
+    ProjectId: 7,
+    ProjectName: 'Payments',
+    TerraformGitRepoUrl: 'https://example.invalid/project.git',
+    LeanIXUrl: 'https://example.invalid/inventory'
+  },
+  Revision: 'revision-1',
+  CanEdit: true,
+  CanDeploy: true,
+  Components: [
+    {
+      ComponentId: 10,
+      ComponentName: 'Parent',
+      ComponentType: ComponentType.PowerShell,
+      PSVersion: '5.1',
+      IsEnabled: true,
+      ScriptPath: 'parent.ps1',
+      Children: [
+        {
+          ComponentId: 11,
+          ComponentName: 'Nested script',
+          ComponentType: ComponentType.PowerShell,
+          ParentId: 10,
+          ScriptPath: '{"Path":"nested.ps1","Arguments":{"Scope":"#{Scope}"}}',
+          PSVersion: '7.4',
+          IsEnabled: true,
+          NonProdOnly: true,
+          Children: []
+        }
+      ]
+    }
+  ]
+});
+
+function clickButton(root: ParentNode, label: string) {
+  const button = [
+    ...root.querySelectorAll<HTMLElement>('vaadin-button, button')
+  ].find(element => element.textContent?.trim() === label);
+  expect(button, `button ${label}`).not.to.equal(undefined);
+  button!.click();
+}
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  history.replaceState(null, '', '/project-ref-data/7');
+  mocks.get.mockReturnValue(of(reference()));
+  mocks.save.mockImplementation(({ refDataApiModel }) =>
+    of({ ...refDataApiModel, Revision: 'revision-2' })
+  );
+  mocks.history.mockReturnValue(of({ Items: [], TotalItems: 0 }));
+  mocks.definitions.mockReturnValue(of({ Items: [], TotalItems: 0 }));
+  mocks.projects.mockReturnValue(
+    of([{ ProjectId: 7, ProjectName: 'Payments' }])
+  );
+  mocks.deleteProject.mockReturnValue(of('Project deleted'));
+  mocks.confirm.mockResolvedValue(true);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+  history.replaceState(null, '', '/');
+});
+
+describe('unified reference-data editing', () => {
+  it('preserves nested configuration and project-owned fields through a structured edit and reviewed save', async () => {
+    const page = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+    const treeButton = [
+      ...page.shadowRoot!.querySelectorAll<HTMLButtonElement>('.tree button')
+    ].find(button => button.textContent?.includes('Nested script'));
+    treeButton!.click();
+    await settle();
+    const editor = page.shadowRoot!.querySelector(
+      'deployment-definition-editor'
+    )!;
+    const path = [
+      ...editor.shadowRoot!.querySelectorAll<TextField>('vaadin-text-field')
+    ].find(field => field.label === 'Script path or JSON path')!;
+    path.value = '{"Path":"revised.ps1","Arguments":{"Scope":"#{Scope}"}}';
+    path.dispatchEvent(new Event('change'));
+    await settle();
+    expect(page.shadowRoot!.querySelector('a[href^="/deploy?"]')).to.equal(
+      null
+    );
+    clickButton(page.shadowRoot!, 'Review changes');
+    await settle();
+    expect(mocks.save.mock.calls).to.have.length(0);
+    clickButton(page.shadowRoot!, 'Confirm save');
+    await settle();
+    const saved = mocks.save.mock.calls[0][0].refDataApiModel;
+    expect(saved.Revision).to.equal('revision-1');
+    expect(saved.Project.LeanIXUrl).to.equal(reference().Project.LeanIXUrl);
+    expect(saved.Components[0].Children[0]).to.include({
+      ParentId: 10,
+      PSVersion: '7.4',
+      NonProdOnly: true,
+      ScriptPath: '{"Path":"revised.ps1","Arguments":{"Scope":"#{Scope}"}}'
+    });
+    expect(page.shadowRoot!.textContent).to.include('revision-2');
+  });
+
+  it('uses the loaded revision rather than a JSON-supplied concurrency token', async () => {
+    const page = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+    page.shadowRoot!.querySelector<Tabs>('vaadin-tabs')!.selected = 1;
+    await settle();
+    const json = {
+      ...reference(),
+      Revision: 'forged',
+      Components: [{ ...reference().Components[0], ComponentName: 'Updated' }]
+    };
+    mocks.editor.value = JSON.stringify(json);
+    mocks.editor.change();
+    await settle();
+    clickButton(page.shadowRoot!, 'Review changes');
+    await settle();
+    clickButton(page.shadowRoot!, 'Confirm save');
+    await settle();
+    expect(mocks.save.mock.calls[0][0].refDataApiModel.Revision).to.equal(
+      'revision-1'
+    );
+  });
+
+  it('keeps invalid JSON and failed saves visible instead of discarding edits', async () => {
+    mocks.save.mockReturnValue(
+      throwError(() => ({ response: 'Revision conflict. Reload the project.' }))
+    );
+    const page = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+    const tabs = page.shadowRoot!.querySelector<Tabs>('vaadin-tabs')!;
+    tabs.selected = 1;
+    await settle();
+    mocks.editor.value = '{broken';
+    mocks.editor.change();
+    await settle();
+    tabs.selected = 0;
+    await settle();
+    expect(tabs.selected).to.equal(1);
+    expect(page.shadowRoot!.textContent).to.include(
+      'Invalid reference-data JSON'
+    );
+    expect(mocks.save.mock.calls).to.have.length(0);
+    mocks.editor.value = JSON.stringify({
+      ...reference(),
+      Project: { ...reference().Project, ProjectDescription: 'Keep this edit' }
+    });
+    mocks.editor.change();
+    await settle();
+    clickButton(page.shadowRoot!, 'Review changes');
+    await settle();
+    clickButton(page.shadowRoot!, 'Confirm save');
+    await settle();
+    expect(
+      page.shadowRoot!.querySelector('[role="alert"]')?.textContent
+    ).to.include('Revision conflict');
+    expect(mocks.editor.value).to.include('Keep this edit');
+  });
+
+  for (const source of [undefined, ...Object.values(TerraformSourceType)]) {
+    it(`renders valid fields for ${source ?? 'PowerShell'} without changing hidden configuration`, async () => {
+      const component = {
+        ...reference().Components[0],
+        ComponentType: source
+          ? ComponentType.Terraform
+          : ComponentType.PowerShell,
+        TerraformSourceType: source,
+        TerraformGitBranch: 'release',
+        TerraformSubPath: 'infra',
+        TerraformTemplateName: 'network',
+        TerraformTemplateVersion: '1.0.0'
+      };
+      const editor = await fixture(
+        html`<deployment-definition-editor
+          .component=${component}
+          .project=${reference().Project}
+          .powerShellVersions=${['5.1', '7.4']}
+        ></deployment-definition-editor>`
+      );
+      await settle();
+      const labels = [
+        ...editor.shadowRoot!.querySelectorAll<TextField>('vaadin-text-field')
+      ].map(field => field.label);
+      expect(labels.includes('Git ref')).to.equal(
+        source === TerraformSourceType.Git
+      );
+      expect(labels.includes('Script path or JSON path')).to.equal(!source);
+      expect(labels.includes('Shared folder path')).to.equal(
+        source === TerraformSourceType.SharedFolder
+      );
+      expect(component.TerraformGitBranch).to.equal('release');
+    });
+  }
+
+  it('respects read-only capability and provides an unfiltered project timeline', async () => {
+    mocks.get.mockReturnValue(of({ ...reference(), CanEdit: false }));
+    const page = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+    expect(page.shadowRoot!.textContent).to.include('Read-only');
+    const editor = page.shadowRoot!.querySelector(
+      'deployment-definition-editor'
+    )!;
+    expect(
+      editor.shadowRoot!.querySelector<TextField>('vaadin-text-field')!.readonly
+    ).to.equal(true);
+    page.shadowRoot!.querySelector<Tabs>('vaadin-tabs')!.selected = 2;
+    await settle();
+    expect(mocks.history.mock.calls[0][0]).to.include({
+      projectId: 7,
+      componentId: undefined,
+      page: 1
+    });
+  });
+});
+
+describe('definition history and discovery', () => {
+  it('deletes using the project revision acknowledged before confirmation, not a changed row', async () => {
+    let confirm!: (answer: boolean) => void;
+    mocks.confirm.mockReturnValue(
+      new Promise<boolean>(resolve => {
+        confirm = resolve;
+      })
+    );
+    vi.spyOn(PageProjectsList.prototype, 'render').mockReturnValue(html``);
+    const page = await fixture(html`<page-projects-list></page-projects-list>`);
+    await settle();
+    const project = {
+      ProjectId: 7,
+      ProjectName: 'Payments',
+      Revision: 'before-confirmation'
+    };
+    page.dispatchEvent(
+      new CustomEvent('delete-project', { detail: { Project: project } })
+    );
+    project.Revision = 'changed-while-confirming';
+    confirm(true);
+    await settle();
+    expect(mocks.deleteProject.mock.calls[0][0]).to.deep.equal({
+      projectId: 7,
+      expectedRevision: 'before-confirmation'
+    });
+  });
+  it('does not substitute another current definition for a detached historical component', async () => {
+    history.replaceState(
+      null,
+      '',
+      '/project-ref-data/7?componentId=99&tab=history'
+    );
+    const page = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+    expect(page.shadowRoot!.textContent).to.include('no longer attached');
+    expect(
+      page.shadowRoot!.querySelector('.tree button[aria-pressed="true"]')
+    ).to.equal(null);
+    expect(mocks.history.mock.calls[0][0]).to.include({
+      projectId: 7,
+      componentId: 99
+    });
+  });
+  it('retains a deep-linked project while projects load and selects only the requested nested component', async () => {
+    const projects = new Subject<unknown>();
+    mocks.projects.mockReturnValue(projects);
+    history.replaceState(null, '', '/deploy?projectId=7&componentId=11');
+    const page = await fixture(html`<page-deploy></page-deploy>`);
+    await settle();
+    projects.next([{ ProjectId: 7, ProjectName: 'Payments' }]);
+    await settle();
+    const deploy = page.shadowRoot!.querySelector<DeployEnv>('deploy-env')!;
+    expect(deploy.project?.ProjectId).to.equal(7);
+    expect(deploy.preselectedComponentId).to.equal(11);
+    expect(deploy.envName).to.equal('UT02');
+    const tree = deploy.shadowRoot!.querySelector<HegsTree>('hegs-tree')!;
+    expect(tree.getCheckedComponents().map(node => node.data.id)).to.deep.equal(
+      [11]
+    );
+  });
+  it('ignores a previous scope response and labels legacy evidence honestly', async () => {
+    const stale = new Subject<unknown>();
+    mocks.history.mockReturnValueOnce(stale).mockReturnValueOnce(
+      of({
+        Items: [
+          {
+            Id: 'legacy-1',
+            EventType: 'Legacy audit',
+            Summary: 'Submitted JSON',
+            IsLegacy: true,
+            ProjectId: 8
+          }
+        ],
+        TotalItems: 1
+      })
+    );
+    const historyElement = await fixture<DeploymentDefinitionHistory>(
+      html`<deployment-definition-history
+        .projectId=${7}
+      ></deployment-definition-history>`
+    );
+    await settle();
+    historyElement.projectId = 8;
+    await settle();
+    stale.next({ Items: [{ Summary: 'Wrong project' }], TotalItems: 1 });
+    await settle();
+    expect(historyElement.shadowRoot!.textContent).to.include(
+      'not proof of a successful'
+    );
+    expect(historyElement.shadowRoot!.textContent).not.to.include(
+      'Wrong project'
+    );
+  });
+
+  it('pages definitions on the server and links by project and component identity', async () => {
+    mocks.definitions.mockReturnValue(
+      of({
+        Items: [
+          {
+            ProjectId: 7,
+            ProjectName: 'Payments',
+            Component: {
+              ComponentId: 11,
+              ComponentName: 'Network',
+              ComponentType: ComponentType.Terraform
+            },
+            Revision: 'r1',
+            CanDeploy: true
+          }
+        ],
+        TotalItems: 51
+      })
+    );
+    history.replaceState(null, '', '/deployment-definitions?projectId=7');
+    const page = await fixture(
+      html`<page-deployment-definitions></page-deployment-definitions>`
+    );
+    await settle();
+    expect(mocks.definitions.mock.calls[0][0]).to.include({
+      projectId: 7,
+      page: 1,
+      limit: 50
+    });
+    expect(
+      page.shadowRoot!.querySelector(
+        'a[href="/deploy?projectId=7&componentId=11"]'
+      )
+    ).not.to.equal(null);
+    clickButton(page.shadowRoot!, 'Next');
+    await settle();
+    expect(mocks.definitions.mock.calls[1][0]).to.include({
+      projectId: 7,
+      page: 2
+    });
+  });
+});

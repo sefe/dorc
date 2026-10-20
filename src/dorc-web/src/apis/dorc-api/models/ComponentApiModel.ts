@@ -22,6 +22,11 @@ import type {
  */
 export interface ComponentApiModel {
     /**
+     * @type {Array<ComponentApiModel>}
+     * @memberof ComponentApiModel
+     */
+    Children?: Array<ComponentApiModel> | null;
+    /**
      * @type {number}
      * @memberof ComponentApiModel
      */

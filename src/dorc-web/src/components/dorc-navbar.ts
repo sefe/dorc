@@ -328,6 +328,12 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
         <vaadin-tab>
+          <a href="${urlForName('deployment-definitions')}">
+            <vaadin-icon icon="vaadin:tasks" theme="small"></vaadin-icon>
+            Deployment Definitions
+          </a>
+        </vaadin-tab>
+        <vaadin-tab>
           <a href="${urlForName('scripts')}">
             <vaadin-icon
               icon="inline:powershell-icon"

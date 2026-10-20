@@ -8,8 +8,19 @@ using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 
-namespace Dorc.Monitor.Terraform
+namespace Dorc.Core.Terraform
 {
+    public sealed class TerraformRegistrationOutcome
+    {
+        public string Status { get; set; } = "Unavailable";
+        public bool SnapshotComplete { get; set; }
+        public int RegisteredCount { get; set; }
+        public int FailedCount { get; set; }
+        public int EnvironmentId { get; set; }
+        public List<TerraformInventoryObservation> Observed { get; } = new();
+        public List<string> Warnings { get; } = new();
+    }
+
     /// <summary>
     /// Registers the cloud resources a successful terraform apply created (as
     /// reported by the runner's applied-resources file) against the target
@@ -40,76 +51,105 @@ namespace Dorc.Monitor.Terraform
             _databasesPersistentSource = databasesPersistentSource;
         }
 
-        public void RegisterAppliedResources(string appliedResourcesFilePath, string environmentName, string username)
+        public TerraformRegistrationOutcome RegisterAppliedResources(string appliedResourcesFilePath, string environmentName, string username,
+            int? deploymentResultId = null)
         {
+            if (string.IsNullOrWhiteSpace(appliedResourcesFilePath) || !File.Exists(appliedResourcesFilePath))
+                return new TerraformRegistrationOutcome();
             try
             {
-                var resources = ReadAppliedResources(appliedResourcesFilePath);
-                if (resources.Count == 0) return;
+                return RegisterSnapshot(File.ReadAllText(appliedResourcesFilePath), environmentName, username, deploymentResultId);
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Could not read Terraform inventory snapshot.");
+                return new TerraformRegistrationOutcome { Status = "Failed", FailedCount = 1 };
+            }
+        }
+
+        public TerraformRegistrationOutcome RegisterSnapshot(string json, string environmentName, string username,
+            int? deploymentResultId = null)
+        {
+            var result = new TerraformRegistrationOutcome();
+            try
+            {
+                using var document = JsonDocument.Parse(json);
+                IReadOnlyList<CloudResourceApiModel> resources;
+                if (document.RootElement.ValueKind == JsonValueKind.Array)
+                    resources = JsonSerializer.Deserialize<List<CloudResourceApiModel>>(json)!;
+                else
+                {
+                    var snapshot = JsonSerializer.Deserialize<TerraformInventorySnapshot>(json)
+                        ?? throw new InvalidDataException("Inventory snapshot is missing.");
+                    if (deploymentResultId != snapshot.DeploymentResultId)
+                        throw new InvalidDataException("Inventory snapshot belongs to a different deployment result.");
+                    resources = snapshot.Resources ?? throw new InvalidDataException("Inventory resources are missing.");
+                    result.SnapshotComplete = snapshot.IsComplete;
+                }
 
                 var environment = _environmentsPersistentSource.GetEnvironment(environmentName);
                 if (environment is null)
                 {
                     logger.LogWarning("Terraform applied-resource registration skipped: environment {EnvironmentName} was not found.", environmentName);
-                    return;
+                    return result;
                 }
 
                 var auditUser = string.IsNullOrWhiteSpace(username) ? "DOrc deployment" : username;
+                result.EnvironmentId = environment.EnvironmentId;
                 foreach (var resource in resources)
                 {
+                    TerraformInventoryObservation? observation = null;
                     try
                     {
-                        RegisterResource(resource, environment, auditUser);
+                        observation = new TerraformInventoryObservation
+                        {
+                            CloudResourceId = RegisterResource(resource, environment, auditUser),
+                            ResourceIdentifier = resource.ResourceIdentifier
+                        };
+                        result.Observed.Add(observation);
+                        result.RegisteredCount++;
                     }
                     catch (Exception ex)
                     {
+                        result.FailedCount++;
+                        if (result.Warnings.Count < 20) result.Warnings.Add($"Cloud registration failed for {resource.Name[..Math.Min(resource.Name.Length, 128)]}; review definition identity and request logs.");
                         logger.LogWarning(ex, "Could not register terraform-applied cloud resource {ResourceName} ({ResourceType}, {Provider}) on environment {EnvironmentName}.",
                             resource.Name, resource.ResourceType, resource.Provider, environmentName);
                     }
 
                     try
                     {
-                        RegisterDatabase(resource, environment);
+                        var databaseId = RegisterDatabase(resource, environment);
+                        if (observation != null) observation.DatabaseId = databaseId;
                     }
                     catch (Exception ex)
                     {
+                        result.FailedCount++;
+                        if (result.Warnings.Count < 20) result.Warnings.Add($"Database registration failed for {resource.Name[..Math.Min(resource.Name.Length, 128)]}; review database identity and request logs.");
                         logger.LogWarning(ex, "Could not register terraform-applied database {ResourceName} ({ResourceType}) on environment {EnvironmentName}.",
                             resource.Name, resource.ResourceType, environmentName);
                     }
                 }
+                result.Status = result.FailedCount > 0 ? "PartialFailure" : result.SnapshotComplete ? "Succeeded" : "IncompleteExport";
             }
             catch (Exception ex)
             {
+                result.Status = "Failed";
+                result.FailedCount++;
                 logger.LogWarning(ex, "Terraform applied-resource registration failed for environment {EnvironmentName}. The deployment itself succeeded.", environmentName);
             }
+            return result;
         }
 
-        private IReadOnlyList<CloudResourceApiModel> ReadAppliedResources(string appliedResourcesFilePath)
+        private int RegisterResource(CloudResourceApiModel resource, EnvironmentApiModel environment, string username)
         {
-            if (string.IsNullOrWhiteSpace(appliedResourcesFilePath) || !File.Exists(appliedResourcesFilePath))
-            {
-                // The runner only writes the file when the apply both succeeded
-                // and the state was readable; absence is a normal outcome.
-                return Array.Empty<CloudResourceApiModel>();
-            }
-
-            var json = File.ReadAllText(appliedResourcesFilePath);
-            return JsonSerializer.Deserialize<List<CloudResourceApiModel>>(json) ?? new List<CloudResourceApiModel>();
+            return _cloudResourcesPersistentSource.ExecuteMutation(() => RegisterResourceCore(resource, environment, username));
         }
 
-        private void RegisterResource(CloudResourceApiModel resource, EnvironmentApiModel environment, string username)
-        {
-            _cloudResourcesPersistentSource.ExecuteMutation(() =>
-            {
-                RegisterResourceCore(resource, environment, username);
-                return true;
-            });
-        }
-
-        private void RegisterResourceCore(CloudResourceApiModel resource, EnvironmentApiModel environment, string username)
+        private int RegisterResourceCore(CloudResourceApiModel resource, EnvironmentApiModel environment, string username)
         {
             var persisted = Upsert(resource, username);
-            if (persisted is null) return;
+            if (persisted is null) throw new InvalidOperationException("Cloud resource identity is ambiguous.");
 
             var outcome = _cloudResourcesPersistentSource.AttachToEnvironment(persisted.Id, environment.EnvironmentId);
             switch (outcome)
@@ -127,6 +167,7 @@ namespace Dorc.Monitor.Terraform
                 default:
                     throw new InvalidOperationException($"Could not attach cloud resource {persisted.Id} to environment {environment.EnvironmentId}: {outcome}.");
             }
+            return persisted.Id;
         }
 
         private CloudResourceApiModel? Upsert(CloudResourceApiModel resource, string username)
@@ -200,10 +241,10 @@ namespace Dorc.Monitor.Terraform
         /// cosmos ids are ARM paths through 'databaseAccounts/{account}',
         /// Aiven ClickHouse and PostgreSQL ids are 'project/service/database'.
         /// </summary>
-        private void RegisterDatabase(CloudResourceApiModel resource, EnvironmentApiModel environment)
+        private int? RegisterDatabase(CloudResourceApiModel resource, EnvironmentApiModel environment)
         {
             var database = MapDatabase(resource);
-            if (database is null) return;
+            if (database is null) return null;
 
             var existing = _databasesPersistentSource
                 .GetDatabases(database.Name, database.ServerName)
@@ -219,7 +260,7 @@ namespace Dorc.Monitor.Terraform
             {
                 logger.LogWarning("Could not add database {DatabaseName} on {ServerName} for environment {EnvironmentName}.",
                     database.Name, database.ServerName, environment.EnvironmentName);
-                return;
+                throw new InvalidOperationException("The database registration could not be persisted.");
             }
 
             try
@@ -234,6 +275,7 @@ namespace Dorc.Monitor.Terraform
             {
                 // Already attached - the expected outcome on redeployments.
             }
+            return persisted.Id;
         }
 
         private static DatabaseApiModel? MapDatabase(CloudResourceApiModel resource)

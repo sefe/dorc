@@ -16,7 +16,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         void CreateComponent(ComponentApiModel apiComponent, int projectId, int? parentId, string username);
 
         CatalogComponentCreation CreateCatalogComponent(
-            ComponentApiModel component, int projectId, int? parentId, bool allowReuse);
+            ComponentApiModel component, int projectId, int? parentId, bool allowReuse, string actor = "");
 
         void DeleteComponents(IList<ComponentApiModel> apiComponents, int projectId, string username);
 

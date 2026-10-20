@@ -22,6 +22,11 @@ import type {
  */
 export interface ProjectApiModel {
     /**
+     * @type {string}
+     * @memberof ProjectApiModel
+     */
+    Revision?: string | null;
+    /**
      * @type {number}
      * @memberof ProjectApiModel
      */

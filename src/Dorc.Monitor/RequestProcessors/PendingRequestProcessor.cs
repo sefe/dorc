@@ -128,8 +128,7 @@ namespace Dorc.Monitor.RequestProcessors
 
                         var deploymentRequestStatus = DeploymentRequestStatus.Completed;
 
-                        var orderedNonSkippedComponents = GetOrderedNonSkippedComponents(
-                            requestDetail);
+                        var orderedNonSkippedComponents = requestsPersistentSource.GetSubmittedComponents(requestToExecute.Request.Id);
 
                         logger.LogInformation($"Found {orderedNonSkippedComponents.Count} non-skipped components for request {requestToExecute.Request.Id}:");
 
@@ -465,32 +464,6 @@ namespace Dorc.Monitor.RequestProcessors
             return true;
         }
 
-        private IList<ComponentApiModel> GetOrderedNonSkippedComponents(
-            DeploymentRequestDetail requestDetails)
-        {
-            logger.LogDebug("Getting ordered non-skipped components.");
-
-            var orderedComponents =
-                manageProjectsPersistentSource.GetOrderedComponents(requestDetails.Components);
-
-            var orderedNonSkippedComponents = new List<ComponentApiModel>();
-
-            foreach (var component in orderedComponents)
-            {
-                if (requestDetails.ComponentsToSkip == null
-                    || !requestDetails.ComponentsToSkip.Contains(component.ComponentName))
-                {
-                    orderedNonSkippedComponents.Add(component);
-
-                }
-                else
-                {
-                    logger.LogInformation($"Skipping component '{component.ComponentName}'.");
-                }
-            }
-
-            return orderedNonSkippedComponents;
-        }
 
         private IDictionary<string, VariableValue> GetCommonProperties(bool environmentIsProd)
         {

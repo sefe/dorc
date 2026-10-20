@@ -1,5 +1,5 @@
 using Dorc.ApiModel;
-using Dorc.Monitor.Terraform;
+using Dorc.Core.Terraform;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -29,8 +29,8 @@ namespace Dorc.Monitor.Tests.Terraform
         public void Setup()
         {
             _cloudResources = Substitute.For<ICloudResourcesPersistentSource>();
-            _cloudResources.ExecuteMutation(Arg.Any<Func<bool>>())
-                .Returns(call => call.Arg<Func<bool>>()());
+            _cloudResources.ExecuteMutation(Arg.Any<Func<int>>())
+                .Returns(call => call.Arg<Func<int>>()());
             _cloudResources.GetByIdentity(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
                 .Returns(Array.Empty<CloudResourceApiModel>());
             _audit = Substitute.For<ICloudResourceAuditPersistentSource>();

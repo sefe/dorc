@@ -77,6 +77,15 @@ export class HegsTreeNode extends LitElement {
     this.open = this.data.open;
   }
 
+  protected updated(changed: PropertyValues) {
+    super.updated(changed);
+    if (changed.has('data')) {
+      this.open = this.data.open;
+      this.checked = this.data.checked;
+      this.indeterminate = this.data.indeterminate;
+    }
+  }
+
   ResetCheckedStates() {
     const elems = this.shadowRoot?.querySelectorAll('[id=hegs-tree-node]');
     elems?.forEach(elem => {
@@ -87,6 +96,7 @@ export class HegsTreeNode extends LitElement {
       console.log(`Setting indeterminate to false for ${this.data.name}`);
       this.setIndeterminateState(false);
     }
+
     if (this.checked) {
       console.log(`Setting checked to false for ${this.data.name}`);
       this.setCheckedState(false);

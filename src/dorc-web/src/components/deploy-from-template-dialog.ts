@@ -30,7 +30,10 @@ import {
   TerraformParameterResolutionStatus,
   TerraformSourceType,
   TerraformTemplateManifest,
-  TerraformTemplateParameter
+  TerraformTemplateParameter,
+  TerraformReadinessApiModel,
+  CatalogEnvironmentInputsApiModel,
+  CatalogUpgradePreviewApiModel
 } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import {
@@ -42,6 +45,7 @@ import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 export interface TemplateDeploymentContext {
   projectName?: string;
   environmentName?: string;
+  componentId?: number;
 }
 
 const STEPS = [
@@ -72,8 +76,7 @@ export const overrideError = (
   value: string
 ): string | null => {
   if (value === '') {
-    if (p.Required)
-      return 'Enter a value, or use the environment value instead.';
+    if (p.Required) return 'Enter a value, or remove this request override.';
     if (p.Type !== 'Number' && p.Type !== 'Bool') return null;
   }
   if (p.AllowedValues?.length && !p.AllowedValues.includes(value)) {
@@ -544,6 +547,14 @@ export class DeployFromTemplateDialog extends LitElement {
   > | null = null;
   @state() private resolutionLoading = false;
   @state() private resolutionError: string | null = null;
+  @state() private readiness: TerraformReadinessApiModel | null = null;
+  @state() private savedConfiguration: CatalogEnvironmentInputsApiModel | null =
+    null;
+  private submissionIdentity: { payload: string; key: string } | null = null;
+  @state() private upgradePreview: CatalogUpgradePreviewApiModel | null = null;
+  @state() private upgradeImpactConfirmed = false;
+  @state() private preserveExistingService = false;
+  @state() private secureInputNames: string[] = [];
 
   private projectsApi = new RefDataProjectsApi(dorcApiConfiguration);
   private componentsApi = new RefDataComponentsApi(dorcApiConfiguration);
@@ -565,6 +576,8 @@ export class DeployFromTemplateDialog extends LitElement {
     if (this.submitting) return;
     const token = ++this.requestToken;
     this.template = template;
+    this.secureInputNames = [];
+    this.upgradePreview = null;
     this.context = context;
     this.componentName = template.Name;
     this.selectedProject = null;
@@ -607,6 +620,7 @@ export class DeployFromTemplateDialog extends LitElement {
     if (this.selectedProject === project) return;
     const token = ++this.requestToken;
     this.selectedProject = project;
+    this.upgradePreview = null;
     this.selectedComponent = null;
     this.selectedEnvironmentName = '';
     this.environments = [];
@@ -635,6 +649,20 @@ export class DeployFromTemplateDialog extends LitElement {
         this.targetLoading = false;
         this.createNew = this.reusableComponents.length === 0;
         this.selectedComponent = this.reusableComponents[0] ?? null;
+        if (
+          this.context.componentId &&
+          project.ProjectName === this.context.projectName
+        ) {
+          this.createNew = false;
+          this.selectedComponent =
+            this.reusableComponents.find(
+              component => component.ComponentId === this.context.componentId
+            ) ?? null;
+          if (!this.selectedComponent) {
+            this.error =
+              'The linked component is unavailable, disabled or pinned to another module version. Reload its definition or explicitly select an upgrade; no replacement component has been selected.';
+          }
+        }
         const environment = this.environments.find(
           e => e.EnvironmentName === this.context.environmentName
         );
@@ -662,6 +690,17 @@ export class DeployFromTemplateDialog extends LitElement {
     );
   }
 
+  private get upgradeCandidates() {
+    return this.components.filter(
+      component =>
+        component.ComponentType === ComponentType.Terraform &&
+        component.TerraformSourceType === TerraformSourceType.Catalog &&
+        component.TerraformTemplateName === this.template?.Name &&
+        component.TerraformTemplateVersion !== this.template?.Version &&
+        component.IsEnabled !== false
+    );
+  }
+
   private get targetComponentName() {
     return this.createNew
       ? this.componentName.trim()
@@ -669,20 +708,18 @@ export class DeployFromTemplateDialog extends LitElement {
   }
 
   private get parameters(): TerraformTemplateParameter[] {
-    return this.template?.Parameters ?? [];
-  }
-
-  private get overrideCount() {
-    return Object.keys(this.paramValues).length;
-  }
-
-  private get requiredCount() {
-    return this.parameters.filter(p => p.Required).length;
+    return (this.template?.Parameters ?? []).map(parameter => ({
+      ...parameter,
+      Sensitive:
+        parameter.Sensitive || this.secureInputNames.includes(parameter.Name)
+    }));
   }
 
   private clearResolution() {
     this.resolutionToken += 1;
     this.resolution = null;
+    this.readiness = null;
+    this.savedConfiguration = null;
     this.resolutionLoading = false;
     this.resolutionError = null;
   }
@@ -764,7 +801,10 @@ export class DeployFromTemplateDialog extends LitElement {
         name: this.template.Name,
         version: this.template.Version,
         projectId: this.selectedProject.ProjectId,
-        environmentName: this.selectedEnvironmentName
+        environmentName: this.selectedEnvironmentName,
+        componentId: this.createNew
+          ? undefined
+          : (this.selectedComponent?.ComponentId ?? undefined)
       })
       .subscribe({
         next: data => {
@@ -772,6 +812,11 @@ export class DeployFromTemplateDialog extends LitElement {
           this.resolution = Object.fromEntries(
             (data?.Parameters ?? []).map(r => [r.Name, r.Status])
           );
+          this.secureInputNames = (data?.Parameters ?? [])
+            .filter(parameter => parameter.Sensitive)
+            .map(parameter => parameter.Name);
+          this.readiness = data?.Readiness ?? null;
+          this.savedConfiguration = data?.SavedConfiguration ?? null;
           this.resolutionLoading = false;
           this.prefillFromEnvironmentCloudResources();
         },
@@ -789,6 +834,40 @@ export class DeployFromTemplateDialog extends LitElement {
     p: TerraformTemplateParameter
   ): TerraformParameterResolutionStatus | null {
     return this.resolution?.[p.Name] ?? null;
+  }
+
+  private sourceLabel(p: TerraformTemplateParameter): string {
+    if (this.resolutionLoading) return 'Checking';
+    if (this.resolutionError) return 'Not checked';
+    switch (this.statusOf(p)) {
+      case TerraformParameterResolutionStatus.Environment:
+        return 'DOrc-resolved';
+      case TerraformParameterResolutionStatus.Default:
+        return 'Module default';
+      case TerraformParameterResolutionStatus.SavedConfiguration:
+        return 'Saved component configuration';
+      case TerraformParameterResolutionStatus.Missing:
+        return 'Missing';
+      case TerraformParameterResolutionStatus.Unset:
+        return 'Not set';
+      default:
+        return 'Not checked';
+    }
+  }
+
+  private get inputSourceSummary(): string {
+    const counts = new Map<string, number>();
+    for (const parameter of this.parameters) {
+      const label =
+        parameter.Name in this.paramValues
+          ? 'Override'
+          : this.sourceLabel(parameter);
+      counts.set(label, (counts.get(label) ?? 0) + 1);
+    }
+    return (
+      [...counts].map(([label, count]) => `${label}: ${count}`).join(' · ') ||
+      'No inputs'
+    );
   }
 
   /** Required inputs the target cannot supply and the user has not overridden. */
@@ -908,7 +987,13 @@ export class DeployFromTemplateDialog extends LitElement {
           this.error,
           this.resolution,
           this.resolutionLoading,
-          this.resolutionError
+          this.resolutionError,
+          this.readiness,
+          this.savedConfiguration,
+          this.secureInputNames,
+          this.upgradePreview,
+          this.upgradeImpactConfirmed,
+          this.preserveExistingService
         ])}
         ${dialogFooterRenderer(this.footerRenderer, [
           this.template,
@@ -919,7 +1004,9 @@ export class DeployFromTemplateDialog extends LitElement {
           this.targetLoading,
           this.resolution,
           this.resolutionLoading,
-          this.selectedEnvironmentName
+          this.resolutionError,
+          this.selectedEnvironmentName,
+          this.secureInputNames
         ])}
       ></vaadin-dialog>
     `;
@@ -944,6 +1031,7 @@ export class DeployFromTemplateDialog extends LitElement {
             : nothing
         }
         ${this.step === 0 ? this.targetRenderer() : this.step === 1 ? this.inputsRenderer() : this.reviewRenderer()}
+        ${this.step > 0 ? this.readinessRenderer() : nothing}
       </div>
     </div>
   `;
@@ -956,11 +1044,9 @@ export class DeployFromTemplateDialog extends LitElement {
         ? `${this.selectedProject?.ProjectName} · ${this.selectedEnvironmentName} · ${this.createNew ? 'new' : 'reuse'} ${this.targetComponentName}`
         : STEPS[0].hint,
       this.step > 1
-        ? this.overrideCount
-          ? `${this.overrideCount} override${this.overrideCount === 1 ? '' : 's'}`
-          : 'All inherited from the environment'
+        ? this.inputSourceSummary
         : this.step === 1 && this.resolution
-          ? `${this.requiredCount - this.missingInputs.length} of ${this.requiredCount} required resolved`
+          ? this.inputSourceSummary
           : STEPS[1].hint,
       STEPS[2].hint
     ];
@@ -1017,12 +1103,52 @@ export class DeployFromTemplateDialog extends LitElement {
     `;
   }
 
+  private readinessRenderer() {
+    if (!this.readiness)
+      return html`<p class="notice">
+        Target readiness not checked. Runner settings and cloud access must be
+        verified before approval.
+      </p>`;
+    return html`<section class="notice" aria-label="Target readiness">
+      <h3>Target readiness — configuration only</h3>
+      <p>
+        Workload: ${this.readiness.WorkloadTarget || 'Unknown or not disclosed'}
+      </p>
+      <p>Azure target: ${this.readiness.AzureTargetSource}</p>
+      <p>
+        Azure credentials (workload and state):
+        ${this.readiness.AzureCredentialMode}
+      </p>
+      <p>Aiven credentials: ${this.readiness.AivenCredentialMode}</p>
+      <p>
+        Target identifiers above are non-secret configuration, not verified
+        access. Secret and unrecognised target values remain hidden. One-off
+        overrides may change the target; review the final plan.
+      </p>
+      <p>Backend: ${this.readiness.BackendStatus}</p>
+      <p>${this.readiness.AccessStatus}</p>
+      ${(this.readiness.Warnings ?? []).map(warning => html`<p>${warning}</p>`)}
+      ${
+        (this.readiness.InvalidInputs ?? []).filter(
+          name => !(name in this.paramValues)
+        ).length
+          ? html`<p>
+              Missing or invalid inherited inputs:
+              ${(this.readiness.InvalidInputs ?? []).filter(name => !(name in this.paramValues)).join(', ')}.
+              Supply valid overrides or correct the environment configuration.
+            </p>`
+          : nothing
+      }
+    </section>`;
+  }
+
   private targetRenderer = () => html`
     <p class="lead">
       A module becomes a project component. Pick the mapped environment it
       should run in, then reuse an existing component to update its
       infrastructure or create a new one for separate infrastructure.
     </p>
+    ${this.upgradeRenderer()}
     <div class="form">
       <vaadin-combo-box
         label="Project"
@@ -1125,7 +1251,9 @@ export class DeployFromTemplateDialog extends LitElement {
       <p class="lead">
         Values come from
         <strong>${this.selectedEnvironmentName}</strong> environment properties,
-        then module defaults. Override only what should differ for this request.
+        then module defaults. Explicit saved component/environment inputs take
+        precedence over inherited values; request overrides take precedence over
+        saved inputs. Override only what should differ for this request.
         Inherited values, including secrets, are never loaded into this form.
         <a
           href="/environment/${encodeURIComponent(this.selectedEnvironmentName)}/variables"
@@ -1134,6 +1262,29 @@ export class DeployFromTemplateDialog extends LitElement {
           >Manage environment variables</a
         >
       </p>
+      ${
+        !this.createNew && this.selectedComponent?.ComponentId
+          ? html` <section
+              class="notice"
+              aria-label="Saved component configuration"
+            >
+              <h3>Repeat-deployment inputs</h3>
+              <p>
+                Saved for this component in ${this.selectedEnvironmentName}:
+                ${(this.savedConfiguration?.ParameterNames ?? []).join(', ') || 'None'}.
+                Saving replaces this list with the current non-sensitive
+                overrides. Omitted saved inputs are removed. Secret overrides
+                remain one-off. Submitting a plan alone does not save
+                configuration.
+              </p>
+              <vaadin-button
+                .disabled=${this.submitting || this.resolutionLoading || !this.savedConfiguration}
+                @click=${() => this.saveConfiguration()}
+                >Replace saved non-secret inputs</vaadin-button
+              >
+            </section>`
+          : nothing
+      }
       ${
         this.resolutionError
           ? html`<div class="notice" role="status">
@@ -1183,45 +1334,31 @@ export class DeployFromTemplateDialog extends LitElement {
       !overridden && status === TerraformParameterResolutionStatus.Missing;
     const env = this.selectedEnvironmentName;
     const lock = html`<vaadin-icon icon="vaadin:lock"></vaadin-icon>`;
-    const check = html`<vaadin-icon icon="vaadin:check"></vaadin-icon>`;
     // Labels are built as single strings so the rendered text never carries
     // template line breaks (tests and screen readers both read textContent).
     const badge = overridden
       ? message
         ? html`<span class="badge badge-invalid">Needs a value</span>`
         : html`<span class="badge badge-override">Override</span>`
-      : missing
-        ? html`<span class="badge badge-invalid"
-            >${p.Sensitive ? lock : nothing}${`Missing in ${env}`}</span
-          >`
-        : status === TerraformParameterResolutionStatus.Unset
-          ? html`<span class="badge badge-default">Not set</span>`
-          : p.Sensitive
-            ? html`<span class="badge badge-sensitive"
-                >${lock}${`Sensitive · ${status === TerraformParameterResolutionStatus.Environment ? env : 'environment'}`}</span
-              >`
-            : status === TerraformParameterResolutionStatus.Environment
-              ? html`<span class="badge badge-inherit"
-                  >${check}${`From ${env}`}</span
-                >`
-              : p.Default != null
-                ? html`<span class="badge badge-default"
-                    >${`Default: ${p.Default}`}</span
-                  >`
-                : html`<span class="badge badge-inherit"
-                    >${check}Environment</span
-                  >`;
-    const source = missing
-      ? `No environment property named ${p.Name} in ${env}. Override it for this request, or add the property.`
-      : status === TerraformParameterResolutionStatus.Unset
-        ? `Not set in ${env} and no module default; the module runs without it.`
-        : p.Sensitive
-          ? 'Supplied via a sensitive environment property; never shown here.'
-          : status === TerraformParameterResolutionStatus.Environment
-            ? `Resolved from the ${env} environment property.`
-            : status === TerraformParameterResolutionStatus.Default
-              ? `No environment property in ${env}; the module default applies.`
-              : 'Resolved from the environment property, otherwise the module default.';
+      : html`<span
+          class="badge ${missing ? 'badge-invalid' : p.Sensitive ? 'badge-sensitive' : 'badge-default'}"
+          >${p.Sensitive ? lock : nothing}${this.sourceLabel(p)}</span
+        >`;
+    const source = this.resolutionLoading
+      ? 'Checking input sources; values are not loaded into this form.'
+      : this.resolutionError || status === null
+        ? 'Input source not checked. The server validates inputs on submission.'
+        : missing
+          ? `No environment property named ${p.Name} in ${env}. Override it for this request, or add the property.`
+          : status === TerraformParameterResolutionStatus.Unset
+            ? `Not set in ${env} and no module default; the module runs without it.`
+            : status === TerraformParameterResolutionStatus.SavedConfiguration
+              ? 'Explicitly saved for this component and environment; snapshotted when a request is created.'
+              : status === TerraformParameterResolutionStatus.Environment
+                ? `Resolved by DOrc for ${env}, including environment/global properties and configured fallbacks.`
+                : status === TerraformParameterResolutionStatus.Default
+                  ? `No environment property in ${env}; the module default applies.`
+                  : 'Input source not checked.';
     return html`
       <div
         class="param"
@@ -1256,9 +1393,9 @@ export class DeployFromTemplateDialog extends LitElement {
                   }
                   <vaadin-button
                     theme="tertiary small"
-                    aria-label="Use environment value for ${p.Name}"
+                    aria-label="Remove request override for ${p.Name}"
                     @click=${() => this.setOverride(p, false)}
-                    >Use environment value</vaadin-button
+                    >Remove request override</vaadin-button
                   >
                 </div>
               `
@@ -1381,7 +1518,7 @@ export class DeployFromTemplateDialog extends LitElement {
                       ${p.Sensitive ? 'Sensitive override (hidden)' : this.paramValues[p.Name] || '(empty override)'}
                     </td>`
                   : html`<td class="muted">
-                      Environment property / module default
+                      ${this.sourceLabel(p)}${p.Sensitive ? ' (sensitive, hidden)' : ''}
                     </td>`
               }
             </tr>
@@ -1414,11 +1551,7 @@ export class DeployFromTemplateDialog extends LitElement {
                 >Checking ${this.selectedEnvironmentName} properties…</span
               >`
             : html`<span class="footer-status">
-                ${
-                  this.overrideCount
-                    ? `${this.overrideCount} override${this.overrideCount === 1 ? '' : 's'} for this request`
-                    : 'Everything inherits from the environment'
-                }
+                ${this.inputSourceSummary}
               </span>`
         : html`<span class="footer-status"></span>`;
     return html`
@@ -1481,6 +1614,212 @@ export class DeployFromTemplateDialog extends LitElement {
     this.clearResolution();
     this.paramValues = {};
     this.error = null;
+    this.submissionIdentity = null;
+  }
+
+  private upgradeRenderer() {
+    if (!this.upgradeCandidates.length) return nothing;
+    return html`<section class="notice">
+      <h3>Upgrade an existing component</h3>
+      <p>
+        Keep component and state identity. The shared version pin affects every
+        mapped environment.
+      </p>
+      ${this.upgradeCandidates.map(
+        component =>
+          html`<vaadin-button
+            .disabled=${this.submitting}
+            @click=${() => this.previewUpgrade(component)}
+            >Review ${component.ComponentName}:
+            ${component.TerraformTemplateVersion} →
+            ${this.template?.Version}</vaadin-button
+          >`
+      )}
+      ${
+        this.upgradePreview
+          ? html`
+              <p>
+                Version ${this.upgradePreview.CurrentVersion} →
+                ${this.upgradePreview.TargetVersion}
+              </p>
+              <p>
+                Affected environments:
+                ${(this.upgradePreview.Environments ?? []).map(environment => environment.EnvironmentName).join(', ') || 'None currently mapped'}.
+              </p>
+              <ul>
+                ${(this.upgradePreview.InputChanges ?? []).map(change => html`<li>${change}</li>`)}
+              </ul>
+              <vaadin-checkbox
+                .checked=${this.upgradeImpactConfirmed}
+                @checked-changed=${(event: CustomEvent<{ value: boolean }>) => {
+                  this.upgradeImpactConfirmed = event.detail.value;
+                }}
+                label="I confirm the impact on all listed environments. Nothing will be deployed; each environment needs a fresh plan and approval."
+              ></vaadin-checkbox>
+              ${
+                this.upgradePreview.RequiresExistingServiceOwnership
+                  ? html`<vaadin-checkbox
+                      .checked=${this.preserveExistingService}
+                      @checked-changed=${(
+                        event: CustomEvent<{ value: boolean }>
+                      ) => {
+                        this.preserveExistingService = event.detail.value;
+                      }}
+                      label="Explicitly save create_service=false in every mapped environment to preserve externally managed services. This does not import or adopt resources."
+                    ></vaadin-checkbox>`
+                  : nothing
+              }
+              <vaadin-button
+                .disabled=${
+                  this.submitting ||
+                  !this.upgradeImpactConfirmed ||
+                  (!!this.upgradePreview.RequiresExistingServiceOwnership &&
+                    !this.preserveExistingService)
+                }
+                @click=${() => this.upgradeComponent()}
+                >Upgrade shared pin only</vaadin-button
+              >
+            `
+          : nothing
+      }
+    </section>`;
+  }
+
+  private previewUpgrade(component: ComponentApiModel) {
+    if (
+      !this.template ||
+      !this.selectedProject?.ProjectId ||
+      !component.ComponentId ||
+      this.submitting
+    )
+      return;
+    this.submitting = true;
+    this.error = null;
+    this.upgradePreview = null;
+    this.upgradeImpactConfirmed = false;
+    this.preserveExistingService = false;
+    this.terraformApi
+      .terraformUpgradePreviewGet({
+        componentId: component.ComponentId,
+        projectId: this.selectedProject.ProjectId,
+        name: this.template.Name,
+        version: this.template.Version
+      })
+      .subscribe({
+        next: preview => {
+          this.upgradePreview = preview;
+          this.submitting = false;
+        },
+        error: error => {
+          this.error =
+            retrieveErrorMessage(error) ?? 'Could not load upgrade impact.';
+          this.submitting = false;
+        }
+      });
+  }
+
+  private upgradeComponent() {
+    const preview = this.upgradePreview;
+    if (
+      !preview?.ComponentId ||
+      !this.template ||
+      !this.selectedProject?.ProjectId ||
+      this.submitting ||
+      !this.upgradeImpactConfirmed
+    )
+      return;
+    this.submitting = true;
+    this.error = null;
+    this.terraformApi
+      .terraformUpgradePost({
+        componentId: preview.ComponentId,
+        projectId: this.selectedProject.ProjectId,
+        name: this.template.Name,
+        version: this.template.Version,
+        catalogUpgradeRequestApiModel: {
+          ExpectedRevision: preview.Revision,
+          ExpectedVersion: preview.CurrentVersion,
+          EnvironmentIds: (preview.Environments ?? []).map(
+            environment => environment.EnvironmentId!
+          ),
+          ConfigurationRevisions: preview.ConfigurationRevisions,
+          ConfirmImpact: this.upgradeImpactConfirmed,
+          PreserveExistingServiceOwnership: this.preserveExistingService
+        }
+      })
+      .subscribe({
+        next: () => {
+          this.components = this.components.map(component =>
+            component.ComponentId === preview.ComponentId
+              ? {
+                  ...component,
+                  TerraformTemplateVersion: preview.TargetVersion
+                }
+              : component
+          );
+          this.selectedComponent =
+            this.components.find(
+              component => component.ComponentId === preview.ComponentId
+            ) ?? null;
+          this.createNew = false;
+          this.upgradePreview = null;
+          this.submitting = false;
+          this.clearResolution();
+          this.submissionIdentity = null;
+        },
+        error: error => {
+          this.error =
+            retrieveErrorMessage(error) ??
+            'Upgrade refused. Reload impact and review active requests.';
+          this.submitting = false;
+        }
+      });
+  }
+
+  private saveConfiguration() {
+    if (
+      !this.template ||
+      !this.selectedProject?.ProjectId ||
+      !this.selectedComponent?.ComponentId ||
+      !this.savedConfiguration ||
+      this.submitting
+    )
+      return;
+    this.submitting = true;
+    this.error = null;
+    const inputs = Object.fromEntries(
+      this.parameters
+        .filter(
+          parameter =>
+            !parameter.Sensitive && parameter.Name in this.paramValues
+        )
+        .map(parameter => [parameter.Name, this.paramValues[parameter.Name]])
+    );
+    this.terraformApi
+      .terraformTemplateConfigurationPut({
+        name: this.template.Name,
+        version: this.template.Version,
+        projectId: this.selectedProject.ProjectId,
+        componentId: this.selectedComponent.ComponentId,
+        environmentName: this.selectedEnvironmentName,
+        saveCatalogEnvironmentInputsApiModel: {
+          ExpectedRevision: this.savedConfiguration.Revision ?? 0,
+          Inputs: inputs
+        }
+      })
+      .subscribe({
+        next: () => {
+          this.submitting = false;
+          this.submissionIdentity = null;
+          this.loadResolution();
+        },
+        error: error => {
+          this.submitting = false;
+          this.error =
+            retrieveErrorMessage(error) ??
+            'Could not save inputs. Reload and review the current configuration.';
+        }
+      });
   }
 
   private submit() {
@@ -1490,11 +1829,23 @@ export class DeployFromTemplateDialog extends LitElement {
     this.error = null;
     const componentName = this.targetComponentName;
     const environmentName = this.selectedEnvironmentName;
+    const payload = JSON.stringify([
+      this.template.Name,
+      this.template.Version,
+      this.selectedProject.ProjectId,
+      componentName,
+      environmentName,
+      this.createNew ? null : this.selectedComponent?.ParentId || null,
+      Object.entries(this.paramValues).sort(([a], [b]) => a.localeCompare(b))
+    ]);
+    if (this.submissionIdentity?.payload !== payload)
+      this.submissionIdentity = { payload, key: crypto.randomUUID() };
     this.terraformApi
       .terraformTemplateInstantiatePost({
         name: this.template.Name,
         version: this.template.Version,
         body: {
+          SubmissionKey: this.submissionIdentity.key,
           ProjectId: this.selectedProject.ProjectId,
           ComponentName: componentName,
           ParentComponentId: this.createNew

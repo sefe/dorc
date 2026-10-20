@@ -32,6 +32,10 @@ namespace Dorc.PersistentData.Contexts
         }
 
         public DbSet<AccessControl> AccessControls { get; set; }
+        public DbSet<DeploymentDefinitionChange> DeploymentDefinitionChanges { get; set; }
+        public DbSet<DeploymentDefinitionRevision> DeploymentDefinitionRevisions { get; set; }
+        public DbSet<DeploymentRequestDefinition> DeploymentRequestDefinitions { get; set; }
+        public DbSet<PowerShellExecutionReceipt> PowerShellExecutionReceipts { get; set; }
         public DbSet<AdGroup> AdGroups { get; set; }
         public DbSet<Audit> Audits { get; set; }
         public DbSet<AuditProperty> AuditProperties { get; set; }
@@ -46,6 +50,13 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<DeploymentRequest> DeploymentRequests { get; set; }
         public DbSet<DeploymentResult> DeploymentResults { get; set; }
         public DbSet<TerraformPlanApproval> TerraformPlanApprovals { get; set; }
+        public DbSet<TerraformDeploymentReceipt> TerraformDeploymentReceipts { get; set; }
+        public DbSet<CatalogSubmission> CatalogSubmissions { get; set; }
+        public DbSet<CatalogEnvironmentInputs> CatalogEnvironmentInputs { get; set; }
+        public DbSet<CatalogRequestInputs> CatalogRequestInputs { get; set; }
+        public DbSet<CatalogModuleUpgrade> CatalogModuleUpgrades { get; set; }
+        public DbSet<TerraformDeploymentOutcome> TerraformDeploymentOutcomes { get; set; }
+        public DbSet<TerraformInventoryProvenance> TerraformInventoryProvenance { get; set; }
         public DbSet<DeploymentsByProjectDate> AnalyticsDeploymentsByProjectDate { get; set; }
         public DbSet<DeploymentsByProjectMonth> AnalyticsDeploymentsByProjectMonth { get; set; }
         public DbSet<AnalyticsEnvironmentUsage> AnalyticsEnvironmentUsage { get; set; }
@@ -105,6 +116,122 @@ namespace Dorc.PersistentData.Contexts
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            modelBuilder.Entity<Dorc.ApiModel.DeploymentDefinitionHistoryApiModel>().HasNoKey()
+                .ToView("DeploymentDefinitionHistoryView", "deploy");
+            modelBuilder.Entity<DeploymentDefinitionChange>(entity =>
+            {
+                entity.ToTable("DeploymentDefinitionChange", "deploy");
+                entity.HasKey(x => x.Id);
+                entity.Property(x => x.ProjectName).HasMaxLength(256);
+                entity.Property(x => x.Actor).HasMaxLength(256);
+                entity.Property(x => x.Operation).HasMaxLength(64);
+                entity.Property(x => x.SourceRecordId).HasMaxLength(128);
+                entity.Property(x => x.Revision).HasMaxLength(64);
+                entity.HasIndex(x => new { x.ProjectId, x.OccurredAt, x.Id });
+            });
+            modelBuilder.Entity<DeploymentDefinitionRevision>(entity =>
+            {
+                entity.ToTable("DeploymentDefinitionRevision", "deploy");
+                entity.HasKey(x => x.Id);
+                entity.Property(x => x.ComponentName).HasMaxLength(256);
+                entity.Property(x => x.Revision).HasMaxLength(64);
+                entity.HasIndex(x => new { x.ProjectId, x.ComponentId, x.Revision }).IsUnique();
+            });
+            modelBuilder.Entity<DeploymentRequestDefinition>(entity =>
+            {
+                entity.ToTable("DeploymentRequestDefinition", "deploy");
+                entity.HasKey(x => new { x.DeploymentRequestId, x.Ordinal });
+                entity.Property(x => x.ComponentName).HasMaxLength(256);
+                entity.Property(x => x.DefinitionRevision).HasMaxLength(64);
+                entity.Property(x => x.SubmittedBy).HasMaxLength(256);
+                entity.HasIndex(x => new { x.ProjectId, x.SubmittedAt, x.DeploymentRequestId });
+            });
+            modelBuilder.Entity<PowerShellExecutionReceipt>(entity =>
+            {
+                entity.ToTable("PowerShellExecutionReceipt", "deploy");
+                entity.HasKey(x => new { x.DeploymentResultId, x.ScriptOrdinal });
+                entity.Property(x => x.DefinitionRevision).HasMaxLength(64);
+                entity.Property(x => x.TextSha256).HasMaxLength(64);
+                entity.Property(x => x.RuntimeVersion).HasMaxLength(64);
+                entity.Property(x => x.RequestedRuntime).HasMaxLength(64);
+                entity.Property(x => x.SourcePath).HasMaxLength(2048);
+                entity.Property(x => x.BuildIdentity).HasMaxLength(256);
+                entity.Property(x => x.Phase).HasMaxLength(32);
+                entity.HasIndex(x => new { x.ProjectId, x.ObservedAt, x.DeploymentResultId });
+            });
+            modelBuilder.Entity<CatalogModuleUpgrade>(entity =>
+            {
+                entity.ToTable("CatalogModuleUpgrade", "deploy");
+                entity.HasKey(x => new { x.ComponentId, x.Revision });
+                entity.Property(x => x.FromVersion).HasMaxLength(64);
+                entity.Property(x => x.ToVersion).HasMaxLength(64);
+                entity.Property(x => x.UpdatedBy).HasMaxLength(256);
+            });
+            modelBuilder.Entity<TerraformDeploymentOutcome>(entity =>
+            {
+                entity.ToTable("TerraformDeploymentOutcome", "deploy");
+                entity.HasKey(x => x.DeploymentResultId);
+                entity.Property(x => x.DeploymentResultId).ValueGeneratedNever();
+                entity.Property(x => x.Revision).IsConcurrencyToken();
+                entity.Property(x => x.ApplyOutcome).HasMaxLength(32);
+                entity.Property(x => x.InventoryOutcome).HasMaxLength(64);
+                entity.Property(x => x.ArchiveOutcome).HasMaxLength(32);
+                entity.Property(x => x.InventoryArtifactSha256).HasMaxLength(64).IsUnicode(false);
+            });
+            modelBuilder.Entity<TerraformInventoryProvenance>(entity =>
+            {
+                entity.ToTable("TerraformInventoryProvenance", "deploy");
+                entity.HasKey(x => new { x.ComponentId, x.EnvironmentId, x.CloudResourceId });
+                entity.Property(x => x.ResourceIdentifier).HasMaxLength(500);
+                entity.Property(x => x.ReconciliationState).HasMaxLength(32);
+            });
+            modelBuilder.Entity<CatalogEnvironmentInputs>(entity =>
+            {
+                entity.ToTable("CatalogEnvironmentInputs", "deploy");
+                entity.HasKey(x => new { x.ComponentId, x.EnvironmentId });
+                entity.Property(x => x.TemplateVersion).HasMaxLength(64);
+            });
+            modelBuilder.Entity<CatalogRequestInputs>(entity =>
+            {
+                entity.ToTable("CatalogRequestInputs", "deploy");
+                entity.HasKey(x => new { x.DeploymentRequestId, x.ComponentId });
+                entity.Property(x => x.TemplateName).HasMaxLength(256);
+                entity.Property(x => x.TemplateVersion).HasMaxLength(64);
+            });
+            modelBuilder.Entity<CatalogSubmission>(entity =>
+            {
+                entity.ToTable("CatalogSubmission", "deploy");
+                entity.HasKey(x => new { x.CallerHash, x.SubmissionKey });
+                entity.Property(x => x.CallerHash).HasMaxLength(64).IsUnicode(false);
+                entity.Property(x => x.PayloadSalt).HasMaxLength(32);
+                entity.Property(x => x.PayloadFingerprint).HasMaxLength(32);
+            });
+
+            modelBuilder.Entity<TerraformDeploymentReceipt>(entity =>
+            {
+                entity.ToTable("TerraformDeploymentReceipt", "deploy");
+                entity.Property(x => x.DefinitionRevision).HasMaxLength(64);
+                entity.Property(x => x.SourceType).HasMaxLength(32);
+                entity.Property(x => x.RequestedSource).HasMaxLength(2048);
+                entity.Property(x => x.RequestedRef).HasMaxLength(256);
+                entity.Property(x => x.SourceSubPath).HasMaxLength(1024);
+                entity.Property(x => x.BuildIdentity).HasMaxLength(256);
+                entity.HasKey(x => x.DeploymentResultId);
+                entity.Property(x => x.DeploymentResultId).ValueGeneratedNever();
+                entity.Property(x => x.ProjectName).HasMaxLength(256);
+                entity.Property(x => x.EnvironmentName).HasMaxLength(256);
+                entity.Property(x => x.ComponentName).HasMaxLength(256);
+                entity.Property(x => x.WorkloadTarget).HasMaxLength(1024);
+                entity.Property(x => x.TemplateName).HasMaxLength(256);
+                entity.Property(x => x.TemplateVersion).HasMaxLength(64);
+                entity.Property(x => x.GitCommitSha).HasMaxLength(64).IsUnicode(false);
+                entity.Property(x => x.StateStorageAccount).HasMaxLength(256);
+                entity.Property(x => x.StateContainerName).HasMaxLength(256);
+                entity.Property(x => x.StateKey).HasMaxLength(1024);
+                entity.Property(x => x.PlanContentSha256).HasMaxLength(64).IsUnicode(false);
+                entity.Property(x => x.SourceSha256).HasMaxLength(64).IsUnicode(false);
+                entity.Property(x => x.PlanSha256).HasMaxLength(64).IsUnicode(false);
+            });
 
             modelBuilder.Entity<TerraformPlanApproval>(entity =>
             {

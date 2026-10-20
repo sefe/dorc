@@ -62,7 +62,8 @@ namespace Dorc.Api.Services
                 requestComponents: request.Components.ToList(),
                 requestProperties: request.RequestProperties?.ToList() ?? new List<RequestProperty>(),
                 user: user,
-                isCatalog: true);
+                isCatalog: true,
+                catalogSubmission: request.CatalogSubmission);
 
             return id <= 0
                 ? new RequestStatusDto() { Id = 0, Status = "DeployLibrary has returned zero result" }

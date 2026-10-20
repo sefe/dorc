@@ -4,10 +4,13 @@ import { page } from 'vitest/browser';
 import { expect, fixture, html, settle } from '../_helpers';
 import type { ComboBox } from '@vaadin/combo-box';
 import type { TextField } from '@vaadin/text-field';
+import type { Checkbox } from '@vaadin/checkbox';
 import type { Notification } from '@vaadin/notification';
 import {
   TerraformParameterResolutionStatus,
-  TerraformParameterType
+  TerraformParameterType,
+  ComponentType,
+  TerraformSourceType
 } from '../../src/apis/dorc-api';
 import type { DeployFromTemplateDialog } from '../../src/components/deploy-from-template-dialog';
 import type { PageModuleCatalog } from '../../src/pages/page-module-catalog';
@@ -32,6 +35,9 @@ const mocks = vi.hoisted(() => ({
   instantiate: vi.fn(),
   templates: vi.fn(),
   resolution: vi.fn(),
+  saveConfiguration: vi.fn(),
+  previewUpgrade: vi.fn(),
+  upgrade: vi.fn(),
   cloudResources: vi.fn(),
   navigate: vi.fn()
 }));
@@ -55,6 +61,9 @@ vi.mock('../../src/apis/dorc-api', async importOriginal => ({
     terraformTemplateInstantiatePost = mocks.instantiate;
     terraformTemplatesGet = mocks.templates;
     terraformTemplateResolutionGet = mocks.resolution;
+    terraformTemplateConfigurationPut = mocks.saveConfiguration;
+    terraformUpgradePreviewGet = mocks.previewUpgrade;
+    terraformUpgradePost = mocks.upgrade;
   }
 }));
 
@@ -156,6 +165,36 @@ beforeEach(() => {
   );
 });
 
+it('honours the linked Catalog component instead of selecting the first compatible component', async () => {
+  const component = {
+    ComponentType: ComponentType.Terraform,
+    TerraformSourceType: TerraformSourceType.Catalog,
+    TerraformTemplateName: template.Name,
+    TerraformTemplateVersion: template.Version,
+    IsEnabled: true
+  };
+  mocks.components.mockReturnValue(
+    of({
+      Items: [
+        { ...component, ComponentId: 10, ComponentName: 'First component' },
+        { ...component, ComponentId: 20, ComponentName: 'Linked component' }
+      ]
+    })
+  );
+  const host = await fixture<DeployFromTemplateDialog>(
+    html`<deploy-from-template-dialog></deploy-from-template-dialog>`
+  );
+  host.open(template, {
+    projectName: project.ProjectName,
+    environmentName: environment.EnvironmentName,
+    componentId: 20
+  });
+  await settle();
+  await click(dialogElement(host), 'Continue');
+  expect(mocks.resolution.mock.calls.at(-1)?.[0].componentId).to.equal(20);
+  await click(dialogElement(host), 'Cancel');
+});
+
 const browserErrors: string[] = [];
 const captureBrowserError = (event: ErrorEvent) => {
   browserErrors.push(event.error?.stack ?? event.message);
@@ -182,6 +221,114 @@ const open = async (manifest = template) => {
 };
 
 describe('catalog environment deployment workflow', () => {
+  it('saves only explicit non-secret component/environment inputs without submitting a deployment', async () => {
+    mocks.components.mockReturnValue(
+      of({
+        Items: [
+          {
+            ComponentId: 22,
+            ComponentName: 'ApplicationStorage',
+            ComponentType: 'Terraform',
+            TerraformSourceType: 'Catalog',
+            TerraformTemplateName: template.Name,
+            TerraformTemplateVersion: template.Version
+          }
+        ]
+      })
+    );
+    mocks.resolution.mockReturnValue(
+      of({
+        Parameters: [],
+        SavedConfiguration: { Revision: 3, ParameterNames: [] }
+      })
+    );
+    mocks.saveConfiguration.mockReturnValue(
+      of({ Revision: 4, ParameterNames: ['enabled'] })
+    );
+    const { dialog } = await open();
+    await click(dialog, 'Continue');
+    await click(dialog, 'Override enabled for this request');
+    await click(dialog, 'Override credential for this request');
+    dialog.querySelector<TextField>('vaadin-password-field')!.value =
+      'one-off-only';
+    await settle();
+    await click(dialog, 'Replace saved non-secret inputs');
+    expect(mocks.saveConfiguration.mock.calls[0][0]).to.deep.equal({
+      name: template.Name,
+      version: template.Version,
+      projectId: 7,
+      componentId: 22,
+      environmentName: environment.EnvironmentName,
+      saveCatalogEnvironmentInputsApiModel: {
+        ExpectedRevision: 3,
+        Inputs: { enabled: 'false' }
+      }
+    });
+    expect(mocks.instantiate.mock.calls).to.have.length(0);
+  });
+
+  it('requires impact confirmation before upgrading a shared pin and never submits a deployment automatically', async () => {
+    mocks.components.mockReturnValue(
+      of({
+        Items: [
+          {
+            ComponentId: 22,
+            ComponentName: 'ApplicationStorage',
+            ComponentType: 'Terraform',
+            TerraformSourceType: 'Catalog',
+            TerraformTemplateName: template.Name,
+            TerraformTemplateVersion: '0.9.0'
+          }
+        ]
+      })
+    );
+    mocks.previewUpgrade.mockReturnValue(
+      of({
+        ComponentId: 22,
+        Revision: 2,
+        CurrentVersion: '0.9.0',
+        TargetVersion: '1.0.0',
+        Environments: [
+          environment,
+          { EnvironmentId: 10, EnvironmentName: 'Production' }
+        ],
+        InputChanges: ['Added required input'],
+        ConfigurationRevisions: { '9': 1, '10': 0 }
+      })
+    );
+    mocks.upgrade.mockReturnValue(of(undefined));
+    const { dialog } = await open();
+    (
+      Array.from(dialog.querySelectorAll('vaadin-button')).find(button =>
+        button.textContent?.includes('Review ApplicationStorage')
+      ) as HTMLElement
+    ).click();
+    await settle();
+    expect(dialog.textContent).to.contain('Production');
+    expect(dialog.textContent).to.contain('Added required input');
+    const upgrade = button(dialog, 'Upgrade shared pin only');
+    expect((upgrade as HTMLElement & { disabled: boolean }).disabled).to.equal(
+      true
+    );
+    const confirmation = Array.from(
+      dialog.querySelectorAll<Checkbox>('vaadin-checkbox')
+    ).find(checkbox => checkbox.label?.startsWith('I confirm'))!;
+    confirmation.checked = true;
+    await settle();
+    await click(dialog, 'Upgrade shared pin only');
+    expect(
+      mocks.upgrade.mock.calls[0][0].catalogUpgradeRequestApiModel
+    ).to.deep.equal({
+      ExpectedRevision: 2,
+      ExpectedVersion: '0.9.0',
+      EnvironmentIds: [9, 10],
+      ConfigurationRevisions: { '9': 1, '10': 0 },
+      ConfirmImpact: true,
+      PreserveExistingServiceOwnership: false
+    });
+    expect(mocks.instantiate.mock.calls).to.have.length(0);
+  });
+
   afterEach(async () => {
     for (const notification of document.querySelectorAll<Notification>(
       'vaadin-notification'
@@ -207,6 +354,7 @@ describe('catalog environment deployment workflow', () => {
     expect(mocks.instantiate.mock.calls).to.have.length(0);
     await click(dialog, 'Submit plan request');
     expect(mocks.instantiate.mock.calls[0][0].body).to.deep.equal({
+      SubmissionKey: mocks.instantiate.mock.calls[0][0].body.SubmissionKey,
       ProjectId: 7,
       ComponentName: 'storage-account',
       ParentComponentId: null,
@@ -266,7 +414,7 @@ describe('catalog environment deployment workflow', () => {
     expect(dialog.querySelector('[role="alert"]')?.textContent).to.contain(
       'count: Must be an integer'
     );
-    await click(dialog, 'Use environment value for count');
+    await click(dialog, 'Remove request override for count');
     await click(dialog, 'Override label for this request');
     await click(dialog, 'Continue');
     await click(dialog, 'Submit plan request');
@@ -411,12 +559,15 @@ describe('catalog environment deployment workflow', () => {
     expect(mocks.resolution.mock.calls).to.have.length(0);
     await click(dialog, 'Continue');
     expect(mocks.resolution.mock.calls[0][0]).to.deep.equal({
+      componentId: undefined,
       name: 'storage-account',
       version: '1.0.0',
       projectId: 7,
       environmentName: 'TestEnvironment'
     });
-    expect(dialog.textContent).to.contain('From TestEnvironment');
+    expect(dialog.textContent).to.contain(
+      'Resolved by DOrc for TestEnvironment, including environment/global properties and configured fallbacks.'
+    );
     expect(dialog.textContent).to.contain('Not set');
     expect(dialog.textContent).not.to.contain('Missing in');
   });
@@ -501,7 +652,9 @@ describe('catalog environment deployment workflow', () => {
         resolveA(stale);
         await settle();
       }
-      expect(dialog.textContent).to.contain('From EnvironmentB');
+      expect(dialog.textContent).to.contain(
+        'Resolved by DOrc for EnvironmentB, including environment/global properties and configured fallbacks.'
+      );
       expect(dialog.textContent).not.to.contain('Missing in EnvironmentB');
       await click(dialog, 'Continue');
       expect(dialog.querySelector('h2')?.textContent).to.contain('Review');
@@ -540,7 +693,9 @@ describe('catalog environment deployment workflow', () => {
       el => el.getAttribute('data-missing') === 'true'
     );
     expect(credential?.textContent).to.contain('credential');
-    expect(credential?.textContent).to.contain('Missing in TestEnvironment');
+    expect(credential?.querySelector('.badge')?.textContent?.trim()).to.equal(
+      'Missing'
+    );
     expect(dialog.textContent).to.contain('1 required input missing');
     await click(dialog, 'Continue');
     expect(dialog.querySelector('[role="alert"]')?.textContent).to.contain(
@@ -578,6 +733,90 @@ describe('catalog environment deployment workflow', () => {
     } finally {
       await page.viewport(1024, 768);
     }
+  });
+});
+
+describe('input provenance and submission retries', () => {
+  it('keeps mixed sources and sensitive defaults hidden consistently through review', async () => {
+    const manifest = {
+      ...template,
+      Parameters: template.Parameters.map(parameter =>
+        parameter.Name === 'credential'
+          ? { ...parameter, Default: 'must-not-appear' }
+          : parameter
+      )
+    };
+    mocks.resolution.mockReturnValue(
+      of({
+        Parameters: [
+          {
+            Name: 'location',
+            Status: TerraformParameterResolutionStatus.Environment
+          },
+          { Name: 'enabled', Status: TerraformParameterResolutionStatus.Unset },
+          {
+            Name: 'credential',
+            Status: TerraformParameterResolutionStatus.Default
+          }
+        ]
+      })
+    );
+    const { dialog } = await open(manifest);
+    await click(dialog, 'Continue');
+    const secret = dialog.querySelector('[data-sensitive="true"]')!;
+    expect(secret.textContent).to.contain('Module default');
+    expect(secret.textContent).not.to.contain('sensitive environment property');
+    expect(dialog.textContent).not.to.contain('must-not-appear');
+    expect(dialog.textContent).to.contain('DOrc-resolved: 1');
+    expect(dialog.textContent).to.contain('Module default: 1');
+    expect(dialog.textContent).to.contain('Not set: 1');
+    await click(dialog, 'Continue');
+    const review = dialog.querySelector('table')!.textContent!;
+    expect(review).to.contain('Module default (sensitive, hidden)');
+    expect(review).to.contain('Not set');
+    expect(dialog.textContent).not.to.contain('must-not-appear');
+    expect(dialog.textContent).not.to.contain('All inherited');
+  });
+
+  it('labels a failed resolution unchecked in cards, footer and review', async () => {
+    mocks.resolution.mockReturnValue(throwError(() => new Error('offline')));
+    const { dialog } = await open();
+    await click(dialog, 'Continue');
+    expect(dialog.textContent).to.contain('Not checked: 3');
+    expect(
+      dialog.querySelector('[data-sensitive="true"]')!.textContent
+    ).to.contain('Not checked');
+    await click(dialog, 'Continue');
+    expect(dialog.querySelector('table')!.textContent).to.contain(
+      'Not checked'
+    );
+    expect(dialog.textContent).not.to.contain('All inherited');
+  });
+
+  it('reuses a submission key after a lost response but changes it when inputs change', async () => {
+    mocks.instantiate.mockReturnValue(
+      throwError(() => new Error('response lost'))
+    );
+    const { dialog } = await open();
+    await click(dialog, 'Continue');
+    await click(dialog, 'Continue');
+    await click(dialog, 'Submit plan request');
+    await click(dialog, 'Submit plan request');
+    const firstKey = mocks.instantiate.mock.calls[0][0].body.SubmissionKey;
+    expect(firstKey).to.match(/^[0-9a-f-]{36}$/);
+    expect(mocks.instantiate.mock.calls[1][0].body.SubmissionKey).to.equal(
+      firstKey
+    );
+    await click(dialog, 'Back');
+    await click(dialog, 'Override location for this request');
+    dialog.querySelector<TextField>('.param-field vaadin-text-field')!.value =
+      'westus';
+    await settle();
+    await click(dialog, 'Continue');
+    await click(dialog, 'Submit plan request');
+    expect(mocks.instantiate.mock.calls[2][0].body.SubmissionKey).not.to.equal(
+      firstKey
+    );
   });
 });
 
@@ -736,6 +975,19 @@ describe('resource-group convenience fill', () => {
 });
 
 describe('module catalog discovery', () => {
+  it('distinguishes workload authorization from the Azure backend for both providers', async () => {
+    const host = await fixture<InstanceType<typeof PageModuleCatalog>>(
+      html`<page-module-catalog></page-module-catalog>`
+    );
+    await settle();
+    const guidance =
+      host.shadowRoot!.querySelector('.setup-body')!.textContent!;
+    expect(guidance).to.contain('Storage Blob Data Contributor');
+    expect(guidance).to.contain(
+      'Aiven tokens authenticate the workload provider only'
+    );
+    expect(guidance).not.to.contain('target subscription only');
+  });
   it('groups versions into one card whose selector defaults to the latest active version', async () => {
     mocks.templates.mockReturnValue(
       of([

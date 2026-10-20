@@ -13,6 +13,7 @@ export * from './DaemonAuditApi';
 export * from './DaemonObservationApi';
 export * from './DaemonStatusApi';
 export * from './DatabaseAuditApi';
+export * from './DeploymentDefinitionsApi';
 export * from './DeploymentV2Api';
 export * from './DirectorySearchApi';
 export * from './MakeLikeProdApi';

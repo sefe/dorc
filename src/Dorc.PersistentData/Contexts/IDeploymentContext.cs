@@ -13,6 +13,10 @@ namespace Dorc.PersistentData.Contexts
     {
         DatabaseFacade Database { get; }
         ChangeTracker ChangeTracker { get; }
+        DbSet<DeploymentDefinitionChange> DeploymentDefinitionChanges { get; set; }
+        DbSet<DeploymentDefinitionRevision> DeploymentDefinitionRevisions { get; set; }
+        DbSet<DeploymentRequestDefinition> DeploymentRequestDefinitions { get; set; }
+        DbSet<PowerShellExecutionReceipt> PowerShellExecutionReceipts { get; set; }
         DbSet<Component> Components { get; set; }
         DbSet<Script> Scripts { get; set; }
         DbSet<Property> Properties { get; set; }
@@ -23,6 +27,13 @@ namespace Dorc.PersistentData.Contexts
         DbSet<DeploymentRequest> DeploymentRequests { get; set; }
         DbSet<DeploymentResult> DeploymentResults { get; set; }
         DbSet<TerraformPlanApproval> TerraformPlanApprovals { get; set; }
+        DbSet<TerraformDeploymentReceipt> TerraformDeploymentReceipts { get; set; }
+        DbSet<CatalogSubmission> CatalogSubmissions { get; set; }
+        DbSet<CatalogEnvironmentInputs> CatalogEnvironmentInputs { get; set; }
+        DbSet<CatalogRequestInputs> CatalogRequestInputs { get; set; }
+        DbSet<CatalogModuleUpgrade> CatalogModuleUpgrades { get; set; }
+        DbSet<TerraformDeploymentOutcome> TerraformDeploymentOutcomes { get; set; }
+        DbSet<TerraformInventoryProvenance> TerraformInventoryProvenance { get; set; }
         DbSet<DeploymentRequestAttempt> DeploymentRequestAttempts { get; set; }
         DbSet<DeploymentResultAttempt> DeploymentResultAttempts { get; set; }
         DbSet<Environment> Environments { get; set; }

@@ -12,7 +12,9 @@
  */
 
 import type {
+    CatalogEnvironmentInputsApiModel,
     TerraformParameterResolutionApiModel,
+    TerraformReadinessApiModel,
 } from './';
 
 /**
@@ -20,6 +22,16 @@ import type {
  * @interface TerraformTemplateResolutionApiModel
  */
 export interface TerraformTemplateResolutionApiModel {
+    /**
+     * @type {CatalogEnvironmentInputsApiModel}
+     * @memberof TerraformTemplateResolutionApiModel
+     */
+    SavedConfiguration?: CatalogEnvironmentInputsApiModel;
+    /**
+     * @type {TerraformReadinessApiModel}
+     * @memberof TerraformTemplateResolutionApiModel
+     */
+    Readiness?: TerraformReadinessApiModel;
     /**
      * @type {string}
      * @memberof TerraformTemplateResolutionApiModel

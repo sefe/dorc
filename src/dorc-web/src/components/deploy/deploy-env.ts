@@ -66,6 +66,7 @@ export class DeployEnv extends LitElement {
   @property({ type: Array }) builds: DeployArtefactDto[] = [];
 
   @property({ type: String }) envName = '';
+  @property({ type: Number }) preselectedComponentId = 0;
 
   @property({ type: Array }) data: TreeNode[];
 
@@ -550,6 +551,24 @@ export class DeployEnv extends LitElement {
             data.map(node => this.convertDeployCompToTree(node)),
             undefined
           );
+          if (this.preselectedComponentId) {
+            const select = (nodes: TreeNode[], inherited = false): boolean => {
+              let anySelected = false;
+              for (const node of nodes) {
+                node.checked =
+                  inherited || node.id === this.preselectedComponentId;
+                const descendantSelected = select(node.children, node.checked);
+                node.indeterminate = !node.checked && descendantSelected;
+                node.open = descendantSelected;
+                anySelected ||= node.checked || descendantSelected;
+              }
+              return anySelected;
+            };
+            if (!select(this.data)) {
+              this.ErrorMessage =
+                'The linked component is not available in this project. Reload its current definition before deploying.';
+            }
+          }
           const hegsTree = this.shadowRoot?.getElementById(
             'hegs-tree'
           ) as HegsTree;

@@ -13,6 +13,8 @@ namespace Dorc.ApiModel
     /// </summary>
     public class TerraformTemplateInstantiateRequestApiModel
     {
+        /// <summary>Stable random UUID for one logical submission. Omit for legacy non-idempotent behavior.</summary>
+        public System.Guid? SubmissionKey { get; set; }
         /// <summary>Destination project ID (from the existing project picker).</summary>
         public int ProjectId { get; set; }
 

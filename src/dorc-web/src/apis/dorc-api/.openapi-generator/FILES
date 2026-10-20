@@ -14,6 +14,7 @@ apis/DaemonAuditApi.ts
 apis/DaemonObservationApi.ts
 apis/DaemonStatusApi.ts
 apis/DatabaseAuditApi.ts
+apis/DeploymentDefinitionsApi.ts
 apis/DeploymentV2Api.ts
 apis/DirectorySearchApi.ts
 apis/MakeLikeProdApi.ts
@@ -85,6 +86,9 @@ models/ApiEndpoints.ts
 models/ApiRegistrationApiModel.ts
 models/BundledRequestType.ts
 models/BundledRequestsApiModel.ts
+models/CatalogEnvironmentInputsApiModel.ts
+models/CatalogUpgradePreviewApiModel.ts
+models/CatalogUpgradeRequestApiModel.ts
 models/CloneEnvironmentRequest.ts
 models/CloudResourceApiModel.ts
 models/ComponentApiModel.ts
@@ -105,6 +109,8 @@ models/DatabaseAuditApiModel.ts
 models/DatabaseType.ts
 models/DeployArtefactDto.ts
 models/DeployComponentDto.ts
+models/DeploymentDefinitionApiModel.ts
+models/DeploymentDefinitionHistoryApiModel.ts
 models/DeploymentRequestApiModel.ts
 models/DeploymentRequestAttemptApiModel.ts
 models/DeploymentResultApiModel.ts
@@ -125,6 +131,8 @@ models/GetDaemonAuditListResponseDto.ts
 models/GetDaemonObservationListResponseDto.ts
 models/GetDatabaseApiModelListResponseDto.ts
 models/GetDatabaseAuditListResponseDto.ts
+models/GetDeploymentDefinitionHistoryResponse.ts
+models/GetDeploymentDefinitionsResponse.ts
 models/GetPropertyValuesAuditListResponseDto.ts
 models/GetRefDataAuditListResponseDto.ts
 models/GetRequestStatusesListResponseDto.ts
@@ -157,6 +165,7 @@ models/RequestProperty.ts
 models/RequestStatusDto.ts
 models/ResourceTagsUpdate.ts
 models/Response.ts
+models/SaveCatalogEnvironmentInputsApiModel.ts
 models/ScriptApiModel.ts
 models/ScriptAuditApiModel.ts
 models/ServerApiModel.ts
@@ -165,11 +174,15 @@ models/ServerOperatingSystemApiModel.ts
 models/SharedResourceCapabilities.ts
 models/SourceControlType.ts
 models/SqlPortApiModel.ts
+models/TerraformDeploymentOutcomeApiModel.ts
+models/TerraformDeploymentReceiptApiModel.ts
+models/TerraformInventoryProvenanceApiModel.ts
 models/TerraformParameterConflict.ts
 models/TerraformParameterResolutionApiModel.ts
 models/TerraformParameterResolutionStatus.ts
 models/TerraformParameterType.ts
 models/TerraformPlanApiModel.ts
+models/TerraformReadinessApiModel.ts
 models/TerraformSourceType.ts
 models/TerraformTemplateInstantiateRequestApiModel.ts
 models/TerraformTemplateInstantiateResponseApiModel.ts

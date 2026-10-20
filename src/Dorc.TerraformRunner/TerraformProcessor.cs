@@ -48,6 +48,7 @@ namespace Dorc.TerraformRunner
         private IReadOnlyDictionary<string, string> _armEnvironment =
             new Dictionary<string, string>();
         private bool _usesPlatformBackend;
+        private string? _workloadSubscriptionId;
 
         public TerraformProcessor(
             IRunnerLogger logger,
@@ -290,6 +291,7 @@ namespace Dorc.TerraformRunner
             // service-principal credential properties, terraform authenticates
             // as that identity instead of the shared runner host identity.
             ApplyEnvironmentCredentials(scriptGroup, subscriptionId);
+            _workloadSubscriptionId = subscriptionId;
             return (subscriptionId, subscriptionFromEnvironment, subscriptionSource);
         }
 
@@ -743,7 +745,7 @@ namespace Dorc.TerraformRunner
 
                 logger.Information($"Terraform apply completed successfully for request ID: {requestId}");
 
-                await WriteAppliedResourcesAsync(terraformWorkingDir, appliedResourcesFilePath, cancellationToken);
+                await WriteAppliedResourcesAsync(terraformWorkingDir, appliedResourcesFilePath, scriptGroup.DeployResultId, cancellationToken);
 
                 cancellationToken.ThrowIfCancellationRequested();
                 return true;
@@ -767,6 +769,7 @@ namespace Dorc.TerraformRunner
         private async Task WriteAppliedResourcesAsync(
             string terraformWorkingDir,
             string? appliedResourcesFilePath,
+            int deploymentResultId,
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(appliedResourcesFilePath)) return;
@@ -789,11 +792,20 @@ namespace Dorc.TerraformRunner
                     new[] { "show", "-json", "-no-color" },
                     cancellationToken);
 
-                var resources = TerraformAppliedResources.ParseShowJson(stateJson);
+                var complete = TerraformAppliedResources.TryParseCompleteShowJson(stateJson, out var resources);
+                var safeResources = resources.Where(resource => !_sensitiveValues.Any(secret =>
+                    !string.IsNullOrEmpty(secret) &&
+                    (resource.ResourceIdentifier.Contains(secret, StringComparison.Ordinal) ||
+                     resource.Name.Contains(secret, StringComparison.Ordinal)))).ToArray();
+                complete &= safeResources.Length == resources.Count;
+                resources = safeResources;
 
                 File.WriteAllText(
                     canonicalAppliedResourcesPath,
-                    JsonSerializer.Serialize(resources));
+                    JsonSerializer.Serialize(new TerraformInventorySnapshot
+                    {
+                        DeploymentResultId = deploymentResultId, IsComplete = complete, Resources = resources.ToList()
+                    }));
 
                 logger.Information(
                     $"Recorded {resources.Count} applied cloud resource{(resources.Count == 1 ? "" : "s")} for environment registration.");
@@ -833,6 +845,8 @@ namespace Dorc.TerraformRunner
             {
                 RequestId = requestId,
                 DeploymentResultId = scriptGroup.DeployResultId,
+                DefinitionRevision = scriptGroup.DefinitionRevision,
+                BuildIdentity = scriptGroup.SourceBuildIdentity,
                 SourceType = scriptGroup.TerraformSourceType.ToString(),
                 TemplateName = scriptGroup.TerraformTemplateName,
                 TemplateVersion = scriptGroup.TerraformTemplateVersion,
@@ -841,10 +855,22 @@ namespace Dorc.TerraformRunner
                 GitRef = scriptGroup.TerraformGitBranch,
                 GitCommitSha = scriptGroup.TerraformResolvedGitSha,
                 SubPath = scriptGroup.TerraformSubPath,
+                scriptGroup.AzureOrganization,
+                scriptGroup.AzureProjects,
+                scriptGroup.AzureBuildId,
+                scriptGroup.GitHubOwner,
+                scriptGroup.GitHubRepo,
+                scriptGroup.GitHubRunId,
+                scriptGroup.GitHubApiBaseUrl,
                 StateStorageAccount = scriptGroup.TerraformStateStorageAccount,
                 StateContainerName = scriptGroup.TerraformStateContainerName,
                 StateKey = scriptGroup.TerraformStateKey,
                 StateSubscriptionId = scriptGroup.TerraformStateSubscriptionId,
+                WorkloadTarget = TerraformWorkloadTarget.Describe(_manifest, scriptGroup.CommonProperties,
+                    _workloadSubscriptionId, name =>
+                        (scriptGroup.SensitivePropertyNames?.Contains(name, StringComparer.OrdinalIgnoreCase) ?? false) ||
+                        scriptGroup.CommonProperties.TryGetValue(name, out var value) &&
+                        _sensitiveValues.Contains(value?.Value?.ToString() ?? string.Empty)),
                 ArchivedAtUtc = DateTime.UtcNow,
             };
 

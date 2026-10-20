@@ -499,16 +499,24 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                     .Select(o => new
                     {
                         ComponentName = o.Component.Name,
+                        ComponentId = o.Component.Id,
                         RequestDetailsXml = o.DeploymentRequest.RequestDetails,
                         o.UpdateDate,
                         o.Status,
                         o.DeploymentRequest.Id
-                    });
+                    }).ToList();
                 foreach (var build in request)
                     try
                     {
+                        var resultId = context.DeploymentResults.Where(r => r.DeploymentRequest.Id == build.Id &&
+                            r.Component.Id == build.ComponentId).OrderByDescending(r => r.Id).Select(r => (int?)r.Id).FirstOrDefault();
+                        var evidence = DeploymentSourceEvidence.Read(context, build.Id, build.ComponentId, resultId);
                         result.Add(new EnvironmentContentBuildsApiModel
                         {
+                            ComponentId = build.ComponentId,
+                            ProjectId = evidence?.ProjectId,
+                            DefinitionRevision = evidence?.Revision,
+                            SourceRevisionLabel = evidence?.Label,
                             State = build.Status,
                             UpdateDate = build.UpdateDate.DateTime.ToString("o"),
                             ComponentName = build.ComponentName,

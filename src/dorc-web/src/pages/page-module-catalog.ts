@@ -730,6 +730,7 @@ export class PageModuleCatalog extends PageElement {
   private detailPanel?: HTMLElement;
 
   private terraformApi = new TerraformApi(dorcApiConfiguration);
+  private openedLinkedDefinition = false;
 
   connectedCallback() {
     super.connectedCallback();
@@ -743,6 +744,21 @@ export class PageModuleCatalog extends PageElement {
       next: data => {
         this.templates = data ?? [];
         this.loading = false;
+        const context = new URLSearchParams(window.location.search);
+        const name = context.get('template');
+        if (name && !this.openedLinkedDefinition) {
+          this.openedLinkedDefinition = true;
+          const template = this.templates.find(
+            item =>
+              item.Name === name && item.Version === context.get('version')
+          );
+          if (template) {
+            void this.updateComplete.then(() => this.openDeploy(template));
+          } else {
+            this.error =
+              'The linked module version is no longer available in the catalog. Historical deployment evidence remains available from the project definition.';
+          }
+        }
       },
       error: err => {
         this.error =
@@ -877,8 +893,10 @@ export class PageModuleCatalog extends PageElement {
               </p>
               <p>
                 Then set all three service-principal properties, or none to fall
-                back to the runner host's ambient identity. The service
-                principal needs RBAC on the target subscription only.
+                back to the runner host's ambient identity. The actual Terraform
+                Azure identity needs workload RBAC on the target subscription
+                and Storage Blob Data Contributor on the separately configured
+                state container. Backend access uses Azure AD, not storage keys.
               </p>
               <table>
                 <tr>
@@ -906,6 +924,12 @@ export class PageModuleCatalog extends PageElement {
                   </td>
                 </tr>
               </table>
+              <p>
+                Aiven tokens authenticate the workload provider only. Aiven
+                modules still use the Azure state backend: the actual Terraform
+                Azure identity also needs Storage Blob Data Contributor on its
+                state container.
+              </p>
               <p>
                 Aiven modules ignore Azure subscription targeting: Aiven
                 resources are addressed by Aiven project and service name.
@@ -1332,7 +1356,8 @@ export class PageModuleCatalog extends PageElement {
     const context = new URLSearchParams(window.location.search);
     this.deployDialog.open(t, {
       projectName: context.get('project') ?? undefined,
-      environmentName: context.get('environment') ?? undefined
+      environmentName: context.get('environment') ?? undefined,
+      componentId: Number(context.get('componentId')) || undefined
     });
   }
 

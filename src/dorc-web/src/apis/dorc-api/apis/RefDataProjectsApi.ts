@@ -14,7 +14,7 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
-import type { OperationOpts, HttpHeaders } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     ProjectApiModel,
 } from '../models';
@@ -29,6 +29,7 @@ export interface RefDataProjectsPostRequest {
 
 export interface RefDataProjectsProjectIdDeleteRequest {
     projectId: number;
+    expectedRevision?: string;
 }
 
 export interface RefDataProjectsProjectNameGetRequest {
@@ -117,9 +118,9 @@ export class RefDataProjectsApi extends BaseAPI {
 
     /**
      */
-    refDataProjectsProjectIdDelete({ projectId }: RefDataProjectsProjectIdDeleteRequest): Observable<string>
-    refDataProjectsProjectIdDelete({ projectId }: RefDataProjectsProjectIdDeleteRequest, opts?: OperationOpts): Observable<AjaxResponse<string>>
-    refDataProjectsProjectIdDelete({ projectId }: RefDataProjectsProjectIdDeleteRequest, opts?: OperationOpts): Observable<string | AjaxResponse<string>> {
+    refDataProjectsProjectIdDelete({ projectId, expectedRevision }: RefDataProjectsProjectIdDeleteRequest): Observable<string>
+    refDataProjectsProjectIdDelete({ projectId, expectedRevision }: RefDataProjectsProjectIdDeleteRequest, opts?: OperationOpts): Observable<AjaxResponse<string>>
+    refDataProjectsProjectIdDelete({ projectId, expectedRevision }: RefDataProjectsProjectIdDeleteRequest, opts?: OperationOpts): Observable<string | AjaxResponse<string>> {
         throwIfNullOrUndefined(projectId, 'projectId', 'refDataProjectsProjectIdDelete');
 
         const headers: HttpHeaders = {
@@ -132,10 +133,15 @@ export class RefDataProjectsApi extends BaseAPI {
             ),
         };
 
+        const query: HttpQuery = {};
+
+        if (expectedRevision != null) { query['expectedRevision'] = expectedRevision; }
+
         return this.request<string>({
             url: '/RefDataProjects/{projectId}'.replace('{projectId}', encodeURI(projectId)),
             method: 'DELETE',
             headers,
+            query,
         }, opts?.responseOpts);
     };
 

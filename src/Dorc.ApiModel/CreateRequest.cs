@@ -16,6 +16,9 @@ namespace Dorc.ApiModel
         // component's Terraform source from its manifest. Suppresses
         // artifact-URL resolution in DeployLibrary.CreateRequestAsync.
         public bool IsCatalog { get; set; }
+        [System.Text.Json.Serialization.JsonIgnore]
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public CatalogSubmissionIdentity CatalogSubmission { get; set; }
     }
 
     public class RequestProperty

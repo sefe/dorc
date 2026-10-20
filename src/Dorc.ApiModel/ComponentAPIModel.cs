@@ -6,7 +6,7 @@ namespace Dorc.ApiModel
     public class ComponentApiModel
     {
         [JsonInclude]
-        public IList<ComponentApiModel> Children;
+        public IList<ComponentApiModel> Children { get; set; }
         public int? ComponentId { get; set; }
         public string ComponentName { get; set; }
         public string ScriptPath { get; set; }

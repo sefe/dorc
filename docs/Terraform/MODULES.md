@@ -32,7 +32,8 @@ module "vnet" {
 In DOrc, the template reference belongs to the **project component**:
 `TerraformSourceType = Catalog`, `TerraformTemplateName`, and
 `TerraformTemplateVersion`. Input values belong to the target environment's
-DOrc properties, with optional request-specific overrides.
+DOrc properties, with explicit component/environment non-secret configuration
+and optional request-specific overrides.
 
 Every catalog release also pins a full `source.commit_sha` verified against
 the intended tag at deployment time. A tag name alone is mutable; branches
@@ -133,6 +134,150 @@ previews the same case-folded, hex-escaped key used by Monitor. Reuse the
 same component in the same environment for later updates; deploy it to another
 mapped environment for separate state. Do not create a new component for every
 deployment. See [the state model](./STATE-MODEL.md) for backend configuration.
+
+### Readiness, receipts and submission retries
+
+The Inputs and Review steps distinguish DOrc-resolved, Saved component
+configuration, Module default, Missing, Not set and Not checked. DOrc-resolved
+includes normal environment/global properties and configured fallbacks, not
+necessarily a property owned directly by that environment. A sensitive input's source does not imply that its
+value is disclosed. Configuration preflight uses the same Azure credential
+and subscription-cloud-resource rules as the runner. It reports invalid
+inherited input names without their values. This is **not a cloud permission
+probe**. Monitor-effective backend settings and runner ambient credentials/
+default subscription remain explicitly unknown to the API. Known non-secret
+subscription and standard Aiven project/service identifiers are shown where
+available; other or sensitive targets remain undisclosed/unknown. One-off
+overrides can change the target, so the final plan remains authoritative. Verify workload
+permissions and Storage Blob Data Contributor on the Azure state container
+before approval, including for Aiven workloads.
+
+New plans retain a database receipt captured from the plan-time source archive:
+project/environment/component, module/version, resolved source commit, state
+identity, known non-secret workload target identifiers, creation time and artifact digests. The plan dialog shows that
+receipt and retained approver/time, not the component's current pin. Terminal
+results and archived attempts can open retained plans read-only. Restart does
+not delete these receipts or approval records. Older records have no fabricated
+receipt or timestamp; a missing blob is reported as unavailable. There is no
+new retention deadline, and artifact access still requires environment modify
+authority. Receipt storage does not contain tfvars, Terraform state, credentials
+or general input values. A receipt is evidence of the plan, not a claim that inventory registration
+or post-apply archive copying succeeded.
+
+`POST /Terraform/templates/{name}/{version}/instantiate` accepts an optional
+`SubmissionKey` random UUID for create-and-deploy submissions. Reuse the key
+for a retry with the same explicit payload: it returns the original component
+receipt and request ID, even after a lost HTTP response. Changing template,
+target, parent, component name or explicit inputs requires a new key; conflicting
+reuse returns HTTP 409. Keys are scoped to the authenticated caller and this
+operation. The wizard keeps the key while retrying the same submission in the
+open dialog; closing/reopening begins a new submission. External callers should
+retain their own key until they have received the request ID.
+
+Request creation and its durable key are committed in one SQL transaction;
+there is no in-memory lock or expiry window. Only a salted payload fingerprint
+is retained with the key, never the canonical payload used for comparison.
+Legacy callers omitting a key remain non-idempotent. Create-only calls must
+omit it. Component creation retains the existing separate atomic create/reuse
+boundary; a submission failure can leave the component available for retry.
+
+Rollout: publish the additive `TerraformDeploymentReceipt`, `CatalogSubmission`,
+`CatalogEnvironmentInputs`, `CatalogRequestInputs`, `CatalogModuleUpgrade`,
+`TerraformDeploymentOutcome` and `TerraformInventoryProvenance` schema before
+upgrading API/Monitor/Runner. Do not
+backfill receipts from current component pins. Deploy the matching API clients
+and web UI together. Local SQL/browser regression coverage is not live cloud,
+MSI or deployment acceptance.
+
+### Saved configuration and safe upgrades
+
+For an existing component, **Replace saved non-secret inputs** is an explicit,
+separate action on the Inputs step. It replaces the entire saved set for that
+component/environment with the current non-secret overrides; omitted entries
+are removed. It does not submit a request or change global/environment
+properties. Existing deployments are unchanged until someone saves. Manifest
+sensitivity, secure property/configuration metadata and known secret-name
+patterns are rejected by the server. Keep credentials in secure DOrc properties;
+secret overrides remain one-off.
+
+Saved direct module inputs override inherited values; explicit request overrides
+win over saved inputs. They do not redefine unrelated expression dependencies.
+Common request creation atomically snapshots the selected module pin and saved
+configuration, including for non-wizard submissions. Later saves/upgrades do not
+change an already queued snapshot. Old requests without snapshots retain legacy
+resolution. Configuration saves require project/environment authority and an
+expected revision; stale saves return 409. Persist `create_service=false` this
+way when deliberately retaining an externally managed Aiven service.
+
+Select a newer stable release in the catalog and choose **Upgrade an existing
+component**. Preview lists the old/new version, contract changes and every
+environment mapped to the owning project, not just those visible to the caller.
+Execution requires project ownership/admin and modify authority in every
+affected environment, explicit impact confirmation, matching component/config
+revisions and an unchanged mapping set. Components shared by multiple projects
+are rejected for operator review. Pending/running/approval-waiting requests in
+affected project environments block an upgrade. Concurrent submissions and
+upgrades serialize at the component row.
+
+Upgrade changes the shared pin only, preserving component names and state keys;
+it never submits deployment requests. Each environment needs a fresh plan and
+approval. Removed/sensitive/incompatible saved inputs block the upgrade until
+explicitly replaced. New required inputs are listed for configuration before
+the next plan; inherited values and cross-input constraints are authoritatively
+checked on submission/runner execution, not certified by upgrade preview.
+Transitions introducing default service ownership require explicit consent to
+save `create_service=false` across all mapped environments. This is not adoption
+or import. Ref-data edits cannot silently repin, rename, change source type or
+replace an existing Catalog identity.
+
+### Apply outcomes, metadata recovery and inventory provenance
+
+The receipt separately reports Terraform apply, inventory registration and audit
+source-copy outcomes. A successful apply stays successful when post-apply
+metadata work fails. Counts and bounded registration warnings are retained;
+`RunningOrUnknown` / `FailedOrUnknown` must not be interpreted as proof that no
+infrastructure changed. The plan-time source upload remains mandatory.
+
+After successful apply, a restricted blob retains the runner's identity-only
+inventory snapshot with a recorded digest, not raw Terraform state. Recovery
+uses the verified retained snapshot or approved plan-time source archive:
+**Retry inventory registration only** and **Retry audit source copy only** never
+run Terraform apply or fetch a new checkout. Recovery is administrator-only
+because registration can update shared definitions; original environment
+authority, receipt/approval consistency, database-held serialization and
+expected outcome revision are also required. Missing/changed/inaccessible
+artifacts return a non-success response with manual-review guidance. Audit
+copy recovery is independent of missing inventory material. Superseded
+inventory cannot be replayed over a newer successful apply.
+
+Inventory provenance records component/environment observations, first/last
+deployment result, last-seen identifier/time and derivable database links.
+It is not exclusive ownership of a shared definition and does not derive
+ownership from editable tags. Only a complete, trustworthy state export with
+successful registration marks that component/environment's missing observations
+`MissingFromLatestState`. Incomplete/failed/ambiguous exports never do so.
+Other owners and manually maintained definitions remain intact.
+
+**Show current inventory provenance** is explicitly current metadata, not an old
+state export. **Mark reviewed — metadata only** uses revision concurrency and
+project/environment authorization. It changes only the provenance review flag:
+no cloud deletion, definition deletion, detach or state mutation is performed.
+
+### Project reference data versus execution history
+
+Catalog instantiate creates an ordinary project-linked Terraform component with
+an empty script path. It does not create a `Script` or `ScriptAudit` record.
+Project reference-data JSON is current mutable configuration, not an immutable
+execution ledger; the generic ref-data PUT audit records submitted JSON, while
+catalog instantiate does not create that audit entry. Generic project build
+history may show an empty build or `N/A` for artifact-free catalog requests.
+
+Use the deployment result's retained plan receipt for the actual planned module
+version/source SHA and approval, not Scripts or current component pins. Upgrade
+revision records identify pin changes; request snapshots preserve queued input
+selection. Restart archives result attempts while keeping receipts and approvals.
+Reference-data removal does not destroy Terraform resources or state, and
+missing historical material is not reconstructed from current configuration.
 
 ### Subscription targeting
 
@@ -348,3 +493,10 @@ When a module is superseded:
 1. Open a PR adding the deprecation banner to its README and setting `deprecated: true` in the manifest.
 2. Update this index's **Status** column.
 3. Give consumers at least 90 days to plan migration, but retain every published manifest, tag and commit indefinitely. Deprecation hides normal discovery, not pinned resolution. CI allows only the deprecation flag/reason lifecycle changes on existing releases; it rejects deletion, payload edits, duplicate identities and reactivation.
+## Deployment definition revisions
+
+Catalog and direct-source components participate in the common
+[deployment definition and execution-evidence contract](../DeploymentDefinitions.md).
+Reference-data edits cannot bypass Catalog upgrade gates or migrate state.
+New requests retain submitted definitions; history distinguishes submitted
+configuration from plan-time source/approval evidence.

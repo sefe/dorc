@@ -22,6 +22,21 @@ import type {
  */
 export interface RefDataApiModel {
     /**
+     * @type {string}
+     * @memberof RefDataApiModel
+     */
+    Revision?: string | null;
+    /**
+     * @type {boolean}
+     * @memberof RefDataApiModel
+     */
+    CanEdit?: boolean;
+    /**
+     * @type {boolean}
+     * @memberof RefDataApiModel
+     */
+    CanDeploy?: boolean;
+    /**
      * @type {ProjectApiModel}
      * @memberof RefDataApiModel
      */

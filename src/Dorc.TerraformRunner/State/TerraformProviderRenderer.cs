@@ -21,7 +21,7 @@ namespace Dorc.TerraformRunner.State
         // environment (dev envs -> DV subscription, QA/UAT -> NP, prod -> PR
         // per the SEFE subscription standard); when absent the runner
         // identity's default subscription applies.
-        public const string SubscriptionIdPropertyName = "TerraformSubscriptionId";
+        public const string SubscriptionIdPropertyName = Dorc.Terraform.Catalog.TerraformCloudTargeting.SubscriptionIdPropertyName;
 
         // Matches a `provider "azurerm" { ... }` block so its body can be
         // inspected. The module contract permits ALIASED provider blocks

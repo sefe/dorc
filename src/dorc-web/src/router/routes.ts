@@ -42,6 +42,7 @@ import '../pages/page-project-envs.ts';
 import '../pages/page-project-bundles.ts';
 import '../pages/page-project-components.ts';
 import '../pages/page-project-ref-data.ts';
+import '../pages/page-deployment-definitions.ts';
 import '../pages/page-projects-audit.ts';
 import '../pages/page-projects-list.ts';
 import '../pages/page-servers-audit.ts';
@@ -231,6 +232,16 @@ export const routes: AppRoute[] = [
         metadata: {
           title: 'API Registrations Audit',
           description: 'Audit history across all API registrations'
+        }
+      },
+      {
+        path: '/deployment-definitions',
+        name: 'deployment-definitions',
+        component: 'page-deployment-definitions',
+        metadata: {
+          title: 'Deployment Definitions',
+          description:
+            'PowerShell and Terraform definitions with configuration and execution history'
         }
       },
       {

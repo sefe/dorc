@@ -56,6 +56,8 @@ export class HegsTree extends LitElement {
                     <hegs-tree-node
                       id="hegs-tree-node"
                       .data="${child}"
+                      .checked="${child.checked}"
+                      .indeterminate="${child.indeterminate}"
                       .actions="${this.actions}"
                     ></hegs-tree-node>
                   `

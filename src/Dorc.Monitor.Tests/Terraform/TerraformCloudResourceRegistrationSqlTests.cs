@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Transactions;
 using Dorc.ApiModel;
-using Dorc.Monitor.Terraform;
+using Dorc.Core.Terraform;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources;
