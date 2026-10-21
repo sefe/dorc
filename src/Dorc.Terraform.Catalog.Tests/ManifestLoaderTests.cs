@@ -608,6 +608,20 @@ deprecated: false
                 "A 'v'-prefixed version must parse numerically (2.0.0) and beat 1.9.0.");
         }
 
+        [TestMethod]
+        public async Task ListAsync_VPrefixedAliasOfPublishedVersionIsDuplicateIdentity()
+        {
+            File.WriteAllText(Path.Join(_tempDir, "testmod-2.1.0.yaml"),
+                BuildSingleParamYaml("testmod", "2.1.0", "alpha", "String"));
+            File.WriteAllText(Path.Join(_tempDir, "testmod-v2.1.0.yaml"),
+                BuildSingleParamYaml("testmod", "v2.1.0", "beta", "String"));
+
+            var catalog = new GitTemplateCatalog(_tempDir, NullLogger<GitTemplateCatalog>.Instance);
+
+            // 'v2.1.0' must not be able to shadow the published '2.1.0' release.
+            await Assert.ThrowsExactlyAsync<InvalidDataException>(() => catalog.ListAsync());
+        }
+
         // ----- Helpers -----
 
         // Generates a minimal valid YAML with one parameter of the supplied

@@ -42,13 +42,16 @@ namespace Dorc.Api.Controllers
         /// <param name="id"></param>
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(RefDataApiModel))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
         [HttpGet]
         [Route("{id}")]
         public IActionResult Get(string id)
         {
-            var projectId = Convert.ToInt32(id);
+            if (!int.TryParse(id, out var projectId)) return NotFound("Project not found.");
 
-            var refData = _definitions.Get(projectId);
+            RefDataApiModel refData;
+            try { refData = _definitions.Get(projectId); }
+            catch (ProjectNotFoundException e) { return NotFound(e.Message); }
             refData.CanEdit = _securityPrivilegesChecker.CanModifyProject(User, projectId);
             if (!refData.CanEdit && _projectsPersistentSource.GetProjectEnvironments(refData.Project.ProjectName, User, true)?.Items?.Any() != true)
                 return Forbid();

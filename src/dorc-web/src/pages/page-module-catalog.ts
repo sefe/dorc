@@ -1181,10 +1181,12 @@ export class PageModuleCatalog extends PageElement {
         ${predefined.map(template => {
           const initialPath = serializeScriptPathValue(
             template.scriptPath,
-            template.parameters.map(param => ({
-              key: param.name,
-              value: param.options?.[0] ?? ''
-            }))
+            template.parameters
+              .map(param => ({
+                key: param.name,
+                value: param.options?.[0] ?? ''
+              }))
+              .filter(arg => arg.value.length > 0)
           );
           const addHref = projectId
             ? `/project-ref-data/${projectId}?addScriptName=${encodeURIComponent(template.defaultStepName)}&addScriptPath=${encodeURIComponent(initialPath)}&addPsVersion=5.1&addNonProdOnly=false&addStopOnFailure=true`

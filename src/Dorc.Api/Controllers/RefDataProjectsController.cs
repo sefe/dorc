@@ -205,6 +205,7 @@ namespace Dorc.Api.Controllers
             }
             catch (DefinitionPreconditionException ex) { return StatusCode(ex.StatusCode, ex.Message); }
             catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (ProjectNotFoundException ex) { return NotFound(ex.Message); }
             catch (ArgumentException ex)
             {
                 return NotFound(ex.Message);

@@ -54,6 +54,17 @@ const STEPS = [
   { title: 'Review & submit', hint: 'Generates a plan, applies nothing' }
 ] as const;
 
+// crypto.randomUUID is only defined in secure contexts; plain-HTTP intranet
+// hosts still have getRandomValues.
+const newSubmissionKey = (): string => {
+  if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+};
+
 // Inspect decimal digits rather than IEEE-754 rounding (e.g. 2.0000000000000001).
 const isWholeNumber = (value: string): boolean => {
   const [coefficient, exponent = '0'] = value.toLowerCase().split('e');
@@ -1906,8 +1917,6 @@ export class DeployFromTemplateDialog extends LitElement {
   private submit() {
     if (!this.template || !this.selectedProject?.ProjectId || this.submitting)
       return;
-    this.submitting = true;
-    this.error = null;
     const componentName = this.targetComponentName;
     const environmentName = this.selectedEnvironmentName;
     const payload = JSON.stringify([
@@ -1919,8 +1928,12 @@ export class DeployFromTemplateDialog extends LitElement {
       this.createNew ? null : this.selectedComponent?.ParentId || null,
       Object.entries(this.paramValues).sort(([a], [b]) => a.localeCompare(b))
     ]);
+    // Resolve the submission key before locking the dialog so a failure here
+    // cannot leave it stuck in the submitting state.
     if (this.submissionIdentity?.payload !== payload)
-      this.submissionIdentity = { payload, key: crypto.randomUUID() };
+      this.submissionIdentity = { payload, key: newSubmissionKey() };
+    this.submitting = true;
+    this.error = null;
     this.terraformApi
       .terraformTemplateInstantiatePost({
         name: this.template.Name,

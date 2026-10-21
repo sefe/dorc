@@ -153,12 +153,14 @@ Allowed evolution:
 Do not remove deprecated manifests. A pinned deployment still resolves through
 the catalog, even when the source tag remains available upstream.
 
-The gate lives in `scripts/manifest-immutability.sh` and
-`scripts/manifest_immutability.py`, with Python dependencies pinned in
-`scripts/manifest-requirements.txt`. It fails closed on Git/YAML errors and
-duplicate YAML keys. `--self-test` runs identity, retention, rename/re-add,
-payload and deprecation transition regression tests, not just diff-status
-classification.
+The gate is the `manifest-immutability <base-sha> <head-sha>` command of
+`src/Tools.TerraformLint` (.NET, no extra toolchain). It reads manifests from
+the Git trees rather than the working copy, treats `v2.1.0` and `2.1.0` as the
+same identity, and fails closed on Git/YAML errors and duplicate YAML keys.
+`--self-test` runs identity, retention, rename/re-add, payload and deprecation
+transition regression tests, not just diff-status classification. It runs on
+pull requests against the merge base and on pushes to `main` against the
+previous commit.
 
 ## Managed operation boundary
 

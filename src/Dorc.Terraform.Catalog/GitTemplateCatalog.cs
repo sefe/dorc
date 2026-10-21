@@ -97,9 +97,11 @@ namespace Dorc.Terraform.Catalog
                 }
 
                 // Fail closed for the whole catalog: choosing either duplicate
-                // would let filename order replace a published release.
+                // would let filename order replace a published release. The
+                // optional "v" prefix is not part of the identity, otherwise
+                // "v2.1.0" could shadow a published "2.1.0" as "latest".
                 if (!string.IsNullOrEmpty(dto?.Name) && !string.IsNullOrEmpty(dto.Version)
-                    && !seenIdentities.Add(dto.Name + "@" + dto.Version))
+                    && !seenIdentities.Add(dto.Name + "@" + dto.Version.TrimStart('v')))
                 {
                     throw new InvalidDataException(
                         $"Duplicate catalog identity '{dto.Name}@{dto.Version}' at '{file}'.");

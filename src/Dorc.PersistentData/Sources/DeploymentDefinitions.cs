@@ -84,7 +84,8 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
             using var context = factory.GetContext();
             using var transaction = context.Database.BeginTransaction(IsolationLevel.Serializable);
             var project = context.Projects.FromSqlRaw("SELECT * FROM [deploy].[Project] WITH (UPDLOCK,HOLDLOCK)")
-                .Include(p => p.Components).Include(p => p.Environments).Single(p => p.Id == projectId);
+                .Include(p => p.Components).Include(p => p.Environments).SingleOrDefault(p => p.Id == projectId)
+                ?? throw new ProjectNotFoundException(projectId);
             if (!canModify(projectId)) throw new UnauthorizedAccessException();
             var before = Read(context, projectId);
             RequireRevision(expectedRevision, before.Revision);
@@ -149,7 +150,8 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
 
     internal static RefDataApiModel Read(IDeploymentContext context, int projectId)
     {
-        var project = context.Projects.Include(p => p.SourceDatabase).Single(p => p.Id == projectId);
+        var project = context.Projects.Include(p => p.SourceDatabase).SingleOrDefault(p => p.Id == projectId)
+            ?? throw new ProjectNotFoundException(projectId);
         var components = context.Components.Include(c => c.Script).Include(c => c.Parent)
             .Include(c => c.Projects).Where(c => c.Projects.Any(p => p.Id == projectId))
             .OrderBy(c => c.Name).ThenBy(c => c.Id).ToList();

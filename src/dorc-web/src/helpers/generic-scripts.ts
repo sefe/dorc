@@ -857,9 +857,11 @@ export function serializeScriptPathValue(
   forceJson = false
 ): string {
   const cleanPath = scriptPath.trim();
-  const nonEmptyArgs = args.filter(
-    arg => arg.key.trim().length > 0 && arg.value.trim().length > 0
-  );
+  // Keep arguments whose value is blank: the Monitor adds every GenericArgument
+  // as a script property (overriding the environment property of the same
+  // name), so an explicit "" differs from "absent". Callers that pre-populate
+  // parameters the user never filled must drop them before serializing.
+  const nonEmptyArgs = args.filter(arg => arg.key.trim().length > 0);
   if (!forceJson && nonEmptyArgs.length === 0) {
     return cleanPath;
   }

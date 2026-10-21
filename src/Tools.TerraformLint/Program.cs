@@ -21,12 +21,19 @@ namespace Tools.TerraformLint;
 //     module authors to be explicit. Files under `.terraform` caches are
 //     skipped as third-party code.
 //
+//   manifest-immutability <base-sha> <head-sha>
+//     Fail-closed release retention gate: every release identity
+//     (name@version) present at merge-base(base, head) must still exist at
+//     head with an unchanged payload; only deprecation metadata may change,
+//     one way. Reads manifests from the Git trees, never the working copy.
+//
 //   --self-test
-//     Exercises both commands against synthetic fixtures in a temp dir.
+//     Exercises all commands against synthetic fixtures.
 //
 // Usage:
 //   Tools.TerraformLint manifest-sensitive-names <manifests-dir>
 //   Tools.TerraformLint secret-outputs <stock-modules-root>
+//   Tools.TerraformLint manifest-immutability <base-sha> <head-sha>
 //   Tools.TerraformLint --self-test
 public static class Program
 {
@@ -47,6 +54,9 @@ public static class Program
             case "secret-outputs":
                 if (args.Length < 2) { PrintUsage(); return 2; }
                 return RunSecretOutputs(args[1]);
+            case "manifest-immutability":
+                if (args.Length < 3) { PrintUsage(); return 2; }
+                return ManifestImmutabilityGate.Run(args[1], args[2], Console.Out, Console.Error);
             default:
                 PrintUsage();
                 return 2;
@@ -58,6 +68,7 @@ public static class Program
         Console.Error.WriteLine("Usage:");
         Console.Error.WriteLine("  Tools.TerraformLint manifest-sensitive-names <manifests-dir>");
         Console.Error.WriteLine("  Tools.TerraformLint secret-outputs <stock-modules-root>");
+        Console.Error.WriteLine("  Tools.TerraformLint manifest-immutability <base-sha> <head-sha>");
         Console.Error.WriteLine("  Tools.TerraformLint --self-test");
     }
 
@@ -372,6 +383,7 @@ internal static class SelfTest
         {
             ManifestSensitiveNamesSelfTest();
             SecretOutputsSelfTest();
+            ManifestImmutabilitySelfTest.Run();
             Console.WriteLine("self-test passed");
             return 0;
         }

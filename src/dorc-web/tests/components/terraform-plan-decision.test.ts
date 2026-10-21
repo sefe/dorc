@@ -208,4 +208,23 @@ describe('Terraform plan summary', () => {
     expect(chips[0].classList.contains('add')).to.equal(true);
     expect(chips[2].classList.contains('none')).to.equal(true);
   });
+
+  it('redacts secret-named attributes without hiding names that merely contain a keyword', () => {
+    const mask = (line: string) => PlanDialog.maskSensitiveValues(line);
+    expect(mask('  + client_secret = "abc"')).to.equal(
+      '  + client_secret = [REDACTED]'
+    );
+    expect(mask('  + api_key = "abc"')).to.equal('  + api_key = [REDACTED]');
+    expect(mask('  + "password" = 123')).to.equal(
+      '  + "password" = [REDACTED]'
+    );
+    expect(mask('  + path = "/var/www"')).to.equal('  + path = "/var/www"');
+    expect(mask('  ~ update = "30m"')).to.equal('  ~ update = "30m"');
+    expect(mask('  + template = "base"')).to.equal('  + template = "base"');
+    expect(mask('  + keyspace = "events"')).to.equal('  + keyspace = "events"');
+    expect(mask('  + key_vault_id = "/subscriptions/x"')).to.equal(
+      '  + key_vault_id = "/subscriptions/x"'
+    );
+    expect(mask('  + secret_name = "db"')).to.equal('  + secret_name = "db"');
+  });
 });

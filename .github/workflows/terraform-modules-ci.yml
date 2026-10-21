@@ -10,7 +10,6 @@ on:
     paths:
       - 'stock-modules-manifests/**'
       - 'docs/Terraform/**'
-      - 'scripts/*manifest*'
       - 'src/Tools.TerraformLint/**'
       - 'src/Dorc.Terraform.Catalog*/**'
       - '.github/workflows/terraform-modules-ci.yml'
@@ -20,7 +19,6 @@ on:
     paths:
       - 'stock-modules-manifests/**'
       - 'docs/Terraform/**'
-      - 'scripts/*manifest*'
       - 'src/Tools.TerraformLint/**'
       - 'src/Dorc.Terraform.Catalog*/**'
       - '.github/workflows/terraform-modules-ci.yml'
@@ -72,23 +70,34 @@ jobs:
 
   manifest-immutability:
     name: manifest immutability gate
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
         with:
           persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
-      - name: install pinned manifest parser
-        run: python3 -m pip install -r scripts/manifest-requirements.txt
+      - uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4.1.0
+        with:
+          dotnet-version: '8.0.x'
+      - name: build
+        run: dotnet build src/Tools.TerraformLint/Tools.TerraformLint.csproj -c Release --nologo
       - name: test release retention and immutability
-        run: ./scripts/manifest-immutability.sh --self-test
+        run: dotnet src/Tools.TerraformLint/bin/Release/net8.0/Tools.TerraformLint.dll --self-test
       - name: enforce immutability
+        # On pull requests compare against the merge base with the target
+        # branch; on pushes to main compare against the previous main commit so
+        # direct pushes and stale merges are re-validated where the result is
+        # authoritative. A branch-creation push has an all-zeros "before" SHA;
+        # fall back to the first parent in that case.
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-        run: ./scripts/manifest-immutability.sh
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
+            BASE_SHA="$(git rev-parse "${HEAD_SHA}^")"
+          fi
+          dotnet src/Tools.TerraformLint/bin/Release/net8.0/Tools.TerraformLint.dll manifest-immutability "$BASE_SHA" "$HEAD_SHA"
 
   manifest-sensitive-name-lint:
     name: manifest sensitive-name lint

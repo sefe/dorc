@@ -7,4 +7,7 @@
     <RootNamespace>Tools.TerraformLint</RootNamespace>
     <AssemblyName>Tools.TerraformLint</AssemblyName>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="YamlDotNet" Version="18.1.0" />
+  </ItemGroup>
 </Project>

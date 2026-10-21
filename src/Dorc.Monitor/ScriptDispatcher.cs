@@ -105,6 +105,7 @@ namespace Dorc.Monitor
                         ordinalOffset, readerIdentity.QualifiedAccountName);
                     ordinalOffset += scriptGroup.ScriptProperties.Count;
 
+                    Exception? dispatchFailure = null;
                     try
                     {
                         Task scriptGroupPipeTask = scriptGroupPipeServer.Start(
@@ -235,7 +236,6 @@ namespace Dorc.Monitor
                                     pipeCancellationTokenSource.Cancel();
                                     processesPersistentSource.RemoveProcess((int)process.Id);
                                     process.Dispose();
-                                    isScriptExecutionSuccessful &= evidenceCapture.Ingest(scriptGroup, requestsPersistentSource);
                                 }
                             }
                             catch (Exception e)
@@ -246,6 +246,11 @@ namespace Dorc.Monitor
                             }
                         }
                     }
+                    catch (Exception e)
+                    {
+                        dispatchFailure = e;
+                        throw;
+                    }
                     finally
                     {
                         // The bundle carries the resolved deployment properties, secrets
@@ -253,11 +258,33 @@ namespace Dorc.Monitor
                         // is withdrawn as soon as that process is gone - on the failure and
                         // cancellation paths as much as the successful one.
                         scriptGroupPipeServer.Expire(startedScriptGroupPipeName);
+                        // Evidence was allocated before the Runner was launched, so it is
+                        // ingested here even when the launch itself failed; otherwise the
+                        // restricted directory leaks and the failure leaves no evidence rows.
+                        isScriptExecutionSuccessful &= IngestEvidence(scriptGroup, dispatchFailure);
                     }
                 }
             }
 
             return isScriptExecutionSuccessful;
+        }
+
+        // An evidence persistence failure must surface when the dispatch itself
+        // succeeded, but it must not replace the original failure (notably an
+        // OperationCanceledException) when the dispatch had already failed.
+        private bool IngestEvidence(ScriptGroup scriptGroup, Exception? dispatchFailure)
+        {
+            try
+            {
+                return evidenceCapture.Ingest(scriptGroup, requestsPersistentSource);
+            }
+            catch (Exception e) when (dispatchFailure != null)
+            {
+                logger.LogError(e,
+                    "PowerShell evidence for result ID '{ResultId}' could not be persisted after the dispatch failed; the restricted evidence directory '{Directory}' is retained.",
+                    scriptGroup.DeployResultId, scriptGroup.PowerShellEvidenceDirectory);
+                return false;
+            }
         }
 
         private IList<ScriptGroup> GetScriptsGroupedByPowerShellVersion(

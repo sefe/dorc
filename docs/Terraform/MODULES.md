@@ -64,6 +64,15 @@ component's pinned version from v1 to v2 is therefore not a routine patch:
   state keys stable; renames require explicit state/backend migration, not a
   fresh empty state.
 
+Kafka topic v2 adds the required `dorc_environment` parameter and appends it as
+the final topic-name segment. Changing a component's pin from kafka-topic v1 to
+v2 therefore renames the topic: Terraform plans a destroy/create of the
+`aiven_kafka_topic` resource (rejected while `termination_protection` is on,
+and a data-loss event if it is turned off to force the plan through). Treat it
+as a new component, or perform an operator-controlled `moved`/import of the
+existing topic into the v2 address before planning; do not use the catalog
+Upgrade action as an in-place upgrade.
+
 Aiven PostgreSQL service creation pre-creates `defaultdb`. PostgreSQL v2
 therefore rejects `database_name=defaultdb` with `create_service=true`
 (including when omitted, because true is the default) **before plan**.

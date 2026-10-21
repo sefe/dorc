@@ -672,7 +672,7 @@ export class TerraformPlanDialog extends LitElement {
   // The secret-name pattern below mirrors the server-side
   // SensitivePropertyRedactor default so the plan dialog redacts the
   // same shape of values the runner redacts in logs. Inlined in
-  // _maskSensitiveValues for a single source of truth at the call site.
+  // maskSensitiveValues for a single source of truth at the call site.
   private _renderPlanBody() {
     const content = this.plan?.PlanContent;
     if (!content || content.trim() === '') {
@@ -688,7 +688,7 @@ export class TerraformPlanDialog extends LitElement {
     return html`<pre class="plan-text">
 ${lines.map(line => {
         const cls = this._classifyPlanLine(line);
-        const masked = this._maskSensitiveValues(line);
+        const masked = TerraformPlanDialog.maskSensitiveValues(line);
         return html`<span class="plan-line ${cls}">${`${masked}\n`}</span>`;
       })}</pre>`;
   }
@@ -714,7 +714,7 @@ ${lines.map(line => {
     return '';
   }
 
-  private _maskSensitiveValues(line: string): string {
+  static maskSensitiveValues(line: string): string {
     // 1) Terraform's own marker for sensitive values: replace verbatim.
     if (line.includes('(sensitive value)')) {
       return line.replace(/=\s*"[^"]*"/g, '= (sensitive value)');
@@ -725,9 +725,24 @@ ${lines.map(line => {
     //    <<EOT) so a sensitive-named Number/Bool value or a multi-line
     //    heredoc is not shown in the clear. Best-effort, single-line: the
     //    body of a heredoc block is not redacted here, only its opener.
+    //    The keyword must be a whole segment of the attribute name so
+    //    `path`, `update`, `template` (pat) or `keyspace` (key) are still
+    //    shown to the approver, and names that merely reference a secret
+    //    (`key_vault_id`, `secret_name`, `key_size`) are not redacted either.
     return line.replace(
-      /(["']?)([A-Za-z0-9_.-]*?(token|pat|secret|password|key|connectionstring)[A-Za-z0-9_.-]*?)\1(\s*=\s*)(".*?"|<<-?[A-Za-z0-9_]+|[^\s#]+)/gi,
-      (_match, q, name, _kw, eq) => `${q}${name}${q}${eq}[REDACTED]`
+      /(["']?)((?:[A-Za-z0-9]+[_.-])*?(?:token|pat|secret|password|key|connectionstring|connection_string)(?:[_.-][A-Za-z0-9]+)*?)\1(\s*=\s*)(".*?"|<<-?[A-Za-z0-9_]+|[^\s#]+)/gi,
+      (match, q, name, eq) =>
+        TerraformPlanDialog.isSecretReference(name)
+          ? match
+          : `${q}${name}${q}${eq}[REDACTED]`
+    );
+  }
+
+  // Attribute names whose final segment describes a secret rather than
+  // carrying one (its id, name, size, type, ...).
+  static isSecretReference(name: string): boolean {
+    return /(^|[_.-])(id|ids|name|names|enabled|url|uri|path|size|count|type|version|vault_id|algorithm)$/i.test(
+      name
     );
   }
 

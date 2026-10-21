@@ -112,12 +112,13 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                return context.DeploymentResults
+                var results = context.DeploymentResults
                     .Include(result => result.DeploymentRequest)
                     .Include(result => result.Component)
                     .Where(result => result.DeploymentRequest.Id == requestId)
                     .OrderBy(result => result.Id)
-                    .ToList().Select(r => MapToDeploymentResultModel(r, context)).ToList();
+                    .ToList();
+                return MapToDeploymentResultModels(results, context).ToList();
             }
         }
 
@@ -125,14 +126,14 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var deploymentResult = context.DeploymentResults
+                var results = context.DeploymentResults
                     .Include(results => results.Component)
                     .Include(results => results.DeploymentRequest)
                     .Where(result => result.DeploymentRequest.Id == requestId
                         && result.Component.Id == componentId)
-                    .ToList().Select(r => MapToDeploymentResultModel(r, context));
+                    .ToList();
 
-                return deploymentResult.ToList();
+                return MapToDeploymentResultModels(results, context).ToList();
             }
         }
 
@@ -842,9 +843,13 @@ namespace Dorc.PersistentData.Sources
                         }).ToList()
                     })
                     .ToList();
-                foreach (var result in attempts.SelectMany(a => a.ComponentResults))
+                var componentResults = attempts.SelectMany(a => a.ComponentResults).ToList();
+                var evidenceByKey = DeploymentSourceEvidence.ReadMany(context, componentResults.Select(r =>
+                    new DeploymentSourceEvidence.Key(requestId, r.ComponentId, r.DeploymentResultId)));
+                foreach (var result in componentResults)
                 {
-                    var evidence = DeploymentSourceEvidence.Read(context, requestId, result.ComponentId, result.DeploymentResultId);
+                    var evidence = evidenceByKey.GetValueOrDefault(
+                        new DeploymentSourceEvidence.Key(requestId, result.ComponentId, result.DeploymentResultId));
                     result.ProjectId = evidence?.ProjectId;
                     result.IsTerraform = evidence?.IsTerraform ?? (result.HasTerraformPlan ? true : (bool?)null);
                     result.DefinitionRevision = evidence?.Revision;
@@ -869,8 +874,21 @@ namespace Dorc.PersistentData.Sources
 
         private static DeploymentResultApiModel MapToDeploymentResultModel(DeploymentResult deploymentResult, IDeploymentContext context)
         {
-            var evidence = DeploymentSourceEvidence.Read(context, deploymentResult.DeploymentRequest.Id,
-                deploymentResult.Component.Id, deploymentResult.Id);
+            return MapToDeploymentResultModels(new[] { deploymentResult }, context).Single();
+        }
+
+        private static IEnumerable<DeploymentResultApiModel> MapToDeploymentResultModels(
+            IReadOnlyCollection<DeploymentResult> deploymentResults, IDeploymentContext context)
+        {
+            var evidenceByKey = DeploymentSourceEvidence.ReadMany(context, deploymentResults.Select(EvidenceKey));
+            return deploymentResults.Select(r => MapToDeploymentResultModel(r, evidenceByKey.GetValueOrDefault(EvidenceKey(r))));
+        }
+
+        private static DeploymentSourceEvidence.Key EvidenceKey(DeploymentResult deploymentResult) =>
+            new(deploymentResult.DeploymentRequest.Id, deploymentResult.Component.Id, deploymentResult.Id);
+
+        private static DeploymentResultApiModel MapToDeploymentResultModel(DeploymentResult deploymentResult, DeploymentSourceEvidence? evidence)
+        {
             DeploymentResultStatus status;
             if (deploymentResult.Status is null)
             {

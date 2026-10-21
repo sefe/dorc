@@ -119,6 +119,7 @@ export class PageProjectRefData extends PageElement {
   private editor: ace.Ace.Editor | undefined;
   private syncingEditor = false;
   private loadToken = 0;
+  private scriptCatalogToken = 0;
 
   static styles = css`
     :host {
@@ -1088,10 +1089,14 @@ export class PageProjectRefData extends PageElement {
         item => item.id === this.selectedGenericTemplateId
       ) ?? GENERIC_SCRIPT_TEMPLATES[0];
     if (!template) return;
-    const args = template.parameters.map(param => ({
-      key: param.name,
-      value: this.genericDialogArgs[param.name] ?? ''
-    }));
+    // Unfilled template parameters are omitted so they fall back to the
+    // environment property of the same name rather than shadowing it with "".
+    const args = template.parameters
+      .map(param => ({
+        key: param.name,
+        value: this.genericDialogArgs[param.name] ?? ''
+      }))
+      .filter(arg => arg.value.trim().length > 0);
     const scriptPath = serializeScriptPathValue(template.scriptPath, args);
     this.addScriptFromCatalog(
       {
@@ -1108,6 +1113,8 @@ export class PageProjectRefData extends PageElement {
   }
 
   private loadScriptCatalog() {
+    // Fired per keystroke; only the latest response may update the list.
+    const token = ++this.scriptCatalogToken;
     this.scriptCatalogLoading = true;
     new DeploymentDefinitionsApi(dorcApiConfiguration)
       .deploymentDefinitionsGet({
@@ -1118,6 +1125,7 @@ export class PageProjectRefData extends PageElement {
       })
       .subscribe({
         next: response => {
+          if (token !== this.scriptCatalogToken) return;
           this.scriptCatalogLoading = false;
           const seen = new Set<string>();
           this.scriptCatalogItems = (response.Items ?? []).filter(item => {
@@ -1129,6 +1137,7 @@ export class PageProjectRefData extends PageElement {
           });
         },
         error: error => {
+          if (token !== this.scriptCatalogToken) return;
           this.scriptCatalogLoading = false;
           this.error =
             retrieveErrorMessage(error) ||

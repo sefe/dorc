@@ -505,12 +505,19 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                         o.Status,
                         o.DeploymentRequest.Id
                     }).ToList();
+                var requestIds = request.Select(b => b.Id).Distinct().ToList();
+                var latestResultIds = context.DeploymentResults
+                    .Where(r => requestIds.Contains(r.DeploymentRequest.Id))
+                    .GroupBy(r => new { RequestId = r.DeploymentRequest.Id, ComponentId = r.Component.Id })
+                    .Select(g => new { g.Key.RequestId, g.Key.ComponentId, ResultId = g.Max(r => r.Id) })
+                    .ToDictionary(x => (x.RequestId, x.ComponentId), x => (int?)x.ResultId);
+                var evidenceByKey = DeploymentSourceEvidence.ReadMany(context, request.Select(b =>
+                    new DeploymentSourceEvidence.Key(b.Id, b.ComponentId, latestResultIds.GetValueOrDefault((b.Id, b.ComponentId)))));
                 foreach (var build in request)
                     try
                     {
-                        var resultId = context.DeploymentResults.Where(r => r.DeploymentRequest.Id == build.Id &&
-                            r.Component.Id == build.ComponentId).OrderByDescending(r => r.Id).Select(r => (int?)r.Id).FirstOrDefault();
-                        var evidence = DeploymentSourceEvidence.Read(context, build.Id, build.ComponentId, resultId);
+                        var evidence = evidenceByKey.GetValueOrDefault(new DeploymentSourceEvidence.Key(
+                            build.Id, build.ComponentId, latestResultIds.GetValueOrDefault((build.Id, build.ComponentId))));
                         result.Add(new EnvironmentContentBuildsApiModel
                         {
                             ComponentId = build.ComponentId,
