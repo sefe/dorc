@@ -263,6 +263,14 @@ namespace Dorc.PersistentData.Contexts
                 .ToTable("DeploymentRequest", "deploy")
                 .HasKey(x => x.Id);
 
+            modelBuilder.Entity<ArchivedDeploymentRequest>(entity =>
+            {
+                entity.ToTable("DeploymentRequest", "archive", t => t.ExcludeFromMigrations());
+                entity.HasKey(x => x.Id);
+                entity.Property(x => x.Id).ValueGeneratedNever();
+                entity.Property(x => x.Environment).HasMaxLength(50);
+            });
+
             modelBuilder.Entity<AccessControl>()
                 .ToTable("AccessControl", "deploy")
                 .HasKey(x => x.Id);
@@ -526,5 +534,11 @@ namespace Dorc.PersistentData.Contexts
 
             return result;
         }
+    }
+
+    public class ArchivedDeploymentRequest
+    {
+        public int Id { get; set; }
+        public string? Environment { get; set; }
     }
 }

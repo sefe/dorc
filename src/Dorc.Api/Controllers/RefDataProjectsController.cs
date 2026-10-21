@@ -49,7 +49,14 @@ namespace Dorc.Api.Controllers
         public IActionResult Get()
         {
             var projects = _projectsPersistentSource.GetProjects(User).ToList();
-            foreach (var project in projects) project.Revision = _definitions.Get(project.ProjectId).Revision;
+            if (_definitions != null && projects.Count > 0)
+            {
+                var documents = _definitions.GetMany(projects.Select(p => p.ProjectId).ToArray());
+                foreach (var project in projects)
+                {
+                    if (documents.TryGetValue(project.ProjectId, out var doc)) project.Revision = doc.Revision;
+                }
+            }
             return StatusCode(StatusCodes.Status200OK, projects);
         }
 
@@ -63,7 +70,7 @@ namespace Dorc.Api.Controllers
         public IActionResult Get(int value)
         {
             var project = _projectsPersistentSource.GetProject(value);
-            if (project != null) project.Revision = _definitions.Get(project.ProjectId).Revision;
+            if (project != null && _definitions != null) project.Revision = _definitions.Get(project.ProjectId).Revision;
             return StatusCode(StatusCodes.Status200OK, project);
         }
 
@@ -77,7 +84,7 @@ namespace Dorc.Api.Controllers
         public IActionResult Get(string projectName)
         {
             var project = _projectsPersistentSource.GetProject(projectName);
-            if (project != null) project.Revision = _definitions.Get(project.ProjectId).Revision;
+            if (project != null && _definitions != null) project.Revision = _definitions.Get(project.ProjectId).Revision;
             return StatusCode(StatusCodes.Status200OK, project);
         }
 

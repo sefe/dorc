@@ -181,15 +181,7 @@ namespace Dorc.PersistentData.Sources
         {
             if (script == null) return null;
 
-            var isEnabled = false;
-
-            if (script.Components != null)
-            {
-                foreach (var component in script.Components)
-                {
-                    isEnabled = component.IsEnabled == true;
-                }
-            }
+            var isEnabled = script.Components?.Any(c => c.IsEnabled == true) == true;
 
             return new ScriptApiModel
             {

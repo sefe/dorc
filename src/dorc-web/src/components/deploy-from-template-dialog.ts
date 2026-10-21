@@ -117,25 +117,47 @@ export class DeployFromTemplateDialog extends LitElement {
     .wizard {
       display: flex;
       flex-wrap: wrap;
-      gap: var(--lumo-space-l);
+      align-items: flex-start;
+      gap: var(--lumo-space-m);
       min-width: 0;
       overflow-wrap: anywhere;
     }
     .rail {
-      flex: 1 1 220px;
-      max-width: 280px;
+      flex: 1 1 190px;
+      max-width: 230px;
+      position: sticky;
+      top: 0;
       display: flex;
       flex-direction: column;
-      gap: var(--lumo-space-l);
-      padding: var(--lumo-space-m);
+      gap: var(--lumo-space-s);
+      padding: var(--lumo-space-s) var(--lumo-space-m);
       background: var(--dorc-bg-secondary);
       border: 1px solid var(--dorc-border-color);
       border-radius: var(--lumo-border-radius-l);
       box-sizing: border-box;
     }
     @media (max-width: 768px) {
+      .wizard {
+        gap: var(--lumo-space-s);
+      }
       .rail {
+        position: static;
         max-width: none;
+        padding: var(--lumo-space-xs) var(--lumo-space-s);
+        gap: var(--lumo-space-xs);
+      }
+      ol.steps {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+      .step {
+        flex: 1 1 auto;
+        padding: var(--lumo-space-xs);
+        align-items: center;
+      }
+      .step-hint,
+      .identity > span:last-child {
+        display: none;
       }
     }
     .module {
@@ -249,18 +271,19 @@ export class DeployFromTemplateDialog extends LitElement {
       min-width: 0;
       display: flex;
       flex-direction: column;
-      gap: var(--lumo-space-m);
+      gap: var(--lumo-space-s);
     }
     h2 {
       margin: 0;
-      font-size: var(--lumo-font-size-xl);
+      font-size: var(--lumo-font-size-l);
       font-weight: 700;
       letter-spacing: -0.01em;
     }
     .lead {
       margin: 0;
+      font-size: var(--lumo-font-size-s);
       color: var(--dorc-text-secondary-strong);
-      line-height: 1.5;
+      line-height: 1.4;
     }
     .lead a {
       color: var(--dorc-link-color);
@@ -268,19 +291,39 @@ export class DeployFromTemplateDialog extends LitElement {
       text-decoration: none;
     }
     .alert {
-      padding: var(--lumo-space-s) var(--lumo-space-m);
+      padding: var(--lumo-space-xs) var(--lumo-space-s);
       border-radius: var(--lumo-border-radius-m);
       background: var(--lumo-error-color-10pct);
       color: var(--lumo-error-text-color);
       display: flex;
       gap: var(--lumo-space-s);
       align-items: flex-start;
+      font-size: var(--lumo-font-size-s);
     }
     .notice {
-      padding: var(--lumo-space-s) var(--lumo-space-m);
+      padding: var(--lumo-space-xs) var(--lumo-space-s);
       border-radius: var(--lumo-border-radius-m);
       background: var(--dorc-warning-bg);
       color: var(--dorc-warning-text);
+      font-size: var(--lumo-font-size-xs);
+    }
+    section.notice[aria-label='Target readiness'] {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 2px var(--lumo-space-m);
+    }
+    section.notice[aria-label='Target readiness'] h3 {
+      grid-column: 1 / -1;
+      margin: 0 0 2px;
+      font-size: var(--lumo-font-size-xs);
+    }
+    .notice h3 {
+      margin: 0 0 var(--lumo-space-xs);
+      font-size: var(--lumo-font-size-s);
+    }
+    .notice p {
+      margin: 2px 0;
+      line-height: 1.35;
     }
     .form {
       display: flex;
@@ -616,6 +659,19 @@ export class DeployFromTemplateDialog extends LitElement {
     });
   }
 
+  private flattenComponentTree(
+    items: ComponentApiModel[]
+  ): ComponentApiModel[] {
+    const result: ComponentApiModel[] = [];
+    for (const item of items) {
+      result.push(item);
+      if (item.Children?.length) {
+        result.push(...this.flattenComponentTree(item.Children));
+      }
+    }
+    return result;
+  }
+
   private onProjectChange(project: ProjectApiModel | null) {
     if (this.selectedProject === project) return;
     const token = ++this.requestToken;
@@ -645,7 +701,9 @@ export class DeployFromTemplateDialog extends LitElement {
         this.environments = [...(data.environments.Items ?? [])].sort((a, b) =>
           (a.EnvironmentName ?? '').localeCompare(b.EnvironmentName ?? '')
         );
-        this.components = data.components.Items ?? [];
+        this.components = this.flattenComponentTree(
+          data.components.Items ?? []
+        );
         this.targetLoading = false;
         this.createNew = this.reusableComponents.length === 0;
         this.selectedComponent = this.reusableComponents[0] ?? null;
@@ -695,7 +753,8 @@ export class DeployFromTemplateDialog extends LitElement {
       component =>
         component.ComponentType === ComponentType.Terraform &&
         component.TerraformSourceType === TerraformSourceType.Catalog &&
-        component.TerraformTemplateName === this.template?.Name &&
+        component.TerraformTemplateName?.toLowerCase() ===
+          this.template?.Name.toLowerCase() &&
         component.TerraformTemplateVersion !== this.template?.Version &&
         component.IsEnabled !== false
     );
@@ -1200,8 +1259,14 @@ export class DeployFromTemplateDialog extends LitElement {
               <vaadin-radio-group
                 label="Component"
                 .value=${this.createNew ? 'create' : 'reuse'}
-                @value-changed=${(e: CustomEvent<{ value: string }>) =>
-                  (this.createNew = e.detail.value === 'create')}
+                @value-changed=${(e: CustomEvent<{ value: string }>) => {
+                  const nextCreateNew = e.detail.value === 'create';
+                  if (nextCreateNew !== this.createNew) {
+                    this.createNew = nextCreateNew;
+                    this.submissionIdentity = null;
+                    this.clearResolution();
+                  }
+                }}
               >
                 <vaadin-radio-button
                   value="reuse"
@@ -1221,7 +1286,13 @@ export class DeployFromTemplateDialog extends LitElement {
               <vaadin-text-field
                 label="New component name"
                 .value=${this.componentName}
-                @value-changed=${(e: CustomEvent<{ value: string }>) => (this.componentName = e.detail.value ?? '')}
+                @value-changed=${(e: CustomEvent<{ value: string }>) => {
+                  const nextName = e.detail.value ?? '';
+                  if (nextName !== this.componentName) {
+                    this.componentName = nextName;
+                    this.submissionIdentity = null;
+                  }
+                }}
                 helper-text="Keep this identity stable for subsequent deployments. Component names must be unique."
                 maxlength="64"
                 required
@@ -1235,7 +1306,17 @@ export class DeployFromTemplateDialog extends LitElement {
                 .selectedItem=${this.selectedComponent ?? undefined}
                 @selected-item-changed=${(
                   e: CustomEvent<{ value: ComponentApiModel | null }>
-                ) => (this.selectedComponent = e.detail.value ?? null)}
+                ) => {
+                  const nextComponent = e.detail.value ?? null;
+                  if (
+                    nextComponent?.ComponentId !==
+                    this.selectedComponent?.ComponentId
+                  ) {
+                    this.selectedComponent = nextComponent;
+                    this.submissionIdentity = null;
+                    this.clearResolution();
+                  }
+                }}
                 helper-text="Enabled components pinned to this exact template version."
                 required
               ></vaadin-combo-box>

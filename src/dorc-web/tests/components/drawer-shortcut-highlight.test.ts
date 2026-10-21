@@ -91,4 +91,111 @@ describe('Drawer shortcut highlighting across environment sub-tabs', () => {
 
     expect(tabs.selected).to.equal(-1);
   });
+
+  it('keeps a project shortcut selected across environments, definitions, components and bundles routes', async () => {
+    const navbar = document.createElement('dorc-navbar') as DrawerNavbar;
+    container.appendChild(navbar);
+    await navbar.updateComplete;
+    drawerShortcuts.add('projects', {
+      ProjectId: 42,
+      ProjectName: 'Platform Core'
+    });
+    await navbar.updateComplete;
+    const tabs = navbar.shadowRoot?.getElementById('tabs') as HTMLElement & {
+      selected: number;
+    };
+
+    for (const route of [
+      '/project-envs/Platform%20Core',
+      '/project-envs/Platform%20Core/bundles',
+      '/project-ref-data/42',
+      '/project-ref-data/42?componentId=99&tab=history',
+      '/project-components/42'
+    ]) {
+      navbar.setSelectedTab(route);
+      expect(
+        tabs.selected,
+        `project shortcut must stay selected on ${route}`
+      ).to.be.greaterThan(-1);
+    }
+
+    navbar.setSelectedTab('/project-ref-data/999');
+    expect(tabs.selected).to.equal(-1);
+  });
+
+  it('enriches a project shortcut in place when ProjectId is resolved later', async () => {
+    const navbar = document.createElement('dorc-navbar') as DrawerNavbar;
+    container.appendChild(navbar);
+    await navbar.updateComplete;
+    drawerShortcuts.add('projects', {
+      ProjectName: 'Alpha'
+    });
+    drawerShortcuts.enrichProject({
+      ProjectId: 77,
+      ProjectName: 'Alpha'
+    });
+    await navbar.updateComplete;
+    const tabs = navbar.shadowRoot?.getElementById('tabs') as HTMLElement & {
+      selected: number;
+    };
+
+    expect(drawerShortcuts.snapshot().projects).to.deep.equal([
+      { ProjectId: 77, ProjectName: 'Alpha' }
+    ]);
+
+    navbar.setSelectedTab('/project-ref-data/77');
+    expect(tabs.selected).to.be.greaterThan(-1);
+  });
+
+  it('orders delivery and authoring tabs before infrastructure and governance sections', async () => {
+    const navbar = document.createElement('dorc-navbar') as DrawerNavbar;
+    container.appendChild(navbar);
+    await navbar.updateComplete;
+    const tabs = navbar.shadowRoot?.getElementById('tabs');
+    const hrefs = Array.from(tabs!.querySelectorAll('vaadin-tab > a')).map(a =>
+      a.getAttribute('href')
+    );
+
+    expect(hrefs.slice(0, 12)).to.deep.equal([
+      '/deploy',
+      '/monitor-requests',
+      '/projects',
+      '/deployment-definitions',
+      '/module-catalog',
+      '/scripts',
+      '/variables',
+      '/environments',
+      '/servers',
+      '/databases',
+      '/sql-roles',
+      '/sql-ports'
+    ]);
+
+    const catalogItem = tabs!.querySelector(
+      'a[href="/module-catalog"] .sub-item'
+    );
+    const scriptsItem = tabs!.querySelector('a[href="/scripts"] .sub-item');
+    expect(catalogItem, 'Module Catalog should be indented under Definitions')
+      .to.exist;
+    expect(scriptsItem, 'Scripts should be indented under Definitions').to
+      .exist;
+  });
+
+  it('auto-expands the Audit menu when navigating directly to an audit route', async () => {
+    const navbar = document.createElement('dorc-navbar') as DrawerNavbar;
+    container.appendChild(navbar);
+    await navbar.updateComplete;
+    const tabs = navbar.shadowRoot?.getElementById('tabs') as HTMLElement & {
+      selected: number;
+    };
+
+    navbar.setSelectedTab('/projects/audit');
+    await navbar.updateComplete;
+
+    const auditTab = Array.from(tabs.querySelectorAll('vaadin-tab')).find(t =>
+      t.textContent?.trim().startsWith('Audit')
+    );
+    expect(auditTab?.getAttribute('aria-expanded')).to.equal('true');
+    expect(tabs.selected).to.be.greaterThan(-1);
+  });
 });

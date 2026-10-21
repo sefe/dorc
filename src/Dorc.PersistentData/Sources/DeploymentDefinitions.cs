@@ -30,6 +30,51 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
         return Read(context, projectId);
     }
 
+    public IReadOnlyDictionary<int, RefDataApiModel> GetMany(IReadOnlyCollection<int> projectIds)
+    {
+        if (projectIds == null || projectIds.Count == 0) return new Dictionary<int, RefDataApiModel>();
+        using var context = factory.GetContext();
+        var ids = projectIds.Distinct().ToArray();
+        var projects = context.Projects.AsNoTracking().Include(p => p.SourceDatabase)
+            .Where(p => ids.Contains(p.Id)).ToDictionary(p => p.Id);
+        var components = context.Components.AsNoTracking().Include(c => c.Script).Include(c => c.Parent)
+            .Include(c => c.Projects).Where(c => c.Projects.Any(p => ids.Contains(p.Id)))
+            .OrderBy(c => c.Name).ThenBy(c => c.Id).ToList();
+        var componentIds = components.Select(c => c.Id).ToArray();
+        var allInputs = componentIds.Length == 0 ? [] :
+            context.CatalogEnvironmentInputs.AsNoTracking()
+                .Where(x => componentIds.Contains(x.ComponentId))
+                .OrderBy(x => x.ComponentId).ThenBy(x => x.EnvironmentId)
+                .Select(x => new { x.ComponentId, x.EnvironmentId, x.Revision }).ToList();
+        var inputsByComponent = allInputs.ToLookup(x => x.ComponentId);
+        var result = new Dictionary<int, RefDataApiModel>(projects.Count);
+        foreach (var (projectId, project) in projects)
+        {
+            var projectComponents = components.Where(c => c.Projects.Any(p => p.Id == projectId)).ToList();
+            var models = projectComponents.ToDictionary(c => c.Id, Map);
+            foreach (var component in projectComponents)
+                if (component.Parent != null && models.TryGetValue(component.Parent.Id, out var parent))
+                    parent.Children.Add(models[component.Id]);
+            var doc = new RefDataApiModel
+            {
+                Project = ProjectsPersistentSource.MapToProjectApiModel(project)!,
+                Components = projectComponents.Where(c => c.Parent == null || !models.ContainsKey(c.Parent.Id))
+                    .Select(c => models[c.Id]).ToList()
+            };
+            var inputs = projectComponents.SelectMany(c => inputsByComponent[c.Id])
+                .OrderBy(x => x.ComponentId).ThenBy(x => x.EnvironmentId).ToList();
+            doc.Revision = Hash(JsonSerializer.Serialize(new
+            {
+                doc.Project, doc.Components,
+                Membership = projectComponents.Select(c => new { c.Id, c.ScriptId, Projects = c.Projects.Select(p => p.Id).Order().ToArray() }),
+                Inputs = inputs
+            }));
+            doc.Project.Revision = doc.Revision;
+            result[projectId] = doc;
+        }
+        return result;
+    }
+
     public void DeleteProject(int projectId, string expectedRevision, string actor, Func<int, bool> canModify)
     {
         if (string.IsNullOrWhiteSpace(expectedRevision)) throw new DefinitionPreconditionException(true);
@@ -80,12 +125,14 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
             if (!input.ConfirmImpact || !(input.AffectedProjectIds ?? []).Order().SequenceEqual(projects))
                 throw new ArgumentException("Confirm the complete current list of affected projects before editing shared script content.");
             var before = projects.ToDictionary(id => id, id => Read(context, id));
+            var aggregatedIsEnabled = script.Components.Any(c => c.IsEnabled);
             script.Name = input.Name;
             script.Path = input.Path;
             script.IsPathJSON = IsJson(input.Path);
             script.NonProdOnly = input.NonProdOnly;
             script.PowerShellVersionNumber = input.PowerShellVersionNumber.ToSafePsVersionString();
-            foreach (var component in script.Components) component.IsEnabled = input.IsEnabled;
+            if (script.Components.Count <= 1 || input.IsEnabled != aggregatedIsEnabled)
+                foreach (var component in script.Components) component.IsEnabled = input.IsEnabled;
             context.SaveChanges();
             foreach (var id in projects) Record(context, before[id], Read(context, id), actor, "Script.SharedEdit");
             context.AuditScripts.Add(new AuditScript

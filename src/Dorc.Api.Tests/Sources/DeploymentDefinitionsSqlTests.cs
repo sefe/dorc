@@ -54,6 +54,9 @@ public class DeploymentDefinitionsSqlTests
         context.SaveChanges();
         var root = new DirectoryInfo(AppContext.BaseDirectory);
         while (root != null && !File.Exists(Path.Combine(root.FullName, "src", "Dorc.sln"))) root = root.Parent;
+        context.Database.ExecuteSqlRaw("CREATE SCHEMA [archive]");
+        context.Database.ExecuteSqlRaw(File.ReadAllText(Path.Combine(root!.FullName, "src", "Dorc.Database",
+            "Schema Objects", "Schemas", "archive", "Tables", "DeploymentRequest.table.sql")));
         context.Database.ExecuteSqlRaw(File.ReadAllText(Path.Combine(root!.FullName, "src", "Dorc.Database",
             "Schema Objects", "Schemas", "deploy", "Views", "DeploymentDefinitionHistoryView.view.sql")));
         definitions = new DeploymentDefinitions(factory);
@@ -219,6 +222,47 @@ public class DeploymentDefinitionsSqlTests
         }
         Assert.Throws<InvalidOperationException>(() => definitions.CutoverEmptyTerraformBackend(
             fixture.Document.Project.ProjectId, fixture.Cutover, "operator", _ => true, _ => true));
+        Assert.AreEqual(fixture.Document.Revision, definitions.Get(fixture.Document.Project.ProjectId).Revision);
+    }
+
+    [TestMethod]
+    [DataRow("Completed")]
+    [DataRow("Failed")]
+    public void EmptyBackendCutover_RejectsLegacyRequestsWithoutStateEvidence(string status)
+    {
+        var fixture = CreateCutover();
+        using (var context = factory.GetContext())
+        {
+            context.DeploymentRequests.Add(new DeploymentRequest
+            {
+                Project = fixture.Document.Project.ProjectName, Environment = fixture.EnvironmentName,
+                Components = fixture.Document.Components.Single().ComponentName,
+                RequestDetails = "<root/>", UserName = "legacy-requester", Status = status
+            });
+            context.SaveChanges();
+        }
+        var error = Assert.Throws<InvalidOperationException>(() => definitions.CutoverEmptyTerraformBackend(
+            fixture.Document.Project.ProjectId, fixture.Cutover, "operator", _ => true, _ => true));
+        StringAssert.Contains(error.Message, "Legacy requests");
+        Assert.AreEqual(fixture.Document.Revision, definitions.Get(fixture.Document.Project.ProjectId).Revision);
+    }
+
+    [TestMethod]
+    public void EmptyBackendCutover_RejectsArchivedHistory()
+    {
+        var fixture = CreateCutover();
+        using (var context = factory.GetContext())
+        {
+            var id = 1000000 + fixture.RequestId;
+            context.Database.ExecuteSqlInterpolated($"""
+                INSERT [archive].[DeploymentRequest] ([Id],[RequestDetails],[UserName],[Status],[IsProd],[Project],[Environment])
+                VALUES ({id}, N'<root/>', N'legacy-requester', N'Completed', 0,
+                    {fixture.Document.Project.ProjectName}, {fixture.EnvironmentName})
+                """);
+        }
+        var error = Assert.Throws<InvalidOperationException>(() => definitions.CutoverEmptyTerraformBackend(
+            fixture.Document.Project.ProjectId, fixture.Cutover, "operator", _ => true, _ => true));
+        StringAssert.Contains(error.Message, "Archived deployment history");
         Assert.AreEqual(fixture.Document.Revision, definitions.Get(fixture.Document.Project.ProjectId).Revision);
     }
 
@@ -592,5 +636,91 @@ public class DeploymentDefinitionsSqlTests
         using var context = factory.GetContext();
         Assert.AreEqual(source == TerraformSourceType.SharedFolder,
             context.Components.Single(c => c.Id == component.ComponentId).ScriptId.HasValue);
+    }
+
+    [TestMethod]
+    public void SkippedCatalogComponents_DoNotPinBackendsOrBlockBackendEdits()
+    {
+        var document = Create();
+        var active = document.Components[0];
+        active.ComponentName = "active-" + active.ComponentName;
+        active.ComponentType = ComponentType.Terraform;
+        active.TerraformSourceType = TerraformSourceType.Catalog;
+        active.TerraformTemplateName = "active-module";
+        active.TerraformTemplateVersion = "1.0.0";
+        active.ScriptPath = "";
+        var skippedAName = "skipped-a-" + Guid.NewGuid().ToString("N");
+        var skippedBName = "skipped-b-" + Guid.NewGuid().ToString("N");
+        document.Components.Add(new ComponentApiModel
+        {
+            ComponentId = 0, ComponentName = skippedAName,
+            ComponentType = ComponentType.Terraform, TerraformSourceType = TerraformSourceType.Catalog,
+            TerraformTemplateName = "skipped-a", TerraformTemplateVersion = "1.0.0", IsEnabled = true
+        });
+        document.Components.Add(new ComponentApiModel
+        {
+            ComponentId = 0, ComponentName = skippedBName,
+            ComponentType = ComponentType.Terraform, TerraformSourceType = TerraformSourceType.Catalog,
+            TerraformTemplateName = "skipped-b", TerraformTemplateVersion = "1.0.0", IsEnabled = true
+        });
+        var envName = Guid.NewGuid().ToString("N");
+        using (var context = factory.GetContext())
+        {
+            context.Database.ExecuteSqlInterpolated(
+                $"INSERT [deploy].[Environment] ([Name], [ObjectId], [Secure], [IsProd]) VALUES ({envName}, NEWID(), 0, 0)");
+            var environment = context.Environments.Single(e => e.Name == envName);
+            environment.Projects.Add(context.Projects.Single(p => p.Id == document.Project.ProjectId));
+            context.SaveChanges();
+        }
+        document.Project.TerraformStateBackends =
+        [
+            new TerraformStateBackendApiModel
+            {
+                StorageAccount = "stateacct1", ContainerName = "tfstate",
+                SubscriptionId = "11111111-1111-1111-1111-111111111111"
+            }
+        ];
+        document = definitions.Save(document, false, "editor", _ => true, () => { });
+        var activeSaved = document.Components.Single(c => c.ComponentName == active.ComponentName);
+        var skippedA = document.Components.Single(c => c.ComponentName == skippedAName);
+        var skippedB = document.Components.Single(c => c.ComponentName == skippedBName);
+        var detailsXml = $"<DeploymentRequestDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><ComponentsToSkip><string>{skippedA.ComponentName}</string><string>{skippedB.ComponentName}</string></ComponentsToSkip></DeploymentRequestDetail>";
+        var requests = new RequestsPersistentSource(factory, Substitute.For<IClaimsPrincipalReader>());
+        var requestId = requests.SubmitRequest(new DeploymentRequest
+        {
+            Project = document.Project.ProjectName, Environment = envName,
+            Components = string.Join('|', document.Components.Select(c => c.ComponentName)),
+            RequestDetails = detailsXml,
+            UserName = "requester", RequestedTime = DateTimeOffset.UtcNow, Status = "Complete"
+        });
+        var defs = requests.GetRequestDefinitions(requestId);
+        var skippedSnapA = JsonSerializer.Deserialize<ProjectApiModel>(defs.Single(d => d.ComponentId == skippedA.ComponentId).ProjectJson)!;
+        Assert.AreEqual(0, skippedSnapA.TerraformStateBackends.Count);
+        var activeSnap = JsonSerializer.Deserialize<ProjectApiModel>(defs.Single(d => d.ComponentId == activeSaved.ComponentId).ProjectJson)!;
+        Assert.AreEqual(1, activeSnap.TerraformStateBackends.Count);
+    }
+
+    [TestMethod]
+    public void SharedScript_EditPathPreservesIndividualComponentIsEnabled()
+    {
+        var first = Create(); var second = Create();
+        second.Components[0].IsEnabled = false;
+        second = definitions.Save(second, false, "editor", _ => true, () => { });
+        int scriptId;
+        using (var context = factory.GetContext())
+        {
+            var a = context.Components.Include(c => c.Script).Single(c => c.Id == first.Components[0].ComponentId);
+            var b = context.Components.Single(c => c.Id == second.Components[0].ComponentId);
+            b.Script = a.Script; scriptId = a.Script!.Id; context.SaveChanges();
+        }
+        var scripts = new ScriptsPersistentSource(factory, Substitute.For<IClaimsPrincipalReader>(),
+            Substitute.For<IScriptsAuditPersistentSource>());
+        var global = scripts.GetScript(scriptId);
+        Assert.IsTrue(global.IsEnabled);
+        global.ConfirmImpact = true;
+        global.Path = "updated-shared.ps1";
+        definitions.EditScript(global, "editor", _ => true);
+        Assert.IsTrue(definitions.Get(first.Project.ProjectId).Components[0].IsEnabled);
+        Assert.IsFalse(definitions.Get(second.Project.ProjectId).Components[0].IsEnabled);
     }
 }

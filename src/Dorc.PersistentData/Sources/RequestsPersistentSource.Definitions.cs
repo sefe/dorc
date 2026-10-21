@@ -72,23 +72,30 @@ public partial class RequestsPersistentSource
             var script = context.Components.Where(c => c.Id == component.ComponentId).Select(c => c.Script).SingleOrDefault();
             var submittedProject = JsonSerializer.Deserialize<ProjectApiModel>(JsonSerializer.Serialize(current.Project))!;
             if (component.ComponentType == ComponentType.Terraform &&
-                component.TerraformSourceType == TerraformSourceType.Catalog && !skipped.Contains(component.ComponentName))
+                component.TerraformSourceType == TerraformSourceType.Catalog)
             {
-                var environmentId = context.Environments.Where(e => e.Name == request.Environment &&
-                    e.Projects.Any(p => p.Id == project.Id)).Select(e => (int?)e.Id).SingleOrDefault()
-                    ?? throw new InvalidOperationException("The Catalog request environment must be mapped to its project.");
-                var backend = TerraformStateBackends.Require(current.Project.TerraformStateBackends, environmentId);
-                // Only the effective backend travels with this request. It must not be
-                // reselected from live mappings or overridden by request properties.
-                submittedProject.TerraformStateBackends =
-                [
-                    new TerraformStateBackendApiModel
-                    {
-                        EnvironmentId = environmentId,
-                        StorageAccount = backend.StorageAccount, ContainerName = backend.ContainerName,
-                        SubscriptionId = backend.SubscriptionId, ResourceGroup = backend.ResourceGroup
-                    }
-                ];
+                if (skipped.Contains(component.ComponentName))
+                {
+                    submittedProject.TerraformStateBackends = [];
+                }
+                else
+                {
+                    var environmentId = context.Environments.Where(e => e.Name == request.Environment &&
+                        e.Projects.Any(p => p.Id == project.Id)).Select(e => (int?)e.Id).SingleOrDefault()
+                        ?? throw new InvalidOperationException("The Catalog request environment must be mapped to its project.");
+                    var backend = TerraformStateBackends.Require(current.Project.TerraformStateBackends, environmentId);
+                    // Only the effective backend travels with this request. It must not be
+                    // reselected from live mappings or overridden by request properties.
+                    submittedProject.TerraformStateBackends =
+                    [
+                        new TerraformStateBackendApiModel
+                        {
+                            EnvironmentId = environmentId,
+                            StorageAccount = backend.StorageAccount, ContainerName = backend.ContainerName,
+                            SubscriptionId = backend.SubscriptionId, ResourceGroup = backend.ResourceGroup
+                        }
+                    ];
+                }
             }
             result.Add(new DeploymentRequestDefinition
             {

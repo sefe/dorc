@@ -69,10 +69,25 @@ const LEGACY_COOKIES: Record<Family, string> = {
 
 /** Identity for de-duplication. Id when present, otherwise the name. */
 export const envKey = (e: EnvShortcut) =>
-  e.EnvironmentId != null ? `id:${e.EnvironmentId}` : `name:${e.EnvironmentName}`;
+  e.EnvironmentId != null
+    ? `id:${e.EnvironmentId}`
+    : `name:${e.EnvironmentName}`;
 export const projectKey = (p: ProjectShortcut) =>
   p.ProjectId != null ? `id:${p.ProjectId}` : `name:${p.ProjectName}`;
 export const resultKey = (r: ResultShortcut) => `id:${r.Id}`;
+
+export function sameProjectShortcut(
+  a: ProjectShortcut,
+  b: ProjectShortcut
+): boolean {
+  if (a.ProjectId != null && b.ProjectId != null) {
+    return a.ProjectId === b.ProjectId;
+  }
+  if (a.ProjectName && b.ProjectName) {
+    return a.ProjectName.toLowerCase() === b.ProjectName.toLowerCase();
+  }
+  return projectKey(a) === projectKey(b);
+}
 
 const KEY_OF: Record<Family, (item: never) => string> = {
   environments: envKey as (item: never) => string,
@@ -261,6 +276,32 @@ export class DrawerShortcuts extends EventTarget {
   // ── Mutations ────────────────────────────────────────────────────────────
 
   add<F extends Family>(family: F, item: DrawerShortcutState[F][number]): void {
+    if (family === 'projects') {
+      const next = item as ProjectShortcut;
+      const list = this.latestFamily('projects');
+      const idx = list.findIndex(existing =>
+        sameProjectShortcut(existing, next)
+      );
+      if (idx >= 0) {
+        const existing = list[idx];
+        const merged: ProjectShortcut = {
+          ProjectId: next.ProjectId ?? existing.ProjectId,
+          ProjectName: next.ProjectName || existing.ProjectName
+        };
+        if (
+          merged.ProjectId === existing.ProjectId &&
+          merged.ProjectName === existing.ProjectName
+        ) {
+          return;
+        }
+        const copy = [...list];
+        copy[idx] = merged;
+        this.state.projects = dedupe(copy, projectKey);
+        this.persist('projects');
+        this.emit();
+        return;
+      }
+    }
     const key = KEY_OF[family] as (i: unknown) => string;
     const list = this.latestFamily(family) as unknown[];
     if (list.some(existing => key(existing) === key(item))) return;
@@ -269,10 +310,49 @@ export class DrawerShortcuts extends EventTarget {
     this.emit();
   }
 
+  /**
+   * Enriches an already-pinned project shortcut in place when a project page
+   * resolves both ProjectId and ProjectName, without adding a new shortcut if
+   * the project is not currently pinned.
+   */
+  enrichProject(item: ProjectShortcut): void {
+    const list = this.latestFamily('projects');
+    const idx = list.findIndex(existing => sameProjectShortcut(existing, item));
+    if (idx < 0) return;
+    const existing = list[idx];
+    const merged: ProjectShortcut = {
+      ProjectId: item.ProjectId ?? existing.ProjectId,
+      ProjectName: item.ProjectName || existing.ProjectName
+    };
+    if (
+      merged.ProjectId === existing.ProjectId &&
+      merged.ProjectName === existing.ProjectName
+    ) {
+      return;
+    }
+    const copy = [...list];
+    copy[idx] = merged;
+    this.state.projects = dedupe(copy, projectKey);
+    this.persist('projects');
+    this.emit();
+  }
+
   remove<F extends Family>(
     family: F,
     item: DrawerShortcutState[F][number]
   ): void {
+    if (family === 'projects') {
+      const target = item as ProjectShortcut;
+      const before = this.latestFamily('projects');
+      const after = before.filter(
+        existing => !sameProjectShortcut(existing, target)
+      );
+      if (after.length === before.length) return;
+      this.state.projects = after;
+      this.persist('projects');
+      this.emit();
+      return;
+    }
     const key = KEY_OF[family] as (i: unknown) => string;
     const before = this.latestFamily(family) as unknown[];
     const after = before.filter(existing => key(existing) !== key(item));
@@ -282,7 +362,10 @@ export class DrawerShortcuts extends EventTarget {
     this.emit();
   }
 
-  has<F extends Family>(family: F, item: DrawerShortcutState[F][number]): boolean {
+  has<F extends Family>(
+    family: F,
+    item: DrawerShortcutState[F][number]
+  ): boolean {
     const key = KEY_OF[family] as (i: unknown) => string;
     return (this.state[family] as unknown[]).some(e => key(e) === key(item));
   }
@@ -466,7 +549,8 @@ export class DrawerShortcuts extends EventTarget {
     const raw = readLegacyCookie(LEGACY_COOKIES[family]);
     if (raw === '') return [];
     const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) throw new Error('legacy cookie was not an array');
+    if (!Array.isArray(parsed))
+      throw new Error('legacy cookie was not an array');
     return parsed as unknown[];
   }
 

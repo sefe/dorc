@@ -25,6 +25,7 @@ import {
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import '@vaadin/grid/vaadin-grid-column';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import '../components/project-workspace-nav';
 
 interface ComponentDeploymentInfo extends ComponentApiModel {
   Children?: ComponentDeploymentInfo[] | null;
@@ -53,6 +54,11 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
         height: calc(100vh - 50px);
         padding: 16px;
         box-sizing: border-box;
+      }
+
+      project-workspace-nav {
+        margin: -16px -16px 12px -16px;
+        flex-shrink: 0;
       }
 
       .header {
@@ -211,6 +217,11 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
 
   render() {
     return html`
+      <project-workspace-nav
+        .projectId=${this.projectId}
+        .projectName=${this.projectName}
+        activeTab="components"
+      ></project-workspace-nav>
       <div class="header">
         <div class="title">
           ${
@@ -548,16 +559,20 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
       const hasScript = Boolean(
         component.ScriptPath && component.ScriptPath.trim() !== ''
       );
-      const hasCatalogTemplate =
+      const hasTerraformSource =
         component.ComponentType === ComponentType.Terraform &&
-        component.TerraformSourceType === TerraformSourceType.Catalog &&
-        Boolean(component.TerraformTemplateName?.trim()) &&
-        Boolean(component.TerraformTemplateVersion?.trim());
+        (component.TerraformSourceType === TerraformSourceType.Catalog
+          ? Boolean(component.TerraformTemplateName?.trim()) &&
+            Boolean(component.TerraformTemplateVersion?.trim())
+          : component.TerraformSourceType === TerraformSourceType.Git
+            ? Boolean(component.TerraformGitBranch?.trim()) ||
+              Boolean(component.TerraformSubPath?.trim())
+            : Boolean(component.TerraformSubPath?.trim()));
       const hasChildren = Boolean(
         component.Children && component.Children.length > 0
       );
 
-      if (hasScript || hasCatalogTemplate) {
+      if (hasScript || hasTerraformSource) {
         const deploymentInfo: ComponentDeploymentInfo = {
           ...component,
           displayName: componentName,

@@ -58,6 +58,16 @@ it('flattens deployable catalog components alongside scripts, without including 
         ComponentId: 6,
         ComponentName: 'ArtifactWithoutPath',
         TerraformSourceType: TerraformSourceType.AzureArtifact
+      },
+      {
+        ...catalog,
+        ComponentId: 7,
+        ComponentName: 'GitModule',
+        TerraformSourceType: TerraformSourceType.Git,
+        TerraformTemplateName: '',
+        TerraformTemplateVersion: '',
+        TerraformGitBranch: 'main',
+        TerraformSubPath: 'modules/network'
       }
     ],
     [],
@@ -65,9 +75,10 @@ it('flattens deployable catalog components alongside scripts, without including 
     new Set(['2', '3'])
   );
   expect(result.map(component => component.ComponentName)).to.deep.equal([
+    'GitModule',
     'Script',
     'Storage'
   ]);
-  expect(result[1].parentPath).to.deep.equal(['Group']);
-  expect(result[1].environmentBuilds?.get('Test')).to.equal(build);
+  expect(result[2].parentPath).to.deep.equal(['Group']);
+  expect(result[2].environmentBuilds?.get('Test')).to.equal(build);
 });

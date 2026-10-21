@@ -559,4 +559,36 @@ describe('definition history and discovery', () => {
       page: 2
     });
   });
+
+  it('hides secondary project and source columns on narrow viewports', async () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = () =>
+      ({
+        matches: true,
+        media: '(max-width: 768px)',
+        onchange: null,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        addListener: () => {},
+        removeListener: () => {},
+        dispatchEvent: () => true
+      }) as MediaQueryList;
+    try {
+      const page = await fixture(
+        html`<page-deployment-definitions></page-deployment-definitions>`
+      );
+      await settle();
+      const cols = [
+        ...page.shadowRoot!.querySelectorAll<HTMLElement>('vaadin-grid-column')
+      ];
+      expect(cols.map(col => col.hidden)).to.deep.equal([
+        false,
+        true,
+        true,
+        false
+      ]);
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  });
 });

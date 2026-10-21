@@ -15,11 +15,13 @@ import {
   type ProjectApiModel
 } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
+import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { drawerShortcuts } from '../components/drawer-shortcuts';
 
 @customElement('page-deployment-definitions')
-export class PageDeploymentDefinitions extends PageElement {
+export class PageDeploymentDefinitions extends ResponsiveMixin(PageElement) {
   @state() private items: DeploymentDefinitionApiModel[] = [];
   @state() private projects: ProjectApiModel[] = [];
   @state() private loading = false;
@@ -49,58 +51,93 @@ export class PageDeploymentDefinitions extends PageElement {
     }
     header,
     footer {
-      padding: var(--lumo-space-m);
+      padding: var(--lumo-space-xs) var(--lumo-space-m);
       display: flex;
       flex-wrap: wrap;
-      gap: var(--lumo-space-m);
+      gap: var(--lumo-space-s);
       align-items: center;
       justify-content: space-between;
     }
+    header {
+      border-bottom: 1px solid var(--dorc-border-color);
+    }
+    footer {
+      border-top: 1px solid var(--dorc-border-color);
+      font-size: var(--lumo-font-size-s);
+    }
     h1 {
       margin: 0;
-      font-size: var(--lumo-font-size-xl);
+      font-size: var(--lumo-font-size-l);
     }
     p {
+      margin: 0;
+      font-size: var(--lumo-font-size-xs);
       color: var(--dorc-text-secondary-strong);
       max-width: 75ch;
     }
     a {
       color: var(--dorc-link-color);
+      font-size: var(--lumo-font-size-s);
     }
     form {
-      padding: 0 var(--lumo-space-m) var(--lumo-space-m);
+      padding: var(--lumo-space-xs) var(--lumo-space-m);
       display: flex;
       flex-wrap: wrap;
-      gap: var(--lumo-space-m);
+      gap: var(--lumo-space-s);
       align-items: end;
+      border-bottom: 1px solid var(--dorc-border-color);
     }
     vaadin-text-field {
       flex: 1;
       min-width: 180px;
     }
     vaadin-combo-box {
-      min-width: 160px;
+      min-width: 150px;
     }
     vaadin-grid {
       flex: 1;
-      min-height: 200px;
+      min-height: 0;
     }
     .actions {
       display: flex;
       flex-wrap: wrap;
-      gap: var(--lumo-space-m);
+      gap: var(--lumo-space-s);
     }
     .source {
       color: var(--dorc-text-secondary-strong);
       overflow-wrap: anywhere;
       white-space: normal;
+      font-size: var(--lumo-font-size-xs);
     }
     .error {
       color: var(--lumo-error-text-color);
-      margin: var(--lumo-space-m);
+      margin: var(--lumo-space-xs) var(--lumo-space-m);
     }
     .empty {
-      margin: var(--lumo-space-m);
+      margin: var(--lumo-space-xs) var(--lumo-space-m);
+    }
+    @media (max-width: 768px) {
+      header p {
+        display: none;
+      }
+      form {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: var(--lumo-space-xs) var(--lumo-space-s);
+      }
+      form vaadin-text-field {
+        grid-column: 1 / -1;
+        min-width: 0;
+      }
+      form vaadin-combo-box {
+        min-width: 0;
+        width: 100%;
+      }
+      vaadin-grid-cell-content {
+        white-space: normal;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+      }
     }
   `;
 
@@ -179,13 +216,22 @@ export class PageDeploymentDefinitions extends PageElement {
     this.load();
   }
 
+  private pinProject(item: DeploymentDefinitionApiModel) {
+    if (!item.ProjectName) return;
+    drawerShortcuts.add('projects', {
+      ProjectId: item.ProjectId,
+      ProjectName: item.ProjectName
+    });
+  }
+
   private definitionRenderer(item: DeploymentDefinitionApiModel) {
     return html`<a
         href="/project-ref-data/${item.ProjectId}?componentId=${item.Component?.ComponentId}"
+        @click=${() => this.pinProject(item)}
         >${item.Component?.ComponentName}</a
       >
       <div class="source">
-        ${item.Component?.ComponentType ?? ComponentType.PowerShell}${item.Component?.ComponentType === ComponentType.Terraform ? ` / ${item.Component.TerraformSourceType ?? TerraformSourceType.SharedFolder}` : ''}
+        ${this._narrowScreen && item.ProjectName ? `${item.ProjectName} · ` : ''}${item.Component?.ComponentType ?? ComponentType.PowerShell}${item.Component?.ComponentType === ComponentType.Terraform ? ` / ${item.Component.TerraformSourceType ?? TerraformSourceType.SharedFolder}` : ''}
       </div>`;
   }
 
@@ -202,10 +248,12 @@ export class PageDeploymentDefinitions extends PageElement {
     return html`<div class="actions">
       <a
         href="/project-ref-data/${item.ProjectId}?componentId=${item.Component?.ComponentId}"
+        @click=${() => this.pinProject(item)}
         >${item.CanEdit ? 'Edit' : 'View'}</a
       >
       <a
         href="/project-ref-data/${item.ProjectId}?componentId=${item.Component?.ComponentId}&amp;tab=history"
+        @click=${() => this.pinProject(item)}
         >History</a
       >
       ${item.CanDeploy ? html`<a href="/deploy?projectId=${item.ProjectId}&amp;componentId=${item.Component?.ComponentId}">Deploy</a>` : nothing}
@@ -230,6 +278,7 @@ export class PageDeploymentDefinitions extends PageElement {
       </header>
       <form @submit=${(event: Event) => this.applyFilters(event)}>
         <vaadin-text-field
+          theme="small"
           label="Search definitions"
           .value=${this.search}
           clear-button-visible
@@ -238,6 +287,7 @@ export class PageDeploymentDefinitions extends PageElement {
           }}
         ></vaadin-text-field>
         <vaadin-combo-box
+          theme="small"
           label="Project"
           .items=${this.projects}
           item-label-path="ProjectName"
@@ -249,6 +299,7 @@ export class PageDeploymentDefinitions extends PageElement {
           }}
         ></vaadin-combo-box>
         <vaadin-combo-box
+          theme="small"
           label="Execution type"
           .items=${Object.values(ComponentType)}
           .value=${this.componentType}
@@ -260,6 +311,7 @@ export class PageDeploymentDefinitions extends PageElement {
           }}
         ></vaadin-combo-box>
         <vaadin-combo-box
+          theme="small"
           label="Terraform source"
           .items=${Object.values(TerraformSourceType)}
           .value=${this.sourceType}
@@ -270,7 +322,7 @@ export class PageDeploymentDefinitions extends PageElement {
           }}
         ></vaadin-combo-box>
         <vaadin-button
-          theme="primary"
+          theme="primary small"
           @click=${(event: Event) => this.applyFilters(event)}
           .disabled=${this.loading}
           >Apply filters</vaadin-button
@@ -286,14 +338,16 @@ export class PageDeploymentDefinitions extends PageElement {
       >
         <vaadin-grid-column
           header="Definition / type"
-          ${columnBodyRenderer(this.definitionRenderer, [])}
+          ${columnBodyRenderer(this.definitionRenderer, [this._narrowScreen])}
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="ProjectName"
           header="Project"
+          ?hidden=${this._narrowScreen}
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="Source / revision"
+          ?hidden=${this._narrowScreen}
           ${columnBodyRenderer(this.sourceRenderer, [])}
         ></vaadin-grid-column>
         <vaadin-grid-column
@@ -308,11 +362,13 @@ export class PageDeploymentDefinitions extends PageElement {
         >
         <div>
           <vaadin-button
+            theme="small"
             @click=${() => this.changePage(-1)}
             .disabled=${this.loading || this.page <= 1}
             >Previous</vaadin-button
           >
           <vaadin-button
+            theme="small"
             @click=${() => this.changePage(1)}
             .disabled=${this.loading || this.page * this.pageSize >= this.total}
             >Next</vaadin-button

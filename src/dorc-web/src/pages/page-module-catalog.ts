@@ -144,7 +144,7 @@ export class PageModuleCatalog extends PageElement {
       .hero {
         background: var(--dorc-bg-primary);
         border-bottom: 1px solid var(--dorc-border-color);
-        padding: var(--lumo-space-xl) var(--lumo-space-xl) var(--lumo-space-l);
+        padding: var(--lumo-space-m) var(--lumo-space-l);
       }
       .hero-inner,
       .body {
@@ -154,16 +154,16 @@ export class PageModuleCatalog extends PageElement {
       .hero-inner {
         display: flex;
         flex-wrap: wrap;
-        gap: var(--lumo-space-l);
-        align-items: flex-end;
+        gap: var(--lumo-space-m);
+        align-items: center;
         justify-content: space-between;
       }
       .hero-text {
-        flex: 1 1 480px;
+        flex: 1 1 420px;
         min-width: 0;
         display: flex;
         flex-direction: column;
-        gap: var(--lumo-space-s);
+        gap: var(--lumo-space-xs);
       }
       .eyebrow {
         font-size: var(--lumo-font-size-xs);
@@ -174,31 +174,32 @@ export class PageModuleCatalog extends PageElement {
       }
       h1 {
         margin: 0;
-        font-size: 2.1rem;
+        font-size: var(--lumo-font-size-xl);
         font-weight: 700;
         letter-spacing: -0.02em;
-        line-height: 1.1;
+        line-height: 1.15;
       }
       .lead {
         margin: 0;
         max-width: 620px;
+        font-size: var(--lumo-font-size-s);
         color: var(--dorc-text-secondary-strong);
-        line-height: 1.5;
+        line-height: 1.4;
       }
       .stats {
         display: flex;
-        gap: var(--lumo-space-s);
+        gap: var(--lumo-space-xs);
         flex-wrap: wrap;
       }
       .stat {
         display: flex;
-        flex-direction: column;
-        gap: 2px;
-        padding: var(--lumo-space-s) var(--lumo-space-m);
+        flex-direction: row;
+        align-items: baseline;
+        gap: var(--lumo-space-xs);
+        padding: var(--lumo-space-xs) var(--lumo-space-s);
         background: var(--dorc-bg-secondary);
         border: 1px solid var(--dorc-border-color);
-        border-radius: var(--lumo-border-radius-l);
-        min-width: 112px;
+        border-radius: var(--lumo-border-radius-m);
       }
       .stat-label {
         font-size: var(--lumo-font-size-xs);
@@ -206,18 +207,18 @@ export class PageModuleCatalog extends PageElement {
         color: var(--dorc-text-secondary-strong);
       }
       .stat-value {
-        font-size: var(--lumo-font-size-xxl);
+        font-size: var(--lumo-font-size-m);
         font-weight: 700;
         line-height: 1.1;
       }
       .stat-value.small {
-        font-size: var(--lumo-font-size-l);
+        font-size: var(--lumo-font-size-s);
       }
       .body {
-        padding: var(--lumo-space-l) var(--lumo-space-xl) var(--lumo-space-xl);
+        padding: var(--lumo-space-s) var(--lumo-space-m);
         display: flex;
         flex-direction: column;
-        gap: var(--lumo-space-l);
+        gap: var(--lumo-space-s);
       }
       .toolbar {
         display: flex;
@@ -253,17 +254,17 @@ export class PageModuleCatalog extends PageElement {
       }
       .cards {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(min(100%, 440px), 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
         gap: var(--lumo-space-m);
       }
       .card {
         background: var(--dorc-bg-primary);
         border: 1px solid var(--dorc-border-color);
         border-radius: var(--lumo-border-radius-l);
-        padding: var(--lumo-space-l);
+        padding: var(--lumo-space-m);
         display: flex;
         flex-direction: column;
-        gap: var(--lumo-space-m);
+        gap: var(--lumo-space-s);
         box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
         transition:
           box-shadow 120ms ease,
@@ -276,12 +277,12 @@ export class PageModuleCatalog extends PageElement {
       }
       .card-head {
         display: flex;
-        gap: var(--lumo-space-m);
+        gap: var(--lumo-space-s);
         align-items: flex-start;
       }
       .icon-tile {
-        width: 52px;
-        height: 52px;
+        width: 40px;
+        height: 40px;
         border-radius: var(--lumo-border-radius-m);
         display: flex;
         align-items: center;
@@ -293,16 +294,16 @@ export class PageModuleCatalog extends PageElement {
         height: 36px;
       }
       .icon-tile vaadin-icon {
-        width: 26px;
-        height: 26px;
+        width: 22px;
+        height: 22px;
       }
       .icon-tile.small vaadin-icon {
         width: 18px;
         height: 18px;
       }
       .icon-tile .brand-icon {
-        width: 26px;
-        height: 26px;
+        width: 22px;
+        height: 22px;
         fill: currentColor;
       }
       .icon-tile.small .brand-icon {
@@ -340,7 +341,7 @@ export class PageModuleCatalog extends PageElement {
       }
       h2 {
         margin: 0;
-        font-size: var(--lumo-font-size-xl);
+        font-size: var(--lumo-font-size-l);
         font-weight: 700;
         letter-spacing: -0.01em;
         overflow-wrap: anywhere;
@@ -698,11 +699,14 @@ export class PageModuleCatalog extends PageElement {
       @media (max-width: 768px) {
         .hero,
         .body {
-          padding-left: var(--lumo-space-m);
-          padding-right: var(--lumo-space-m);
+          padding: var(--lumo-space-s) var(--lumo-space-m);
+        }
+        .eyebrow,
+        .lead {
+          display: none;
         }
         h1 {
-          font-size: 1.6rem;
+          font-size: var(--lumo-font-size-l);
         }
         .facts {
           grid-template-columns: repeat(2, minmax(0, 1fr));

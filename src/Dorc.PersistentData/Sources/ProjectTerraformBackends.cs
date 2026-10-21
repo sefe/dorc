@@ -35,7 +35,7 @@ internal static class ProjectTerraformBackends
         var scopes = mapped.Select(e => (e.Id, e.Name)).ToList();
         var submitted = (from definition in catalogDefinitions
                          join request in context.DeploymentRequests on definition.DeploymentRequestId equals request.Id
-                         where request.TerraformBackendRetiredByChangeId == null
+                         where !definition.IsSkipped && request.TerraformBackendRetiredByChangeId == null
                          select new { request.Environment, definition.ProjectJson }).Distinct().ToList()
             .Select(row => new
             {

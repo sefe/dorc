@@ -93,6 +93,11 @@ Submit the current reference-data `Revision`, mapped `EnvironmentId`, the
 The operation refuses active requests, retained runner processes, retained
 Catalog plans/receipts, and missing or conflicting submitted backend evidence.
 It cannot be used to migrate nonempty state or deployments with existing plans.
+It also refuses legacy requests without pinned definitions and any archived
+deployment history in that project/environment. Older successful or partially
+failed runs may have used source-owned or local state: empty newly configured
+containers are not evidence that those runs created no infrastructure. Recover
+that state or perform a separately reviewed resource-import procedure first.
 
 The project change, before/after history, verification digest and request-retirement
 markers commit in one transaction. Old submitted definitions and results are not

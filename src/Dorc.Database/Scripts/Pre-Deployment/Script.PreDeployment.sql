@@ -12,3 +12,4 @@
 :r ./GuardTagLengthsBeforeMigration.sql
 :r ./StashDatabaseIdentityValue.sql
 :r ./StageServicesForMigration.sql
+:r ./AddCancelledFieldsToArchiveDeploymentRequests.sql

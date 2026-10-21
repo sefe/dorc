@@ -208,7 +208,11 @@ export class EnvDaemons extends PageEnvBase {
     const appDaemons = this.shadowRoot?.getElementById(
       'app-daemons'
     ) as ApplicationDaemons;
-    appDaemons.envName = this.envContent?.EnvironmentName || '';
+    appDaemons.envName =
+      this.envContent?.EnvironmentName ||
+      this.environment?.EnvironmentName ||
+      this.environmentName ||
+      '';
     this.daemonsLoading = true;
     this.discovering = false;
     appDaemons.loadDaemons();
@@ -218,7 +222,11 @@ export class EnvDaemons extends PageEnvBase {
     const appDaemons = this.shadowRoot?.getElementById(
       'app-daemons'
     ) as ApplicationDaemons;
-    appDaemons.envName = this.envContent?.EnvironmentName || '';
+    appDaemons.envName =
+      this.envContent?.EnvironmentName ||
+      this.environment?.EnvironmentName ||
+      this.environmentName ||
+      '';
     this.discovering = true;
     this.daemonsLoading = false;
     appDaemons.discoverDaemons();

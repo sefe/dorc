@@ -25,6 +25,7 @@ import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import { confirmPrompt } from '../components/confirm-prompt';
 import '../components/deployment-definition-editor';
 import '../components/deployment-definition-history';
+import '../components/project-workspace-nav';
 
 type DefinitionNode = ComponentApiModel;
 type ReferenceDocument = RefDataApiModel;
@@ -104,14 +105,24 @@ export class PageProjectRefData extends PageElement {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: var(--lumo-space-m);
-      padding: var(--lumo-space-m);
+      gap: var(--lumo-space-s);
+      padding: var(--lumo-space-xs) var(--lumo-space-m);
       flex-wrap: wrap;
       border-bottom: 1px solid var(--dorc-border-color);
     }
+    header > div:first-child {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: var(--lumo-space-s);
+    }
+    header > div:first-child > span {
+      font-size: var(--lumo-font-size-xs);
+      color: var(--dorc-text-secondary-strong);
+    }
     h1 {
       margin: 0;
-      font-size: var(--lumo-font-size-xl);
+      font-size: var(--lumo-font-size-l);
     }
     h2 {
       font-size: var(--lumo-font-size-l);
@@ -130,19 +141,23 @@ export class PageProjectRefData extends PageElement {
       color: var(--dorc-link-color);
     }
     .workspace {
+      flex: 1;
+      min-height: 0;
       display: grid;
-      grid-template-columns: minmax(200px, 28%) minmax(0, 1fr);
-      gap: var(--lumo-space-l);
-      padding: var(--lumo-space-m);
-      overflow: auto;
+      grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+      gap: var(--lumo-space-m);
+      padding: var(--lumo-space-s) var(--lumo-space-m);
+      overflow: hidden;
     }
     aside {
+      min-height: 0;
+      overflow-y: auto;
       border-inline-end: 1px solid var(--dorc-border-color);
-      padding-inline-end: var(--lumo-space-m);
+      padding-inline-end: var(--lumo-space-s);
     }
     .tree {
       list-style: none;
-      margin: var(--lumo-space-m) 0;
+      margin: var(--lumo-space-xs) 0;
       padding: 0;
     }
     .tree button {
@@ -151,7 +166,7 @@ export class PageProjectRefData extends PageElement {
       background: transparent;
       border: 0;
       border-radius: var(--lumo-border-radius-s);
-      padding: var(--lumo-space-s);
+      padding: var(--lumo-space-xs) var(--lumo-space-s);
       width: 100%;
       text-align: start;
       overflow-wrap: anywhere;
@@ -172,41 +187,86 @@ export class PageProjectRefData extends PageElement {
     }
     .pane {
       min-width: 0;
+      min-height: 0;
+      overflow-y: auto;
     }
     .notice,
     .error {
-      margin: var(--lumo-space-s) var(--lumo-space-m);
+      margin: var(--lumo-space-xs) var(--lumo-space-m);
+      font-size: var(--lumo-font-size-s);
     }
     .error {
       color: var(--lumo-error-text-color);
     }
     .advanced {
       flex: 1;
-      min-height: 300px;
+      min-height: 0;
       display: flex;
       flex-direction: column;
-      padding: var(--lumo-space-m);
+      padding: var(--lumo-space-xs) var(--lumo-space-m);
+    }
+    .advanced > p {
+      margin: var(--lumo-space-xs) 0;
+      font-size: var(--lumo-font-size-xs);
     }
     #editor {
       flex: 1;
-      min-height: 300px;
+      min-height: 200px;
     }
     [hidden] {
       display: none !important;
     }
     .history {
+      flex: 1;
+      min-height: 0;
       overflow: auto;
-      padding: var(--lumo-space-m);
+      padding: var(--lumo-space-s) var(--lumo-space-m);
+    }
+    label {
+      display: inline-flex;
+      flex-direction: column;
+      gap: 4px;
+      margin-block: var(--lumo-space-xs);
+      font-size: var(--lumo-font-size-xs);
+      font-weight: 500;
+      color: var(--dorc-text-secondary-strong);
+    }
+    label select {
+      font: inherit;
+      font-size: var(--lumo-font-size-s);
+      color: var(--dorc-text-primary);
+      background: var(--dorc-bg-secondary);
+      border: 1px solid var(--dorc-border-color);
+      border-radius: var(--lumo-border-radius-m);
+      padding: var(--lumo-space-xs) var(--lumo-space-s);
+      min-width: 220px;
+      max-width: 100%;
+    }
+    details {
+      margin-top: var(--lumo-space-s);
+      border-top: 1px solid var(--dorc-border-color);
+      padding-top: var(--lumo-space-xs);
+    }
+    details summary {
+      cursor: pointer;
+      font-size: var(--lumo-font-size-s);
+      font-weight: 600;
+      padding-block: var(--lumo-space-xs);
+    }
+    details > p {
+      margin: var(--lumo-space-xs) 0;
+      font-size: var(--lumo-font-size-xs);
+      color: var(--dorc-text-secondary-strong);
     }
     .project-fields {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: var(--lumo-space-m);
+      gap: var(--lumo-space-s) var(--lumo-space-m);
     }
     .backend-row {
       border: 1px solid var(--dorc-border-color);
-      padding: var(--lumo-space-m);
-      margin-block: var(--lumo-space-m);
+      padding: var(--lumo-space-s);
+      margin-block: var(--lumo-space-s);
       min-width: 0;
     }
     .backend-row legend {
@@ -218,32 +278,77 @@ export class PageProjectRefData extends PageElement {
       min-width: 0;
     }
     .preview {
-      padding: var(--lumo-space-m);
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--lumo-space-xs);
+      padding: var(--lumo-space-s) var(--lumo-space-m);
       border-top: 1px solid var(--dorc-border-color);
-      overflow: auto;
+      overflow: hidden;
+    }
+    .preview h2,
+    .preview h3,
+    .preview p {
+      margin: 0;
+    }
+    .preview h2 {
+      font-size: var(--lumo-font-size-m);
+    }
+    .preview h3 {
+      font-size: var(--lumo-font-size-s);
+    }
+    .preview p {
+      font-size: var(--lumo-font-size-xs);
+      color: var(--dorc-text-secondary-strong);
     }
     .diff {
+      flex: 1;
+      min-height: 0;
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: var(--lumo-space-m);
     }
+    .diff > div {
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      gap: var(--lumo-space-xs);
+    }
     pre {
+      flex: 1;
+      min-height: 0;
+      margin: 0;
       background: var(--dorc-bg-secondary);
+      border: 1px solid var(--dorc-border-color);
+      border-radius: var(--lumo-border-radius-s);
+      font-family: var(--dorc-mono-font, monospace);
+      font-size: var(--lumo-font-size-xs);
       white-space: pre-wrap;
       overflow-wrap: anywhere;
       padding: var(--lumo-space-s);
-      max-height: 20rem;
       overflow: auto;
     }
     @media (max-width: 768px) {
-      .workspace,
+      .workspace {
+        grid-template-columns: 1fr;
+        overflow-y: auto;
+        padding: var(--lumo-space-s);
+        gap: var(--lumo-space-s);
+      }
       .project-fields,
       .diff {
         grid-template-columns: 1fr;
       }
       aside {
+        max-height: 28vh;
         border-inline-end: none;
         border-bottom: 1px solid var(--dorc-border-color);
+        padding-inline-end: 0;
+        padding-bottom: var(--lumo-space-xs);
+      }
+      .pane {
+        overflow-y: visible;
       }
     }
   `;
@@ -339,6 +444,9 @@ export class PageProjectRefData extends PageElement {
     const token = ++this.loadToken;
     this.loading = true;
     this.error = '';
+    this.backendEnvironmentsLoaded = false;
+    this.backendEnvironmentsLoading = false;
+    this.backendEnvironmentError = '';
     new RefDataApi(dorcApiConfiguration)
       .refDataIdGet({ id: String(this.projectId) })
       .subscribe({
@@ -360,6 +468,13 @@ export class PageProjectRefData extends PageElement {
               'This component is no longer attached to the current project. Its retained history is still available in the History tab.';
           }
           this.syncEditor();
+          if (
+            this.renderRoot.querySelector<HTMLDetailsElement>(
+              'details.backends'
+            )?.open
+          ) {
+            this.fetchBackendEnvironments();
+          }
         },
         error: error => {
           if (token !== this.loadToken) return;
@@ -548,8 +663,12 @@ export class PageProjectRefData extends PageElement {
   }
 
   private loadBackendEnvironments(event: Event) {
+    if (!(event.currentTarget as HTMLDetailsElement).open) return;
+    this.fetchBackendEnvironments();
+  }
+
+  private fetchBackendEnvironments() {
     if (
-      !(event.currentTarget as HTMLDetailsElement).open ||
       this.backendEnvironmentsLoaded ||
       this.backendEnvironmentsLoading ||
       !this.document?.Project?.ProjectName
@@ -778,6 +897,11 @@ export class PageProjectRefData extends PageElement {
       : '';
     const catalogUrl = `/module-catalog?project=${encodeURIComponent(project?.ProjectName ?? '')}`;
     return html`
+      <project-workspace-nav
+        .projectId=${project?.ProjectId ?? this.projectId}
+        .projectName=${project?.ProjectName ?? ''}
+        activeTab="definitions"
+      ></project-workspace-nav>
       <header>
         <div>
           <h1>${project?.ProjectName ?? 'Project'} reference data</h1>
@@ -810,7 +934,10 @@ export class PageProjectRefData extends PageElement {
         <vaadin-tab>Definitions</vaadin-tab
         ><vaadin-tab>Advanced JSON</vaadin-tab><vaadin-tab>History</vaadin-tab>
       </vaadin-tabs>
-      <div class="workspace" ?hidden=${this.tab !== 0 || !this.document}>
+      <div
+        class="workspace"
+        ?hidden=${Boolean(this.preview) || this.tab !== 0 || !this.document}
+      >
         <aside>
           <div class="actions">
             <vaadin-button
@@ -940,7 +1067,7 @@ export class PageProjectRefData extends PageElement {
           ${this.renderBackends()}
         </section>
       </div>
-      <div class="advanced" ?hidden=${this.tab !== 1}>
+      <div class="advanced" ?hidden=${Boolean(this.preview) || this.tab !== 1}>
         <p>
           Advanced editing uses the same validation, revision and audit path.
           Project identity and the expected revision cannot be overridden here.
@@ -948,7 +1075,7 @@ export class PageProjectRefData extends PageElement {
         <div id="editor"></div>
       </div>
       ${
-        this.tab === 2 && this.projectId
+        !this.preview && this.tab === 2 && this.projectId
           ? html`<div class="history">
               <label
                 >History scope

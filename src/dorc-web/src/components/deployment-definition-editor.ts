@@ -26,7 +26,7 @@ export class DeploymentDefinitionEditor extends LitElement {
     .fields {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: var(--lumo-space-m);
+      gap: var(--lumo-space-xs) var(--lumo-space-m);
     }
     vaadin-text-field,
     vaadin-combo-box {
@@ -39,11 +39,13 @@ export class DeploymentDefinitionEditor extends LitElement {
     .flags {
       display: flex;
       flex-wrap: wrap;
-      gap: var(--lumo-space-m);
-      margin: var(--lumo-space-m) 0;
+      gap: var(--lumo-space-s) var(--lumo-space-m);
+      margin: var(--lumo-space-s) 0;
     }
     p {
+      margin: var(--lumo-space-xs) 0;
       max-width: 75ch;
+      font-size: var(--lumo-font-size-s);
       color: var(--dorc-text-secondary-strong);
       overflow-wrap: anywhere;
     }

@@ -74,7 +74,11 @@ SELECT 'cancelled:' + CONVERT(VARCHAR(12), r.Id) + ':' + CONVERT(VARCHAR(12), d.
     'Request.Cancelled', r.CancelledTime, COALESCE(r.CancelledBy, ''), d.ProjectId, d.ComponentId,
     d.ComponentName, 'Request cancelled; this also includes declined plans',
     r.Id, NULL, d.DefinitionRevision, NULL, NULL, CAST(0 AS BIT), NULL
-FROM [deploy].[DeploymentRequest] r
+FROM (
+    SELECT Id, CancelledTime, CancelledBy FROM [deploy].[DeploymentRequest]
+    UNION ALL
+    SELECT Id, CancelledTime, CancelledBy FROM [archive].[DeploymentRequest]
+) r
 JOIN [deploy].[DeploymentRequestDefinition] d ON d.DeploymentRequestId = r.Id
 WHERE r.CancelledTime IS NOT NULL
 UNION ALL

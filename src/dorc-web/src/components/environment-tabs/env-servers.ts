@@ -68,7 +68,7 @@ export class EnvServers extends PageEnvBase {
         display: flex;
         flex-direction: column;
         overflow: hidden;
-        padding: 2;
+        padding: 0;
       }
       .details-content {
         display: flex;

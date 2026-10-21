@@ -45,31 +45,81 @@ export class TerraformPlanDialog extends LitElement {
   static get styles() {
     return css`
       .dialog-content {
-        padding: 16px;
+        padding: var(--lumo-space-s) var(--lumo-space-m);
         height: 100%;
         display: flex;
         flex-direction: column;
+        gap: var(--lumo-space-xs);
+        box-sizing: border-box;
       }
 
       .plan-header {
-        border-bottom: 1px solid var(--lumo-contrast-20pct);
-        padding-bottom: 16px;
-        margin-bottom: 16px;
+        border-bottom: 1px solid var(--dorc-border-color);
+        padding-bottom: var(--lumo-space-xs);
+        font-size: var(--lumo-font-size-xs);
+      }
+
+      .plan-header h3 {
+        margin: 0 0 var(--lumo-space-xs);
+        font-size: var(--lumo-font-size-m);
+      }
+
+      .plan-header p {
+        margin: 2px 0;
+      }
+
+      .plan-header dl {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 4px var(--lumo-space-m);
+        margin: var(--lumo-space-xs) 0;
+      }
+
+      .plan-header dt {
+        font-weight: 600;
+        color: var(--dorc-text-secondary-strong);
+      }
+
+      .plan-header dd {
+        margin: 0 0 2px;
+        overflow-wrap: anywhere;
+      }
+
+      section[aria-label='Post-apply outcomes'] {
+        border: 1px solid var(--dorc-border-color);
+        border-radius: var(--lumo-border-radius-m);
+        background: var(--dorc-bg-secondary);
+        padding: var(--lumo-space-xs) var(--lumo-space-s);
+        font-size: var(--lumo-font-size-xs);
+      }
+
+      section[aria-label='Post-apply outcomes'] h4 {
+        margin: 0 0 2px;
+        font-size: var(--lumo-font-size-s);
+      }
+
+      section[aria-label='Post-apply outcomes'] p {
+        margin: 2px 0;
+      }
+
+      section[aria-label='Post-apply outcomes'] vaadin-button {
+        --lumo-button-size: var(--lumo-size-s);
+        margin-inline-end: var(--lumo-space-xs);
       }
 
       .plan-content {
         flex: 1;
+        min-height: 200px;
         overflow: auto;
-        background-color: var(--lumo-contrast-5pct);
-        border: 1px solid var(--lumo-contrast-20pct);
+        background-color: var(--dorc-bg-secondary);
+        border: 1px solid var(--dorc-border-color);
         border-radius: var(--lumo-border-radius-m);
-        padding: 12px;
-        margin-bottom: 16px;
+        padding: var(--lumo-space-s);
       }
 
       .plan-text {
-        font-family: 'Courier New', monospace;
-        font-size: var(--lumo-font-size-s);
+        font-family: var(--dorc-mono-font, monospace);
+        font-size: var(--lumo-font-size-xs);
         white-space: pre-wrap;
         margin: 0;
         line-height: 1.4;
@@ -105,17 +155,17 @@ export class TerraformPlanDialog extends LitElement {
 
       .actions {
         display: flex;
-        gap: 12px;
+        gap: var(--lumo-space-s);
         justify-content: flex-end;
-        padding-top: 16px;
-        border-top: 1px solid var(--lumo-contrast-20pct);
+        padding-top: var(--lumo-space-xs);
+        border-top: 1px solid var(--dorc-border-color);
       }
 
       .status-badge {
         display: inline-block;
-        padding: 4px 8px;
+        padding: 2px 8px;
         border-radius: var(--lumo-border-radius-m);
-        font-size: var(--lumo-font-size-s);
+        font-size: var(--lumo-font-size-xs);
         font-weight: 500;
       }
 
@@ -137,9 +187,8 @@ export class TerraformPlanDialog extends LitElement {
       .error-message {
         color: var(--lumo-error-text-color);
         background-color: var(--lumo-error-color-10pct);
-        padding: 12px;
+        padding: var(--lumo-space-xs) var(--lumo-space-s);
         border-radius: var(--lumo-border-radius-m);
-        margin-bottom: 16px;
       }
 
       .loading-indicator {
@@ -160,21 +209,20 @@ export class TerraformPlanDialog extends LitElement {
         display: flex;
         gap: 8px;
         flex-wrap: wrap;
-        margin-bottom: 12px;
       }
 
       .plan-summary__chip {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        padding: 4px 12px;
+        padding: 2px 10px;
         border-radius: 999px;
-        font-size: var(--lumo-font-size-s);
+        font-size: var(--lumo-font-size-xs);
         font-weight: 600;
       }
 
       .plan-summary__chip strong {
-        font-size: var(--lumo-font-size-m);
+        font-size: var(--lumo-font-size-s);
       }
 
       .plan-summary__chip.add {
@@ -267,63 +315,77 @@ export class TerraformPlanDialog extends LitElement {
     }
 
     return html`
-      ${this.error ? html`<div class="error-message" role="alert">${this.error}</div>` : ''}
-      <div class="plan-header">
-        <h3>Deployment Result ID: ${this.plan.DeploymentResultId}</h3>
-        ${this.plan.IsHistorical ? html`<p>Archived attempt — read-only</p>` : ''}
-        ${
-          this.plan.Receipt
-            ? html` <dl aria-label="Deployment receipt">
-                <dt>Target</dt>
-                <dd>
-                  ${this.plan.Receipt.ProjectName} /
-                  ${this.plan.Receipt.EnvironmentName} /
-                  ${this.plan.Receipt.ComponentName}
-                </dd>
-                <dt>Planned module</dt>
-                <dd>
-                  ${this.plan.Receipt.TemplateName || 'Non-catalog source'} @
-                  ${this.plan.Receipt.TemplateVersion || 'Unavailable'}
-                </dd>
-                <dt>Source commit</dt>
-                <dd>${this.plan.Receipt.GitCommitSha || 'Unavailable'}</dd>
-                <dt>Planned workload target</dt>
-                <dd>
-                  ${this.plan.Receipt.WorkloadTarget || 'Unavailable; not inferred from current properties'}
-                </dd>
-                <dt>State</dt>
-                <dd>
-                  ${this.plan.Receipt.StateStorageAccount || 'Unavailable'} /
-                  ${this.plan.Receipt.StateContainerName || 'Unavailable'} /
-                  ${this.plan.Receipt.StateKey || 'Unavailable'}
-                </dd>
-              </dl>`
-            : html`<p>
-                Plan-time deployment receipt unavailable for this record.
-                Current component settings are not historical evidence.
-              </p>`
-        }
-        <p>
-          Approval:
+      <div class="dialog-content">
+        ${this.error ? html`<div class="error-message" role="alert">${this.error}</div>` : ''}
+        <div class="plan-header">
+          <h3>Deployment Result ID: ${this.plan.DeploymentResultId}</h3>
+          ${this.plan.IsHistorical ? html`<p>Archived attempt — read-only</p>` : ''}
           ${
-            this.plan.ApprovedBy
-              ? `${this.plan.ApprovedBy} — ${this.plan.ApprovedAt ? new Date(this.plan.ApprovedAt).toLocaleString() : 'Time unavailable'}`
-              : 'No retained approval'
+            this.plan.Receipt
+              ? html` <dl aria-label="Deployment receipt">
+                  <div>
+                    <dt>Target</dt>
+                    <dd>
+                      ${this.plan.Receipt.ProjectName} /
+                      ${this.plan.Receipt.EnvironmentName} /
+                      ${this.plan.Receipt.ComponentName}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Planned module</dt>
+                    <dd>
+                      ${this.plan.Receipt.TemplateName || 'Non-catalog source'}
+                      @ ${this.plan.Receipt.TemplateVersion || 'Unavailable'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>Source commit</dt>
+                    <dd>${this.plan.Receipt.GitCommitSha || 'Unavailable'}</dd>
+                  </div>
+                  <div>
+                    <dt>Planned workload target</dt>
+                    <dd>
+                      ${this.plan.Receipt.WorkloadTarget || 'Unavailable; not inferred from current properties'}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt>State</dt>
+                    <dd>
+                      ${this.plan.Receipt.StateStorageAccount || 'Unavailable'}
+                      / ${this.plan.Receipt.StateContainerName || 'Unavailable'}
+                      / ${this.plan.Receipt.StateKey || 'Unavailable'}
+                    </dd>
+                  </div>
+                </dl>`
+              : html`<p>
+                  Plan-time deployment receipt unavailable for this record.
+                  Current component settings are not historical evidence.
+                </p>`
           }
-        </p>
-        <p>
-          Created:
-          ${this.plan.CreatedAt ? new Date(this.plan.CreatedAt).toLocaleString() : 'Unknown'}
-          <span class="status-badge ${this._getStatusClass(this.plan.Status)}">
-            ${this.plan.Status}
-          </span>
-        </p>
+          <p>
+            Approval:
+            ${
+              this.plan.ApprovedBy
+                ? `${this.plan.ApprovedBy} — ${this.plan.ApprovedAt ? new Date(this.plan.ApprovedAt).toLocaleString() : 'Time unavailable'}`
+                : 'No retained approval'
+            }
+          </p>
+          <p>
+            Created:
+            ${this.plan.CreatedAt ? new Date(this.plan.CreatedAt).toLocaleString() : 'Unknown'}
+            <span
+              class="status-badge ${this._getStatusClass(this.plan.Status)}"
+            >
+              ${this.plan.Status}
+            </span>
+          </p>
+        </div>
+
+        ${this._renderOutcomes()} ${this._renderPlanSummary()}
+        <div class="plan-content">${this._renderPlanBody()}</div>
+
+        <div class="actions">${this._renderActionButtons()}</div>
       </div>
-
-      ${this._renderOutcomes()} ${this._renderPlanSummary()}
-      <div class="plan-content">${this._renderPlanBody()}</div>
-
-      <div class="actions">${this._renderActionButtons()}</div>
     `;
   };
 

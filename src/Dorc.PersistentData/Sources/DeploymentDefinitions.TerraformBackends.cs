@@ -61,6 +61,20 @@ public sealed partial class DeploymentDefinitions
             string[] terminal = ["Failed", "Errored", "Cancelled", "Canceled", "Abandoned", "Completed", "Terminated"];
             if (requests.Any(r => !terminal.Contains(r.Status)))
                 throw new InvalidOperationException("All requests in the affected project/environment must be terminal before cutover.");
+            var scopeIds = requests.Select(r => r.Id).ToArray();
+            var observedIds = context.DeploymentRequestDefinitions
+                .Where(d => scopeIds.Contains(d.DeploymentRequestId))
+                .Select(d => d.DeploymentRequestId).Distinct().ToHashSet();
+            if (requests.Any(r => !observedIds.Contains(r.Id)))
+                throw new InvalidOperationException("Legacy requests have no pinned source/backend evidence. Locate or recover their state before changing this backend; empty containers do not prove that no infrastructure was deployed.");
+            var archivedHistory = context.Database.SqlQuery<int>($"""
+                SELECT CAST(CASE WHEN EXISTS (
+                    SELECT 1 FROM [archive].[DeploymentRequest]
+                    WHERE [Project] = {project.Name} AND [Environment] = {environment.Name}
+                ) THEN 1 ELSE 0 END AS int) AS [Value]
+                """).Single();
+            if (archivedHistory != 0)
+                throw new InvalidOperationException("Archived deployment history requires state review before cutover. This empty-backend operation cannot establish its backend ownership.");
             if (context.DeploymentRequestProcesses.Any(p => retiringIds.Contains(p.DeploymentRequest.Id)))
                 throw new InvalidOperationException("A retained runner process prevents cutover. Confirm it has stopped first.");
             if (context.TerraformPlanApprovals.Any(a => retiringIds.Contains(a.DeploymentRequestId)) ||

@@ -32,6 +32,7 @@ import { navigate } from '../router/router';
 import { ComboBox } from '@vaadin/combo-box';
 import '@vaadin/grid/vaadin-grid-sorter';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import '../components/project-workspace-nav';
 
 /**
  * Puts a row's JSON into a `hegs-json-viewer` and expands it.
@@ -174,6 +175,11 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
 
   render() {
     return html`
+      <project-workspace-nav
+        .projectId=${this.projectData?.Project?.ProjectId}
+        .projectName=${this.project ?? this.projectData?.Project?.ProjectName ?? ''}
+        activeTab="bundles"
+      ></project-workspace-nav>
       <dorc-spinner
         style="--dorc-spinner-z-index: 1000"
         ?hidden="${!this.loading}"
