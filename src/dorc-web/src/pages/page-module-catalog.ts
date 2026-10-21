@@ -15,6 +15,10 @@ import {
 } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import {
+  GENERIC_SCRIPT_TEMPLATES,
+  serializeScriptPathValue
+} from '../helpers/generic-scripts';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import '../components/deploy-from-template-dialog';
 import { BRAND_ICON_PATHS, BrandIcon } from '../icons/brand-icons';
@@ -1148,8 +1152,16 @@ export class PageModuleCatalog extends PageElement {
         </div>
       `;
     }
+    const query = this.search.trim().toLowerCase();
+    const predefined = GENERIC_SCRIPT_TEMPLATES.filter(item =>
+      !query
+        ? true
+        : [item.name, item.scriptPath, item.category, item.description].some(
+            value => value.toLowerCase().includes(query)
+          )
+    );
     const scripts = this.filteredScripts;
-    if (!scripts.length) {
+    if (!predefined.length && !scripts.length) {
       return html`
         <div class="state" role="status">
           <vaadin-icon icon="vaadin:code"></vaadin-icon>
@@ -1166,6 +1178,62 @@ export class PageModuleCatalog extends PageElement {
     const projectName = context.get('project') || '';
     return html`
       <div class="cards">
+        ${predefined.map(template => {
+          const initialPath = serializeScriptPathValue(
+            template.scriptPath,
+            template.parameters.map(param => ({
+              key: param.name,
+              value: param.options?.[0] ?? ''
+            }))
+          );
+          const addHref = projectId
+            ? `/project-ref-data/${projectId}?addScriptName=${encodeURIComponent(template.defaultStepName)}&addScriptPath=${encodeURIComponent(initialPath)}&addPsVersion=5.1&addNonProdOnly=false&addStopOnFailure=true`
+            : `/scripts`;
+          return html`
+            <article class="card">
+              <div class="card-head">
+                <div class="icon-tile tone-primary">
+                  <vaadin-icon icon="vaadin:code"></vaadin-icon>
+                </div>
+                <div class="card-title">
+                  <div class="title-row">
+                    <h2>${template.name}</h2>
+                    <span class="pill">00 Generic · ${template.category}</span>
+                  </div>
+                  <div class="meta">
+                    Predefined generic script
+                    (<code>${template.scriptPath}</code>)
+                  </div>
+                </div>
+              </div>
+              <p class="description">${template.description}</p>
+              ${
+                template.parameters.length > 0
+                  ? html`<div class="meta">
+                      Parameters:
+                      <code
+                        >${template.parameters
+                          .map(p => p.name)
+                          .join(', ')}</code
+                      >
+                    </div>`
+                  : nothing
+              }
+              <div class="card-actions">
+                <a href=${addHref}>
+                  <vaadin-button theme="primary">
+                    <vaadin-icon icon="vaadin:plus" slot="prefix"></vaadin-icon>
+                    ${
+                      projectId
+                        ? `Add to ${projectName || 'project'}`
+                        : 'Open in definitions'
+                    }
+                  </vaadin-button>
+                </a>
+              </div>
+            </article>
+          `;
+        })}
         ${scripts.map(item => {
           const comp = item.Component;
           const addHref = projectId

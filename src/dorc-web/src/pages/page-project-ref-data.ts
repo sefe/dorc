@@ -26,9 +26,17 @@ import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import { confirmPrompt } from '../components/confirm-prompt';
 import { LOCATION_CHANGED_EVENT } from '../router/router';
+import '../components/deploy/component-tree/hegs-tree';
+import { TreeNode } from '../components/deploy/component-tree/TreeNode';
 import '../components/deployment-definition-editor';
 import '../components/deployment-definition-history';
 import '../components/project-workspace-nav';
+import {
+  GENERIC_SCRIPT_CATEGORIES,
+  GENERIC_SCRIPT_TEMPLATES,
+  serializeScriptPathValue,
+  type GenericScriptTemplate
+} from '../helpers/generic-scripts';
 
 type DefinitionNode = ComponentApiModel;
 type ReferenceDocument = RefDataApiModel;
@@ -93,6 +101,13 @@ export class PageProjectRefData extends PageElement {
   @state() private collapsedPaths: string[] = [];
   @state() private scriptCatalogOpen = false;
   @state() private scriptCatalogSearch = '';
+  @state() private scriptCatalogCategory = 'All';
+  @state() private selectedGenericTemplateId =
+    GENERIC_SCRIPT_TEMPLATES[0]?.id ?? '';
+  @state() private genericDialogStepName =
+    GENERIC_SCRIPT_TEMPLATES[0]?.defaultStepName ?? 'Deploy MSI';
+  @state() private genericDialogPsVersion = '5.1';
+  @state() private genericDialogArgs: Record<string, string> = {};
   @state() private scriptCatalogLoading = false;
   @state() private scriptCatalogItems: DeploymentDefinitionApiModel[] = [];
   private backendEnvironmentsLoading = false;
@@ -189,50 +204,8 @@ export class PageProjectRefData extends PageElement {
       outline: 2px solid var(--dorc-link-color);
       outline-offset: -2px;
     }
-    .tree,
-    .tree-children {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-    }
     .tree {
       margin: var(--lumo-space-xs) 0;
-    }
-    .tree-children {
-      margin-inline-start: 11px;
-      padding-inline-start: 14px;
-    }
-    .tree-node {
-      margin-block: 1px;
-    }
-    .tree-row {
-      display: flex;
-      align-items: flex-start;
-      gap: 2px;
-    }
-    .tree-toggle,
-    .tree-toggle-spacer {
-      flex-shrink: 0;
-      width: 20px;
-      height: 24px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      margin-top: 2px;
-    }
-    .tree-toggle {
-      padding: 0;
-      border: 0;
-      border-radius: var(--lumo-border-radius-s);
-      background: transparent;
-      color: var(--dorc-text-secondary-strong);
-      font-size: 11px;
-      line-height: 1;
-      cursor: pointer;
-    }
-    .tree-toggle:hover {
-      background: var(--dorc-bg-secondary);
-      color: var(--dorc-text-primary);
     }
     .tree-header {
       display: flex;
@@ -260,90 +233,142 @@ export class PageProjectRefData extends PageElement {
     .tree-control-btn:hover {
       background: var(--dorc-bg-secondary);
     }
-    .tree-child {
-      position: relative;
+    .script-catalog-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 200;
+      background: rgba(15, 23, 42, 0.48);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: var(--lumo-space-m);
     }
-    .tree-child::before {
-      content: '';
-      position: absolute;
-      inset-inline-start: -14px;
-      top: 0;
-      bottom: 0;
-      border-inline-start: 1.5px solid var(--dorc-text-secondary);
-      opacity: 0.55;
-    }
-    .tree-child:last-child::before {
-      bottom: auto;
-      height: 16px;
-    }
-    .tree-child::after {
-      content: '';
-      position: absolute;
-      inset-inline-start: -14px;
-      top: 16px;
-      width: 12px;
-      border-top: 1.5px solid var(--dorc-text-secondary);
-      opacity: 0.55;
-    }
-    .tree .tree-node-btn {
-      font: inherit;
+    .script-catalog-dialog {
+      width: min(980px, 94vw);
+      max-height: 86vh;
+      background: var(--dorc-bg-primary, #ffffff);
       color: var(--dorc-text-primary);
-      background: transparent;
-      border: 0;
-      border-radius: var(--lumo-border-radius-s);
-      padding: var(--lumo-space-xs) var(--lumo-space-s);
-      flex: 1;
-      min-width: 0;
-      text-align: start;
-      overflow-wrap: anywhere;
-      cursor: pointer;
-    }
-    .tree .tree-node-btn[aria-pressed='true'] {
-      background: var(--dorc-chip-bg);
-      color: var(--dorc-chip-text);
-    }
-    .tree .tree-node-btn:focus-visible,
-    .tree-toggle:focus-visible {
-      outline: 2px solid var(--dorc-icon-interactive);
-      outline-offset: -2px;
-    }
-    .tree-badge {
-      display: inline-block;
-      margin-inline-start: 6px;
-      padding: 0 5px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 600;
-      background: var(--dorc-bg-secondary);
-      color: var(--dorc-text-secondary-strong);
-    }
-    .script-catalog {
-      margin: var(--lumo-space-xs) 0;
-      padding: var(--lumo-space-xs);
-      background: var(--dorc-bg-secondary);
       border: 1px solid var(--dorc-border-color);
-      border-radius: var(--lumo-border-radius-m);
+      border-radius: var(--lumo-border-radius-l);
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .script-catalog-dialog-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: var(--lumo-space-m);
+      padding: var(--lumo-space-m) var(--lumo-space-l);
+      border-bottom: 1px solid var(--dorc-border-color);
+    }
+    .script-catalog-dialog-header h2 {
+      margin: 0;
+      font-size: var(--lumo-font-size-l);
+    }
+    .script-catalog-dialog-header p {
+      margin: 2px 0 0;
+      font-size: var(--lumo-font-size-xs);
+    }
+    .script-catalog-toolbar {
       display: flex;
       flex-direction: column;
       gap: var(--lumo-space-xs);
+      padding: var(--lumo-space-s) var(--lumo-space-l);
+      background: var(--dorc-bg-secondary);
+      border-bottom: 1px solid var(--dorc-border-color);
+    }
+    .script-catalog-categories {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .category-pill {
+      font: inherit;
+      font-size: var(--lumo-font-size-xs);
+      padding: 3px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--dorc-border-color);
+      background: var(--dorc-bg-primary, #ffffff);
+      color: var(--dorc-text-primary);
+      cursor: pointer;
+    }
+    .category-pill[aria-pressed='true'] {
+      background: var(--dorc-chip-bg);
+      color: var(--dorc-chip-text);
+      border-color: var(--dorc-icon-interactive);
+      font-weight: 600;
+    }
+    .script-catalog-body {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+      overflow: hidden;
     }
     .script-catalog-list {
       list-style: none;
       margin: 0;
-      padding: 0;
-      max-height: 220px;
+      padding: var(--lumo-space-s);
+      overflow-y: auto;
+      border-inline-end: 1px solid var(--dorc-border-color);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .script-catalog-card {
+      width: 100%;
+      text-align: start;
+      font: inherit;
+      padding: var(--lumo-space-s);
+      background: var(--dorc-bg-primary, #ffffff);
+      color: var(--dorc-text-primary);
+      border: 1px solid var(--dorc-border-color);
+      border-radius: var(--lumo-border-radius-m);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .script-catalog-card:hover {
+      background: var(--dorc-bg-secondary);
+    }
+    .script-catalog-card[aria-pressed='true'] {
+      background: var(--dorc-chip-bg);
+      color: var(--dorc-chip-text);
+      border-color: var(--dorc-icon-interactive);
+    }
+    .script-catalog-card strong {
+      font-size: var(--lumo-font-size-s);
+    }
+    .script-catalog-card code {
+      font-size: var(--lumo-font-size-xs);
+      color: var(--dorc-text-secondary-strong);
+    }
+    .script-catalog-detail {
+      padding: var(--lumo-space-m) var(--lumo-space-l);
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: var(--lumo-space-s);
+    }
+    .script-catalog-detail h3 {
+      margin: 0;
+      font-size: var(--lumo-font-size-m);
+    }
+    .script-catalog-detail-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--lumo-space-xs) var(--lumo-space-m);
     }
     .script-catalog-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: var(--lumo-space-xs);
-      padding: 4px var(--lumo-space-xs);
-      background: var(--dorc-bg-primary);
+      gap: var(--lumo-space-s);
+      padding: var(--lumo-space-xs) var(--lumo-space-s);
+      background: var(--dorc-bg-secondary);
       border: 1px solid var(--dorc-border-color);
       border-radius: var(--lumo-border-radius-s);
       font-size: var(--lumo-font-size-xs);
@@ -362,10 +387,15 @@ export class PageProjectRefData extends PageElement {
       font-family: var(--dorc-mono-font, monospace);
       overflow-wrap: anywhere;
     }
-    .kind {
-      display: block;
-      font-size: var(--lumo-font-size-xs);
-      color: var(--dorc-text-secondary-strong);
+    .script-catalog-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: var(--lumo-space-s);
+      padding: var(--lumo-space-s) var(--lumo-space-l);
+      border-top: 1px solid var(--dorc-border-color);
+      background: var(--dorc-bg-secondary);
     }
     .pane,
     .project-source-pane,
@@ -529,7 +559,9 @@ export class PageProjectRefData extends PageElement {
         display: none;
       }
       .project-fields,
-      .diff {
+      .diff,
+      .script-catalog-body,
+      .script-catalog-detail-grid {
         grid-template-columns: 1fr;
       }
       aside {
@@ -838,11 +870,14 @@ export class PageProjectRefData extends PageElement {
     }
   };
 
-  private toggleTreeCollapse(path: string, event: Event) {
-    event.stopPropagation();
-    if (this.collapsedPaths.includes(path)) {
+  private onHegsTreeNodeToggled(
+    event: CustomEvent<{ path: string; open: boolean }>
+  ) {
+    const { path, open } = event.detail;
+    if (!path) return;
+    if (open) {
       this.collapsedPaths = this.collapsedPaths.filter(item => item !== path);
-    } else {
+    } else if (!this.collapsedPaths.includes(path)) {
       this.collapsedPaths = [...this.collapsedPaths, path];
     }
   }
@@ -855,6 +890,35 @@ export class PageProjectRefData extends PageElement {
     this.collapsedPaths = this.rows
       .filter(row => (row.node.Children?.length ?? 0) > 0)
       .map(row => row.path);
+  }
+
+  private buildTreeNodes(
+    nodes: ComponentApiModel[],
+    parentPath = ''
+  ): TreeNode[] {
+    return nodes.map((node, index) => {
+      const path = parentPath ? `${parentPath}.${index}` : String(index);
+      const children = this.buildTreeNodes(node.Children ?? [], path);
+      const kindText =
+        node.ComponentType === ComponentType.Terraform
+          ? `Terraform / ${node.TerraformSourceType ?? TerraformSourceType.SharedFolder}`
+          : `${node.ComponentType ?? ComponentType.PowerShell}${node.PSVersion ? ` ${node.PSVersion}` : ''}`;
+      return {
+        id: node.ComponentId ?? 0,
+        name: node.ComponentName || 'New component',
+        icon: '',
+        open: !this.collapsedPaths.includes(path),
+        children,
+        numOfChildren: children.length,
+        hasParent: Boolean(parentPath),
+        parentId: node.ParentId ?? 0,
+        checked: false,
+        indeterminate: false,
+        path,
+        subtitle: kindText,
+        disabled: node.IsEnabled === false
+      };
+    });
   }
 
   private ensureAncestorsExpanded(path: string) {
@@ -998,9 +1062,49 @@ export class PageProjectRefData extends PageElement {
 
   private toggleScriptCatalog() {
     this.scriptCatalogOpen = !this.scriptCatalogOpen;
-    if (this.scriptCatalogOpen && this.scriptCatalogItems.length === 0) {
-      this.loadScriptCatalog();
+    if (this.scriptCatalogOpen) {
+      if (!this.selectedGenericTemplateId && GENERIC_SCRIPT_TEMPLATES[0]) {
+        this.selectDialogGenericTemplate(GENERIC_SCRIPT_TEMPLATES[0]);
+      }
+      if (this.scriptCatalogItems.length === 0) {
+        this.loadScriptCatalog();
+      }
     }
+  }
+
+  private selectDialogGenericTemplate(template: GenericScriptTemplate) {
+    this.selectedGenericTemplateId = template.id;
+    this.genericDialogStepName = template.defaultStepName;
+    const defaults: Record<string, string> = {};
+    for (const param of template.parameters) {
+      defaults[param.name] = param.options?.[0] ?? '';
+    }
+    this.genericDialogArgs = defaults;
+  }
+
+  private addConfiguredGenericScript(asSiblingOfSelected: boolean) {
+    const template =
+      GENERIC_SCRIPT_TEMPLATES.find(
+        item => item.id === this.selectedGenericTemplateId
+      ) ?? GENERIC_SCRIPT_TEMPLATES[0];
+    if (!template) return;
+    const args = template.parameters.map(param => ({
+      key: param.name,
+      value: this.genericDialogArgs[param.name] ?? ''
+    }));
+    const scriptPath = serializeScriptPathValue(template.scriptPath, args);
+    this.addScriptFromCatalog(
+      {
+        ComponentName: this.genericDialogStepName || template.defaultStepName,
+        ScriptPath: scriptPath,
+        PSVersion: this.genericDialogPsVersion || '5.1',
+        IsEnabled: true,
+        StopOnFailure: true,
+        NonProdOnly: false
+      },
+      asSiblingOfSelected
+    );
+    this.scriptCatalogOpen = false;
   }
 
   private loadScriptCatalog() {
@@ -1431,62 +1535,305 @@ export class PageProjectRefData extends PageElement {
       });
   }
 
-  private renderTreeNodes(
-    nodes: ComponentApiModel[],
-    parentPath = ''
-  ): unknown {
-    return nodes.map((node, index) => {
-      const path = parentPath ? `${parentPath}.${index}` : String(index);
-      const children = node.Children ?? [];
-      const hasChildren = children.length > 0;
-      const collapsed = this.collapsedPaths.includes(path);
-      const isChild = Boolean(parentPath);
-      const kindText =
-        node.ComponentType === ComponentType.Terraform
-          ? `Terraform / ${node.TerraformSourceType ?? TerraformSourceType.SharedFolder}`
-          : `${node.ComponentType ?? ComponentType.PowerShell}${node.PSVersion ? ` ${node.PSVersion}` : ''}`;
-      return html`<li class="tree-node ${isChild ? 'tree-child' : ''}">
-        <div class="tree-row">
-          ${
-            hasChildren
-              ? html`<button
-                  type="button"
-                  class="tree-toggle"
-                  aria-expanded=${collapsed ? 'false' : 'true'}
-                  aria-label="${collapsed ? 'Expand' : 'Collapse'} ${node.ComponentName || 'New component'}"
-                  title="${collapsed ? 'Expand children' : 'Collapse children'}"
-                  @click=${(event: Event) => this.toggleTreeCollapse(path, event)}
-                >
-                  ${collapsed ? '▶' : '▼'}
-                </button>`
-              : html`<span
-                  class="tree-toggle-spacer"
-                  aria-hidden="true"
-                ></span>`
-          }
-          <button
-            type="button"
-            class="tree-node-btn"
-            aria-pressed=${path === this.selectedPath ? 'true' : 'false'}
-            @click=${() => {
-              this.selectedPath = path;
-            }}
-          >
-            <span>${node.ComponentName || 'New component'}</span>
-            ${hasChildren ? html`<span class="tree-badge" title="${children.length} child steps">${children.length}</span>` : nothing}
-            ${node.IsEnabled === false ? html`<span class="tree-badge">Off</span>` : nothing}
-            <span class="kind">${kindText}</span>
-          </button>
-        </div>
-        ${
-          hasChildren && !collapsed
-            ? html`<ul class="tree-children">
-                ${this.renderTreeNodes(children, path)}
-              </ul>`
-            : nothing
-        }
-      </li>`;
+  private renderScriptCatalogDialog(selected: ComponentApiModel | undefined) {
+    if (!this.scriptCatalogOpen || !this.editable) return nothing;
+    const query = this.scriptCatalogSearch.trim().toLowerCase();
+    const filteredTemplates = GENERIC_SCRIPT_TEMPLATES.filter(item => {
+      const categoryMatch =
+        this.scriptCatalogCategory === 'All' ||
+        this.scriptCatalogCategory === 'Project scripts' ||
+        item.category === this.scriptCatalogCategory;
+      if (!categoryMatch) return false;
+      if (!query) return true;
+      return (
+        item.name.toLowerCase().includes(query) ||
+        item.scriptPath.toLowerCase().includes(query) ||
+        item.description.toLowerCase().includes(query) ||
+        item.category.toLowerCase().includes(query)
+      );
     });
+    const activeTemplate =
+      filteredTemplates.find(
+        item => item.id === this.selectedGenericTemplateId
+      ) ??
+      GENERIC_SCRIPT_TEMPLATES.find(
+        item => item.id === this.selectedGenericTemplateId
+      ) ??
+      filteredTemplates[0];
+    const previewScriptPath = activeTemplate
+      ? serializeScriptPathValue(
+          activeTemplate.scriptPath,
+          activeTemplate.parameters.map(param => ({
+            key: param.name,
+            value: this.genericDialogArgs[param.name] ?? ''
+          }))
+        )
+      : '';
+
+    return html`
+      <div
+        class="script-catalog-backdrop"
+        @click=${(event: Event) => {
+          if (event.target === event.currentTarget) {
+            this.scriptCatalogOpen = false;
+          }
+        }}
+        @keydown=${(event: KeyboardEvent) => {
+          if (event.key === 'Escape') {
+            this.scriptCatalogOpen = false;
+          }
+        }}
+      >
+        <div
+          class="script-catalog-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Reusable PowerShell script catalog"
+        >
+          <div class="script-catalog-dialog-header">
+            <div>
+              <h2>
+                Add predefined generic script (<code>00 Generic*.ps1</code>)
+              </h2>
+              <p>
+                Select a predefined PowerShell script from the Azure DevOps
+                <code>project-scripts</code> repository and fill in its
+                <code>GenericArguments</code>, or reuse an existing project
+                script step.
+              </p>
+            </div>
+            <vaadin-button
+              theme="tertiary"
+              @click=${() => {
+                this.scriptCatalogOpen = false;
+              }}
+              >Close</vaadin-button
+            >
+          </div>
+          <div class="script-catalog-toolbar">
+            <vaadin-text-field
+              label="Filter generic scripts or project steps"
+              placeholder="Search DeployMSI, DACPAC, ControlServices, ActiveBatch, 00 Generic..."
+              .value=${this.scriptCatalogSearch}
+              @input=${(event: Event) => {
+                this.scriptCatalogSearch = (
+                  event.currentTarget as HTMLInputElement
+                ).value;
+                this.loadScriptCatalog();
+              }}
+            ></vaadin-text-field>
+            <div
+              class="script-catalog-categories"
+              role="group"
+              aria-label="Generic script categories"
+            >
+              ${[...GENERIC_SCRIPT_CATEGORIES, 'Project scripts'].map(
+                category => html`
+                  <button
+                    type="button"
+                    class="category-pill"
+                    aria-pressed=${
+                      this.scriptCatalogCategory === category ? 'true' : 'false'
+                    }
+                    @click=${() => {
+                      this.scriptCatalogCategory = category;
+                    }}
+                  >
+                    ${category}
+                  </button>
+                `
+              )}
+            </div>
+          </div>
+          <div class="script-catalog-body">
+            <ul
+              class="script-catalog-list"
+              aria-label="Predefined generic scripts"
+            >
+              ${filteredTemplates.map(
+                item => html`
+                  <li>
+                    <button
+                      type="button"
+                      class="script-catalog-card"
+                      aria-pressed=${
+                        activeTemplate?.id === item.id ? 'true' : 'false'
+                      }
+                      @click=${() => this.selectDialogGenericTemplate(item)}
+                    >
+                      <strong>${item.name}</strong>
+                      <code>${item.scriptPath}</code>
+                      <span>${item.category}</span>
+                    </button>
+                  </li>
+                `
+              )}
+            </ul>
+            <div class="script-catalog-detail">
+              ${
+                activeTemplate
+                  ? html`
+                      <div>
+                        <h3>${activeTemplate.name}</h3>
+                        <p>${activeTemplate.description}</p>
+                      </div>
+                      <div class="script-catalog-detail-grid">
+                        <vaadin-text-field
+                          label="Step name"
+                          .value=${this.genericDialogStepName}
+                          @input=${(event: Event) => {
+                            this.genericDialogStepName = (
+                              event.currentTarget as HTMLInputElement
+                            ).value;
+                          }}
+                        ></vaadin-text-field>
+                        <vaadin-combo-box
+                          label="PowerShell version"
+                          .items=${
+                            this.powerShellVersions.length
+                              ? this.powerShellVersions
+                              : ['5.1', '7.4']
+                          }
+                          .value=${this.genericDialogPsVersion}
+                          @change=${(event: Event) => {
+                            this.genericDialogPsVersion =
+                              (event.currentTarget as HTMLInputElement).value ||
+                              '5.1';
+                          }}
+                        ></vaadin-combo-box>
+                        ${activeTemplate.parameters.map(param =>
+                          param.options
+                            ? html`<vaadin-combo-box
+                                .label=${param.label}
+                                .items=${param.options}
+                                .value=${this.genericDialogArgs[param.name] ?? ''}
+                                .helperText=${param.helperText ?? ''}
+                                ?required=${Boolean(param.required)}
+                                @change=${(event: Event) => {
+                                  this.genericDialogArgs = {
+                                    ...this.genericDialogArgs,
+                                    [param.name]: (
+                                      event.currentTarget as HTMLInputElement
+                                    ).value
+                                  };
+                                }}
+                              ></vaadin-combo-box>`
+                            : html`<vaadin-text-field
+                                .label=${param.label}
+                                .placeholder=${param.placeholder ?? ''}
+                                .value=${this.genericDialogArgs[param.name] ?? ''}
+                                .helperText=${param.helperText ?? ''}
+                                ?required=${Boolean(param.required)}
+                                @input=${(event: Event) => {
+                                  this.genericDialogArgs = {
+                                    ...this.genericDialogArgs,
+                                    [param.name]: (
+                                      event.currentTarget as HTMLInputElement
+                                    ).value
+                                  };
+                                }}
+                              ></vaadin-text-field>`
+                        )}
+                      </div>
+                      <div>
+                        <p>
+                          Generated <code>ScriptPath</code>:
+                          <code>${previewScriptPath}</code>
+                        </p>
+                        ${
+                          activeTemplate.requiredEnvironmentProperties?.length
+                            ? html`<p>
+                                Standard DOrc environment properties used:
+                                <code
+                                  >${activeTemplate.requiredEnvironmentProperties.join(
+                                    ', '
+                                  )}</code
+                                >
+                              </p>`
+                            : nothing
+                        }
+                      </div>
+                      <div class="actions">
+                        <vaadin-button
+                          theme="primary"
+                          @click=${() =>
+                            this.addConfiguredGenericScript(Boolean(selected))}
+                        >
+                          ${
+                            selected
+                              ? `Add "${activeTemplate.name}" as sibling`
+                              : `Add "${activeTemplate.name}" step`
+                          }
+                        </vaadin-button>
+                        ${
+                          selected
+                            ? html`<vaadin-button
+                                @click=${() =>
+                                  this.addConfiguredGenericScript(false)}
+                                >Add at project root</vaadin-button
+                              >`
+                            : nothing
+                        }
+                      </div>
+                    `
+                  : nothing
+              }
+              ${
+                this.scriptCatalogLoading
+                  ? html`<span>Loading reusable project script steps...</span>`
+                  : this.scriptCatalogItems.length > 0
+                    ? html`
+                        <details open>
+                          <summary>
+                            Reusable project script steps
+                            (${this.scriptCatalogItems.length})
+                          </summary>
+                          <div
+                            style="display: flex; flex-direction: column; gap: 6px; margin-top: 8px;"
+                          >
+                            ${this.scriptCatalogItems.map(
+                              item => html`
+                                <div class="script-catalog-item">
+                                  <div class="script-catalog-meta">
+                                    <strong
+                                      >${
+                                        item.Component?.ComponentName ||
+                                        'Script step'
+                                      }</strong
+                                    >
+                                    <span
+                                      >${item.Component?.ScriptPath ?? ''}
+                                      (${item.Component?.PSVersion ?? '5.1'})</span
+                                    >
+                                  </div>
+                                  <vaadin-button
+                                    theme="small"
+                                    @click=${() => {
+                                      if (item.Component) {
+                                        this.addScriptFromCatalog(
+                                          item.Component,
+                                          Boolean(selected)
+                                        );
+                                        this.scriptCatalogOpen = false;
+                                      }
+                                    }}
+                                    >${
+                                      selected ? 'Insert sibling' : 'Add step'
+                                    }</vaadin-button
+                                  >
+                                </div>
+                              `
+                            )}
+                          </div>
+                        </details>
+                      `
+                    : nothing
+              }
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   render() {
@@ -1581,73 +1928,12 @@ export class PageProjectRefData extends PageElement {
                 ? html`<vaadin-button
                     theme="tertiary"
                     @click=${() => this.toggleScriptCatalog()}
-                    >${
-                      this.scriptCatalogOpen
-                        ? 'Hide script catalog'
-                        : 'Script catalog'
-                    }</vaadin-button
+                    >Script catalog</vaadin-button
                   >`
                 : nothing
             }
             ${this.editable && !this.dirty ? html`<a href=${catalogUrl}>Add from catalog</a>` : nothing}
           </div>
-          ${
-            this.scriptCatalogOpen && this.editable
-              ? html`<div
-                  class="script-catalog"
-                  role="region"
-                  aria-label="Reusable script components catalog"
-                >
-                  <vaadin-text-field
-                    label="Filter reusable script components"
-                    placeholder="Search script name or path..."
-                    .value=${this.scriptCatalogSearch}
-                    @input=${(event: Event) => {
-                      this.scriptCatalogSearch = (
-                        event.currentTarget as HTMLInputElement
-                      ).value;
-                      this.loadScriptCatalog();
-                    }}
-                  ></vaadin-text-field>
-                  ${
-                    this.scriptCatalogLoading
-                      ? html`<span>Loading script components...</span>`
-                      : this.scriptCatalogItems.length === 0
-                        ? html`<span
-                            >No matching script components found.</span
-                          >`
-                        : html`<ul class="script-catalog-list">
-                            ${this.scriptCatalogItems.map(
-                              item =>
-                                html`<li class="script-catalog-item">
-                                  <div class="script-catalog-meta">
-                                    <strong
-                                      >${item.Component?.ComponentName || 'Script step'}</strong
-                                    >
-                                    <span
-                                      >${item.Component?.ScriptPath ?? ''}
-                                      (${item.Component?.PSVersion ?? '5.1'})</span
-                                    >
-                                  </div>
-                                  <vaadin-button
-                                    theme="small"
-                                    @click=${() =>
-                                      item.Component &&
-                                      this.addScriptFromCatalog(
-                                        item.Component,
-                                        Boolean(selected)
-                                      )}
-                                    >${
-                                      selected ? 'Insert sibling' : 'Add step'
-                                    }</vaadin-button
-                                  >
-                                </li>`
-                            )}
-                          </ul>`
-                  }
-                </div>`
-              : nothing
-          }
           ${
             hasNestedNodes
               ? html`<div class="tree-header">
@@ -1671,11 +1957,24 @@ export class PageProjectRefData extends PageElement {
                 </div>`
               : nothing
           }
-          <ul class="tree" aria-label="Project component hierarchy">
-            ${this.renderTreeNodes(this.document?.Components ?? [])}
-          </ul>
+          <hegs-tree
+            class="tree"
+            aria-label="Project component hierarchy"
+            selectable
+            .data=${this.buildTreeNodes(this.document?.Components ?? [])}
+            .selectedPath=${this.selectedPath}
+            @hegs-tree-node-selected=${(
+              event: CustomEvent<{ path: string }>
+            ) => {
+              this.selectedPath = event.detail.path;
+            }}
+            @hegs-tree-node-toggled=${(
+              event: CustomEvent<{ path: string; open: boolean }>
+            ) => this.onHegsTreeNodeToggled(event)}
+          ></hegs-tree>
           ${!this.rows.length ? html`<p>No components yet. Add a script or choose a stock module.</p>` : nothing}
         </aside>
+        ${this.renderScriptCatalogDialog(selected)}
         <div
           class="tree-splitter"
           role="separator"

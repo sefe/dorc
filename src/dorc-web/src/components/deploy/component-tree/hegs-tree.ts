@@ -16,6 +16,10 @@ export class HegsTree extends LitElement {
 
   @property({ type: Boolean }) componentsLoading = false;
 
+  @property({ type: Boolean }) selectable = false;
+
+  @property({ type: String }) selectedPath = '';
+
   constructor() {
     super();
     this.addEventListener('select', this._selectNode as EventListener);
@@ -23,6 +27,20 @@ export class HegsTree extends LitElement {
 
   static get styles() {
     return css`
+      :host {
+        display: block;
+        min-width: 0;
+      }
+
+      .tree-root {
+        width: 700px;
+        max-width: 100%;
+      }
+
+      .tree-root.selectable {
+        width: 100%;
+      }
+
       .small-loader {
         border: 2px solid #f3f3f3; /* Light grey */
         border-top: 2px solid #3498db; /* Blue */
@@ -49,7 +67,7 @@ export class HegsTree extends LitElement {
         this.componentsLoading
           ? html` <div class="small-loader"></div> `
           : html`
-              <div style="width: 700px">
+              <div class="tree-root ${this.selectable ? 'selectable' : ''}">
                 <div style="padding: 3px"></div>
                 ${this.data?.map(
                   (child: TreeNode) => html`
@@ -59,6 +77,8 @@ export class HegsTree extends LitElement {
                       .checked="${child.checked}"
                       .indeterminate="${child.indeterminate}"
                       .actions="${this.actions}"
+                      .selectable="${this.selectable}"
+                      .selectedPath="${this.selectedPath}"
                     ></hegs-tree-node>
                   `
                 )}

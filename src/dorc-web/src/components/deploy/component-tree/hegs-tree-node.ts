@@ -16,6 +16,10 @@ export class HegsTreeNode extends LitElement {
 
   @property({ type: Boolean }) open = false;
 
+  @property({ type: Boolean }) selectable = false;
+
+  @property({ type: String }) selectedPath = '';
+
   @query('#deployment')
   private deploymentInput: HTMLInputElement | undefined;
 
@@ -196,10 +200,43 @@ export class HegsTreeNode extends LitElement {
   /**
    * Display/Hide the children nodes.
    */
-  toggleChildren() {
-    this.open =
-      (!this.open && this.data?.children && this.data.children.length > 0) ??
-      false;
+  toggleChildren(event?: Event) {
+    event?.stopPropagation();
+    const hasChildren = Boolean(
+      this.data?.children && this.data.children.length > 0
+    );
+    if (!hasChildren) {
+      this.open = false;
+      return;
+    }
+    this.open = !this.open;
+    if (this.data) {
+      this.data.open = this.open;
+    }
+    this.dispatchEvent(
+      new CustomEvent('hegs-tree-node-toggled', {
+        detail: {
+          node: this.data,
+          path: this.data?.path ?? '',
+          open: this.open
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
+  }
+
+  selectNode() {
+    this.dispatchEvent(
+      new CustomEvent('hegs-tree-node-selected', {
+        detail: {
+          node: this.data,
+          path: this.data?.path ?? ''
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
   }
 
   public getChecked(): boolean {

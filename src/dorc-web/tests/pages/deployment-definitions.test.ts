@@ -123,6 +123,26 @@ const reference = () => ({
   ]
 });
 
+const findHegsTreeButtons = (root: ParentNode): HTMLButtonElement[] => {
+  const buttons: HTMLButtonElement[] = [];
+  const visit = (node: ParentNode) => {
+    for (const btn of node.querySelectorAll<HTMLButtonElement>(
+      '.node-select-btn'
+    )) {
+      buttons.push(btn);
+    }
+    for (const el of node.querySelectorAll<HTMLElement>(
+      'hegs-tree, hegs-tree-node'
+    )) {
+      if (el.shadowRoot) {
+        visit(el.shadowRoot);
+      }
+    }
+  };
+  visit(root);
+  return buttons;
+};
+
 function clickButton(root: ParentNode, label: string) {
   const button = [
     ...root.querySelectorAll<HTMLElement>('vaadin-button, button')
@@ -268,9 +288,9 @@ describe('unified reference-data editing', () => {
       html`<page-project-ref-data></page-project-ref-data>`
     );
     await settle();
-    const treeButton = [
-      ...page.shadowRoot!.querySelectorAll<HTMLButtonElement>('.tree button')
-    ].find(button => button.textContent?.includes('Nested script'));
+    const treeButton = findHegsTreeButtons(page.shadowRoot!).find(button =>
+      button.textContent?.includes('Nested script')
+    );
     treeButton!.click();
     await settle();
     const editor = page.shadowRoot!.querySelector(
@@ -636,16 +656,16 @@ describe('definition history and discovery', () => {
       '--tree-pane-width: 300px'
     );
 
-    // Collapse and expand parent node in tree
+    // Collapse and expand parent node in hegs-tree
     clickButton(page.shadowRoot!, 'Collapse all');
     await settle();
-    expect(page.shadowRoot!.querySelector('.tree-children')).to.equal(null);
+    expect(findHegsTreeButtons(page.shadowRoot!)).to.have.length(1);
     clickButton(page.shadowRoot!, 'Expand all');
     await settle();
-    expect(page.shadowRoot!.querySelector('.tree-children')).not.to.equal(null);
+    expect(findHegsTreeButtons(page.shadowRoot!)).to.have.length(3);
   });
 
-  it('adds a reusable script component from the inline script catalog and switches workspace tabs', async () => {
+  it('adds a predefined 00 Generic script and a reusable script component from the script catalog dialog and switches workspace tabs', async () => {
     mocks.definitions.mockReturnValue(
       of({
         Items: [
@@ -675,7 +695,23 @@ describe('definition history and discovery', () => {
 
     clickButton(page.shadowRoot!, 'Script catalog');
     await settle();
-    expect(page.shadowRoot!.textContent).to.include('Database Backup');
+    const dialog = page.shadowRoot!.querySelector('.script-catalog-dialog')!;
+    expect(dialog).not.to.equal(null);
+    expect(dialog.textContent).to.include('Deploy MSI Package');
+    expect(dialog.textContent).to.include('Database Backup');
+
+    const msiField = [
+      ...dialog.querySelectorAll<TextField>('vaadin-text-field')
+    ].find(field => field.label === 'MSI file name (msiName)')!;
+    msiField.value = 'Payments.Service.msi';
+    msiField.dispatchEvent(new Event('input'));
+    await settle();
+
+    clickButton(page.shadowRoot!, 'Add "Deploy MSI Package" as sibling');
+    await settle();
+
+    clickButton(page.shadowRoot!, 'Script catalog');
+    await settle();
     clickButton(page.shadowRoot!, 'Insert sibling');
     await settle();
 
@@ -686,6 +722,13 @@ describe('definition history and discovery', () => {
 
     const saved = mocks.save.mock.calls[0][0].refDataApiModel;
     expect(saved.Components[0].Children[1]).to.include({
+      ComponentName: 'Deploy MSI',
+      ParentId: 10,
+      ScriptPath:
+        '{"ScriptPath":"00 Generic\\\\DeployMSI.ps1","GenericArguments":[{"msiName":"Payments.Service.msi"}]}',
+      PSVersion: '5.1'
+    });
+    expect(saved.Components[0].Children[2]).to.include({
       ComponentName: 'Database Backup',
       ParentId: 10,
       ScriptPath: 'common/backup-db.ps1',
