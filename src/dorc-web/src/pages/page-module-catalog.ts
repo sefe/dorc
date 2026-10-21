@@ -6,7 +6,13 @@ import '@vaadin/tooltip';
 import { Notification } from '@vaadin/notification';
 import { css, html, nothing, svg } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
-import { TerraformApi, TerraformTemplateManifest } from '../apis/dorc-api';
+import {
+  ComponentType,
+  DeploymentDefinitionsApi,
+  TerraformApi,
+  TerraformTemplateManifest,
+  type DeploymentDefinitionApiModel
+} from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
@@ -18,6 +24,7 @@ type DetailTab = 'inputs' | 'outputs' | 'code';
 
 const ALL_CATEGORIES = 'All';
 const UNCATEGORISED = 'Other';
+const SCRIPTS_CATEGORY = 'PowerShell Scripts';
 
 /**
  * One card per module name; the catalog may ship several versions of the same
@@ -513,6 +520,7 @@ export class PageModuleCatalog extends PageElement {
         color: var(--dorc-text-secondary-strong);
       }
       .card-actions {
+        margin-top: auto;
         display: flex;
         align-items: center;
         justify-content: space-between;
@@ -716,6 +724,9 @@ export class PageModuleCatalog extends PageElement {
   }
 
   @state() private templates: TerraformTemplateManifest[] = [];
+  @state() private scriptDefinitions: DeploymentDefinitionApiModel[] = [];
+  @state() private scriptsLoading = false;
+  @state() private scriptsLoaded = false;
   @state() private loading = false;
   @state() private error: string | null = null;
   @state() private search = '';
@@ -805,6 +816,57 @@ export class PageModuleCatalog extends PageElement {
       .length;
   }
 
+  private selectCategory(category: string) {
+    this.category = category;
+    if (
+      category === SCRIPTS_CATEGORY &&
+      !this.scriptsLoaded &&
+      !this.scriptsLoading
+    ) {
+      this.loadScriptCatalog();
+    }
+  }
+
+  private loadScriptCatalog() {
+    this.scriptsLoading = true;
+    new DeploymentDefinitionsApi(dorcApiConfiguration)
+      .deploymentDefinitionsGet({
+        page: 1,
+        limit: 100,
+        componentType: ComponentType.PowerShell
+      })
+      .subscribe({
+        next: response => {
+          this.scriptsLoading = false;
+          this.scriptsLoaded = true;
+          const seen = new Set<string>();
+          this.scriptDefinitions = (response.Items ?? []).filter(item => {
+            const comp = item.Component;
+            const key = `${comp?.ScriptPath ?? ''}|${comp?.ComponentName ?? ''}`;
+            if (!comp?.ScriptPath || seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+        },
+        error: () => {
+          this.scriptsLoading = false;
+          this.scriptsLoaded = true;
+        }
+      });
+  }
+
+  private get filteredScripts(): DeploymentDefinitionApiModel[] {
+    const query = this.search.trim().toLowerCase();
+    if (!query) return this.scriptDefinitions;
+    return this.scriptDefinitions.filter(item =>
+      [
+        item.Component?.ComponentName,
+        item.Component?.ScriptPath,
+        item.Component?.PSVersion,
+        item.ProjectName
+      ].some(value => value?.toLowerCase().includes(query))
+    );
+  }
   private get providerNames(): string[] {
     const names = new Set<string>();
     for (const t of this.templates) {
@@ -919,14 +981,13 @@ export class PageModuleCatalog extends PageElement {
               <h3>Terraform state storage (all Catalog modules)</h3>
               <p>
                 Open the destination project's
-                <strong>Project Ref Data</strong>, then
-                <strong>Definitions &rsaquo; Terraform state backends</strong>.
-                Add a project default or a complete override for a mapped
-                environment: state storage account, container, subscription ID
-                and optional resource group. The account and container must
-                already exist. This is separate from the workload subscription
-                above; they may use the same subscription, but neither is
-                inferred from the other.
+                <strong>Project Ref Data</strong>, then the
+                <strong>Terraform State</strong> tab. Add a project default or a
+                complete override for a mapped environment: state storage
+                account, container, subscription ID and optional resource group.
+                The account and container must already exist. This is separate
+                from the workload subscription above; they may use the same
+                subscription, but neither is inferred from the other.
               </p>
               <p>
                 DOrc does not require a global state store. Requests pin the
@@ -983,13 +1044,13 @@ export class PageModuleCatalog extends PageElement {
             <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
           </vaadin-text-field>
           <div class="chips" role="group" aria-label="Filter by category">
-            ${[ALL_CATEGORIES, ...this.categories].map(
+            ${[ALL_CATEGORIES, ...this.categories, SCRIPTS_CATEGORY].map(
               c => html`
                 <vaadin-button
                   class="chip"
                   theme="small"
                   aria-pressed=${this.category === c ? 'true' : 'false'}
-                  @click=${() => (this.category = c)}
+                  @click=${() => this.selectCategory(c)}
                   >${c}</vaadin-button
                 >
               `
@@ -1025,6 +1086,9 @@ export class PageModuleCatalog extends PageElement {
   }
 
   private renderContent() {
+    if (this.category === SCRIPTS_CATEGORY) {
+      return this.renderScriptsCatalog();
+    }
     if (this.loading) {
       return html`
         <div class="cards" role="status" aria-label="Loading Terraform modules">
@@ -1067,6 +1131,81 @@ export class PageModuleCatalog extends PageElement {
             ${this.detailName === g.name ? this.renderDetail(g.manifest) : nothing}
           `
         )}
+      </div>
+    `;
+  }
+
+  private renderScriptsCatalog() {
+    if (this.scriptsLoading) {
+      return html`
+        <div
+          class="cards"
+          role="status"
+          aria-label="Loading PowerShell script components"
+        >
+          <div class="skeleton"></div>
+          <div class="skeleton"></div>
+        </div>
+      `;
+    }
+    const scripts = this.filteredScripts;
+    if (!scripts.length) {
+      return html`
+        <div class="state" role="status">
+          <vaadin-icon icon="vaadin:code"></vaadin-icon>
+          <strong>No matching PowerShell script components</strong>
+          <span
+            >Clear the search or browse the global Deployment Definitions
+            page.</span
+          >
+        </div>
+      `;
+    }
+    const context = new URLSearchParams(window.location.search);
+    const projectId = Number(context.get('projectId')) || 0;
+    const projectName = context.get('project') || '';
+    return html`
+      <div class="cards">
+        ${scripts.map(item => {
+          const comp = item.Component;
+          const addHref = projectId
+            ? `/project-ref-data/${projectId}?addScriptName=${encodeURIComponent(comp?.ComponentName ?? 'Script step')}&addScriptPath=${encodeURIComponent(comp?.ScriptPath ?? '')}&addPsVersion=${encodeURIComponent(comp?.PSVersion ?? '5.1')}&addNonProdOnly=${comp?.NonProdOnly ? 'true' : 'false'}&addStopOnFailure=${comp?.StopOnFailure === false ? 'false' : 'true'}`
+            : `/scripts`;
+          return html`
+            <article class="card">
+              <div class="card-head">
+                <div class="icon-tile tone-contrast">
+                  <vaadin-icon icon="vaadin:code"></vaadin-icon>
+                </div>
+                <div class="card-title">
+                  <div class="title-row">
+                    <h2>${comp?.ComponentName || 'PowerShell Script'}</h2>
+                    <span class="pill">PS ${comp?.PSVersion || '5.1'}</span>
+                  </div>
+                  <div class="meta">
+                    PowerShell
+                    Script${item.ProjectName ? ` · ${item.ProjectName}` : ''}
+                  </div>
+                </div>
+              </div>
+              <p class="description">
+                <code>${item.SourceSummary || comp?.ScriptPath || '—'}</code>
+              </p>
+              <div class="card-actions">
+                <a href=${addHref}>
+                  <vaadin-button theme="primary">
+                    <vaadin-icon icon="vaadin:plus" slot="prefix"></vaadin-icon>
+                    ${
+                      projectId
+                        ? `Add to ${projectName || 'project'}`
+                        : 'Open in definitions'
+                    }
+                  </vaadin-button>
+                </a>
+              </div>
+            </article>
+          `;
+        })}
       </div>
     `;
   }

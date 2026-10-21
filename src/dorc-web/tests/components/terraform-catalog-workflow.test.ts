@@ -1162,6 +1162,46 @@ describe('override validation mirrors the manifest constraints', () => {
     expect(overrideError({ ...base, Pattern: '(' }, 'anything')).to.equal(null);
   });
 
+  it('aligns catalog card action buttons at the bottom across cards with different description lengths', async () => {
+    mocks.templates.mockReturnValue(
+      of([
+        {
+          ...template,
+          Name: 'short-module',
+          Description: 'Short description.'
+        },
+        {
+          ...template,
+          Name: 'long-module',
+          Description:
+            'Much longer description that wraps across multiple lines so the card in the same grid row is taller than its neighbour and the action buttons still align at the bottom.'
+        }
+      ])
+    );
+    const catalog = await fixture<PageModuleCatalog>(
+      html`<page-module-catalog
+        style="display:block;width:900px"
+      ></page-module-catalog>`
+    );
+    await settle();
+    const actions = Array.from(
+      catalog.shadowRoot!.querySelectorAll<HTMLElement>('.card .card-actions')
+    );
+    expect(actions).to.have.length(2);
+    expect(
+      Math.max(
+        parseFloat(getComputedStyle(actions[0]).marginTop),
+        parseFloat(getComputedStyle(actions[1]).marginTop)
+      )
+    ).to.be.greaterThan(0);
+    expect(
+      Math.abs(
+        actions[0].getBoundingClientRect().bottom -
+          actions[1].getBoundingClientRect().bottom
+      )
+    ).to.be.lessThan(2);
+  });
+
   describe('Terraform identity parity', () => {
     it('matches Monitor UTF-16 escaping and invariant ASCII case-folding', () => {
       const cases = [

@@ -591,4 +591,122 @@ describe('definition history and discovery', () => {
       window.matchMedia = originalMatchMedia;
     }
   });
+
+  it('clones a sibling step with pre-populated parent, PowerShell version and script path, and supports tree resize and collapse', async () => {
+    history.replaceState(null, '', '/project-ref-data/7?componentId=11');
+    const page = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+
+    // Clone Child Apply (which has ParentId 10, PSVersion 7.5, ScriptPath deploy/child.ps1)
+    clickButton(page.shadowRoot!, 'Clone sibling');
+    await settle();
+
+    clickButton(page.shadowRoot!, 'Review changes');
+    await settle();
+    clickButton(page.shadowRoot!, 'Confirm save');
+    await settle();
+
+    const saved = mocks.save.mock.calls[0][0].refDataApiModel;
+    const children = saved.Components[0].Children;
+    expect(children).to.have.length(2);
+    expect(children[1]).to.include({
+      ComponentName: 'Nested script (copy)',
+      ParentId: 10,
+      ComponentType: ComponentType.PowerShell,
+      PSVersion: '7.4',
+      ScriptPath: '{"Path":"nested.ps1","Arguments":{"Scope":"#{Scope}"}}',
+      IsEnabled: true,
+      StopOnFailure: true,
+      NonProdOnly: true
+    });
+
+    // Resize tree splitter via keyboard
+    const splitter =
+      page.shadowRoot!.querySelector<HTMLElement>('.tree-splitter')!;
+    expect(splitter).not.to.equal(null);
+    splitter.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true })
+    );
+    await settle();
+    const workspace =
+      page.shadowRoot!.querySelector<HTMLElement>('.workspace')!;
+    expect(workspace.getAttribute('style')).to.include(
+      '--tree-pane-width: 300px'
+    );
+
+    // Collapse and expand parent node in tree
+    clickButton(page.shadowRoot!, 'Collapse all');
+    await settle();
+    expect(page.shadowRoot!.querySelector('.tree-children')).to.equal(null);
+    clickButton(page.shadowRoot!, 'Expand all');
+    await settle();
+    expect(page.shadowRoot!.querySelector('.tree-children')).not.to.equal(null);
+  });
+
+  it('adds a reusable script component from the inline script catalog and switches workspace tabs', async () => {
+    mocks.definitions.mockReturnValue(
+      of({
+        Items: [
+          {
+            ProjectId: 7,
+            ProjectName: 'Payments',
+            Component: {
+              ComponentId: 42,
+              ComponentName: 'Database Backup',
+              ComponentType: ComponentType.PowerShell,
+              ScriptPath: 'common/backup-db.ps1',
+              PSVersion: '7.4',
+              IsEnabled: true,
+              StopOnFailure: true,
+              NonProdOnly: false
+            }
+          }
+        ],
+        TotalItems: 1
+      })
+    );
+    history.replaceState(null, '', '/project-ref-data/7?componentId=11');
+    const page = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+
+    clickButton(page.shadowRoot!, 'Script catalog');
+    await settle();
+    expect(page.shadowRoot!.textContent).to.include('Database Backup');
+    clickButton(page.shadowRoot!, 'Insert sibling');
+    await settle();
+
+    clickButton(page.shadowRoot!, 'Review changes');
+    await settle();
+    clickButton(page.shadowRoot!, 'Confirm save');
+    await settle();
+
+    const saved = mocks.save.mock.calls[0][0].refDataApiModel;
+    expect(saved.Components[0].Children[1]).to.include({
+      ComponentName: 'Database Backup',
+      ParentId: 10,
+      ScriptPath: 'common/backup-db.ps1',
+      PSVersion: '7.4'
+    });
+
+    // Switch to project-source and terraform-state workspace tabs
+    history.replaceState(null, '', '/project-ref-data/7?tab=project-source');
+    window.dispatchEvent(new CustomEvent('dorc-router-location-changed'));
+    await settle();
+    expect(
+      page.shadowRoot!.querySelector<HTMLElement>('.project-source-pane')
+        ?.hidden
+    ).to.equal(false);
+
+    history.replaceState(null, '', '/project-ref-data/7?tab=terraform-state');
+    window.dispatchEvent(new CustomEvent('dorc-router-location-changed'));
+    await settle();
+    expect(
+      page.shadowRoot!.querySelector<HTMLElement>('.terraform-state-pane')
+        ?.hidden
+    ).to.equal(false);
+  });
 });

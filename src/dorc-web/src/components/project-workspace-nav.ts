@@ -5,7 +5,12 @@ import { customElement, property } from 'lit/decorators.js';
 import { drawerShortcuts } from './drawer-shortcuts';
 
 export type ProjectWorkspaceTab =
-  'environments' | 'definitions' | 'components' | 'bundles';
+  | 'project-source'
+  | 'environments'
+  | 'definitions'
+  | 'components'
+  | 'bundles'
+  | 'terraform-state';
 
 @customElement('project-workspace-nav')
 export class ProjectWorkspaceNav extends LitElement {
@@ -30,14 +35,28 @@ export class ProjectWorkspaceNav extends LitElement {
       display: inline-flex;
       align-items: center;
       gap: 6px;
-      padding: 4px var(--lumo-space-s) 4px 0;
+      padding: 6px var(--lumo-space-s) 6px 0;
       margin-right: var(--lumo-space-xs);
       border-right: 1px solid var(--dorc-border-color);
+      border-bottom: 2px solid transparent;
       font-size: var(--lumo-font-size-s);
       font-weight: 600;
       color: var(--dorc-text-primary);
+      text-decoration: none;
       white-space: nowrap;
       flex-shrink: 0;
+      transition:
+        color 0.15s ease,
+        border-color 0.15s ease;
+    }
+
+    a.project-context:hover {
+      color: var(--dorc-link-color);
+    }
+
+    a.project-context[aria-current='page'] {
+      color: var(--dorc-link-color);
+      border-bottom-color: var(--dorc-link-color);
     }
 
     .project-context vaadin-icon {
@@ -163,12 +182,31 @@ export class ProjectWorkspaceNav extends LitElement {
       this.projectName ||
       (hasId ? `Project #${this.projectId}` : 'Project Workspace');
 
+    const projectSourceHref = hasId
+      ? `/project-ref-data/${this.projectId}?tab=project-source`
+      : undefined;
+
     return html`
       <nav aria-label="Project workspace navigation">
-        <span class="project-context">
-          <vaadin-icon icon="vaadin:archives" theme="small"></vaadin-icon>
-          <span>${projectLabel}</span>
-        </span>
+        ${
+          projectSourceHref
+            ? html`<a
+                class="project-context"
+                href=${projectSourceHref}
+                title="Project source settings"
+                aria-current=${
+                  this.activeTab === 'project-source' ? 'page' : nothing
+                }
+                @click=${() => this.pinProject()}
+              >
+                <vaadin-icon icon="vaadin:archives" theme="small"></vaadin-icon>
+                <span>${projectLabel}</span>
+              </a>`
+            : html`<span class="project-context">
+                <vaadin-icon icon="vaadin:archives" theme="small"></vaadin-icon>
+                <span>${projectLabel}</span>
+              </span>`
+        }
         ${this.renderTab(
           'environments',
           'Environments',
@@ -192,6 +230,14 @@ export class ProjectWorkspaceNav extends LitElement {
           'Bundles',
           'vaadin:package',
           encodedName ? `/project-envs/${encodedName}/bundles` : undefined
+        )}
+        ${this.renderTab(
+          'terraform-state',
+          'Terraform State',
+          'vaadin:database',
+          hasId
+            ? `/project-ref-data/${this.projectId}?tab=terraform-state`
+            : undefined
         )}
       </nav>
     `;

@@ -38,6 +38,11 @@ function oauthAuthorizationHeader(): string {
     redirectToSignIn();
     return '';
   }
+  if (user.expired) {
+    void oauthServiceContainer.service.recoverExpiredSession?.(
+      redirectToSignIn
+    );
+  }
   // An expired token is still sent rather than short-circuited: OAuthService
   // renews silently on the accessTokenExpiring event, and during that window
   // user.expired is true even though the session is recoverable. Redirecting
