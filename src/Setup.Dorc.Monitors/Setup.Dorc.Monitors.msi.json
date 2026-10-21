@@ -1,0 +1,192 @@
+{
+  "ProductNames": [
+    "DOrc Monitors"
+  ],
+  "ServerType": "WebServer",
+  "Services": [
+    "DeploymentActionServiceProd",
+    "DeploymentActionServiceNonProd"
+  ],
+  "Parameters": [
+    {
+      "MSIParameter": "ENVIRONMENT",
+      "DeployProperty": "ENVIRONMENT"
+    },
+    {
+      "MSIParameter": "ENVIRONMENT.TIER",
+      "DeployProperty": "ENVIRONMENT_TIER"
+    },
+    {
+      "MSIParameter": "SVC.PASSWORDPROD",
+      "DeployProperty": "SVC_PASSWORDPROD"
+    },
+    {
+      "MSIParameter": "SVC.PASSWORDNONPROD",
+      "DeployProperty": "DORC_NonProdDeployPassword"
+    },
+    {
+      "MSIParameter": "DEPLOYMENT.DBSERVER",
+      "DeployProperty": "DEPLOYMENT_DBSERVER"
+    },
+    {
+      "MSIParameter": "DEPLOYMENT.DB",
+      "DeployProperty": "DEPLOYMENT_DB"
+    },
+    {
+      "MSIParameter": "SVC.ACCOUNTPROD",
+      "DeployProperty": "SVC_ACCOUNTPROD"
+    },
+    {
+      "MSIParameter": "SVC.ACCOUNTNONPROD",
+      "DeployProperty": "DORC_NonProdDeployUsername"
+    },
+    {
+      "MSIParameter": "SCRIPT.FOLDER",
+      "DeployProperty": "SCRIPT_FOLDER"
+    },
+    {
+      "MSIParameter": "DEPLOYAPI.ENDPOINT",
+      "DeployProperty": "DEPLOYAPI_ENDPOINT"
+    },
+    {
+      "MSIParameter": "AADCLIENTID",
+      "DeployProperty": "AADCLIENTID"
+    },
+    {
+      "MSIParameter": "AADSECRET",
+      "DeployProperty": "AADSECRET"
+    },
+    {
+      "MSIParameter": "AADTENANT",
+      "DeployProperty": "AADTENANT"
+    },
+    {
+      "MSIParameter": "GITHUBTOKEN",
+      "DeployProperty": "GITHUBTOKEN"
+    },
+    {
+      "MSIParameter": "GITHUBARTIFACTDOWNLOADFOLDER",
+      "DeployProperty": "GITHUBARTIFACTDOWNLOADFOLDER"
+    },
+    {
+      "MSIParameter": "DOMAINNAMEINTRA",
+      "DeployProperty": "DOMAINNAMEINTRA"
+    },
+    {
+      "MSIParameter": "SMTPHOST",
+      "DeployProperty": "SMTPHOST"
+    },
+    {
+      "MSIParameter": "OPENSEARCH.URI",
+      "DeployProperty": "OPENSEARCH_URI"
+    },
+    {
+      "MSIParameter": "OPENSEARCH.USERNAME",
+      "DeployProperty": "OPENSEARCH_USERNAME"
+    },
+    {
+      "MSIParameter": "OPENSEARCH.PASSWORD",
+      "DeployProperty": "OPENSEARCH_PASSWORD"
+    },
+    {
+      "MSIParameter": "OPENSEARCH.DEPLOYMENTRESULTINDEX",
+      "DeployProperty": "OPENSEARCH_DEPLOYMENTRESULTINDEX"
+    },
+    {
+      "MSIParameter": "DORC.API.CLIENTID",
+      "DeployProperty": "DORC_API_CLIENTID"
+    },
+    {
+      "MSIParameter": "DORC.API.CLIENTSECRET",
+      "DeployProperty": "DORC_API_CLIENTSECRET"
+    },
+    {
+      "MSIParameter": "DORC.API.SCOPE",
+      "DeployProperty": "DORC_OAUTH_API_GLOBAL_SCOPE"
+    },
+    {
+      "MSIParameter": "AZURESTORAGEACCOUNT.TENANTID",
+      "DeployProperty": "AZURESTORAGEACCOUNT_TENANTID"
+    },
+    {
+      "MSIParameter": "AZURESTORAGEACCOUNT.CLIENTID",
+      "DeployProperty": "AZURESTORAGEACCOUNT_CLIENTID"
+    },
+    {
+      "MSIParameter": "AZURESTORAGEACCOUNT.CLIENTSECRET",
+      "DeployProperty": "AZURESTORAGEACCOUNT_CLIENTSECRET"
+    },
+    {
+      "MSIParameter": "AZURESTORAGEACCOUNT.URI",
+      "DeployProperty": "AZURESTORAGEACCOUNT_URI"
+    },
+    {
+      "MSIParameter": "AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME",
+      "DeployProperty": "AZURESTORAGEACCOUNT_TERRAFORMBLOBSCONTAINERNAME"
+    },
+    {
+      "MSIParameter": "OTEL.COLLECTOR.URL",
+      "DeployProperty": "OTEL_COLLECTOR_URL"
+    },
+    {
+      "MSIParameter": "KAFKA.ENABLED",
+      "DeployProperty": "KAFKA_ENABLED"
+    },
+    {
+      "MSIParameter": "KAFKA.BOOTSTRAPSERVERS",
+      "DeployProperty": "KAFKA_BOOTSTRAPSERVERS"
+    },
+    {
+      "MSIParameter": "KAFKA.SASL.USERNAME",
+      "DeployProperty": "KAFKA_SASL_USERNAME"
+    },
+    {
+      "MSIParameter": "KAFKA.SASL.PASSWORD",
+      "DeployProperty": "KAFKA_SASL_PASSWORD"
+    },
+    {
+      "MSIParameter": "KAFKA.SSLCA.LOCATION",
+      "DeployProperty": "KAFKA_SSLCA_LOCATION"
+    },
+    {
+      "MSIParameter": "KAFKA.SCHEMAREGISTRY.URL",
+      "DeployProperty": "KAFKA_SCHEMAREGISTRY_URL"
+    },
+    {
+      "MSIParameter": "KAFKA.SCHEMAREGISTRY.BASICAUTH.USERNAME",
+      "DeployProperty": "KAFKA_SCHEMAREGISTRY_BASICAUTH_USERNAME"
+    },
+    {
+      "MSIParameter": "KAFKA.SCHEMAREGISTRY.BASICAUTH.PASSWORD",
+      "DeployProperty": "KAFKA_SCHEMAREGISTRY_BASICAUTH_PASSWORD"
+    },
+    {
+      "MSIParameter": "KAFKA.TOPICS.LOCKS",
+      "DeployProperty": "KAFKA_TOPICS_LOCKS"
+    },
+    {
+      "MSIParameter": "KAFKA.TOPICS.REQUESTSNEW",
+      "DeployProperty": "KAFKA_TOPICS_REQUESTSNEW"
+    },
+    {
+      "MSIParameter": "KAFKA.TOPICS.REQUESTSSTATUS",
+      "DeployProperty": "KAFKA_TOPICS_REQUESTSSTATUS"
+    },
+    {
+      "MSIParameter": "KAFKA.TOPICS.RESULTSSTATUS",
+      "DeployProperty": "KAFKA_TOPICS_RESULTSSTATUS"
+    },
+    {
+      "MSIParameter": "KAFKA.TOPICS.REQUESTSNEWDLQ",
+      "DeployProperty": "KAFKA_TOPICS_REQUESTSNEWDLQ"
+    },
+    {
+      "MSIParameter": "KAFKA.LOCKS.CONSUMERGROUPID.PROD",
+      "DeployProperty": "KAFKA_LOCKS_CONSUMERGROUPID_PROD"
+    },
+    {
+      "MSIParameter": "KAFKA.LOCKS.CONSUMERGROUPID.NONPROD",
+      "DeployProperty": "KAFKA_LOCKS_CONSUMERGROUPID_NONPROD"
+    }
+  ]
+}

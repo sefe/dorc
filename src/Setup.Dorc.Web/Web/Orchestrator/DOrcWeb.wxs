@@ -1,4 +1,4 @@
-﻿<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
      xmlns:iis="http://wixtoolset.org/schemas/v4/wxs/iis"
      xmlns:Json="http://schemas.hegsie.com/wix/JsonExtension">
@@ -9,8 +9,36 @@
 		              ExeCommand="[System64Folder]inetsrv\AppCmd.exe set apppool &quot;DOrcWeb&quot; -processmodel.loaduserprofile:true"
 		              Return="ignore" />
 
-		<Binary Id="certBinary" SourceFile="DorcNonProdSSLCert.pfx" />
-		<Binary Id="certBinaryProd" SourceFile="deploymentportal.pfx" />
+		<Binary Id="certBinary" SourceFile="$(var.DorcCertDir)\DorcNonProdSSLCert.pfx" />
+		<Binary Id="certBinaryProd" SourceFile="$(var.DorcCertDir)\deploymentportal.pfx" />
+
+		<Component Id="UiCertificate" Guid="{21B20AEF-883E-48E2-A49F-AD0441CD3FF5}" Permanent="yes" Directory="DorcWebFolder"
+		           Condition="ENVIRONMENTISPRODUCTION = &quot;FALSE&quot;">
+			<CreateFolder />
+			<iis:Certificate
+			BinaryRef="certBinary"
+			Id="MySSLCert"
+			Name="DorcNonProdSSLCert.pfx"
+			Request="no"
+			StoreLocation="localMachine"
+			StoreName="root"
+			PFXPassword="[CERTIFICATE.PASSWORD]">
+			</iis:Certificate>
+		</Component>
+
+		<Component Id="UiCertificateProd" Guid="{74DFD9BC-2DA8-44A7-8F34-3E73B9A67F4B}" Permanent="yes" Directory="DorcWebFolder"
+		           Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
+			<CreateFolder />
+			<iis:Certificate
+			BinaryRef="certBinaryProd"
+			Id="MySSLCertProd"
+			Name="deploymentportal.pfx"
+			Request="no"
+			StoreLocation="localMachine"
+			StoreName="root"
+			PFXPassword="[CERTIFICATE.PASSWORD]">
+			</iis:Certificate>
+		</Component>
 
 		<Component Id="DOrcWebIISComponent" Guid="{520D6C74-73C2-4883-B562-6C56BA438C66}" Directory="DorcWebFolder"
 		           Condition="ENVIRONMENTISPRODUCTION = &quot;FALSE&quot;">
@@ -25,15 +53,6 @@
 			<Json:JsonFile Id="DorcHelperPageSetting" File="[#DorcWebUIConfigJson]" ElementPath="$.dorcHelperPage"
 			               Value="[DORCHELPERPAGE]" />
 
-			<iis:Certificate
-				BinaryRef="certBinary"
-				Id="MySSLCert"
-				Name="DorcNonProdSSLCert.pfx"
-				Request="no"
-				StoreLocation="localMachine"
-				StoreName="root"
-				PFXPassword="[CERTIFICATE.PASSWORD]">
-			</iis:Certificate>
 
 			<iis:WebSite Id="DeploymentOrchestratorWebSite" Description="Dorc Web" Directory="DorcWebFolder"
 			             ConfigureIfExists="yes">
@@ -66,15 +85,6 @@
 			<Json:JsonFile Id="DorcHelperPageSettingProd" File="[#DorcWebUIConfigJson]" ElementPath="$.dorcHelperPage"
 			               Value="[DORCHELPERPAGE]" />
 
-			<iis:Certificate
-				BinaryRef="certBinaryProd"
-				Id="MySSLCertProd"
-				Name="deploymentportal.pfx"
-				Request="no"
-				StoreLocation="localMachine"
-				StoreName="root"
-				PFXPassword="[CERTIFICATE.PASSWORD]">
-			</iis:Certificate>
 
 			<iis:WebSite Id="DeploymentOrchestratorWebSiteProd" Description="Dorc Web" Directory="DorcWebFolder"
 			             ConfigureIfExists="yes">
