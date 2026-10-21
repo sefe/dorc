@@ -114,6 +114,22 @@ namespace Dorc.Monitor.Notifications.Teams
 
             var ordered = requests.OrderBy(r => r.Id).ToList();
             var baseUrl = _dorcUiBaseUrl.TrimEnd('/');
+            var bundleStartedTime = ordered
+                .Select(r => r.StartedTime ?? r.RequestedTime)
+                .Where(t => t.HasValue)
+                .Select(t => t!.Value)
+                .DefaultIfEmpty(completedTime)
+                .Min();
+            var bundleCompletedTime = ordered
+                .Select(r => r.CompletedTime)
+                .Where(t => t.HasValue)
+                .Select(t => t!.Value)
+                .DefaultIfEmpty(completedTime)
+                .Max();
+            var bundleDuration = bundleCompletedTime - bundleStartedTime;
+            var bundleDurationText = bundleDuration.TotalSeconds < 60
+                ? $"{(int)bundleDuration.TotalSeconds}s"
+                : $"{(int)bundleDuration.TotalMinutes}m {bundleDuration.Seconds}s";
             var succeededCount = ordered.Count(r => string.Equals(r.Status, "Completed", StringComparison.OrdinalIgnoreCase));
             var failedCount = ordered.Count(r =>
                 string.Equals(r.Status, "Failed", StringComparison.OrdinalIgnoreCase)
@@ -146,7 +162,9 @@ namespace Dorc.Monitor.Notifications.Teams
                         new Dictionary<string, object?> { ["title"] = "Requests",  ["value"] = ordered.Count.ToString() },
                         new Dictionary<string, object?> { ["title"] = "Failed",    ["value"] = failedCount.ToString() },
                         new Dictionary<string, object?> { ["title"] = "Succeeded", ["value"] = succeededCount.ToString() },
-                        new Dictionary<string, object?> { ["title"] = "At",        ["value"] = completedTime.ToString("yyyy-MM-dd HH:mm:ss zzz") }
+                        new Dictionary<string, object?> { ["title"] = "Started",   ["value"] = bundleStartedTime.ToString("yyyy-MM-dd HH:mm:ss zzz") },
+                        new Dictionary<string, object?> { ["title"] = "Completed", ["value"] = bundleCompletedTime.ToString("yyyy-MM-dd HH:mm:ss zzz") },
+                        new Dictionary<string, object?> { ["title"] = "Duration",  ["value"] = bundleDurationText },
                     }
                 }
             };
