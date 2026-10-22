@@ -101,7 +101,10 @@ export class DeployEnv extends LitElement {
         display: flex;
         align-items: center;
         gap: var(--lumo-space-s);
-        margin: var(--lumo-space-s);
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 600px;
+        margin: var(--lumo-space-s) 0 var(--lumo-space-s) 10px;
         padding: var(--lumo-space-s) var(--lumo-space-m);
         border: 1px solid var(--dorc-border-color);
         border-left: 4px solid var(--dorc-icon-interactive);
