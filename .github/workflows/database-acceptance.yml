@@ -19,6 +19,8 @@ on:
       # The EF model and the SSDT project are two independent descriptions of the
       # same tables; a change to either can break the publish or the mapping.
       - 'src/Dorc.PersistentData/**'
+      - 'src/Dorc.Api.Tests/**'
+      - 'src/Dorc.Monitor.Tests/**'
       - '.github/workflows/database-acceptance.yml'
   push:
     branches:
@@ -27,6 +29,8 @@ on:
       - 'src/Dorc.Database/**'
       - 'src/Tests.Acceptance/**'
       - 'src/Dorc.PersistentData/**'
+      - 'src/Dorc.Api.Tests/**'
+      - 'src/Dorc.Monitor.Tests/**'
       - '.github/workflows/database-acceptance.yml'
   workflow_dispatch:
 
@@ -98,22 +102,45 @@ jobs:
           --logger "trx;LogFileName=database-acceptance.trx"
           --results-directory TestResults
 
+      # The API and Monitor suites also carry [TestCategory("Database")] tests that
+      # exercise real transactions, locking and migrations against SQL Server. The
+      # Windows build job has no SQL Server, so there they are Inconclusive; this
+      # is the only place they execute, and DORC_DB_TESTS_REQUIRED turns a missing
+      # connection into a failure rather than a silent skip.
+      - name: API and Monitor SQL-backed tests
+        env:
+          ConnectionStrings__DOrcConnectionString: 'Server=localhost,1433;Database=master;User Id=sa;******;TrustServerCertificate=True;Encrypt=False'
+          DORC_DB_TESTS_REQUIRED: '1'
+        run: |
+          set -e
+          for proj in src/Dorc.Api.Tests/Dorc.Api.Tests.csproj src/Dorc.Monitor.Tests/Dorc.Monitor.Tests.csproj; do
+            name=$(basename "$proj" .csproj)
+            dotnet test "$proj" \
+              --filter "TestCategory=Database" \
+              --logger "trx;LogFileName=$name-database.trx" \
+              --results-directory TestResults
+          done
+
       # The filter selecting nothing is not a failure to dotnet test — it prints
       # "No test matches the given testcase filter" and exits 0. That would put the
       # job straight back to the state it exists to prevent: a schema migration
       # reaching production having never been executed. Rename the category, move
-      # the tests, and this is the step that notices.
-      - name: Assert the migration tests actually ran
+      # the tests, and this is the step that notices. Every .trx must have run at
+      # least one test, so a project whose Database tests vanish also fails here.
+      - name: Assert the database tests actually ran
         run: |
-          trx=$(find TestResults -name '*.trx' | head -1)
-          if [ -z "$trx" ]; then
-            echo "::error::No .trx produced - the test run did not happen."
-            exit 1
-          fi
-          executed=$(sed -n 's/.*<Counters[^>]*executed="\([0-9]*\)".*/\1/p' "$trx" | head -1)
-          echo "Executed tests: ${executed:-unknown}"
-          if [ -z "$executed" ] || [ "$executed" -lt 1 ]; then
-            echo "::error::The TestCategory=Database filter selected no tests."
+          count=0
+          for trx in $(find TestResults -name '*.trx'); do
+            executed=$(sed -n 's/.*<Counters[^>]*executed="\([0-9]*\)".*/\1/p' "$trx" | head -1)
+            echo "$trx: executed=${executed:-unknown}"
+            if [ -z "$executed" ] || [ "$executed" -lt 1 ]; then
+              echo "::error::$trx recorded no executed tests - the TestCategory=Database filter selected nothing."
+              exit 1
+            fi
+            count=$((count + 1))
+          done
+          if [ "$count" -lt 3 ]; then
+            echo "::error::Expected 3 .trx files (acceptance, API, Monitor), found $count."
             exit 1
           fi
 
