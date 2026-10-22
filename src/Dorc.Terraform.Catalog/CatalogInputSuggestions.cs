@@ -3,9 +3,9 @@ using System.Text.RegularExpressions;
 namespace Dorc.Terraform.Catalog
 {
     // Derives non-secret starting values for catalog inputs from the project and
-    // environment the wizard is targeting, following the SEFE naming standards
-    // (Messaging Standards - Kafka - Topic Naming; Cloud Application Landing
-    // Zones). Suggestions are shown to the operator as editable prefill; saved
+    // environment the wizard is targeting, following the organisation's Kafka
+    // topic naming and cloud landing-zone standards. Suggestions are shown to
+    // the operator as editable prefill; saved
     // configuration and environment properties always take precedence, and
     // nothing here is applied unless it is part of the submitted inputs.
     //
@@ -14,7 +14,6 @@ namespace Dorc.Terraform.Catalog
     // manifests benefit without republishing.
     public static class CatalogInputSuggestions
     {
-        public const string StandardsPageUrl = "https://wiki/pages/viewpage.action?pageId=516177153";
         public const string ProdCloudName = "custom-sefe-prod-workload-azure-uksouth";
         public const string NonProdCloudName = "custom-sefe-nprod-workload-azure-uksouth";
         public const string DefaultLocation = "uksouth";
@@ -51,7 +50,7 @@ namespace Dorc.Terraform.Catalog
         private static readonly Regex Tokens = new("[a-z]+|[0-9]+", RegexOptions.Compiled);
 
         // Group IT environment tiers plus the aliases operators actually use in
-        // DOrc environment names (e.g. "LTRM PREPROD", "RVC Prod", "GMA QA 01").
+        // DOrc environment names (e.g. "APP PREPROD", "APP Prod", "APP QA 01").
         private static readonly IReadOnlyDictionary<string, string> TierAliases =
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
@@ -124,7 +123,7 @@ namespace Dorc.Terraform.Catalog
 
         /// <summary>
         /// Environment tier derived from tokens in the environment name
-        /// (e.g. "GMA QA 01" → qa, "LTRM PREPROD" → pp). Falls back to the
+        /// (e.g. "APP QA 01" → qa, "APP PREPROD" → pp). Falls back to the
         /// environment's production flag when no token matches.
         /// </summary>
         public static string EnvironmentTier(Context context, out string reason)
@@ -179,7 +178,7 @@ namespace Dorc.Terraform.Catalog
                 }
                 case Hints.BusinessVertical:
                     return string.IsNullOrEmpty(context.BusinessVertical)
-                        ? new Suggestion(DefaultBusinessVertical, "No business vertical on the project; SEFE trading default. Set it in Project Ref Data.")
+                        ? new Suggestion(DefaultBusinessVertical, "No business vertical on the project; platform default. Set it in Project Ref Data.")
                         : new Suggestion(context.BusinessVertical!, "Business vertical configured on the project.");
                 case Hints.ApplicationCode:
                     return string.IsNullOrEmpty(context.ApplicationCode)
@@ -193,7 +192,7 @@ namespace Dorc.Terraform.Catalog
                         : new Suggestion("gbl", "Global scope unless the topic is local or user-specific.");
                 }
                 case Hints.Location:
-                    return new Suggestion(DefaultLocation, "SEFE primary Azure region.");
+                    return new Suggestion(DefaultLocation, "Platform default Azure region.");
                 default:
                     return null;
             }

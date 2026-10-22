@@ -44,7 +44,7 @@ namespace Dorc.TerraformRunner.Tests.State
                       "provider_name": "registry.terraform.io/hashicorp/azurerm",
                       "values": {
                         "name": "rg-sh-dv-demo",
-                        "id": "/subscriptions/7c7c1f8f-f295-456c-81e4-5d508579d93e/resourceGroups/rg-sh-dv-demo"
+                        "id": "/subscriptions/11111111-2222-4333-8444-555555555555/resourceGroups/rg-sh-dv-demo"
                       }
                     }
                   ]
@@ -60,8 +60,8 @@ namespace Dorc.TerraformRunner.Tests.State
             Assert.AreEqual("rg-sh-dv-demo", resource.Name);
             Assert.AreEqual("Azure", resource.Provider);
             Assert.AreEqual("azurerm_resource_group", resource.ResourceType);
-            Assert.AreEqual("/subscriptions/7c7c1f8f-f295-456c-81e4-5d508579d93e/resourceGroups/rg-sh-dv-demo", resource.ResourceIdentifier);
-            Assert.AreEqual("7c7c1f8f-f295-456c-81e4-5d508579d93e", resource.Subscription);
+            Assert.AreEqual("/subscriptions/11111111-2222-4333-8444-555555555555/resourceGroups/rg-sh-dv-demo", resource.ResourceIdentifier);
+            Assert.AreEqual("11111111-2222-4333-8444-555555555555", resource.Subscription);
         }
 
         [TestMethod]
@@ -77,7 +77,7 @@ namespace Dorc.TerraformRunner.Tests.State
                       "type": "azurerm_resource_group",
                       "name": "existing",
                       "provider_name": "registry.terraform.io/hashicorp/azurerm",
-                      "values": { "name": "rg-existing", "id": "/subscriptions/7c7c1f8f-f295-456c-81e4-5d508579d93e/resourceGroups/rg-existing" }
+                      "values": { "name": "rg-existing", "id": "/subscriptions/11111111-2222-4333-8444-555555555555/resourceGroups/rg-existing" }
                     }
                   ]
                 }
@@ -103,7 +103,7 @@ namespace Dorc.TerraformRunner.Tests.State
                           "type": "aiven_kafka_topic",
                           "name": "topic",
                           "provider_name": "registry.terraform.io/aiven/aiven",
-                          "values": { "name": "orders", "id": "trading-traveler/traveler-non-prod/orders" }
+                          "values": { "name": "orders", "id": "example-project/example-kafka-nonprod/orders" }
                         }
                       ],
                       "child_modules": [
@@ -114,7 +114,7 @@ namespace Dorc.TerraformRunner.Tests.State
                               "type": "azurerm_servicebus_queue",
                               "name": "queue",
                               "provider_name": "registry.terraform.io/hashicorp/azurerm",
-                              "values": { "name": "sbq-demo", "id": "/subscriptions/7c7c1f8f-f295-456c-81e4-5d508579d93e/resourceGroups/rg/providers/Microsoft.ServiceBus/namespaces/ns/queues/sbq-demo" }
+                              "values": { "name": "sbq-demo", "id": "/subscriptions/11111111-2222-4333-8444-555555555555/resourceGroups/rg/providers/Microsoft.ServiceBus/namespaces/ns/queues/sbq-demo" }
                             }
                           ]
                         }
@@ -142,8 +142,8 @@ namespace Dorc.TerraformRunner.Tests.State
               "values": {
                 "root_module": {
                   "resources": [
-                    { "mode": "managed", "type": "azurerm_resource_group", "name": "a", "provider_name": "registry.terraform.io/hashicorp/azurerm", "values": { "name": "rg-one", "id": "/subscriptions/7c7c1f8f-f295-456c-81e4-5d508579d93e/resourceGroups/RG-ONE" } },
-                    { "mode": "managed", "type": "azurerm_resource_group", "name": "b", "provider_name": "registry.terraform.io/hashicorp/azurerm", "values": { "name": "rg-one", "id": "/subscriptions/7c7c1f8f-f295-456c-81e4-5d508579d93e/resourceGroups/rg-one" } }
+                    { "mode": "managed", "type": "azurerm_resource_group", "name": "a", "provider_name": "registry.terraform.io/hashicorp/azurerm", "values": { "name": "rg-one", "id": "/subscriptions/11111111-2222-4333-8444-555555555555/resourceGroups/RG-ONE" } },
+                    { "mode": "managed", "type": "azurerm_resource_group", "name": "b", "provider_name": "registry.terraform.io/hashicorp/azurerm", "values": { "name": "rg-one", "id": "/subscriptions/11111111-2222-4333-8444-555555555555/resourceGroups/rg-one" } }
                   ]
                 }
               }
@@ -208,7 +208,7 @@ namespace Dorc.TerraformRunner.Tests.State
                       "provider_name": "registry.terraform.io/aiven/aiven",
                       "values": {
                         "topic_name": "tr.dv.tst.dorc.stockmodule-test.il0",
-                        "id": "trading-traveler/traveler-unstable-dev/tr.dv.tst.dorc.stockmodule-test.il0"
+                        "id": "example-project/example-kafka-dev/tr.dv.tst.dorc.stockmodule-test.il0"
                       }
                     }
                   ]
@@ -227,7 +227,7 @@ namespace Dorc.TerraformRunner.Tests.State
         [TestMethod]
         public void ParseShowJson_LongIdentifier_RefusesLossyRegistration()
         {
-            var longId = "/subscriptions/7c7c1f8f-f295-456c-81e4-5d508579d93e/" + new string('x', 600);
+            var longId = "/subscriptions/11111111-2222-4333-8444-555555555555/" + new string('x', 600);
             var json = $$"""
             {
               "values": {

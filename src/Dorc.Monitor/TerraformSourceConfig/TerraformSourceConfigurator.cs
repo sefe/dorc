@@ -64,11 +64,15 @@ namespace Dorc.Monitor.TerraformSourceConfig
                     // runner's CatalogReferenceCodeSourceProvider resolves it
                     // against ITemplateCatalog and delegates to the underlying
                     // source kind. PAT for the resolved Git source is read
-                    // from properties when present.
+                    // from properties when present; the Entra bearer token is
+                    // also supplied so an Azure DevOps-hosted catalog clones
+                    // without a per-environment PAT (the runner only presents
+                    // it to dev.azure.com / visualstudio.com hosts).
                     if (properties.TryGetValue(TerraformGitPatPropertyName, out var catalogPat))
                     {
                         scriptGroup.TerraformGitPat = catalogPat.Value?.ToString() ?? string.Empty;
                     }
+                    scriptGroup.AzureBearerToken = GetAzureBearerToken();
                     break;
 
                 default:

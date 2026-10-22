@@ -66,8 +66,8 @@ namespace Dorc.Monitor.Tests.Terraform
             Name = "rg-sh-dv-demo",
             Provider = "Azure",
             ResourceType = "azurerm_resource_group",
-            ResourceIdentifier = "/subscriptions/7c7c1f8f-f295-456c-81e4-5d508579d93e/resourceGroups/rg-sh-dv-demo",
-            Subscription = "7c7c1f8f-f295-456c-81e4-5d508579d93e",
+            ResourceIdentifier = "/subscriptions/11111111-2222-4333-8444-555555555555/resourceGroups/rg-sh-dv-demo",
+            Subscription = "11111111-2222-4333-8444-555555555555",
             Tags = string.Empty
         };
 
@@ -86,13 +86,13 @@ namespace Dorc.Monitor.Tests.Terraform
             WriteResources(AppliedResourceGroup());
             _cloudResources.GetByName("rg-sh-dv-demo").Returns((CloudResourceApiModel?)null);
 
-            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "adentis\\bhegarty");
+            _registrar.RegisterAppliedResources(_file, "Terraform Dev", "example\\operator");
 
             _cloudResources.Received(1).Add(Arg.Is<CloudResourceApiModel>(m =>
                 m.Name == "rg-sh-dv-demo" && m.ResourceType == "azurerm_resource_group"));
             _cloudResources.Received(1).AttachToEnvironment(42, 2598);
-            _audit.Received(1).InsertCloudResourceAudit("adentis\\bhegarty", ActionType.Create, 42, Arg.Is<string?>(v => v == null), Arg.Any<string?>());
-            _audit.Received(1).InsertCloudResourceAudit("adentis\\bhegarty", ActionType.Attach, 42, Arg.Is<string?>(v => v == null), Arg.Any<string?>());
+            _audit.Received(1).InsertCloudResourceAudit("example\\operator", ActionType.Create, 42, Arg.Is<string?>(v => v == null), Arg.Any<string?>());
+            _audit.Received(1).InsertCloudResourceAudit("example\\operator", ActionType.Attach, 42, Arg.Is<string?>(v => v == null), Arg.Any<string?>());
         }
 
         [TestMethod]
@@ -323,8 +323,8 @@ namespace Dorc.Monitor.Tests.Terraform
                 Name = "orders-db",
                 Provider = "Azure",
                 ResourceType = "azurerm_cosmosdb_sql_database",
-                ResourceIdentifier = "/subscriptions/7c7c1f8f-f295-456c-81e4-5d508579d93e/resourceGroups/rg/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-sh-dv/sqlDatabases/orders-db",
-                Subscription = "7c7c1f8f-f295-456c-81e4-5d508579d93e",
+                ResourceIdentifier = "/subscriptions/11111111-2222-4333-8444-555555555555/resourceGroups/rg/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-sh-dv/sqlDatabases/orders-db",
+                Subscription = "11111111-2222-4333-8444-555555555555",
                 Tags = string.Empty
             });
             _cloudResources.GetByName(Arg.Any<string>()).Returns((CloudResourceApiModel?)null);
@@ -353,11 +353,11 @@ namespace Dorc.Monitor.Tests.Terraform
                 Name = "analytics",
                 Provider = "Aiven",
                 ResourceType = "aiven_clickhouse_database",
-                ResourceIdentifier = "trading-traveler/clickhouse-dev/analytics",
+                ResourceIdentifier = "example-project/clickhouse-dev/analytics",
                 Tags = string.Empty
             });
             _cloudResources.GetByName(Arg.Any<string>()).Returns((CloudResourceApiModel?)null);
-            _databases.GetDatabases("analytics", "trading-traveler/clickhouse-dev").Returns(Enumerable.Empty<DatabaseApiModel>());
+            _databases.GetDatabases("analytics", "example-project/clickhouse-dev").Returns(Enumerable.Empty<DatabaseApiModel>());
             _databases.AddDatabase(Arg.Any<DatabaseApiModel>())
                 .Returns(call =>
                 {
@@ -370,7 +370,7 @@ namespace Dorc.Monitor.Tests.Terraform
 
             _databases.Received(1).AddDatabase(Arg.Is<DatabaseApiModel>(d =>
                 d.Name == "analytics" && d.Tags.Contains("ClickHouse") &&
-                d.ServerName == "trading-traveler/clickhouse-dev" && d.DatabaseType == DatabaseType.ClickHouse));
+                d.ServerName == "example-project/clickhouse-dev" && d.DatabaseType == DatabaseType.ClickHouse));
             _environments.Received(1).AttachDatabaseToEnv(2598, 12, Arg.Any<System.Security.Claims.ClaimsPrincipal>());
         }
 
@@ -411,7 +411,7 @@ namespace Dorc.Monitor.Tests.Terraform
                 Name = "orders-db",
                 Provider = "Azure",
                 ResourceType = "azurerm_cosmosdb_sql_database",
-                ResourceIdentifier = "/subscriptions/7c7c1f8f-f295-456c-81e4-5d508579d93e/resourceGroups/rg/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-sh-dv/sqlDatabases/orders-db",
+                ResourceIdentifier = "/subscriptions/11111111-2222-4333-8444-555555555555/resourceGroups/rg/providers/Microsoft.DocumentDB/databaseAccounts/cosmos-sh-dv/sqlDatabases/orders-db",
                 Tags = string.Empty
             });
             _cloudResources.GetByName(Arg.Any<string>()).Returns((CloudResourceApiModel?)null);
@@ -518,7 +518,7 @@ namespace Dorc.Monitor.Tests.Terraform
         {
             var second = AppliedResourceGroup();
             second.Name = "rg-second";
-            second.ResourceIdentifier = "/subscriptions/7c7c1f8f-f295-456c-81e4-5d508579d93e/resourceGroups/rg-second";
+            second.ResourceIdentifier = "/subscriptions/11111111-2222-4333-8444-555555555555/resourceGroups/rg-second";
             WriteResources(AppliedResourceGroup(), second);
             _cloudResources.GetByName("rg-sh-dv-demo").Returns(_ => throw new InvalidOperationException("db down"));
             _cloudResources.GetByName("rg-second").Returns((CloudResourceApiModel?)null);

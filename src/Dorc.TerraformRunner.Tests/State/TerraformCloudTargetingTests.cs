@@ -12,7 +12,7 @@ namespace Dorc.TerraformRunner.Tests.State
         private const string SubPr = "d9c9e54f-0000-4000-8000-00000000bbbb";
 
         private static VariableValueCloudResources Resource(
-            string name = "SMT-NP",
+            string name = "SUB-NP",
             string provider = "Azure",
             string resourceType = "Subscription",
             string? resourceIdentifier = null,
@@ -58,7 +58,7 @@ namespace Dorc.TerraformRunner.Tests.State
 
             Assert.IsNotNull(target);
             Assert.AreEqual(SubNp, target.SubscriptionId);
-            Assert.AreEqual("SMT-NP", target.ResourceName);
+            Assert.AreEqual("SUB-NP", target.ResourceName);
             Assert.IsNull(warning);
         }
 
@@ -66,7 +66,7 @@ namespace Dorc.TerraformRunner.Tests.State
         public void ResolveSubscription_FallsBackToSubscriptionField()
         {
             var target = TerraformCloudTargeting.ResolveSubscription(
-                Properties(Resource(resourceIdentifier: "SMT-NP display name", subscription: $" {SubNp} ")),
+                Properties(Resource(resourceIdentifier: "SUB-NP display name", subscription: $" {SubNp} ")),
                 out var warning);
 
             Assert.IsNotNull(target);
@@ -79,7 +79,7 @@ namespace Dorc.TerraformRunner.Tests.State
         {
             var target = TerraformCloudTargeting.ResolveSubscription(
                 Properties(
-                    Resource(name: "traveler-kafka", resourceType: "Kafka Cluster", resourceIdentifier: SubPr),
+                    Resource(name: "example-kafka", resourceType: "Kafka Cluster", resourceIdentifier: SubPr),
                     Resource(name: "sub", resourceType: " subscription ", resourceIdentifier: SubNp)),
                 out var warning);
 
@@ -123,7 +123,7 @@ namespace Dorc.TerraformRunner.Tests.State
         public void ResolveSubscription_ReturnsNullWithWarning_WhenSubscriptionResourceCarriesNoGuid()
         {
             var target = TerraformCloudTargeting.ResolveSubscription(
-                Properties(Resource(name: "named-only", resourceIdentifier: "SMT-NP", subscription: "SMT-NP")),
+                Properties(Resource(name: "named-only", resourceIdentifier: "SUB-NP", subscription: "SUB-NP")),
                 out var warning);
 
             Assert.IsNull(target);
@@ -137,7 +137,7 @@ namespace Dorc.TerraformRunner.Tests.State
         {
             var target = TerraformCloudTargeting.ResolveSubscription(
                 Properties(
-                    Resource(name: "named-only", resourceIdentifier: "SMT-NP"),
+                    Resource(name: "named-only", resourceIdentifier: "SUB-NP"),
                     Resource(name: "good", resourceIdentifier: SubNp)),
                 out var warning);
 

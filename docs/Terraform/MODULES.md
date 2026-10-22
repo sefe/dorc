@@ -1,7 +1,7 @@
 # Stock modules index
 
 Canonical index of every stock module. Module source lives in the dedicated
-[`sefe/dorc-terraform-modules`](https://github.com/sefe/dorc-terraform-modules)
+[`sefe/dorc-terraform-modules`](https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules)
 repository (under `stock-modules/<name>/`) and is pulled at deploy time; only
 the catalog manifests (`stock-modules-manifests/`) live in this repo. A module
 is **active** when DOrc engineers should pick it as a starting point for new
@@ -9,22 +9,22 @@ components; **deprecated** when superseded.
 
 | Module | Latest | Category | Status | Owner | Description |
 |---|---|---|---|---|---|
-| [`vnet`](https://github.com/sefe/dorc-terraform-modules/tree/main/stock-modules/vnet) | 1.0.0 | Networking | Active | DOrc platform team | Azure virtual network with a configurable list of subnets. |
-| [`cosmosdb`](https://github.com/sefe/dorc-terraform-modules/tree/main/stock-modules/cosmosdb) | 1.0.0 | Data | Active | DOrc platform team | Azure Cosmos DB account (SQL API) + single SQL database, public-network-disabled by default. |
-| [`service-bus`](https://github.com/sefe/dorc-terraform-modules/tree/main/stock-modules/service-bus) | 1.0.0 | Messaging | Active | DOrc platform team | Azure Service Bus namespace + single queue, TLS 1.2 minimum, no SAS keys output. |
-| [`clickhouse-database`](https://github.com/sefe/dorc-terraform-modules/tree/main/stock-modules/clickhouse-database) | 2.0.0 | Data | Active | DOrc platform team | ClickHouse database on an Aiven ClickHouse service; creates the service layer by default (`create_service = false` re-uses an existing one); termination protection on by default. |
-| [`kafka-topic`](https://github.com/sefe/dorc-terraform-modules/tree/main/stock-modules/kafka-topic) | 2.1.0 | Messaging | Active | DOrc platform team | Kafka topic on an existing Aiven Kafka service, named per the SEFE Kafka messaging standard with the linked DOrc environment as the final segment; optional per-topic ACL grants. |
-| [`postgresql-database`](https://github.com/sefe/dorc-terraform-modules/tree/main/stock-modules/postgresql-database) | 2.0.0 | Data | Active | DOrc platform team | PostgreSQL database on an Aiven PostgreSQL service; creates the service layer by default (`create_service = false` re-uses an existing one); termination protection on by default. |
+| [`vnet`](https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules?path=/stock-modules/vnet) | 1.0.0 | Networking | Active | DOrc platform team | Azure virtual network with a configurable list of subnets. |
+| [`cosmosdb`](https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules?path=/stock-modules/cosmosdb) | 1.0.0 | Data | Active | DOrc platform team | Azure Cosmos DB account (SQL API) + single SQL database, public-network-disabled by default. |
+| [`service-bus`](https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules?path=/stock-modules/service-bus) | 1.0.0 | Messaging | Active | DOrc platform team | Azure Service Bus namespace + single queue, TLS 1.2 minimum, no SAS keys output. |
+| [`clickhouse-database`](https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules?path=/stock-modules/clickhouse-database) | 2.0.0 | Data | Active | DOrc platform team | ClickHouse database on an Aiven ClickHouse service; creates the service layer by default (`create_service = false` re-uses an existing one); termination protection on by default. |
+| [`kafka-topic`](https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules?path=/stock-modules/kafka-topic) | 2.1.0 | Messaging | Active | DOrc platform team | Kafka topic on an existing Aiven Kafka service, named per the SEFE Kafka messaging standard with the linked DOrc environment as the final segment; optional per-topic ACL grants. |
+| [`postgresql-database`](https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules?path=/stock-modules/postgresql-database) | 2.0.0 | Data | Active | DOrc platform team | PostgreSQL database on an Aiven PostgreSQL service; creates the service layer by default (`create_service = false` re-uses an existing one); termination protection on by default. |
 
 For the contract every module must satisfy, see [`MODULE-CONTRACT.md`](./MODULE-CONTRACT.md). For state ownership, see [`STATE-MODEL.md`](./STATE-MODEL.md).
 
 ## Tag convention
 
-Modules are versioned via Git tags `stock-modules/<name>/v<X.Y.Z>` in [`sefe/dorc-terraform-modules`](https://github.com/sefe/dorc-terraform-modules). To pin a module from a Terraform consumer:
+Modules are versioned via Git tags `stock-modules/<name>/v<X.Y.Z>` in [`sefe/dorc-terraform-modules`](https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules). To pin a module from a Terraform consumer:
 
 ```hcl
 module "vnet" {
-  source = "git::https://github.com/sefe/dorc-terraform-modules.git//stock-modules/vnet?ref=stock-modules/vnet/v1.0.0"
+  source = "git::https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules//stock-modules/vnet?ref=stock-modules/vnet/v1.0.0"
   # ...
 }
 ```
@@ -346,15 +346,13 @@ precedence order:
    GUID), for environments not yet carrying cloud resources.
 
 The resolved GUID is rendered as `subscription_id` in the azurerm provider
-configuration. Choose the subscription per the
-[SEFE subscription standard](https://wiki/spaces/gar/pages/641725927): dev
-environments → the domain's `SMT-<DOMAIN>-DV` subscription, QA/UAT/INT →
-`SMT-<DOMAIN>-NP`, production → `SMT-<DOMAIN>-PR`. The Terraform state backend
-is configured separately and is not
+configuration. Choose the subscription per your organisation's subscription
+standard (typically one subscription per domain and tier — dev, non-prod,
+prod). The Terraform state backend is configured separately and is not
 affected.
 
 When neither is set, the runner falls back to its configured
-`Terraform:DefaultSubscriptionId` (SMT-SH-DV for DOrc instances) and logs a
+`Terraform:DefaultSubscriptionId` (the shared dev subscription for the DOrc instance) and logs a
 warning. The fallback exists only to bootstrap fresh projects/environments
 that are not yet fully configured — established environments must designate
 their subscription. The runner's credential (service principal or
@@ -500,10 +498,9 @@ host's environment.
 
 > **Aiven modules ignore the Azure subscription targeting above.** Aiven
 > resources are addressed by Aiven project and service name, not by Azure
-> subscription. SEFE's Aiven BYOC infrastructure sits in the historic flat
-> subscriptions — non-production in **SMT-NP** (`rg-np-aiven-1-uks`) and
-> production in **SMT-PR** (`rg-pr-aiven-1-uks`) — which predate the
-> `SMT-<Vertical>-<Env>` subscription model and are not being expanded.
+> subscription. The Aiven BYOC infrastructure sits in its own dedicated
+> non-production and production subscriptions, outside the per-domain
+> subscription model, and those are not being expanded.
 > Attaching a `Subscription` cloud resource or `TerraformSubscriptionId`
 > property to an environment has no effect on the `clickhouse-database`,
 > `kafka-topic` and `postgresql-database` modules; where they land is determined solely by the Aiven
@@ -532,8 +529,8 @@ creates its own deployment request; this is not request-level idempotency.
 
 ## Adding a new module
 
-1. Open a PR creating `stock-modules/<name>/` per the contract in [`sefe/dorc-terraform-modules`](https://github.com/sefe/dorc-terraform-modules).
-2. That repo's CI runs formatting, init/validate, tflint and the secret-output rule. Provider lock-file verification is not currently enforced.
+1. Open a PR creating `stock-modules/<name>/` per the contract in [`sefe/dorc-terraform-modules`](https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules).
+2. That repo's gates (formatting, init/validate, tflint and the secret-output rule) were GitHub Actions before the repository moved to Azure DevOps; re-establish them as an Azure Pipeline from `.github/workflows/ci.yml` in that repo. Provider lock-file verification is not currently enforced.
 3. After merge, tag the commit `stock-modules/<name>/v1.0.0` in that repo.
 4. Resolve the tag to its full commit (peel annotated tags), inspect the actual tagged inputs/outputs/provider constraints, then add `stock-modules-manifests/<name>-1.0.0.yaml` with that tag and its `source.commit_sha`. Add the row above. Do not publish duplicate identities or change an existing release payload; fixes require a new version.
 

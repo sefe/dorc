@@ -1520,11 +1520,8 @@ export class DeployFromTemplateDialog extends LitElement {
     'integrity_level'
   ];
 
-  private static readonly kafkaStandardUrl =
-    'https://wiki/pages/viewpage.action?pageId=516177153';
-
   /**
-   * Live composition of the SEFE Kafka topic name for modules exposing the
+   * Live composition of the Kafka topic name for modules exposing the
    * standard's segments. Values the browser cannot see (inherited from the
    * environment) render as placeholders; the module remains the authority.
    */
@@ -1572,13 +1569,8 @@ export class DeployFromTemplateDialog extends LitElement {
           }
         </code>
         <p>
-          Composed per the
-          <a
-            href=${DeployFromTemplateDialog.kafkaStandardUrl}
-            target="_blank"
-            rel="noopener"
-            >SEFE Kafka topic naming standard</a
-          >. Segments shown as &lt;name&gt; are resolved by DOrc at plan time.
+          Composed per the Kafka topic naming standard. Segments shown as
+          &lt;name&gt; are resolved by DOrc at plan time.
         </p>
       </section>
     `;

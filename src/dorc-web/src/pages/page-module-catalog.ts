@@ -1020,14 +1020,10 @@ export class PageModuleCatalog extends PageElement {
               </p>
               <p>
                 Aiven modules ignore Azure subscription targeting: Aiven
-                resources are addressed by Aiven project and service name.
-                SEFE's Aiven BYOC infrastructure lives in the historic
-                <code>SMT-NP</code> / <code>SMT-PR</code> subscriptions (<code
-                  >rg-np-aiven-1-uks</code
-                >
-                / <code>rg-pr-aiven-1-uks</code>), which predate the
-                <code>SMT-&lt;Vertical&gt;-&lt;Env&gt;</code> model and are not
-                being expanded.
+                resources are addressed by Aiven project and service name. The
+                Aiven BYOC infrastructure lives in its own dedicated
+                non-production and production subscriptions, outside the
+                per-domain subscription model, and those are not being expanded.
               </p>
             </div>
             <p>

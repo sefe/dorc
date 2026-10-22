@@ -1,6 +1,6 @@
 # Example: terraform-project
 
-A minimal Terraform project that deploys a single Cosmos DB SQL database by referencing the [`cosmosdb` stock module](https://github.com/sefe/dorc-terraform-modules/tree/main/stock-modules/cosmosdb).
+A minimal Terraform project that deploys a single Cosmos DB SQL database by referencing the [`cosmosdb` stock module](https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules/tree/main/stock-modules/cosmosdb).
 
 ## What this example demonstrates
 

@@ -28,13 +28,13 @@ namespace Dorc.Terraform.Catalog.Tests
             => new(env, isProd, vertical, app);
 
         [DataTestMethod]
-        [DataRow("GMA QA 01", false, "qa")]
+        [DataRow("APP QA 01", false, "qa")]
         [DataRow("FFS DV 04", false, "dv")]
         [DataRow("Endur UT 14", false, "ut")]
-        [DataRow("LTRM PREPROD", false, "pp")]
-        [DataRow("LTRM PP", false, "pp")]
-        [DataRow("RVC Prod", true, "pr")]
-        [DataRow("LTRM DR", true, "dr")]
+        [DataRow("APP PREPROD", false, "pp")]
+        [DataRow("APP PP", false, "pp")]
+        [DataRow("APP Prod", true, "pr")]
+        [DataRow("APP DR", true, "dr")]
         [DataRow("TEVO PR 11", true, "pr")]
         [DataRow("Terraform Dev", false, "dv")]
         public void EnvironmentTier_IsDerivedFromNameTokens(string env, bool isProd, string expected)
@@ -55,7 +55,7 @@ namespace Dorc.Terraform.Catalog.Tests
         {
             // The kafka-topic module removes characters outside a-z 0-9 _ -, so
             // the suggestion must produce exactly the suffix the module will apply.
-            Assert.AreEqual("gmaqa01", CatalogInputSuggestions.For(Param("dorc_environment"), Ctx("GMA QA 01"))!.Value);
+            Assert.AreEqual("appqa01", CatalogInputSuggestions.For(Param("dorc_environment"), Ctx("APP QA 01"))!.Value);
             Assert.AreEqual("dev_01", CatalogInputSuggestions.For(Param("dorc_environment"), Ctx(" Dev_01 ")) !.Value);
         }
 
@@ -76,11 +76,11 @@ namespace Dorc.Terraform.Catalog.Tests
         [TestMethod]
         public void ProjectCodesSeedBusinessVerticalAndOrigin()
         {
-            var ctx = Ctx("GMA QA 01", vertical: "pw", app: "gma");
+            var ctx = Ctx("APP QA 01", vertical: "pw", app: "app");
             Assert.AreEqual("pw", CatalogInputSuggestions.For(Param("business_vertical"), ctx)!.Value);
-            Assert.AreEqual("gma", CatalogInputSuggestions.For(Param("origin"), ctx)!.Value);
+            Assert.AreEqual("app", CatalogInputSuggestions.For(Param("origin"), ctx)!.Value);
 
-            var bare = Ctx("GMA QA 01");
+            var bare = Ctx("APP QA 01");
             Assert.AreEqual(CatalogInputSuggestions.DefaultBusinessVertical, CatalogInputSuggestions.For(Param("business_vertical"), bare)!.Value);
             Assert.IsNull(CatalogInputSuggestions.For(Param("origin"), bare), "No application code: no origin suggestion rather than a guess.");
         }
@@ -88,8 +88,8 @@ namespace Dorc.Terraform.Catalog.Tests
         [TestMethod]
         public void SensitiveParametersAreNeverSuggested()
         {
-            Assert.IsNull(CatalogInputSuggestions.For(Param("location", sensitive: true), Ctx("GMA QA 01")));
-            Assert.IsNull(CatalogInputSuggestions.For(Param("token", sensitive: true, suggest: CatalogInputSuggestions.Hints.Location), Ctx("GMA QA 01")));
+            Assert.IsNull(CatalogInputSuggestions.For(Param("location", sensitive: true), Ctx("APP QA 01")));
+            Assert.IsNull(CatalogInputSuggestions.For(Param("token", sensitive: true, suggest: CatalogInputSuggestions.Hints.Location), Ctx("APP QA 01")));
         }
 
         [TestMethod]
@@ -97,8 +97,8 @@ namespace Dorc.Terraform.Catalog.Tests
         {
             // kafka-topic 2.1.0 only allows dv/ut/qa/pp/pr: a derived "dr" is dropped rather than offered.
             var tierParam = Param("environment_tier", allowedValues: new[] { "dv", "ut", "qa", "pp", "pr" });
-            Assert.AreEqual("qa", CatalogInputSuggestions.For(tierParam, Ctx("GMA QA 01"))!.Value);
-            Assert.IsNull(CatalogInputSuggestions.For(tierParam, Ctx("LTRM DR", isProd: true)));
+            Assert.AreEqual("qa", CatalogInputSuggestions.For(tierParam, Ctx("APP QA 01"))!.Value);
+            Assert.IsNull(CatalogInputSuggestions.For(tierParam, Ctx("APP DR", isProd: true)));
 
             Assert.IsNull(CatalogInputSuggestions.For(Param("origin", pattern: "^[a-z]{3}$"), Ctx("X", app: "ab1")));
         }
@@ -107,9 +107,9 @@ namespace Dorc.Terraform.Catalog.Tests
         public void ExplicitHintOverridesNameRule()
         {
             var p = Param("region", suggest: CatalogInputSuggestions.Hints.Location);
-            Assert.AreEqual(CatalogInputSuggestions.DefaultLocation, CatalogInputSuggestions.For(p, Ctx("GMA QA 01"))!.Value);
-            Assert.IsNull(CatalogInputSuggestions.For(Param("region"), Ctx("GMA QA 01")));
-            Assert.IsNull(CatalogInputSuggestions.For(Param("location", suggest: "moon_phase"), Ctx("GMA QA 01")),
+            Assert.AreEqual(CatalogInputSuggestions.DefaultLocation, CatalogInputSuggestions.For(p, Ctx("APP QA 01"))!.Value);
+            Assert.IsNull(CatalogInputSuggestions.For(Param("region"), Ctx("APP QA 01")));
+            Assert.IsNull(CatalogInputSuggestions.For(Param("location", suggest: "moon_phase"), Ctx("APP QA 01")),
                 "Unknown hints are inert, not a fallback to the name rule.");
         }
     }

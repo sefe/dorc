@@ -158,7 +158,7 @@ namespace Dorc.TerraformRunner.Tests.State
 
             // Non-GUID values must never be interpolated into a .tf file.
             Assert.Throws<ArgumentException>(() =>
-                TerraformProviderRenderer.WriteAzureRmIfRequired(_tempRoot, "SMT-DNA-DV\"; evil = \""));
+                TerraformProviderRenderer.WriteAzureRmIfRequired(_tempRoot, "SUB-APP-DV\"; evil = \""));
             Assert.IsFalse(File.Exists(ProviderFilePath));
         }
 

@@ -6,8 +6,8 @@ namespace Dorc.TerraformRunner.Tests.State
     [TestClass]
     public class TerraformArmCredentialsTests
     {
-        private const string ClientId = "1f120826-846b-4d59-b8d4-e8b0f2e60d5f";
-        private const string TenantId = "213c2807-792f-48e1-924a-eac984ef3354";
+        private const string ClientId = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
+        private const string TenantId = "99999999-8888-4777-8666-555555555555";
         private const string Secret = "s3cret-value";
 
         private static IDictionary<string, VariableValue> Properties(
@@ -101,9 +101,9 @@ namespace Dorc.TerraformRunner.Tests.State
         {
             var credentials = TerraformArmCredentials.Resolve(Properties(ClientId, Secret, TenantId))!;
 
-            var env = credentials.ToArmEnvironment(" 7c7c1f8f-f295-456c-81e4-5d508579d93e ");
+            var env = credentials.ToArmEnvironment(" 11111111-2222-4333-8444-555555555555 ");
 
-            Assert.AreEqual("7c7c1f8f-f295-456c-81e4-5d508579d93e", env["ARM_SUBSCRIPTION_ID"]);
+            Assert.AreEqual("11111111-2222-4333-8444-555555555555", env["ARM_SUBSCRIPTION_ID"]);
         }
 
         [TestMethod]

@@ -12,7 +12,7 @@
         public string TerraformGitRepoUrl { get; set; }
         public System.Collections.Generic.List<TerraformStateBackendApiModel> TerraformStateBackends { get; set; }
         public string LeanIXUrl { get; set; }
-        /// <summary>Two-letter business vertical code (e.g. "tr") per the SEFE Kafka messaging standard; seeds catalog input suggestions.</summary>
+        /// <summary>Two-letter business vertical code (e.g. "tr") per the organisation's Kafka messaging standard; seeds catalog input suggestions.</summary>
         public string BusinessVertical { get; set; }
         /// <summary>Three-letter application code per the IT "Application Codes for Naming Standards"; seeds catalog input suggestions.</summary>
         public string ApplicationCode { get; set; }

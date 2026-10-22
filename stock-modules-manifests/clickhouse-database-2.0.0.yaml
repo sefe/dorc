@@ -2,7 +2,7 @@ name: clickhouse-database
 version: 2.0.0
 source:
   kind: git
-  locator: https://github.com/sefe/dorc-terraform-modules.git
+  locator: https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules
   ref: stock-modules/clickhouse-database/v2.0.0
   commit_sha: 2fca133531db79c896bd197f31f1835660ab1703
 parameters:

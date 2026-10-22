@@ -19,7 +19,7 @@ namespace Dorc.TerraformRunner.State
         // Well-known DOrc environment property naming the Azure subscription
         // catalog deployments for that environment target. Set it per
         // environment (dev envs -> DV subscription, QA/UAT -> NP, prod -> PR
-        // per the SEFE subscription standard); when absent the runner
+        // per the organisation's subscription standard); when absent the runner
         // identity's default subscription applies.
         public const string SubscriptionIdPropertyName = Dorc.Terraform.Catalog.TerraformCloudTargeting.SubscriptionIdPropertyName;
 

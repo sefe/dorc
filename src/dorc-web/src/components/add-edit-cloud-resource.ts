@@ -87,7 +87,7 @@ export class AddEditCloudResource extends LitElement {
       ></vaadin-text-field>
       <vaadin-text-field
         label="Subscription"
-        placeholder="e.g. 7c7c1f8f-f295-456c-81e4-5d508579d93e"
+        placeholder="e.g. 11111111-2222-4333-8444-555555555555"
         helper-text="Subscription ID or name the resource lives in"
         maxlength="${this.maxFieldLength}"
         .value="${this._cloudResource.Subscription ?? ''}"

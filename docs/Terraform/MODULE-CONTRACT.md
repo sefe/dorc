@@ -1,6 +1,6 @@
 # Module contract
 
-Every module published under `stock-modules/` in [`sefe/dorc-terraform-modules`](https://github.com/sefe/dorc-terraform-modules) must satisfy this contract. This is the public agreement between module authors and DOrc engineers consuming the library.
+Every module published under `stock-modules/` in [`sefe/dorc-terraform-modules`](https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules) must satisfy this contract. This is the public agreement between module authors and DOrc engineers consuming the library.
 
 ## Required files
 
@@ -112,7 +112,7 @@ A module version is deprecated when its successor has been published and is the 
 Each module's README declares an `Owner:` field in the metadata table. Initial owner of every stock module is **DOrc platform team** until reassigned. Aggregated ownership lives in `docs/Terraform/MODULES.md`.
 
 ## Module CI
-The upstream [`sefe/dorc-terraform-modules`](https://github.com/sefe/dorc-terraform-modules)
+The upstream [`sefe/dorc-terraform-modules`](https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules)
 CI runs against modules under `stock-modules/`:
 
 - `terraform fmt -check`
