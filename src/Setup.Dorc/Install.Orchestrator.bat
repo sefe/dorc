@@ -33,6 +33,13 @@ KAFKA.TOPICS.RESULTSSTATUS="dorc.results.status" ^
 KAFKA.TOPICS.REQUESTSNEWDLQ="dorc.requests.new.dlq" ^
 KAFKA.LOCKS.CONSUMERGROUPID.PROD="dorc.monitor.locks.prod" ^
 KAFKA.LOCKS.CONSUMERGROUPID.NONPROD="dorc.monitor.locks.nonprod" ^
+TEAMS.NOTIFICATIONS.ENABLED="false" ^
+TEAMS.BOT.APP.ID="" ^
+TEAMS.BOT.APP.PASSWORD="" ^
+TEAMS.TENANT.ID="" ^
+TEAMS.SERVICE.URL="https://smba.trafficmanager.net/uk/" ^
+TEAMS.DORC.UI.BASE.URL="http://localhost:8888" ^
+TEAMS.NOTIFY.ON.STATUSES="Completed,Failed,Errored" ^
 /qb /L*v "%MYDIR%\Setup.Dorc.log"
 
 echo Returncode: %ERRORLEVEL%

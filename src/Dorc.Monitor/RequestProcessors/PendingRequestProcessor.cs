@@ -4,6 +4,7 @@ using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
+using Dorc.Monitor.Notifications;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -25,6 +26,7 @@ namespace Dorc.Monitor.RequestProcessors
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
         private readonly IPropertyEvaluator _propertyEvaluator;
         private readonly ILoggerFactory _loggerFactory;
+        private readonly IDeploymentNotificationSink _notificationSink;
         private readonly IGitHubArtifactDownloader _gitHubArtifactDownloader;
 
         public PendingRequestProcessor(
@@ -38,6 +40,7 @@ namespace Dorc.Monitor.RequestProcessors
             IConfigValuesPersistentSource configValuesPersistentSource,
             IPropertyEvaluator propertyEvaluator,
             IDeploymentEventsPublisher eventPublisher,
+            IDeploymentNotificationSink notificationSink,
             IGitHubArtifactDownloader gitHubArtifactDownloader)
         {
             _loggerFactory = loggerFactory;
@@ -53,6 +56,7 @@ namespace Dorc.Monitor.RequestProcessors
             this.environmentsPersistentSource = environmentsPersistentSource;
             this.manageProjectsPersistentSource = manageProjectsPersistentSource;
             this.eventsPublisher = eventPublisher;
+            _notificationSink = notificationSink;
         }
 
         public void Execute(RequestToProcessDto requestToExecute, CancellationToken cancellationToken, ILoggerFactory loggerFactory)
@@ -123,7 +127,9 @@ namespace Dorc.Monitor.RequestProcessors
 
                         SetUpRequestDetailsPropertiesAsProperties(requestDetail.Properties);
 
-                        if (!InitializeDeploymentRequest(requestToExecute.Request))
+                        var deploymentStartedTime = DateTimeOffset.Now;
+
+                        if (!InitializeDeploymentRequest(requestToExecute.Request, deploymentStartedTime))
                             return;
 
                         var deploymentRequestStatus = DeploymentRequestStatus.Completed;
@@ -136,18 +142,24 @@ namespace Dorc.Monitor.RequestProcessors
                         {
                             logger.LogWarning($"No non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
 
+                            var completedTime = DateTimeOffset.Now;
+
                             requestsPersistentSource.SetRequestCompletionStatus(
                                 requestToExecute.Request.Id,
                                 deploymentRequestStatus,
-                                DateTimeOffset.Now);
+                                completedTime);
+                            requestToExecute.Request.Status = deploymentRequestStatus.ToString();
+                            requestToExecute.Request.CompletedTime = completedTime;
 
                             eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
                             {
                                 Status = deploymentRequestStatus.ToString(),
-                                CompletedTime = DateTimeOffset.Now,
+                                CompletedTime = completedTime,
                             }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
                                 "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
                                 TaskContinuationOptions.OnlyOnFaulted);
+
+                            FireNotification(requestToExecute.Request, deploymentRequestStatus.ToString(), deploymentStartedTime, completedTime);
 
                             return;
                         }
@@ -182,18 +194,24 @@ namespace Dorc.Monitor.RequestProcessors
                         {
                             logger.LogWarning($"No enabled non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
 
+                            var completedTime = DateTimeOffset.Now;
+
                             requestsPersistentSource.SetRequestCompletionStatus(
                                 requestToExecute.Request.Id,
                                 deploymentRequestStatus,
-                                DateTimeOffset.Now);
+                                completedTime);
+                            requestToExecute.Request.Status = deploymentRequestStatus.ToString();
+                            requestToExecute.Request.CompletedTime = completedTime;
 
                             eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
                             {
                                 Status = deploymentRequestStatus.ToString(),
-                                CompletedTime = DateTimeOffset.Now,
+                                CompletedTime = completedTime,
                             }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
                                 "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
                                 TaskContinuationOptions.OnlyOnFaulted);
+
+                            FireNotification(requestToExecute.Request, deploymentRequestStatus.ToString(), deploymentStartedTime, completedTime);
 
                             return;
                         }
@@ -316,18 +334,38 @@ namespace Dorc.Monitor.RequestProcessors
                             CancelPendingDeploymentResults(requestToExecute.Request.Id, deploymentRequestStatus);
                         }
 
+                        var finalCompletedTime = DateTimeOffset.Now;
+
+                        // A user cancellation races with DeploymentRequestStateProcessor.CancelRequests
+                        // over the Cancelling -> Cancelled transition. Claim it optimistically before the
+                        // unconditional completion write below, so exactly one of the two components
+                        // notifies the requester — whichever wins this switch.
+                        var wonCancelledTransition = deploymentRequestStatus == DeploymentRequestStatus.Cancelled
+                            && requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                                new List<DeploymentRequestApiModel> { requestToExecute.Request },
+                                DeploymentRequestStatus.Cancelling,
+                                DeploymentRequestStatus.Cancelled,
+                                finalCompletedTime) > 0;
+
                         requestsPersistentSource.SetRequestCompletionStatus(
                             requestToExecute.Request.Id,
                             deploymentRequestStatus,
-                            DateTimeOffset.Now);
+                            finalCompletedTime);
+                        requestToExecute.Request.Status = deploymentRequestStatus.ToString();
+                        requestToExecute.Request.CompletedTime = finalCompletedTime;
 
                         eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
                         {
                             Status = deploymentRequestStatus.ToString(),
-                            CompletedTime = DateTimeOffset.Now,
+                            CompletedTime = finalCompletedTime,
                         }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
                             "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
                             TaskContinuationOptions.OnlyOnFaulted);
+
+                        if (deploymentRequestStatus != DeploymentRequestStatus.Cancelled || wonCancelledTransition)
+                        {
+                            FireNotification(requestToExecute.Request, deploymentRequestStatus.ToString(), deploymentStartedTime, finalCompletedTime);
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -349,19 +387,25 @@ namespace Dorc.Monitor.RequestProcessors
 
                         CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Errored);
 
+                        var erroredTime = DateTimeOffset.Now;
+
                         requestsPersistentSource.SetRequestCompletionStatus(
                             requestToExecute.Request.Id,
                             DeploymentRequestStatus.Errored,
-                            DateTimeOffset.Now,
+                            erroredTime,
                             criticalLogBuilder.ToString());
+                        requestToExecute.Request.Status = DeploymentRequestStatus.Errored.ToString();
+                        requestToExecute.Request.CompletedTime = erroredTime;
 
                         eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
                         {
                             Status = DeploymentRequestStatus.Errored.ToString(),
-                            CompletedTime = DateTimeOffset.Now,
+                            CompletedTime = erroredTime,
                         }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
                             "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
                             TaskContinuationOptions.OnlyOnFaulted);
+
+                        FireNotification(requestToExecute.Request, DeploymentRequestStatus.Errored.ToString(), requestToExecute.Request.StartedTime ?? erroredTime, erroredTime);
                     }
                 }
                 catch (Exception e)
@@ -373,19 +417,25 @@ namespace Dorc.Monitor.RequestProcessors
 
                     CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Errored);
 
+                    var erroredTime = DateTimeOffset.Now;
+
                     requestsPersistentSource.UpdateRequestStatus(
                         requestToExecute.Request.Id,
                         DeploymentRequestStatus.Errored,
-                        DateTimeOffset.Now,
+                        erroredTime,
                         criticalLogBuilder.ToString());
+                    requestToExecute.Request.Status = DeploymentRequestStatus.Errored.ToString();
+                    requestToExecute.Request.CompletedTime = erroredTime;
 
                     eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(requestToExecute.Request)
                     {
                         Status = DeploymentRequestStatus.Errored.ToString(),
-                        CompletedTime = DateTimeOffset.Now,
+                        CompletedTime = erroredTime,
                     }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
                         "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
                         TaskContinuationOptions.OnlyOnFaulted);
+
+                    FireNotification(requestToExecute.Request, DeploymentRequestStatus.Errored.ToString(), requestToExecute.Request.RequestedTime ?? erroredTime, erroredTime);
 
                     return;
                 }
@@ -399,6 +449,15 @@ namespace Dorc.Monitor.RequestProcessors
                     }
                 }
             }
+        }
+
+        private void FireNotification(
+            DeploymentRequestApiModel request,
+            string finalStatus,
+            DateTimeOffset startedTime,
+            DateTimeOffset completedTime)
+        {
+            DeploymentNotificationDispatch.FireAndForget(_notificationSink, logger, request, finalStatus, startedTime, completedTime);
         }
 
         private void CancelPendingDeploymentResults(int requestId, DeploymentRequestStatus requestStatus)
@@ -441,14 +500,14 @@ namespace Dorc.Monitor.RequestProcessors
             }
         }
 
-        private bool InitializeDeploymentRequest(DeploymentRequestApiModel request)
+        private bool InitializeDeploymentRequest(DeploymentRequestApiModel request, DateTimeOffset startedTime)
         {
             logger.LogInformation("Setting Request to Running state, Id: " + request.Id);
 
             if (!requestsPersistentSource.SetRequestStartStatus(
                 request,
                 DeploymentRequestStatus.Running,
-                DateTimeOffset.Now))
+                startedTime))
             {
                 logger.LogWarning("Request {RequestId} changed status before execution; not starting it.", request.Id);
                 return false;
@@ -457,7 +516,7 @@ namespace Dorc.Monitor.RequestProcessors
             eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(request)
             {
                 Status = DeploymentRequestStatus.Running.ToString(),
-                StartedTime = DateTimeOffset.Now,
+                StartedTime = startedTime,
             }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
                 "fire-and-forget publish failed for requestId={RequestId}", request.Id),
                 TaskContinuationOptions.OnlyOnFaulted);
