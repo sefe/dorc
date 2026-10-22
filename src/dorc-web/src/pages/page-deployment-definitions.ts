@@ -33,7 +33,7 @@ export class PageDeploymentDefinitions extends ResponsiveMixin(PageElement) {
   @state() private page = 1;
   @state() private total = 0;
   private readonly pageSize = 50;
-  private loadToken = 0;
+  private loadGeneration = 0;
   private appliedFilters: {
     projectId?: number;
     componentType?: ComponentType;
@@ -163,11 +163,11 @@ export class PageDeploymentDefinitions extends ResponsiveMixin(PageElement) {
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    this.loadToken++;
+    this.loadGeneration++;
   }
 
   private load() {
-    const token = ++this.loadToken;
+    const generation = ++this.loadGeneration;
     this.loading = true;
     this.error = '';
     this.items = [];
@@ -179,13 +179,13 @@ export class PageDeploymentDefinitions extends ResponsiveMixin(PageElement) {
       })
       .subscribe({
         next: data => {
-          if (token !== this.loadToken) return;
+          if (generation !== this.loadGeneration) return;
           this.items = data.Items ?? [];
           this.total = data.TotalItems ?? 0;
           this.loading = false;
         },
         error: error => {
-          if (token !== this.loadToken) return;
+          if (generation !== this.loadGeneration) return;
           this.total = 0;
           this.error =
             retrieveErrorMessage(error) ||

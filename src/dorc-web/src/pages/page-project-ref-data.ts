@@ -118,8 +118,8 @@ export class PageProjectRefData extends PageElement {
   private projectId = 0;
   private editor: ace.Ace.Editor | undefined;
   private syncingEditor = false;
-  private loadToken = 0;
-  private scriptCatalogToken = 0;
+  private loadGeneration = 0;
+  private scriptCatalogGeneration = 0;
 
   static styles = css`
     :host {
@@ -648,7 +648,7 @@ export class PageProjectRefData extends PageElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     this.stopTreeResize();
-    this.loadToken++;
+    this.loadGeneration++;
     window.removeEventListener('beforeunload', this.beforeUnload);
     window.removeEventListener(LOCATION_CHANGED_EVENT, this.syncLocationState);
     window.removeEventListener('popstate', this.syncLocationState);
@@ -692,7 +692,7 @@ export class PageProjectRefData extends PageElement {
       this.error = 'A valid project ID is required.';
       return;
     }
-    const token = ++this.loadToken;
+    const generation = ++this.loadGeneration;
     this.loading = true;
     this.error = '';
     this.backendEnvironmentsLoaded = false;
@@ -702,7 +702,7 @@ export class PageProjectRefData extends PageElement {
       .refDataIdGet({ id: String(this.projectId) })
       .subscribe({
         next: data => {
-          if (token !== this.loadToken) return;
+          if (generation !== this.loadGeneration) return;
           this.document = structuredClone(data);
           this.baseline = structuredClone(data);
           this.preview = undefined;
@@ -756,7 +756,7 @@ export class PageProjectRefData extends PageElement {
           }
         },
         error: error => {
-          if (token !== this.loadToken) return;
+          if (generation !== this.loadGeneration) return;
           this.loading = false;
           this.error =
             retrieveErrorMessage(error) ||
@@ -1114,7 +1114,7 @@ export class PageProjectRefData extends PageElement {
 
   private loadScriptCatalog() {
     // Fired per keystroke; only the latest response may update the list.
-    const token = ++this.scriptCatalogToken;
+    const generation = ++this.scriptCatalogGeneration;
     this.scriptCatalogLoading = true;
     new DeploymentDefinitionsApi(dorcApiConfiguration)
       .deploymentDefinitionsGet({
@@ -1125,7 +1125,7 @@ export class PageProjectRefData extends PageElement {
       })
       .subscribe({
         next: response => {
-          if (token !== this.scriptCatalogToken) return;
+          if (generation !== this.scriptCatalogGeneration) return;
           this.scriptCatalogLoading = false;
           const seen = new Set<string>();
           this.scriptCatalogItems = (response.Items ?? []).filter(item => {
@@ -1137,7 +1137,7 @@ export class PageProjectRefData extends PageElement {
           });
         },
         error: error => {
-          if (token !== this.scriptCatalogToken) return;
+          if (generation !== this.scriptCatalogGeneration) return;
           this.scriptCatalogLoading = false;
           this.error =
             retrieveErrorMessage(error) ||
@@ -1296,7 +1296,7 @@ export class PageProjectRefData extends PageElement {
       return;
     this.backendEnvironmentsLoading = true;
     this.backendEnvironmentError = '';
-    const token = this.loadToken;
+    const generation = this.loadGeneration;
     new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration)
       .refDataProjectEnvironmentMappingsGet({
         project: this.document.Project.ProjectName,
@@ -1305,13 +1305,13 @@ export class PageProjectRefData extends PageElement {
       .subscribe({
         next: result => {
           this.backendEnvironmentsLoading = false;
-          if (token !== this.loadToken) return;
+          if (generation !== this.loadGeneration) return;
           this.backendEnvironments = result.Items ?? [];
           this.backendEnvironmentsLoaded = true;
         },
         error: error => {
           this.backendEnvironmentsLoading = false;
-          if (token !== this.loadToken) return;
+          if (generation !== this.loadGeneration) return;
           this.backendEnvironmentError =
             retrieveErrorMessage(error) ||
             'Could not load mapped environments. Close and reopen this section to retry.';

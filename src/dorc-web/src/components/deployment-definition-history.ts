@@ -18,7 +18,7 @@ export class DeploymentDefinitionHistory extends LitElement {
   @state() private error = '';
   @state() private page = 1;
   @state() private total = 0;
-  private loadToken = 0;
+  private loadGeneration = 0;
   private readonly pageSize = 25;
 
   static styles = css`
@@ -112,11 +112,11 @@ export class DeploymentDefinitionHistory extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    this.loadToken++;
+    this.loadGeneration++;
   }
 
   public refresh() {
-    const token = ++this.loadToken;
+    const generation = ++this.loadGeneration;
     this.items = [];
     this.error = '';
     this.total = 0;
@@ -134,13 +134,13 @@ export class DeploymentDefinitionHistory extends LitElement {
       })
       .subscribe({
         next: data => {
-          if (token !== this.loadToken) return;
+          if (generation !== this.loadGeneration) return;
           this.items = data.Items ?? [];
           this.total = data.TotalItems ?? 0;
           this.loading = false;
         },
         error: error => {
-          if (token !== this.loadToken) return;
+          if (generation !== this.loadGeneration) return;
           this.error =
             retrieveErrorMessage(error) ||
             'Could not load definition history. Try again.';

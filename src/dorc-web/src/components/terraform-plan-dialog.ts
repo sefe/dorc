@@ -38,7 +38,7 @@ export class TerraformPlanDialog extends LitElement {
   private processing: boolean = false;
 
   private terraformApi = new TerraformApi(dorcApiConfiguration);
-  private loadToken = 0;
+  private loadGeneration = 0;
   @state() private inventory: TerraformInventoryProvenanceApiModel[] | null =
     null;
 
@@ -767,7 +767,7 @@ ${lines.map(line => {
   }
 
   private async _loadPlan() {
-    const token = ++this.loadToken;
+    const generation = ++this.loadGeneration;
     this.loading = true;
     this.error = null;
     this.plan = null;
@@ -779,12 +779,12 @@ ${lines.map(line => {
       })
       .subscribe({
         next: (data: TerraformPlanApiModel) => {
-          if (token !== this.loadToken || !this.opened) return;
+          if (generation !== this.loadGeneration || !this.opened) return;
           this.plan = data;
           this.loading = false;
         },
         error: (err: any) => {
-          if (token !== this.loadToken || !this.opened) return;
+          if (generation !== this.loadGeneration || !this.opened) return;
           this.error =
             retrieveErrorMessage(err) ?? 'Could not load the Terraform plan.';
           this.loading = false;
@@ -847,7 +847,7 @@ ${lines.map(line => {
 
   private _close() {
     if (this.processing) return;
-    this.loadToken += 1;
+    this.loadGeneration += 1;
     this.opened = false;
     this._sendCloseDialogEvent();
   }

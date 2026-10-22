@@ -653,8 +653,8 @@ export class DeployFromTemplateDialog extends LitElement {
   private cloudResourcesApi = new RefDataCloudResourcesApi(
     dorcApiConfiguration
   );
-  private requestToken = 0;
-  private resolutionToken = 0;
+  private requestGeneration = 0;
+  private resolutionGeneration = 0;
   private context: TemplateDeploymentContext = {};
 
   open(
@@ -662,7 +662,7 @@ export class DeployFromTemplateDialog extends LitElement {
     context: TemplateDeploymentContext = {}
   ) {
     if (this.submitting) return;
-    const token = ++this.requestToken;
+    const generation = ++this.requestGeneration;
     this.template = template;
     this.secureInputNames = [];
     this.upgradePreview = null;
@@ -684,7 +684,7 @@ export class DeployFromTemplateDialog extends LitElement {
     this.opened = true;
     this.projectsApi.refDataProjectsGet().subscribe({
       next: data => {
-        if (token !== this.requestToken || !this.opened) return;
+        if (generation !== this.requestGeneration || !this.opened) return;
         this.projects = [...(data ?? [])].sort((a, b) =>
           (a.ProjectName ?? '').localeCompare(b.ProjectName ?? '')
         );
@@ -695,7 +695,7 @@ export class DeployFromTemplateDialog extends LitElement {
         if (project) this.onProjectChange(project);
       },
       error: err => {
-        if (token !== this.requestToken || !this.opened) return;
+        if (generation !== this.requestGeneration || !this.opened) return;
         this.projectsLoading = false;
         this.error =
           retrieveErrorMessage(err) ??
@@ -719,7 +719,7 @@ export class DeployFromTemplateDialog extends LitElement {
 
   private onProjectChange(project: ProjectApiModel | null) {
     if (this.selectedProject === project) return;
-    const token = ++this.requestToken;
+    const generation = ++this.requestGeneration;
     this.selectedProject = project;
     this.upgradePreview = null;
     this.selectedComponent = null;
@@ -742,7 +742,7 @@ export class DeployFromTemplateDialog extends LitElement {
       })
     }).subscribe({
       next: data => {
-        if (token !== this.requestToken || !this.opened) return;
+        if (generation !== this.requestGeneration || !this.opened) return;
         this.environments = [...(data.environments.Items ?? [])].sort((a, b) =>
           (a.EnvironmentName ?? '').localeCompare(b.EnvironmentName ?? '')
         );
@@ -772,7 +772,7 @@ export class DeployFromTemplateDialog extends LitElement {
         this.selectedEnvironmentName = environment?.EnvironmentName ?? '';
       },
       error: err => {
-        if (token !== this.requestToken || !this.opened) return;
+        if (generation !== this.requestGeneration || !this.opened) return;
         this.targetLoading = false;
         this.error =
           retrieveErrorMessage(err) ??
@@ -820,7 +820,7 @@ export class DeployFromTemplateDialog extends LitElement {
   }
 
   private clearResolution() {
-    this.resolutionToken += 1;
+    this.resolutionGeneration += 1;
     this.resolution = null;
     this.suggestions = {};
     this.readiness = null;
@@ -852,15 +852,15 @@ export class DeployFromTemplateDialog extends LitElement {
     ) {
       return;
     }
-    const token = this.requestToken;
-    const resolutionToken = this.resolutionToken;
+    const generation = this.requestGeneration;
+    const resolutionGeneration = this.resolutionGeneration;
     this.cloudResourcesApi
       .refDataCloudResourcesByEnvIdEnvIdGet({ envId })
       .subscribe({
         next: (resources: CloudResourceApiModel[]) => {
           if (
-            token !== this.requestToken ||
-            resolutionToken !== this.resolutionToken ||
+            generation !== this.requestGeneration ||
+            resolutionGeneration !== this.resolutionGeneration ||
             !this.opened ||
             environmentName !== this.selectedEnvironmentName ||
             this.paramValues[paramName] !== undefined
@@ -898,7 +898,7 @@ export class DeployFromTemplateDialog extends LitElement {
    */
   private loadResolution() {
     if (!this.template || !this.selectedProject?.ProjectId) return;
-    const token = ++this.resolutionToken;
+    const generation = ++this.resolutionGeneration;
     this.resolutionLoading = true;
     this.resolutionError = null;
     this.terraformApi
@@ -913,7 +913,7 @@ export class DeployFromTemplateDialog extends LitElement {
       })
       .subscribe({
         next: data => {
-          if (token !== this.resolutionToken || !this.opened) return;
+          if (generation !== this.resolutionGeneration || !this.opened) return;
           this.resolution = Object.fromEntries(
             (data?.Parameters ?? []).map(r => [r.Name, r.Status])
           );
@@ -940,7 +940,7 @@ export class DeployFromTemplateDialog extends LitElement {
           this.prefillFromEnvironmentCloudResources();
         },
         error: err => {
-          if (token !== this.resolutionToken || !this.opened) return;
+          if (generation !== this.resolutionGeneration || !this.opened) return;
           this.resolutionLoading = false;
           this.resolutionError =
             retrieveErrorMessage(err) ??
@@ -1883,7 +1883,7 @@ export class DeployFromTemplateDialog extends LitElement {
   private close() {
     if (this.submitting) return;
     this.opened = false;
-    this.requestToken += 1;
+    this.requestGeneration += 1;
     this.clearResolution();
     this.paramValues = {};
     this.error = null;
