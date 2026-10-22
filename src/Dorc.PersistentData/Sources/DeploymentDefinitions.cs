@@ -225,6 +225,8 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
             project.TerraformGitRepoUrl = input.Project.TerraformGitRepoUrl;
             project.TerraformStateBackendsJson = JsonSerializer.Serialize(input.Project.TerraformStateBackends ?? []);
             project.LeanIXUrl = input.Project.LeanIXUrl;
+            project.BusinessVertical = ProjectNamingCodes.NormaliseBusinessVertical(input.Project.BusinessVertical);
+            project.ApplicationCode = ProjectNamingCodes.NormaliseApplicationCode(input.Project.ApplicationCode);
             project.SourceControlType = input.Project.SourceControlType;
             if (create) context.Projects.Add(project);
             context.SaveChanges();

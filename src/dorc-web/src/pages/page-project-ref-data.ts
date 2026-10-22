@@ -1260,11 +1260,15 @@ export class PageProjectRefData extends PageElement {
       | 'ArtefactsUrl'
       | 'ArtefactsSubPaths'
       | 'ArtefactsBuildRegex'
+      | 'BusinessVertical'
+      | 'ApplicationCode',
+    helperText = ''
   ) {
     return html`<vaadin-text-field
       .label=${label}
       .value=${this.document?.Project?.[field] ?? ''}
       .readonly=${!this.editable}
+      .helperText=${helperText}
       @change=${(event: Event) => {
         if (!this.editable || !this.document?.Project) return;
         this.setDocument({
@@ -1364,6 +1368,16 @@ export class PageProjectRefData extends PageElement {
         ${this.projectField('Artifact URL', 'ArtefactsUrl')}
         ${this.projectField('Artifact subpaths', 'ArtefactsSubPaths')}
         ${this.projectField('Build filter', 'ArtefactsBuildRegex')}
+        ${this.projectField(
+          'Business vertical',
+          'BusinessVertical',
+          'Two-letter Kafka naming-standard code (e.g. tr); seeds catalog input suggestions.'
+        )}
+        ${this.projectField(
+          'Application code',
+          'ApplicationCode',
+          'Three-character IT application code (e.g. gma); seeds the origin segment.'
+        )}
         <vaadin-combo-box
           label="Project source control"
           .items=${Object.values(SourceControlType)}

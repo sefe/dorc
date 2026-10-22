@@ -132,6 +132,11 @@ page also links to the catalog without requiring a dummy build artifact.
    single resource-group ARM identity in the Cloud tab, never its display name.
    Inherited/default values are preserved; ambiguous or invalid identities are
    left unset.
+   Inputs the server can infer from context arrive pre-filled and badged
+   **Suggested** (see [Suggested inputs](#suggested-inputs)). Edit, keep or
+   **Discard suggestion**; a discarded required suggestion counts as missing.
+   For `kafka-topic`, a live topic-name preview composes the standard's
+   segments from the current values.
 4. **Review:** inspect project, component, environment, template version and
    overrides. Sensitive overrides remain hidden. Submit the plan request.
 5. DOrc opens that request's deployment results. When the plan is ready, review
@@ -200,6 +205,40 @@ upgrading API/Monitor/Runner. Do not
 backfill receipts from current component pins. Deploy the matching API clients
 and web UI together. Local SQL/browser regression coverage is not live cloud,
 MSI or deployment acceptance.
+
+### Suggested inputs
+
+Resolution adds a **Suggested** status for non-sensitive inputs with no saved
+or environment value. Precedence is saved configuration, then environment
+properties, then a suggestion, then the manifest default. A suggestion is a
+starting value the wizard pre-fills as an ordinary request override; the
+server never applies one on its own, and a suggestion violating the input's
+`allowedValues` or `pattern` is dropped. `SuggestedValue` and
+`SuggestionReason` travel in the resolution model so the UI can say why.
+
+Suggestions come from the project and the selected environment:
+
+| Input name (or `suggest:` hint)              | Suggested value                                                                 |
+| -------------------------------------------- | ------------------------------------------------------------------------------- |
+| `dorc_environment`                           | Environment name lower-cased, limited to `[a-z0-9_-]` (matches module normalisation). |
+| `environment_tier`, `env_tier`               | Tier token from the environment name (`dv`, `qa`, `it`, `ut`, `pp`, `ff`, `pr`, `dr`); `pr`/`dv` by prod flag otherwise. |
+| `is_prod`                                    | Environment production flag.                                                    |
+| `cloud_name`                                 | `custom-sefe-{prod,nprod}-workload-azure-uksouth`.                              |
+| `termination_protection`, `service_termination_protection` | `false` for `dv`, otherwise `true`.                               |
+| `business_vertical`                          | Project **Business vertical** (two letters), else `tr`.                         |
+| `origin`, `application_code`, `app_code`     | Project **Application code** (three characters); none if unset.                 |
+| `scope`                                      | `tst` for `dv`, otherwise `gbl`.                                                |
+| `location`                                   | `uksouth`.                                                                      |
+
+Set the project codes under Projects > edit, or Project Ref Data > Project
+source settings. Business vertical and application code follow the SEFE Kafka
+topic naming standard and the IT application code register.
+
+A manifest parameter may carry `suggest: <hint>` to opt in to a rule under a
+different name (for example `suggest: environment_tier` on `env`). Hints are
+inert on older servers. CI runs `manifest-suggest-hints`, which fails on an
+unknown hint or a hint on a `sensitive` parameter. Published manifests remain
+immutable; add hints only in a new version.
 
 ### Saved configuration and safe upgrades
 

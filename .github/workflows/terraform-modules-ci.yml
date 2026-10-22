@@ -115,5 +115,7 @@ jobs:
         run: dotnet src/Tools.TerraformLint/bin/Release/net8.0/Tools.TerraformLint.dll --self-test
       - name: lint manifests
         run: dotnet src/Tools.TerraformLint/bin/Release/net8.0/Tools.TerraformLint.dll manifest-sensitive-names stock-modules-manifests/
+      - name: lint manifest suggest hints
+        run: dotnet src/Tools.TerraformLint/bin/Release/net8.0/Tools.TerraformLint.dll manifest-suggest-hints stock-modules-manifests/
       - name: catalog and published manifest regression tests
         run: dotnet test src/Dorc.Terraform.Catalog.Tests/Dorc.Terraform.Catalog.Tests.csproj -c Release --nologo

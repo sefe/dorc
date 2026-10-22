@@ -571,6 +571,102 @@ describe('catalog environment deployment workflow', () => {
     expect(dialog.textContent).to.contain('Not set');
     expect(dialog.textContent).not.to.contain('Missing in');
   });
+
+  it('prefills context suggestions as editable request values, lets them be discarded and previews the topic name', async () => {
+    const topicParam = (Name: string, Required = true) => ({
+      Name,
+      Type: TerraformParameterType.String,
+      Required,
+      Sensitive: false
+    });
+    const manifest = {
+      ...template,
+      Name: 'kafka-topic',
+      Parameters: [
+        topicParam('business_vertical'),
+        topicParam('environment_tier'),
+        topicParam('scope'),
+        topicParam('data_grouping'),
+        topicParam('data_description'),
+        topicParam('integrity_level'),
+        topicParam('dorc_environment'),
+        topicParam('origin', false)
+      ]
+    };
+    const suggested = (Name: string, SuggestedValue: string) => ({
+      Name,
+      Required: true,
+      Sensitive: false,
+      Status: TerraformParameterResolutionStatus.Suggested,
+      SuggestedValue,
+      SuggestionReason: `from ${Name} context`
+    });
+    mocks.resolution.mockReturnValue(
+      of({
+        ProjectName: project.ProjectName,
+        EnvironmentName: environment.EnvironmentName,
+        Parameters: [
+          suggested('business_vertical', 'tr'),
+          suggested('environment_tier', 'qa'),
+          suggested('scope', 'gbl'),
+          ...['data_grouping', 'data_description', 'integrity_level'].map(
+            Name => ({
+              Name,
+              Required: true,
+              Sensitive: false,
+              Status: TerraformParameterResolutionStatus.Missing
+            })
+          ),
+          {
+            Name: 'dorc_environment',
+            Required: true,
+            Sensitive: false,
+            Status: TerraformParameterResolutionStatus.Environment
+          },
+          {
+            Name: 'origin',
+            Required: false,
+            Sensitive: false,
+            Status: TerraformParameterResolutionStatus.Unset
+          }
+        ]
+      })
+    );
+    const { host, dialog } = await open(manifest);
+    await click(dialog, 'Continue');
+
+    const badges = Array.from(dialog.querySelectorAll('.badge-suggested')).map(
+      b => b.textContent?.trim()
+    );
+    expect(badges).to.deep.equal(['Suggested', 'Suggested', 'Suggested']);
+    expect(dialog.textContent).to.contain(
+      'Suggested from context — from business_vertical context'
+    );
+    const preview = dialog.querySelector('.topic-preview code');
+    expect(preview?.textContent?.replace(/\s+/g, '')).to.equal(
+      'tr.qa.gbl.<data_grouping>.<data_description>.<integrity_level>.<dorc_environment>'
+    );
+
+    await click(dialog, 'Remove request override for scope');
+    expect(
+      Array.from(dialog.querySelectorAll('.badge-suggested')).length
+    ).to.equal(2);
+    expect(dialog.textContent).to.contain('Suggestion "gbl" discarded');
+    expect(dialog.textContent).to.contain(
+      'Required: use the suggestion or override it.'
+    );
+    await click(dialog, 'Override scope for this request');
+    expect(
+      Array.from(dialog.querySelectorAll('.badge-suggested')).length
+    ).to.equal(3);
+
+    const summary = (host as any).paramValues as Record<string, string>;
+    expect(summary).to.deep.equal({
+      business_vertical: 'tr',
+      environment_tier: 'qa',
+      scope: 'gbl'
+    });
+  });
   for (const staleTiming of [
     'before B request',
     'while B loads',

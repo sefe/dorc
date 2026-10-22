@@ -13195,6 +13195,14 @@
             "type": "string",
             "nullable": true
           },
+          "BusinessVertical": {
+            "type": "string",
+            "nullable": true
+          },
+          "ApplicationCode": {
+            "type": "string",
+            "nullable": true
+          },
           "SourceDatabase": {
             "$ref": "#/components/schemas/DatabaseApiModel"
           },
@@ -14451,7 +14459,8 @@
           "Default",
           "Missing",
           "Unset",
-          "SavedConfiguration"
+          "SavedConfiguration",
+          "Suggested"
         ],
         "type": "string"
       },
@@ -14475,6 +14484,14 @@
           },
           "Status": {
             "$ref": "#/components/schemas/TerraformParameterResolutionStatus"
+          },
+          "SuggestedValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "SuggestionReason": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

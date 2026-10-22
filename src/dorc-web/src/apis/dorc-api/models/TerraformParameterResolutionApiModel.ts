@@ -40,6 +40,16 @@ export interface TerraformParameterResolutionApiModel {
      * @memberof TerraformParameterResolutionApiModel
      */
     Status: TerraformParameterResolutionStatus;
+    /**
+     * @type {string}
+     * @memberof TerraformParameterResolutionApiModel
+     */
+    SuggestedValue?: string | null;
+    /**
+     * @type {string}
+     * @memberof TerraformParameterResolutionApiModel
+     */
+    SuggestionReason?: string | null;
 }
 
 

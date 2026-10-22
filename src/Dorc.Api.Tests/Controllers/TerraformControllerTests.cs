@@ -1253,10 +1253,51 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual(TerraformParameterResolutionStatus.Unset, byName["optional_unset"]);
             Assert.AreEqual(TerraformParameterResolutionStatus.Environment, byName["secret"]);
             Assert.IsTrue(body.Parameters.Single(p => p.Name == "secret").Sensitive);
-            // Names and statuses only: the response type has no value member,
-            // so a resolved secret can never be serialised back to the browser.
-            Assert.IsFalse(typeof(TerraformParameterResolutionApiModel).GetProperties()
-                .Any(p => p.Name.Contains("Value", StringComparison.OrdinalIgnoreCase)));
+            // Resolved values are never echoed: SuggestedValue is the only value
+            // member and must stay empty for every non-Suggested status, so an
+            // environment-resolved secret can never be serialised to the browser.
+            Assert.IsTrue(body.Parameters.All(p => p.Status == TerraformParameterResolutionStatus.Suggested || p.SuggestedValue is null));
+            Assert.IsNull(body.Parameters.Single(p => p.Name == "secret").SuggestedValue);
+        }
+
+        [TestMethod]
+        public async Task ResolveTemplateInputs_SuggestsContextValuesBelowSavedAndEnvironmentButAboveDefaults()
+        {
+            GivenTemplateAndProject(Manifest(
+                Parameter("dorc_environment", required: true),
+                Parameter("environment_tier", required: true),
+                Parameter("business_vertical", required: true),
+                Parameter("origin", required: false, @default: ""),
+                Parameter("termination_protection", required: false, @default: "true"),
+                Parameter("location", required: true, sensitive: true)));
+            _projects.GetProject(ProjectId).Returns(new ProjectApiModel
+            {
+                ProjectId = ProjectId, ProjectName = ProjectName, ApplicationCode = "tev"
+            });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>
+            {
+                ["environment_tier"] = new VariableValue { Value = "from-env", Type = typeof(string) }
+            });
+
+            var result = await _controller.ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+
+            var body = (TerraformTemplateResolutionApiModel)((OkObjectResult)result).Value!;
+            var byName = body.Parameters.ToDictionary(p => p.Name);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Suggested, byName["dorc_environment"].Status);
+            Assert.AreEqual("tevodv11", byName["dorc_environment"].SuggestedValue);
+            Assert.IsFalse(string.IsNullOrEmpty(byName["dorc_environment"].SuggestionReason));
+            Assert.AreEqual(TerraformParameterResolutionStatus.Environment, byName["environment_tier"].Status,
+                "An environment property always wins over a suggestion.");
+            Assert.IsNull(byName["environment_tier"].SuggestedValue);
+            Assert.AreEqual("tr", byName["business_vertical"].SuggestedValue);
+            Assert.AreEqual("tev", byName["origin"].SuggestedValue, "Project application code seeds the origin segment.");
+            Assert.AreEqual("false", byName["termination_protection"].SuggestedValue,
+                "A context suggestion outranks the manifest default.");
+            Assert.AreEqual(TerraformParameterResolutionStatus.Missing, byName["location"].Status,
+                "Sensitive inputs are never suggested even when a rule matches the name.");
+            Assert.IsNull(byName["location"].SuggestedValue);
         }
 
         [TestMethod]

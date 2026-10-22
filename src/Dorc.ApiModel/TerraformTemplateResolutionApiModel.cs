@@ -22,7 +22,14 @@ namespace Dorc.ApiModel
         Unset = 3,
 
         /// <summary>Explicit non-secret component/environment configuration.</summary>
-        SavedConfiguration = 4
+        SavedConfiguration = 4,
+
+        /// <summary>
+        /// Nothing saved or inherited; DOrc derived a non-secret value from the
+        /// project/environment context (naming standards). Editable, never applied
+        /// unless the operator keeps it in the submitted inputs.
+        /// </summary>
+        Suggested = 5
     }
 
     public class TerraformParameterResolutionApiModel
@@ -31,6 +38,12 @@ namespace Dorc.ApiModel
         public bool Required { get; set; }
         public bool Sensitive { get; set; }
         public TerraformParameterResolutionStatus Status { get; set; }
+
+        /// <summary>Populated only when <see cref="Status"/> is <see cref="TerraformParameterResolutionStatus.Suggested"/>.</summary>
+        public string SuggestedValue { get; set; }
+
+        /// <summary>Short operator-facing explanation of how the suggestion was derived.</summary>
+        public string SuggestionReason { get; set; }
     }
 
     /// <summary>

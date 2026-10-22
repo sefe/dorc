@@ -37,6 +37,14 @@ export class AddEditProject extends LitElement {
     this.setTextField('proj-regex', this._project.ArtefactsBuildRegex ?? '');
     this.setTextField('proj-leanix-url', this._project.LeanIXUrl ?? '');
     this.setTextField(
+      'proj-business-vertical',
+      this._project.BusinessVertical ?? ''
+    );
+    this.setTextField(
+      'proj-application-code',
+      this._project.ApplicationCode ?? ''
+    );
+    this.setTextField(
       'proj-terraform-git-url',
       this._project.TerraformGitRepoUrl ?? ''
     );
@@ -210,6 +218,8 @@ export class AddEditProject extends LitElement {
       ArtefactsSubPaths: '',
       ArtefactsUrl: '',
       LeanIXUrl: '',
+      BusinessVertical: '',
+      ApplicationCode: '',
       SourceControlType: 'AzureDevOps' as any
     };
   }
@@ -301,6 +311,30 @@ export class AddEditProject extends LitElement {
         helper-text="LeanIX workspace URL (e.g., https://.../factSheets)"
       >
       </vaadin-text-field>
+      <vaadin-horizontal-layout style="width: 490px; gap: var(--lumo-space-m);">
+        <vaadin-text-field
+          id="proj-business-vertical"
+          style="flex: 1;"
+          label="Business vertical"
+          maxlength="2"
+          pattern="[A-Za-z]{2}"
+          allowed-char-pattern="[A-Za-z]"
+          value="${this._project?.BusinessVertical ?? ''}"
+          @value-changed="${this._businessVerticalChanged}"
+          helper-text="Two-letter code from the Kafka naming standard (e.g. tr). Suggests business_vertical for catalog modules."
+        ></vaadin-text-field>
+        <vaadin-text-field
+          id="proj-application-code"
+          style="flex: 1;"
+          label="Application code"
+          maxlength="3"
+          pattern="[A-Za-z0-9]{3}"
+          allowed-char-pattern="[A-Za-z0-9]"
+          value="${this._project?.ApplicationCode ?? ''}"
+          @value-changed="${this._applicationCodeChanged}"
+          helper-text="Three-character IT application code (e.g. gma). Suggests the origin segment for catalog modules."
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
       <vaadin-text-field
         id="proj-terraform-git-url"
         style="width: 490px;"
@@ -405,6 +439,24 @@ export class AddEditProject extends LitElement {
       const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
 
       model.LeanIXUrl = data.target.value;
+      this._project = model;
+      this._inputValueChanged();
+    }
+  }
+
+  _businessVerticalChanged(data: any) {
+    if (this._project !== undefined && data.target !== undefined) {
+      const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
+      model.BusinessVertical = (data.target.value ?? '').toLowerCase();
+      this._project = model;
+      this._inputValueChanged();
+    }
+  }
+
+  _applicationCodeChanged(data: any) {
+    if (this._project !== undefined && data.target !== undefined) {
+      const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
+      model.ApplicationCode = (data.target.value ?? '').toLowerCase();
       this._project = model;
       this._inputValueChanged();
     }

@@ -305,6 +305,7 @@ namespace Dorc.Terraform.Catalog
             public decimal? Max { get; set; }
             public bool Sensitive { get; set; }
             public bool Integer { get; set; }
+            public string? Suggest { get; set; }
         }
 
         private sealed class OutputDto
@@ -370,7 +371,8 @@ namespace Dorc.Terraform.Catalog
                 Min: dto.Min,
                 Max: dto.Max,
                 Sensitive: dto.Sensitive,
-                Integer: dto.Integer);
+                Integer: dto.Integer,
+                Suggest: string.IsNullOrWhiteSpace(dto.Suggest) ? null : dto.Suggest.Trim());
         }
 
         private static TerraformTemplateOutput ToOutput(OutputDto dto)

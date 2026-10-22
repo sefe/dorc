@@ -196,6 +196,8 @@ namespace Dorc.PersistentData.Sources
                     ObjectId = Guid.NewGuid(),
                     TerraformGitRepoUrl = apiProject.TerraformGitRepoUrl,
                     LeanIXUrl = apiProject.LeanIXUrl,
+                    BusinessVertical = ProjectNamingCodes.NormaliseBusinessVertical(apiProject.BusinessVertical),
+                    ApplicationCode = ProjectNamingCodes.NormaliseApplicationCode(apiProject.ApplicationCode),
                     SourceControlType = apiProject.SourceControlType,
                 };
 
@@ -243,6 +245,8 @@ namespace Dorc.PersistentData.Sources
                 currentProj.Description = newProjectDetails.ProjectDescription;
                 currentProj.TerraformGitRepoUrl = newProjectDetails.TerraformGitRepoUrl;
                 currentProj.LeanIXUrl = newProjectDetails.LeanIXUrl;
+                currentProj.BusinessVertical = ProjectNamingCodes.NormaliseBusinessVertical(newProjectDetails.BusinessVertical);
+                currentProj.ApplicationCode = ProjectNamingCodes.NormaliseApplicationCode(newProjectDetails.ApplicationCode);
                 currentProj.SourceControlType = newProjectDetails.SourceControlType;
 
                 if (ProjectArtifactsUriHttpValid(newProjectDetails) || ProjectArtifactsUriFileValid(newProjectDetails))
@@ -470,6 +474,8 @@ namespace Dorc.PersistentData.Sources
                 TerraformStateBackends = System.Text.Json.JsonSerializer.Deserialize<List<TerraformStateBackendApiModel>>(
                     project.TerraformStateBackendsJson ?? "[]"),
                 LeanIXUrl = project.LeanIXUrl,
+                BusinessVertical = project.BusinessVertical,
+                ApplicationCode = project.ApplicationCode,
                 SourceDatabase = project.SourceDatabase != null ? DatabasesPersistentSource.MapToDatabaseApiModel(project.SourceDatabase) : null,
                 SourceControlType = project.SourceControlType
             };

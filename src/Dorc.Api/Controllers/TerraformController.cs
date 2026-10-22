@@ -208,22 +208,36 @@ namespace Dorc.Api.Controllers
                 resolved[input.Key] = new VariableValue { Value = input.Value, Type = typeof(string) };
             var secureInputNames = _configValuesPersistentSource.GetAllConfigValues(true)
                 .Where(value => value.Secure).Select(value => value.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var suggestionContext = new CatalogInputSuggestions.Context(
+                environment.EnvironmentName, environment.EnvironmentIsProd, project.BusinessVertical, project.ApplicationCode);
             var parameters = manifest.Parameters
-                .Select(p => new TerraformParameterResolutionApiModel
+                .Select(p =>
                 {
-                    Name = p.Name,
-                    Required = p.Required,
-                    Sensitive = p.Sensitive || _propertyValuesPersistentSource.IsCachedPropertySecure(p.Name) || secureInputNames.Contains(p.Name),
-                    Status = savedInputs.ContainsKey(p.Name)
-                        ? TerraformParameterResolutionStatus.SavedConfiguration
-                        : resolved.TryGetValue(p.Name, out var value)
-                             && Convert.ToString(value?.Value, CultureInfo.InvariantCulture) is not null
-                        ? TerraformParameterResolutionStatus.Environment
-                        : p.Default is not null
-                            ? TerraformParameterResolutionStatus.Default
-                            : p.Required
-                                ? TerraformParameterResolutionStatus.Missing
-                                : TerraformParameterResolutionStatus.Unset
+                    var sensitive = p.Sensitive || _propertyValuesPersistentSource.IsCachedPropertySecure(p.Name) || secureInputNames.Contains(p.Name);
+                    var model = new TerraformParameterResolutionApiModel
+                    {
+                        Name = p.Name,
+                        Required = p.Required,
+                        Sensitive = sensitive,
+                    };
+                    if (savedInputs.ContainsKey(p.Name))
+                        model.Status = TerraformParameterResolutionStatus.SavedConfiguration;
+                    else if (resolved.TryGetValue(p.Name, out var value)
+                             && Convert.ToString(value?.Value, CultureInfo.InvariantCulture) is not null)
+                        model.Status = TerraformParameterResolutionStatus.Environment;
+                    else if (!sensitive && CatalogInputSuggestions.For(p, suggestionContext) is { } suggestion)
+                    {
+                        model.Status = TerraformParameterResolutionStatus.Suggested;
+                        model.SuggestedValue = suggestion.Value;
+                        model.SuggestionReason = suggestion.Reason;
+                    }
+                    else if (p.Default is not null)
+                        model.Status = TerraformParameterResolutionStatus.Default;
+                    else
+                        model.Status = p.Required
+                            ? TerraformParameterResolutionStatus.Missing
+                            : TerraformParameterResolutionStatus.Unset;
+                    return model;
                 })
                 .ToList();
 

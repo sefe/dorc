@@ -54,6 +54,9 @@ public static class Program
             case "secret-outputs":
                 if (args.Length < 2) { PrintUsage(); return 2; }
                 return RunSecretOutputs(args[1]);
+            case "manifest-suggest-hints":
+                if (args.Length < 2) { PrintUsage(); return 2; }
+                return RunManifestSuggestHints(args[1]);
             case "manifest-immutability":
                 if (args.Length < 3) { PrintUsage(); return 2; }
                 return ManifestImmutabilityGate.Run(args[1], args[2], Console.Out, Console.Error);
@@ -68,6 +71,7 @@ public static class Program
         Console.Error.WriteLine("Usage:");
         Console.Error.WriteLine("  Tools.TerraformLint manifest-sensitive-names <manifests-dir>");
         Console.Error.WriteLine("  Tools.TerraformLint secret-outputs <stock-modules-root>");
+        Console.Error.WriteLine("  Tools.TerraformLint manifest-suggest-hints <manifests-dir>");
         Console.Error.WriteLine("  Tools.TerraformLint manifest-immutability <base-sha> <head-sha>");
         Console.Error.WriteLine("  Tools.TerraformLint --self-test");
     }
@@ -83,6 +87,12 @@ public static class Program
     {
         if (!TryResolveDirectoryArg(dir, out var d)) return 2;
         return SecretOutputsLint.LintDirectory(d, Console.Error) > 0 ? 1 : 0;
+    }
+
+    private static int RunManifestSuggestHints(string dir)
+    {
+        if (!TryResolveDirectoryArg(dir, out var d)) return 2;
+        return ManifestSuggestHintsLint.LintDirectory(d, Console.Error) > 0 ? 1 : 0;
     }
 
     // Reject CLI-supplied paths that contain `..` segments and reject paths
@@ -205,6 +215,62 @@ public static class ManifestSensitiveNamesLint
         var rest = yaml.Substring(afterHeader);
         var endMatch = Regex.Match(rest, @"^(?![ \t-])\S", RegexOptions.Multiline);
         return endMatch.Success ? rest.Substring(0, endMatch.Index) : rest;
+    }
+}
+
+// ----- Manifest suggest-hint lint -----
+
+// `suggest:` names the context rule DOrc uses to prefill a catalog input
+// (Dorc.Terraform.Catalog.CatalogInputSuggestions.Hints). Unknown hints would
+// silently do nothing at runtime, and a hint on a sensitive parameter would
+// contradict the "never suggest secrets" rule, so both fail the build.
+public static class ManifestSuggestHintsLint
+{
+    public static readonly string[] KnownHints =
+    {
+        "dorc_environment", "environment_tier", "is_prod", "cloud_by_tier", "termination_protection",
+        "business_vertical", "application_code", "scope", "location",
+    };
+
+    public static int LintDirectory(DirectoryInfo dir, TextWriter errWriter)
+    {
+        var errors = 0;
+        foreach (var yaml in dir.GetFiles("*.yaml", SearchOption.TopDirectoryOnly).OrderBy(f => f.Name))
+        {
+            foreach (var e in LintFile(yaml.FullName))
+            {
+                errWriter.WriteLine(e);
+                errors++;
+            }
+        }
+        return errors;
+    }
+
+    public static IEnumerable<string> LintFile(string path)
+    {
+        if (path == null || path.Contains(".."))
+            throw new ArgumentException("path must not contain '..' segments");
+        var paramsBlock = ManifestSensitiveNamesLint.FindParametersBlock(File.ReadAllText(path));
+        if (paramsBlock is null) yield break;
+
+        var paramName = new Regex(@"^[ \t]*-[ \t]*name:[ \t]*(?<name>[A-Za-z0-9_]+)[ \t]*$", RegexOptions.Multiline);
+        var suggest = new Regex(@"^[ \t]+suggest:[ \t]*[""']?(?<hint>[^""'\r\n#]*?)[""']?[ \t]*(#.*)?$", RegexOptions.Multiline);
+        var sensitiveTrue = new Regex(@"^[ \t]+sensitive:[ \t]*true[ \t]*$", RegexOptions.IgnoreCase | RegexOptions.Multiline);
+
+        var matches = paramName.Matches(paramsBlock);
+        for (var i = 0; i < matches.Count; i++)
+        {
+            var name = matches[i].Groups["name"].Value;
+            var bodyEnd = i + 1 < matches.Count ? matches[i + 1].Index : paramsBlock.Length;
+            var body = paramsBlock.Substring(matches[i].Index, bodyEnd - matches[i].Index);
+            var hintMatch = suggest.Match(body);
+            if (!hintMatch.Success) continue;
+            var hint = hintMatch.Groups["hint"].Value.Trim();
+            if (!KnownHints.Contains(hint, StringComparer.Ordinal))
+                yield return $"::error file={path}::Parameter '{name}' declares unknown suggest hint '{hint}'. Known hints: {string.Join(", ", KnownHints)}.";
+            if (sensitiveTrue.IsMatch(body))
+                yield return $"::error file={path}::Parameter '{name}' is sensitive and must not declare a suggest hint.";
+        }
     }
 }
 
@@ -382,6 +448,7 @@ internal static class SelfTest
         try
         {
             ManifestSensitiveNamesSelfTest();
+            ManifestSuggestHintsSelfTest();
             SecretOutputsSelfTest();
             ManifestImmutabilitySelfTest.Run();
             Console.WriteLine("self-test passed");
@@ -394,6 +461,37 @@ internal static class SelfTest
         {
             Console.Error.WriteLine($"self-test failed: {ex.Message}");
             return 1;
+        }
+    }
+
+    private static void ManifestSuggestHintsSelfTest()
+    {
+        var temp = new DirectoryInfo(Path.Join(Path.GetTempPath(), Path.GetRandomFileName()));
+        temp.Create();
+        try
+        {
+            File.WriteAllText(
+                Path.Join(temp.FullName, "ok-1.0.0.yaml"),
+                "name: ok\nversion: 1.0.0\nparameters:\n  - name: env\n    type: String\n    suggest: dorc_environment\n  - name: plain\n    type: String\noutputs: []\n");
+            AssertCount("suggest hints: known hint accepted", 0,
+                ManifestSuggestHintsLint.LintDirectory(temp, TextWriter.Null));
+
+            File.WriteAllText(
+                Path.Join(temp.FullName, "bad-1.0.0.yaml"),
+                "name: bad\nversion: 1.0.0\nparameters:\n  - name: env\n    type: String\n    suggest: \"moon_phase\"\n  - name: api_token\n    type: String\n    sensitive: true\n    suggest: location\noutputs: []\n");
+            var errors = new StringWriter();
+            AssertCount("suggest hints: unknown hint and sensitive hint both rejected", 2,
+                ManifestSuggestHintsLint.LintDirectory(temp, errors));
+            if (!errors.ToString().Contains("moon_phase") || !errors.ToString().Contains("'api_token' is sensitive"))
+                throw new InvalidOperationException($"suggest hint errors should name offenders: {errors}");
+        }
+        finally
+        {
+            try { Directory.Delete(temp.FullName, recursive: true); }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine($"self-test: temp-dir cleanup failed for '{temp.FullName}': {ex.Message}");
+            }
         }
     }
 

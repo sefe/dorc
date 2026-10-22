@@ -73,6 +73,16 @@ export interface ProjectApiModel {
      */
     LeanIXUrl?: string | null;
     /**
+     * @type {string}
+     * @memberof ProjectApiModel
+     */
+    BusinessVertical?: string | null;
+    /**
+     * @type {string}
+     * @memberof ProjectApiModel
+     */
+    ApplicationCode?: string | null;
+    /**
      * @type {DatabaseApiModel}
      * @memberof ProjectApiModel
      */

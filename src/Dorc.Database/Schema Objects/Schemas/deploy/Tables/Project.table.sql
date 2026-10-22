@@ -11,5 +11,7 @@
     [TerraformStateBackendsJson] NVARCHAR (MAX) NULL,
     [SourceControlType]     INT              NOT NULL DEFAULT 0,
     [LeanIXUrl]             NVARCHAR (512)   NULL,
+    [BusinessVertical]      NVARCHAR (2)     NULL,
+    [ApplicationCode]       NVARCHAR (3)     NULL,
     CONSTRAINT [FK_Project_ToDatabase] FOREIGN KEY ([SourceDatabaseId]) REFERENCES [deploy].[Database]([Id])
 );

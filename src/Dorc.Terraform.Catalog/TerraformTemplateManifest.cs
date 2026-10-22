@@ -47,7 +47,10 @@ namespace Dorc.Terraform.Catalog
         decimal? Min,
         decimal? Max,
         bool Sensitive = false,
-        bool Integer = false);
+        bool Integer = false,
+        // Optional context-suggestion hint (see CatalogInputSuggestions); when
+        // absent the parameter name selects the rule. Never applied to Sensitive inputs.
+        string? Suggest = null);
 
     public sealed record TerraformTemplateOutput(
         string Name,

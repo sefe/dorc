@@ -12,6 +12,8 @@ namespace Dorc.PersistentData.Model
         public string? TerraformGitRepoUrl { get; set; }
         public string? TerraformStateBackendsJson { get; set; }
         public string? LeanIXUrl { get; set; }
+        public string? BusinessVertical { get; set; }
+        public string? ApplicationCode { get; set; }
         public int? SourceDatabaseId { get; set; }
         public Database? SourceDatabase { get; set; }
         public SourceControlType SourceControlType { get; set; } = SourceControlType.AzureDevOps;

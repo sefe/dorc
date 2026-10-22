@@ -21,6 +21,7 @@ export enum TerraformParameterResolutionStatus {
     Default = 'Default',
     Missing = 'Missing',
     Unset = 'Unset',
-    SavedConfiguration = 'SavedConfiguration'
+    SavedConfiguration = 'SavedConfiguration',
+    Suggested = 'Suggested'
 }
 

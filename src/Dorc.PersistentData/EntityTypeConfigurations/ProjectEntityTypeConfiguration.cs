@@ -40,6 +40,14 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .HasMaxLength(512);
 
             builder
+                .Property(e => e.BusinessVertical)
+                .HasMaxLength(2);
+
+            builder
+                .Property(e => e.ApplicationCode)
+                .HasMaxLength(3);
+
+            builder
                 .Property(x => x.SourceDatabaseId);
 
             builder

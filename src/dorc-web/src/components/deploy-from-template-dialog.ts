@@ -323,6 +323,26 @@ export class DeployFromTemplateDialog extends LitElement {
       grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 2px var(--lumo-space-m);
     }
+    .topic-preview {
+      background: var(--dorc-bg-secondary);
+      color: var(--dorc-text-primary);
+      border: 1px solid var(--dorc-border-color);
+    }
+    .topic-preview code {
+      display: block;
+      font-family: var(--dorc-mono-font, ui-monospace, Menlo, monospace);
+      font-size: var(--lumo-font-size-s);
+      word-break: break-all;
+      margin: 2px 0;
+    }
+    .topic-preview .topic-unknown {
+      color: var(--dorc-text-secondary-strong);
+      font-style: italic;
+    }
+    .topic-preview p {
+      margin: 2px 0 0;
+      color: var(--dorc-text-secondary-strong);
+    }
     section.notice[aria-label='Target readiness'] h3 {
       grid-column: 1 / -1;
       margin: 0 0 2px;
@@ -449,6 +469,11 @@ export class DeployFromTemplateDialog extends LitElement {
     .badge-override {
       background: var(--lumo-primary-color-10pct);
       color: var(--lumo-primary-text-color);
+    }
+    .badge-suggested {
+      background: var(--lumo-primary-color-10pct);
+      color: var(--lumo-primary-text-color);
+      border: 1px dashed var(--lumo-primary-color-50pct);
     }
     .badge-invalid {
       background: var(--lumo-error-color-10pct);
@@ -601,6 +626,15 @@ export class DeployFromTemplateDialog extends LitElement {
   > | null = null;
   @state() private resolutionLoading = false;
   @state() private resolutionError: string | null = null;
+  /**
+   * Context-derived starting values the server offered (naming standards,
+   * project codes, environment tier). Applied as editable request values on
+   * load; an input stays "Suggested" until the operator changes it.
+   */
+  @state() private suggestions: Record<
+    string,
+    { value: string; reason: string }
+  > = {};
   @state() private readiness: TerraformReadinessApiModel | null = null;
   @state() private savedConfiguration: CatalogEnvironmentInputsApiModel | null =
     null;
@@ -788,6 +822,7 @@ export class DeployFromTemplateDialog extends LitElement {
   private clearResolution() {
     this.resolutionToken += 1;
     this.resolution = null;
+    this.suggestions = {};
     this.readiness = null;
     this.savedConfiguration = null;
     this.resolutionLoading = false;
@@ -882,12 +917,26 @@ export class DeployFromTemplateDialog extends LitElement {
           this.resolution = Object.fromEntries(
             (data?.Parameters ?? []).map(r => [r.Name, r.Status])
           );
+          this.suggestions = Object.fromEntries(
+            (data?.Parameters ?? [])
+              .filter(
+                r =>
+                  r.Status === TerraformParameterResolutionStatus.Suggested &&
+                  !r.Sensitive &&
+                  typeof r.SuggestedValue === 'string'
+              )
+              .map(r => [
+                r.Name,
+                { value: r.SuggestedValue!, reason: r.SuggestionReason ?? '' }
+              ])
+          );
           this.secureInputNames = (data?.Parameters ?? [])
             .filter(parameter => parameter.Sensitive)
             .map(parameter => parameter.Name);
           this.readiness = data?.Readiness ?? null;
           this.savedConfiguration = data?.SavedConfiguration ?? null;
           this.resolutionLoading = false;
+          this.applySuggestions();
           this.prefillFromEnvironmentCloudResources();
         },
         error: err => {
@@ -898,6 +947,32 @@ export class DeployFromTemplateDialog extends LitElement {
             'The environment could not be checked.';
         }
       });
+  }
+
+  /**
+   * Prefills suggested inputs the operator has not already typed into. Only
+   * Suggested-status inputs are touched; saved, inherited and defaulted inputs
+   * keep their server-side resolution.
+   */
+  private applySuggestions() {
+    const additions = Object.entries(this.suggestions).filter(
+      ([name]) => this.paramValues[name] === undefined
+    );
+    if (!additions.length) return;
+    this.paramValues = {
+      ...this.paramValues,
+      ...Object.fromEntries(additions.map(([name, s]) => [name, s.value]))
+    };
+  }
+
+  /** True while an input still carries the untouched suggested value. */
+  private isSuggested(name: string): boolean {
+    const suggestion = this.suggestions[name];
+    return (
+      suggestion !== undefined &&
+      name in this.paramValues &&
+      this.paramValues[name] === suggestion.value
+    );
   }
 
   private statusOf(
@@ -916,6 +991,8 @@ export class DeployFromTemplateDialog extends LitElement {
         return 'Module default';
       case TerraformParameterResolutionStatus.SavedConfiguration:
         return 'Saved component configuration';
+      case TerraformParameterResolutionStatus.Suggested:
+        return 'Suggestion available';
       case TerraformParameterResolutionStatus.Missing:
         return 'Missing';
       case TerraformParameterResolutionStatus.Unset:
@@ -930,7 +1007,9 @@ export class DeployFromTemplateDialog extends LitElement {
     for (const parameter of this.parameters) {
       const label =
         parameter.Name in this.paramValues
-          ? 'Override'
+          ? this.isSuggested(parameter.Name)
+            ? 'Suggested'
+            : 'Override'
           : this.sourceLabel(parameter);
       counts.set(label, (counts.get(label) ?? 0) + 1);
     }
@@ -943,12 +1022,20 @@ export class DeployFromTemplateDialog extends LitElement {
   /** Required inputs the target cannot supply and the user has not overridden. */
   private get missingInputs(): string[] {
     return this.parameters
-      .filter(
-        p =>
-          !(p.Name in this.paramValues) &&
-          this.statusOf(p) === TerraformParameterResolutionStatus.Missing
-      )
+      .filter(p => !(p.Name in this.paramValues) && this.isMissing(p))
       .map(p => p.Name);
+  }
+
+  /**
+   * A discarded suggestion leaves nothing behind on the server side, so a
+   * required input with only a suggestion is as missing as one with nothing.
+   */
+  private isMissing(p: TerraformTemplateParameter): boolean {
+    const status = this.statusOf(p);
+    return (
+      status === TerraformParameterResolutionStatus.Missing ||
+      (status === TerraformParameterResolutionStatus.Suggested && !!p.Required)
+    );
   }
 
   /** Overrides that currently fail validation, by parameter name. */
@@ -1010,11 +1097,16 @@ export class DeployFromTemplateDialog extends LitElement {
 
   private setOverride(parameter: TerraformTemplateParameter, enabled: boolean) {
     if (enabled) {
+      const suggestion = parameter.Sensitive
+        ? undefined
+        : this.suggestions[parameter.Name]?.value;
       this.paramValues = {
         ...this.paramValues,
         [parameter.Name]: parameter.Sensitive
           ? ''
-          : (parameter.Default ?? (parameter.Type === 'Bool' ? 'false' : ''))
+          : (suggestion ??
+            parameter.Default ??
+            (parameter.Type === 'Bool' ? 'false' : ''))
       };
     } else {
       const values = { ...this.paramValues };
@@ -1061,6 +1153,7 @@ export class DeployFromTemplateDialog extends LitElement {
           this.readiness,
           this.savedConfiguration,
           this.secureInputNames,
+          this.suggestions,
           this.upgradePreview,
           this.upgradeImpactConfirmed,
           this.preserveExistingService
@@ -1076,7 +1169,8 @@ export class DeployFromTemplateDialog extends LitElement {
           this.resolutionLoading,
           this.resolutionError,
           this.selectedEnvironmentName,
-          this.secureInputNames
+          this.secureInputNames,
+          this.suggestions
         ])}
       ></vaadin-dialog>
     `;
@@ -1386,6 +1480,7 @@ export class DeployFromTemplateDialog extends LitElement {
             </div>`
           : nothing
       }
+      ${this.topicNamePreview()}
       ${
         required.length
           ? html`<div class="group">
@@ -1416,22 +1511,97 @@ export class DeployFromTemplateDialog extends LitElement {
     `;
   };
 
+  private static readonly kafkaTopicSegments = [
+    'business_vertical',
+    'environment_tier',
+    'scope',
+    'data_grouping',
+    'data_description',
+    'integrity_level'
+  ];
+
+  private static readonly kafkaStandardUrl =
+    'https://wiki/pages/viewpage.action?pageId=516177153';
+
+  /**
+   * Live composition of the SEFE Kafka topic name for modules exposing the
+   * standard's segments. Values the browser cannot see (inherited from the
+   * environment) render as placeholders; the module remains the authority.
+   */
+  private topicNamePreview() {
+    const names = new Set(this.parameters.map(p => p.Name));
+    const segments = DeployFromTemplateDialog.kafkaTopicSegments;
+    if (!segments.every(s => names.has(s)) || !names.has('dorc_environment'))
+      return nothing;
+    const effective = (name: string): string | null => {
+      if (name in this.paramValues) return this.paramValues[name];
+      const p = this.parameters.find(x => x.Name === name);
+      const status = this.statusOf(p!);
+      if (status === TerraformParameterResolutionStatus.Default)
+        return p?.Default ?? null;
+      return null;
+    };
+    const render = (name: string) => {
+      const value = effective(name);
+      return value === null
+        ? html`<span class="topic-unknown">&lt;${name}&gt;</span>`
+        : html`<span class="topic-known">${value}</span>`;
+    };
+    const dorcEnvironment = (() => {
+      const raw = effective('dorc_environment');
+      return raw === null
+        ? null
+        : raw.toLowerCase().replace(/[^a-z0-9_-]/g, '');
+    })();
+    const optional = ['origin', 'publisher_identifier']
+      .filter(name => names.has(name))
+      .map(name => effective(name))
+      .filter((v): v is string => !!v);
+    return html`
+      <section class="notice topic-preview" aria-label="Topic name preview">
+        <h3>Topic name preview</h3>
+        <code>
+          ${segments.map(
+            (s, i) => html`${i ? '.' : nothing}${render(s)}`
+          )}${optional.map(v => html`.<span class="topic-known">${v}</span>`)}.${
+            dorcEnvironment === null
+              ? html`<span class="topic-unknown"
+                  >&lt;dorc_environment&gt;</span
+                >`
+              : html`<span class="topic-known">${dorcEnvironment}</span>`
+          }
+        </code>
+        <p>
+          Composed per the
+          <a
+            href=${DeployFromTemplateDialog.kafkaStandardUrl}
+            target="_blank"
+            rel="noopener"
+            >SEFE Kafka topic naming standard</a
+          >. Segments shown as &lt;name&gt; are resolved by DOrc at plan time.
+        </p>
+      </section>
+    `;
+  }
+
   private paramCard(p: TerraformTemplateParameter) {
     const overridden = p.Name in this.paramValues;
     const message = overridden
       ? overrideError(p, this.paramValues[p.Name])
       : null;
     const status = this.statusOf(p);
-    const missing =
-      !overridden && status === TerraformParameterResolutionStatus.Missing;
+    const missing = !overridden && this.isMissing(p);
     const env = this.selectedEnvironmentName;
     const lock = html`<vaadin-icon icon="vaadin:lock"></vaadin-icon>`;
     // Labels are built as single strings so the rendered text never carries
     // template line breaks (tests and screen readers both read textContent).
+    const suggested = overridden && this.isSuggested(p.Name);
     const badge = overridden
       ? message
         ? html`<span class="badge badge-invalid">Needs a value</span>`
-        : html`<span class="badge badge-override">Override</span>`
+        : suggested
+          ? html`<span class="badge badge-suggested">Suggested</span>`
+          : html`<span class="badge badge-override">Override</span>`
       : html`<span
           class="badge ${missing ? 'badge-invalid' : p.Sensitive ? 'badge-sensitive' : 'badge-default'}"
           >${p.Sensitive ? lock : nothing}${this.sourceLabel(p)}</span
@@ -1440,17 +1610,19 @@ export class DeployFromTemplateDialog extends LitElement {
       ? 'Checking input sources; values are not loaded into this form.'
       : this.resolutionError || status === null
         ? 'Input source not checked. The server validates inputs on submission.'
-        : missing
-          ? `No environment property named ${p.Name} in ${env}. Override it for this request, or add the property.`
-          : status === TerraformParameterResolutionStatus.Unset
-            ? `Not set in ${env} and no module default; the module runs without it.`
-            : status === TerraformParameterResolutionStatus.SavedConfiguration
-              ? 'Explicitly saved for this component and environment; snapshotted when a request is created.'
-              : status === TerraformParameterResolutionStatus.Environment
-                ? `Resolved by DOrc for ${env}, including environment/global properties and configured fallbacks.`
-                : status === TerraformParameterResolutionStatus.Default
-                  ? `No environment property in ${env}; the module default applies.`
-                  : 'Input source not checked.';
+        : status === TerraformParameterResolutionStatus.Suggested
+          ? `Suggestion "${this.suggestions[p.Name]?.value ?? ''}" discarded${this.suggestions[p.Name]?.reason ? ` (${this.suggestions[p.Name].reason})` : ''}. ${p.Required ? 'Required: use the suggestion or override it.' : 'Nothing is sent for this input.'}`
+          : missing
+            ? `No environment property named ${p.Name} in ${env}. Override it for this request, or add the property.`
+            : status === TerraformParameterResolutionStatus.Unset
+              ? `Not set in ${env} and no module default; the module runs without it.`
+              : status === TerraformParameterResolutionStatus.SavedConfiguration
+                ? 'Explicitly saved for this component and environment; snapshotted when a request is created.'
+                : status === TerraformParameterResolutionStatus.Environment
+                  ? `Resolved by DOrc for ${env}, including environment/global properties and configured fallbacks.`
+                  : status === TerraformParameterResolutionStatus.Default
+                    ? `No environment property in ${env}; the module default applies.`
+                    : 'Input source not checked.';
     return html`
       <div
         class="param"
@@ -1458,6 +1630,7 @@ export class DeployFromTemplateDialog extends LitElement {
         data-invalid=${message ? 'true' : 'false'}
         data-missing=${missing ? 'true' : 'false'}
         data-sensitive=${p.Sensitive ? 'true' : 'false'}
+        data-suggested=${suggested ? 'true' : 'false'}
       >
         <div class="param-head">
           <span class="param-name">
@@ -1480,14 +1653,18 @@ export class DeployFromTemplateDialog extends LitElement {
                             icon="vaadin:check"
                             style="width:10px;height:10px"
                           ></vaadin-icon>
-                          Will be sent with this request
+                          ${
+                            suggested
+                              ? `Suggested from context — ${this.suggestions[p.Name]?.reason || 'edit if it does not fit.'} Will be sent with this request.`
+                              : 'Will be sent with this request'
+                          }
                         </span>`
                   }
                   <vaadin-button
                     theme="tertiary small"
                     aria-label="Remove request override for ${p.Name}"
                     @click=${() => this.setOverride(p, false)}
-                    >Remove request override</vaadin-button
+                    >${suggested ? 'Discard suggestion' : 'Remove request override'}</vaadin-button
                   >
                 </div>
               `
@@ -1498,7 +1675,11 @@ export class DeployFromTemplateDialog extends LitElement {
                     theme="tertiary small"
                     aria-label="Override ${p.Name} for this request"
                     @click=${() => this.setOverride(p, true)}
-                    >Override</vaadin-button
+                    >${
+                      status === TerraformParameterResolutionStatus.Suggested
+                        ? 'Use suggestion'
+                        : 'Override'
+                    }</vaadin-button
                   >
                 </div>
               `
