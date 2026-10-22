@@ -8,6 +8,8 @@ namespace Dorc.PersistentData.Sources.Interfaces
         DatabaseApiModel? GetDatabase(int id);
         IEnumerable<DatabaseApiModel> GetDatabases(string name, string server);
         IEnumerable<DatabaseApiModel> GetDatabases();
+        IEnumerable<DatabaseApiModel> FindDatabases(string name, string? server);
+        DatabaseRelatedResourcesApiModel? GetDatabaseRelatedResources(int databaseId);
         DatabaseApiModel? AddDatabase(DatabaseApiModel db);
         IEnumerable<DatabaseApiModel> GetDatabasesForEnvId(int environmentId);
         IEnumerable<DatabaseApiModel> GetDatabasesForEnvironmentName(string environmentName);
