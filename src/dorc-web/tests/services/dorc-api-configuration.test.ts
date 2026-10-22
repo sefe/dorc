@@ -167,4 +167,73 @@ describe('dorcApiConfiguration', () => {
 
     expect(signInSpy).toHaveBeenCalledTimes(1);
   });
+
+  // A tab left open past token expiry used to fire its next request with the
+  // stale token and surface "Session has expired" even though silent renewal
+  // succeeded moments later. The request must wait for renewal and carry the
+  // renewed token instead.
+  it('holds a request made with an expired token until renewal completes and sends the renewed token', async () => {
+    appConfigStub.authenticationScheme = 'OAuth';
+    signedInUserHolder.value = { access_token: 'stale', expired: true };
+
+    let finishRenewal!: () => void;
+    recoverExpiredSessionSpy.mockImplementationOnce(
+      () =>
+        new Promise<boolean>(resolve => {
+          finishRenewal = () => {
+            signedInUserHolder.value = {
+              access_token: 'fresh',
+              expired: false
+            };
+            resolve(true);
+          };
+        })
+    );
+
+    const originalSend = XMLHttpRequest.prototype.send;
+    const originalSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+    const sentHeaders: Record<string, string> = {};
+    let sendCount = 0;
+    const sent = new Promise<void>(resolve => {
+      XMLHttpRequest.prototype.setRequestHeader = function patchedSetHeader(
+        this: XMLHttpRequest,
+        name: string,
+        value: string
+      ) {
+        sentHeaders[name.toLowerCase()] = value;
+        return originalSetRequestHeader.call(this, name, value);
+      };
+      XMLHttpRequest.prototype.send = function patchedSend(
+        this: XMLHttpRequest
+      ) {
+        sendCount++;
+        resolve();
+        this.abort();
+      } as typeof XMLHttpRequest.prototype.send;
+    });
+
+    try {
+      new RefDataProjectsApi(dorcApiConfiguration)
+        .refDataProjectsGet()
+        .subscribe({ next: () => {}, error: () => {} });
+      await new Promise(resolve => setTimeout(resolve, 20));
+      expect(sendCount, 'request must wait for renewal').to.equal(0);
+
+      finishRenewal();
+      await Promise.race([
+        sent,
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error('no XHR was sent within 5s')),
+            5_000
+          )
+        )
+      ]);
+
+      expect(sentHeaders['authorization']).to.equal('Bearer fresh');
+    } finally {
+      XMLHttpRequest.prototype.send = originalSend;
+      XMLHttpRequest.prototype.setRequestHeader = originalSetRequestHeader;
+    }
+  });
 });
