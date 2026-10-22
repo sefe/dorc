@@ -423,9 +423,9 @@ namespace Dorc.PersistentData.Sources
                     return null;
 
                 // Check if another database already exists with the same name and server (excluding current database)
-                var duplicateExists = context.Databases.Any(d => 
-                    d.Name.Equals(database.Name) && 
-                    d.ServerName.Equals(database.ServerName) && 
+                var duplicateExists = context.Databases.Any(d =>
+                    d.Name.Equals(database.Name) &&
+                    d.ServerName.Equals(database.ServerName) &&
                     d.Id != database.Id);
 
                 if (duplicateExists)
@@ -484,6 +484,84 @@ namespace Dorc.PersistentData.Sources
                 ArrayName = db.ArrayName,
                 EnvironmentNames = db.Environments != null ? db.Environments.Select(e => e.Name).ToList() : new List<string>()
             };
+        }
+
+        public IEnumerable<DatabaseApiModel> FindDatabases(string name, string? server)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var query = context.Databases
+                    .Include(d => d.Group)
+                    .Include(d => d.TagLinks)
+                    .Include(d => d.Environments)
+                    .Where(d => d.Name == name);
+
+                if (!string.IsNullOrWhiteSpace(server))
+                    query = query.Where(d => d.ServerName == server);
+
+                return query.ToList().Select(MapToDatabaseApiModel).ToList();
+            }
+        }
+
+        public DatabaseRelatedResourcesApiModel? GetDatabaseRelatedResources(int databaseId)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var database = context.Databases
+                    .AsNoTracking()
+                    .Where(d => d.Id == databaseId)
+                    .Select(d => new { d.Id, d.Name, d.ServerName })
+                    .SingleOrDefault();
+
+                if (database == null)
+                    return null;
+
+                var environments = context.Databases
+                    .AsNoTracking()
+                    .Where(d => d.Id == databaseId)
+                    .SelectMany(d => d.Environments)
+                    .Select(e => new EnvironmentShortApiModel
+                    {
+                        EnvironmentId = e.Id,
+                        EnvironmentName = e.Name
+                    })
+                    .OrderBy(e => e.EnvironmentName)
+                    .ToList();
+
+                var servers = context.Databases
+                    .AsNoTracking()
+                    .Where(d => d.Id == databaseId)
+                    .SelectMany(d => d.Environments)
+                    .SelectMany(e => e.Servers)
+                    .Select(s => new
+                    {
+                        s.Id,
+                        s.Name,
+                        s.OsName,
+                        Tags = s.TagLinks.Select(t => t.Tag).ToList()
+                    })
+                    .ToList()
+                    .GroupBy(s => s.Id)
+                    .Select(g => g.First())
+                    .OrderBy(s => s.Name)
+                    .Select(s => new ServerApiModel
+                    {
+                        ServerId = s.Id,
+                        Name = s.Name,
+                        OsName = s.OsName,
+                        Tags = s.Tags.ToArray()
+                    })
+                    .ToList();
+
+                return new DatabaseRelatedResourcesApiModel
+                {
+                    DatabaseId = database.Id,
+                    DatabaseName = database.Name,
+                    ServerName = database.ServerName,
+                    Environments = environments,
+                    Servers = servers
+                };
+            }
         }
     }
 }
