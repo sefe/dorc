@@ -86,19 +86,27 @@ deprecated: false
 
         //  exactly four shipped manifests load (vnet removed by)
         // and zero warnings are emitted (the surviving manifests pass the new rules cleanly).
+        //
+        // Published manifests live in the private dorc-terraform-modules
+        // repository, not in this repo. The pipeline there sets
+        // DORC_CATALOG_MANIFESTS_DIR; without it (and without a local
+        // checkout beside this repo) the test is inconclusive rather than red.
         [TestMethod]
         public async Task LoadsAllShippedManifests_WithoutError()
         {
             var manifestsDir = FindShippedManifestsDir();
-            Assert.IsNotNull(manifestsDir,
-                "Could not find the repo's stock-modules-manifests/ directory by walking up from AppContext.BaseDirectory.");
+            if (manifestsDir is null)
+            {
+                Assert.Inconclusive(
+                    "Published manifests not available. Set DORC_CATALOG_MANIFESTS_DIR to the stock-modules-manifests/ directory of the dorc-terraform-modules repository.");
+            }
 
             var recordingLogger = new RecordingLogger<GitTemplateCatalog>();
             var catalog = new GitTemplateCatalog(manifestsDir, recordingLogger);
             var manifests = await catalog.ListAsync();
 
-            Assert.AreEqual(9, manifests.Count,
-                $"Expected exactly nine shipped manifests in {manifestsDir}; got {manifests.Count}.");
+            Assert.AreEqual(Directory.GetFiles(manifestsDir, "*.yaml").Length, manifests.Count,
+                $"Expected every published manifest in {manifestsDir} to load; got {manifests.Count}.");
 
             var names = manifests.Select(m => m.Name).ToList();
             CollectionAssert.Contains(names, "cosmosdb",
@@ -118,18 +126,33 @@ deprecated: false
                 $"API startup is clean surviving manifests must load without warnings. Got: {string.Join(" | ", recordingLogger.Warnings)}");
         }
 
-        // Walks up from AppContext.BaseDirectory looking for a sibling-or-ancestor
-        // directory named "stock-modules-manifests" containing at least one .yaml.
+        // Resolves the published stock-modules-manifests/ directory: first from
+        // DORC_CATALOG_MANIFESTS_DIR (set by the dorc-terraform-modules
+        // pipeline), then by walking up from AppContext.BaseDirectory looking
+        // for a sibling-or-ancestor "stock-modules-manifests" directory (a
+        // dorc-terraform-modules checkout next to this repo).
         private static string? FindShippedManifestsDir()
         {
+            var configured = Environment.GetEnvironmentVariable("DORC_CATALOG_MANIFESTS_DIR");
+            if (!string.IsNullOrWhiteSpace(configured) && Directory.Exists(configured))
+            {
+                return configured;
+            }
+
             var dir = new DirectoryInfo(AppContext.BaseDirectory);
             while (dir is not null)
             {
-                var candidate = Path.Join(dir.FullName, "stock-modules-manifests");
-                if (Directory.Exists(candidate) &&
-                    Directory.EnumerateFiles(candidate, "*.yaml", SearchOption.TopDirectoryOnly).Any())
+                foreach (var candidate in new[]
                 {
-                    return candidate;
+                    Path.Join(dir.FullName, "stock-modules-manifests"),
+                    Path.Join(dir.FullName, "dorc-terraform-modules", "stock-modules-manifests"),
+                })
+                {
+                    if (Directory.Exists(candidate) &&
+                        Directory.EnumerateFiles(candidate, "*.yaml", SearchOption.TopDirectoryOnly).Any())
+                    {
+                        return candidate;
+                    }
                 }
                 dir = dir.Parent;
             }
@@ -268,11 +291,12 @@ deprecated: false
         [TestMethod]
         public async Task PublishedManifests_KeepPinnedDeprecatedResolutionAndValidateModuleConstraints()
         {
-            var directory = new DirectoryInfo(Directory.GetCurrentDirectory());
-            while (directory is not null && !Directory.Exists(Path.Join(directory.FullName, "stock-modules-manifests")))
-                directory = directory.Parent;
-            Assert.IsNotNull(directory, "Tests must run within the repository tree.");
-            var manifestsDirectory = Path.Join(directory.FullName, "stock-modules-manifests");
+            var manifestsDirectory = FindShippedManifestsDir();
+            if (manifestsDirectory is null)
+            {
+                Assert.Inconclusive(
+                    "Published manifests not available. Set DORC_CATALOG_MANIFESTS_DIR to the stock-modules-manifests/ directory of the dorc-terraform-modules repository.");
+            }
             var catalog = new GitTemplateCatalog(manifestsDirectory,
                 NullLogger<GitTemplateCatalog>.Instance);
             var manifests = await catalog.ListAsync();

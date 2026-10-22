@@ -9,7 +9,6 @@ name: terraform-modules-ci
 on:
   pull_request:
     paths:
-      - 'stock-modules-manifests/**'
       - 'docs/Terraform/**'
       - 'src/Tools.TerraformLint/**'
       - 'src/Dorc.Terraform.Catalog*/**'
@@ -18,7 +17,6 @@ on:
     branches:
       - main
     paths:
-      - 'stock-modules-manifests/**'
       - 'docs/Terraform/**'
       - 'src/Tools.TerraformLint/**'
       - 'src/Dorc.Terraform.Catalog*/**'
@@ -83,39 +81,8 @@ jobs:
         working-directory: ${{ matrix.module }}
         run: terraform validate
 
-  manifest-immutability:
-    name: manifest immutability gate
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
-        with:
-          persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
-          fetch-depth: 0
-      - uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4.1.0
-        with:
-          dotnet-version: '8.0.x'
-      - name: build
-        run: dotnet build src/Tools.TerraformLint/Tools.TerraformLint.csproj -c Release --nologo
-      - name: test release retention and immutability
-        run: dotnet src/Tools.TerraformLint/bin/Release/net8.0/Tools.TerraformLint.dll --self-test
-      - name: enforce immutability
-        # On pull requests compare against the merge base with the target
-        # branch; on pushes to main compare against the previous main commit so
-        # direct pushes and stale merges are re-validated where the result is
-        # authoritative. A branch-creation push has an all-zeros "before" SHA;
-        # fall back to the first parent in that case.
-        env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
-        run: |
-          if [ -z "$BASE_SHA" ] || [ "$BASE_SHA" = "0000000000000000000000000000000000000000" ]; then
-            BASE_SHA="$(git rev-parse "${HEAD_SHA}^")"
-          fi
-          dotnet src/Tools.TerraformLint/bin/Release/net8.0/Tools.TerraformLint.dll manifest-immutability "$BASE_SHA" "$HEAD_SHA"
-
-  manifest-sensitive-name-lint:
-    name: manifest sensitive-name lint
+  terraform-lint-and-catalog:
+    name: lint tool self-test and catalog tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
@@ -126,11 +93,9 @@ jobs:
           dotnet-version: '8.0.x'
       - name: build
         run: dotnet build src/Tools.TerraformLint/Tools.TerraformLint.csproj -c Release --nologo
-      - name: self-test
+      - name: self-test (release retention, immutability, sensitive-name and suggest-hint rules)
         run: dotnet src/Tools.TerraformLint/bin/Release/net8.0/Tools.TerraformLint.dll --self-test
-      - name: lint manifests
-        run: dotnet src/Tools.TerraformLint/bin/Release/net8.0/Tools.TerraformLint.dll manifest-sensitive-names stock-modules-manifests/
-      - name: lint manifest suggest hints
-        run: dotnet src/Tools.TerraformLint/bin/Release/net8.0/Tools.TerraformLint.dll manifest-suggest-hints stock-modules-manifests/
-      - name: catalog and published manifest regression tests
+      - name: catalog library tests
+        # Published-manifest regression tests are inconclusive here because the
+        # manifests live in the private repository; they run in its pipeline.
         run: dotnet test src/Dorc.Terraform.Catalog.Tests/Dorc.Terraform.Catalog.Tests.csproj -c Release --nologo

@@ -53,14 +53,4 @@
     </None>
   </ItemGroup>
 
-  <!-- Stock-module catalog manifests are bundled with the API output so the
-       default Terraform:Catalog:ManifestsDirectory binding resolves to a
-       valid location without operator pre-provisioning. Operators may
-       override the directory via appsettings.json. -->
-  <ItemGroup>
-    <None Include="..\..\stock-modules-manifests\**\*.yaml"
-          Link="stock-modules-manifests\%(RecursiveDir)%(Filename)%(Extension)"
-          CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" />
-  </ItemGroup>
 </Project>

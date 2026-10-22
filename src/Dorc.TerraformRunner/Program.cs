@@ -115,9 +115,13 @@ namespace Dorc.TerraformRunner
 
                 // Catalog binding for the runner. The manifests directory
                 // is configurable via Terraform:Catalog:ManifestsDirectory
-                // and defaults to a sibling directory next to the runner exe.
-                var catalogManifestsDir = config.GetSection("Terraform:Catalog")["ManifestsDirectory"]
-                    ?? System.IO.Path.Join(AppContext.BaseDirectory, "stock-modules-manifests");
+                // (delivered at install time from the private
+                // dorc-terraform-modules repository) and defaults to a
+                // sibling directory next to the runner exe when unset.
+                var configuredManifestsDir = config.GetSection("Terraform:Catalog")["ManifestsDirectory"];
+                var catalogManifestsDir = string.IsNullOrWhiteSpace(configuredManifestsDir)
+                    ? System.IO.Path.Join(AppContext.BaseDirectory, "stock-modules-manifests")
+                    : configuredManifestsDir;
                 // Route the catalog's manifest-rejection warnings (its only
                 // diagnostic channel) into the runner's file log; NullLogger
                 // would silently swallow the reason a manifest on disk fails

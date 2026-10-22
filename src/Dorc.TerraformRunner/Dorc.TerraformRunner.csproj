@@ -39,14 +39,4 @@
     </None>
   </ItemGroup>
 
-  <!-- Bundle stock-module manifests with the runner output so the catalog
-       runtime resolves out of the box. Operators may override the directory
-       via Terraform:Catalog:ManifestsDirectory in appsettings.json. -->
-  <ItemGroup>
-    <None Include="..\..\stock-modules-manifests\**\*.yaml"
-          Link="stock-modules-manifests\%(RecursiveDir)%(Filename)%(Extension)"
-          CopyToOutputDirectory="PreserveNewest"
-          CopyToPublishDirectory="PreserveNewest" />
-  </ItemGroup>
-
 </Project>

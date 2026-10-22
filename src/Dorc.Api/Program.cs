@@ -350,17 +350,27 @@ builder.Services.AddSingleton<Dorc.Core.Interfaces.IFallbackDeploymentEventPubli
     Dorc.Api.Events.FallbackDeploymentEventPublisher>();
 builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSubscriptionsGroupTracker>();
 
-// Terraform stock-template catalog. Manifest YAMLs live under
-// stock-modules-manifests/ at repo root by default; the path is overridable
-// via Terraform:Catalog:ManifestsDirectory in appsettings.json. The runner
+// Terraform stock-template catalog. Manifest YAMLs are published from the
+// private dorc-terraform-modules repository and delivered at install time to
+// the directory named by Terraform:Catalog:ManifestsDirectory (MSI property
+// DORC.TERRAFORM.CATALOG.MANIFESTS.DIRECTORY). When unset the API falls back
+// to a stock-modules-manifests/ directory beside the binaries. The runner
 // also reads its own catalog binding; this binding is for
 // the API surface that exposes templates to the dorc-web UI.
 builder.Services.AddSingleton<Dorc.Terraform.Catalog.IParameterValidator, Dorc.Terraform.Catalog.ParameterValidator>();
 builder.Services.AddSingleton<Dorc.Terraform.Catalog.ITemplateCatalog>(sp =>
 {
-    var dir = configBuilder.GetValue<string>("Terraform:Catalog:ManifestsDirectory")
-              ?? Path.Join(AppContext.BaseDirectory, "stock-modules-manifests");
+    var configured = configBuilder.GetValue<string>("Terraform:Catalog:ManifestsDirectory");
+    var dir = string.IsNullOrWhiteSpace(configured)
+        ? Path.Join(AppContext.BaseDirectory, "stock-modules-manifests")
+        : configured;
     var logger = sp.GetRequiredService<ILogger<Dorc.Terraform.Catalog.GitTemplateCatalog>>();
+    if (!Directory.Exists(dir))
+    {
+        logger.LogWarning(
+            "Terraform catalog manifests directory '{ManifestsDirectory}' does not exist; the module catalog will be empty until manifests are delivered there.",
+            dir);
+    }
     return new Dorc.Terraform.Catalog.GitTemplateCatalog(dir, logger);
 });
 // Master Kafka switch. When false, the API skips Kafka producer / consumer

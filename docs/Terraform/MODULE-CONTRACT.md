@@ -132,7 +132,8 @@ Failure blocks merge.
 > Terraform version is not a guarantee about every installed runner's CLI.
 
 ## Manifest immutability
-`stock-modules-manifests/<name>-<version>.yaml` releases are **immutable per
+`stock-modules-manifests/<name>-<version>.yaml` releases (published from the
+`dorc-terraform-modules` repository, alongside module source) are **immutable per
 `(name, version)`**, not merely per filename. The PR gate compares the complete
 base (merge-base) and head catalogs. It rejects duplicate identities
 (case-insensitively), deletion of any published identity, and any change to its
@@ -154,7 +155,8 @@ Do not remove deprecated manifests. A pinned deployment still resolves through
 the catalog, even when the source tag remains available upstream.
 
 The gate is the `manifest-immutability <base-sha> <head-sha>` command of
-`src/Tools.TerraformLint` (.NET, no extra toolchain). It reads manifests from
+`src/Tools.TerraformLint` (.NET, no extra toolchain), run by the modules
+repository's Azure Pipeline from its own root. It reads manifests from
 the Git trees rather than the working copy, treats `v2.1.0` and `2.1.0` as the
 same identity, and fails closed on Git/YAML errors and duplicate YAML keys.
 `--self-test` runs identity, retention, rename/re-add, payload and deprecation

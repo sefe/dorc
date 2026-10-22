@@ -2,8 +2,12 @@
 
 Canonical index of every stock module. Module source lives in the dedicated
 [`sefe/dorc-terraform-modules`](https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules)
-repository (under `stock-modules/<name>/`) and is pulled at deploy time; only
-the catalog manifests (`stock-modules-manifests/`) live in this repo. A module
+repository (under `stock-modules/<name>/`) and is pulled at deploy time. The
+catalog manifests (`stock-modules-manifests/`) live in that same repository and
+are delivered to each DOrc installation at install time into the directory named
+by `Terraform:Catalog:ManifestsDirectory` (installer property
+`DORC.TERRAFORM.CATALOG.MANIFESTS.DIRECTORY`, deploy setting
+`DORC_TERRAFORM_CATALOG_MANIFESTS_DIRECTORY`). A module
 is **active** when DOrc engineers should pick it as a starting point for new
 components; **deprecated** when superseded.
 
@@ -530,9 +534,9 @@ creates its own deployment request; this is not request-level idempotency.
 ## Adding a new module
 
 1. Open a PR creating `stock-modules/<name>/` per the contract in [`sefe/dorc-terraform-modules`](https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules).
-2. That repo's gates (formatting, init/validate, tflint and the secret-output rule) were GitHub Actions before the repository moved to Azure DevOps; re-establish them as an Azure Pipeline from `.github/workflows/ci.yml` in that repo. Provider lock-file verification is not currently enforced.
+2. That repo's `azure-pipelines.yml` runs formatting, init/validate, tflint and the secret-output rule for module source, plus the manifest immutability, sensitive-name and suggest-hint gates and the published-manifest regression tests (`src/Tools.TerraformLint` and `Dorc.Terraform.Catalog.Tests` from this repo). Provider lock-file verification is not currently enforced.
 3. After merge, tag the commit `stock-modules/<name>/v1.0.0` in that repo.
-4. Resolve the tag to its full commit (peel annotated tags), inspect the actual tagged inputs/outputs/provider constraints, then add `stock-modules-manifests/<name>-1.0.0.yaml` with that tag and its `source.commit_sha`. Add the row above. Do not publish duplicate identities or change an existing release payload; fixes require a new version.
+4. Resolve the tag to its full commit (peel annotated tags), inspect the actual tagged inputs/outputs/provider constraints, then add `stock-modules-manifests/<name>-1.0.0.yaml` in that repo with that tag and its `source.commit_sha`. Add the row above. Do not publish duplicate identities or change an existing release payload; fixes require a new version. Installations pick the manifest up on their next deployment, when the release pipeline copies the published manifests to the configured manifests directory.
 
 ## Deprecation
 
