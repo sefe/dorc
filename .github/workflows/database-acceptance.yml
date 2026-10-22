@@ -109,7 +109,7 @@ jobs:
       # connection into a failure rather than a silent skip.
       - name: API and Monitor SQL-backed tests
         env:
-          ConnectionStrings__DOrcConnectionString: 'Server=localhost,1433;Database=master;User Id=sa;******;TrustServerCertificate=True;Encrypt=False'
+          ConnectionStrings__DOrcConnectionString: 'Server=localhost,1433;Database=master;User Id=sa;Password=Dorc-CI-LocalOnly-2026!;TrustServerCertificate=True;Encrypt=False'
           DORC_DB_TESTS_REQUIRED: '1'
         run: |
           set -e
