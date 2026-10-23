@@ -1,7 +1,16 @@
-import { columnBodyRenderer, columnHeaderRenderer, gridRowDetailsRenderer } from '@vaadin/grid/lit';
+import {
+  columnBodyRenderer,
+  columnHeaderRenderer,
+  gridRowDetailsRenderer
+} from '@vaadin/grid/lit';
 import '@vaadin/button';
 import '../components/dorc-spinner';
-import { GridCellPartNameGenerator, GridDataProviderCallback, GridDataProviderParams, GridSorterDefinition } from '@vaadin/grid';
+import {
+  GridCellPartNameGenerator,
+  GridDataProviderCallback,
+  GridDataProviderParams,
+  GridSorterDefinition
+} from '@vaadin/grid';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
@@ -17,6 +26,12 @@ import { PagedDataFilter, RefDataAuditApiModel } from '../apis/dorc-api/models';
 import { GetRefDataAuditListResponseDto } from '../apis/dorc-api/models/GetRefDataAuditListResponseDto';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
+import {
+  buildSideBySide,
+  computeCharDiff,
+  computeLineDiff,
+  prettyJson
+} from '../helpers/text-diff';
 import { getShortLogonName } from '../helpers/user-extensions';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
@@ -48,8 +63,16 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
         flex-direction: column;
         height: 100%;
         min-height: 0;
-        --audit-row-add-bg: color-mix(in srgb, var(--dorc-success-bg) 35%, var(--dorc-bg-primary));
-        --audit-row-remove-bg: color-mix(in srgb, var(--dorc-failure-bg) 35%, var(--dorc-bg-primary));
+        --audit-row-add-bg: color-mix(
+          in srgb,
+          var(--dorc-success-bg) 35%,
+          var(--dorc-bg-primary)
+        );
+        --audit-row-remove-bg: color-mix(
+          in srgb,
+          var(--dorc-failure-bg) 35%,
+          var(--dorc-bg-primary)
+        );
         --audit-char-add-bg: var(--dorc-success-bg);
         --audit-char-remove-bg: var(--dorc-failure-bg);
       }
@@ -184,7 +207,9 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
 
   render() {
     return html`
-      <dorc-spinner ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
+      <dorc-spinner
+        ?hidden="${!(this.loading || this.searching)}"
+      ></dorc-spinner>
       <vaadin-grid
         id="grid"
         column-reordering-allowed
@@ -263,9 +288,18 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
-    this.addEventListener('project-audit-loaded', this.auditLoaded as EventListener);
-    this.addEventListener('searching-project-audit-started', this.searchingStarted as EventListener);
-    this.addEventListener('searching-project-audit-finished', this.searchingFinished as EventListener);
+    this.addEventListener(
+      'project-audit-loaded',
+      this.auditLoaded as EventListener
+    );
+    this.addEventListener(
+      'searching-project-audit-started',
+      this.searchingStarted as EventListener
+    );
+    this.addEventListener(
+      'searching-project-audit-finished',
+      this.searchingFinished as EventListener
+    );
   }
 
   private searchingStarted() {
@@ -280,19 +314,15 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
     this.loading = false;
   }
 
-  private cellPartNameGenerator: GridCellPartNameGenerator<RefDataAuditApiModel> = (
-    _column,
-    model
-  ) => {
-    const action = model.item?.Action;
-    if (action === 'Create') return 'create-type';
-    if (action === 'Delete') return 'delete-type';
-    return '';
-  };
+  private cellPartNameGenerator: GridCellPartNameGenerator<RefDataAuditApiModel> =
+    (_column, model) => {
+      const action = model.item?.Action;
+      if (action === 'Create') return 'create-type';
+      if (action === 'Delete') return 'delete-type';
+      return '';
+    };
 
-  private projectNameRenderer = (
-    item: RefDataAuditApiModel
-  ) => {
+  private projectNameRenderer = (item: RefDataAuditApiModel) => {
     const name = item.Project?.ProjectName;
     if (!name) {
       return html`<span class="muted">(deleted)</span>`;
@@ -300,9 +330,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
     return html`<span>${name}</span>`;
   };
 
-  private dateRenderer = (
-    item: RefDataAuditApiModel
-  ) => {
+  private dateRenderer = (item: RefDataAuditApiModel) => {
     const raw = item?.Date;
     if (!raw) {
       return html``;
@@ -315,9 +343,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
   // Value-cell shows a compact summary only — line counts and a few changed
   // section names. The full unified diff lives in the row-details slot
   // (detailsRenderer below) and is opened by clicking the row's chevron.
-  private valueRenderer = (
-    item: RefDataAuditApiModel
-  ) => {
+  private valueRenderer = (item: RefDataAuditApiModel) => {
     const raw = item?.Json;
     if (!raw) {
       return html`<span class="muted">—</span>`;
@@ -328,14 +354,14 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
       return html`<span class="muted">first audit · no prior version</span>`;
     }
 
-    const curr = this.prettyJson(raw);
-    const prev = this.prettyJson(priorRaw);
+    const curr = prettyJson(raw);
+    const prev = prettyJson(priorRaw);
 
     if (prev === curr) {
       return html`<span class="muted">no changes</span>`;
     }
 
-    const ops = this.computeLineDiff(prev, curr);
+    const ops = computeLineDiff(prev, curr);
     const insertCount = ops.filter(o => o.type === 'insert').length;
     const deleteCount = ops.filter(o => o.type === 'delete').length;
 
@@ -347,19 +373,23 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
     const overflow = sectionCount - visibleSections.length;
 
     return html`
-        <div class="summary-counts">
-          <span class="added">+${insertCount}</span>
-          <span class="removed">-${deleteCount}</span>
-          lines${sectionCount > 0
+      <div class="summary-counts">
+        <span class="added">+${insertCount}</span>
+        <span class="removed">-${deleteCount}</span>
+        lines${
+          sectionCount > 0
             ? html` · ${sectionCount} section${sectionCount === 1 ? '' : 's'}`
-            : ''}
-        </div>
-        ${sectionCount > 0
+            : ''
+        }
+      </div>
+      ${
+        sectionCount > 0
           ? html`<div class="summary-sections">
               ${visibleSections.join(', ')}${overflow > 0 ? ` +${overflow} more` : ''}
             </div>`
-          : ''}
-      `;
+          : ''
+      }
+    `;
   };
 
   // Walk the line-LCS ops and infer a section name for each insert/delete.
@@ -465,24 +495,26 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
   // line is rendered (the user wanted full context for navigation). The
   // surrounding details-pane has its own internal scroll (CSS), so the grid
   // row metadata above stays visible while the user scrolls the diff content.
-  private detailsRenderer = (
-    item: RefDataAuditApiModel
-  ) => {
+  private detailsRenderer = (item: RefDataAuditApiModel) => {
     const raw = item?.Json;
     if (!raw) {
       return html`<div class="details-pane muted">—</div>`;
     }
     const priorRaw = item.PriorJson;
-    const curr = this.prettyJson(raw);
+    const curr = prettyJson(raw);
     if (!priorRaw) {
-      return html`<div class="details-pane"><pre class="value">${curr}</pre></div>`;
+      return html`<div class="details-pane">
+        <pre class="value">${curr}</pre>
+      </div>`;
     }
-    const prev = this.prettyJson(priorRaw);
+    const prev = prettyJson(priorRaw);
     if (prev === curr) {
-      return html`<div class="details-pane"><pre class="value">${curr}</pre></div>`;
+      return html`<div class="details-pane">
+        <pre class="value">${curr}</pre>
+      </div>`;
     }
-    const ops = this.computeLineDiff(prev, curr);
-    const rows = this.buildSideBySide(ops);
+    const ops = computeLineDiff(prev, curr);
+    const rows = buildSideBySide(ops);
     const cells: unknown[] = [];
     for (const r of rows) {
       // Pure insert/delete lines: tint the whole cell — there's no paired
@@ -491,7 +523,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
       // highlighting instead, so only the characters that actually differ are
       // tinted. Matches the per-record audit pages (scripts/variables/daemons).
       if (r.kind === 'change' && r.left !== null && r.right !== null) {
-        const charOps = this.computeCharDiff(r.left, r.right);
+        const charOps = computeCharDiff(r.left, r.right);
         const leftFrags = charOps.map(op => {
           if (op.type === 'keep') return html`${op.value}`;
           if (op.type === 'delete')
@@ -507,66 +539,28 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
         cells.push(html`<div class="diff-cell">${leftFrags}</div>`);
         cells.push(html`<div class="diff-cell right">${rightFrags}</div>`);
       } else {
-        const leftCls = r.kind === 'delete' ? 'diff-cell line-remove' : 'diff-cell';
-        const rightCls = r.kind === 'insert' ? 'diff-cell right line-add' : 'diff-cell right';
+        const leftCls =
+          r.kind === 'delete' ? 'diff-cell line-remove' : 'diff-cell';
+        const rightCls =
+          r.kind === 'insert' ? 'diff-cell right line-add' : 'diff-cell right';
         cells.push(html`<div class="${leftCls}">${r.left ?? ''}</div>`);
         cells.push(html`<div class="${rightCls}">${r.right ?? ''}</div>`);
       }
     }
     return html`
-        <div class="details-pane">
-          <div class="diff-header">
-            <div>Before</div>
-            <div class="right">After</div>
-          </div>
-          <div class="diff-pane-scroll">
-            <div class="diff-grid">${cells}</div>
-          </div>
+      <div class="details-pane">
+        <div class="diff-header">
+          <div>Before</div>
+          <div class="right">After</div>
         </div>
-      `;
+        <div class="diff-pane-scroll">
+          <div class="diff-grid">${cells}</div>
+        </div>
+      </div>
+    `;
   };
 
-  // Convert the line-LCS ops into a side-by-side row stream. Within each run
-  // of consecutive non-keep ops, deletes pair positionally with inserts:
-  //   - Pair k of (deletes, inserts) → one 'change' row (left=del, right=ins)
-  //   - Surplus deletes → 'delete' rows (left only)
-  //   - Surplus inserts → 'insert' rows (right only)
-  // Keep ops emit a single row with the same line on both sides.
-  private buildSideBySide(
-    ops: { type: 'keep' | 'insert' | 'delete'; line: string }[]
-  ): { left: string | null; right: string | null; kind: 'keep' | 'change' | 'delete' | 'insert' }[] {
-    const out: { left: string | null; right: string | null; kind: 'keep' | 'change' | 'delete' | 'insert' }[] = [];
-    let i = 0;
-    while (i < ops.length) {
-      if (ops[i].type === 'keep') {
-        out.push({ left: ops[i].line, right: ops[i].line, kind: 'keep' });
-        i++;
-        continue;
-      }
-      const dels: string[] = [];
-      const ins: string[] = [];
-      while (i < ops.length && ops[i].type !== 'keep') {
-        if (ops[i].type === 'delete') dels.push(ops[i].line);
-        else ins.push(ops[i].line);
-        i++;
-      }
-      const max = Math.max(dels.length, ins.length);
-      for (let k = 0; k < max; k++) {
-        const l = dels[k];
-        const r = ins[k];
-        let kind: 'change' | 'delete' | 'insert';
-        if (l !== undefined && r !== undefined) kind = 'change';
-        else if (l !== undefined) kind = 'delete';
-        else kind = 'insert';
-        out.push({ left: l ?? null, right: r ?? null, kind });
-      }
-    }
-    return out;
-  }
-
-  private chevronRenderer = (
-    item: RefDataAuditApiModel
-  ) => {
+  private chevronRenderer = (item: RefDataAuditApiModel) => {
     const isOpen = this.openedItems.indexOf(item) !== -1;
     const icon = isOpen ? 'vaadin:chevron-down' : 'vaadin:chevron-right';
     return html`<vaadin-icon class="chevron" icon="${icon}"></vaadin-icon>`;
@@ -593,145 +587,44 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
     if (grid) grid.activeItem = null;
   };
 
-  private prettyJson(raw: string): string {
-    try {
-      return JSON.stringify(JSON.parse(raw), null, 2);
-    } catch {
-      return raw;
-    }
-  }
-
-  // Character-level LCS diff used inside paired change lines (see
-  // detailsRenderer). Returns a run-length-merged op list so adjacent same-type
-  // characters render as a single highlighted span rather than per-character.
-  private computeCharDiff(
-    oldStr: string,
-    newStr: string
-  ): { type: 'keep' | 'insert' | 'delete'; value: string }[] {
-    const oldLen = oldStr.length;
-    const newLen = newStr.length;
-    const dp: number[][] = Array.from({ length: oldLen + 1 }, () =>
-      new Array(newLen + 1).fill(0)
-    );
-    for (let i = 1; i <= oldLen; i++) {
-      for (let j = 1; j <= newLen; j++) {
-        if (oldStr[i - 1] === newStr[j - 1]) {
-          dp[i][j] = dp[i - 1][j - 1] + 1;
-        } else {
-          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
-        }
-      }
-    }
-
-    const ops: { type: 'keep' | 'insert' | 'delete'; value: string }[] = [];
-    let i = oldLen;
-    let j = newLen;
-    while (i > 0 || j > 0) {
-      if (i > 0 && j > 0 && oldStr[i - 1] === newStr[j - 1]) {
-        ops.push({ type: 'keep', value: oldStr[i - 1] });
-        i--;
-        j--;
-      } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-        ops.push({ type: 'insert', value: newStr[j - 1] });
-        j--;
-      } else {
-        ops.push({ type: 'delete', value: oldStr[i - 1] });
-        i--;
-      }
-    }
-    ops.reverse();
-
-    const merged: { type: 'keep' | 'insert' | 'delete'; value: string }[] = [];
-    for (const op of ops) {
-      const last = merged[merged.length - 1];
-      if (last && last.type === op.type) {
-        last.value += op.value;
-      } else {
-        merged.push({ type: op.type, value: op.value });
-      }
-    }
-    return merged;
-  }
-
-  private computeLineDiff(
-    oldStr: string,
-    newStr: string
-  ): { type: 'keep' | 'insert' | 'delete'; line: string }[] {
-    const oldLines = oldStr.split('\n');
-    const newLines = newStr.split('\n');
-    const m = oldLines.length;
-    const n = newLines.length;
-    const dp: number[][] = Array.from({ length: m + 1 }, () =>
-      new Array(n + 1).fill(0)
-    );
-    for (let i = 1; i <= m; i++) {
-      for (let j = 1; j <= n; j++) {
-        if (oldLines[i - 1] === newLines[j - 1]) {
-          dp[i][j] = dp[i - 1][j - 1] + 1;
-        } else {
-          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
-        }
-      }
-    }
-
-    const ops: { type: 'keep' | 'insert' | 'delete'; line: string }[] = [];
-    let i = m;
-    let j = n;
-    while (i > 0 || j > 0) {
-      if (i > 0 && j > 0 && oldLines[i - 1] === newLines[j - 1]) {
-        ops.push({ type: 'keep', line: oldLines[i - 1] });
-        i--;
-        j--;
-      } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-        ops.push({ type: 'insert', line: newLines[j - 1] });
-        j--;
-      } else {
-        ops.push({ type: 'delete', line: oldLines[i - 1] });
-        i--;
-      }
-    }
-    ops.reverse();
-    return ops;
-  }
-
   userHeaderRenderer = () => {
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="Username">User</vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="User"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
-              const tf = e.target as HTMLInputElement;
-              this.userFilter = tf?.value ?? '';
-              this.refreshGrid();
-            }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `;
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="Username">User</vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="User"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const tf = e.target as HTMLInputElement;
+            this.userFilter = tf?.value ?? '';
+            this.refreshGrid();
+          }}"
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
   };
 
   actionHeaderRenderer = () => {
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="Action">Action</vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Action"
-            clear-button-visible
-            focus-target
-            style="width: 80px"
-            theme="small"
-            @input="${(e: InputEvent) => {
-              const tf = e.target as HTMLInputElement;
-              this.actionFilter = tf?.value ?? '';
-              this.refreshGrid();
-            }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `;
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="Action">Action</vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Action"
+          clear-button-visible
+          focus-target
+          style="width: 80px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const tf = e.target as HTMLInputElement;
+            this.actionFilter = tf?.value ?? '';
+            this.refreshGrid();
+          }}"
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
   };
 
   private refreshGrid() {

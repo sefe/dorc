@@ -30,6 +30,7 @@ import '../components/deploy/component-tree/hegs-tree';
 import { TreeNode } from '../components/deploy/component-tree/TreeNode';
 import '../components/deployment-definition-editor';
 import '../components/deployment-definition-history';
+import '../components/hegs-json-diff';
 import '../components/project-workspace-nav';
 import {
   GENERIC_SCRIPT_CATEGORIES,
@@ -525,29 +526,6 @@ export class PageProjectRefData extends PageElement {
     .diff {
       flex: 1;
       min-height: 0;
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: var(--lumo-space-m);
-    }
-    .diff > div {
-      min-height: 0;
-      display: flex;
-      flex-direction: column;
-      gap: var(--lumo-space-xs);
-    }
-    pre {
-      flex: 1;
-      min-height: 0;
-      margin: 0;
-      background: var(--dorc-bg-secondary);
-      border: 1px solid var(--dorc-border-color);
-      border-radius: var(--lumo-border-radius-s);
-      font-family: var(--dorc-mono-font, monospace);
-      font-size: var(--lumo-font-size-xs);
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      padding: var(--lumo-space-s);
-      overflow: auto;
     }
     @media (max-width: 768px) {
       .workspace {
@@ -1912,8 +1890,11 @@ export class PageProjectRefData extends PageElement {
           >
           <vaadin-button
             theme="primary"
-            @click=${() => this.previewSave()}
-            .disabled=${!this.editable || !this.dirty}
+            @click=${(event: Event) => {
+              (event.currentTarget as HTMLElement | null)?.blur();
+              this.previewSave();
+            }}
+            .disabled=${!this.editable || !this.dirty || Boolean(this.preview)}
             >Review changes</vaadin-button
           >
         </div>
@@ -2161,16 +2142,13 @@ export class PageProjectRefData extends PageElement {
                 does not deploy infrastructure or change requests already
                 submitted.
               </p>
-              <div class="diff">
-                <div>
-                  <h3>Before</h3>
-                  <pre>${JSON.stringify(this.baseline, null, 2)}</pre>
-                </div>
-                <div>
-                  <h3>After</h3>
-                  <pre>${JSON.stringify(this.preview, null, 2)}</pre>
-                </div>
-              </div>
+              <hegs-json-diff
+                class="diff"
+                .oldText=${JSON.stringify(this.baseline, null, 2)}
+                .newText=${JSON.stringify(this.preview, null, 2)}
+                before-label="Current (revision ${this.baseline?.Revision ?? '?'})"
+                after-label="After save"
+              ></hegs-json-diff>
               <div class="actions">
                 <vaadin-button
                   theme="primary"
