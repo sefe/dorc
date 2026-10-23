@@ -120,9 +120,29 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
         overflow: hidden;
         height: 100%;
       }
+      /* Same density as the Monitor grid: fill the remaining column height
+         below the banner instead of 100% of the host, which pushed the last
+         rows under the bottom edge, and drop the vertical cell padding. */
       vaadin-grid#grid {
         --divider-color: var(--dorc-border-color);
-        height: 100%;
+        flex: 1;
+        min-height: 0;
+      }
+      vaadin-grid-cell-content {
+        padding-top: 0;
+        padding-bottom: 0;
+        margin: 0;
+      }
+      /* The Path JSON used to render at "small" inside a column that shared
+         its width with PS Version, so it scrolled sideways in a few lines of
+         tiny text. Give it the cell width and the grid's own text size. */
+      .path-json {
+        display: block;
+        width: 100%;
+        margin: var(--lumo-space-xs) 0;
+        font-size: var(--lumo-font-size-s);
+        line-height: var(--lumo-line-height-s);
+        --indent-size: 1em;
       }
       .definitions-link {
         padding: var(--lumo-space-s);
@@ -318,6 +338,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
                 path="Path"
                 header="Path"
                 resizable
+                flex-grow="1"
                 ${columnBodyRenderer(this._jsonRenderer, [])}
                 ${columnHeaderRenderer(this.pathHeaderRenderer, [])}
                 ?hidden="${this._narrowScreen}"
@@ -326,6 +347,8 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
                 path="PowerShellVersionNumber"
                 header="PS Version"
                 resizable
+                width="140px"
+                flex-grow="0"
                 ${columnBodyRenderer(this.psVersionRenderer, [
                   this.powerShellVersions,
                   this.userRoles,
@@ -516,7 +539,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     // The viewer is configured through a method, so `ref` fires exactly when
     // the element exists rather than querying it back out of the cell.
     return html`<hegs-json-viewer
-      style="font-size: small"
+      class="path-json"
       ${ref(showJson(script.Path))}
     ></hegs-json-viewer>`;
   }

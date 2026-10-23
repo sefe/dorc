@@ -334,7 +334,7 @@ export class PageDeploymentDefinitions extends ResponsiveMixin(PageElement) {
       <vaadin-grid
         .items=${this.items}
         .loading=${this.loading}
-        theme="compact row-stripes no-border"
+        theme="compact row-stripes no-row-borders no-border"
       >
         <vaadin-grid-column
           header="Definition / type"
