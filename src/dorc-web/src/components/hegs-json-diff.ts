@@ -151,6 +151,10 @@ export class HegsJsonDiff extends LitElement {
 
   @property({ type: Number }) context = 3;
 
+  /** Lines differing only in whitespace are treated as unchanged (default on). */
+  @property({ type: Boolean, attribute: 'ignore-whitespace' })
+  ignoreWhitespace = true;
+
   @state() private expandedFolds = new Set<number>();
 
   protected willUpdate(changed: Map<string, unknown>) {
@@ -160,10 +164,17 @@ export class HegsJsonDiff extends LitElement {
   }
 
   render() {
-    if (this.oldText === this.newText) {
-      return html`<p class="empty">No differences.</p>`;
+    const ops = computeLineDiff(this.oldText, this.newText, {
+      ignoreWhitespace: this.ignoreWhitespace
+    });
+    if (ops.every(o => o.type === 'keep')) {
+      return html`<p class="empty">
+        No
+        differences${
+          this.oldText !== this.newText ? ' other than whitespace' : ''
+        }.
+      </p>`;
     }
-    const ops = computeLineDiff(this.oldText, this.newText);
     const added = ops.filter(o => o.type === 'insert').length;
     const removed = ops.filter(o => o.type === 'delete').length;
     const blocks = this.fold(buildSideBySide(ops));

@@ -77,4 +77,50 @@ describe('hegs-json-diff', () => {
     expect(rows[2].left).to.equal(null);
     expect(rows[2].right).to.equal('y');
   });
+
+  it('ignores whitespace-only line differences by default', async () => {
+    const before = ['{', '  "Name": "Parent",', '  "Enabled": true', '}'].join(
+      '\n'
+    );
+    const after = [
+      '{',
+      '      "Name":   "Parent",\r',
+      '  "Enabled": false',
+      '}'
+    ].join('\n');
+    const ops = computeLineDiff(before, after, { ignoreWhitespace: true });
+    expect(ops.map(o => o.type)).to.deep.equal([
+      'keep',
+      'keep',
+      'delete',
+      'insert',
+      'keep'
+    ]);
+    expect(
+      computeLineDiff(before, after).filter(o => o.type !== 'keep')
+    ).to.have.length(4);
+
+    const el = await fixture<HegsJsonDiff>(
+      html`<hegs-json-diff
+        .oldText=${before}
+        .newText=${after}
+      ></hegs-json-diff>`
+    );
+    await settle();
+    expect(
+      el
+        .shadowRoot!.querySelector('.summary')
+        ?.textContent?.replace(/\s+/g, ' ')
+        .trim()
+    ).to.equal('+1 -1 lines');
+
+    el.newText = before.replace(/ {2}/g, '\t');
+    await settle();
+    expect(el.shadowRoot!.querySelector('.empty')?.textContent).to.contain(
+      'other than whitespace'
+    );
+    el.ignoreWhitespace = false;
+    await settle();
+    expect(el.shadowRoot!.querySelector('.empty')).to.equal(null);
+  });
 });

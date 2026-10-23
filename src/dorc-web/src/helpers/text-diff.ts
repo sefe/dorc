@@ -18,9 +18,19 @@ export interface SideBySideRow {
   kind: SideBySideKind;
 }
 
+export interface LineDiffOptions {
+  /** Treat lines that differ only in leading/trailing or run-length whitespace as equal. */
+  ignoreWhitespace?: boolean;
+}
+
+export function normalizeWhitespace(line: string): string {
+  return line.trim().replace(/\s+/g, ' ');
+}
+
 function lcsTable<T>(
   oldItems: ArrayLike<T>,
-  newItems: ArrayLike<T>
+  newItems: ArrayLike<T>,
+  equals: (a: T, b: T) => boolean
 ): number[][] {
   const m = oldItems.length;
   const n = newItems.length;
@@ -29,7 +39,7 @@ function lcsTable<T>(
   );
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
-      if (oldItems[i - 1] === newItems[j - 1]) {
+      if (equals(oldItems[i - 1], newItems[j - 1])) {
         dp[i][j] = dp[i - 1][j - 1] + 1;
       } else {
         dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
@@ -42,13 +52,14 @@ function lcsTable<T>(
 function backtrack<T>(
   oldItems: ArrayLike<T>,
   newItems: ArrayLike<T>,
-  dp: number[][]
+  dp: number[][],
+  equals: (a: T, b: T) => boolean
 ): { type: DiffOpType; item: T }[] {
   const ops: { type: DiffOpType; item: T }[] = [];
   let i = oldItems.length;
   let j = newItems.length;
   while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && oldItems[i - 1] === newItems[j - 1]) {
+    if (i > 0 && j > 0 && equals(oldItems[i - 1], newItems[j - 1])) {
       ops.push({ type: 'keep', item: oldItems[i - 1] });
       i--;
       j--;
@@ -64,19 +75,37 @@ function backtrack<T>(
   return ops;
 }
 
-export function computeLineDiff(oldStr: string, newStr: string): LineDiffOp[] {
+const strictEquals = <T>(a: T, b: T) => a === b;
+
+export function computeLineDiff(
+  oldStr: string,
+  newStr: string,
+  options: LineDiffOptions = {}
+): LineDiffOp[] {
   const oldLines = oldStr.split('\n');
   const newLines = newStr.split('\n');
-  return backtrack(oldLines, newLines, lcsTable(oldLines, newLines)).map(
-    op => ({ type: op.type, line: op.item })
-  );
+  const equals = options.ignoreWhitespace
+    ? (a: string, b: string) =>
+        a === b || normalizeWhitespace(a) === normalizeWhitespace(b)
+    : strictEquals<string>;
+  return backtrack(
+    oldLines,
+    newLines,
+    lcsTable(oldLines, newLines, equals),
+    equals
+  ).map(op => ({ type: op.type, line: op.item }));
 }
 
 // Character-level LCS diff used inside paired change lines. Returns a
 // run-length-merged op list so adjacent same-type characters render as a
 // single highlighted span rather than per-character.
 export function computeCharDiff(oldStr: string, newStr: string): CharDiffOp[] {
-  const ops = backtrack(oldStr, newStr, lcsTable(oldStr, newStr));
+  const ops = backtrack(
+    oldStr,
+    newStr,
+    lcsTable(oldStr, newStr, strictEquals<string>),
+    strictEquals<string>
+  );
   const merged: CharDiffOp[] = [];
   for (const op of ops) {
     const last = merged[merged.length - 1];
