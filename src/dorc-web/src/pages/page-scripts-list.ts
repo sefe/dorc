@@ -142,6 +142,8 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
         margin: var(--lumo-space-xs) 0;
         font-size: var(--lumo-font-size-s);
         line-height: var(--lumo-line-height-s);
+        white-space: normal;
+        overflow-wrap: anywhere;
         --indent-size: 1em;
       }
       .definitions-link {
@@ -310,15 +312,15 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
                 header="Script Name"
                 resizable
                 ${columnHeaderRenderer(this.nameHeaderRenderer, [])}
-                width="500px"
-                flex-grow="0"
+                width="260px"
+                flex-grow="1"
               >
               </vaadin-grid-column>
               <vaadin-grid-column
                 path="ProjectNames"
                 header="Projects"
                 resizable
-                width="200px"
+                width="180px"
                 flex-grow="0"
                 ${columnBodyRenderer(this.projectNamesRenderer, [])}
                 ${columnHeaderRenderer(this.projectNamesHeaderRenderer, [])}
@@ -329,7 +331,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
                 path="NonProdOnly"
                 header="Non Prod Only"
                 resizable
-                width="150px"
+                width="130px"
                 flex-grow="0"
                 ${columnBodyRenderer(this.nonProdRenderer, [])}
                 ?hidden="${this._narrowScreen}"
@@ -338,7 +340,8 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
                 path="Path"
                 header="Path"
                 resizable
-                flex-grow="1"
+                width="320px"
+                flex-grow="2"
                 ${columnBodyRenderer(this._jsonRenderer, [])}
                 ${columnHeaderRenderer(this.pathHeaderRenderer, [])}
                 ?hidden="${this._narrowScreen}"
