@@ -1,9 +1,13 @@
 import '@vaadin/button';
 import '@vaadin/checkbox';
 import '@vaadin/combo-box';
+import '@vaadin/text-area';
 import '@vaadin/text-field';
+import './hegs-json-viewer';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { ref } from 'lit/directives/ref.js';
+import type { HegsJsonViewer } from './hegs-json-viewer';
 import {
   ComponentType,
   TerraformSourceType,
@@ -39,9 +43,28 @@ export class DeploymentDefinitionEditor extends LitElement {
       gap: var(--lumo-space-xs) var(--lumo-space-m);
     }
     vaadin-text-field,
+    vaadin-text-area,
     vaadin-combo-box {
       width: 100%;
       min-width: 0;
+    }
+    vaadin-text-area::part(input-field) {
+      font-family: monospace;
+    }
+    .json-preview {
+      font-size: var(--lumo-font-size-s);
+      line-height: var(--lumo-line-height-s);
+      border-radius: var(--lumo-border-radius-m);
+      white-space: normal;
+      overflow-wrap: anywhere;
+      --indent-size: 1em;
+    }
+    .json-preview-label {
+      display: block;
+      margin-top: var(--lumo-space-xs);
+      font-size: var(--lumo-font-size-s);
+      font-weight: 500;
+      color: var(--lumo-secondary-text-color);
     }
     .full {
       grid-column: 1 / -1;
@@ -148,6 +171,46 @@ export class DeploymentDefinitionEditor extends LitElement {
       .helperText=${helper}
       @change=${(event: Event) => this.change({ [key]: (event.currentTarget as HTMLInputElement).value })}
     ></vaadin-text-field>`;
+  }
+
+  /**
+   * A JSON path is an object with `ScriptPath` and `GenericArguments`, and a
+   * single-line field shows a few dozen characters of it. The raw value stays
+   * editable — nothing is reformatted on the way in, so an untouched value
+   * round-trips byte-for-byte — and the viewer below renders what the
+   * current text parses to. Malformed JSON shows as the raw string.
+   */
+  private renderScriptPathField(component: ComponentApiModel) {
+    const raw = component.ScriptPath ?? '';
+    const helper =
+      'Existing paths and JSON argument definitions are preserved. Use secure property references for secrets.';
+    if (!parseScriptPathValue(raw).isJsonPath) {
+      return this.text('Script path or JSON path', 'ScriptPath', helper);
+    }
+    let parsed: unknown = raw;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      /* preview the raw text */
+    }
+    return html`<vaadin-text-area
+        label="Script path or JSON path"
+        .value=${raw}
+        .readonly=${this.readonly}
+        .helperText=${helper}
+        min-rows="2"
+        max-rows="8"
+        @change=${(event: Event) =>
+          this.change({
+            ScriptPath: (event.currentTarget as HTMLTextAreaElement).value
+          })}
+      ></vaadin-text-area>
+      <span class="json-preview-label">Parsed JSON path</span>
+      <hegs-json-viewer
+        class="json-preview"
+        .data=${parsed}
+        ${ref(element => (element as HegsJsonViewer | undefined)?.expandAll())}
+      ></hegs-json-viewer>`;
   }
 
   private selectGenericTemplate(templatePath: string) {
@@ -457,11 +520,15 @@ export class DeploymentDefinitionEditor extends LitElement {
         ${
           !terraform || sourceType === TerraformSourceType.SharedFolder
             ? html`<div class="full">
-                ${this.text(
-                  terraform ? 'Shared folder path' : 'Script path or JSON path',
-                  'ScriptPath',
-                  'Existing paths and JSON argument definitions are preserved. Use secure property references for secrets.'
-                )}
+                ${
+                  terraform
+                    ? this.text(
+                        'Shared folder path',
+                        'ScriptPath',
+                        'Existing paths and JSON argument definitions are preserved. Use secure property references for secrets.'
+                      )
+                    : this.renderScriptPathField(component)
+                }
               </div>`
             : nothing
         }

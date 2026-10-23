@@ -207,6 +207,22 @@ describe('unified reference-data editing', () => {
     clickButton(page.shadowRoot!, 'Review changes');
     await settle();
     expect(mocks.save.mock.calls).to.have.length(0);
+    const reviewButton = [
+      ...page.shadowRoot!.querySelectorAll<HTMLElement & { disabled: boolean }>(
+        'vaadin-button'
+      )
+    ].find(button => button.textContent?.trim() === 'Review changes')!;
+    expect(reviewButton.disabled, 'review disabled while previewing').to.equal(
+      true
+    );
+    const diff = page.shadowRoot!.querySelector('hegs-json-diff')!;
+    const added = [
+      ...diff.shadowRoot!.querySelectorAll('.diff-cell.line-add')
+    ].map(cell => cell.textContent ?? '');
+    expect(added.join('\n')).to.contain('utstate');
+    expect(diff.shadowRoot!.querySelectorAll('.fold').length).to.be.greaterThan(
+      0
+    );
     clickButton(page.shadowRoot!, 'Confirm save');
     await settle();
     const saved = mocks.save.mock.calls[0][0].refDataApiModel;
@@ -417,6 +433,48 @@ describe('unified reference-data editing', () => {
       expect(component.TerraformGitBranch).to.equal('release');
     });
   }
+
+  it('shows a JSON script path in a multi-line field with a parsed preview and keeps the raw text', async () => {
+    const raw =
+      '{ "ScriptPath": "00 Generic\\\\DeployMSI.ps1", "GenericArguments": [ { "msiName": "Thing.msi" } ] }';
+    const component = {
+      ...reference().Components[0],
+      ComponentType: ComponentType.PowerShell,
+      ScriptPath: raw
+    };
+    const changes: string[] = [];
+    const editor = await fixture(
+      html`<deployment-definition-editor
+        .component=${component}
+        .project=${reference().Project}
+        .powerShellVersions=${['5.1']}
+        @definition-changed=${(e: CustomEvent) =>
+          changes.push(e.detail.ScriptPath)}
+      ></deployment-definition-editor>`
+    );
+    await settle();
+    const root = editor.shadowRoot!;
+    const area = root.querySelector('vaadin-text-area') as HTMLElement & {
+      value: string;
+      label: string;
+    };
+    expect(area.label).to.equal('Script path or JSON path');
+    expect(area.value).to.equal(raw);
+    expect(
+      [...root.querySelectorAll<TextField>('vaadin-text-field')].some(
+        f => f.label === 'Script path or JSON path'
+      )
+    ).to.equal(false);
+    const viewer = root.querySelector('hegs-json-viewer') as HTMLElement & {
+      data: unknown;
+    };
+    expect(viewer.data).to.deep.equal(JSON.parse(raw));
+    expect(viewer.shadowRoot!.textContent).to.include('msiName');
+
+    area.value = raw.replace('Thing.msi', 'Other.msi');
+    area.dispatchEvent(new Event('change'));
+    expect(changes).to.deep.equal([raw.replace('Thing.msi', 'Other.msi')]);
+  });
 
   it('respects read-only capability and provides an unfiltered project timeline', async () => {
     mocks.get.mockReturnValue(of({ ...reference(), CanEdit: false }));
