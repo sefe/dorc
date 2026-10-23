@@ -14,18 +14,21 @@ import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import {
   RefDataComponentsApi,
   ComponentApiModel,
+  ComponentType,
   RefDataProjectEnvironmentMappingsApi,
   EnvironmentApiModel,
   RefDataProjectBuildsApi,
   EnvironmentContentBuildsApiModel,
-  RefDataProjectsApi
+  RefDataProjectsApi,
+  TerraformSourceType
 } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import '@vaadin/grid/vaadin-grid-column';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import '../components/project-workspace-nav';
 
 interface ComponentDeploymentInfo extends ComponentApiModel {
-  Children?: ComponentDeploymentInfo[];
+  Children?: ComponentDeploymentInfo[] | null;
   environmentBuilds?: Map<string, EnvironmentContentBuildsApiModel | null>;
   displayName?: string;
   parentPath?: string[];
@@ -51,6 +54,11 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
         height: calc(100vh - 50px);
         padding: 16px;
         box-sizing: border-box;
+      }
+
+      project-workspace-nav {
+        margin: -16px -16px 12px -16px;
+        flex-shrink: 0;
       }
 
       .header {
@@ -209,6 +217,11 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
 
   render() {
     return html`
+      <project-workspace-nav
+        .projectId=${this.projectId}
+        .projectName=${this.projectName}
+        activeTab="components"
+      ></project-workspace-nav>
       <div class="header">
         <div class="title">
           ${
@@ -247,7 +260,7 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
                   >
                   </vaadin-grid-sort-column>
                   <vaadin-grid-column
-                    header="Build Number"
+                    header="Source / revision"
                     path="buildNumber"
                     resizable
                     auto-width
@@ -366,7 +379,9 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
       }
 
       this.environmentsLoading = true;
-      const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
+      const api = new RefDataProjectEnvironmentMappingsApi(
+        dorcApiConfiguration
+      );
       api
         .refDataProjectEnvironmentMappingsGet({
           project: this.projectName,
@@ -466,7 +481,12 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
 
       return {
         environmentName: env.EnvironmentName || '',
-        buildNumber: build.RequestBuildNum || 'N/A',
+        buildNumber:
+          build.SourceRevisionLabel ||
+          (build.RequestBuildNum
+            ? `Submitted build: ${build.RequestBuildNum}`
+            : '') ||
+          'Executed source not recorded',
         status: build.State || 'Unknown',
         updateDate: updateDate,
         requestId: build.RequestId,
@@ -539,11 +559,20 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
       const hasScript = Boolean(
         component.ScriptPath && component.ScriptPath.trim() !== ''
       );
+      const hasTerraformSource =
+        component.ComponentType === ComponentType.Terraform &&
+        (component.TerraformSourceType === TerraformSourceType.Catalog
+          ? Boolean(component.TerraformTemplateName?.trim()) &&
+            Boolean(component.TerraformTemplateVersion?.trim())
+          : component.TerraformSourceType === TerraformSourceType.Git
+            ? Boolean(component.TerraformGitBranch?.trim()) ||
+              Boolean(component.TerraformSubPath?.trim())
+            : Boolean(component.TerraformSubPath?.trim()));
       const hasChildren = Boolean(
         component.Children && component.Children.length > 0
       );
 
-      if (hasScript) {
+      if (hasScript || hasTerraformSource) {
         const deploymentInfo: ComponentDeploymentInfo = {
           ...component,
           displayName: componentName,

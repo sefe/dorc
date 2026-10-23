@@ -4,6 +4,9 @@ namespace Dorc.ApiModel
 {
     public class DeploymentResultApiModel
     {
+        public int? ProjectId { get; set; }
+        public string DefinitionRevision { get; set; }
+        public string SourceRevisionLabel { get; set; }
         public int Id { get; set; }
         public string ComponentName { get; set; }
         public string Status { get; set; }
@@ -12,5 +15,6 @@ namespace Dorc.ApiModel
         public int RequestId { get; set; }
         public DateTimeOffset? StartedTime { get; set; }
         public DateTimeOffset? CompletedTime { get; set; }
+        public bool IsTerraform { get; set; }
     }
 }

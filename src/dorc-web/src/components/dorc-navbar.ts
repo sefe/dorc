@@ -88,6 +88,12 @@ export class DorcNavbar extends LitElement {
         padding-bottom: 0px;
       }
 
+      vaadin-tab.nav-section-start {
+        margin-top: var(--lumo-space-xs);
+        border-top: 1px solid var(--dorc-border-color);
+        padding-top: 2px;
+      }
+
       /* Audit sub-items: was margin-left: 20px; width: 210px, which clipped below
          ~246px of drawer width and sat 4px off the SQL sub-items' indent (D-35). */
       .sub-item {
@@ -240,7 +246,10 @@ export class DorcNavbar extends LitElement {
       >
         <vaadin-tab>
           <a href="${urlForName('deploy')}" @click="${this.openDeploy}">
-            <vaadin-icon icon="vaadin:expand-square" theme="small"></vaadin-icon>
+            <vaadin-icon
+              icon="vaadin:expand-square"
+              theme="small"
+            ></vaadin-icon>
             Deploy
           </a>
         </vaadin-tab>
@@ -253,11 +262,12 @@ export class DorcNavbar extends LitElement {
         ${repeat(
           this.shortcuts.results,
           resultKey,
-          result => html`<vaadin-tab
-            ><monitor-result-tab
-              .requestStatus="${result}"
-            ></monitor-result-tab
-          ></vaadin-tab>`
+          result =>
+            html`<vaadin-tab
+              ><monitor-result-tab
+                .requestStatus="${result}"
+              ></monitor-result-tab
+            ></vaadin-tab>`
         )}
         <vaadin-tab>
           <a href="${urlForName('projects')}">
@@ -268,11 +278,50 @@ export class DorcNavbar extends LitElement {
         ${repeat(
           this.shortcuts.projects,
           projectKey,
-          project => html`<vaadin-tab
-            ><project-envs-tab .project="${project}"></project-envs-tab
-          ></vaadin-tab>`
+          project =>
+            html`<vaadin-tab
+              ><project-envs-tab .project="${project}"></project-envs-tab
+            ></vaadin-tab>`
         )}
         <vaadin-tab>
+          <a href="${urlForName('deployment-definitions')}">
+            <vaadin-icon icon="vaadin:file-tree" theme="small"></vaadin-icon>
+            Deployment Definitions
+          </a>
+        </vaadin-tab>
+        <vaadin-tab>
+          <a href="${urlForName('module-catalog')}" title="Module Catalog">
+            <div class="sub-item">
+              <vaadin-icon
+                icon="vaadin:puzzle-piece"
+                theme="small"
+              ></vaadin-icon>
+              Module Catalog
+            </div>
+          </a>
+        </vaadin-tab>
+        <vaadin-tab>
+          <a href="${urlForName('scripts')}" title="Scripts">
+            <div class="sub-item">
+              <vaadin-icon
+                icon="inline:powershell-icon"
+                theme="small"
+              ></vaadin-icon>
+              Scripts
+            </div>
+          </a>
+        </vaadin-tab>
+        <vaadin-tab>
+          <a href="${urlForName('variables')}">
+            <vaadin-icon
+              icon="inline:variables-icon"
+              theme="small"
+            ></vaadin-icon>
+            Variables
+          </a>
+        </vaadin-tab>
+
+        <vaadin-tab class="nav-section-start">
           <a href="${urlForName('environments')}">
             <vaadin-icon icon="vaadin:cubes" theme="small"></vaadin-icon>
             Environments
@@ -281,9 +330,10 @@ export class DorcNavbar extends LitElement {
         ${repeat(
           this.shortcuts.environments,
           envKey,
-          env => html`<vaadin-tab
-            ><env-detail-tab .env="${env}"></env-detail-tab
-          ></vaadin-tab>`
+          env =>
+            html`<vaadin-tab
+              ><env-detail-tab .env="${env}"></env-detail-tab
+            ></vaadin-tab>`
         )}
         <vaadin-tab>
           <a href="${urlForName('servers')}">
@@ -298,21 +348,19 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
         <vaadin-tab>
-          <a href="${urlForName('sql-roles')}" style="padding-left: var(--lumo-space-l);">
+          <a href="${urlForName('sql-roles')}" title="Roles">
+            <div class="sub-item">
               <vaadin-icon icon="vaadin:key" theme="small"></vaadin-icon>
               Roles
+            </div>
           </a>
         </vaadin-tab>
         <vaadin-tab>
-          <a href="${urlForName('sql-ports')}" style="padding-left: var(--lumo-space-l);">
+          <a href="${urlForName('sql-ports')}" title="Ports">
+            <div class="sub-item">
               <vaadin-icon icon="vaadin:connect" theme="small"></vaadin-icon>
               Ports
-          </a>
-        </vaadin-tab>
-        <vaadin-tab>
-          <a href="${urlForName('users')}">
-            <vaadin-icon icon="vaadin:users" theme="small"></vaadin-icon>
-            Users
+            </div>
           </a>
         </vaadin-tab>
         <vaadin-tab>
@@ -321,17 +369,11 @@ export class DorcNavbar extends LitElement {
             Daemons
           </a>
         </vaadin-tab>
-        <vaadin-tab>
-          <a href="${urlForName('scripts')}">
-            <vaadin-icon icon="inline:powershell-icon" theme="small"></vaadin-icon>
-            Scripts
-          </a>
-        </vaadin-tab>
 
-        <vaadin-tab>
-          <a href="${urlForName('variables')}">
-            <vaadin-icon icon="inline:variables-icon" theme="small"></vaadin-icon>
-            Variables
+        <vaadin-tab class="nav-section-start">
+          <a href="${urlForName('users')}">
+            <vaadin-icon icon="vaadin:users" theme="small"></vaadin-icon>
+            Users
           </a>
         </vaadin-tab>
 
@@ -340,7 +382,10 @@ export class DorcNavbar extends LitElement {
           @click="${this._toggleAuditMenu}"
         >
           <a href="#" @click="${(e: Event) => e.preventDefault()}">
-            <vaadin-icon icon="vaadin:calendar-user" theme="small"></vaadin-icon>
+            <vaadin-icon
+              icon="vaadin:calendar-user"
+              theme="small"
+            ></vaadin-icon>
             Audit
             <vaadin-icon
               icon="${this.auditMenuExpanded ? 'vaadin:chevron-down-small' : 'vaadin:chevron-right-small'}"
@@ -355,22 +400,6 @@ export class DorcNavbar extends LitElement {
           navigates there directly (e.g. via a bookmarked URL).
         -->
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('scripts-audit')}" title="Scripts Audit">
-            <div class="sub-item">
-              <vaadin-icon icon="inline:powershell-icon" theme="small"></vaadin-icon>
-              Scripts Audit
-            </div>
-          </a>
-        </vaadin-tab>
-        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('variables-audit')}" title="Variables Audit">
-            <div class="sub-item">
-              <vaadin-icon icon="inline:variables-icon" theme="small"></vaadin-icon>
-              Variables Audit
-            </div>
-          </a>
-        </vaadin-tab>
-        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
           <a href="${urlForName('projects-audit')}" title="Projects Audit">
             <div class="sub-item">
               <vaadin-icon icon="vaadin:archives" theme="small"></vaadin-icon>
@@ -379,10 +408,32 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('daemons-audit')}" title="Daemons Audit">
+          <a href="${urlForName('scripts-audit')}" title="Scripts Audit">
             <div class="sub-item">
-              <vaadin-icon icon="vaadin:cogs" theme="small"></vaadin-icon>
-              Daemons Audit
+              <vaadin-icon
+                icon="inline:powershell-icon"
+                theme="small"
+              ></vaadin-icon>
+              Scripts Audit
+            </div>
+          </a>
+        </vaadin-tab>
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
+          <a href="${urlForName('variables-audit')}" title="Variables Audit">
+            <div class="sub-item">
+              <vaadin-icon
+                icon="inline:variables-icon"
+                theme="small"
+              ></vaadin-icon>
+              Variables Audit
+            </div>
+          </a>
+        </vaadin-tab>
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
+          <a href="${urlForName('servers-audit')}" title="Servers Audit">
+            <div class="sub-item">
+              <vaadin-icon icon="vaadin:server" theme="small"></vaadin-icon>
+              Servers Audit
             </div>
           </a>
         </vaadin-tab>
@@ -395,29 +446,64 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
-          <a href="${urlForName('servers-audit')}" title="Servers Audit">
+          <a href="${urlForName('daemons-audit')}" title="Daemons Audit">
             <div class="sub-item">
-              <vaadin-icon icon="vaadin:server" theme="small"></vaadin-icon>
-              Servers Audit
+              <vaadin-icon icon="vaadin:cogs" theme="small"></vaadin-icon>
+              Daemons Audit
             </div>
           </a>
         </vaadin-tab>
-        ${this.isAdmin
-          ? html`
-              <vaadin-tab>
-                <a href="${urlForName('configuration')}">
-                  <vaadin-icon icon="vaadin:options" theme="small"></vaadin-icon>
-                  Configuration
-                </a>
-              </vaadin-tab>
-            `
-          : html``}
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
+          <a href="${urlForName('containers-audit')}" title="Containers Audit">
+            <div class="sub-item">
+              <vaadin-icon icon="vaadin:package" theme="small"></vaadin-icon>
+              Containers Audit
+            </div>
+          </a>
+        </vaadin-tab>
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
+          <a
+            href="${urlForName('cloud-resources-audit')}"
+            title="Cloud Resources Audit"
+          >
+            <div class="sub-item">
+              <vaadin-icon icon="vaadin:cloud" theme="small"></vaadin-icon>
+              Cloud Resources Audit
+            </div>
+          </a>
+        </vaadin-tab>
+        <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
+          <a
+            href="${urlForName('api-registrations-audit')}"
+            title="API Registrations Audit"
+          >
+            <div class="sub-item">
+              <vaadin-icon icon="vaadin:connect-o" theme="small"></vaadin-icon>
+              APIs Audit
+            </div>
+          </a>
+        </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('analytics')}">
             <vaadin-icon icon="vaadin:chart" theme="small"></vaadin-icon>
             Analytics
           </a>
         </vaadin-tab>
+        ${
+          this.isAdmin
+            ? html`
+                <vaadin-tab>
+                  <a href="${urlForName('configuration')}">
+                    <vaadin-icon
+                      icon="vaadin:options"
+                      theme="small"
+                    ></vaadin-icon>
+                    Configuration
+                  </a>
+                </vaadin-tab>
+              `
+            : html``
+        }
       </vaadin-tabs>
       <div
         style="padding: var(--lumo-space-xs); text-align: center; color: var(--dorc-text-secondary-strong); font-size: var(--lumo-font-size-xs); flex-shrink: 0;"
@@ -584,6 +670,38 @@ export class DorcNavbar extends LitElement {
     return `/project-envs/${encodeURIComponent(project.ProjectName)}`;
   }
 
+  private matchesProjectShortcut(
+    project: ProjectShortcut,
+    normalizedPath: string
+  ): boolean {
+    const name = project.ProjectName?.trim().toLowerCase();
+    if (name) {
+      if (
+        normalizedPath === `/project-envs/${name}` ||
+        normalizedPath === `/project-envs/${name}/bundles` ||
+        normalizedPath === `/project-ref-data/${name}` ||
+        normalizedPath === `/project-components/${name}`
+      ) {
+        return true;
+      }
+    }
+    if (project.ProjectId != null) {
+      const id = String(project.ProjectId).toLowerCase();
+      if (
+        normalizedPath === `/project-ref-data/${id}` ||
+        normalizedPath === `/project-components/${id}`
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private isAuditPath(path: string): boolean {
+    const clean = path.split(/[?#]/)[0].toLowerCase();
+    return clean.endsWith('/audit');
+  }
+
   private getMonitorResultPath(result: ResultShortcut) {
     return `/monitor-result/${result.Id}`;
   }
@@ -595,6 +713,9 @@ export class DorcNavbar extends LitElement {
   }
 
   public setSelectedTab(path: string) {
+    if (this.isAuditPath(path) && !this.auditMenuExpanded) {
+      this.auditMenuExpanded = true;
+    }
     const tabs = this.shadowRoot?.getElementById('tabs') as Tabs;
     if (tabs) {
       tabs.selected = this.getIndexOfPath(tabs, path);
@@ -603,6 +724,7 @@ export class DorcNavbar extends LitElement {
 
   private getIndexOfPath(tabs: Tabs, path: string) {
     const tabsArray = [].slice.call(tabs.children) as Tab[];
+    const cleanPath = path.split(/[?#]/)[0];
 
     let i;
     let idx = -1;
@@ -614,31 +736,13 @@ export class DorcNavbar extends LitElement {
       // one exact path getEnvDetailPath happens to build. The trailing slash is
       // what stops "/environment/Foo/" also matching "/environment/FooBar/".
       let envPrefix = '';
+      let matchedProject = false;
       const tabChild = tab.children[0] as unknown as URL;
       // The Audit parent tab uses href="#"; HTMLAnchorElement.pathname resolves "#" against the
       // current document URL, so without this skip every audit sub-route would match the parent.
       const rawHref = (tab.children[0] as Element)?.getAttribute?.('href');
       if (rawHref === '#') {
         continue;
-      }
-      if (tabChild.pathname === undefined) {
-        const envDetailTab = tab.children[0] as EnvDetailTab;
-        if (envDetailTab.env !== undefined) {
-          childPath = this.getEnvDetailPath(envDetailTab.env);
-          envPrefix = `/environment/${String(
-            envDetailTab.env.EnvironmentName
-          )}/`.toLowerCase();
-        }
-        const projectEnvsTab = tab.children[0] as ProjectEnvsTab;
-        if (projectEnvsTab.project !== undefined) {
-          childPath = this.getProjectEnvsPath(projectEnvsTab.project);
-        }
-        const monitorResultTab = tab.children[0] as MonitorResultTab;
-        if (monitorResultTab.requestStatus !== undefined) {
-          childPath = this.getMonitorResultPath(monitorResultTab.requestStatus);
-        }
-      } else {
-        childPath = tabChild.pathname;
       }
       // D-12: an environment named e.g. "Perf 100% Load" made this throw
       // URIError, and because getIndexOfPath runs from updated() it re-threw on
@@ -651,7 +755,30 @@ export class DorcNavbar extends LitElement {
           return value.toLowerCase();
         }
       };
-      const pathCorrected = normalizePath(path);
+      const pathCorrected = normalizePath(cleanPath);
+      if (tabChild.pathname === undefined) {
+        const envDetailTab = tab.children[0] as EnvDetailTab;
+        if (envDetailTab.env !== undefined) {
+          childPath = this.getEnvDetailPath(envDetailTab.env);
+          envPrefix = `/environment/${String(
+            envDetailTab.env.EnvironmentName
+          )}/`.toLowerCase();
+        }
+        const projectEnvsTab = tab.children[0] as ProjectEnvsTab;
+        if (projectEnvsTab.project !== undefined) {
+          childPath = this.getProjectEnvsPath(projectEnvsTab.project);
+          matchedProject = this.matchesProjectShortcut(
+            projectEnvsTab.project,
+            pathCorrected
+          );
+        }
+        const monitorResultTab = tab.children[0] as MonitorResultTab;
+        if (monitorResultTab.requestStatus !== undefined) {
+          childPath = this.getMonitorResultPath(monitorResultTab.requestStatus);
+        }
+      } else {
+        childPath = tabChild.pathname;
+      }
       const childPathCorrected = normalizePath(childPath);
       if (pathCorrected === '/') {
         idx = 0;
@@ -659,6 +786,7 @@ export class DorcNavbar extends LitElement {
       }
       if (
         pathCorrected === childPathCorrected ||
+        matchedProject ||
         (envPrefix !== '' && pathCorrected.startsWith(envPrefix))
       ) {
         idx = tabsArray.indexOf(tab);

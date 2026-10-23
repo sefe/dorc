@@ -3,6 +3,14 @@ import { render } from 'lit';
 import { vi } from 'vitest';
 import { of } from 'rxjs';
 
+const { saveScript, confirmEdit } = vi.hoisted(() => ({
+  saveScript: vi.fn(),
+  confirmEdit: vi.fn()
+}));
+vi.mock('../../src/components/confirm-prompt', () => ({
+  confirmPrompt: confirmEdit
+}));
+
 // The page loads the PowerShell version list in its constructor, and the error
 // path assigns its own fallback (`['v5.1', 'v7']`). This fixture used to race
 // that: it assigned `powerShellVersions` after a fixed settle and hoped the
@@ -16,9 +24,11 @@ vi.mock('../../src/apis/dorc-api', async importOriginal => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
+    RefDataScriptsApi: class {
+      refDataScriptsEditPut = saveScript;
+    },
     PowerShellVersionsApi: class {
-      powerShellVersionsGet = () =>
-        of([{ Version: '5.1' }, { Version: '7.4' }]);
+      powerShellVersionsGet = () => of([{ Value: '5.1' }, { Value: '7.4' }]);
     }
   };
 });
@@ -41,6 +51,8 @@ type Script = {
   Id?: number;
   IsEnabled?: boolean;
   PowerShellVersionNumber?: string;
+  Revision?: string;
+  AffectedProjectIds?: number[];
 };
 
 type Page = HTMLElement & {
@@ -48,7 +60,9 @@ type Page = HTMLElement & {
   powerShellVersions: string[];
   enabledRenderer(script: Script): unknown;
   psVersionRenderer(script: Script): unknown;
-  _jsonRenderer(script: Script & { Path?: string; IsPathJSON?: boolean }): unknown;
+  _jsonRenderer(
+    script: Script & { Path?: string; IsPathJSON?: boolean }
+  ): unknown;
 };
 
 // Deliberately not attached: connectedCallback would fire the page's data
@@ -70,6 +84,8 @@ describe('page-scripts-list editable cell renderers', () => {
   let host: HTMLElement;
 
   beforeEach(async () => {
+    saveScript.mockReset().mockReturnValue(of(true));
+    confirmEdit.mockReset().mockResolvedValue(true);
     page = await mountPage();
     host = document.createElement('div');
     document.body.appendChild(host);
@@ -90,24 +106,54 @@ describe('page-scripts-list editable cell renderers', () => {
     checkbox.checked = true;
     await settle();
 
-    expect(script.IsEnabled, 'model untouched by a non-gesture change').to.equal(
-      false
-    );
+    expect(
+      script.IsEnabled,
+      'model untouched by a non-gesture change'
+    ).to.equal(false);
   });
 
-  it('records a real click on the enabled checkbox', async () => {
-    const script: Script = { Id: 1, IsEnabled: false };
+  it('confirms a real edit and sends its revision without mutating the cached row', async () => {
+    const script: Script = {
+      Id: 1,
+      IsEnabled: false,
+      Revision: 'r1',
+      AffectedProjectIds: [7, 8]
+    };
     render(page.enabledRenderer(script) as never, host);
     await settle();
 
     (
       host.querySelector('vaadin-checkbox')?.querySelector('input') as
-        | HTMLInputElement
-        | undefined
+        HTMLInputElement | undefined
     )?.click();
     await settle();
 
-    expect(script.IsEnabled, 'a real click still registers').to.equal(true);
+    expect(
+      script.IsEnabled,
+      'the cached row is not optimistically overwritten'
+    ).to.equal(false);
+    expect(confirmEdit.mock.calls).to.have.length(1);
+    expect(saveScript.mock.calls[0][0].scriptApiModel).to.include({
+      IsEnabled: true,
+      Revision: 'r1',
+      ConfirmImpact: true
+    });
+    expect(
+      saveScript.mock.calls[0][0].scriptApiModel.AffectedProjectIds
+    ).to.deep.equal([7, 8]);
+  });
+
+  it('does not write a declined shared edit', async () => {
+    confirmEdit.mockResolvedValue(false);
+    render(page.enabledRenderer({ Id: 1, IsEnabled: false }) as never, host);
+    await settle();
+    const checkbox = host.querySelector('vaadin-checkbox') as HTMLElement & {
+      checked: boolean;
+    };
+    checkbox.checked = true;
+    checkbox.dispatchEvent(new Event('change'));
+    await settle();
+    expect(saveScript.mock.calls).to.have.length(0);
   });
 
   it('does not persist when the version combo is set programmatically', async () => {
@@ -145,10 +191,9 @@ describe('page-scripts-list editable cell renderers', () => {
     render(page._jsonRenderer(second) as never, host);
     await settle();
 
-    expect(
-      host.querySelector('hegs-json-viewer'),
-      'element reused'
-    ).to.equal(viewer);
+    expect(host.querySelector('hegs-json-viewer'), 'element reused').to.equal(
+      viewer
+    );
     expect(viewer.data, 'shows the new row').to.deep.equal({ b: 2 });
   });
 
@@ -189,7 +234,10 @@ describe('page-scripts-list editable cell renderers', () => {
     await settle();
 
     render(
-      page.psVersionRenderer({ Id: 2, PowerShellVersionNumber: '5.1' }) as never,
+      page.psVersionRenderer({
+        Id: 2,
+        PowerShellVersionNumber: '5.1'
+      }) as never,
       host
     );
     await settle();

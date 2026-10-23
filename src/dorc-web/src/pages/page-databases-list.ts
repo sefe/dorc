@@ -45,6 +45,7 @@ import { ErrorNotification } from '../components/notifications/error-notificatio
 import { ref } from 'lit/directives/ref.js';
 import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { renderDatabaseType } from '../helpers/database-type';
 
 const name = 'Name';
 const tags = 'Tags';
@@ -74,6 +75,8 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
   nameFilter: string = '';
   tagsFilter: string = '';
   serverNameFilter: string = '';
+
+  private databaseTypeRenderer = renderDatabaseType;
 
   static get styles() {
     return css`
@@ -201,6 +204,13 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
           ${columnHeaderRenderer(this.dbNameHeaderRenderer, [])}
           auto-width
           flex-grow='0'
+        ></vaadin-grid-column>
+        <vaadin-grid-column
+          ${columnBodyRenderer(this.databaseTypeRenderer, [])}
+          header="Type"
+          width="64px"
+          flex-grow="0"
+          text-align="center"
         ></vaadin-grid-column>
         <vaadin-grid-column
           ${columnBodyRenderer(this.tagsRenderer, [])}
@@ -524,18 +534,18 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         style="width: 120px"
         theme="small"
         @value-changed="${(e: CustomEvent) => {
-            const textField = e.target as TextField;
-            this.dispatchEvent(
-              new CustomEvent('searching-databases-started', {
-                detail: {
-                  field: tags,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
+          const textField = e.target as TextField;
+          this.dispatchEvent(
+            new CustomEvent('searching-databases-started', {
+              detail: {
+                field: tags,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
       ></vaadin-text-field> `;
   }
 

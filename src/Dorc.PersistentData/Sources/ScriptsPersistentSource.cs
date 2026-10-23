@@ -119,7 +119,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var script = context.Scripts.FirstOrDefault(s => s.Id == id);
+                var script = context.Scripts.Include(s => s.Components).ThenInclude(c => c.Projects).FirstOrDefault(s => s.Id == id);
 
                 return MapToScriptApiModel(script);
             }
@@ -177,23 +177,17 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
-        private static ScriptApiModel MapToScriptApiModel(Script script)
+        internal static ScriptApiModel MapToScriptApiModel(Script script)
         {
             if (script == null) return null;
 
-            var isEnabled = false;
-
-            if (script.Components != null)
-            {
-                foreach (var component in script.Components)
-                {
-                    isEnabled = component.IsEnabled == true;
-                }
-            }
+            var isEnabled = script.Components?.Any(c => c.IsEnabled == true) == true;
 
             return new ScriptApiModel
             {
                 Id = script.Id,
+                Revision = DeploymentDefinitions.ScriptRevision(script),
+                AffectedProjectIds = script.Components.SelectMany(c => c.Projects).Select(p => p.Id).Distinct().Order().ToArray(),
                 Name = script.Name,
                 Path = script.Path,
                 NonProdOnly = script.NonProdOnly,

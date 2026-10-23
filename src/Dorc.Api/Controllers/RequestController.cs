@@ -222,6 +222,8 @@ namespace Dorc.Api.Controllers
                         $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
                 }
 
+                _requestsPersistentSource.EnsureRequestBackendNotRetired(requestId);
+
                 // Archive the current attempt before restarting
                 try
                 {
@@ -249,6 +251,10 @@ namespace Dorc.Api.Controllers
 
                 return StatusCode(StatusCodes.Status200OK,
                     new RequestStatusDto { Id = updated.Id, Status = updated.Status.ToString() });
+            }
+            catch (TerraformBackendRetiredException e)
+            {
+                return Conflict(e.Message);
             }
             catch (Exception e)
             {
@@ -585,16 +591,6 @@ namespace Dorc.Api.Controllers
                     }
                 }
 
-                if (string.IsNullOrWhiteSpace(requestDto.BuildText) && string.IsNullOrWhiteSpace(requestDto.BuildUrl))
-                {
-                    return BadRequest("Either BuildText or BuildUrl must be provided.");
-                }
-
-                if (string.IsNullOrWhiteSpace(requestDto.BuildNum))
-                {
-                    return BadRequest("BuildNum must be provided.");
-                }
-
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, requestDto.Environment);
                 if (!canModifyEnv)
                 {
@@ -602,6 +598,49 @@ namespace Dorc.Api.Controllers
                     _log.LogInformation($"Forbidden request to {requestDto.Environment} from {username}");
                     return StatusCode(StatusCodes.Status403Forbidden,
                             $"Forbidden request to {requestDto.Environment} from {username}");
+                }
+
+                // Catalog-only routing. When the deploy form posts an
+                // empty BuildUrl with one or more components ticked, decide
+                // whether this is a Catalog-only request (all components
+                // bound to a manifest) or a mixed/non-Catalog request that
+                // is now ill-formed.  enumerates the four (BuildUrl,
+                // Components) cases:
+                //   (a) Catalog-only + empty BuildUrl  → set sentinel + accept
+                //   (b) Catalog-only + non-empty       → existing path
+                //   (c) Mixed + non-empty              → existing path
+                //   (d) Mixed + empty                  → 400
+                // The catalog sentinel is a server-internal marker substituted
+                // by ResolveCatalogOnlyRouting after it has verified every
+                // component is Catalog-mode. A client must never supply it
+                // directly - doing so would otherwise bypass that verification
+                // and route unvalidated (possibly mixed / non-Catalog)
+                // components straight to CatalogDeployableBuild.
+                if (!string.IsNullOrEmpty(requestDto.BuildUrl)
+                    && requestDto.BuildUrl.StartsWith(Dorc.Api.Model.BuildDetails.CatalogSentinel, StringComparison.OrdinalIgnoreCase))
+                {
+                    return BadRequest("BuildUrl must not use the reserved catalog scheme.");
+                }
+
+                if (string.IsNullOrEmpty(requestDto.BuildUrl) && requestDto.Components != null && requestDto.Components.Count > 0)
+                {
+                    var routingResult = ResolveCatalogOnlyRouting(requestDto);
+                    if (routingResult is not null) return routingResult;
+                }
+
+                // Only verified, artifact-free Catalog requests can omit build
+                // metadata. Legacy and artifact-backed requests retain validation.
+                if (requestDto.BuildUrl != Dorc.Api.Model.BuildDetails.CatalogSentinel)
+                {
+                    if (string.IsNullOrWhiteSpace(requestDto.BuildText) && string.IsNullOrWhiteSpace(requestDto.BuildUrl))
+                    {
+                        return BadRequest("Either BuildText or BuildUrl must be provided.");
+                    }
+
+                    if (string.IsNullOrWhiteSpace(requestDto.BuildNum))
+                    {
+                        return BadRequest("BuildNum must be provided.");
+                    }
                 }
 
                 try
@@ -631,6 +670,77 @@ namespace Dorc.Api.Controllers
                 var result = StatusCode(StatusCodes.Status500InternalServerError, e);
                 return result;
             }
+        }
+
+        /// <summary>
+        /// resolves the (BuildUrl=empty, Components=non-empty) case.
+        /// Resolves each named component strictly within the request's
+        /// project (component names are only unique per project - a global
+        /// lookup could bind to another project's component, or throw on
+        /// cross-project duplicates). If every component is Catalog-mode,
+        /// substitutes the Catalog sentinel BuildUrl and returns null
+        /// (proceed). If none is Catalog-mode this is a legacy request -
+        /// returns null without touching BuildUrl so the pre-catalog
+        /// behaviour (RequestService's ArtefactsUrl fallback) is preserved.
+        /// Mixed Catalog + non-Catalog, or a Catalog component with a null
+        /// manifest binding, returns a 400 IActionResult ready to
+        /// short-circuit the controller. Cross-project enumeration safety:
+        /// identical 400 status + identical body for "component not found"
+        /// and "catalog reference null".
+        /// </summary>
+        private IActionResult? ResolveCatalogOnlyRouting(RequestDto requestDto)
+        {
+            const string genericRejection = "One or more components in this request cannot be deployed without a build artifact URL. Either supply a build artifact, or ensure every component is a fully-instantiated Catalog-mode component.";
+
+            var projectComponents = _projectsPersistentSource
+                .GetComponentsForProject(requestDto.Project)
+                .GroupBy(c => c.ComponentName, StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            var catalogComponents = new List<ComponentApiModel>();
+            var anyNonCatalog = false;
+            foreach (var componentName in requestDto.Components)
+            {
+                // Membership in the project was validated earlier in
+                // CreateRequest; a miss here (e.g. concurrent delete) gets
+                // the same opaque rejection as a null catalog binding.
+                if (!projectComponents.TryGetValue(componentName, out var component))
+                {
+                    return BadRequest(genericRejection);
+                }
+                if (component.TerraformSourceType != TerraformSourceType.Catalog)
+                {
+                    anyNonCatalog = true;
+                    continue;
+                }
+                catalogComponents.Add(component);
+            }
+
+            if (catalogComponents.Count == 0)
+            {
+                // No Catalog components at all: legacy empty-BuildUrl request.
+                return null;
+            }
+
+            if (anyNonCatalog)
+            {
+                //  case (d): mixed Catalog + non-Catalog with empty BuildUrl.
+                return BadRequest(genericRejection);
+            }
+
+            // U-12 / pre-existing-but-null catalog row: per the
+            // post-verification intent, an unbindable Catalog component is a
+            // controller-time 400 rather than an opaque runner failure later.
+            if (catalogComponents.Any(component =>
+                    string.IsNullOrEmpty(component.TerraformTemplateName) ||
+                    string.IsNullOrEmpty(component.TerraformTemplateVersion)))
+            {
+                return BadRequest(genericRejection);
+            }
+
+            //  case (a): every component is Catalog-mode.
+            requestDto.BuildUrl = Dorc.Api.Model.BuildDetails.CatalogSentinel;
+            return null;
         }
 
         private void StoreEnvironmentOwnerEmail(int requestId, string environmentName)

@@ -112,6 +112,18 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public bool UpdateDatabaseType(int databaseId, DatabaseType databaseType)
+        {
+            using var context = _contextFactory.GetContext();
+            var database = context.Databases.Find(databaseId);
+            if (database == null)
+                return false;
+
+            database.DatabaseType = databaseType;
+            context.SaveChanges();
+            return true;
+        }
+
         public DatabaseApiModel? GetDatabaseByTag(string envName, string tag)
         {
             using (var context = _contextFactory.GetContext())
@@ -357,6 +369,7 @@ namespace Dorc.PersistentData.Sources
                         Name = s.Name,
                         Tags = s.TagLinks.Select(t => t.Tag).ToArray(),
                         ServerName = s.ServerName,
+                        DatabaseType = s.DatabaseType,
                         AdGroup = s.Group?.Name,
                         ArrayName = s.ArrayName,
                         EnvironmentNames = s.Environments.Select(ed => ed.Name).ToList(),
@@ -435,6 +448,7 @@ namespace Dorc.PersistentData.Sources
 
                 existingDatabase.Name = database.Name;
                 existingDatabase.ServerName = database.ServerName;
+                existingDatabase.DatabaseType = database.DatabaseType ?? existingDatabase.DatabaseType;
                 existingDatabase.ArrayName = database.ArrayName;
                 SyncTagLinks(existingDatabase, database.Tags);
 
@@ -462,6 +476,7 @@ namespace Dorc.PersistentData.Sources
                 Id = db.Id,
                 Name = db.Name,
                 ServerName = db.ServerName,
+                DatabaseType = db.DatabaseType ?? DatabaseType.SqlServer,
                 Tags = TagString.Join(db.Tags),
                 TagLinks = TagString.Normalize(db.Tags)
                     .Select(t => new DatabaseTag { Tag = t }).ToList(),
@@ -481,6 +496,7 @@ namespace Dorc.PersistentData.Sources
                 Name = db.Name,
                 Tags = db.TagLinks != null ? db.TagLinks.Select(t => t.Tag).ToArray() : System.Array.Empty<string>(),
                 ServerName = db.ServerName,
+                DatabaseType = db.DatabaseType,
                 ArrayName = db.ArrayName,
                 EnvironmentNames = db.Environments != null ? db.Environments.Select(e => e.Name).ToList() : new List<string>()
             };

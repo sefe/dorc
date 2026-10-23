@@ -6,6 +6,12 @@ namespace Dorc.PersistentData.Sources.Interfaces
 {
     public interface IRequestsPersistentSource
     {
+        IList<DeploymentRequestDefinition> GetRequestDefinitions(int requestId);
+        void EnsureRequestBackendNotRetired(int requestId);
+        IList<ComponentApiModel> GetSubmittedComponents(int requestId);
+        ScriptApiModel GetSubmittedScript(int requestId, int componentId);
+        ProjectApiModel GetSubmittedProject(int requestId, int componentId);
+        void SavePowerShellEvidence(PowerShellEvidence evidence);
         DeploymentRequestApiModel? GetRequestForUser(int requestId, IPrincipal principal);
         RequestStatusDto GetRequestStatus(int requestId);
         IEnumerable<DeploymentRequestApiModel> GetRequestsWithStatus(DeploymentRequestStatus status, bool isProd);
@@ -52,6 +58,29 @@ namespace Dorc.PersistentData.Sources.Interfaces
         bool UpdateResultStatus(DeploymentResultApiModel deploymentResultModel, DeploymentResultStatus status,
             DeploymentResultStatus expectedCurrentStatus);
         bool UpdateResultLog(DeploymentResultApiModel deploymentResultModel, string log);
+        bool TryConfirmTerraformPlan(DeploymentResultApiModel result, TerraformPlanApproval approval);
+        bool TryDeclineTerraformPlan(DeploymentResultApiModel result, string user, DateTimeOffset declinedAt);
+        TerraformPlanApproval? GetTerraformPlanApproval(int deploymentResultId);
+        TerraformDeploymentReceipt? GetTerraformDeploymentReceipt(int deploymentResultId);
+        TerraformTemplateInstantiateResponseApiModel? FindCatalogSubmission(CatalogSubmissionIdentity submission);
+        int SubmitCatalogRequest(DeploymentRequest request, CatalogSubmissionIdentity submission);
+        CatalogEnvironmentInputs? GetCatalogEnvironmentInputs(int componentId, int environmentId);
+        long SaveCatalogEnvironmentInputs(int componentId, int projectId, int environmentId, string templateVersion,
+            long expectedRevision, IDictionary<string, string> inputs, string actor = "");
+        CatalogRequestInputs? GetCatalogRequestInputs(int requestId, int componentId);
+        CatalogUpgradePreviewApiModel GetCatalogUpgradeScope(int componentId, int projectId);
+        void UpgradeCatalogComponent(int componentId, int projectId, string targetVersion,
+            CatalogUpgradeRequestApiModel expected, IDictionary<int, Dictionary<string, string>> inputs, string username);
+        void SaveTerraformDeploymentReceipt(TerraformDeploymentReceipt receipt);
+        TerraformDeploymentOutcome? GetTerraformDeploymentOutcome(int deploymentResultId);
+        void SaveTerraformDeploymentOutcome(TerraformDeploymentOutcome outcome);
+        TerraformDeploymentOutcome RecoverTerraformPostApply(int deploymentResultId, long expectedRevision,
+            Action<TerraformDeploymentOutcome> recover, bool touchesInventory = true);
+        void RecordTerraformInventory(int componentId, int environmentId, int resultId, DateTimeOffset appliedAt,
+            IReadOnlyList<TerraformInventoryObservation> observed, bool complete);
+        IReadOnlyList<TerraformInventoryProvenanceApiModel> GetTerraformInventory(int componentId, int environmentId);
+        bool ReviewTerraformInventory(int componentId, int environmentId, int cloudResourceId, long expectedRevision);
+        DeploymentResultApiModel? GetArchivedDeploymentResult(int deploymentResultId);
         bool UpdateUncLogPath(DeploymentRequestApiModel deploymentRequest, string uncLogPath);
         bool UpdateUncLogPath(int requestId, string uncLogPath);
         DeploymentRequestApiModel GetRequest(int requestId);

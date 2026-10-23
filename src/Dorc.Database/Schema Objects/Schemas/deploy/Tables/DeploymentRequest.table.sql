@@ -16,10 +16,10 @@
     [CancelledBy]    NVARCHAR (128)  NULL,
     [CancelledTime]  DATETIMEOFFSET (7) NULL,
     [EnvironmentOwnerEmail] NVARCHAR (256) NULL,
+    [TerraformBackendRetiredByChangeId] UNIQUEIDENTIFIER NULL,
     CONSTRAINT [PK_DeploymentRequest] PRIMARY KEY CLUSTERED ([Id] ASC)
 );
 
 GO
 CREATE NONCLUSTERED INDEX [IX_Status_IsProd]
     ON [deploy].[DeploymentRequest]([Status] ASC, [IsProd] ASC);
-

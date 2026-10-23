@@ -109,6 +109,57 @@ namespace Dorc.Monitor.Tests
             finally
             {
                 try { systemProcess.Kill(); } catch (Exception) { /* Best-effort cleanup: process may have already exited */ }
+                runner.Dispose();
+                systemProcess.Dispose();
+            }
+        }
+
+        [TestMethod]
+        [Timeout(10_000, CooperativeCancellation = true)]
+        public void WaitForExit_WhenCancelledBeforeWait_ReturnsTerminatedExitCode()
+        {
+            var (runner, systemProcess) = StartLongRunningProcess();
+            try
+            {
+                using var cts = new CancellationTokenSource();
+                using var killOnCancel = cts.Token.Register(runner.Kill);
+                cts.Cancel();
+
+                Assert.AreEqual(RunnerProcess.RunnerProcess.ProcessTerminatedExitCode, runner.WaitForExit());
+                Assert.IsTrue(systemProcess.WaitForExit(5000));
+                Assert.AreEqual(RunnerProcess.RunnerProcess.ProcessTerminatedExitCode, runner.WaitForExit(),
+                    "Repeated waits must retain the cancellation result.");
+            }
+            finally
+            {
+                try { systemProcess.Kill(); } catch (InvalidOperationException) { }
+                runner.Dispose();
+                systemProcess.Dispose();
+            }
+        }
+
+        [TestMethod]
+        [Timeout(10_000, CooperativeCancellation = true)]
+        public void ConcurrentCancellationAndWait_RetainsTerminatedExitCode()
+        {
+            var (runner, systemProcess) = StartLongRunningProcess();
+            using var start = new ManualResetEventSlim();
+            var waiter = Task.Run(() => { start.Wait(); return runner.WaitForExit(); });
+            var firstKill = Task.Run(() => { start.Wait(); runner.Kill(); });
+            var secondKill = Task.Run(() => { start.Wait(); runner.Kill(); });
+            try
+            {
+                start.Set();
+                Assert.IsTrue(Task.WaitAll(new Task[] { waiter, firstKill, secondKill }, 5000));
+                Assert.AreEqual(RunnerProcess.RunnerProcess.ProcessTerminatedExitCode, waiter.Result);
+                Assert.AreEqual(RunnerProcess.RunnerProcess.ProcessTerminatedExitCode, runner.WaitForExit());
+            }
+            finally
+            {
+                start.Set();
+                try { systemProcess.Kill(); } catch (InvalidOperationException) { }
+                Task.WaitAll(new Task[] { waiter, firstKill, secondKill }, 5000);
+                runner.Dispose();
                 systemProcess.Dispose();
             }
         }
@@ -195,10 +246,13 @@ namespace Dorc.Monitor.Tests
 
                 // Assert: callback completed without hanging or crashing
                 Assert.IsTrue(callbackCompleted, "Callback should complete without hanging");
+                Assert.AreEqual(unchecked((uint)systemProcess.ExitCode), runner.WaitForExit(),
+                    "Late cancellation must not rewrite a process exit that was already observed.");
             }
             finally
             {
                 try { systemProcess.Kill(); } catch (Exception) { /* Best-effort cleanup: process may have already exited */ }
+                runner.Dispose();
                 systemProcess.Dispose();
             }
         }

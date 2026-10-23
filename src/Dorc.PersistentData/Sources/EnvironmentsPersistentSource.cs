@@ -468,11 +468,13 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             }
         }
 
-        public EnvironmentApiModel GetEnvironment(int environmentId, ClaimsPrincipal user)
+        public EnvironmentApiModel? GetEnvironment(int environmentId, ClaimsPrincipal user)
         {
             using (var context = contextFactory.GetContext())
             {
                 var environment = EnvironmentUnifier.GetFullEnvironment(context, environmentId);
+                if (environment == null)
+                    return null;
 
                 return MapToEnvironmentApiModel(environment, objectFilter.HasPrivilege(environment, user, AccessLevel.Write),
                     IsEnvironmentOwner(environment.Name, user));
@@ -497,16 +499,31 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                     .Select(o => new
                     {
                         ComponentName = o.Component.Name,
+                        ComponentId = o.Component.Id,
                         RequestDetailsXml = o.DeploymentRequest.RequestDetails,
                         o.UpdateDate,
                         o.Status,
                         o.DeploymentRequest.Id
-                    });
+                    }).ToList();
+                var requestIds = request.Select(b => b.Id).Distinct().ToList();
+                var latestResultIds = context.DeploymentResults
+                    .Where(r => requestIds.Contains(r.DeploymentRequest.Id))
+                    .GroupBy(r => new { RequestId = r.DeploymentRequest.Id, ComponentId = r.Component.Id })
+                    .Select(g => new { g.Key.RequestId, g.Key.ComponentId, ResultId = g.Max(r => r.Id) })
+                    .ToDictionary(x => (x.RequestId, x.ComponentId), x => (int?)x.ResultId);
+                var evidenceByKey = DeploymentSourceEvidence.ReadMany(context, request.Select(b =>
+                    new DeploymentSourceEvidence.Key(b.Id, b.ComponentId, latestResultIds.GetValueOrDefault((b.Id, b.ComponentId)))));
                 foreach (var build in request)
                     try
                     {
+                        var evidence = evidenceByKey.GetValueOrDefault(new DeploymentSourceEvidence.Key(
+                            build.Id, build.ComponentId, latestResultIds.GetValueOrDefault((build.Id, build.ComponentId))));
                         result.Add(new EnvironmentContentBuildsApiModel
                         {
+                            ComponentId = build.ComponentId,
+                            ProjectId = evidence?.ProjectId,
+                            DefinitionRevision = evidence?.Revision,
+                            SourceRevisionLabel = evidence?.Label,
                             State = build.Status,
                             UpdateDate = build.UpdateDate.DateTime.ToString("o"),
                             ComponentName = build.ComponentName,
@@ -664,6 +681,15 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                             context.EnvironmentComponentStatuses
                                 .Where(ecs => EF.Property<int>(ecs, "EnvironmentId") == environment.Id)
                                 .ExecuteDelete();
+
+                            context.Database.ExecuteSqlInterpolated(
+                                $"DELETE FROM [deploy].[EnvironmentContainer] WHERE [EnvId] = {environment.Id}");
+
+                            context.Database.ExecuteSqlInterpolated(
+                                $"DELETE FROM [deploy].[EnvironmentCloudResource] WHERE [EnvId] = {environment.Id}");
+
+                            context.Database.ExecuteSqlInterpolated(
+                                $"DELETE FROM [deploy].[EnvironmentApiRegistration] WHERE [EnvId] = {environment.Id}");
 
                             DetachChildEnvironments(environment, username, context);
 
@@ -1076,6 +1102,9 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                             .Include(e => e.Servers)
                             .Include(e => e.Databases)
                             .Include(e => e.Projects)
+                            .Include(e => e.Containers)
+                            .Include(e => e.CloudResources)
+                            .Include(e => e.ApiRegistrations)
                             .SingleOrDefault(e => e.Id == request.SourceEnvironmentId);
 
                         if (sourceEnv == null)
@@ -1182,6 +1211,18 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                                 newEnv.Projects.Add(project);
                             }
                         }
+
+                        if (request.CopyContainerMappings)
+                            foreach (var container in sourceEnv.Containers)
+                                newEnv.Containers.Add(container);
+
+                        if (request.CopyCloudResourceMappings)
+                            foreach (var resource in sourceEnv.CloudResources)
+                                newEnv.CloudResources.Add(resource);
+
+                        if (request.CopyApiRegistrationMappings)
+                            foreach (var registration in sourceEnv.ApiRegistrations)
+                                newEnv.ApiRegistrations.Add(registration);
 
                         // Add history record
                         EnvironmentHistoryPersistentSource.AddHistoryAction(newEnv, string.Empty,

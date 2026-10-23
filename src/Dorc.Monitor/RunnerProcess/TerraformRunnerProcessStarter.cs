@@ -1,4 +1,4 @@
-﻿using System.Security.Principal;
+using System.Security.Principal;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
@@ -16,7 +16,10 @@ namespace Dorc.Monitor.RunnerProcess
         public string RunnerLogPath { get; set; } = string.Empty;
         public string PlanFilePath { get; set; } = string.Empty;
         public string PlanContentFilePath { get; set; } = string.Empty;
-        public TerraformRunnerOperations TerrafromRunnerOperation { get; set; } = TerraformRunnerOperations.None;
+        public string LockFilePath { get; set; } = string.Empty;
+        public string AppliedResourcesFilePath { get; set; } = string.Empty;
+        public string SourceArchiveFilePath { get; set; } = string.Empty;
+        public TerraformRunnerOperations TerraformRunnerOperation { get; set; } = TerraformRunnerOperations.None;
 
         private TerraformRunnerProcessStarter() { }
 
@@ -55,28 +58,46 @@ namespace Dorc.Monitor.RunnerProcess
             #endregion
                 
             var runnerFileInfo = new FileInfo(this.RunnerExecutableFullName);
+            // Path-valued arguments are quoted: the runner log / plan / lock
+            // paths live under configurable roots that can contain spaces,
+            // and CommandLineParser would otherwise split them into
+            // separate tokens.
             string commandLine = runnerFileInfo.Name
                 +" -p " + this.ScriptGroupPipeName
-                +" -l " + this.RunnerLogPath
-                +" -t " + this.PlanFilePath
-                +" -c " + this.PlanContentFilePath
-                +" -o " + (int)this.TerrafromRunnerOperation
+                +" -l \"" + this.RunnerLogPath + "\""
+                +" -t \"" + this.PlanFilePath + "\""
+                +" -c \"" + this.PlanContentFilePath + "\""
+                +" -o " + (int)this.TerraformRunnerOperation
                 // See RunnerProcessStarter: the Runner authenticates the pipe by its owner and
                 // has to be told which owner to expect.
                 +" --serverSid=" + WindowsIdentity.GetCurrent().User!.Value;
+            if (!string.IsNullOrEmpty(this.LockFilePath))
+            {
+                commandLine += " -k \"" + this.LockFilePath + "\"";
+            }
+            if (!string.IsNullOrEmpty(this.AppliedResourcesFilePath))
+            {
+                commandLine += " -r \"" + this.AppliedResourcesFilePath + "\"";
+            }
+            if (!string.IsNullOrEmpty(this.SourceArchiveFilePath))
+            {
+                commandLine += " -z \"" + this.SourceArchiveFilePath + "\"";
+            }
 #if DEBUG
             commandLine += " --useFile=true";
 #endif
             this.logger.LogInformation($"About to start process {this.RunnerExecutableFullName} with args {commandLine/*ProcessParameters.CommandLine*/}");
 
             var creationFlags = (uint)Interop.Windows.Advapi32.Interop.Advapi32.ProcessCreationFlags.CREATE_NO_WINDOW |
-                    (uint)Interop.Windows.Advapi32.Interop.Advapi32.ProcessCreationFlags.CREATE_UNICODE_ENVIRONMENT;
+                    (uint)Interop.Windows.Advapi32.Interop.Advapi32.ProcessCreationFlags.CREATE_UNICODE_ENVIRONMENT |
+                    0x00000004; // CREATE_SUSPENDED: assign the job before any Terraform children start.
 
             var environment = IntPtr.Zero;
             var currentDirectory = runnerFileInfo.DirectoryName!;
 
             Interop.Windows.Kernel32.Interop.Kernel32.PROCESS_INFORMATION processInformation;
 
+            var job = RunnerProcessJob.Create();
             var result = Interop.Windows.Advapi32.Interop.Advapi32.CreateProcessAsUser(
                 securityContext.LocallyLoggedOnUserToken,
                 this.RunnerExecutableFullName,
@@ -93,6 +114,7 @@ namespace Dorc.Monitor.RunnerProcess
             if (!result)
             {
                 var winError = Marshal.GetLastWin32Error();
+                job.Dispose();
                 var message = $"CreateProcessAsUser failed with win32 error: {winError}";
                 this.logger.LogError(message);
                 throw new Exception(message);
@@ -100,10 +122,21 @@ namespace Dorc.Monitor.RunnerProcess
 
             this.logger.LogInformation("Completed Starting child process");
 
-            var runnerProcess = new RunnerProcess(
-                processInformation);
-
-            return runnerProcess;
+            var runnerProcess = new RunnerProcess(processInformation, job);
+            try
+            {
+                job.Assign(processInformation.Process);
+                RunnerProcessJob.Resume(processInformation.Thread);
+                return runnerProcess;
+            }
+            catch
+            {
+                // Assignment can fail before containment exists.
+                using var process = System.Diagnostics.Process.GetProcessById((int)processInformation.ProcessId);
+                if (!process.HasExited) process.Kill(entireProcessTree: true);
+                runnerProcess.Dispose();
+                throw;
+            }
         }
     }
 }

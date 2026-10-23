@@ -11,6 +11,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         IEnumerable<DatabaseApiModel> FindDatabases(string name, string? server);
         DatabaseRelatedResourcesApiModel? GetDatabaseRelatedResources(int databaseId);
         DatabaseApiModel? AddDatabase(DatabaseApiModel db);
+        bool UpdateDatabaseType(int databaseId, DatabaseType databaseType);
         IEnumerable<DatabaseApiModel> GetDatabasesForEnvId(int environmentId);
         IEnumerable<DatabaseApiModel> GetDatabasesForEnvironmentName(string environmentName);
         DatabaseApiModel GetDatabaseByTag(EnvironmentApiModel environment, string tag);

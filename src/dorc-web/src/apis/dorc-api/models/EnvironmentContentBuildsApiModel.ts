@@ -17,6 +17,26 @@
  */
 export interface EnvironmentContentBuildsApiModel {
     /**
+     * @type {number}
+     * @memberof EnvironmentContentBuildsApiModel
+     */
+    ComponentId?: number | null;
+    /**
+     * @type {number}
+     * @memberof EnvironmentContentBuildsApiModel
+     */
+    ProjectId?: number | null;
+    /**
+     * @type {string}
+     * @memberof EnvironmentContentBuildsApiModel
+     */
+    DefinitionRevision?: string | null;
+    /**
+     * @type {string}
+     * @memberof EnvironmentContentBuildsApiModel
+     */
+    SourceRevisionLabel?: string | null;
+    /**
      * @type {string}
      * @memberof EnvironmentContentBuildsApiModel
      */

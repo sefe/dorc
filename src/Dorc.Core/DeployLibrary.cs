@@ -51,7 +51,7 @@ namespace Dorc.Core
 
         public int SubmitRequest(string projectName, string environmentName, string uri,
             string buildDefinitionName, List<string> requestComponents, List<RequestProperty> requestProperties,
-            ClaimsPrincipal user)
+            ClaimsPrincipal user, bool isCatalog = false, CatalogSubmissionIdentity? catalogSubmission = null)
         {
             var project = _projectsPersistentSource.GetProject(projectName);
             if (project == null)
@@ -69,10 +69,7 @@ namespace Dorc.Core
                             $"Cannot find deployment component called '{x}'");
                     return component;
                 }).ToArray();
-            var properties = requestProperties
-                ?.Select(x => new KeyValuePair<string, string>(x.PropertyName, x.PropertyValue))
-                .ToArray();
-            return CreateRequest(project, environment, uri, buildDefinitionName, components, properties, user)
+            return CreateRequest(project, environment, uri, buildDefinitionName, components, requestProperties, user, isCatalog, catalogSubmission)
                 .RequestId;
         }
 
@@ -118,7 +115,7 @@ namespace Dorc.Core
                             : Enumerable.Empty<string>()).ToList(),
                     EnvironmentName = toEnvironment,
                     Properties =
-                        properties?.Select(x => new PropertyPair(x.PropertyName, x.PropertyValue)).ToList()
+                        properties?.Select(x => new PropertyPair(x.PropertyName, x.PropertyValue) { IsSensitive = x.IsSensitive }).ToList()
                 };
 
                 Trace.WriteLine($"Creating Req: build:{requestDetail.BuildDetail.BuildNumber} Comp:{string.Join("|", requestDetail.Components)}");
@@ -129,7 +126,8 @@ namespace Dorc.Core
             return requestIds;
         }
 
-        private int CreateRequest(DeploymentRequestDetail requestDetail, ClaimsPrincipal user)
+        private int CreateRequest(DeploymentRequestDetail requestDetail, ClaimsPrincipal user,
+            CatalogSubmissionIdentity? catalogSubmission = null)
         {
             var serializer = new DeploymentRequestDetailSerializer();
 
@@ -145,7 +143,9 @@ namespace Dorc.Core
                     Components = string.Join("|", requestDetail.Components)
                 };
 
-            var requestId = _requestsPersistentSource.SubmitRequest(deploymentRequest);
+            var requestId = catalogSubmission == null
+                ? _requestsPersistentSource.SubmitRequest(deploymentRequest)
+                : _requestsPersistentSource.SubmitCatalogRequest(deploymentRequest, catalogSubmission);
 
             // Fire-and-forget event: new request created (Pending)
             _ = _deploymentEventsPublisher.PublishNewRequestAsync(
@@ -162,7 +162,8 @@ namespace Dorc.Core
 
         private CreateResponse CreateRequest(ProjectApiModel project, EnvironmentApiModel environment,
             string buildUrl, string buildDefinitionName,
-            ComponentApiModel[] components, IEnumerable<KeyValuePair<string, string>> properties, ClaimsPrincipal user)
+            ComponentApiModel[] components, IEnumerable<RequestProperty> properties, ClaimsPrincipal user,
+            bool isCatalog = false, CatalogSubmissionIdentity? catalogSubmission = null)
         {
             try
             {
@@ -173,8 +174,9 @@ namespace Dorc.Core
                     BuildDefinitionName = buildDefinitionName,
                     BuildUrl = buildUrl,
                     Components = components.Select(c => c.ComponentName).ToList(),
-                    Properties =
-                        properties?.Select(x => new RequestProperty { PropertyName = x.Key, PropertyValue = x.Value })
+                    Properties = properties,
+                    IsCatalog = isCatalog,
+                    CatalogSubmission = catalogSubmission
                 };
 
                 var response = CreateRequestAsync(request, user).Result;
@@ -199,7 +201,17 @@ namespace Dorc.Core
                 Project = createRequest.Project
             };
 
-            if (project.SourceControlType == SourceControlType.GitHub &&
+            // Catalog-mode deploys carry no build artifact: the runner's
+            // CatalogReferenceCodeSourceProvider resolves the source from the
+            // component's manifest at dispatch time. Skip artifact resolution
+            // entirely - it would otherwise throw for any project that has an
+            // ADO/GitHub/file-share artifact source configured (empty
+            // BuildUrl/BuildDefinitionName can't resolve an artifact).
+            if (createRequest.IsCatalog)
+            {
+                buildDetail.DropLocation = string.Empty;
+            }
+            else if (project.SourceControlType == SourceControlType.GitHub &&
                 !string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http"))
             {
                 // GitHub Actions: resolve artifact download URL via the GitHub API
@@ -293,9 +305,10 @@ namespace Dorc.Core
             if (createRequest.Properties != null)
                 foreach (var requestProperty in createRequest.Properties)
                     requestDetail.Properties.Add(new PropertyPair(requestProperty.PropertyName,
-                        requestProperty.PropertyValue));
+                        requestProperty.PropertyValue)
+                    { IsSensitive = requestProperty.IsSensitive });
 
-            var requestId = CreateRequest(requestDetail, user);
+            var requestId = CreateRequest(requestDetail, user, createRequest.CatalogSubmission);
 
             return new CreateResponse
             {

@@ -10,6 +10,7 @@ let signInRedirectStarted = false;
 /** Test seam: the latch is module state and outlives an individual test. */
 export function resetSignInStateForTests(): void {
   signInRedirectStarted = false;
+  pendingSessionRecovery = null;
 }
 
 // If signIn() never navigates (identity provider unreachable) the latch holds
@@ -32,18 +33,83 @@ function redirectToSignIn(): void {
   oauthServiceContainer.service.signIn();
 }
 
+// Renewal in flight for the request currently being built, if any. The
+// header getter runs before the XHR is created, so the XHR below can wait for
+// it and send the renewed token rather than the expired one.
+let pendingSessionRecovery: Promise<unknown> | null = null;
+
+function bearer(token: string): string {
+  return `Bearer ${token}`;
+}
+
 function oauthAuthorizationHeader(): string {
   const user = oauthServiceContainer.service.signedInUser;
   if (!user) {
     redirectToSignIn();
     return '';
   }
-  // An expired token is still sent rather than short-circuited: OAuthService
-  // renews silently on the accessTokenExpiring event, and during that window
-  // user.expired is true even though the session is recoverable. Redirecting
-  // here would throw the user out mid-renewal.
-  return `Bearer ${user.access_token}`;
+  if (user.expired && !pendingSessionRecovery) {
+    const recovery = Promise.resolve(
+      oauthServiceContainer.service.recoverExpiredSession?.(redirectToSignIn)
+    ).finally(() => {
+      if (pendingSessionRecovery === recovery) pendingSessionRecovery = null;
+    });
+    pendingSessionRecovery = recovery;
+  }
+  // The expired token is still returned so a request whose renewal fails is
+  // rejected by the API in the usual way rather than sent unauthenticated.
+  return bearer(user.access_token);
 }
+
+function currentBearerToken(fallback?: string): string | undefined {
+  const token = oauthServiceContainer.service.signedInUser?.access_token;
+  return token ? bearer(token) : fallback;
+}
+
+// The generated runtime builds the Authorization header synchronously, so a
+// request made while the token is expired (a tab left open overnight) would
+// go out with the stale token and 401 even though silent renewal succeeds a
+// moment later. This XHR holds the Authorization header back and sends once
+// any pending renewal has settled, with whatever token the session then has.
+class SessionRenewingXhr extends XMLHttpRequest {
+  private authorization?: string;
+  private aborted = false;
+
+  override setRequestHeader(name: string, value: string): void {
+    if (name.toLowerCase() === 'authorization') {
+      this.authorization = value;
+      return;
+    }
+    super.setRequestHeader(name, value);
+  }
+
+  override abort(): void {
+    this.aborted = true;
+    super.abort();
+  }
+
+  override send(body?: Document | XMLHttpRequestBodyInit | null): void {
+    const dispatch = () => {
+      if (this.aborted) return;
+      const token = currentBearerToken(this.authorization);
+      if (token) super.setRequestHeader('Authorization', token);
+      super.send(body);
+    };
+    const pending = pendingSessionRecovery;
+    if (!pending) {
+      dispatch();
+      return;
+    }
+    pending.then(dispatch, dispatch);
+  }
+}
+
+const sessionRenewingXhrMiddleware = {
+  pre: (request: AjaxConfig): AjaxConfig =>
+    appConfig.authenticationScheme === OAUTH_SCHEME
+      ? { ...request, createXHR: () => new SessionRenewingXhr() }
+      : request
+};
 
 // Windows authentication is a supported scheme and the API's default, and the
 // web app is served from a different origin to the API (see appconfig.json),
@@ -64,7 +130,7 @@ const withCredentialsMiddleware = {
 // generated Configuration re-reads on every request rather than values
 // captured at construction time.
 export const dorcApiConfiguration = new Configuration({
-  middleware: [withCredentialsMiddleware],
+  middleware: [withCredentialsMiddleware, sessionRenewingXhrMiddleware],
   get basePath(): string {
     return appConfig.dorcApi;
   },

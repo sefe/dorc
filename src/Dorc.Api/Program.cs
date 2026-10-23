@@ -34,6 +34,8 @@ const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
 const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddTransient<Dorc.PersistentData.Sources.DeploymentDefinitions>();
+builder.Services.AddTransient<Dorc.PersistentData.Sources.Interfaces.IDeploymentDefinitions, Dorc.PersistentData.Sources.DeploymentDefinitions>();
 var configBuilder = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json")
     .AddJsonFile("loggerSettings.json", optional:false, reloadOnChange: true)
@@ -157,7 +159,7 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
     string? authority = configurationSettings.GetOAuthAuthority();
     string dorcApiResourceName = configurationSettings.GetOAuthApiResourceName();
     string dorcApiGlobalScope = configurationSettings.GetOAuthApiGlobalScope();
-    
+
     // Get DORC API secret from secrets manager
     string dorcApiSecret = secretsReader.GetDorcApiSecret();
 
@@ -261,7 +263,7 @@ static void AddSwaggerGen(IServiceCollection services, IConfigurationSettings co
 {
     string? authority = configurationSettings.GetOAuthAuthority();
     string dorcApiGlobalScope = configurationSettings.GetOAuthApiGlobalScope();
-    
+
     services.AddSwaggerGen(options =>
     {
         // Always configure OAuth2 for Swagger UI regardless of auth scheme
@@ -348,6 +350,29 @@ builder.Services.AddSingleton<Dorc.Core.Interfaces.IFallbackDeploymentEventPubli
     Dorc.Api.Events.FallbackDeploymentEventPublisher>();
 builder.Services.AddSingleton<IDeploymentSubscriptionsGroupTracker, DeploymentSubscriptionsGroupTracker>();
 
+// Terraform stock-template catalog. Manifest YAMLs are published from the
+// private dorc-terraform-modules repository and delivered at install time to
+// the directory named by Terraform:Catalog:ManifestsDirectory (MSI property
+// DORC.TERRAFORM.CATALOG.MANIFESTS.DIRECTORY). When unset the API falls back
+// to a stock-modules-manifests/ directory beside the binaries. The runner
+// also reads its own catalog binding; this binding is for
+// the API surface that exposes templates to the dorc-web UI.
+builder.Services.AddSingleton<Dorc.Terraform.Catalog.IParameterValidator, Dorc.Terraform.Catalog.ParameterValidator>();
+builder.Services.AddSingleton<Dorc.Terraform.Catalog.ITemplateCatalog>(sp =>
+{
+    var configured = configBuilder.GetValue<string>("Terraform:Catalog:ManifestsDirectory");
+    var dir = string.IsNullOrWhiteSpace(configured)
+        ? Path.Join(AppContext.BaseDirectory, "stock-modules-manifests")
+        : configured;
+    var logger = sp.GetRequiredService<ILogger<Dorc.Terraform.Catalog.GitTemplateCatalog>>();
+    if (!Directory.Exists(dir))
+    {
+        logger.LogWarning(
+            "Terraform catalog manifests directory '{ManifestsDirectory}' does not exist; the module catalog will be empty until manifests are delivered there.",
+            dir);
+    }
+    return new Dorc.Terraform.Catalog.GitTemplateCatalog(dir, logger);
+});
 // Master Kafka switch. When false, the API skips Kafka producer / consumer
 // wiring and IDeploymentEventsPublisher resolves to the
 // DirectDeploymentEventPublisher registered above (SignalR-only path).

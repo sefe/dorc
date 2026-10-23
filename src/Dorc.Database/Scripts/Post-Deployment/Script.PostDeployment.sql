@@ -16,3 +16,4 @@ Example:      :setvar TableName MyTable
 :r ./CleanupOrphanedScripts.sql
 :r ./SetFileShareSourceControlType.sql
 :r ./PopulateTagTables.sql
+:r ./ScopeAivenDatabases.sql

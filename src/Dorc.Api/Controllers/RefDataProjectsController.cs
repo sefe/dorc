@@ -2,6 +2,7 @@
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
+using Dorc.PersistentData.Sources;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -19,13 +20,15 @@ namespace Dorc.Api.Controllers
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IDeploymentDefinitions _definitions;
 
         public RefDataProjectsController(
             IProjectsPersistentSource projectsPersistentSource,
             IAccessControlPersistentSource accessControlPersistentSource,
             IActiveDirectorySearcher activeDirectorySearcher, IRolePrivilegesChecker rolePrivilegesChecker,
             ISecurityPrivilegesChecker securityPrivilegesChecker,
-            IClaimsPrincipalReader claimsPrincipalReader
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IDeploymentDefinitions definitions = null
             )
         {
             _securityPrivilegesChecker = securityPrivilegesChecker;
@@ -34,6 +37,7 @@ namespace Dorc.Api.Controllers
             _accessControlPersistentSource = accessControlPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _definitions = definitions;
         }
 
         /// <summary>
@@ -44,7 +48,15 @@ namespace Dorc.Api.Controllers
         [HttpGet]
         public IActionResult Get()
         {
-            var projects = _projectsPersistentSource.GetProjects(User);
+            var projects = _projectsPersistentSource.GetProjects(User).ToList();
+            if (_definitions != null && projects.Count > 0)
+            {
+                var documents = _definitions.GetMany(projects.Select(p => p.ProjectId).ToArray());
+                foreach (var project in projects)
+                {
+                    if (documents.TryGetValue(project.ProjectId, out var doc)) project.Revision = doc.Revision;
+                }
+            }
             return StatusCode(StatusCodes.Status200OK, projects);
         }
 
@@ -58,6 +70,7 @@ namespace Dorc.Api.Controllers
         public IActionResult Get(int value)
         {
             var project = _projectsPersistentSource.GetProject(value);
+            if (project != null && _definitions != null) project.Revision = _definitions.Get(project.ProjectId).Revision;
             return StatusCode(StatusCodes.Status200OK, project);
         }
 
@@ -71,6 +84,7 @@ namespace Dorc.Api.Controllers
         public IActionResult Get(string projectName)
         {
             var project = _projectsPersistentSource.GetProject(projectName);
+            if (project != null && _definitions != null) project.Revision = _definitions.Get(project.ProjectId).Revision;
             return StatusCode(StatusCodes.Status200OK, project);
         }
 
@@ -96,17 +110,13 @@ namespace Dorc.Api.Controllers
             if (_projectsPersistentSource.ProjectArtifactsUriHttpValid(project) ||
                 _projectsPersistentSource.ProjectArtifactsUriFileValid(project))
             {
-                _projectsPersistentSource.InsertProject(project);
-
-                var securityObject = _projectsPersistentSource.GetSecurityObject(project.ProjectName);
-
                 string username = _claimsPrincipalReader.GetUserLogin(User);
                 var adSearch = _activeDirectorySearcher.GetUserData(username);
-
-                _accessControlPersistentSource.AddAccessControl(new AccessControlApiModel
-                { Sid = adSearch.Sid, Pid = adSearch.Pid, Name = adSearch.DisplayName, Allow = (int)(AccessLevel.Write | AccessLevel.ReadSecrets), Deny = 0 }, securityObject.ObjectId, User);
-
-                return StatusCode(StatusCodes.Status200OK, _projectsPersistentSource.GetProject(project.ProjectName));
+                var saved = _definitions.CreateProject(project, _claimsPrincipalReader.GetUserFullDomainName(User),
+                    new AccessControlApiModel
+                    { Sid = adSearch.Sid, Pid = adSearch.Pid, Name = adSearch.DisplayName, Allow = (int)(AccessLevel.Write | AccessLevel.ReadSecrets), Deny = 0 },
+                    () => _projectsPersistentSource.ValidateProject(project, HttpRequestType.Post));
+                return Ok(saved);
             }
             else
             {
@@ -138,9 +148,17 @@ namespace Dorc.Api.Controllers
             if (_projectsPersistentSource.ProjectArtifactsUriHttpValid(project) ||
                 _projectsPersistentSource.ProjectArtifactsUriFileValid(project))
             {
-                _projectsPersistentSource.UpdateProject(project);
-
-                return StatusCode(StatusCodes.Status200OK, _projectsPersistentSource.GetProject(project.ProjectName));
+                try
+                {
+                    var saved = _definitions.Save(new RefDataApiModel { Project = project, Revision = project.Revision },
+                        false, _claimsPrincipalReader.GetUserFullDomainName(User),
+                        id => _securityPrivilegesChecker.CanModifyProject(User, id),
+                        () => _projectsPersistentSource.ValidateProject(project, HttpRequestType.Put), projectOnly: true);
+                    return Ok(saved.Project);
+                }
+                catch (DefinitionPreconditionException e) { return StatusCode(e.StatusCode, e.Message); }
+                catch (UnauthorizedAccessException) { return Forbid(); }
+                catch (ArgumentException e) { return BadRequest(e.Message); }
             }
             else
             {
@@ -160,7 +178,7 @@ namespace Dorc.Api.Controllers
         [ProducesResponseType(typeof(string), StatusCodes.Status404NotFound)]
         [ProducesResponseType(typeof(string), StatusCodes.Status500InternalServerError)]
         [HttpDelete("{projectId}")]
-        public IActionResult Delete(int projectId)
+        public IActionResult Delete(int projectId, [FromQuery] string? expectedRevision = null)
         {
             string? projectName = null;
             try
@@ -180,9 +198,14 @@ namespace Dorc.Api.Controllers
                     return StatusCode(StatusCodes.Status403Forbidden,
                         "Projects can only be deleted by privileged users or Admins!");
 
-                _projectsPersistentSource.DeleteProject(projectId);
+                _definitions.DeleteProject(projectId, expectedRevision!, _claimsPrincipalReader.GetUserFullDomainName(User),
+                    id => _rolePrivilegesChecker.IsAdmin(User) ||
+                        (_rolePrivilegesChecker.IsPowerUser(User) && _securityPrivilegesChecker.CanModifyProject(User, id)));
                 return Ok($"Project {projectName} deleted successfully");
             }
+            catch (DefinitionPreconditionException ex) { return StatusCode(ex.StatusCode, ex.Message); }
+            catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (ProjectNotFoundException ex) { return NotFound(ex.Message); }
             catch (ArgumentException ex)
             {
                 return NotFound(ex.Message);

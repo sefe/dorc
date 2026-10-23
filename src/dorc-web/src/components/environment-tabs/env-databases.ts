@@ -2,6 +2,8 @@ import '@vaadin/button';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import '@vaadin/icons/vaadin-icons';
+import '@vaadin/icon';
 import { css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -15,8 +17,7 @@ import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
 import {
   DatabaseApiModel,
-  EnvironmentContentApiModel,
-  RefDataEnvironmentsDetailsApi
+  RefDataDatabasesApi
 } from '../../apis/dorc-api';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
@@ -47,8 +48,9 @@ export class EnvDatabases extends PageEnvBase {
         padding: 10px;
       }
       .inline {
-        display: inline-block;
-        vertical-align: middle;
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-s);
       }
       .buttons {
         font-size: var(--lumo-font-size-s);
@@ -56,11 +58,56 @@ export class EnvDatabases extends PageEnvBase {
         padding: var(--lumo-space-xs);
       }
       vaadin-details {
-        overflow: auto;
+        overflow: hidden;
         width: calc(100% - 4px);
         flex: 1;
         min-height: 0;
         --divider-color: var(--dorc-border-color);
+        display: flex;
+        flex-direction: column;
+      }
+      vaadin-details::part(content) {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      .details-content {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-s);
+        padding: var(--lumo-space-s) 0;
+      }
+      .databases-wrapper {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      .summary-bar {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-s);
+        font-weight: 400;
+      }
+      .summary-bar vaadin-icon {
+        color: var(--dorc-link-color);
+      }
+      .count-badge {
+        background-color: var(--dorc-link-color);
+        color: var(--dorc-bg-primary);
+        border-radius: 1em;
+        font-size: var(--lumo-font-size-xs);
+        font-weight: 600;
+        padding: 0 var(--lumo-space-s);
+        line-height: 1.6;
       }
     `;
   }
@@ -69,17 +116,27 @@ export class EnvDatabases extends PageEnvBase {
     return html`
       <vaadin-details
         opened
-        summary="Application Database Details"
-        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
+        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-right: 4px; margin: 0px; box-sizing: border-box;"
       >
-        <div>
-          <div class="inline">
+        <vaadin-details-summary slot="summary">
+          <div class="summary-bar">
+            <vaadin-icon icon="vaadin:database" theme="small"></vaadin-icon>
+            Application Database Details
+            <span class="count-badge">${this.databases?.length ?? 0}</span>
+          </div>
+        </vaadin-details-summary>
+        <div class="details-content">
+          <div class="toolbar">
             <div class="inline">
               <vaadin-button
                 title="Attach Database"
                 @click="${this.openAttachDatabaseDialog}"
                 .disabled="${!this.environment?.UserEditable}"
-                >Attach Database</vaadin-button
+                ><vaadin-icon
+                  icon="vaadin:link"
+                  slot="prefix"
+                ></vaadin-icon>
+                Attach Database</vaadin-button
               >
               <vaadin-dialog
                 id="attach-database-dialog"
@@ -94,7 +151,7 @@ export class EnvDatabases extends PageEnvBase {
               ></vaadin-dialog>
             </div>
           </div>
-          <div>
+          <div class="databases-wrapper">
             <attached-databases
               id="attached-databases"
               .envId="${this.environmentId}"
@@ -134,29 +191,21 @@ export class EnvDatabases extends PageEnvBase {
   }
 
   refreshDatabases() {
-    if (!this.environmentId || this.environmentId === -1) return;
-    const api = new RefDataEnvironmentsDetailsApi(dorcApiConfiguration);
-    api.refDataEnvironmentsDetailsIdGet({ id: this.environmentId }).subscribe(
-      (data: EnvironmentContentApiModel) => {
-        this.setDatabases(data);
-      },
-      (err: any) => console.error(err),
-      () => console.log('done loading env details')
-    );
+    // The base class assigns `environment` (which fires this hook) before it assigns
+    // `environmentId` on the cold-cache path, so derive the id from the environment.
+    const envId = this.environment?.EnvironmentId ?? this.environmentId;
+    if (!envId || envId <= 0) return;
+    new RefDataDatabasesApi(dorcApiConfiguration)
+      .refDataDatabasesByEnvIdEnvIdGet({ envId })
+      .subscribe({
+        next: (data: DatabaseApiModel[]) => {
+          this.databases = data.sort(this.sortDbs);
+        },
+        error: (err: any) => console.error(err)
+      });
   }
 
-  setDatabases = (data: EnvironmentContentApiModel | undefined) => {
-    console.log(
-      `Setting Databases on env-databases page ${this.environment?.EnvironmentName}`
-    );
-
-    this.databases =
-      data?.DbServers !== null
-        ? data?.DbServers?.sort(this.sortDbs)
-        : undefined;
-  };
-
-  override notifyEnvironmentContentReady() {
+  override notifyEnvironmentReady() {
     this.envReadOnly = !this.environment?.UserEditable;
     this.refreshDatabases();
   }

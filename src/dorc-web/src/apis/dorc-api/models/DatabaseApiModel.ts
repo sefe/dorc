@@ -11,6 +11,10 @@
  * Do not edit the class manually.
  */
 
+import type {
+    DatabaseType,
+} from './';
+
 /**
  * @export
  * @interface DatabaseApiModel
@@ -42,6 +46,12 @@ export interface DatabaseApiModel {
      */
     ServerName?: string | null;
     /**
+     * Omitted or null defaults to SQL Server on create and preserves the stored engine on update. Responses always include the stored engine.
+     * @type {DatabaseType}
+     * @memberof DatabaseApiModel
+     */
+    DatabaseType?: DatabaseType | null;
+    /**
      * @type {string}
      * @memberof DatabaseApiModel
      */
@@ -57,3 +67,5 @@ export interface DatabaseApiModel {
      */
     ArrayName?: string | null;
 }
+
+

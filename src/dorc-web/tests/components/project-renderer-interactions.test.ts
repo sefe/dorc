@@ -96,6 +96,37 @@ describe('project action menu accessibility', () => {
 });
 
 describe('deployment result actions', () => {
+  for (const status of ['Complete', 'Failed', 'Cancelled']) {
+    it(`retains the plan action after ${status} without linking Terraform components to Scripts`, async () => {
+      const result = {
+        Id: 17,
+        Status: status,
+        IsTerraform: true,
+        ComponentName: 'Catalog module'
+      };
+      const el = await fixture<
+        HTMLElement & {
+          actionsRenderer(item: unknown): unknown;
+          componentNameRenderer(item: unknown): unknown;
+        }
+      >(
+        html`<component-deployment-results
+          .resultItems=${[result]}
+        ></component-deployment-results>`
+      );
+      const actionHost = await fixture<HTMLElement>(html`<div></div>`);
+      render(el.actionsRenderer(result) as never, actionHost);
+      expect(
+        actionHost.querySelector(
+          'vaadin-button[aria-label="View retained Terraform plan and receipt"]'
+        )
+      ).not.to.equal(null);
+      render(el.componentNameRenderer(result) as never, actionHost);
+      expect(actionHost.textContent).to.contain('Catalog module');
+      expect(actionHost.querySelector('a')).to.equal(null);
+    });
+  }
+
   it('opens the Terraform plan from the rendered action and publishes the resulting status change', async () => {
     const results = [{ Id: 17, Status: 'WaitingConfirmation' }];
     const el = await fixture<HTMLElement>(html`
@@ -119,7 +150,7 @@ describe('deployment result actions', () => {
     );
     (
       actionHost.querySelector(
-        'vaadin-button[title="View Terraform Plan"]'
+        'vaadin-button[aria-label="View retained Terraform plan and receipt"]'
       ) as HTMLElement
     ).click();
     await (el as HTMLElement & { updateComplete: Promise<unknown> })

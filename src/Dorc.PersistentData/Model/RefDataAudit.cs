@@ -6,6 +6,7 @@ namespace Dorc.PersistentData.Model
     public class RefDataAudit
     {
         public int RefDataAuditId { get; set; }
+        public Guid? ChangeId { get; set; }
 
         public int? ProjectId { get; set; }
 

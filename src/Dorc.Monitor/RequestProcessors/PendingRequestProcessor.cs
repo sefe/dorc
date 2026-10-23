@@ -93,7 +93,10 @@ namespace Dorc.Monitor.RequestProcessors
 
                     try
                     {
-                        logger.LogDebug($"Request details:\r\n{requestToExecute.Request.RequestDetails}");
+                        // Debug-level convenience dump; RequestDetails carries
+                        // sensitive wizard parameter values in cleartext, so
+                        // redact before the payload touches any log sink.
+                        logger.LogDebug($"Request details:\r\n{RequestPropertyRedaction.RedactRequestDetailsXml(requestToExecute.Request.RequestDetails)}");
 
                         var requestDetail = requestToExecute.Details;
 
@@ -126,11 +129,12 @@ namespace Dorc.Monitor.RequestProcessors
 
                         var deploymentStartedTime = DateTimeOffset.Now;
 
-                        InitializeDeploymentRequest(requestToExecute.Request, deploymentStartedTime);
+                        if (!InitializeDeploymentRequest(requestToExecute.Request, deploymentStartedTime))
+                            return;
 
                         var deploymentRequestStatus = DeploymentRequestStatus.Completed;
 
-                        var orderedNonSkippedComponents = GetOrderedNonSkippedComponents(requestDetail);
+                        var orderedNonSkippedComponents = requestsPersistentSource.GetSubmittedComponents(requestToExecute.Request.Id);
 
                         logger.LogInformation($"Found {orderedNonSkippedComponents.Count} non-skipped components for request {requestToExecute.Request.Id}:");
 
@@ -174,10 +178,6 @@ namespace Dorc.Monitor.RequestProcessors
                                         requestToExecute.Request.Id);
 
                                     deploymentResults.Add(componentId, deploymentResult);
-                                }
-                                else if (!deploymentResults[componentId].Status.Equals(DeploymentResultStatus.Confirmed.ToString()))
-                                {
-                                    logger.LogWarning($"Cannot create deployment result since duplicate component with id '{componentId}' is detected.");
                                 }
                             }
                             catch (Exception exception)
@@ -238,6 +238,35 @@ namespace Dorc.Monitor.RequestProcessors
                                 var componentId = enabledNonSkippedComponent.ComponentId!.Value;
                                 var deploymentResult = deploymentResults[componentId];
 
+                                if (deploymentResult.Status != DeploymentResultStatus.Pending.ToString() &&
+                                    !(enabledNonSkippedComponent.ComponentType == ComponentType.Terraform &&
+                                      deploymentResult.Status == DeploymentResultStatus.Confirmed.ToString()))
+                                {
+                                    logger.LogInformation(
+                                        "Not dispatching component {ComponentId} in status {Status}.",
+                                        componentId, deploymentResult.Status);
+                                    if (deploymentResult.Status == DeploymentResultStatus.WaitingConfirmation.ToString() &&
+                                        deploymentRequestStatus == DeploymentRequestStatus.Completed)
+                                        deploymentRequestStatus = DeploymentRequestStatus.WaitingConfirmation;
+                                    else if (deploymentResult.Status == DeploymentResultStatus.Failed.ToString() ||
+                                             deploymentResult.Status == DeploymentResultStatus.Running.ToString())
+                                    {
+                                        deploymentRequestStatus = DeploymentRequestStatus.Failed;
+                                        if (deploymentResult.Status == DeploymentResultStatus.Running.ToString())
+                                        {
+                                            const string interrupted = "The previous component execution was interrupted. Reconcile infrastructure/state and submit a fresh deployment; it will not be replayed automatically.";
+                                            logger.LogError("Component {ComponentId}: {Reason}", componentId, interrupted);
+                                            requestsPersistentSource.UpdateResultLog(deploymentResult,
+                                                deploymentResult.Log + System.Environment.NewLine + interrupted);
+                                            requestsPersistentSource.UpdateResultStatus(deploymentResult,
+                                                DeploymentResultStatus.Failed, DeploymentResultStatus.Running);
+                                        }
+                                        if (enabledNonSkippedComponent.StopOnFailure)
+                                            break;
+                                    }
+                                    continue;
+                                }
+
                                 bool isSuccessful = componentProcessor.DeployComponent(
                                     enabledNonSkippedComponent,
                                     deploymentResult,
@@ -262,7 +291,8 @@ namespace Dorc.Monitor.RequestProcessors
                                         break;
                                     }
                                 }
-                                if (deploymentResult.Status == DeploymentResultStatus.WaitingConfirmation.ToString())
+                                if (deploymentResult.Status == DeploymentResultStatus.WaitingConfirmation.ToString() &&
+                                    deploymentRequestStatus == DeploymentRequestStatus.Completed)
                                 {
                                     deploymentRequestStatus = DeploymentRequestStatus.WaitingConfirmation;
                                 }
@@ -436,7 +466,9 @@ namespace Dorc.Monitor.RequestProcessors
             {
                 var pendingResults = requestsPersistentSource
                     .GetDeploymentResultsForRequest(requestId)
-                    .Where(r => r.Status == DeploymentResultStatus.Pending.ToString())
+                    .Where(r => r.Status == DeploymentResultStatus.Pending.ToString() ||
+                        r.Status == DeploymentResultStatus.WaitingConfirmation.ToString() ||
+                        r.Status == DeploymentResultStatus.Confirmed.ToString())
                     .ToList();
 
                 if (pendingResults.Count == 0)
@@ -468,14 +500,18 @@ namespace Dorc.Monitor.RequestProcessors
             }
         }
 
-        private void InitializeDeploymentRequest(DeploymentRequestApiModel request, DateTimeOffset startedTime)
+        private bool InitializeDeploymentRequest(DeploymentRequestApiModel request, DateTimeOffset startedTime)
         {
             logger.LogInformation("Setting Request to Running state, Id: " + request.Id);
 
-            requestsPersistentSource.SetRequestStartStatus(
+            if (!requestsPersistentSource.SetRequestStartStatus(
                 request,
                 DeploymentRequestStatus.Running,
-                startedTime);
+                startedTime))
+            {
+                logger.LogWarning("Request {RequestId} changed status before execution; not starting it.", request.Id);
+                return false;
+            }
 
             eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(request)
             {
@@ -484,34 +520,9 @@ namespace Dorc.Monitor.RequestProcessors
             }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
                 "fire-and-forget publish failed for requestId={RequestId}", request.Id),
                 TaskContinuationOptions.OnlyOnFaulted);
+            return true;
         }
 
-        private IList<ComponentApiModel> GetOrderedNonSkippedComponents(
-            DeploymentRequestDetail requestDetails)
-        {
-            logger.LogDebug("Getting ordered non-skipped components.");
-
-            var orderedComponents =
-                manageProjectsPersistentSource.GetOrderedComponents(requestDetails.Components);
-
-            var orderedNonSkippedComponents = new List<ComponentApiModel>();
-
-            foreach (var component in orderedComponents)
-            {
-                if (requestDetails.ComponentsToSkip == null
-                    || !requestDetails.ComponentsToSkip.Contains(component.ComponentName))
-                {
-                    orderedNonSkippedComponents.Add(component);
-
-                }
-                else
-                {
-                    logger.LogInformation($"Skipping component '{component.ComponentName}'.");
-                }
-            }
-
-            return orderedNonSkippedComponents;
-        }
 
         private IDictionary<string, VariableValue> GetCommonProperties(bool environmentIsProd)
         {

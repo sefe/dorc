@@ -8,7 +8,7 @@ CREATE TABLE [deploy].[DeploymentRequestAttempt] (
     [Log]                 NVARCHAR (MAX)     NULL,
     [UserName]            NVARCHAR (128)     NOT NULL,
     CONSTRAINT [PK_DeploymentRequestAttempt] PRIMARY KEY CLUSTERED ([Id] ASC),
-    CONSTRAINT [FK_DeploymentRequestAttempt_DeploymentRequest] FOREIGN KEY ([DeploymentRequestId]) REFERENCES [deploy].[DeploymentRequest] ([Id])
+    CONSTRAINT [FK_DeploymentRequestAttempt_DeploymentRequest] FOREIGN KEY ([DeploymentRequestId]) REFERENCES [deploy].[DeploymentRequest] ([Id]) ON DELETE CASCADE
 );
 
 GO

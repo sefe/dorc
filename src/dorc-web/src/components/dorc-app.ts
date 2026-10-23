@@ -730,11 +730,17 @@ export class DorcApp extends LitElement {
 
   private openProjectComponents = (e: CustomEvent) => {
     const project = e.detail.Project as ProjectApiModel;
+    if (project) {
+      drawerShortcuts.add('projects', toProjectShortcut(project));
+    }
     void navigate(`/project-components/${project?.ProjectId}`);
   };
 
   private openProjectRefData = (e: CustomEvent) => {
     const project = e.detail.Project as ProjectApiModel;
+    if (project) {
+      drawerShortcuts.add('projects', toProjectShortcut(project));
+    }
     void navigate(`/project-ref-data/${project?.ProjectId}`);
   };
 

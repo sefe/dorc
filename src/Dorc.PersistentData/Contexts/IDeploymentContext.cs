@@ -13,6 +13,10 @@ namespace Dorc.PersistentData.Contexts
     {
         DatabaseFacade Database { get; }
         ChangeTracker ChangeTracker { get; }
+        DbSet<DeploymentDefinitionChange> DeploymentDefinitionChanges { get; set; }
+        DbSet<DeploymentDefinitionRevision> DeploymentDefinitionRevisions { get; set; }
+        DbSet<DeploymentRequestDefinition> DeploymentRequestDefinitions { get; set; }
+        DbSet<PowerShellExecutionReceipt> PowerShellExecutionReceipts { get; set; }
         DbSet<Component> Components { get; set; }
         DbSet<Script> Scripts { get; set; }
         DbSet<Property> Properties { get; set; }
@@ -22,6 +26,14 @@ namespace Dorc.PersistentData.Contexts
         DbSet<DeploymentRequestProcess> DeploymentRequestProcesses { get; set; }
         DbSet<DeploymentRequest> DeploymentRequests { get; set; }
         DbSet<DeploymentResult> DeploymentResults { get; set; }
+        DbSet<TerraformPlanApproval> TerraformPlanApprovals { get; set; }
+        DbSet<TerraformDeploymentReceipt> TerraformDeploymentReceipts { get; set; }
+        DbSet<CatalogSubmission> CatalogSubmissions { get; set; }
+        DbSet<CatalogEnvironmentInputs> CatalogEnvironmentInputs { get; set; }
+        DbSet<CatalogRequestInputs> CatalogRequestInputs { get; set; }
+        DbSet<CatalogModuleUpgrade> CatalogModuleUpgrades { get; set; }
+        DbSet<TerraformDeploymentOutcome> TerraformDeploymentOutcomes { get; set; }
+        DbSet<TerraformInventoryProvenance> TerraformInventoryProvenance { get; set; }
         DbSet<DeploymentRequestAttempt> DeploymentRequestAttempts { get; set; }
         DbSet<DeploymentResultAttempt> DeploymentResultAttempts { get; set; }
         DbSet<Environment> Environments { get; set; }
@@ -35,6 +47,12 @@ namespace Dorc.PersistentData.Contexts
         DbSet<RefDataAudit> RefDataAudits { get; set; }
         DbSet<RefDataAuditAction> RefDataAuditActions { get; set; }
         DbSet<DaemonAudit> DaemonAudits { get; set; }
+        DbSet<Container> Containers { get; set; }
+        DbSet<CloudResource> CloudResources { get; set; }
+        DbSet<ApiRegistration> ApiRegistrations { get; set; }
+        DbSet<ContainerAudit> ContainerAudits { get; set; }
+        DbSet<CloudResourceAudit> CloudResourceAudits { get; set; }
+        DbSet<ApiRegistrationAudit> ApiRegistrationAudits { get; set; }
         DbSet<DaemonObservation> DaemonObservations { get; set; }
         DbSet<ServerAudit> ServerAudits { get; set; }
         DbSet<DatabaseAudit> DatabaseAudits { get; set; }

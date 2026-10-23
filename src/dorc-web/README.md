@@ -79,6 +79,17 @@ dorc-web/
 
 ## Development Guides
 
+### Target and edit-dialog state
+
+Template input resolution is scoped to the selected project and environment;
+switching targets or closing the wizard invalidates pending resolution responses.
+The component history picker includes catalog-backed Terraform components with
+a template name and version, even though they have no script path.
+
+Cloud, Containers and APIs edit dialogs start a fresh editing session each time
+a row is opened. Dismissing the dialog discards unsaved changes; normal rerenders
+while it remains open preserve the current draft.
+
 ### Available Scripts
 
 - **`npm run dev`** - Start development server with hot reload

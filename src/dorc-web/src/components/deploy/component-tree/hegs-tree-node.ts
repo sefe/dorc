@@ -16,6 +16,10 @@ export class HegsTreeNode extends LitElement {
 
   @property({ type: Boolean }) open = false;
 
+  @property({ type: Boolean }) selectable = false;
+
+  @property({ type: String }) selectedPath = '';
+
   @query('#deployment')
   private deploymentInput: HTMLInputElement | undefined;
 
@@ -77,6 +81,15 @@ export class HegsTreeNode extends LitElement {
     this.open = this.data.open;
   }
 
+  protected updated(changed: PropertyValues) {
+    super.updated(changed);
+    if (changed.has('data')) {
+      this.open = this.data.open;
+      this.checked = this.data.checked;
+      this.indeterminate = this.data.indeterminate;
+    }
+  }
+
   ResetCheckedStates() {
     const elems = this.shadowRoot?.querySelectorAll('[id=hegs-tree-node]');
     elems?.forEach(elem => {
@@ -87,6 +100,7 @@ export class HegsTreeNode extends LitElement {
       console.log(`Setting indeterminate to false for ${this.data.name}`);
       this.setIndeterminateState(false);
     }
+
     if (this.checked) {
       console.log(`Setting checked to false for ${this.data.name}`);
       this.setCheckedState(false);
@@ -186,10 +200,43 @@ export class HegsTreeNode extends LitElement {
   /**
    * Display/Hide the children nodes.
    */
-  toggleChildren() {
-    this.open =
-      (!this.open && this.data?.children && this.data.children.length > 0) ??
-      false;
+  toggleChildren(event?: Event) {
+    event?.stopPropagation();
+    const hasChildren = Boolean(
+      this.data?.children && this.data.children.length > 0
+    );
+    if (!hasChildren) {
+      this.open = false;
+      return;
+    }
+    this.open = !this.open;
+    if (this.data) {
+      this.data.open = this.open;
+    }
+    this.dispatchEvent(
+      new CustomEvent('hegs-tree-node-toggled', {
+        detail: {
+          node: this.data,
+          path: this.data?.path ?? '',
+          open: this.open
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
+  }
+
+  selectNode() {
+    this.dispatchEvent(
+      new CustomEvent('hegs-tree-node-selected', {
+        detail: {
+          node: this.data,
+          path: this.data?.path ?? ''
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
   }
 
   public getChecked(): boolean {

@@ -123,6 +123,7 @@
 						<Json:JsonFile Id="TerraformRunnerNonProdExeOpenSearchSettingsDeploymentResultIndexConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.DeploymentResultIndex" Value="[OPENSEARCH.DEPLOYMENTRESULTINDEX]"  />
 						<Json:JsonFile Id="TerraformRunnerNonProdExeOpenSearchSettingsEnvironmentConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.Environment" Value="[ENVIRONMENT]"  />
 						<Json:JsonFile Id="TerraformRunnerNonProdExeOpenSearchSettingsEnvironmentTierConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.OpenSearchSettings.EnvironmentTier" Value="[ENVIRONMENT.TIER]"  />
+						<Json:JsonFile Id="TerraformRunnerNonProdExeCatalogManifestsDirectoryConfig" File="[#NonProdTerraformRunnerExeConfig]" ElementPath="$.Terraform.Catalog.ManifestsDirectory" Value="[DORC.TERRAFORM.CATALOG.MANIFESTS.DIRECTORY]"  />
 					</Component>
 				</Directory>
 			</Directory>

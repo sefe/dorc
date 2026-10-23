@@ -205,6 +205,18 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
 
   componentNameRenderer(item: DeploymentResultApiModel) {
     const result = item as DeploymentResultApiModel;
+    if (result.ProjectId && result.ComponentId)
+      return html`
+        <a
+          href="/project-ref-data/${result.ProjectId}?componentId=${result.ComponentId}&amp;tab=history"
+          >${result.ComponentName}</a
+        >
+        <div>
+          ${result.SourceRevisionLabel || 'Executed source not recorded'}
+        </div>
+        ${result.DefinitionRevision ? html`<small>Submitted revision: ${result.DefinitionRevision}</small>` : ''}
+      `;
+    if (result.IsTerraform) return html`${result.ComponentName}`;
     return html`
       <a href="scripts?search-name=${result.ComponentName}" target="_blank"
         >${result.ComponentName}</a
@@ -372,7 +384,9 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
     const result = item as DeploymentResultApiModel;
     const status = result.Status || '';
     const isTerraformStatus =
-      status === 'WaitingConfirmation' || status === 'Confirmed';
+      result.IsTerraform ||
+      status === 'WaitingConfirmation' ||
+      status === 'Confirmed';
 
     if (!isTerraformStatus) {
       return html`<span>-</span>`;
@@ -383,7 +397,8 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
         <vaadin-button
           class="terraform-button"
           @click="${() => this.openTerraformPlan(result.Id!)}"
-          title="View Terraform Plan"
+          title="View retained Terraform plan and receipt"
+          aria-label="View retained Terraform plan and receipt"
         >
           <vaadin-icon icon="vaadin:file-text"></vaadin-icon>
         </vaadin-button>
