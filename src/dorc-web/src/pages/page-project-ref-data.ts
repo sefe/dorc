@@ -32,6 +32,8 @@ import '../components/deployment-definition-editor';
 import '../components/deployment-definition-history';
 import '../components/hegs-json-diff';
 import '../components/project-workspace-nav';
+import '../components/terraform-backend-cutover';
+import GlobalCache from '../global-cache';
 import {
   GENERIC_SCRIPT_CATEGORIES,
   GENERIC_SCRIPT_TEMPLATES,
@@ -111,6 +113,8 @@ export class PageProjectRefData extends PageElement {
   @state() private genericDialogArgs: Record<string, string> = {};
   @state() private scriptCatalogLoading = false;
   @state() private scriptCatalogItems: DeploymentDefinitionApiModel[] = [];
+  @state() private isAdmin = false;
+  @state() private cutoverEnvironment: { id: number; name: string } | undefined;
   private backendEnvironmentsLoading = false;
   private backendEnvironmentsLoaded = false;
   private treeResizeActive = false;
@@ -621,6 +625,7 @@ export class PageProjectRefData extends PageElement {
     window.addEventListener(LOCATION_CHANGED_EVENT, this.syncLocationState);
     window.addEventListener('popstate', this.syncLocationState);
     this.load();
+    this.loadUserRoles();
     new PowerShellVersionsApi(dorcApiConfiguration)
       .powerShellVersionsGet()
       .subscribe({
@@ -673,6 +678,32 @@ export class PageProjectRefData extends PageElement {
       this.jsonDirty ||
       JSON.stringify(this.document) !== JSON.stringify(this.baseline)
     );
+  }
+
+  private loadUserRoles() {
+    const gc = GlobalCache.getInstance();
+    const apply = (roles: string[] | undefined) => {
+      this.isAdmin = roles?.includes('Admin') === true;
+    };
+    if (gc.userRoles === undefined) {
+      gc.allRolesResp?.subscribe({ next: apply });
+    } else {
+      apply(gc.userRoles);
+    }
+  }
+
+  private onCutoverCompleted(event: Event) {
+    const data = (event as CustomEvent<ReferenceDocument>).detail;
+    this.cutoverEnvironment = undefined;
+    this.document = structuredClone(data);
+    this.baseline = structuredClone(data);
+    this.preview = undefined;
+    this.syncEditor();
+    Notification.show('Terraform state backend migrated.', {
+      theme: 'success',
+      position: 'bottom-start',
+      duration: 5000
+    });
   }
 
   private get editable() {
@@ -1506,6 +1537,27 @@ export class PageProjectRefData extends PageElement {
               @click=${() => this.setBackends(backends.filter((_, row) => row !== index))}
               >Remove backend</vaadin-button
             >
+            ${
+              this.isAdmin && backend.EnvironmentId != null
+                ? html`<vaadin-button
+                    class="migrate-backend"
+                    theme="tertiary"
+                    .disabled=${!this.editable || this.dirty}
+                    title=${this.dirty ? 'Save or discard your pending edits before migrating a backend.' : 'Admin only: audited move of this environment\u2019s state backend.'}
+                    @click=${() => {
+                      this.cutoverEnvironment = {
+                        id: backend.EnvironmentId!,
+                        name:
+                          scopes.find(
+                            scope =>
+                              scope.value === String(backend.EnvironmentId)
+                          )?.label ?? `Environment ${backend.EnvironmentId}`
+                      };
+                    }}
+                    >Migrate backend…</vaadin-button
+                  >`
+                : nothing
+            }
           </fieldset>`
       )}
       <vaadin-button
@@ -1539,6 +1591,19 @@ export class PageProjectRefData extends PageElement {
         >Add backend</vaadin-button
       >
       ${this.renderReviewBar()}
+      ${
+        this.cutoverEnvironment
+          ? html`<terraform-backend-cutover
+              .projectId=${this.projectId}
+              .environmentId=${this.cutoverEnvironment.id}
+              .environmentName=${this.cutoverEnvironment.name}
+              @terraform-backend-cutover-closed=${() => {
+                this.cutoverEnvironment = undefined;
+              }}
+              @terraform-backend-cutover-completed=${this.onCutoverCompleted}
+            ></terraform-backend-cutover>`
+          : nothing
+      }
     </details>`;
   }
 

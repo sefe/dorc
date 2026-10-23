@@ -176,9 +176,11 @@ models/SharedResourceCapabilities.ts
 models/SourceControlType.ts
 models/SqlPortApiModel.ts
 models/TerraformBackendCutoverApiModel.ts
+models/TerraformBackendCutoverPreviewApiModel.ts
 models/TerraformDeploymentOutcomeApiModel.ts
 models/TerraformDeploymentReceiptApiModel.ts
 models/TerraformInventoryProvenanceApiModel.ts
+models/TerraformLegacyRequestApiModel.ts
 models/TerraformLegacyRequestRetirementApiModel.ts
 models/TerraformParameterConflict.ts
 models/TerraformParameterResolutionApiModel.ts

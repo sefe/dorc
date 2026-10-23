@@ -81,6 +81,15 @@ use `POST /Projects/{projectId}/terraform-state-backend-cutovers`. This is an
 operator API, not an ordinary reference-data edit or a state-copy operation.
 It requires project and environment write access as well as the Admin role.
 
+Administrators can drive the same operation from the project reference-data
+page: each environment-scoped backend row shows a **Migrate backend…** button
+(hidden for non-admins and disabled while the page has unsaved edits). The
+dialog calls `GET …/terraform-state-backend-cutovers/preview?environmentId=`,
+which returns the current backend, the pinned request count, any legacy
+requests and the server's current blockers without changing anything. The
+dialog will not submit while a blocker remains, and it submits exactly the
+payload described below; the server re-evaluates every guard on submission.
+
 Stop external writers and verify both the old and replacement containers are
 empty using authorized blob-data access. Retain a non-secret verification record
 with the resource identities, UTC time and checks performed; calculate its SHA-256.

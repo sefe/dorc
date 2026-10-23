@@ -342,6 +342,56 @@ public class DeploymentDefinitionsSqlTests
         var claims = Substitute.For<IClaimsPrincipalReader>();
         var controller = new TerraformBackendCutoversController(definitions, roles, security, claims);
         Assert.IsInstanceOfType<ForbidResult>(controller.Post(0, new TerraformBackendCutoverApiModel()));
+        Assert.IsInstanceOfType<ForbidResult>(controller.Preview(0, 0));
+    }
+
+    [TestMethod]
+    public void EmptyBackendCutoverPreview_ReportsLegacyRequestsAndBlockersWithoutChangingAnything()
+    {
+        var fixture = CreateCutover();
+        var projectId = fixture.Document.Project.ProjectId;
+        var environmentId = fixture.Cutover.EnvironmentId;
+
+        var clean = definitions.PreviewTerraformBackendCutover(projectId, environmentId, _ => true, _ => true);
+        Assert.AreEqual(fixture.Document.Revision, clean.Revision);
+        Assert.AreEqual(fixture.EnvironmentName, clean.EnvironmentName);
+        Assert.AreEqual("oldstate", clean.CurrentBackend.StorageAccount);
+        Assert.AreEqual(1, clean.PinnedRequestCount);
+        Assert.AreEqual(0, clean.LegacyRequests.Count);
+        Assert.AreEqual(0, clean.Blockers.Count);
+
+        int legacyId;
+        using (var context = factory.GetContext())
+        {
+            var legacy = new DeploymentRequest
+            {
+                Project = fixture.Document.Project.ProjectName, Environment = fixture.EnvironmentName,
+                Components = "legacy-component", RequestDetails = "<root/>", UserName = "legacy-requester",
+                Status = "Completed", RequestedTime = DateTimeOffset.UtcNow
+            };
+            context.DeploymentRequests.Add(legacy);
+            context.DeploymentRequests.Add(new DeploymentRequest
+            {
+                Project = fixture.Document.Project.ProjectName, Environment = fixture.EnvironmentName,
+                Components = "running-component", RequestDetails = "<root/>", UserName = "runner", Status = "Running"
+            });
+            context.SaveChanges();
+            legacyId = legacy.Id;
+        }
+
+        var preview = definitions.PreviewTerraformBackendCutover(projectId, environmentId, _ => true, _ => true);
+        var legacyRow = preview.LegacyRequests.Single(r => r.Id == legacyId);
+        Assert.AreEqual("legacy-component", legacyRow.Components);
+        Assert.AreEqual("legacy-requester", legacyRow.UserName);
+        Assert.IsTrue(preview.Blockers.Any(b => b.Contains("must be terminal")));
+        // The running request is itself legacy (no pinned definitions) so it is listed too.
+        Assert.AreEqual(2, preview.LegacyRequests.Count);
+        Assert.AreEqual(fixture.Document.Revision, definitions.Get(projectId).Revision);
+
+        Assert.Throws<UnauthorizedAccessException>(() =>
+            definitions.PreviewTerraformBackendCutover(projectId, environmentId, _ => false, _ => true));
+        Assert.Throws<ArgumentException>(() =>
+            definitions.PreviewTerraformBackendCutover(projectId, environmentId + 1000000, _ => true, _ => true));
     }
 
     [TestMethod]

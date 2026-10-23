@@ -14,15 +14,21 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
-import type { OperationOpts, HttpHeaders } from '../runtime';
+import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     RefDataApiModel,
     TerraformBackendCutoverApiModel,
+    TerraformBackendCutoverPreviewApiModel,
 } from '../models';
 
 export interface ProjectsProjectIdTerraformStateBackendCutoversPostRequest {
     projectId: number;
     terraformBackendCutoverApiModel?: TerraformBackendCutoverApiModel;
+}
+
+export interface ProjectsProjectIdTerraformStateBackendCutoversPreviewGetRequest {
+    projectId: number;
+    environmentId?: number;
 }
 
 /**
@@ -53,6 +59,35 @@ export class TerraformBackendCutoversApi extends BaseAPI {
             method: 'POST',
             headers,
             body: terraformBackendCutoverApiModel,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    projectsProjectIdTerraformStateBackendCutoversPreviewGet({ projectId, environmentId }: ProjectsProjectIdTerraformStateBackendCutoversPreviewGetRequest): Observable<TerraformBackendCutoverPreviewApiModel>
+    projectsProjectIdTerraformStateBackendCutoversPreviewGet({ projectId, environmentId }: ProjectsProjectIdTerraformStateBackendCutoversPreviewGetRequest, opts?: OperationOpts): Observable<AjaxResponse<TerraformBackendCutoverPreviewApiModel>>
+    projectsProjectIdTerraformStateBackendCutoversPreviewGet({ projectId, environmentId }: ProjectsProjectIdTerraformStateBackendCutoversPreviewGetRequest, opts?: OperationOpts): Observable<TerraformBackendCutoverPreviewApiModel | AjaxResponse<TerraformBackendCutoverPreviewApiModel>> {
+        throwIfNullOrUndefined(projectId, 'projectId', 'projectsProjectIdTerraformStateBackendCutoversPreviewGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (environmentId != null) { query['environmentId'] = environmentId; }
+
+        return this.request<TerraformBackendCutoverPreviewApiModel>({
+            url: '/Projects/{projectId}/terraform-state-backend-cutovers/preview'.replace('{projectId}', encodeURI(projectId)),
+            method: 'GET',
+            headers,
+            query,
         }, opts?.responseOpts);
     };
 

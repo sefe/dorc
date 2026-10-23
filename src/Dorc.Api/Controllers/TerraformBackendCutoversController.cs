@@ -14,6 +14,23 @@ namespace Dorc.Api.Controllers;
 public sealed class TerraformBackendCutoversController(DeploymentDefinitions definitions,
     IRolePrivilegesChecker roles, ISecurityPrivilegesChecker security, IClaimsPrincipalReader claims) : ControllerBase
 {
+    [HttpGet("preview")]
+    [SwaggerResponse(200, Type = typeof(TerraformBackendCutoverPreviewApiModel))]
+    [SwaggerResponse(400)]
+    [SwaggerResponse(403)]
+    public IActionResult Preview(int projectId, [FromQuery] int environmentId)
+    {
+        if (!roles.IsAdmin(User)) return Forbid();
+        try
+        {
+            return Ok(definitions.PreviewTerraformBackendCutover(projectId, environmentId,
+                id => security.CanModifyProject(User, id),
+                name => security.CanModifyEnvironment(User, name)));
+        }
+        catch (UnauthorizedAccessException) { return Forbid(); }
+        catch (ArgumentException e) { return BadRequest(e.Message); }
+    }
+
     [HttpPost]
     [SwaggerResponse(200, Type = typeof(RefDataApiModel))]
     [SwaggerResponse(400)]

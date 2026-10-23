@@ -11170,6 +11170,60 @@
           }
         }
       }
+    },
+    "/Projects/{projectId}/terraform-state-backend-cutovers/preview": {
+      "get": {
+        "tags": [
+          "TerraformBackendCutovers"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "environmentId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformBackendCutoverPreviewApiModel"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformBackendCutoverPreviewApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformBackendCutoverPreviewApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -15318,6 +15372,72 @@
             "nullable": true
           },
           "StateDisposition": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformBackendCutoverPreviewApiModel": {
+        "type": "object",
+        "properties": {
+          "Revision": {
+            "type": "string",
+            "nullable": true
+          },
+          "EnvironmentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "EnvironmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "CurrentBackend": {
+            "$ref": "#/components/schemas/TerraformStateBackendApiModel"
+          },
+          "LegacyRequests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TerraformLegacyRequestApiModel"
+            },
+            "nullable": true
+          },
+          "PinnedRequestCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformLegacyRequestApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Status": {
+            "type": "string",
+            "nullable": true
+          },
+          "UserName": {
+            "type": "string",
+            "nullable": true
+          },
+          "RequestedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "Components": {
             "type": "string",
             "nullable": true
           }
