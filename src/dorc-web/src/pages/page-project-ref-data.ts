@@ -25,7 +25,7 @@ import { PageElement } from '../helpers/page-element';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import { confirmPrompt } from '../components/confirm-prompt';
-import { LOCATION_CHANGED_EVENT } from '../router/router';
+import { LOCATION_CHANGED_EVENT, router } from '../router/router';
 import '../components/deploy/component-tree/hegs-tree';
 import { TreeNode } from '../components/deploy/component-tree/TreeNode';
 import '../components/deployment-definition-editor';
@@ -493,6 +493,19 @@ export class PageProjectRefData extends PageElement {
     .backend-row legend {
       padding-inline: var(--lumo-space-xs);
     }
+    .review-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--lumo-space-m);
+      margin-top: var(--lumo-space-m);
+      padding: var(--lumo-space-s) var(--lumo-space-m);
+      border: 1px solid var(--dorc-border-color);
+      border-left: 3px solid var(--lumo-primary-color);
+      border-radius: var(--lumo-border-radius-s);
+      background: var(--dorc-bg-secondary);
+      font-size: var(--lumo-font-size-s);
+    }
     vaadin-text-field,
     vaadin-combo-box {
       width: 100%;
@@ -604,6 +617,7 @@ export class PageProjectRefData extends PageElement {
       });
     }
     window.addEventListener('beforeunload', this.beforeUnload);
+    router.setLeaveGuard(this.confirmLeave);
     window.addEventListener(LOCATION_CHANGED_EVENT, this.syncLocationState);
     window.addEventListener('popstate', this.syncLocationState);
     this.load();
@@ -628,6 +642,7 @@ export class PageProjectRefData extends PageElement {
     this.stopTreeResize();
     this.loadGeneration++;
     window.removeEventListener('beforeunload', this.beforeUnload);
+    router.clearLeaveGuard(this.confirmLeave);
     window.removeEventListener(LOCATION_CHANGED_EVENT, this.syncLocationState);
     window.removeEventListener('popstate', this.syncLocationState);
     this.editor?.destroy();
@@ -638,6 +653,19 @@ export class PageProjectRefData extends PageElement {
       event.preventDefault();
       event.returnValue = '';
     }
+  };
+
+  private confirmLeave = (target: URL) => {
+    if (!this.dirty || target.pathname === window.location.pathname) {
+      return true;
+    }
+    return confirmPrompt(
+      'This project has unsaved reference-data changes. Leaving now discards them without saving.',
+      {
+        header: 'Discard unsaved changes?',
+        confirmText: 'Discard changes'
+      }
+    );
   };
 
   private get dirty() {
@@ -1331,6 +1359,24 @@ export class PageProjectRefData extends PageElement {
     ></vaadin-text-field>`;
   }
 
+  private renderReviewBar() {
+    if (!this.dirty || !this.editable || this.preview) return nothing;
+    return html`<div class="review-bar" role="status">
+      <span
+        >Unsaved changes. Nothing is applied until you review and confirm the
+        save.</span
+      >
+      <vaadin-button
+        theme="primary small"
+        @click=${(event: Event) => {
+          (event.currentTarget as HTMLElement | null)?.blur();
+          this.previewSave();
+        }}
+        >Review changes</vaadin-button
+      >
+    </div>`;
+  }
+
   private renderProjectSource() {
     const project = this.document?.Project;
     return html`<details class="project-source" open>
@@ -1376,6 +1422,7 @@ export class PageProjectRefData extends PageElement {
           }}
         ></vaadin-combo-box>
       </div>
+      ${this.renderReviewBar()}
     </details>`;
   }
 
@@ -1491,6 +1538,7 @@ export class PageProjectRefData extends PageElement {
         }}
         >Add backend</vaadin-button
       >
+      ${this.renderReviewBar()}
     </details>`;
   }
 

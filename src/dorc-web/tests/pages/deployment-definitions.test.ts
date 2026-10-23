@@ -243,6 +243,51 @@ describe('unified reference-data editing', () => {
     ]);
   });
 
+  it('offers an inline review bar for backend edits and guards in-app navigation while dirty', async () => {
+    const { router } = await import('../../src/router/router');
+    const page = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+    expect(page.shadowRoot!.querySelector('.review-bar')).to.equal(null);
+
+    page.shadowRoot!.querySelector<HTMLDetailsElement>('.backends')!.open =
+      true;
+    await settle();
+    clickButton(page.shadowRoot!, 'Add backend');
+    await settle();
+    const bar = page.shadowRoot!.querySelector('.review-bar')!;
+    expect(bar, 'inline review bar appears once dirty').to.not.equal(null);
+
+    // Switching tabs on the same page never prompts.
+    mocks.confirm.mockClear();
+    mocks.confirm.mockResolvedValue(false);
+    const samePage = new URL('/project-ref-data/7?tab=history', location.href);
+    expect(await (router as any).leaveGuard(samePage)).to.equal(true);
+    expect(mocks.confirm.mock.calls).to.have.length(0);
+
+    // Leaving the page while dirty prompts; declining keeps the edits.
+    const elsewhere = new URL('/catalog', location.href);
+    expect(await (router as any).leaveGuard(elsewhere)).to.equal(false);
+    expect(mocks.confirm.mock.calls).to.have.length(1);
+    expect(mocks.confirm.mock.calls[0][1]).to.include({
+      confirmText: 'Discard changes'
+    });
+    expect(page.shadowRoot!.querySelectorAll('.backend-row').length).to.equal(
+      1
+    );
+
+    // The inline button opens the same preview as the header button.
+    clickButton(bar, 'Review changes');
+    await settle();
+    expect(page.shadowRoot!.querySelector('hegs-json-diff')).to.not.equal(null);
+    expect(page.shadowRoot!.querySelector('.review-bar')).to.equal(null);
+
+    page.remove();
+    await settle();
+    expect((router as any).leaveGuard).to.equal(undefined);
+  });
+
   it('preserves backend edits when the server refuses an unsafe state move', async () => {
     const data = reference();
     mocks.get.mockReturnValue(
