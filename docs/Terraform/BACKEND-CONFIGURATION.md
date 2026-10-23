@@ -93,11 +93,24 @@ Submit the current reference-data `Revision`, mapped `EnvironmentId`, the
 The operation refuses active requests, retained runner processes, retained
 Catalog plans/receipts, and missing or conflicting submitted backend evidence.
 It cannot be used to migrate nonempty state or deployments with existing plans.
-It also refuses legacy requests without pinned definitions and any archived
-deployment history in that project/environment. Older successful or partially
-failed runs may have used source-owned or local state: empty newly configured
-containers are not evidence that those runs created no infrastructure. Recover
-that state or perform a separately reviewed resource-import procedure first.
+It also refuses any archived deployment history in that project/environment.
+
+#### Legacy requests without pinned definitions
+
+Requests submitted before definition pinning existed have no backend evidence.
+Older successful or partially failed runs may have used source-owned or local
+state: empty newly configured containers are not evidence that those runs created
+no infrastructure. By default the cutover refuses such requests and lists their IDs.
+
+An administrator may retire them explicitly by adding `LegacyRetirement` with the
+exact `RequestIds` the server listed and a `StateDisposition` (20-4000 characters)
+stating what was done about any infrastructure those runs applied - destroyed by
+hand, imported into a fresh state under a separately reviewed procedure, or
+knowingly abandoned with a reference to the decision record. The set must match
+the server's current view; a stale or partial list conflicts. The disposition is
+recorded verbatim on the change (`TerraformBackend.LegacyCutover`) and surfaces in
+definition history. Retired legacy requests cannot restart or dispatch. This does
+not recover state: it records who accepted the gap and why.
 
 The project change, before/after history, verification digest and request-retirement
 markers commit in one transaction. Old submitted definitions and results are not

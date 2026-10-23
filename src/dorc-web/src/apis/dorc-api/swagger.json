@@ -15299,6 +15299,27 @@
           "VerificationSha256": {
             "type": "string",
             "nullable": true
+          },
+          "LegacyRetirement": {
+            "$ref": "#/components/schemas/TerraformLegacyRequestRetirementApiModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformLegacyRequestRetirementApiModel": {
+        "type": "object",
+        "properties": {
+          "RequestIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "StateDisposition": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false

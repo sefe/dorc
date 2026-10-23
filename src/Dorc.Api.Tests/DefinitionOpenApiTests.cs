@@ -48,7 +48,7 @@ public class DefinitionOpenApiTests
             existing["paths"]![path] = generated["paths"]![path]!.DeepClone();
         foreach (var schema in new[]
         {
-            "RefDataApiModel", "ProjectApiModel", "TerraformStateBackendApiModel", "TerraformBackendCutoverApiModel", "TerraformReadinessApiModel",
+            "RefDataApiModel", "ProjectApiModel", "TerraformStateBackendApiModel", "TerraformBackendCutoverApiModel", "TerraformLegacyRequestRetirementApiModel", "TerraformReadinessApiModel",
             "ComponentApiModel", "ScriptApiModel", "DeploymentDefinitionApiModel",
             "GetDeploymentDefinitionsResponse", "DeploymentDefinitionHistoryApiModel", "GetDeploymentDefinitionHistoryResponse",
             "DeploymentResultApiModel", "DeploymentResultAttemptApiModel", "EnvironmentContentBuildsApiModel", "TerraformDeploymentReceiptApiModel"

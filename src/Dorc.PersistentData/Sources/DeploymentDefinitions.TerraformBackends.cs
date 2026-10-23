@@ -8,6 +8,9 @@ namespace Dorc.PersistentData.Sources;
 
 public sealed partial class DeploymentDefinitions
 {
+    private const int MinimumDispositionLength = 20;
+    private const int MaximumDispositionLength = 4000;
+
     public RefDataApiModel CutoverEmptyTerraformBackend(int projectId, TerraformBackendCutoverApiModel input,
         string actor, Func<int, bool> canModifyProject, Func<string, bool> canModifyEnvironment)
     {
@@ -23,6 +26,12 @@ public sealed partial class DeploymentDefinitions
         TerraformStateBackends.Validate([input.Backend]);
         if (TerraformStateBackends.SameLocation(input.ExpectedBackend, input.Backend))
             throw new ArgumentException("The replacement must identify a different backend.");
+        var legacy = input.LegacyRetirement;
+        if (legacy != null && (legacy.RequestIds == null || legacy.RequestIds.Count == 0 ||
+            legacy.RequestIds.Any(id => id <= 0) || legacy.RequestIds.Distinct().Count() != legacy.RequestIds.Count ||
+            string.IsNullOrWhiteSpace(legacy.StateDisposition) || legacy.StateDisposition.Trim().Length < MinimumDispositionLength ||
+            legacy.StateDisposition.Length > MaximumDispositionLength))
+            throw new ArgumentException($"Legacy retirement must list each reviewed request ID once and record what was done about any infrastructure they applied ({MinimumDispositionLength}-{MaximumDispositionLength} characters).");
 
         using var strategyContext = factory.GetContext();
         return strategyContext.Database.CreateExecutionStrategy().Execute(() =>
@@ -65,8 +74,19 @@ public sealed partial class DeploymentDefinitions
             var observedIds = context.DeploymentRequestDefinitions
                 .Where(d => scopeIds.Contains(d.DeploymentRequestId))
                 .Select(d => d.DeploymentRequestId).Distinct().ToHashSet();
-            if (requests.Any(r => !observedIds.Contains(r.Id)))
-                throw new InvalidOperationException("Legacy requests have no pinned source/backend evidence. Locate or recover their state before changing this backend; empty containers do not prove that no infrastructure was deployed.");
+            var legacyRequests = requests.Where(r => !observedIds.Contains(r.Id)).OrderBy(r => r.Id).ToList();
+            if (legacyRequests.Count > 0 && legacy == null)
+                throw new InvalidOperationException("Legacy requests have no pinned source/backend evidence. Locate or recover their state before changing this backend; empty containers do not prove that no infrastructure was deployed. " +
+                    $"An administrator may retire them explicitly by listing request IDs {string.Join(", ", legacyRequests.Select(r => r.Id))} with a recorded state disposition.");
+            if (legacy != null && !legacyRequests.Select(r => r.Id).SequenceEqual(legacy.RequestIds.OrderBy(id => id)))
+                throw new InvalidOperationException("The legacy request set differs from the one reviewed. Reload, review the current list " +
+                    $"({(legacyRequests.Count == 0 ? "none" : string.Join(", ", legacyRequests.Select(r => r.Id)))}) and resubmit.");
+            var operatorNote = legacy == null ? null : JsonSerializer.Serialize(new
+            {
+                LegacyRequestIds = legacyRequests.Select(r => r.Id).ToArray(),
+                StateDisposition = legacy.StateDisposition.Trim(),
+                RetiredBackend = new { input.ExpectedBackend.StorageAccount, input.ExpectedBackend.ContainerName, input.ExpectedBackend.SubscriptionId }
+            });
             var archivedHistory = context.Database.SqlQuery<int>($"""
                 SELECT CAST(CASE WHEN EXISTS (
                     SELECT 1 FROM [archive].[DeploymentRequest]
@@ -89,10 +109,11 @@ public sealed partial class DeploymentDefinitions
             project.TerraformStateBackendsJson = JsonSerializer.Serialize(backends);
             context.SaveChanges();
             var after = Read(context, projectId);
-            var changeId = Record(context, before, after, actor, "TerraformBackend.EmptyCutover",
-                "sha256:" + input.VerificationSha256.ToLowerInvariant())
+            var changeId = Record(context, before, after, actor,
+                legacy == null ? "TerraformBackend.EmptyCutover" : "TerraformBackend.LegacyCutover",
+                "sha256:" + input.VerificationSha256.ToLowerInvariant(), operatorNote)
                 ?? throw new InvalidOperationException("The cutover did not change the project revision.");
-            foreach (var request in requests.Where(r => retiringIds.Contains(r.Id)))
+            foreach (var request in requests.Where(r => retiringIds.Contains(r.Id)).Concat(legacyRequests))
                 request.TerraformBackendRetiredByChangeId = changeId;
             context.SaveChanges();
             transaction.Commit();

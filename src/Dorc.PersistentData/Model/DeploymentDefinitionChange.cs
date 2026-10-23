@@ -13,4 +13,6 @@ public class DeploymentDefinitionChange
     public string Revision { get; set; } = "";
     public string? SourceRecordId { get; set; }
     public string? AffectedComponentsJson { get; set; }
+    /// <summary>Operator-supplied, verbatim context for privileged operations (JSON); null for ordinary edits.</summary>
+    public string? OperatorNoteJson { get; set; }
 }

@@ -12,6 +12,7 @@
  */
 
 import type {
+    TerraformLegacyRequestRetirementApiModel,
     TerraformStateBackendApiModel,
 } from './';
 
@@ -50,4 +51,9 @@ export interface TerraformBackendCutoverApiModel {
      * @memberof TerraformBackendCutoverApiModel
      */
     VerificationSha256?: string | null;
+    /**
+     * @type {TerraformLegacyRequestRetirementApiModel}
+     * @memberof TerraformBackendCutoverApiModel
+     */
+    LegacyRetirement?: TerraformLegacyRequestRetirementApiModel;
 }

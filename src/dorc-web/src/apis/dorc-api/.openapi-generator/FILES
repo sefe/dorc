@@ -179,6 +179,7 @@ models/TerraformBackendCutoverApiModel.ts
 models/TerraformDeploymentOutcomeApiModel.ts
 models/TerraformDeploymentReceiptApiModel.ts
 models/TerraformInventoryProvenanceApiModel.ts
+models/TerraformLegacyRequestRetirementApiModel.ts
 models/TerraformParameterConflict.ts
 models/TerraformParameterResolutionApiModel.ts
 models/TerraformParameterResolutionStatus.ts

@@ -248,6 +248,74 @@ public class DeploymentDefinitionsSqlTests
     }
 
     [TestMethod]
+    public void EmptyBackendCutover_RetiresExplicitlyAcknowledgedLegacyRequestsWithRecordedDisposition()
+    {
+        var fixture = CreateCutover();
+        int legacyId;
+        using (var context = factory.GetContext())
+        {
+            var legacy = new DeploymentRequest
+            {
+                Project = fixture.Document.Project.ProjectName, Environment = fixture.EnvironmentName,
+                Components = fixture.Document.Components.Single().ComponentName,
+                RequestDetails = "<root/>", UserName = "legacy-requester", Status = "Completed"
+            };
+            context.DeploymentRequests.Add(legacy);
+            context.SaveChanges();
+            legacyId = legacy.Id;
+        }
+        var projectId = fixture.Document.Project.ProjectId;
+        var disposition = "Orphaned kafka topics destroyed by hand on 2026-10-23; see ticket OPS-1.";
+
+        // The acknowledged set must match the server's view exactly.
+        fixture.Cutover.LegacyRetirement = new TerraformLegacyRequestRetirementApiModel
+            { RequestIds = [legacyId, legacyId + 1000], StateDisposition = disposition };
+        var mismatch = Assert.Throws<InvalidOperationException>(() => definitions.CutoverEmptyTerraformBackend(
+            projectId, fixture.Cutover, "operator", _ => true, _ => true));
+        StringAssert.Contains(mismatch.Message, "differs");
+
+        // A disposition is mandatory and must be substantive.
+        fixture.Cutover.LegacyRetirement = new TerraformLegacyRequestRetirementApiModel
+            { RequestIds = [legacyId], StateDisposition = "n/a" };
+        Assert.Throws<ArgumentException>(() => definitions.CutoverEmptyTerraformBackend(
+            projectId, fixture.Cutover, "operator", _ => true, _ => true));
+        Assert.AreEqual(fixture.Document.Revision, definitions.Get(projectId).Revision);
+
+        fixture.Cutover.LegacyRetirement = new TerraformLegacyRequestRetirementApiModel
+            { RequestIds = [legacyId], StateDisposition = disposition };
+        var saved = definitions.CutoverEmptyTerraformBackend(projectId, fixture.Cutover, "operator", _ => true, _ => true);
+        Assert.AreEqual("newstate", saved.Project.TerraformStateBackends.Single(b => b.EnvironmentId.HasValue).StorageAccount);
+
+        using (var context = factory.GetContext())
+        {
+            var legacy = context.DeploymentRequests.Single(r => r.Id == legacyId);
+            var pinned = context.DeploymentRequests.Single(r => r.Id == fixture.RequestId);
+            Assert.IsNotNull(legacy.TerraformBackendRetiredByChangeId);
+            Assert.AreEqual(legacy.TerraformBackendRetiredByChangeId, pinned.TerraformBackendRetiredByChangeId);
+            Assert.AreEqual("Completed", legacy.Status);
+            var change = context.DeploymentDefinitionChanges.Single(c => c.Id == legacy.TerraformBackendRetiredByChangeId);
+            Assert.AreEqual("TerraformBackend.LegacyCutover", change.Operation);
+            var note = JsonDocument.Parse(change.OperatorNoteJson!).RootElement;
+            Assert.AreEqual(disposition, note.GetProperty("StateDisposition").GetString());
+            CollectionAssert.AreEqual(new[] { legacyId }, note.GetProperty("LegacyRequestIds").EnumerateArray().Select(e => e.GetInt32()).ToArray());
+            Assert.AreEqual("oldstate", note.GetProperty("RetiredBackend").GetProperty("StorageAccount").GetString());
+            var history = context.Set<DeploymentDefinitionHistoryApiModel>()
+                .Single(h => h.ProjectId == projectId && h.EventType == "TerraformBackend.LegacyCutover");
+            Assert.AreEqual(disposition, history.SourceSummary);
+        }
+        var requests = new RequestsPersistentSource(factory, Substitute.For<IClaimsPrincipalReader>());
+        Assert.Throws<TerraformBackendRetiredException>(() =>
+            requests.UpdateRequestStatus(legacyId, DeploymentRequestStatus.Restarting, "restarter"));
+
+        // Acknowledging legacy requests when none exist is itself a mismatch, not a silent no-op.
+        var clean = CreateCutover();
+        clean.Cutover.LegacyRetirement = new TerraformLegacyRequestRetirementApiModel
+            { RequestIds = [legacyId], StateDisposition = disposition };
+        Assert.Throws<InvalidOperationException>(() => definitions.CutoverEmptyTerraformBackend(
+            clean.Document.Project.ProjectId, clean.Cutover, "operator", _ => true, _ => true));
+    }
+
+    [TestMethod]
     public void EmptyBackendCutover_RejectsArchivedHistory()
     {
         var fixture = CreateCutover();

@@ -348,7 +348,7 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
     }
 
     internal static Guid? Record(IDeploymentContext context, RefDataApiModel? before, RefDataApiModel after,
-        string actor, string operation, string? sourceRecordId = null)
+        string actor, string operation, string? sourceRecordId = null, string? operatorNoteJson = null)
     {
         if (before?.Revision == after.Revision) return null;
         var change = new DeploymentDefinitionChange
@@ -356,6 +356,7 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
             Id = Guid.NewGuid(), ProjectId = after.Project.ProjectId, ProjectName = after.Project.ProjectName,
             Actor = actor, Operation = operation, OccurredAt = DateTimeOffset.UtcNow,
             BeforeJson = SafeJson(before), AfterJson = SafeJson(after), Revision = after.Revision, SourceRecordId = sourceRecordId,
+            OperatorNoteJson = operatorNoteJson,
             AffectedComponentsJson = JsonSerializer.Serialize(Flatten(before?.Components ?? [])
                 .Concat(Flatten(after.Components)).GroupBy(c => c.ComponentId)
                 .Select(g => new { g.Last().ComponentId, g.Last().ComponentName }))

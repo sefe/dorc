@@ -2,10 +2,12 @@ CREATE VIEW [deploy].[DeploymentDefinitionHistoryView] AS
 SELECT CAST('change:' + CONVERT(VARCHAR(36), c.Id) + ':' + COALESCE(CONVERT(VARCHAR(12), COALESCE(affected.ComponentId, r.ComponentId)), 'project') AS NVARCHAR(128)) AS Id,
     CAST(c.Operation AS NVARCHAR(64)) AS EventType, c.OccurredAt, c.Actor, c.ProjectId,
     COALESCE(affected.ComponentId, r.ComponentId) AS ComponentId, CAST(COALESCE(affected.ComponentName, r.ComponentName, '') AS NVARCHAR(256)) AS ComponentName,
-    CAST('Committed definition change' AS NVARCHAR(1024)) AS Summary,
+    CAST(CASE WHEN c.OperatorNoteJson IS NULL THEN 'Committed definition change'
+        ELSE 'Privileged definition change with recorded operator note' END AS NVARCHAR(1024)) AS Summary,
     CAST(NULL AS INT) AS RequestId, CAST(NULL AS INT) AS DeploymentResultId,
     CAST(r.Revision AS NVARCHAR(64)) AS DefinitionRevision, c.BeforeJson, c.AfterJson,
-    CAST(0 AS BIT) AS IsLegacy, CAST(NULL AS NVARCHAR(1024)) AS SourceSummary
+    CAST(0 AS BIT) AS IsLegacy,
+    CAST(LEFT(JSON_VALUE(c.OperatorNoteJson, '$.StateDisposition'), 1024) AS NVARCHAR(1024)) AS SourceSummary
 FROM [deploy].[DeploymentDefinitionChange] c
 OUTER APPLY OPENJSON(COALESCE(c.AffectedComponentsJson, N'[]'))
     WITH (ComponentId INT, ComponentName NVARCHAR(256)) affected

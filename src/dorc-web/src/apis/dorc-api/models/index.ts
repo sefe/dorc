@@ -113,6 +113,7 @@ export * from './TerraformBackendCutoverApiModel';
 export * from './TerraformDeploymentOutcomeApiModel';
 export * from './TerraformDeploymentReceiptApiModel';
 export * from './TerraformInventoryProvenanceApiModel';
+export * from './TerraformLegacyRequestRetirementApiModel';
 export * from './TerraformParameterConflict';
 export * from './TerraformParameterResolutionApiModel';
 export * from './TerraformParameterResolutionStatus';

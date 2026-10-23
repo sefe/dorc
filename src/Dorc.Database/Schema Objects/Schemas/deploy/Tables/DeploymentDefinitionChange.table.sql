@@ -10,7 +10,8 @@ CREATE TABLE [deploy].[DeploymentDefinitionChange]
     [AfterJson] NVARCHAR(MAX) NOT NULL,
     [Revision] NVARCHAR(64) NOT NULL,
     [SourceRecordId] NVARCHAR(128) NULL,
-    [AffectedComponentsJson] NVARCHAR(MAX) NULL
+    [AffectedComponentsJson] NVARCHAR(MAX) NULL,
+    [OperatorNoteJson] NVARCHAR(MAX) NULL
 );
 GO
 CREATE INDEX [IX_DeploymentDefinitionChange_Project] ON [deploy].[DeploymentDefinitionChange] ([ProjectId], [OccurredAt], [Id]);
