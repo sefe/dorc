@@ -442,6 +442,8 @@ describe('unified reference-data editing', () => {
       page.shadowRoot!.querySelector('[role="alert"]')?.textContent
     ).to.include('Revision conflict');
     expect(mocks.editor.value).to.include('Keep this edit');
+    expect(page.shadowRoot!.textContent).not.to.include('Confirm save');
+    expect(page.shadowRoot!.textContent).to.include('Review changes');
   });
 
   for (const source of [undefined, ...Object.values(TerraformSourceType)]) {

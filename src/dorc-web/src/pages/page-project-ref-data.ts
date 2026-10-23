@@ -1576,6 +1576,7 @@ export class PageProjectRefData extends PageElement {
         },
         error: error => {
           this.saving = false;
+          this.preview = undefined;
           this.editor?.setReadOnly(!this.editable);
           this.error =
             retrieveErrorMessage(error) ||
