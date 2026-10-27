@@ -507,8 +507,12 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
     this.importingProperties = true;
 
     try {
+      const latestRowByProperty = new Map<string, ImportedPropertyCsvRow>();
+      rows.forEach(row => latestRowByProperty.set(row.propertyName.toLowerCase(), row));
+      const deduplicatedRows = Array.from(latestRowByProperty.values());
+
       const secureByProperty = new Map<string, boolean>();
-      for (const row of rows) {
+      for (const row of deduplicatedRows) {
         const key = row.propertyName.toLowerCase();
         const existing = secureByProperty.get(key);
         if (existing !== undefined && existing !== row.isSecure) {
@@ -520,43 +524,95 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
         secureByProperty.set(key, row.isSecure);
       }
 
-      const propertiesToCreate: PropertyApiModel[] = Array.from(
-        secureByProperty.entries()
-      ).map(([key, secure]) => {
-        const sourceRow = rows.find(r => r.propertyName.toLowerCase() === key);
-        return {
-          Name: sourceRow?.propertyName,
-          Secure: secure
-        };
-      });
-
-      const propertyValuesToImport: PropertyValueDto[] = rows.map(row => ({
-        Property: {
-          Name: row.propertyName,
-          Secure: row.isSecure
-        },
-        Value: row.value,
-        PropertyValueFilter: this.environmentName
-      }));
-
       const propertiesApi = new PropertiesApi(dorcApiConfiguration);
       const propertyValuesApi = new PropertyValuesApi(dorcApiConfiguration);
 
-      const propertyResponses = await this.resolveObservable(
-        propertiesApi.propertiesPost({ propertyApiModel: propertiesToCreate })
+      const existingProperties = await this.resolveObservable(
+        propertiesApi.propertiesGet({})
+      );
+      const existingPropertyMap = new Map<string, PropertyApiModel>();
+      existingProperties.forEach(prop => {
+        if (prop.Name) {
+          existingPropertyMap.set(prop.Name.toLowerCase(), prop);
+        }
+      });
+
+      const propertiesToCreate: PropertyApiModel[] = Array.from(
+        secureByProperty.entries()
+      )
+        .filter(([key]) => !existingPropertyMap.has(key))
+        .map(([key, secure]) => {
+          const sourceRow = deduplicatedRows.find(
+            r => r.propertyName.toLowerCase() === key
+          );
+          return {
+            Name: sourceRow?.propertyName,
+            Secure: secure
+          };
+        });
+
+      const propertyResponses = propertiesToCreate.length
+        ? await this.resolveObservable(
+            propertiesApi.propertiesPost({ propertyApiModel: propertiesToCreate })
+          )
+        : [];
+
+      let existingValues: PropertyValueDto[] = [];
+      try {
+        existingValues = await this.resolveObservable(
+          propertyValuesApi.propertyValuesGet({
+            environmentName: this.environmentName
+          })
+        );
+      } catch (error: any) {
+        if (error?.status !== 404) {
+          throw error;
+        }
+      }
+
+      const existingValuePropertySet = new Set(
+        existingValues
+          .map(v => v.Property?.Name?.toLowerCase())
+          .filter((name): name is string => Boolean(name))
       );
 
-      const valueCreateResponses = await this.resolveObservable(
-        propertyValuesApi.propertyValuesPost({
-          propertyValueDto: propertyValuesToImport
-        })
-      );
+      const effectiveSecureForProperty = (propertyName: string, csvSecure: boolean) => {
+        const existingProperty = existingPropertyMap.get(propertyName.toLowerCase());
+        if (existingProperty?.Secure !== undefined) {
+          return existingProperty.Secure;
+        }
 
-      const valueUpdateResponses = await this.resolveObservable(
-        propertyValuesApi.propertyValuesPut({
-          propertyValueDto: propertyValuesToImport
-        })
-      );
+        return csvSecure;
+      };
+
+      const toDto = (row: ImportedPropertyCsvRow): PropertyValueDto => ({
+        Property: {
+          Name: row.propertyName,
+          Secure: effectiveSecureForProperty(row.propertyName, row.isSecure)
+        },
+        Value: row.value,
+        PropertyValueFilter: this.environmentName
+      });
+
+      const createDtos = deduplicatedRows
+        .filter(row => !existingValuePropertySet.has(row.propertyName.toLowerCase()))
+        .map(toDto);
+
+      const updateDtos = deduplicatedRows
+        .filter(row => existingValuePropertySet.has(row.propertyName.toLowerCase()))
+        .map(toDto);
+
+      const valueCreateResponses = createDtos.length
+        ? await this.resolveObservable(
+            propertyValuesApi.propertyValuesPost({ propertyValueDto: createDtos })
+          )
+        : [];
+
+      const valueUpdateResponses = updateDtos.length
+        ? await this.resolveObservable(
+            propertyValuesApi.propertyValuesPut({ propertyValueDto: updateDtos })
+          )
+        : [];
 
       const allResponses = [
         ...propertyResponses,
@@ -579,7 +635,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
         );
       } else {
         this.showSuccessMessage(
-          `CSV import completed successfully. Imported ${rows.length} variable value(s).`
+          `CSV import completed successfully. Imported ${deduplicatedRows.length} variable value(s).`
         );
       }
 
