@@ -25,6 +25,7 @@ import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/combo-box';
 import '@vaadin/text-field';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
+import { firstValueFrom, Observable } from 'rxjs';
 
 const variableValue = 'PropertyValue';
 const variableName = 'Property';
@@ -32,6 +33,13 @@ const variableScope = 'PropertyValueScope';
 const variableIsShowDefaultProps = 'ShowDefaults';
 
 let _environment: EnvironmentApiModel | undefined;
+
+type ImportedPropertyCsvRow = {
+  propertyName: string;
+  value: string;
+  isSecure: boolean;
+};
+
 @customElement('env-variables')
 export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   private secureMessage =
@@ -42,6 +50,8 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   @property({ type: Boolean }) loadingScopeOptions = true;
 
   @property({ type: Boolean }) addingVariableValue = false;
+
+  @property({ type: Boolean }) importingProperties = false;
 
   @property({ type: Array }) properties: PropertyApiModel[] | undefined;
 
@@ -111,6 +121,16 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
         max-width: none;
         margin-left: var(--lumo-space-xs);
       }
+
+      .env-variable-import-actions {
+        margin-top: var(--lumo-space-s);
+        margin-left: var(--lumo-space-xs);
+      }
+
+      .env-variable-add-actions {
+        padding-top: 16px;
+      }
+
       @keyframes spin {
         100% {
           transform: rotate(360deg);
@@ -120,6 +140,10 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
         .env-variable-selector-combo {
           width: 100%;
           min-width: 0;
+          margin-left: 0;
+        }
+
+        .env-variable-import-actions {
           margin-left: 0;
         }
 
@@ -275,6 +299,28 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                         ></vaadin-combo-box>
                       </td>
                     </tr>
+                    <tr>
+                      <td></td>
+                      <td style="padding-top: 8px;">
+                        <div class="env-variable-import-actions">
+                          <vaadin-button
+                            @click="${this.openImportPropertiesDialog}"
+                            ?disabled="${
+                              !this.environment?.UserEditable ||
+                              this.importingProperties
+                            }"
+                            >Import CSV</vaadin-button
+                          >
+                          <input
+                            id="import-environment-properties-csv"
+                            type="file"
+                            accept=".csv,text/csv"
+                            style="display: none"
+                            @change="${this.importPropertiesCsvSelected}"
+                          />
+                        </div>
+                      </td>
+                    </tr>
                   </table>
                   <table style="flex: 1; min-width: 400px">
                     <tr>
@@ -299,15 +345,17 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                           helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
                         ></vaadin-combo-box>
                       </td>
-                      <td style="vertical-align: middle;">
-                        <vaadin-button
-                          @click="${this._addVariableValueClick}"
-                          ?disabled="${!this.environment?.UserEditable}"
-                          >Add Variable Value</vaadin-button
-                        >
+                      <td style="vertical-align: top;">
+                        <div class="env-variable-add-actions">
+                          <vaadin-button
+                            @click="${this._addVariableValueClick}"
+                            ?disabled="${!this.environment?.UserEditable}"
+                            >Add Variable Value</vaadin-button
+                          >
+                        </div>
                       </td>
                       <td style="vertical-align: middle; min-width: 20px">
-                        ${this.addingVariableValue
+                        ${this.addingVariableValue || this.importingProperties
                           ? html`<div
                               style="vertical-align: middle"
                               class="small-loader"
@@ -417,6 +465,275 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
     if (event.detail.value !== undefined) {
       this.debouncedInputHandler(event.detail.field, event.detail.value);
     }
+  }
+
+  openImportPropertiesDialog() {
+    const fileInput = this.shadowRoot?.querySelector(
+      '#import-environment-properties-csv'
+    ) as HTMLInputElement | null;
+    fileInput?.click();
+  }
+
+  async importPropertiesCsvSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const content = await file.text();
+      const parsedRows = this.parseImportedCsvRows(content);
+      await this.importPropertiesFromCsv(parsedRows);
+    } catch (error) {
+      this.showImportError(this.getErrorMessage(error));
+    } finally {
+      input.value = '';
+    }
+  }
+
+  private async importPropertiesFromCsv(rows: ImportedPropertyCsvRow[]) {
+    if (!this.environmentName) {
+      this.showImportError('Environment is not selected.');
+      return;
+    }
+
+    if (rows.length === 0) {
+      this.showImportError('CSV file does not contain any property rows.');
+      return;
+    }
+
+    this.importingProperties = true;
+
+    try {
+      const secureByProperty = new Map<string, boolean>();
+      for (const row of rows) {
+        const key = row.propertyName.toLowerCase();
+        const existing = secureByProperty.get(key);
+        if (existing !== undefined && existing !== row.isSecure) {
+          this.showImportError(
+            `Property "${row.propertyName}" has conflicting values for Is Secure in the CSV file.`
+          );
+          return;
+        }
+        secureByProperty.set(key, row.isSecure);
+      }
+
+      const propertiesToCreate: PropertyApiModel[] = Array.from(
+        secureByProperty.entries()
+      ).map(([key, secure]) => {
+        const sourceRow = rows.find(r => r.propertyName.toLowerCase() === key);
+        return {
+          Name: sourceRow?.propertyName,
+          Secure: secure
+        };
+      });
+
+      const propertyValuesToImport: PropertyValueDto[] = rows.map(row => ({
+        Property: {
+          Name: row.propertyName,
+          Secure: row.isSecure
+        },
+        Value: row.value,
+        PropertyValueFilter: this.environmentName
+      }));
+
+      const propertiesApi = new PropertiesApi(dorcApiConfiguration);
+      const propertyValuesApi = new PropertyValuesApi(dorcApiConfiguration);
+
+      const propertyResponses = await this.resolveObservable(
+        propertiesApi.propertiesPost({ propertyApiModel: propertiesToCreate })
+      );
+
+      const valueCreateResponses = await this.resolveObservable(
+        propertyValuesApi.propertyValuesPost({
+          propertyValueDto: propertyValuesToImport
+        })
+      );
+
+      const valueUpdateResponses = await this.resolveObservable(
+        propertyValuesApi.propertyValuesPut({
+          propertyValueDto: propertyValuesToImport
+        })
+      );
+
+      const allResponses = [
+        ...propertyResponses,
+        ...valueCreateResponses,
+        ...valueUpdateResponses
+      ];
+      const failedResponses = allResponses.filter(
+        response => response.Status?.toLowerCase() !== 'success'
+      );
+
+      if (failedResponses.length > 0) {
+        this.errorAlert(failedResponses);
+        Notification.show(
+          `CSV import completed with ${failedResponses.length} error(s).`,
+          {
+            theme: 'contrast',
+            position: 'bottom-start',
+            duration: 5000
+          }
+        );
+      } else {
+        this.showSuccessMessage(
+          `CSV import completed successfully. Imported ${rows.length} variable value(s).`
+        );
+      }
+
+      this.grid?.clearCache();
+      this.loading = true;
+      this.getAllVariableNames();
+    } finally {
+      this.importingProperties = false;
+    }
+  }
+
+  private parseImportedCsvRows(csvContent: string): ImportedPropertyCsvRow[] {
+    const rows = csvContent
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(line => line !== '');
+
+    if (rows.length === 0) {
+      return [];
+    }
+
+    const parsedRows = rows.map(line => this.parseCsvLine(line));
+    let dataStartIndex = 0;
+    let propertyNameIndex = 0;
+    let valueIndex = 1;
+    let isSecureIndex = 2;
+
+    const normalizedHeaders = parsedRows[0].map(header =>
+      this.normalizeCsvHeader(header)
+    );
+
+    const hasHeader =
+      (normalizedHeaders.includes('propertyname') ||
+        normalizedHeaders.includes('properyname')) &&
+      normalizedHeaders.includes('value');
+
+    if (hasHeader) {
+      dataStartIndex = 1;
+      propertyNameIndex = normalizedHeaders.findIndex(
+        header => header === 'propertyname' || header === 'properyname'
+      );
+      valueIndex = normalizedHeaders.findIndex(header => header === 'value');
+      const secureHeaderIndex = normalizedHeaders.findIndex(
+        header => header === 'issecure' || header === 'issecured'
+      );
+      if (secureHeaderIndex === -1) {
+        throw new Error(
+          "CSV header must include 'Is Secure' (or 'IsSecured') column."
+        );
+      }
+      isSecureIndex = secureHeaderIndex;
+    }
+
+    if (propertyNameIndex === -1 || valueIndex === -1 || isSecureIndex === -1) {
+      throw new Error('CSV must provide PropertyName, Value and Is Secure columns.');
+    }
+
+    return parsedRows.slice(dataStartIndex).map((columns, index) => {
+      const rowNumber = index + dataStartIndex + 1;
+      const propertyName = (columns[propertyNameIndex] ?? '').trim();
+      const value = (columns[valueIndex] ?? '').trim();
+      const rawSecure = (columns[isSecureIndex] ?? '').trim();
+
+      if (!propertyName) {
+        throw new Error(`PropertyName cannot be blank (row ${rowNumber}).`);
+      }
+
+      if (!value) {
+        throw new Error(
+          `Property value cannot be blank for '${propertyName}' (row ${rowNumber}).`
+        );
+      }
+
+      return {
+        propertyName,
+        value,
+        isSecure: this.parseCsvSecureValue(rawSecure, rowNumber)
+      };
+    });
+  }
+
+  private parseCsvLine(line: string): string[] {
+    const columns: string[] = [];
+    let current = '';
+    let isInQuotes = false;
+
+    for (let i = 0; i < line.length; i += 1) {
+      const char = line[i];
+      const next = line[i + 1];
+
+      if (char === '"') {
+        if (isInQuotes && next === '"') {
+          current += '"';
+          i += 1;
+          continue;
+        }
+
+        isInQuotes = !isInQuotes;
+        continue;
+      }
+
+      if (char === ',' && !isInQuotes) {
+        columns.push(current);
+        current = '';
+        continue;
+      }
+
+      current += char;
+    }
+
+    columns.push(current);
+    return columns;
+  }
+
+  private parseCsvSecureValue(value: string, rowNumber: number): boolean {
+    const normalized = value.toLowerCase();
+    if (normalized === 'true' || normalized === '1') {
+      return true;
+    }
+
+    if (normalized === 'false' || normalized === '0') {
+      return false;
+    }
+
+    throw new Error(
+      `Invalid Is Secure value '${value}' on row ${rowNumber}. Use TRUE/FALSE or 1/0.`
+    );
+  }
+
+  private normalizeCsvHeader(header: string): string {
+    return header.toLowerCase().replace(/[^a-z]/g, '');
+  }
+
+  private async resolveObservable<T>(observable: Observable<T>): Promise<T> {
+    return firstValueFrom(observable);
+  }
+
+  private showImportError(message: string) {
+    const notification = new ErrorNotification();
+    notification.setAttribute('errorMessage', message);
+    this.shadowRoot?.appendChild(notification);
+    notification.open();
+  }
+
+  private getErrorMessage(error: unknown): string {
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    if (typeof error === 'string') {
+      return error;
+    }
+
+    return 'CSV import failed.';
   }
 
   private debouncedInputHandler = this.debounce(

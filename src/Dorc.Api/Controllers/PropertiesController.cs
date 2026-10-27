@@ -91,6 +91,23 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
+        /// Import properties and values from CSV-formatted rows
+        /// </summary>
+        /// <param name="propertiesToImport"></param>
+        /// <returns></returns>
+        [HttpPost("import")]
+        [Produces(typeof(IEnumerable<Response>))]
+        public IActionResult ImportProperties(IEnumerable<PropertyImportCsvDto> propertiesToImport)
+        {
+            if (_apiSecurityService.CanModifyProperty(User))
+            {
+                return Ok(_propertiesService.ImportProperties(propertiesToImport, User));
+            }
+
+            return StatusCode(StatusCodes.Status403Forbidden, "Current user do not have permissions to modify properties");
+        }
+
+        /// <summary>
         /// Delete a property
         /// </summary>
         /// <param name="properties"></param>
