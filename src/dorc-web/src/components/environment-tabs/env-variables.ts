@@ -483,7 +483,9 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   }
 
   async downloadNonSecureVariables() {
-    if (!this.environmentName) {
+    const environmentName = this.environmentName;
+
+    if (!environmentName) {
       this.showImportError('Environment is not selected.');
       return;
     }
@@ -504,7 +506,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
 
     this.exportingNonSecureProperties = true;
     try {
-      const endpoint = `${dorcApiConfiguration.basePath}/PropertyValues/non-secure-export?environmentName=${encodeURIComponent(this.environmentName)}`;
+      const endpoint = `${dorcApiConfiguration.basePath}/PropertyValues/non-secure-export?environmentName=${encodeURIComponent(environmentName)}`;
       const headers: Record<string, string> = {};
       const accessToken = dorcApiConfiguration.accessToken?.('oauth2', [
         'dorc-api-np.manage'
@@ -543,7 +545,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
       const link = document.createElement('a');
       link.href = url;
       link.download = decodeURIComponent(
-        extractedFileName ?? `${this.environmentName}-non-secure-variables.csv`
+        extractedFileName ?? `${environmentName}-non-secure-variables.csv`
       );
       document.body.appendChild(link);
       link.click();
