@@ -310,20 +310,20 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                       <td style="padding-top: 8px;">
                         <div class="env-variable-import-actions">
                           <vaadin-button
-                            @click="${this.openImportPropertiesDialog}"
-                            ?disabled="${
-                              !this.environment?.UserEditable ||
-                              this.importingProperties
-                            }"
-                            >Import Values</vaadin-button
-                          >
-                          <vaadin-button
                             @click="${this.downloadNonSecureVariables}"
                             ?disabled="${
                               !this.environmentName ||
                               this.exportingNonSecureProperties
                             }"
                             >Download Values</vaadin-button
+                          >
+                          <vaadin-button
+                            @click="${this.openImportPropertiesDialog}"
+                            ?disabled="${
+                              !this.environment?.UserEditable ||
+                              this.importingProperties
+                            }"
+                            >Import Values</vaadin-button
                           >
                           <input
                             id="import-environment-properties-csv"
@@ -570,14 +570,36 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   async importPropertiesCsvSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
+    const environmentName = this.environmentName;
 
     if (!file) {
+      return;
+    }
+
+    if (!environmentName) {
+      this.showImportError('Environment is not selected.');
+      input.value = '';
       return;
     }
 
     try {
       const content = await file.text();
       const parsedRows = this.parseImportedCsvRows(content);
+
+      const confirmed = await confirmPrompt(
+        `You are about to update ${parsedRows.length} value(s) for ${environmentName} env, proceed?`,
+        {
+          header: 'Import Values',
+          confirmText: 'Proceed',
+          confirmTheme: 'primary',
+          cancelTheme: 'primary'
+        }
+      );
+
+      if (!confirmed) {
+        return;
+      }
+
       await this.importPropertiesFromCsv(parsedRows);
     } catch (error) {
       this.showImportError(this.getErrorMessage(error));
