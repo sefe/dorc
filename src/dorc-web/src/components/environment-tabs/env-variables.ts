@@ -315,7 +315,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                               !this.environmentName ||
                               this.exportingNonSecureProperties
                             }"
-                            >Download Values</vaadin-button
+                            >Export Values</vaadin-button
                           >
                           <vaadin-button
                             @click="${this.openImportPropertiesDialog}"
