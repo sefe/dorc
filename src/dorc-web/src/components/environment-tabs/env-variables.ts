@@ -21,6 +21,7 @@ import { PageEnvBase } from './page-env-base';
 import { ResponsiveMixin } from '../../helpers/responsive-mixin';
 import { ErrorNotification } from '../notifications/error-notification';
 import { Notification } from '@vaadin/notification';
+import { confirmPrompt } from '../confirm-prompt';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/combo-box';
 import '@vaadin/text-field';
@@ -52,6 +53,8 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   @property({ type: Boolean }) addingVariableValue = false;
 
   @property({ type: Boolean }) importingProperties = false;
+
+  @property({ type: Boolean }) exportingNonSecureProperties = false;
 
   @property({ type: Array }) properties: PropertyApiModel[] | undefined;
 
@@ -125,6 +128,9 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
       .env-variable-import-actions {
         margin-top: var(--lumo-space-s);
         margin-left: var(--lumo-space-xs);
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-xs);
       }
 
       .env-variable-add-actions {
@@ -309,7 +315,15 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                               !this.environment?.UserEditable ||
                               this.importingProperties
                             }"
-                            >Import CSV</vaadin-button
+                            >Import Values</vaadin-button
+                          >
+                          <vaadin-button
+                            @click="${this.downloadNonSecureVariables}"
+                            ?disabled="${
+                              !this.environmentName ||
+                              this.exportingNonSecureProperties
+                            }"
+                            >Download Values</vaadin-button
                           >
                           <input
                             id="import-environment-properties-csv"
@@ -355,7 +369,8 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                         </div>
                       </td>
                       <td style="vertical-align: middle; min-width: 20px">
-                        ${this.addingVariableValue || this.importingProperties
+                        ${this.addingVariableValue || this.importingProperties ||
+                        this.exportingNonSecureProperties
                           ? html`<div
                               style="vertical-align: middle"
                               class="small-loader"
@@ -467,6 +482,82 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
     }
   }
 
+  async downloadNonSecureVariables() {
+    if (!this.environmentName) {
+      this.showImportError('Environment is not selected.');
+      return;
+    }
+
+    const confirmed = await confirmPrompt(
+      'Only non-secure values will be downloaded. Secure values are excluded.\n\nDo you want to continue?',
+      {
+        header: 'Download Values',
+        confirmText: 'Download',
+        confirmTheme: 'primary',
+        cancelTheme: 'primary'
+      }
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    this.exportingNonSecureProperties = true;
+    try {
+      const endpoint = `${dorcApiConfiguration.basePath}/PropertyValues/non-secure-export?environmentName=${encodeURIComponent(this.environmentName)}`;
+      const headers: Record<string, string> = {};
+      const accessToken = dorcApiConfiguration.accessToken?.('oauth2', [
+        'dorc-api-np.manage'
+      ]);
+      if (accessToken) {
+        headers.Authorization = accessToken;
+      }
+
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers,
+        credentials: 'include'
+      });
+
+      if (!response.ok) {
+        throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('content-disposition');
+      const extractedFileName = contentDisposition
+        ?.match(/filename\*=UTF-8''([^;]+)|filename="?([^";]+)"?/i)
+        ?.slice(1)
+        .find(Boolean);
+
+      if (!blob.size) {
+        Notification.show('No non-secure variables found for this environment.', {
+          theme: 'contrast',
+          position: 'bottom-start',
+          duration: 5000
+        });
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = decodeURIComponent(
+        extractedFileName ?? `${this.environmentName}-non-secure-variables.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      this.showSuccessMessage('Non-secure variables downloaded successfully.');
+    } catch (error) {
+      this.showImportError(this.getErrorMessage(error));
+    } finally {
+      this.exportingNonSecureProperties = false;
+    }
+  }
+
   openImportPropertiesDialog() {
     const fileInput = this.shadowRoot?.querySelector(
       '#import-environment-properties-csv'
@@ -527,11 +618,11 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
       const propertiesApi = new PropertiesApi(dorcApiConfiguration);
       const propertyValuesApi = new PropertyValuesApi(dorcApiConfiguration);
 
-      const existingProperties = await this.resolveObservable(
-        propertiesApi.propertiesGet({})
+      const existingProperties: PropertyApiModel[] = await this.resolveObservable(
+        propertiesApi.propertiesGet()
       );
       const existingPropertyMap = new Map<string, PropertyApiModel>();
-      existingProperties.forEach(prop => {
+      existingProperties.forEach((prop: PropertyApiModel) => {
         if (prop.Name) {
           existingPropertyMap.set(prop.Name.toLowerCase(), prop);
         }
@@ -551,7 +642,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
           };
         });
 
-      const propertyResponses = propertiesToCreate.length
+      const propertyResponses: Response[] = propertiesToCreate.length
         ? await this.resolveObservable(
             propertiesApi.propertiesPost({ propertyApiModel: propertiesToCreate })
           )
@@ -602,13 +693,13 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
         .filter(row => existingValuePropertySet.has(row.propertyName.toLowerCase()))
         .map(toDto);
 
-      const valueCreateResponses = createDtos.length
+      const valueCreateResponses: Response[] = createDtos.length
         ? await this.resolveObservable(
             propertyValuesApi.propertyValuesPost({ propertyValueDto: createDtos })
           )
         : [];
 
-      const valueUpdateResponses = updateDtos.length
+      const valueUpdateResponses: Response[] = updateDtos.length
         ? await this.resolveObservable(
             propertyValuesApi.propertyValuesPut({ propertyValueDto: updateDtos })
           )
@@ -668,9 +759,9 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
     );
 
     const hasHeader =
-      (normalizedHeaders.includes('propertyname') ||
-        normalizedHeaders.includes('properyname')) &&
-      normalizedHeaders.includes('value');
+      (normalizedHeaders.indexOf('propertyname') >= 0 ||
+        normalizedHeaders.indexOf('properyname') >= 0) &&
+      normalizedHeaders.indexOf('value') >= 0;
 
     if (hasHeader) {
       dataStartIndex = 1;
