@@ -84,7 +84,7 @@ export class LogDialog extends LitElement {
           }
         }}"
         resizable
-        ${dialogRenderer(this.renderLog, [this.isLoading, this.selectedLog])}
+        ${dialogRenderer(this.renderLog, [this.isLoading, this.selectedLog, this.refreshEnabled])}
       ></vaadin-dialog>
     `;
   }
