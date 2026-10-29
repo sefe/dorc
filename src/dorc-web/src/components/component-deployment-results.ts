@@ -15,6 +15,7 @@ import './terraform-plan-dialog';
 import { DeploymentResultApiModel, ResultStatusesApi } from '../apis/dorc-api';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
+import { Notification } from '@vaadin/notification';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('component-deployment-results')
@@ -335,6 +336,11 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
         },
         error: error => {
           console.error('Failed to refresh log:', error);
+          Notification.show('Failed to refresh deployment log', {
+            theme: 'error',
+            position: 'bottom-start',
+            duration: 5000
+          });
           this.isLoadingLog = false;
         }
       });
