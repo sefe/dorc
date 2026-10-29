@@ -9,6 +9,7 @@ using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
+using System.Text;
 
 namespace Dorc.Api.Controllers
 {
@@ -161,6 +162,61 @@ namespace Dorc.Api.Controllers
             {
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
+        }
+
+        /// <summary>
+        /// Download non-secure property values for an environment as CSV
+        /// </summary>
+        /// <param name="environmentName"></param>
+        /// <returns></returns>
+        [HttpGet("non-secure-export")]
+        public IActionResult DownloadNonSecurePropertyValues(string environmentName)
+        {
+            if (string.IsNullOrWhiteSpace(environmentName))
+            {
+                return BadRequest("environmentName is required");
+            }
+
+            try
+            {
+                var propertyValues = _propertyValuesService
+                    .GetPropertyValues(null, environmentName, User)
+                    .Where(pv => !(pv.Property?.Secure ?? false))
+                    .ToList();
+
+                if (!propertyValues.Any())
+                {
+                    return NoContent();
+                }
+
+                var builder = new StringBuilder();
+                builder.AppendLine("PropertyName,Value,Is Secure");
+
+                foreach (var propertyValue in propertyValues)
+                {
+                    builder.AppendLine(
+                        $"{EscapeCsv(propertyValue.Property?.Name ?? string.Empty)},{EscapeCsv(propertyValue.Value ?? string.Empty)},FALSE");
+                }
+
+                var bytes = Encoding.UTF8.GetBytes(builder.ToString());
+                return File(bytes, "text/csv", $"{environmentName}-non-secure-variables.csv");
+            }
+            catch (NonEnoughRightsException e)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, e);
+            }
+            catch (Exception e)
+            {
+                return StatusCode(StatusCodes.Status500InternalServerError, e);
+            }
+        }
+
+        private static string EscapeCsv(string value)
+        {
+            var escaped = value.Replace("\"", "\"\"");
+            return escaped.IndexOfAny(new[] { ',', '"', '\r', '\n' }) >= 0
+                ? $"\"{escaped}\""
+                : escaped;
         }
 
         /// <summary>

@@ -178,6 +178,92 @@ namespace Dorc.Api.Services
             return result;
         }
 
+        public IEnumerable<Response> ImportProperties(IEnumerable<PropertyImportCsvDto> propertiesToImport,
+            ClaimsPrincipal User)
+        {
+            var result = new List<Response>();
+            var importRows = propertiesToImport?.ToList() ?? new List<PropertyImportCsvDto>();
+
+            if (!importRows.Any())
+            {
+                return result;
+            }
+
+            foreach (var row in importRows)
+            {
+                if (string.IsNullOrWhiteSpace(row.PropertyName))
+                {
+                    result.Add(new Response
+                    {
+                        Item = row,
+                        Status = "error: PropertyName cannot be blank or empty"
+                    });
+                }
+
+                if (string.IsNullOrWhiteSpace(row.Value))
+                {
+                    result.Add(new Response
+                    {
+                        Item = row,
+                        Status = "error: Property value cannot be blank or empty"
+                    });
+                }
+            }
+
+            if (result.Any())
+            {
+                return result;
+            }
+
+            var propertySecurityMap = new Dictionary<string, bool>(StringComparer.CurrentCultureIgnoreCase);
+            foreach (var row in importRows)
+            {
+                if (!propertySecurityMap.TryAdd(row.PropertyName, row.IsSecure)
+                    && propertySecurityMap[row.PropertyName] != row.IsSecure)
+                {
+                    result.Add(new Response
+                    {
+                        Item = row,
+                        Status = $"error: conflicting IsSecure values for property '{row.PropertyName}'"
+                    });
+                }
+            }
+
+            if (result.Any())
+            {
+                return result;
+            }
+
+            var properties = propertySecurityMap
+                .Select(kvp => new PropertyApiModel
+                {
+                    Name = kvp.Key,
+                    Secure = kvp.Value
+                })
+                .ToArray();
+
+            var propertyValues = importRows
+                .Select(row => new PropertyValueDto
+                {
+                    Property = new PropertyApiModel
+                    {
+                        Name = row.PropertyName,
+                        Secure = row.IsSecure
+                    },
+                    Value = row.Value,
+                    PropertyValueFilter = string.IsNullOrWhiteSpace(row.Environment)
+                        ? null
+                        : row.Environment
+                })
+                .ToArray();
+
+            result.AddRange(PostProperties(properties, User));
+            result.AddRange(_propertyValuesService.PostPropertyValues(propertyValues, User));
+            result.AddRange(_propertyValuesService.PutPropertyValues(propertyValues, User));
+
+            return result;
+        }
+
         private Response? EncryptExistingPropertyValues(string propertyName, ClaimsPrincipal user)
         {
             try
