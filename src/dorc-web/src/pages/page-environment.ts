@@ -53,10 +53,20 @@ export class PageEnvironment extends PageElement {
     return css`
       :host {
         height: 100%;
+        min-height: 0;
         width: 100%;
         overflow: hidden;
         display: flex;
         flex-direction: column;
+      }
+      .env-header,
+      vaadin-tabs {
+        flex-shrink: 0;
+      }
+      .tab-content {
+        flex: 1;
+        min-height: 0;
+        padding: 0;
       }
       /* D-21: was a three-cell layout <table>, which screen readers announce as
          a data table ("table, 1 row, 3 columns") for what is a visual header. */
@@ -158,7 +168,7 @@ export class PageEnvironment extends PageElement {
       >
         ${this.tabNames.map(tabName => this.convertUriToHuman(tabName))}
       </vaadin-tabs>
-      <vaadin-vertical-layout style="padding: 0px; height: 100%">
+      <vaadin-vertical-layout class="tab-content">
         <slot @slotchange=${this.handleSlotChange}></slot>
       </vaadin-vertical-layout>
     `;

@@ -9,6 +9,7 @@ export * from './CopyEnvBuildApi';
 export * from './DaemonAuditApi';
 export * from './DaemonObservationApi';
 export * from './DaemonStatusApi';
+export * from './DatabaseAccessApi';
 export * from './DatabaseAuditApi';
 export * from './DeploymentV2Api';
 export * from './DirectorySearchApi';
