@@ -1,4 +1,38 @@
-import { AjaxError } from "rxjs/ajax";
+const SESSION_EXPIRED_MESSAGE = 'Session has expired, please refresh the page.';
+const CONNECTION_ERROR_MESSAGE =
+  'Unable to contact the server. Check your connection and try again.';
+
+type ErrorResponse = {
+  Message?: string;
+  ExceptionMessage?: string;
+  message?: string;
+  errors?: string | string[] | Record<string, unknown>;
+  title?: string;
+};
+
+type ErrorLike = {
+  status?: number;
+  response?: ErrorResponse | string | null;
+  message?: string;
+};
+
+function normalizeTransportMessage(message: string): string {
+  const ajaxError = message.match(
+    /^(?:AjaxError:\s*)?ajax error(?:\s+(\d+))?$/i
+  );
+  if (!ajaxError) {
+    return message;
+  }
+
+  const status = ajaxError[1] ? Number(ajaxError[1]) : 0;
+  if (status === 401) {
+    return SESSION_EXPIRED_MESSAGE;
+  }
+  if (status === 0) {
+    return CONNECTION_ERROR_MESSAGE;
+  }
+  return `Request failed with status ${status}.`;
+}
 
 /**
  * Retrieves a user-friendly error message from an error object.
@@ -7,33 +41,67 @@ import { AjaxError } from "rxjs/ajax";
  * @returns A string containing the error message.
  */
 export function retrieveErrorMessage(
-  err: AjaxError | string,
+  err: unknown,
   baseMessage?: string
 ): string {
-  let errorMessage = baseMessage ?? 'An unexpected error occurred. Please try again or contact support.';
+  let errorMessage =
+    baseMessage ??
+    'An unexpected error occurred. Please try again or contact support.';
   if (!err) {
     return errorMessage;
   }
 
   if (typeof err === 'string') {
-      errorMessage = err;
-  } else if (err.response?.Message) {
-    errorMessage = err.response.Message;
-  } else if (err.response?.ExceptionMessage) {
-    errorMessage = err.response.ExceptionMessage;
-  } else if (err.response?.errors) {
-    let errMessages = '';
-    if (Array.isArray(err.response.errors) && err.response.errors.length > 0) {
-      errMessages = err.response.errors.join('; ');
-    } else if (typeof err.response.errors === 'object') {
-      errMessages = Object.values(err.response.errors).flat().join('; ');
-    }
-    errorMessage = `${err.message}, ${err.response.title} ${errMessages}`;
-  } else if (err.response && typeof err.response === 'string') {
-    errorMessage = err.response;
-  } else if (err.message) {
-    errorMessage = err.message;
+    return normalizeTransportMessage(err);
   }
-  
+  if (typeof err !== 'object') {
+    return errorMessage;
+  }
+
+  const error = err as ErrorLike;
+  if (error.status === 401) {
+    errorMessage = SESSION_EXPIRED_MESSAGE;
+  } else if (error.status === 0) {
+    errorMessage = CONNECTION_ERROR_MESSAGE;
+  } else if (typeof error.response === 'object' && error.response?.Message) {
+    errorMessage = error.response.Message;
+  } else if (
+    typeof error.response === 'object' &&
+    error.response?.ExceptionMessage
+  ) {
+    errorMessage = error.response.ExceptionMessage;
+  } else if (typeof error.response === 'object' && error.response?.message) {
+    errorMessage = error.response.message;
+  } else if (typeof error.response === 'object' && error.response?.errors) {
+    let errMessages = '';
+    if (
+      Array.isArray(error.response.errors) &&
+      error.response.errors.length > 0
+    ) {
+      errMessages = error.response.errors.join('; ');
+    } else if (typeof error.response.errors === 'string') {
+      errMessages = error.response.errors;
+    } else if (typeof error.response.errors === 'object') {
+      errMessages = Object.values(error.response.errors).flat().join('; ');
+    }
+    errorMessage = [error.response.title, errMessages]
+      .filter(message => Boolean(message))
+      .join(' ');
+    if (!errorMessage) {
+      errorMessage = error.status
+        ? `Request failed with status ${error.status}.`
+        : 'Request failed.';
+    }
+  } else if (
+    typeof error.response === 'string' &&
+    error.response.trim().length > 0
+  ) {
+    errorMessage = normalizeTransportMessage(error.response);
+  } else if (error.status) {
+    errorMessage = `Request failed with status ${error.status}.`;
+  } else if (error.message) {
+    errorMessage = normalizeTransportMessage(error.message);
+  }
+
   return errorMessage;
 }

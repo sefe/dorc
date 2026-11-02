@@ -55,9 +55,9 @@ describe('environment route updates', () => {
           'database-env-controls'
         )!;
         const buttons = controls.shadowRoot!.querySelectorAll('vaadin-button');
-        expect(buttons).to.have.length(6);
+        expect(buttons).to.have.length(7);
         const cell = controls.closest('vaadin-grid-cell-content')!;
-        expect(buttons[5].getBoundingClientRect().right).to.be.at.most(
+        expect(buttons[6].getBoundingClientRect().right).to.be.at.most(
           cell.getBoundingClientRect().right + 1
         );
       });

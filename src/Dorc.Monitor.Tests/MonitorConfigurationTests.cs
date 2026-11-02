@@ -25,6 +25,13 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
+        public void EnvironmentIsProduction_DefaultsFalse_AndParsesTrue()
+        {
+            Assert.IsFalse(Sut().EnvironmentIsProduction);
+            Assert.IsTrue(Sut(new() { ["AppSettings:EnvironmentIsProduction"] = "true" }).EnvironmentIsProduction);
+        }
+
+        [TestMethod]
         public void RequestProcessingIterationDelay_ParsesValue_AndDefaultsTo1000OnGarbageOrAbsent()
         {
             Assert.AreEqual(2500, Sut(new() { ["AppSettings:RequestProcessingIterationDelayMs"] = "2500" })

@@ -74,20 +74,29 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        ///     Return database details by environment name and database type
+        ///     Return database details by environment name and database tag
         /// </summary>
         /// <param name="envName">Environment name</param>
-        /// <param name="type">Database type (e.g. "Endur")</param>
+        /// <param name="tag">A single database tag (e.g. "Endur") — matches any one entry of the database's semicolon-separated tag list</param>
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(DatabaseApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
         [HttpGet]
-        [Route("ByType")]
-        public IActionResult GetByType([FromQuery] string envName, [FromQuery] string type)
+        [Route("ByTag")]
+        public IActionResult GetByTag([FromQuery] string envName, [FromQuery] string tag)
         {
-            var database = _databasesPersistentSource.GetDatabaseByType(envName, type);
+            // A lookup tag must be a single non-empty tag: an empty needle would match
+            // every untagged database, and a ';'-bearing one would perform sub-list
+            // matching.
+            if (string.IsNullOrWhiteSpace(tag) || tag.Contains(TagString.Delimiter))
+                return BadRequest("The 'tag' parameter must be a single non-empty tag and must not contain ';'.");
+
+            // Trim at the boundary so the EF delimiter pattern and the in-memory
+            // tokenizer see the same needle (S-001..S-003 gate F-3).
+            var database = _databasesPersistentSource.GetDatabaseByTag(envName, tag.Trim());
             if (database == null)
-                return NotFound($"No database of type '{type}' found for environment '{envName}'.");
+                return NotFound($"No database tagged '{tag}' found for environment '{envName}'.");
             return Ok(database);
         }
 
@@ -284,6 +293,55 @@ namespace Dorc.Api.Controllers
                 return StatusCode(StatusCodes.Status400BadRequest,
                     exception.Message);
             }
+        }
+
+        /// <summary>
+        ///     Return environments and servers related to a database.
+        ///     The database is identified either by ID or by name (optionally narrowed by database server name).
+        /// </summary>
+        /// <param name="id">Database ID. Takes precedence over <paramref name="name"/> when supplied</param>
+        /// <param name="name">Database name</param>
+        /// <param name="server">Database server name, used to disambiguate databases with the same name</param>
+        /// <returns></returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(DatabaseRelatedResourcesApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status409Conflict, Type = typeof(string))]
+        [HttpGet]
+        [Route("RelatedResources")]
+        public IActionResult GetRelatedResources([FromQuery] int? id, [FromQuery] string? name, [FromQuery] string? server)
+        {
+            int databaseId;
+
+            if (id.HasValue)
+            {
+                if (id.Value <= 0)
+                    return BadRequest("The 'id' parameter must be a positive number.");
+
+                databaseId = id.Value;
+            }
+            else if (!string.IsNullOrWhiteSpace(name))
+            {
+                var matches = _databasesPersistentSource.FindDatabases(name.Trim(), server?.Trim()).ToList();
+
+                if (matches.Count == 0)
+                    return NotFound($"Database '{name}' not found.");
+
+                if (matches.Count > 1)
+                    return Conflict($"Multiple databases named '{name}' found. Specify the 'server' parameter or use 'id'.");
+
+                databaseId = matches[0].Id;
+            }
+            else
+            {
+                return BadRequest("Either 'id' or 'name' must be specified.");
+            }
+
+            var result = _databasesPersistentSource.GetDatabaseRelatedResources(databaseId);
+            if (result == null)
+                return NotFound($"Database with ID {databaseId} not found.");
+
+            return Ok(result);
         }
     }
 }

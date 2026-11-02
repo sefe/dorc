@@ -1399,6 +1399,86 @@
         }
       }
     },
+    "/DaemonStatus/discover/{envName}": {
+      "get": {
+        "tags": [
+          "DaemonStatus"
+        ],
+        "summary": "Discover all daemons on environment servers and automatically create daemon-server mappings",
+        "parameters": [
+          {
+            "name": "envName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverDaemonsResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoverDaemonsResult"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/DaemonStatus/{envName}": {
       "get": {
         "tags": [
@@ -1432,41 +1512,6 @@
                   "items": {
                     "$ref": "#/components/schemas/DaemonStatusApiModel"
                   }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/DaemonStatus/discover/{envName}": {
-      "get": {
-        "tags": [
-          "DaemonStatus"
-        ],
-        "summary": "Discover all daemons on environment servers and automatically create daemon-server mappings",
-        "parameters": [
-          {
-            "name": "envName",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DiscoverDaemonsResult"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/DiscoverDaemonsResult"
                 }
               }
             }
@@ -3657,7 +3702,7 @@
         }
       }
     },
-    "/RefDataDatabases/ByType": {
+    "/RefDataDatabases/ByTag": {
       "get": {
         "tags": [
           "RefDataDatabases"
@@ -3671,7 +3716,7 @@
             }
           },
           {
-            "name": "type",
+            "name": "tag",
             "in": "query",
             "schema": {
               "type": "string"
@@ -3875,7 +3920,7 @@
             }
           },
           {
-            "name": "dbType",
+            "name": "tag",
             "in": "query",
             "schema": {
               "type": "string"
@@ -9132,8 +9177,12 @@
             "type": "string",
             "nullable": true
           },
-          "Type": {
-            "type": "string",
+          "Tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 400
+            },
             "nullable": true
           },
           "ServerName": {
@@ -10738,8 +10787,12 @@
             "type": "string",
             "nullable": true
           },
-          "ApplicationTags": {
-            "type": "string",
+          "Tags": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 400
+            },
             "nullable": true
           }
         },
@@ -10934,8 +10987,11 @@
             "type": "integer",
             "format": "int32"
           },
-          "DbType": {
-            "type": "string",
+          "Tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
             "nullable": true
           }
         },

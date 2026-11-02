@@ -273,7 +273,7 @@ export class PageVariables extends PageElement {
                       <vaadin-button
                         style="--lumo-primary-text-color: var(--dorc-error-color);"
                         ?disabled="${
-                          !this.isAdmin ||
+                          !this.canDeleteSelectedVariable() ||
                           this.deletingVariable ||
                           !this.existingPropertySelected
                         }"
@@ -607,6 +607,16 @@ export class PageVariables extends PageElement {
     }
   }
 
+  private canDeleteSelectedVariable(): boolean {
+    if (this.isAdmin) return true;
+    return (
+      this.isPowerUser &&
+      !this.loadingPropertyValues &&
+      this.allPropertyValues !== undefined &&
+      this.allPropertyValues.length === 0
+    );
+  }
+
   async deleteVariable() {
     const existingProps = this.shadowRoot?.querySelector(
       '#properties'
@@ -748,6 +758,12 @@ export class PageVariables extends PageElement {
       const combo = data.target as ComboBox;
       this.propertyName = combo.value;
       combo.title = this.propertyName;
+
+      // Column filter text fields are recreated for the new grid instance and
+      // appear empty, but the stale filter values would otherwise still be
+      // applied silently to the newly selected variable's values.
+      this.scopeFilterValue = '';
+      this.valueFilterValue = '';
 
       if (this.newVariableName !== '') {
         const newfoundProp = this.properties?.find(

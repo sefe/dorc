@@ -211,11 +211,13 @@ namespace Dorc.PowerShell
                 }
                 catch (Exception ex)
                 {
-                    var val = JsonConvert.SerializeObject(property.Value);
-                    logger.FileLogger.LogError($"Unable to set variable '{property.Key}' in PowerShell Session with value '{val}'",
-                        ex);
+                    // The property NAME only. Serialising the value here wrote secrets to the
+                    // runner log and to standard output - and the values most likely to fail
+                    // to bind are the unusual ones, which include credentials.
+                    logger.FileLogger.LogError(ex,
+                        "Unable to set variable '{PropertyName}' in PowerShell Session", property.Key);
                     Console.WriteLine(
-                        $"Unable to set variable '{property.Key}' in PowerShell Session with value '{val}': {ex}");
+                        $"Unable to set variable '{property.Key}' in PowerShell Session: {ex.Message}");
                 }
             }
         }

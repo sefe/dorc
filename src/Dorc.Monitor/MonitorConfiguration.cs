@@ -21,6 +21,16 @@ namespace Dorc.Monitor
                 .GetSection(appSettings)["IsProduction"] ?? "false");
             }
         }
+
+        public bool EnvironmentIsProduction
+        {
+            get
+            {
+                return bool.Parse(configurationRoot
+                .GetSection(appSettings)["EnvironmentIsProduction"] ?? "false");
+            }
+        }
+
         public int RequestProcessingIterationDelayMs
         {
             get

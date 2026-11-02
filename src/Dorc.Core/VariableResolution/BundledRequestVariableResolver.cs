@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using Dorc.ApiModel.MonitorRunnerApi;
 
 namespace Dorc.Core.VariableResolution
@@ -9,6 +9,7 @@ namespace Dorc.Core.VariableResolution
         private readonly IPropertyExpressionEvaluator _expressionEvaluator;
 
         private readonly ConcurrentDictionary<string, VariableValue?> localProperties = new();
+        private readonly RequestSuppliedPropertyTracker _requestSuppliedProperties = new();
         private readonly IBundledRequestVariableLoader _bundledRequestVariableLoader;
 
         public BundledRequestVariableResolver(IBundledRequestVariableLoader bundledRequestVariableLoader,
@@ -53,6 +54,12 @@ namespace Dorc.Core.VariableResolution
             SetPropertyValue(property, variableValue);
         }
 
+        public void SetRequestSuppliedPropertyValue(string property, string value)
+        {
+            _requestSuppliedProperties.Mark(property);
+            SetPropertyValue(property, value);
+        }
+
         public VariableValue? GetPropertyValue(string property)
         {
             VariableValue? propertyValue;
@@ -63,6 +70,13 @@ namespace Dorc.Core.VariableResolution
             else
             {
                 return null;
+            }
+
+            // As in VariableResolver: expression evaluation compiles and runs C#, so it is
+            // applied only where no request-supplied text can reach the evaluated string.
+            if (_requestSuppliedProperties.IsInfluenced(property, RawValueOf))
+            {
+                return propertyValue;
             }
 
             var o = _expressionEvaluator.Evaluate(propertyValue.Value);
@@ -78,6 +92,13 @@ namespace Dorc.Core.VariableResolution
         {
             return localProperties.Keys.AsParallel()
                 .ToDictionary(x => x, GetPropertyValue);
+        }
+
+        private string? RawValueOf(string property)
+        {
+            return localProperties.TryGetValue(property, out var stored) && stored?.Value is string raw
+                ? raw
+                : null;
         }
 
         private VariableValue? EvaluatePropertyValue(VariableValue? value)

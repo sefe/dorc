@@ -142,6 +142,7 @@ export class EnvDatabases extends PageEnvBase {
               .unmigratedAccounts="${this.unmigratedAccounts}"
               @database-detached="${this._dbDetached}"
               @manage-database-access="${this.openDatabaseAccessDialog}"
+              @database-tags-updated="${this.refreshDatabases}"
             ></attached-databases>
             ${
               this.canManageDatabaseAccess

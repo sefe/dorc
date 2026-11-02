@@ -94,7 +94,7 @@ namespace Dorc.NetFramework.Runner
                         scriptGroupReader = new ScriptGroupFileReader(runnerLogger.FileLogger);
                     }
                     else
-                        scriptGroupReader = new ScriptGroupPipeClient(runnerLogger.FileLogger);
+                        scriptGroupReader = new ScriptGroupPipeClient(runnerLogger.FileLogger, options.ServerSid);
 
                     IScriptGroupProcessor scriptGroupProcessor = new ScriptGroupProcessor(
                         runnerLogger,

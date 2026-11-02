@@ -39,6 +39,11 @@ import {
   getHubProxyFactory
 } from '../services/ServerEvents';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import {
+  stopMonitorHub,
+  waitForMonitorHubStop
+} from '../helpers/monitor-hub-connection';
 
 const asUndef = (t: string | null | undefined): string | undefined =>
   t ?? undefined;
@@ -71,6 +76,8 @@ export class PageMonitorResult
   @property({ type: Boolean }) attemptsLoading = true;
   @property({ type: String }) hubConnectionState: string | undefined =
     HubConnectionState.Disconnected;
+
+  @property({ type: Boolean }) autoRefresh = true;
 
   private hubConnection: HubConnection | undefined;
 
@@ -181,7 +188,10 @@ export class PageMonitorResult
       this.hubConnection &&
       this.hubConnection.state !== HubConnectionState.Disconnected
     ) {
-      this.hubConnection.stop().catch(() => {});
+      void stopMonitorHub(
+        this.hubConnection,
+        state => (this.hubConnectionState = state)
+      );
     }
   }
 
@@ -325,6 +335,10 @@ export class PageMonitorResult
 
   private async initializeSignalR() {
     if (!this.hubConnection) this.hubConnection = DeploymentHub.getConnection();
+    await waitForMonitorHubStop(this.hubConnection);
+    if (!this.isConnected) {
+      return;
+    }
 
     getReceiverRegister('IDeploymentsEventsClient').register(
       this.hubConnection,
@@ -337,8 +351,16 @@ export class PageMonitorResult
 
     this.hubConnection.onreconnected(async () => {
       await hubProxy.joinRequestGroup(this.requestId);
-      this.refreshData();
+      if (this.autoRefresh) this.refreshData();
       this.hubConnectionState = this.hubConnection!.state;
+    });
+
+    this.hubConnection.onclose(() => {
+      this.hubConnectionState = this.hubConnection?.state;
+    });
+
+    this.hubConnection.onreconnecting(() => {
+      this.hubConnectionState = this.hubConnection?.state;
     });
 
     if (this.hubConnection.state === HubConnectionState.Disconnected) {
@@ -347,7 +369,7 @@ export class PageMonitorResult
         await hubProxy.joinRequestGroup(this.requestId);
         this.hubConnectionState = this.hubConnection.state;
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err);
+        const errorMessage = retrieveErrorMessage(err);
         this.hubConnectionState = errorMessage;
         console.error(err);
       }
@@ -363,7 +385,13 @@ export class PageMonitorResult
   onDeploymentRequestStatusChanged(
     data: DeploymentRequestEventData
   ): Promise<void> {
-    if (!data || data.requestId !== this.requestId) return Promise.resolve();
+    if (
+      !this.autoRefresh ||
+      !data ||
+      data.requestId !== this.requestId
+    ) {
+      return Promise.resolve();
+    }
     const startedTime =
       data.startedTime instanceof Date
         ? data.startedTime.toISOString()
@@ -396,7 +424,10 @@ export class PageMonitorResult
   onDeploymentResultStatusChanged(
     data: DeploymentResultEventData
   ): Promise<void> {
-    if (this.isEventForRequest(data, this.requestId)) {
+    if (
+      this.autoRefresh &&
+      this.isEventForRequest(data, this.requestId)
+    ) {
       this.refreshResultItems();
     }
     return Promise.resolve();
@@ -425,40 +456,42 @@ export class PageMonitorResult
                   .deployRequest="${this.deployRequest}"
                   .selectedProject="${this.selectedProject}"
                   .hubConnectionState="${this.hubConnectionState}"
+                  .autoRefresh="${this.autoRefresh}"
+                  @toggle-auto-refresh="${this.toggleAutoRefresh}"
                 ></request-status-card>
                 <div class="results-section">
                   ${
-                this.resultsLoading && !this.resultItems
-                  ? html` <div class="small-loader"></div>`
-                  : html`
-                      <vaadin-details
-                        opened
-                        summary="Deployment Component Results"
-                        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
-                      >
-                        <component-deployment-results
-                          .resultItems="${this.resultItems}"
-                        ></component-deployment-results>
-                      </vaadin-details>
-                    `
-              }
+                    this.resultsLoading && !this.resultItems
+                      ? html` <div class="small-loader"></div>`
+                      : html`
+                          <vaadin-details
+                            opened
+                            summary="Deployment Component Results"
+                            style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
+                          >
+                            <component-deployment-results
+                              .resultItems="${this.resultItems}"
+                            ></component-deployment-results>
+                          </vaadin-details>
+                        `
+                  }
                   ${
-                !this.attemptsLoading &&
-                this.attemptItems &&
-                this.attemptItems.length > 0
-                  ? html`
-                      <vaadin-details
-                        summary="Previous Attempts (${this.attemptItems.length})"
-                        style="border-top: 6px solid orange; background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
-                      >
-                        <component-previous-attempts
-                          .attemptItems="${this.attemptItems}"
-                          .requestId="${this.requestId}"
-                        ></component-previous-attempts>
-                      </vaadin-details>
-                    `
-                  : html``
-              }
+                    !this.attemptsLoading &&
+                    this.attemptItems &&
+                    this.attemptItems.length > 0
+                      ? html`
+                          <vaadin-details
+                            summary="Previous Attempts (${this.attemptItems.length})"
+                            style="border-top: 6px solid orange; background-color: var(--dorc-bg-secondary); padding-left: 4px; margin-top: 4px"
+                          >
+                            <component-previous-attempts
+                              .attemptItems="${this.attemptItems}"
+                              .requestId="${this.requestId}"
+                            ></component-previous-attempts>
+                          </vaadin-details>
+                        `
+                      : html``
+                  }
                 </div>
               `
       }
@@ -480,5 +513,36 @@ export class PageMonitorResult
     });
 
     this.refreshData();
+  }
+
+  private async toggleAutoRefresh() {
+    this.autoRefresh = !this.autoRefresh;
+    if (!this.hubConnection) return;
+
+    if (this.autoRefresh) {
+      try {
+        if (this.hubConnection.state === HubConnectionState.Disconnected) {
+          await this.hubConnection.start();
+        }
+        const hubProxy = getHubProxyFactory(
+          'IDeploymentEventsHub'
+        ).createHubProxy(this.hubConnection);
+        await hubProxy.joinRequestGroup(this.requestId);
+        this.hubConnectionState = this.hubConnection.state;
+        this.refreshData();
+      } catch (err) {
+        this.hubConnectionState = String(err);
+        console.error(err);
+      }
+      return;
+    }
+
+    try {
+      await this.hubConnection.stop();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      this.hubConnectionState = this.hubConnection.state;
+    }
   }
 }

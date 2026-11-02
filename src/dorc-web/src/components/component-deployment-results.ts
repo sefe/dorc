@@ -15,6 +15,7 @@ import './terraform-plan-dialog';
 import { DeploymentResultApiModel, ResultStatusesApi } from '../apis/dorc-api';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
+import { Notification } from '@vaadin/notification';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('component-deployment-results')
@@ -32,6 +33,9 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
   isLoadingLog = false;
 
   @state()
+  selectedResult: DeploymentResultApiModel | undefined;
+
+  @state()
   terraformDialogOpened = false;
 
   @state()
@@ -45,6 +49,11 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
     this.addEventListener(
       'log-dialog-closed',
       this.logDialogClosed as EventListener
+    );
+
+    this.addEventListener(
+      'refresh-log-dialog',
+      this.refreshLogDialog as EventListener
     );
 
     this.addEventListener(
@@ -149,6 +158,7 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
         .isOpened="${this.dialogOpened}"
         .selectedLog="${this.selectedLog}"
         .isLoading="${this.isLoadingLog}"
+        .refreshEnabled="${!!this.selectedResult?.RequestId}"
       >
       </log-dialog>
 
@@ -259,6 +269,7 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
   private async viewLog(e: Event) {
     const customEvent = e as CustomEvent;
     const result = customEvent.detail.result as DeploymentResultApiModel;
+    this.selectedResult = result;
 
     // Show dialog immediately with loading state
     this.isLoadingLog = true;
@@ -301,6 +312,38 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
   private logDialogClosed() {
     this.dialogOpened = false;
     this.isLoadingLog = false;
+    this.selectedResult = undefined;
+  }
+
+  private refreshLogDialog() {
+    if (!this.selectedResult?.RequestId) {
+      return;
+    }
+
+    this.isLoadingLog = true;
+
+    const api = new ResultStatusesApi(dorcApiConfiguration);
+    api
+      .resultStatusesLogGet({
+        requestId: this.selectedResult.RequestId,
+        resultId: this.selectedResult.Id
+      })
+      .subscribe({
+        next: (fullLog: string) => {
+          this.selectedLog = fullLog;
+          this.selectedResult!.Log = fullLog;
+          this.isLoadingLog = false;
+        },
+        error: error => {
+          console.error('Failed to refresh log:', error);
+          Notification.show('Failed to refresh deployment log', {
+            theme: 'error',
+            position: 'bottom-start',
+            duration: 5000
+          });
+          this.isLoadingLog = false;
+        }
+      });
   }
 
   private timingsRenderer = (item: DeploymentResultApiModel) => {

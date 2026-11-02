@@ -1,3 +1,4 @@
+import { normaliseTags } from '../helpers/tag-parser';
 import '@vaadin/dialog';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
@@ -12,6 +13,7 @@ import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/edit-database-permissions';
+import '../components/database-tags';
 import './grid-button-groups/database-env-controls.ts';
 import '../components/view-database-permissions';
 import { DatabaseApiModel } from '../apis/dorc-api';
@@ -26,9 +28,13 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
 
   @state() private viewPermissionsDialogOpened = false;
 
+  @state() private tagsDialogOpened = false;
+
   @state() private editDbId: number | null = null;
 
   @state() private viewDbId: number | null = null;
+
+  @state() private selectedDatabase: DatabaseApiModel | undefined;
 
   @property({ type: Number })
   envId = 0;
@@ -116,10 +122,10 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           resizable
         ></vaadin-grid-column>
         <vaadin-grid-column
-          ${columnBodyRenderer(this.applicationTagsRenderer, [])}
+          ${columnBodyRenderer(this.tagsRenderer, [])}
           resizable
-          width="160px"
-          header="Application Tag"
+          width="200px"
+          header="Tags"
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
@@ -130,7 +136,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
-          width="${this.canManageDatabaseAccess ? '300px' : '160px'}"
+          width="${this.canManageDatabaseAccess ? '340px' : '200px'}"
           flex-grow="0"
           ${columnBodyRenderer(this.databaseControlsRenderer, [
             this.envId,
@@ -142,6 +148,19 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         >
         </vaadin-grid-column>
       </vaadin-grid>
+
+      <vaadin-dialog
+        id="database-tags-dialog"
+        header-title="Edit Database Tags for ${this.selectedDatabase?.Name ?? ''}"
+        draggable
+        .opened="${this.tagsDialogOpened}"
+        @opened-changed="${(e: DialogOpenedChangedEvent) => {
+          this.tagsDialogOpened = e.detail.value;
+          if (!this.tagsDialogOpened) this.selectedDatabase = undefined;
+        }}"
+        ${dialogRenderer(this.renderDatabaseTags, [this.selectedDatabase])}
+        ${dialogFooterRenderer(this.renderDatabaseTagsFooter, [])}
+      ></vaadin-dialog>
 
       <vaadin-dialog
         id="permissions"
@@ -178,13 +197,8 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
     `;
   }
 
-  private applicationTagsRenderer = (database: DatabaseApiModel) => {
-    const appTags =
-      database.Type !== undefined &&
-      database.Type !== null &&
-      database.Type.length > 0
-        ? database.Type?.split(';')
-        : [];
+  private tagsRenderer = (database: DatabaseApiModel) => {
+    const appTags = normaliseTags(database.Tags);
 
     return html`
       ${map(
@@ -221,6 +235,10 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         this.dispatchEvent(
           new CustomEvent('database-detached', { detail: { db } })
         )}"
+      @manage-database-tags="${() => {
+        this.selectedDatabase = db;
+        this.tagsDialogOpened = true;
+      }}"
       @manage-database-perms="${() => {
         this.editDbId = db.Id || 0;
         this.permissionsDialogOpened = true;
@@ -239,6 +257,30 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         )}"
     ></database-env-controls>
   `;
+
+  private renderDatabaseTags = () =>
+    this.selectedDatabase
+      ? html`<database-tags
+          .database="${this.selectedDatabase}"
+          @database-tags-updated="${this.databaseTagsUpdated}"
+        ></database-tags>`
+      : nothing;
+
+  private renderDatabaseTagsFooter = () => html`
+    <vaadin-button @click="${() => (this.tagsDialogOpened = false)}"
+      >Close</vaadin-button
+    >
+  `;
+
+  private databaseTagsUpdated() {
+    this.tagsDialogOpened = false;
+    this.dispatchEvent(
+      new CustomEvent('database-tags-updated', {
+        bubbles: true,
+        composed: true
+      })
+    );
+  }
 
   /**
    * These two components are configured through imperative methods, and the

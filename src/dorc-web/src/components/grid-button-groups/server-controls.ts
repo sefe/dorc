@@ -74,7 +74,7 @@ export class ServerControls extends LitElement {
       </vaadin-button>
 
       <vaadin-button
-        aria-label="Edit Application Tags"
+        title="Edit Tags"
         theme="icon"
         @click="${this.manage}"
         ?disabled="${this.readonly}"

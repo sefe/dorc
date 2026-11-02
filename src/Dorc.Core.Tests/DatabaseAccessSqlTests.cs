@@ -36,7 +36,7 @@ public class DatabaseAccessSqlTests
             using var connection = new SqlConnection(new SqlConnectionStringBuilder(master.ConnectionString) { InitialCatalog = database }.ConnectionString);
             connection.Open();
             Execute(connection, "CREATE SCHEMA [deploy];");
-            Execute(connection, "CREATE TABLE [dbo].[DATABASE] ([DB_ID] INT PRIMARY KEY); INSERT [dbo].[DATABASE] VALUES (1);");
+            Execute(connection, "CREATE TABLE [deploy].[Database] ([Id] INT PRIMARY KEY); INSERT [deploy].[Database] VALUES (1);");
             foreach (var name in SchemaTables)
                 foreach (var batch in Batches(File.ReadAllText(SchemaFile(name))))
                     Execute(connection, batch);
@@ -45,7 +45,7 @@ public class DatabaseAccessSqlTests
             Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessConfiguration VALUES (999,'sql-server',0);"));
             Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessDatabaseMembership VALUES (1,1,1,1);"));
             Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessSharedPrincipal VALUES ('bad','DirectoryUser','cached-login',NULL);"));
-            Execute(connection, "INSERT [dbo].[DATABASE] VALUES (2); INSERT deploy.DatabaseAccessConfiguration VALUES (2,'sql-server',0);");
+            Execute(connection, "INSERT [deploy].[Database] VALUES (2); INSERT deploy.DatabaseAccessConfiguration VALUES (2,'sql-server',0);");
             Execute(connection, """
                 INSERT deploy.DatabaseAccessSharedPrincipal VALUES ('one','Native','login',NULL);
                 INSERT deploy.DatabaseAccessSharedRole VALUES ('two');
@@ -128,7 +128,7 @@ public class DatabaseAccessSqlTests
                 import.ApprovedDbOwnerLegacyUserIds.Add(42);
                 service.Import(2, import, true, "test");
                 Assert.AreEqual(1L, service.Get(2).Revision);
-                Execute(connection, "INSERT [dbo].[DATABASE] VALUES (3);");
+                Execute(connection, "INSERT [deploy].[Database] VALUES (3);");
                 var imported = service.Get(2).Principals.Single();
                 DatabaseAccessStore.Save(access, new DatabaseAccessState
                 {
@@ -258,7 +258,7 @@ public class DatabaseAccessSqlTests
             using var connection = new SqlConnection(new SqlConnectionStringBuilder(master.ConnectionString) { InitialCatalog = database }.ConnectionString);
             connection.Open();
             Execute(connection, "CREATE SCHEMA [deploy];");
-            Execute(connection, "CREATE TABLE [dbo].[DATABASE] ([DB_ID] INT PRIMARY KEY); INSERT [dbo].[DATABASE] VALUES (1), (2);");
+            Execute(connection, "CREATE TABLE [deploy].[Database] ([Id] INT PRIMARY KEY); INSERT [deploy].[Database] VALUES (1), (2);");
             foreach (var batch in Batches(File.ReadAllText(SchemaFile("DatabaseAccessConfiguration")))) Execute(connection, batch);
             // The per-database shape that shipped before normalisation.
             Execute(connection, """

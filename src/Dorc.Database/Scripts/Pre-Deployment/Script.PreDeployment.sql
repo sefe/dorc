@@ -9,5 +9,7 @@
                SELECT * FROM [$(TableName)]
 --------------------------------------------------------------------------------------
 */
-:r .\StageServicesForMigration.sql
-:r .\StageDatabaseAccessForNormalisation.sql
+:r ./GuardTagLengthsBeforeMigration.sql
+:r ./StashDatabaseIdentityValue.sql
+:r ./StageServicesForMigration.sql
+:r ./StageDatabaseAccessForNormalisation.sql

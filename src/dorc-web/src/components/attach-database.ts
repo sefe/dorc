@@ -8,6 +8,12 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ApiBoolResult, DatabaseApiModel } from '../apis/dorc-api';
 import {
+  splitTags,
+  hasTag,
+  joinTags,
+  normaliseTags
+} from '../helpers/tag-parser';
+import {
   RefDataDatabasesApi,
   RefDataEnvironmentsDetailsApi
 } from '../apis/dorc-api';
@@ -42,6 +48,9 @@ export class AttachDatabase extends LitElement {
 
   @property({ type: Object })
   existingDatabaseWithSameTag: DatabaseApiModel | undefined;
+
+  @property({ type: Array })
+  private overlappingTags: string[] = [];
 
   constructor() {
     super();
@@ -99,9 +108,9 @@ export class AttachDatabase extends LitElement {
             >
           </h3>
           <h3>
-            Application Tag:
+            Tags:
             <span style="color: var(--dorc-link-color)"
-              >${this.selectedDatabase?.Type}</span
+              >${joinTags(normaliseTags(this.selectedDatabase?.Tags))}</span
             >
           </h3>
           <h3>
@@ -122,13 +131,12 @@ export class AttachDatabase extends LitElement {
           this.showSameTagWarning
             ? html`
                 <div class="warning-box">
-                  <div class="warning-title">
-                    ⚠️ Warning - Duplicate Application Tag
-                  </div>
+                  <div class="warning-title">⚠️ Warning - Duplicate Tag</div>
                   <div>
-                    A database with the tag
-                    '<strong>${this.selectedDatabase?.Type}</strong>' is already
-                    attached to this environment:
+                    A database sharing the
+                    tag${this.overlappingTags.length > 1 ? 's' : ''}
+                    '<strong>${this.overlappingTags.join("', '")}</strong>' is
+                    already attached to this environment:
                     <br /><strong
                       >${this.existingDatabaseWithSameTag?.Name}</strong
                     >
@@ -169,10 +177,18 @@ export class AttachDatabase extends LitElement {
   }
 
   private checkForSameTagWarning() {
-    if (this.selectedDatabase?.Type) {
-      this.existingDatabaseWithSameTag = this.existingDatabases?.find(
-        db => db.Type === this.selectedDatabase?.Type
+    const selectedTags = splitTags(this.selectedDatabase?.Tags);
+    if (selectedTags.length > 0) {
+      // Tag-set overlap: any shared tag between
+      // the selected database and an already-attached one triggers the warning.
+      this.existingDatabaseWithSameTag = this.existingDatabases?.find(db =>
+        selectedTags.some(tag => hasTag(db.Tags, tag))
       );
+      this.overlappingTags = this.existingDatabaseWithSameTag
+        ? selectedTags.filter(tag =>
+            hasTag(this.existingDatabaseWithSameTag?.Tags, tag)
+          )
+        : [];
       this.showSameTagWarning = !!this.existingDatabaseWithSameTag;
     }
   }
@@ -244,7 +260,7 @@ export class AttachDatabase extends LitElement {
     if (this.selectedDatabase) {
       this.selectedDatabase.Id = 0;
       this.selectedDatabase.Name = '';
-      this.selectedDatabase.Type = '';
+      this.selectedDatabase.Tags = [];
       this.selectedDatabase.ServerName = '';
       this.selectedDatabase.AdGroup = '';
     }

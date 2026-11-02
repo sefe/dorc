@@ -6,7 +6,8 @@ import { Notification } from '@vaadin/notification';
 import { TagsInput } from './tags-input';
 import { RefDataServersApi } from '../apis/dorc-api';
 import { ServerApiModel } from '../apis/dorc-api';
-import { splitTags, joinTags } from '../helpers/tag-parser';
+import { splitTags, normaliseTags } from '../helpers/tag-parser';
+import { MAX_TAG_LENGTH } from '../helpers/tag-limits';
 import '@vaadin/button';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
@@ -47,17 +48,26 @@ export class ServerTags extends LitElement {
 
   public setTags(server: ServerApiModel) {
     this._server = server;
-    this.tags = splitTags(this._server?.ApplicationTags);
+    this.tags = splitTags(this._server?.Tags);
   }
 
   public save() {
     if (this._server !== undefined) {
       const tags = this.tagsInput?.tags;
-      this._server.ApplicationTags = joinTags(tags);
+      const normalised = normaliseTags(tags);
+      const overLong = normalised.filter(t => t.length > MAX_TAG_LENGTH);
+      if (overLong.length > 0) {
+        Notification.show(
+          `Each tag must be at most ${MAX_TAG_LENGTH} characters (too long: '${overLong[0]}')`,
+          { theme: 'error', position: 'bottom-start', duration: 5000 }
+        );
+        return;
+      }
+      this._server.Tags = normalised;
 
       const api = new RefDataServersApi(dorcApiConfiguration);
       const server: ServerApiModel = {};
-      server.ApplicationTags = this._server.ApplicationTags;
+      server.Tags = this._server.Tags;
       server.ServerId = this._server.ServerId;
       server.Name = this._server.Name;
       server.OsName = this._server.OsName;
@@ -70,7 +80,7 @@ export class ServerTags extends LitElement {
         .subscribe({
           next: () => {
             const oldTags = this.tags;
-            const newTags = splitTags(server.ApplicationTags);
+            const newTags = splitTags(server.Tags);
             const removed = oldTags?.filter(x => !newTags?.includes(x));
             let removedTags = '';
             if (removed.length > 0) {
