@@ -1,4 +1,4 @@
-﻿/*
+/*
 Post-Deployment Script Template							
 --------------------------------------------------------------------------------------
 This file contains SQL statements that will be appended to the build script.		
@@ -10,6 +10,7 @@ Example:      :setvar TableName MyTable
 --------------------------------------------------------------------------------------
 */
 :r .\MigrateStagedServicesToDaemons.sql
+:r .\MigrateStagedDatabaseAccess.sql
 :r .\SeedRefDataAuditActions.sql
 :r .\CleanupOrphanedScripts.sql
 :r .\SetFileShareSourceControlType.sql

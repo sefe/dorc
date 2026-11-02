@@ -7,30 +7,44 @@ public class DatabaseAccessConfiguration
     public long Revision { get; set; }
 }
 
-public class DatabaseAccessPrincipalRecord
+// Shared catalogue: one row per database user identity, reused by every database that grants it access.
+public class DatabaseAccessSharedPrincipal
 {
-    public int DatabaseId { get; set; }
+    public int Id { get; set; }
     public string Name { get; set; } = "";
     public string Kind { get; set; } = "";
     public string? LoginName { get; set; }
     public string? DirectoryId { get; set; }
+}
+
+// Shared catalogue: one row per role name.
+public class DatabaseAccessSharedRole
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = "";
+}
+
+public class DatabaseAccessDatabasePrincipal
+{
+    public int DatabaseId { get; set; }
+    public int PrincipalId { get; set; }
     public bool Present { get; set; }
     public int? LegacyUserId { get; set; }
 }
 
-public class DatabaseAccessRoleRecord
+public class DatabaseAccessDatabaseRole
 {
     public int DatabaseId { get; set; }
-    public string Name { get; set; } = "";
+    public int RoleId { get; set; }
     public bool Managed { get; set; }
     public bool Present { get; set; }
 }
 
-public class DatabaseAccessMembershipRecord
+public class DatabaseAccessDatabaseMembership
 {
     public int DatabaseId { get; set; }
-    public string Principal { get; set; } = "";
-    public string Role { get; set; } = "";
+    public int PrincipalId { get; set; }
+    public int RoleId { get; set; }
     public bool Present { get; set; }
 }
 

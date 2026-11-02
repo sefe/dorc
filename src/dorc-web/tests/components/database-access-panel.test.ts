@@ -3,6 +3,8 @@ import { vi } from 'vitest';
 import type { ComboBox } from '@vaadin/combo-box';
 import type { Details } from '@vaadin/details';
 import type { Checkbox } from '@vaadin/checkbox';
+import type { RadioGroup } from '@vaadin/radio-group';
+import type { TextField } from '@vaadin/text-field';
 import { expect, fixture, html } from '../_helpers';
 import type {
   DatabaseAccessDirectoryIdentity,
@@ -22,6 +24,7 @@ const mocks = vi.hoisted(() => ({
   directory: vi.fn(),
   resolve: vi.fn(),
   lookup: vi.fn(),
+  logins: vi.fn(),
   importPreview: vi.fn(),
   import: vi.fn(),
   legacy: vi.fn(),
@@ -44,6 +47,7 @@ vi.mock('../../src/apis/dorc-api/apis/DatabaseAccessApi', () => ({
     databaseAccessDirectory = mocks.directory;
     databaseAccessResolve = mocks.resolve;
     databaseAccessLookup = mocks.lookup;
+    databaseAccessSqlLogins = mocks.logins;
     databaseAccessImportPreview = mocks.importPreview;
     databaseAccessExecuteImport = mocks.import;
   }
@@ -156,6 +160,26 @@ function click(panel: DatabaseAccessPanel, text: string) {
   );
   if (!button) throw new Error(`Missing button: ${text}`);
   (button as HTMLElement).click();
+}
+
+function radio(panel: DatabaseAccessPanel, value: string) {
+  const group =
+    panel.shadowRoot!.querySelector<RadioGroup>('vaadin-radio-group')!;
+  group.value = value;
+}
+
+function userName(panel: DatabaseAccessPanel) {
+  return [
+    ...panel.shadowRoot!.querySelectorAll<TextField>('vaadin-text-field')
+  ].find(f => f.label === 'Database user name')!;
+}
+
+function role(panel: DatabaseAccessPanel, name: string) {
+  const checkbox = panel.shadowRoot!.querySelector<Checkbox>(
+    `#grant-access vaadin-checkbox[label="${name}"]`
+  );
+  if (!checkbox) throw new Error(`Missing role checkbox: ${name}`);
+  return checkbox;
 }
 
 function inclusion(panel: DatabaseAccessPanel, login: string) {
@@ -380,20 +404,11 @@ describe('Database access side-by-side panel', () => {
     );
   });
 
-  it('saves a native principal as desired state without mutating the target', async () => {
-    mocks.save.mockReturnValue(
-      of({
-        ...empty,
-        Revision: 1,
-        Principals: [
-          {
-            Name: 'app',
-            Kind: 'Native',
-            LoginName: 'existing_login',
-            Present: true
-          }
-        ]
-      })
+  it('grants an existing SQL login a role in one step, defaulting the database user name to the login', async () => {
+    mocks.logins.mockReturnValue(of(['app_login', 'reporting']));
+    mocks.save.mockImplementation(
+      ({ databaseAccessState }: { databaseAccessState: DatabaseAccessState }) =>
+        of({ ...databaseAccessState, Revision: 1 })
     );
     const panel = await load();
     await vi.waitFor(() =>
@@ -401,34 +416,132 @@ describe('Database access side-by-side panel', () => {
         'No managed principals yet'
       )
     );
-    const fields = [...panel.shadowRoot!.querySelectorAll('vaadin-text-field')];
-    const name = fields.find(f => f.label === 'Database user name')!;
-    const login = fields.find(f =>
-      f.label?.includes('Existing SQL server login')
-    )!;
-    name.value = 'app';
-    login.value = 'existing_login';
-    click(panel, 'Save principal');
-    await vi.waitFor(() => expect(mocks.save.mock.calls.length).to.equal(1));
-    expect(
-      mocks.save.mock.calls[0][0].databaseAccessState.Principals[0]
-    ).to.deep.equal({
-      Name: 'app',
-      Kind: 'Native',
-      LoginName: 'existing_login',
-      DirectoryId: null,
-      Present: true
+    radio(panel, 'sql');
+    await vi.waitFor(() => expect(mocks.logins.mock.calls.length).to.equal(1));
+    const login = await vi.waitFor(() => {
+      const combo = panel.shadowRoot!.querySelector<ComboBox>('#grant-login');
+      expect(combo?.items).to.deep.equal(['app_login', 'reporting']);
+      return combo!;
     });
+    login.value = 'app_login';
+    await panel.updateComplete;
+    expect(userName(panel).value).to.equal('app_login');
+    role(panel, 'db_datareader').checked = true;
+    await panel.updateComplete;
+    click(panel, 'Grant access');
+    await vi.waitFor(() => expect(mocks.save.mock.calls.length).to.equal(1));
+    const saved = mocks.save.mock.calls[0][0].databaseAccessState;
+    expect(saved.Principals).to.deep.equal([
+      {
+        Name: 'app_login',
+        Kind: 'Native',
+        LoginName: 'app_login',
+        DirectoryId: null,
+        Present: true
+      }
+    ]);
+    expect(saved.Roles).to.deep.equal([
+      { Name: 'db_datareader', Managed: false, Present: true }
+    ]);
+    expect(saved.Memberships).to.deep.equal([
+      { Principal: 'app_login', Role: 'db_datareader', Present: true }
+    ]);
     expect(mocks.apply.mock.calls.length).to.equal(0);
+    await vi.waitFor(() =>
+      expect(
+        panel.shadowRoot!.querySelector('#current-access')!.textContent
+      ).to.contain('SQL login app_login')
+    );
   });
 
-  it('saves a role assignment chosen from the principal and role pickers', async () => {
+  it('defaults an AD account to its DOMAIN\\account name and can be overridden under Advanced', async () => {
+    mocks.directory.mockReturnValue(
+      of([
+        {
+          ...directoryIdentity,
+          IsGroup: false,
+          AccountName: 'CORP\\jbloggs',
+          DisplayName: 'Joe Bloggs'
+        }
+      ])
+    );
+    mocks.save.mockImplementation(
+      ({ databaseAccessState }: { databaseAccessState: DatabaseAccessState }) =>
+        of({ ...databaseAccessState, Revision: 1 })
+    );
+    const panel = await load();
+    await vi.waitFor(() =>
+      expect(panel.shadowRoot!.querySelector('#grant-search')).not.to.equal(
+        null
+      )
+    );
+    panel.shadowRoot!.querySelector<TextField>('#grant-search')!.value =
+      'bloggs';
+    click(panel, 'Search');
+    await vi.waitFor(() =>
+      expect(userName(panel).value).to.equal('CORP\\jbloggs')
+    );
+    userName(panel).value = 'jbloggs_ro';
+    role(panel, 'db_datareader').checked = true;
+    await panel.updateComplete;
+    click(panel, 'Grant access');
+    await vi.waitFor(() => expect(mocks.save.mock.calls.length).to.equal(1));
+    expect(
+      mocks.save.mock.calls[0][0].databaseAccessState.Principals
+    ).to.deep.equal([
+      {
+        Name: 'jbloggs_ro',
+        Kind: 'DirectoryUser',
+        LoginName: null,
+        DirectoryId: directoryIdentity.Id,
+        Present: true
+      }
+    ]);
+  });
+
+  it('explains missing choices inline instead of sending an invalid save', async () => {
+    mocks.directory.mockReturnValue(of([directoryIdentity]));
+    const panel = await load();
+    await vi.waitFor(() =>
+      expect(panel.shadowRoot!.querySelector('#grant-search')).not.to.equal(
+        null
+      )
+    );
+    click(panel, 'Grant access');
+    await panel.updateComplete;
+    expect(
+      panel.shadowRoot!.querySelector('#grant-error')!.textContent
+    ).to.contain('choose an AD user or group');
+    panel.shadowRoot!.querySelector<TextField>('#grant-search')!.value =
+      'readers';
+    click(panel, 'Search');
+    await vi.waitFor(() =>
+      expect(
+        panel.shadowRoot!.querySelector<Details>('#grant-advanced')!.opened
+      ).to.equal(true)
+    );
+    click(panel, 'Grant access');
+    await panel.updateComplete;
+    expect(
+      panel.shadowRoot!.querySelector('#grant-error')!.textContent
+    ).to.contain('Enter a database user name under Advanced');
+    expect(mocks.save.mock.calls.length).to.equal(0);
+  });
+
+  it('edits an existing user by replacing its ticked roles and revokes a single role from the table', async () => {
     const assigned: DatabaseAccessState = {
       ...empty,
       Principals: [
         { Name: 'app', Kind: 'Native', LoginName: 'app', Present: true }
       ],
-      Roles: [{ Name: 'db_datareader', Managed: false, Present: true }]
+      Roles: [
+        { Name: 'db_datareader', Managed: false, Present: true },
+        { Name: 'db_owner', Managed: false, Present: true }
+      ],
+      Memberships: [
+        { Principal: 'app', Role: 'db_datareader', Present: true },
+        { Principal: 'app', Role: 'db_owner', Present: true }
+      ]
     };
     mocks.get.mockReturnValue(of(structuredClone(assigned)));
     mocks.save.mockImplementation(
@@ -437,29 +550,93 @@ describe('Database access side-by-side panel', () => {
     );
     const panel = await load();
     await vi.waitFor(() =>
-      expect(panel.shadowRoot!.textContent).to.contain('Assign a role')
+      expect(panel.shadowRoot!.querySelector('#current-access')).not.to.equal(
+        null
+      )
     );
-    const combos = [...panel.shadowRoot!.querySelectorAll('vaadin-combo-box')];
-    const principal = combos.find(c => c.label === 'Principal')!;
-    const role = combos.find(c => c.label === 'Role')!;
-    expect(principal.disabled).to.equal(false);
-    const assign = [
-      ...panel.shadowRoot!.querySelectorAll('vaadin-button')
-    ].find(b => b.textContent?.trim() === 'Save assignment')!;
-    expect(assign.hasAttribute('disabled')).to.equal(true);
-    principal.value = 'app';
-    role.value = 'db_datareader';
-    await panel.updateComplete;
-    expect(assign.hasAttribute('disabled')).to.equal(false);
-    click(panel, 'Save assignment');
-    await vi.waitFor(() => expect(mocks.save.mock.calls.length).to.equal(1));
     expect(
-      mocks.save.mock.calls[0][0].databaseAccessState.Memberships
-    ).to.deep.equal([
-      { Principal: 'app', Role: 'db_datareader', Present: true }
+      panel.shadowRoot!.querySelectorAll('vaadin-checkbox[label="db_owner"]')
+    ).to.have.length(0);
+    click(panel, 'Edit');
+    await panel.updateComplete;
+    expect(role(panel, 'db_datareader').checked).to.equal(true);
+    expect(userName(panel).disabled).to.equal(true);
+    role(panel, 'db_datareader').checked = false;
+    role(panel, 'db_datawriter').checked = true;
+    await panel.updateComplete;
+    click(panel, 'Save access');
+    await vi.waitFor(() => expect(mocks.save.mock.calls.length).to.equal(1));
+    const saved = mocks.save.mock.calls[0][0].databaseAccessState;
+    expect(saved.Principals).to.deep.equal(assigned.Principals);
+    expect(saved.Memberships).to.deep.equal([
+      { Principal: 'app', Role: 'db_datareader', Present: false },
+      { Principal: 'app', Role: 'db_owner', Present: true },
+      { Principal: 'app', Role: 'db_datawriter', Present: true }
     ]);
     await vi.waitFor(() =>
-      expect(panel.shadowRoot!.textContent).to.contain('app → db_datareader')
+      expect(
+        panel.shadowRoot!.querySelector(
+          '[aria-label="Revoke db_datawriter from app"]'
+        )
+      ).not.to.equal(null)
+    );
+    (
+      panel.shadowRoot!.querySelector(
+        '[aria-label="Revoke db_datawriter from app"]'
+      ) as HTMLElement
+    ).click();
+    await vi.waitFor(() => expect(mocks.save.mock.calls.length).to.equal(2));
+    expect(
+      mocks.save.mock.calls[1][0].databaseAccessState.Memberships.find(
+        (m: { Role: string }) => m.Role === 'db_datawriter'
+      ).Present
+    ).to.equal(false);
+  });
+
+  it('keeps the SQL login picker usable when the server cannot list logins', async () => {
+    mocks.logins.mockReturnValue(
+      throwError(() => new Error('Login failed for user'))
+    );
+    const panel = await load();
+    await vi.waitFor(() =>
+      expect(panel.shadowRoot!.querySelector('#grant-search')).not.to.equal(
+        null
+      )
+    );
+    radio(panel, 'sql');
+    await vi.waitFor(() =>
+      expect(
+        panel.shadowRoot!.querySelector('#sql-logins-message')?.textContent
+      ).to.contain('You can still type the name of an existing login')
+    );
+    expect(
+      panel.shadowRoot!.querySelector<ComboBox>('#grant-login')!
+        .allowCustomValue
+    ).to.equal(true);
+  });
+
+  it('rejects custom role names reserved for fixed roles', async () => {
+    const panel = await load();
+    await vi.waitFor(() =>
+      expect(panel.shadowRoot!.querySelector('#custom-roles')).not.to.equal(
+        null
+      )
+    );
+    const name = [
+      ...panel.shadowRoot!.querySelectorAll<TextField>('vaadin-text-field')
+    ].find(f => f.label === 'Role name')!;
+    name.value = 'db_custom';
+    click(panel, 'Create role');
+    await panel.updateComplete;
+    expect(
+      panel.shadowRoot!.querySelector('#custom-roles')!.textContent
+    ).to.contain("cannot start with 'db_'");
+    expect(mocks.save.mock.calls.length).to.equal(0);
+    name.value = 'app_reader';
+    click(panel, 'Create role');
+    await vi.waitFor(() => expect(mocks.save.mock.calls.length).to.equal(1));
+    expect(mocks.save.mock.calls[0][0].databaseAccessState.Roles).to.deep.equal(
+      [{ Name: 'app_reader', Managed: true, Present: true }]
     );
   });
 
@@ -478,7 +655,7 @@ describe('Database access side-by-side panel', () => {
     expect(fields.length).to.be.greaterThan(0);
     for (const field of fields)
       expect(field.hasAttribute('disabled')).to.equal(true);
-    click(panel, 'Save principal');
+    click(panel, 'Grant access');
     expect(mocks.save.mock.calls.length).to.equal(0);
   });
 

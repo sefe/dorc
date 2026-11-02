@@ -60,6 +60,17 @@
         "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/DatabaseAccessPreview" } } } } }
       }
     },
+    "/DatabaseAccess/{envId}/{databaseId}/logins": {
+      "get": {
+        "tags": ["DatabaseAccess"],
+        "operationId": "databaseAccessSqlLogins",
+        "parameters": [
+          { "name": "envId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } },
+          { "name": "databaseId", "in": "path", "required": true, "schema": { "type": "integer", "format": "int32" } }
+        ],
+        "responses": { "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "array", "items": { "type": "string" } } } } } }
+      }
+    },
     "/DatabaseAccess/{envId}/{databaseId}/directory": {
       "get": {
         "tags": ["DatabaseAccess"],
@@ -8274,7 +8285,7 @@
       },
       "DatabaseAccessDirectoryIdentity": {
         "type": "object", "required": ["Id", "DisplayName", "IsGroup", "Status"],
-        "properties": { "Id": { "type": "string" }, "DisplayName": { "type": "string" }, "IsGroup": { "type": "boolean" }, "Status": { "type": "string" } }
+        "properties": { "Id": { "type": "string" }, "DisplayName": { "type": "string" }, "IsGroup": { "type": "boolean" }, "AccountName": { "type": "string", "nullable": true }, "Status": { "type": "string" } }
       },
       "DatabaseAccessImportRequest": {
         "type": "object", "required": ["RoleMappings", "DirectoryMappings", "Token"],

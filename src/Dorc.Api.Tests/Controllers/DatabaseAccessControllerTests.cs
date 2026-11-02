@@ -91,6 +91,7 @@ public class DatabaseAccessControllerTests
         Assert.IsInstanceOfType<NotFoundObjectResult>(controller.SearchDirectory(10, 1, "user").Result);
         Assert.IsInstanceOfType<NotFoundObjectResult>(controller.ResolveDirectory(10, 1, "sid").Result);
         Assert.IsInstanceOfType<NotFoundObjectResult>(controller.LookupDirectory(10, 1, "DOMAIN\\account").Result);
+        Assert.IsInstanceOfType<NotFoundObjectResult>(controller.SqlLogins(10, 1).Result);
         Assert.IsInstanceOfType<NotFoundObjectResult>(controller.Audit(10, 1).Result);
         factory.DidNotReceive().GetContext();
     }
@@ -134,6 +135,8 @@ public class DatabaseAccessControllerTests
         Assert.IsInstanceOfType<NotFoundResult>(controller.Get(999, 1).Result);
         Assert.IsInstanceOfType<ForbidResult>(controller.LookupDirectory(10, 1, "DOMAIN\\account").Result);
         Assert.IsInstanceOfType<NotFoundResult>(controller.LookupDirectory(999, 1, "DOMAIN\\account").Result);
+        Assert.IsInstanceOfType<ForbidResult>(controller.SqlLogins(10, 1).Result);
+        Assert.IsInstanceOfType<NotFoundResult>(controller.SqlLogins(999, 1).Result);
     }
 
     [TestMethod]
@@ -145,6 +148,7 @@ public class DatabaseAccessControllerTests
         Assert.IsInstanceOfType<ForbidResult>(controller.Preview(10, 1).Result);
         Assert.IsInstanceOfType<ForbidResult>(controller.Apply(10, 1, new()).Result);
         Assert.IsInstanceOfType<ForbidResult>(controller.Import(10, 1, new()).Result);
+        Assert.IsInstanceOfType<ForbidResult>(controller.SqlLogins(10, 1).Result);
     }
 
     [TestMethod]

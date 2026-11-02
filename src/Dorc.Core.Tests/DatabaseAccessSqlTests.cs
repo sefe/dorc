@@ -32,26 +32,40 @@ public class DatabaseAccessSqlTests
         try
         {
             Execute(master, $"CREATE LOGIN [{login}] WITH PASSWORD = 'Aa1!{Guid.NewGuid():N}';");
+            Execute(master, $"CREATE LOGIN [{login}_off] WITH PASSWORD = 'Aa1!{Guid.NewGuid():N}'; ALTER LOGIN [{login}_off] DISABLE;");
             using var connection = new SqlConnection(new SqlConnectionStringBuilder(master.ConnectionString) { InitialCatalog = database }.ConnectionString);
             connection.Open();
             Execute(connection, "CREATE SCHEMA [deploy];");
             Execute(connection, "CREATE TABLE [dbo].[DATABASE] ([DB_ID] INT PRIMARY KEY); INSERT [dbo].[DATABASE] VALUES (1);");
-            foreach (var name in new[] { "DatabaseAccessConfiguration", "DatabaseAccessPrincipal", "DatabaseAccessRole", "DatabaseAccessMembership", "DatabaseAccessExclusion", "DatabaseAccessAudit" })
-                foreach (var batch in System.Text.RegularExpressions.Regex.Split(File.ReadAllText(SchemaFile(name)), @"(?m)^GO\s*$")
-                    .Where(batch => !string.IsNullOrWhiteSpace(batch)))
+            foreach (var name in SchemaTables)
+                foreach (var batch in Batches(File.ReadAllText(SchemaFile(name))))
                     Execute(connection, batch);
             Execute(connection, "INSERT deploy.DatabaseAccessConfiguration VALUES (1,'sql-server',0);");
             Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessConfiguration VALUES (1,'sql-server',0);"));
             Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessConfiguration VALUES (999,'sql-server',0);"));
-            Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessMembership VALUES (1,'missing','missing',1);"));
-            Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessPrincipal VALUES (1,'bad','DirectoryUser','cached-login',NULL,1,NULL);"));
+            Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessDatabaseMembership VALUES (1,1,1,1);"));
+            Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessSharedPrincipal VALUES ('bad','DirectoryUser','cached-login',NULL);"));
             Execute(connection, "INSERT [dbo].[DATABASE] VALUES (2); INSERT deploy.DatabaseAccessConfiguration VALUES (2,'sql-server',0);");
-            Execute(connection, "INSERT deploy.DatabaseAccessPrincipal VALUES (1,'one','Native','login',NULL,1,NULL); INSERT deploy.DatabaseAccessRole VALUES (2,'two',0,1);");
-            Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessMembership VALUES (1,'one','two',1);"));
-            Execute(connection, "DELETE deploy.DatabaseAccessPrincipal WHERE Name='one'; DELETE deploy.DatabaseAccessRole WHERE Name='two';");
+            Execute(connection, """
+                INSERT deploy.DatabaseAccessSharedPrincipal VALUES ('one','Native','login',NULL);
+                INSERT deploy.DatabaseAccessSharedRole VALUES ('two');
+                INSERT deploy.DatabaseAccessDatabasePrincipal SELECT 1, Id, 1, NULL FROM deploy.DatabaseAccessSharedPrincipal WHERE Name='one';
+                INSERT deploy.DatabaseAccessDatabaseRole SELECT 2, Id, 0, 1 FROM deploy.DatabaseAccessSharedRole WHERE Name='two';
+                """);
+            Assert.ThrowsExactly<SqlException>(() => Execute(connection, """
+                INSERT deploy.DatabaseAccessDatabaseMembership
+                SELECT 1, p.Id, r.Id, 1 FROM deploy.DatabaseAccessSharedPrincipal p, deploy.DatabaseAccessSharedRole r WHERE p.Name='one' AND r.Name='two';
+                """));
+            Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessSharedPrincipal VALUES ('ONE','Native','LOGIN',NULL);"),
+                "A shared identity must be stored once.");
+            Execute(connection, "DELETE deploy.DatabaseAccessDatabasePrincipal; DELETE deploy.DatabaseAccessDatabaseRole; DELETE deploy.DatabaseAccessSharedPrincipal; DELETE deploy.DatabaseAccessSharedRole;");
 
             var provider = new SqlServerDatabaseAccessProvider();
             var target = new DatabaseAccessTarget(1, server!, database);
+            var logins = provider.SqlLogins(target);
+            CollectionAssert.Contains(logins, login);
+            CollectionAssert.DoesNotContain(logins, login + "_off", "Disabled logins cannot be granted access.");
+            CollectionAssert.DoesNotContain(logins, "sa", "Protected logins are not offered.");
             var state = new DatabaseAccessState
             {
                 DatabaseId = 1,
@@ -114,6 +128,24 @@ public class DatabaseAccessSqlTests
                 import.ApprovedDbOwnerLegacyUserIds.Add(42);
                 service.Import(2, import, true, "test");
                 Assert.AreEqual(1L, service.Get(2).Revision);
+                Execute(connection, "INSERT [dbo].[DATABASE] VALUES (3);");
+                var imported = service.Get(2).Principals.Single();
+                DatabaseAccessStore.Save(access, new DatabaseAccessState
+                {
+                    DatabaseId = 3,
+                    Principals = [new() { Name = imported.Name, Kind = imported.Kind, LoginName = imported.LoginName }],
+                    Roles = [new() { Name = "db_datareader" }],
+                    Memberships = [new() { Principal = imported.Name, Role = "db_datareader" }]
+                }, "test", "Save");
+                Assert.AreEqual(1, Scalar(connection, $"SELECT COUNT(*) FROM deploy.DatabaseAccessSharedPrincipal WHERE Name = N'{login}'"),
+                    "The same database user on two databases must share one principal row.");
+                Assert.AreEqual(1, Scalar(connection, "SELECT COUNT(*) FROM deploy.DatabaseAccessSharedRole WHERE Name = N'db_datareader'"));
+                var remapped = DatabaseAccessStore.Read(access, 3);
+                remapped.Principals[0].LoginName = "other-login";
+                remapped = DatabaseAccessStore.Save(access, remapped, "test", "Save");
+                Assert.AreEqual("other-login", remapped.Principals.Single().LoginName);
+                Assert.AreEqual(imported.Name, remapped.Memberships.Single().Principal, "A remapped principal keeps its role memberships.");
+                Assert.AreEqual(imported.LoginName, service.Get(2).Principals.Single().LoginName, "Remapping one database must not affect another.");
                 Assert.AreEqual("Native", service.Get(2).Principals.Single().Kind);
                 CollectionAssert.AreEqual(new[] { 43 }, service.Get(2).ExcludedLegacyUserIds);
                 Assert.ThrowsExactly<SqlException>(() => Execute(connection, "INSERT deploy.DatabaseAccessExclusion VALUES (2,0);"));
@@ -188,8 +220,97 @@ public class DatabaseAccessSqlTests
         {
             Execute(master, $"ALTER DATABASE [{database}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{database}];");
             Execute(master, $"IF EXISTS (SELECT 1 FROM sys.server_principals WHERE name='{login}') DROP LOGIN [{login}];");
+            Execute(master, $"IF EXISTS (SELECT 1 FROM sys.server_principals WHERE name='{login}_off') DROP LOGIN [{login}_off];");
         }
     }
+
+    private static readonly string[] SchemaTables =
+    [
+        "DatabaseAccessConfiguration", "DatabaseAccessSharedPrincipal", "DatabaseAccessSharedRole", "DatabaseAccessDatabasePrincipal",
+        "DatabaseAccessDatabaseRole", "DatabaseAccessDatabaseMembership", "DatabaseAccessExclusion", "DatabaseAccessAudit"
+    ];
+
+    private static IEnumerable<string> Batches(string sql) =>
+        System.Text.RegularExpressions.Regex.Split(sql, @"(?m)^GO\s*$").Where(batch => !string.IsNullOrWhiteSpace(batch));
+
+    private static int Scalar(SqlConnection connection, string sql)
+    {
+        using var command = new SqlCommand(sql, connection);
+        return (int)command.ExecuteScalar();
+    }
+
+    [TestMethod]
+    [TestCategory("LocalSql")]
+    public void DeploymentScriptsMovePerDatabaseRowsIntoSharedCatalogues()
+    {
+        var server = Environment.GetEnvironmentVariable("DORC_ACCESS_TEST_SERVER");
+        if (server != @"(localdb)\DOrcAccessTests")
+            Assert.Inconclusive("Set DORC_ACCESS_TEST_SERVER=(localdb)\\DOrcAccessTests to use an isolated test instance.");
+        var database = "DorcAccess_" + Guid.NewGuid().ToString("N");
+        using var master = new SqlConnection(new SqlConnectionStringBuilder
+        {
+            DataSource = server, InitialCatalog = "master", IntegratedSecurity = true, Encrypt = false, Pooling = false
+        }.ConnectionString);
+        master.Open();
+        Execute(master, $"CREATE DATABASE [{database}];");
+        try
+        {
+            using var connection = new SqlConnection(new SqlConnectionStringBuilder(master.ConnectionString) { InitialCatalog = database }.ConnectionString);
+            connection.Open();
+            Execute(connection, "CREATE SCHEMA [deploy];");
+            Execute(connection, "CREATE TABLE [dbo].[DATABASE] ([DB_ID] INT PRIMARY KEY); INSERT [dbo].[DATABASE] VALUES (1), (2);");
+            foreach (var batch in Batches(File.ReadAllText(SchemaFile("DatabaseAccessConfiguration")))) Execute(connection, batch);
+            // The per-database shape that shipped before normalisation.
+            Execute(connection, """
+                CREATE TABLE deploy.DatabaseAccessPrincipal (DatabaseId INT NOT NULL, Name NVARCHAR(128) NOT NULL, Kind NVARCHAR(32) NOT NULL,
+                    LoginName NVARCHAR(128) NULL, DirectoryId NVARCHAR(256) NULL, Present BIT NOT NULL, LegacyUserId INT NULL,
+                    PRIMARY KEY (DatabaseId, Name), FOREIGN KEY (DatabaseId) REFERENCES deploy.DatabaseAccessConfiguration (DatabaseId));
+                CREATE TABLE deploy.DatabaseAccessRole (DatabaseId INT NOT NULL, Name NVARCHAR(128) NOT NULL, Managed BIT NOT NULL, Present BIT NOT NULL,
+                    PRIMARY KEY (DatabaseId, Name), FOREIGN KEY (DatabaseId) REFERENCES deploy.DatabaseAccessConfiguration (DatabaseId));
+                CREATE TABLE deploy.DatabaseAccessMembership (DatabaseId INT NOT NULL, Principal NVARCHAR(128) NOT NULL, Role NVARCHAR(128) NOT NULL, Present BIT NOT NULL,
+                    PRIMARY KEY (DatabaseId, Principal, Role),
+                    FOREIGN KEY (DatabaseId, Principal) REFERENCES deploy.DatabaseAccessPrincipal (DatabaseId, Name),
+                    FOREIGN KEY (DatabaseId, Role) REFERENCES deploy.DatabaseAccessRole (DatabaseId, Name));
+                INSERT deploy.DatabaseAccessConfiguration VALUES (1,'sql-server',3), (2,'sql-server',1);
+                INSERT deploy.DatabaseAccessPrincipal VALUES
+                    (1,'appserv01','Native','appserv01',NULL,1,11), (2,'appserv01','Native','appserv01',NULL,1,11),
+                    (1,'AD\GRP-ENDENVACC-DV','DirectoryGroup',NULL,'S-1-5-21-1',1,NULL), (2,'AD\GRP-ENDENVACC-DV','DirectoryGroup',NULL,'S-1-5-21-1',0,NULL);
+                INSERT deploy.DatabaseAccessRole VALUES (1,'olf_user',0,1), (2,'olf_user',0,1), (2,'custom',1,1);
+                INSERT deploy.DatabaseAccessMembership VALUES
+                    (1,'appserv01','olf_user',1), (2,'appserv01','olf_user',1), (2,'appserv01','custom',0), (1,'AD\GRP-ENDENVACC-DV','olf_user',1);
+                """);
+            var stage = File.ReadAllText(ScriptFile("Pre-Deployment", "StageDatabaseAccessForNormalisation.sql"));
+            var migrate = File.ReadAllText(ScriptFile("Post-Deployment", "MigrateStagedDatabaseAccess.sql"));
+            foreach (var batch in Batches(stage)) Execute(connection, batch);
+            Assert.AreEqual(0, Scalar(connection, "SELECT COUNT(*) FROM deploy.DatabaseAccessPrincipal"), "Pre-deploy empties the old tables.");
+            foreach (var name in SchemaTables.Where(n => n is not "DatabaseAccessConfiguration"))
+                foreach (var batch in Batches(File.ReadAllText(SchemaFile(name)))) Execute(connection, batch);
+            foreach (var batch in Batches(migrate)) Execute(connection, batch);
+            foreach (var batch in Batches(stage).Concat(Batches(migrate))) Execute(connection, batch);
+
+            Assert.AreEqual(2, Scalar(connection, "SELECT COUNT(*) FROM deploy.DatabaseAccessSharedPrincipal"));
+            Assert.AreEqual(2, Scalar(connection, "SELECT COUNT(*) FROM deploy.DatabaseAccessSharedRole"));
+            Assert.AreEqual(4, Scalar(connection, "SELECT COUNT(*) FROM deploy.DatabaseAccessDatabasePrincipal"));
+            Assert.AreEqual(3, Scalar(connection, "SELECT COUNT(*) FROM deploy.DatabaseAccessDatabaseRole"));
+            Assert.AreEqual(0, Scalar(connection, "SELECT COUNT(*) FROM sys.tables WHERE name IN ('DatabaseAccessPrincipal','DatabaseAccessRole','DatabaseAccessMembership') OR name LIKE '%NORMALISATION_STAGING'"));
+            using var access = new DatabaseAccessContext(new DbContextOptionsBuilder<DatabaseAccessContext>().UseSqlServer(connection.ConnectionString).Options);
+            var second = DatabaseAccessStore.Read(access, 2);
+            Assert.AreEqual(1L, second.Revision);
+            Assert.AreEqual(11, second.Principals.Single(p => p.Name == "appserv01").LegacyUserId);
+            Assert.IsFalse(second.Principals.Single(p => p.Kind == "DirectoryGroup").Present);
+            Assert.IsTrue(second.Roles.Single(r => r.Name == "custom").Managed);
+            CollectionAssert.AreEquivalent(new[] { "olf_user:True", "custom:False" },
+                second.Memberships.Select(m => $"{m.Role}:{m.Present}").ToArray());
+            Assert.HasCount(2, DatabaseAccessStore.Read(access, 1).Memberships);
+        }
+        finally
+        {
+            Execute(master, $"ALTER DATABASE [{database}] SET SINGLE_USER WITH ROLLBACK IMMEDIATE; DROP DATABASE [{database}];");
+        }
+    }
+
+    private static string ScriptFile(string folder, string name, [CallerFilePath] string source = "") =>
+        Path.GetFullPath(Path.Join(Path.GetDirectoryName(source)!, "..", "Dorc.Database", "Scripts", folder, name));
 
     private static void Execute(SqlConnection connection, string sql)
     {
@@ -211,8 +332,8 @@ public class DatabaseAccessSqlTests
     [TestMethod]
     public void SchemaFileRequiresAnUnqualifiedTableName()
     {
-        var path = SchemaFile("DatabaseAccessRole");
-        StringAssert.EndsWith(path, Path.Join("Dorc.Database", "deploy", "Tables", "DatabaseAccessRole.sql"));
+        var path = SchemaFile("DatabaseAccessSharedRole");
+        StringAssert.EndsWith(path, Path.Join("Dorc.Database", "deploy", "Tables", "DatabaseAccessSharedRole.sql"));
         Assert.IsTrue(File.Exists(path));
         Assert.ThrowsExactly<ArgumentException>(() => SchemaFile(Path.GetFullPath("DatabaseAccessRole")));
         Assert.ThrowsExactly<ArgumentException>(() => SchemaFile(Path.Join("..", "DatabaseAccessRole")));

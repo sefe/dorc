@@ -48,6 +48,10 @@ public sealed class DatabaseAccessController(
     public ActionResult<DatabaseAccessPreview> Apply(int envId, int databaseId, [FromBody] DatabaseAccessConfirmation confirmation) =>
         Execute(envId, databaseId, true, () => service.Apply(databaseId, confirmation.Token, Actor));
 
+    [HttpGet("logins")]
+    public ActionResult<List<string>> SqlLogins(int envId, int databaseId) =>
+        Execute(envId, databaseId, false, () => service.SqlLogins(databaseId));
+
     [HttpGet("directory")]
     public ActionResult<List<DatabaseAccessDirectoryIdentity>> SearchDirectory(int envId, int databaseId, [FromQuery] string search) =>
         Execute(envId, databaseId, false, () => directory.Search(search));

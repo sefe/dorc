@@ -11,7 +11,15 @@ public sealed class DatabaseAccessDirectory(IActiveDirectorySearcher directory)
         var id = string.IsNullOrWhiteSpace(user.Pid) ? user.Sid : user.Pid;
         if (string.IsNullOrWhiteSpace(id))
             throw new ArgumentException("Directory provider did not return a stable identity.");
-        return new() { Id = id, DisplayName = user.DisplayName, IsGroup = user.IsGroup };
+        return new() { Id = id, DisplayName = user.DisplayName, IsGroup = user.IsGroup, AccountName = AccountName(id) };
+    }
+
+    // The SQL Server login for an AD identity is DOMAIN\account, which is also the conventional database user name.
+    private static string? AccountName(string id)
+    {
+        if (!OperatingSystem.IsWindows()) return null;
+        try { return ((NTAccount)new SecurityIdentifier(id).Translate(typeof(NTAccount))).Value; }
+        catch (SystemException) { return null; }
     }
 
     public List<DatabaseAccessDirectoryIdentity> Search(string query)

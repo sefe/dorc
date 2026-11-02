@@ -93,6 +93,7 @@ namespace Dorc.ApiModel
         public string Id { get; set; } = "";
         public string DisplayName { get; set; } = "";
         public bool IsGroup { get; set; }
+        public string AccountName { get; set; }
         public string Status { get; set; } = "Resolved";
     }
 

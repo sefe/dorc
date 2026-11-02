@@ -445,7 +445,9 @@ public class DatabaseAccessTests
             new UserElementApiModel { Pid = "stable", DisplayName = "Before" },
             new UserElementApiModel { Pid = "stable", DisplayName = "After" });
         var directory = new DatabaseAccessDirectory(provider);
-        Assert.AreEqual("Before", directory.Resolve("stable").DisplayName);
+        var before = directory.Resolve("stable");
+        Assert.AreEqual("Before", before.DisplayName);
+        Assert.IsNull(before.AccountName, "Non-SID identities have no Windows account name.");
         Assert.AreEqual("After", directory.Resolve("stable").DisplayName);
         provider.GetUserDataById("missing").Returns(_ => throw new ArgumentException("Not found"));
         Assert.ThrowsExactly<ArgumentException>(() => directory.Resolve("missing"));
@@ -477,6 +479,7 @@ public class DatabaseAccessTests
         var result = new DatabaseAccessDirectory(provider).Lookup(accountName);
         Assert.AreEqual(sid, result.Id);
         Assert.AreEqual(isGroup, result.IsGroup);
+        Assert.AreEqual(accountName, result.AccountName, "The DOMAIN\\account name is offered as the default database user name.");
         provider.Received(1).GetUserDataById(sid);
         provider.DidNotReceiveWithAnyArgs().Search(default!);
         provider.DidNotReceiveWithAnyArgs().GetUserData(default!);
@@ -512,9 +515,11 @@ public class DatabaseAccessTests
     {
         using var context = new DatabaseAccessContext(new DbContextOptionsBuilder<DatabaseAccessContext>()
             .UseSqlServer("Server=(localdb)\\DOrcAccessTests;Database=Unused;Integrated Security=true").Options);
-        var membership = context.Model.FindEntityType(typeof(DatabaseAccessMembershipRecord))!;
+        var membership = context.Model.FindEntityType(typeof(DatabaseAccessDatabaseMembership))!;
         Assert.HasCount(3, membership.FindPrimaryKey()!.Properties);
         Assert.IsTrue(membership.GetForeignKeys().All(fk => fk.Properties.Count == 2 && fk.DeleteBehavior == DeleteBehavior.Restrict));
+        Assert.IsTrue(membership.GetProperties().All(p => p.ClrType == typeof(int) || p.ClrType == typeof(bool)),
+            "Per-database memberships reference shared principals and roles by ID, not by name.");
         Assert.IsTrue(context.Model.FindEntityType(typeof(DatabaseAccessConfiguration))!.FindProperty("Revision")!.IsConcurrencyToken);
         Assert.IsNull(context.Model.FindEntityType(typeof(User)));
     }

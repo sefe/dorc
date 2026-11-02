@@ -93,6 +93,13 @@ public sealed class DatabaseAccessService(
         return providers.Resolve(state.Provider).Preview(Target(id), state);
     }
 
+    public List<string> SqlLogins(int id)
+    {
+        using var context = store.Open(id);
+        var state = DatabaseAccessStore.Read(context, id);
+        return providers.Resolve(state.Provider).SqlLogins(Target(id));
+    }
+
     public DatabaseAccessPreview Apply(int id, string token, string actor)
     {
         using var context = store.Open(id);

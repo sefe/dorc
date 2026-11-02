@@ -35,5 +35,10 @@ export interface DatabaseAccessDirectoryIdentity {
      * @type {string}
      * @memberof DatabaseAccessDirectoryIdentity
      */
+    AccountName?: string | null;
+    /**
+     * @type {string}
+     * @memberof DatabaseAccessDirectoryIdentity
+     */
     Status: string;
 }

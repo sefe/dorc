@@ -7,6 +7,7 @@ import '@vaadin/details';
 import '@vaadin/checkbox';
 import '@vaadin/combo-box';
 import '@vaadin/text-field';
+import '@vaadin/radio-group';
 import '@vaadin/icon';
 import '@vaadin/icons';
 import '@vaadin/tooltip';
@@ -14,6 +15,8 @@ import './hegs-json-viewer';
 import type { ComboBoxValueChangedEvent } from '@vaadin/combo-box';
 import type { TextFieldValueChangedEvent } from '@vaadin/text-field';
 import type { CheckboxCheckedChangedEvent } from '@vaadin/checkbox';
+import type { DetailsOpenedChangedEvent } from '@vaadin/details';
+import type { RadioGroupValueChangedEvent } from '@vaadin/radio-group';
 import {
   DatabaseAccessApi,
   DatabaseAccessAuditApiModel,
@@ -61,6 +64,27 @@ interface ImportDirectoryReview {
 }
 
 export type DatabaseAccessView = 'all' | 'migrate' | 'permissions' | 'audit';
+
+type GrantKind = 'directory' | 'sql';
+
+/** Fixed database roles that ordinary editing may grant; db_owner needs import approval and the others are protected. */
+export const grantableFixedRoles = [
+  'db_datareader',
+  'db_datawriter',
+  'db_ddladmin',
+  'db_backupoperator',
+  'db_denydatareader',
+  'db_denydatawriter'
+];
+const protectedRoles = [
+  'public',
+  'db_owner',
+  'db_securityadmin',
+  'db_accessadmin'
+];
+const sameName = (a?: string | null, b?: string | null) =>
+  (a ?? '').toLowerCase() === (b ?? '').toLowerCase();
+const isDbOwner = (role: string) => sameName(role, 'db_owner');
 
 /** Legacy logins that have neither been imported nor deliberately excluded. */
 export function unmigratedLegacyAccounts(
@@ -116,14 +140,20 @@ export class DatabaseAccessPanel extends LitElement {
   private readonly legacyApi = new RefDataDatabaseUsersApi(
     dorcApiConfiguration
   );
-  private principalName = '';
-  private loginName = '';
-  private directoryId = '';
-  private search = '';
-  private roleName = '';
-  private managedRole = false;
-  @state() private memberPrincipal = '';
-  @state() private memberRole = '';
+  @state() private grantKind: GrantKind = 'directory';
+  @state() private grantSearch = '';
+  @state() private grantIdentityId = '';
+  @state() private grantLogin = '';
+  @state() private grantUserName = '';
+  @state() private grantUserNameEdited = false;
+  @state() private grantRoles: string[] = [];
+  @state() private grantEditing = '';
+  @state() private grantAdvancedOpen = false;
+  @state() private grantError = '';
+  @state() private sqlLogins?: string[];
+  @state() private sqlLoginsMessage = '';
+  @state() private customRoleName = '';
+  @state() private customRoleError = '';
   private confirmedMappings?: DatabaseAccessImportRequest;
 
   static styles = css`
@@ -242,6 +272,43 @@ export class DatabaseAccessPanel extends LitElement {
       overflow-x: auto;
       max-width: 100%;
     }
+    #grant-access {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .grant-row,
+    .role-options {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--lumo-space-s);
+      align-items: end;
+    }
+    .role-options {
+      align-items: center;
+    }
+    .role-options > span {
+      flex-basis: 100%;
+    }
+    #grant-advanced vaadin-text-field {
+      width: 28rem;
+    }
+    .role-chip {
+      display: inline-flex;
+      align-items: center;
+      margin: 0 var(--lumo-space-xs) var(--lumo-space-xs) 0;
+      padding-left: var(--lumo-space-s);
+      border-radius: var(--lumo-border-radius-m);
+      background: var(--dorc-bg-secondary);
+      white-space: nowrap;
+    }
+    .role-chip vaadin-button {
+      margin: 0;
+      min-width: 0;
+    }
+    td.row-actions {
+      white-space: nowrap;
+      width: 1%;
+    }
     .import-review td {
       vertical-align: top;
     }
@@ -354,14 +421,11 @@ export class DatabaseAccessPanel extends LitElement {
     this.identities = [];
     this.directoryNames = {};
     this.confirmedMappings = undefined;
-    this.principalName = '';
-    this.loginName = '';
-    this.directoryId = '';
-    this.search = '';
-    this.roleName = '';
-    this.managedRole = false;
-    this.memberPrincipal = '';
-    this.memberRole = '';
+    this.resetGrant();
+    this.sqlLogins = undefined;
+    this.sqlLoginsMessage = '';
+    this.customRoleName = '';
+    this.customRoleError = '';
     this.resetImport();
     this.busy = false;
     this.error = '';
@@ -457,25 +521,251 @@ export class DatabaseAccessPanel extends LitElement {
     );
   }
 
-  private addPrincipal() {
-    const identity = this.identities.find(i => i.Id === this.directoryId);
-    const principal: DatabaseAccessPrincipal = {
-      Name: this.principalName.trim(),
-      Kind: identity
-        ? identity.IsGroup
-          ? 'DirectoryGroup'
-          : 'DirectoryUser'
-        : 'Native',
-      LoginName: identity ? null : this.loginName.trim(),
-      DirectoryId: identity?.Id ?? null,
-      Present: true
-    };
-    this.save(state => {
-      const existing = state.Principals.find(
-        p => p.Name.toLowerCase() === principal.Name.toLowerCase()
+  private resetGrant() {
+    this.grantKind = 'directory';
+    this.grantSearch = '';
+    this.identities = [];
+    this.grantIdentityId = '';
+    this.grantLogin = '';
+    this.grantUserName = '';
+    this.grantUserNameEdited = false;
+    this.grantRoles = [];
+    this.grantEditing = '';
+    this.grantAdvancedOpen = false;
+    this.grantError = '';
+  }
+
+  /** The principal that already represents the chosen account, if any. */
+  private grantExisting(): DatabaseAccessPrincipal | undefined {
+    const principals = this.desired?.Principals ?? [];
+    if (this.grantEditing)
+      return principals.find(p => p.Name === this.grantEditing);
+    if (this.grantKind === 'directory')
+      return this.grantIdentityId
+        ? principals.find(
+            p => p.Kind !== 'Native' && p.DirectoryId === this.grantIdentityId
+          )
+        : undefined;
+    const login = this.grantLogin.trim();
+    return login
+      ? principals.find(
+          p => p.Kind === 'Native' && sameName(p.LoginName, login)
+        )
+      : undefined;
+  }
+
+  private presentRoles(principal: string) {
+    return (this.desired?.Memberships ?? [])
+      .filter(m => m.Present && m.Principal === principal)
+      .map(m => m.Role);
+  }
+
+  private grantAccountChanged() {
+    this.grantError = '';
+    const existing = this.grantExisting();
+    if (existing) {
+      this.grantUserName = existing.Name;
+      this.grantUserNameEdited = false;
+      this.grantRoles = this.presentRoles(existing.Name).filter(
+        r => !isDbOwner(r)
       );
-      if (existing) Object.assign(existing, principal);
-      else state.Principals.push(principal);
+      return;
+    }
+    if (this.grantUserNameEdited) return;
+    this.grantUserName =
+      this.grantKind === 'directory'
+        ? (this.identities.find(i => i.Id === this.grantIdentityId)
+            ?.AccountName ?? '')
+        : this.grantLogin.trim();
+    // Without a DOMAIN\account name the user must choose one explicitly.
+    if (
+      this.grantKind === 'directory' &&
+      this.grantIdentityId &&
+      !this.grantUserName
+    )
+      this.grantAdvancedOpen = true;
+  }
+
+  private grantRoleOptions() {
+    const names = [...grantableFixedRoles];
+    for (const role of this.desired?.Roles ?? [])
+      if (
+        role.Present &&
+        !protectedRoles.some(p => sameName(p, role.Name)) &&
+        !names.some(n => sameName(n, role.Name))
+      )
+        names.push(role.Name);
+    return names;
+  }
+
+  private searchDirectory() {
+    const search = this.grantSearch.trim();
+    if (search.length < 3) {
+      this.grantError = 'Enter at least 3 characters to search AD.';
+      return;
+    }
+    return this.request(
+      this.api.databaseAccessDirectory({ ...this.target, search }),
+      value => {
+        this.identities = value;
+        this.grantIdentityId = value.length === 1 ? value[0].Id : '';
+        this.grantError = value.length
+          ? ''
+          : `No AD users or groups match '${search}'.`;
+        this.grantAccountChanged();
+      }
+    );
+  }
+
+  private async loadSqlLogins() {
+    if (this.sqlLogins || !this.databaseId) return;
+    const epoch = this.epoch;
+    this.sqlLoginsMessage = 'Loading SQL logins from the server…';
+    try {
+      const logins = await firstValueFrom(
+        this.api.databaseAccessSqlLogins(this.target)
+      );
+      if (epoch !== this.epoch) return;
+      this.sqlLogins = logins;
+      this.sqlLoginsMessage = logins.length
+        ? ''
+        : 'No enabled SQL logins were found on this server. A DBA must create the login before access can be granted.';
+    } catch (error) {
+      console.error('SQL logins could not be listed', error);
+      if (epoch !== this.epoch) return;
+      this.sqlLogins = [];
+      this.sqlLoginsMessage = `Could not list the server's SQL logins (${databaseAccessError(error)}). You can still type the name of an existing login.`;
+    }
+  }
+
+  private async editAccess(principal: DatabaseAccessPrincipal) {
+    this.resetGrant();
+    this.grantEditing = principal.Name;
+    this.grantKind = principal.Kind === 'Native' ? 'sql' : 'directory';
+    this.grantLogin = principal.LoginName ?? '';
+    if (principal.DirectoryId) {
+      this.grantIdentityId = principal.DirectoryId;
+      this.identities = [
+        {
+          Id: principal.DirectoryId,
+          DisplayName:
+            this.directoryNames[principal.DirectoryId] ?? principal.Name,
+          IsGroup: principal.Kind === 'DirectoryGroup',
+          AccountName: principal.Name,
+          Status: 'Resolved'
+        }
+      ];
+    }
+    this.grantUserName = principal.Name;
+    this.grantRoles = this.presentRoles(principal.Name).filter(
+      r => !isDbOwner(r)
+    );
+    await this.updateComplete;
+    this.shadowRoot
+      ?.querySelector('#grant-access')
+      ?.scrollIntoView?.({ block: 'nearest' });
+  }
+
+  private async saveGrant() {
+    if (!this.desired) return;
+    const existing = this.grantExisting();
+    const identity = this.identities.find(i => i.Id === this.grantIdentityId);
+    const login = this.grantLogin.trim();
+    const name = existing?.Name ?? this.grantUserName.trim();
+    const fail = (message: string, advanced = false) => {
+      this.grantError = message;
+      if (advanced) this.grantAdvancedOpen = true;
+    };
+    if (!existing) {
+      if (this.grantKind === 'directory' && !identity)
+        return fail('Search for and choose an AD user or group.');
+      if (this.grantKind === 'sql' && !login)
+        return fail('Choose an existing SQL login.');
+      if (!name)
+        return fail(
+          'Enter a database user name under Advanced. It could not be filled in automatically for this account.',
+          true
+        );
+      if (name.length > 128 || [...name].some(c => c.charCodeAt(0) < 32))
+        return fail(
+          'Database user names must be 1-128 characters with no control characters.',
+          true
+        );
+      if (this.desired.Principals.some(p => sameName(p.Name, name)))
+        return fail(
+          `A database user named '${name}' already exists for a different account. Choose another name under Advanced.`,
+          true
+        );
+    }
+    const roles = this.grantRoles;
+    const saved = await this.save(state => {
+      const principal = state.Principals.find(p => p.Name === name);
+      if (principal) principal.Present = true;
+      else
+        state.Principals.push(
+          this.grantKind === 'directory'
+            ? {
+                Name: name,
+                Kind: identity!.IsGroup ? 'DirectoryGroup' : 'DirectoryUser',
+                LoginName: null,
+                DirectoryId: identity!.Id,
+                Present: true
+              }
+            : {
+                Name: name,
+                Kind: 'Native',
+                LoginName: login,
+                DirectoryId: null,
+                Present: true
+              }
+        );
+      const granted = roles.map(role => {
+        const existingRole = state.Roles.find(r => sameName(r.Name, role));
+        if (!existingRole) {
+          state.Roles.push({ Name: role, Managed: false, Present: true });
+          return role;
+        }
+        existingRole.Present = true;
+        return existingRole.Name;
+      });
+      for (const membership of state.Memberships)
+        if (membership.Principal === name && !isDbOwner(membership.Role))
+          membership.Present = granted.some(r => sameName(r, membership.Role));
+      for (const role of granted)
+        if (
+          !state.Memberships.some(
+            m => m.Principal === name && sameName(m.Role, role)
+          )
+        )
+          state.Memberships.push({
+            Principal: name,
+            Role: role,
+            Present: true
+          });
+    });
+    if (saved) {
+      this.resetGrant();
+      this.message = `Saved access for ${name}. No target database changes have been applied.`;
+    }
+  }
+
+  private saveCustomRole() {
+    const name = this.customRoleName.trim();
+    const existing = this.desired?.Roles.find(r => sameName(r.Name, name));
+    this.customRoleError = !name
+      ? 'Enter a role name.'
+      : name.length > 128
+        ? 'Role names must be 1-128 characters.'
+        : name.toLowerCase().startsWith('db_')
+          ? "Custom role names cannot start with 'db_'; that prefix is reserved for SQL Server's fixed roles."
+          : existing
+            ? `A role named '${existing.Name}' is already configured.`
+            : '';
+    if (this.customRoleError) return;
+    return this.save(state => {
+      state.Roles.push({ Name: name, Managed: true, Present: true });
+    }).then(saved => {
+      if (saved) this.customRoleName = '';
     });
   }
 
@@ -1118,61 +1408,59 @@ export class DatabaseAccessPanel extends LitElement {
                 exclusion.
               </p>
               ${
-                  !this.legacyAssignmentCount
-                    ? html`<p>
-                        No legacy assignments exist for this database.
-                      </p>`
-                    : html`
-                        <div class="scroll">
-                          <table class="import-review" id="import-role-review">
-                            <caption>
-                              Review permission-to-role mappings. Choose or
-                              enter a role name. Its existence is not checked
-                              against the target database.
-                            </caption>
-                            <thead>
-                              <tr>
-                                <th>Legacy permission</th>
-                                <th>Target SQL role</th>
-                                <th>Review</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              ${this.importRoles.map(permission => {
-                                if (!includedPermissions.has(permission))
-                                  return html`<tr>
-                                    <td>${permission}</td>
-                                    <td colspan="2">
-                                      Not imported: all accounts with this
-                                      permission are excluded.
-                                    </td>
-                                  </tr>`;
-                                const mapped = Object.hasOwn(
-                                  this.roleMappings,
-                                  permission
-                                )
-                                  ? this.roleMappings[permission]
-                                  : '';
-                                const roleBlocked = errors.some(
-                                  error =>
-                                    error.includes('protected role') &&
-                                    error
-                                      .toLowerCase()
-                                      .includes(`'${mapped.toLowerCase()}'`)
-                                );
+                !this.legacyAssignmentCount
+                  ? html`<p>No legacy assignments exist for this database.</p>`
+                  : html`
+                      <div class="scroll">
+                        <table class="import-review" id="import-role-review">
+                          <caption>
+                            Review permission-to-role mappings. Choose or enter
+                            a role name. Its existence is not checked against
+                            the target database.
+                          </caption>
+                          <thead>
+                            <tr>
+                              <th>Legacy permission</th>
+                              <th>Target SQL role</th>
+                              <th>Review</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${this.importRoles.map(permission => {
+                              if (!includedPermissions.has(permission))
                                 return html`<tr>
                                   <td>${permission}</td>
-                                  <td>
-                                    <vaadin-combo-box
-                                      data-permission=${permission}
-                                      aria-label=${`Target SQL role for ${permission}`}
-                                      placeholder="Choose or enter a role name"
-                                      clear-button-visible
-                                      allow-custom-value
-                                      .items=${this.importRoleOptions}
-                                      .value=${mapped}
-                                      ?disabled=${disabled}
-                                      @value-changed=${(
+                                  <td colspan="2">
+                                    Not imported: all accounts with this
+                                    permission are excluded.
+                                  </td>
+                                </tr>`;
+                              const mapped = Object.hasOwn(
+                                this.roleMappings,
+                                permission
+                              )
+                                ? this.roleMappings[permission]
+                                : '';
+                              const roleBlocked = errors.some(
+                                error =>
+                                  error.includes('protected role') &&
+                                  error
+                                    .toLowerCase()
+                                    .includes(`'${mapped.toLowerCase()}'`)
+                              );
+                              return html`<tr>
+                                <td>${permission}</td>
+                                <td>
+                                  <vaadin-combo-box
+                                    data-permission=${permission}
+                                    aria-label=${`Target SQL role for ${permission}`}
+                                    placeholder="Choose or enter a role name"
+                                    clear-button-visible
+                                    allow-custom-value
+                                    .items=${this.importRoleOptions}
+                                    .value=${mapped}
+                                    ?disabled=${disabled}
+                                    @value-changed=${(
                                         e: ComboBoxValueChangedEvent
                                       ) => {
                                         if (mapped === e.detail.value) return;
@@ -1185,10 +1473,10 @@ export class DatabaseAccessPanel extends LitElement {
                                         this.roleMappings = mappings;
                                         this.invalidateImport();
                                       }}
-                                    ></vaadin-combo-box>
-                                  </td>
-                                  <td>
-                                    ${
+                                  ></vaadin-combo-box>
+                                </td>
+                                <td>
+                                  ${
                                       roleBlocked
                                         ? html`<span role="alert"
                                             >Role mapping blocked by the API.
@@ -1214,55 +1502,50 @@ export class DatabaseAccessPanel extends LitElement {
                                                 intended access.</span
                                               >`
                                     }
-                                  </td>
-                                </tr>`;
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                        <div class="scroll">
-                          <table
-                            class="import-review"
-                            id="import-account-review"
-                          >
-                            <caption>
-                              Review existing accounts and their directory
-                              identities.
-                            </caption>
-                            <thead>
-                              <tr>
-                                <th>
-                                  <span class="visually-hidden"
-                                    >Include in migration</span
-                                  >
-                                </th>
-                                <th>Legacy account</th>
-                                <th>Permissions</th>
-                                <th>Identity mapping</th>
-                                <th>Approval</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              ${this.legacyAccounts.map(account => {
-                                const review =
-                                  this.importDirectoryReviews[account.id];
-                                const excluded =
-                                  this.excludedLegacyUserIds.includes(
-                                    account.id
-                                  );
-                                return html`<tr
-                                  data-legacy-user-id=${account.id}
-                                  class=${`import-${this.importRowStatus(account)}`}
+                                </td>
+                              </tr>`;
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      <div class="scroll">
+                        <table class="import-review" id="import-account-review">
+                          <caption>
+                            Review existing accounts and their directory
+                            identities.
+                          </caption>
+                          <thead>
+                            <tr>
+                              <th>
+                                <span class="visually-hidden"
+                                  >Include in migration</span
                                 >
-                                  <td class="row-controls">
-                                    <vaadin-checkbox
-                                      aria-label=${`Include ${account.login} in migration`}
-                                      title=${this.canExcludeImportAccount(account) ? `Include ${account.login} in migration` : 'Only Windows accounts that are not yet in DOrc can be left out of the migration'}
-                                      .checked=${!excluded}
-                                      ?disabled=${disabled || !this.canExcludeImportAccount(account)}
-                                      @checked-changed=${(event: CheckboxCheckedChangedEvent) => this.setImportInclusion(account, event.detail.value)}
-                                    ></vaadin-checkbox>
-                                    ${
+                              </th>
+                              <th>Legacy account</th>
+                              <th>Permissions</th>
+                              <th>Identity mapping</th>
+                              <th>Approval</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            ${this.legacyAccounts.map(account => {
+                              const review =
+                                this.importDirectoryReviews[account.id];
+                              const excluded =
+                                this.excludedLegacyUserIds.includes(account.id);
+                              return html`<tr
+                                data-legacy-user-id=${account.id}
+                                class=${`import-${this.importRowStatus(account)}`}
+                              >
+                                <td class="row-controls">
+                                  <vaadin-checkbox
+                                    aria-label=${`Include ${account.login} in migration`}
+                                    title=${this.canExcludeImportAccount(account) ? `Include ${account.login} in migration` : 'Only Windows accounts that are not yet in DOrc can be left out of the migration'}
+                                    .checked=${!excluded}
+                                    ?disabled=${disabled || !this.canExcludeImportAccount(account)}
+                                    @checked-changed=${(event: CheckboxCheckedChangedEvent) => this.setImportInclusion(account, event.detail.value)}
+                                  ></vaadin-checkbox>
+                                  ${
                                       account.kind === 'windows'
                                         ? html`<vaadin-button
                                             theme="icon tertiary"
@@ -1280,17 +1563,17 @@ export class DatabaseAccessPanel extends LitElement {
                                           </vaadin-button>`
                                         : nothing
                                     }
-                                  </td>
-                                  <td>
-                                    ${account.login}
-                                    <span class="metadata"
-                                      >${account.kind} · legacy ID
-                                      ${account.id}</span
-                                    >
-                                  </td>
-                                  <td>${account.permissions.join(', ')}</td>
-                                  <td>
-                                    ${
+                                </td>
+                                <td>
+                                  ${account.login}
+                                  <span class="metadata"
+                                    >${account.kind} · legacy ID
+                                    ${account.id}</span
+                                  >
+                                </td>
+                                <td>${account.permissions.join(', ')}</td>
+                                <td>
+                                  ${
                                       excluded
                                         ? html`<strong
                                               >Excluded from this import</strong
@@ -1322,9 +1605,9 @@ export class DatabaseAccessPanel extends LitElement {
                                                 type: ${account.kind}</span
                                               >`
                                     }
-                                  </td>
-                                  <td>
-                                    ${
+                                </td>
+                                <td>
+                                  ${
                                       this.mapsToDbOwner(account)
                                         ? html`<div>
                                             ${
@@ -1353,76 +1636,76 @@ export class DatabaseAccessPanel extends LitElement {
                                           </div>`
                                         : nothing
                                     }
-                                  </td>
-                                </tr>`;
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                        ${
-                          selectedAccount
-                            ? html`
-                                <fieldset
-                                  id="import-directory-picker"
+                                </td>
+                              </tr>`;
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                      ${
+                        selectedAccount
+                          ? html`
+                              <fieldset
+                                id="import-directory-picker"
+                                ?disabled=${disabled}
+                              >
+                                <legend>
+                                  Choose the directory identity for
+                                  ${selectedAccount.login}
+                                </legend>
+                                <p class="description">
+                                  Select the intended account, not just a
+                                  similar display name. Choosing a different
+                                  identity changes who the imported account
+                                  represents.
+                                </p>
+                                <vaadin-text-field
+                                  label="Search directory for this account"
+                                  .value=${this.importSearch}
                                   ?disabled=${disabled}
-                                >
-                                  <legend>
-                                    Choose the directory identity for
-                                    ${selectedAccount.login}
-                                  </legend>
-                                  <p class="description">
-                                    Select the intended account, not just a
-                                    similar display name. Choosing a different
-                                    identity changes who the imported account
-                                    represents.
-                                  </p>
-                                  <vaadin-text-field
-                                    label="Search directory for this account"
-                                    .value=${this.importSearch}
-                                    ?disabled=${disabled}
-                                    @value-changed=${(
+                                  @value-changed=${(
                                       e: TextFieldValueChangedEvent
                                     ) => {
                                       this.importSearch = e.detail.value;
                                     }}
-                                  ></vaadin-text-field>
-                                  <vaadin-button
-                                    ?disabled=${disabled || this.importSearch.trim().length < 3}
-                                    @click=${this.searchImportDirectory}
-                                    >Search directory</vaadin-button
-                                  >
-                                  <vaadin-combo-box
-                                    label="Matching directory identity"
-                                    placeholder="Choose a verified account or group"
-                                    item-label-path="label"
-                                    item-value-path="value"
-                                    .items=${this.importIdentities.map(
+                                ></vaadin-text-field>
+                                <vaadin-button
+                                  ?disabled=${disabled || this.importSearch.trim().length < 3}
+                                  @click=${this.searchImportDirectory}
+                                  >Search directory</vaadin-button
+                                >
+                                <vaadin-combo-box
+                                  label="Matching directory identity"
+                                  placeholder="Choose a verified account or group"
+                                  item-label-path="label"
+                                  item-value-path="value"
+                                  .items=${this.importIdentities.map(
                                       identity => ({
                                         label: `${identity.DisplayName} (${identity.IsGroup ? 'group' : 'user'}) · ${identity.Id}`,
                                         value: identity.Id
                                       })
                                     )}
-                                    .value=${this.importIdentityId}
-                                    ?disabled=${disabled}
-                                    @value-changed=${(
+                                  .value=${this.importIdentityId}
+                                  ?disabled=${disabled}
+                                  @value-changed=${(
                                       e: ComboBoxValueChangedEvent
                                     ) => {
                                       this.importIdentityId = e.detail.value;
                                     }}
-                                  ></vaadin-combo-box>
-                                  <vaadin-button
-                                    ?disabled=${disabled || !this.importIdentityId}
-                                    @click=${this.useImportIdentity}
-                                    >Use selected identity</vaadin-button
-                                  >
-                                  <vaadin-button
-                                    ?disabled=${disabled}
-                                    @click=${() => {
+                                ></vaadin-combo-box>
+                                <vaadin-button
+                                  ?disabled=${disabled || !this.importIdentityId}
+                                  @click=${this.useImportIdentity}
+                                  >Use selected identity</vaadin-button
+                                >
+                                <vaadin-button
+                                  ?disabled=${disabled}
+                                  @click=${() => {
                                       this.importAccountId = undefined;
                                     }}
-                                    >Cancel identity selection</vaadin-button
-                                  >
-                                  ${
+                                  >Cancel identity selection</vaadin-button
+                                >
+                                ${
                                     Object.hasOwn(
                                       this.directoryMappings,
                                       String(selectedAccount.id)
@@ -1435,35 +1718,35 @@ export class DatabaseAccessPanel extends LitElement {
                                         >`
                                       : nothing
                                   }
-                                  ${this.importLookupMessage ? html`<p role="status">${this.importLookupMessage}</p>` : nothing}
-                                </fieldset>
-                              `
-                            : nothing
-                        }
-                        <div class="toolbar">
-                          <vaadin-button
-                            ?disabled=${disabled || this.importAccountId !== undefined}
-                            @click=${this.previewImport}
-                            >Preview legacy import</vaadin-button
-                          >
-                          <vaadin-button
-                            ?disabled=${disabled || this.importAccountId !== undefined || !this.imported || !!this.imported.Errors.length}
-                            @click=${this.importLegacy}
-                            >Import confirmed preview</vaadin-button
-                          >
-                        </div>
-                        ${
-                          this.imported
-                            ? html`
-                                <p class="import-counts">
-                                  ${this.imported.SourceAssignments} legacy
-                                  assignments;
-                                  ${this.imported.Proposed.Principals.length}
-                                  resulting principals;
-                                  ${this.imported.Proposed.Memberships.length}
-                                  proposed memberships.
-                                </p>
-                                ${
+                                ${this.importLookupMessage ? html`<p role="status">${this.importLookupMessage}</p>` : nothing}
+                              </fieldset>
+                            `
+                          : nothing
+                      }
+                      <div class="toolbar">
+                        <vaadin-button
+                          ?disabled=${disabled || this.importAccountId !== undefined}
+                          @click=${this.previewImport}
+                          >Preview legacy import</vaadin-button
+                        >
+                        <vaadin-button
+                          ?disabled=${disabled || this.importAccountId !== undefined || !this.imported || !!this.imported.Errors.length}
+                          @click=${this.importLegacy}
+                          >Import confirmed preview</vaadin-button
+                        >
+                      </div>
+                      ${
+                        this.imported
+                          ? html`
+                              <p class="import-counts">
+                                ${this.imported.SourceAssignments} legacy
+                                assignments;
+                                ${this.imported.Proposed.Principals.length}
+                                resulting principals;
+                                ${this.imported.Proposed.Memberships.length}
+                                proposed memberships.
+                              </p>
+                              ${
                                   this.importedDbOwnerNames().length
                                     ? html`<div
                                         id="import-db-owner-approvals"
@@ -1483,7 +1766,7 @@ export class DatabaseAccessPanel extends LitElement {
                                       </div>`
                                     : nothing
                                 }
-                                ${
+                              ${
                                   (this.imported.ExcludedAccounts?.length ??
                                     0) > 0
                                     ? html`<div
@@ -1513,7 +1796,7 @@ export class DatabaseAccessPanel extends LitElement {
                                       </div>`
                                     : nothing
                                 }
-                                ${
+                              ${
                                   errors.length
                                     ? html`<p>
                                         Import is blocked. Resolve every issue
@@ -1528,24 +1811,24 @@ export class DatabaseAccessPanel extends LitElement {
                                         permissions will not be changed.
                                       </p>`
                                 }
-                                ${errors.map(error => html`<p role="alert">${this.importErrorMessage(error)}</p>`)}
-                                <div class="scroll">
-                                  <table
-                                    class="import-review"
-                                    id="import-proposed-access"
-                                  >
-                                    <caption>
-                                      Proposed access in DOrc (not yet imported)
-                                    </caption>
-                                    <thead>
-                                      <tr>
-                                        <th>Account</th>
-                                        <th>Identity</th>
-                                        <th>Proposed roles</th>
-                                      </tr>
-                                    </thead>
-                                    <tbody>
-                                      ${this.imported.Proposed.Principals.map(
+                              ${errors.map(error => html`<p role="alert">${this.importErrorMessage(error)}</p>`)}
+                              <div class="scroll">
+                                <table
+                                  class="import-review"
+                                  id="import-proposed-access"
+                                >
+                                  <caption>
+                                    Proposed access in DOrc (not yet imported)
+                                  </caption>
+                                  <thead>
+                                    <tr>
+                                      <th>Account</th>
+                                      <th>Identity</th>
+                                      <th>Proposed roles</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    ${this.imported.Proposed.Principals.map(
                                         principal =>
                                           html`<tr>
                                             <td>
@@ -1574,44 +1857,42 @@ export class DatabaseAccessPanel extends LitElement {
                                             </td>
                                           </tr>`
                                       )}
-                                    </tbody>
-                                  </table>
-                                </div>
-                              `
-                            : html`<p>
-                                Mappings changed. Generate a new preview before
-                                importing.
-                              </p>`
+                                  </tbody>
+                                </table>
+                              </div>
+                            `
+                          : html`<p>
+                              Mappings changed. Generate a new preview before
+                              importing.
+                            </p>`
+                      }
+                      <vaadin-details summary="Advanced: generated import JSON">
+                        <p class="description">
+                          Generated from the review controls above. No
+                          hand-written JSON is required.
+                        </p>
+                        <hegs-json-viewer
+                          id="import-mappings-json"
+                          .data=${{
+                            RoleMappings: this.roleMappings,
+                            DirectoryMappings: this.directoryMappings,
+                            ExcludedLegacyUserIds: this.excludedLegacyUserIds,
+                            ApprovedDbOwnerLegacyUserIds:
+                              this.approvedDbOwnerLegacyUserIds
+                          }}
+                        ></hegs-json-viewer>
+                        ${
+                          this.imported
+                            ? html`<p>Proposed configuration</p>
+                                <hegs-json-viewer
+                                  id="import-proposal-json"
+                                  .data=${this.imported.Proposed}
+                                ></hegs-json-viewer>`
+                            : nothing
                         }
-                        <vaadin-details
-                          summary="Advanced: generated import JSON"
-                        >
-                          <p class="description">
-                            Generated from the review controls above. No
-                            hand-written JSON is required.
-                          </p>
-                          <hegs-json-viewer
-                            id="import-mappings-json"
-                            .data=${{
-                              RoleMappings: this.roleMappings,
-                              DirectoryMappings: this.directoryMappings,
-                              ExcludedLegacyUserIds: this.excludedLegacyUserIds,
-                              ApprovedDbOwnerLegacyUserIds:
-                                this.approvedDbOwnerLegacyUserIds
-                            }}
-                          ></hegs-json-viewer>
-                          ${
-                            this.imported
-                              ? html`<p>Proposed configuration</p>
-                                  <hegs-json-viewer
-                                    id="import-proposal-json"
-                                    .data=${this.imported.Proposed}
-                                  ></hegs-json-viewer>`
-                              : nothing
-                          }
-                        </vaadin-details>
-                      `
-                }
+                      </vaadin-details>
+                    `
+              }
             `
           : nothing
       }
@@ -1731,257 +2012,318 @@ export class DatabaseAccessPanel extends LitElement {
 
   private renderDesiredStateEditor(disabled: boolean) {
     if (!this.desired) return nothing;
+    const desired = this.desired;
+    const existing = this.grantExisting();
+    const roleOptions = this.grantRoleOptions();
+    const customRoles = desired.Roles.filter(r => r.Managed);
+    const account = (p: DatabaseAccessPrincipal) =>
+      p.Kind === 'Native'
+        ? `SQL login ${p.LoginName ?? ''}`
+        : `${p.DirectoryId ? (this.directoryNames[p.DirectoryId] ?? p.DirectoryId) : ''} (AD ${p.Kind === 'DirectoryGroup' ? 'group' : 'user'})`;
     const content = html`
       <p class="description">
-        These controls update desired state in DOrc only, not SQL permissions.
+        Changes are saved to DOrc only; they do not change SQL permissions on
+        the target database.
       </p>
-      <fieldset ?disabled=${disabled}>
+      <fieldset id="grant-access" ?disabled=${disabled}>
         <legend>
-          Add or update a database principal (existing name updates its login
-          mapping)
+          ${this.grantEditing ? `Edit access for ${this.grantEditing}` : 'Grant access'}
         </legend>
-        <vaadin-text-field
-          label="Database user name"
-          ?disabled=${disabled}
-          .value=${this.principalName}
-          @value-changed=${(e: TextFieldValueChangedEvent) => {
-            this.principalName = e.detail.value;
+        <vaadin-radio-group
+          label="Account type"
+          .value=${this.grantKind}
+          ?disabled=${disabled || !!this.grantEditing}
+          @value-changed=${(e: RadioGroupValueChangedEvent) => {
+            const kind = e.detail.value as GrantKind;
+            if (!kind || kind === this.grantKind) return;
+            this.grantKind = kind;
+            this.grantIdentityId = '';
+            this.grantLogin = '';
+            this.grantUserName = '';
+            this.grantUserNameEdited = false;
+            this.grantError = '';
+            if (kind === 'sql') void this.loadSqlLogins();
           }}
-        ></vaadin-text-field>
-        <vaadin-text-field
-          label="Existing SQL server login (native users)"
-          ?disabled=${disabled}
-          .value=${this.loginName}
-          @value-changed=${(e: TextFieldValueChangedEvent) => {
-            this.loginName = e.detail.value;
-          }}
-        ></vaadin-text-field>
-        <vaadin-text-field
-          label="Search AD users/groups"
-          ?disabled=${disabled}
-          .value=${this.search}
-          @value-changed=${(e: TextFieldValueChangedEvent) => {
-            this.search = e.detail.value;
-          }}
-        ></vaadin-text-field>
-        <vaadin-button
-          ?disabled=${disabled}
-          @click=${() =>
-            this.request(
-              this.api.databaseAccessDirectory({
-                ...this.target,
-                search: this.search
-              }),
-              value => {
-                this.identities = value;
-                this.directoryId = '';
-                if (!value.length)
-                  this.message = 'No directory identities found.';
-              }
-            )}
-          >Search AD</vaadin-button
         >
-        <vaadin-combo-box
-          label="Directory identity (optional)"
-          placeholder="Native database user"
-          clear-button-visible
-          ?disabled=${disabled}
-          item-label-path="label"
-          item-value-path="value"
-          .items=${this.identities.map(i => ({
-            label: `${i.DisplayName} (${i.IsGroup ? 'group' : 'user'})`,
-            value: i.Id
-          }))}
-          .value=${this.directoryId}
-          @value-changed=${(e: ComboBoxValueChangedEvent) => {
-            this.directoryId = e.detail.value;
+          <vaadin-radio-button
+            value="directory"
+            label="AD user or group"
+          ></vaadin-radio-button>
+          <vaadin-radio-button
+            value="sql"
+            label="SQL login"
+          ></vaadin-radio-button>
+        </vaadin-radio-group>
+        <div class="grant-row">
+          ${
+            this.grantKind === 'directory'
+              ? html`
+                  ${
+                    this.grantEditing
+                      ? nothing
+                      : html`<vaadin-text-field
+                            id="grant-search"
+                            label="Search AD"
+                            placeholder="Name or account, 3+ characters"
+                            ?disabled=${disabled}
+                            .value=${this.grantSearch}
+                            @value-changed=${(
+                              e: TextFieldValueChangedEvent
+                            ) => {
+                              this.grantSearch = e.detail.value;
+                            }}
+                            @keydown=${(e: KeyboardEvent) => {
+                              if (e.key === 'Enter')
+                                void this.searchDirectory();
+                            }}
+                          ></vaadin-text-field>
+                          <vaadin-button
+                            ?disabled=${disabled}
+                            @click=${() => this.searchDirectory()}
+                            >Search</vaadin-button
+                          >`
+                  }
+                  <vaadin-combo-box
+                    id="grant-identity"
+                    label="User or group"
+                    placeholder=${this.identities.length ? 'Choose a result' : 'Search AD first'}
+                    ?disabled=${disabled || !!this.grantEditing || !this.identities.length}
+                    item-label-path="label"
+                    item-value-path="value"
+                    .items=${this.identities.map(i => ({
+                      label: `${i.DisplayName}${i.AccountName ? ` (${i.AccountName})` : ''} · ${i.IsGroup ? 'group' : 'user'}`,
+                      value: i.Id
+                    }))}
+                    .value=${this.grantIdentityId}
+                    @value-changed=${(e: ComboBoxValueChangedEvent) => {
+                      if (e.detail.value === this.grantIdentityId) return;
+                      this.grantIdentityId = e.detail.value;
+                      this.grantAccountChanged();
+                    }}
+                  ></vaadin-combo-box>
+                `
+              : html`<vaadin-combo-box
+                  id="grant-login"
+                  label="SQL login"
+                  placeholder="Choose an existing login"
+                  allow-custom-value
+                  helper-text="Logins are created by a DBA; DOrc only maps them to database users."
+                  ?disabled=${disabled || !!this.grantEditing}
+                  .items=${this.sqlLogins ?? []}
+                  .value=${this.grantLogin}
+                  @value-changed=${(e: ComboBoxValueChangedEvent) => {
+                    if (e.detail.value === this.grantLogin) return;
+                    this.grantLogin = e.detail.value;
+                    this.grantAccountChanged();
+                  }}
+                ></vaadin-combo-box>`
+          }
+        </div>
+        ${
+          this.grantKind === 'sql' && this.sqlLoginsMessage
+            ? html`<p class="metadata" id="sql-logins-message">
+                ${this.sqlLoginsMessage}
+              </p>`
+            : nothing
+        }
+        ${
+          existing && !this.grantEditing
+            ? html`<p class="metadata">
+                This account already has access as ${existing.Name}. Saving
+                replaces its roles with the ones ticked below.
+              </p>`
+            : nothing
+        }
+        <div class="role-options" role="group" aria-labelledby="grant-roles">
+          <span id="grant-roles" class="metadata">Roles</span>
+          ${roleOptions.map(
+            role =>
+              html`<vaadin-checkbox
+                label=${role}
+                ?disabled=${disabled}
+                .checked=${this.grantRoles.some(r => sameName(r, role))}
+                @checked-changed=${(e: CheckboxCheckedChangedEvent) => {
+                  const others = this.grantRoles.filter(
+                    r => !sameName(r, role)
+                  );
+                  this.grantRoles = e.detail.value ? [...others, role] : others;
+                }}
+              ></vaadin-checkbox>`
+          )}
+        </div>
+        <vaadin-details
+          id="grant-advanced"
+          summary="Advanced"
+          .opened=${this.grantAdvancedOpen}
+          @opened-changed=${(e: DetailsOpenedChangedEvent) => {
+            this.grantAdvancedOpen = e.detail.value;
           }}
-        ></vaadin-combo-box>
-        <vaadin-button
-          theme="primary"
-          ?disabled=${disabled}
-          @click=${this.addPrincipal}
-          >Save principal</vaadin-button
         >
+          <vaadin-text-field
+            label="Database user name"
+            helper-text="The user created inside this database for the login (CREATE USER … FOR LOGIN …). Normally the same as the login, e.g. DOMAIN\\account."
+            ?disabled=${disabled || !!existing}
+            .value=${this.grantUserName}
+            @value-changed=${(e: TextFieldValueChangedEvent) => {
+              if (e.detail.value === this.grantUserName) return;
+              this.grantUserName = e.detail.value;
+              this.grantUserNameEdited = true;
+            }}
+          ></vaadin-text-field>
+        </vaadin-details>
+        ${this.grantError ? html`<p role="alert" id="grant-error">${this.grantError}</p>` : nothing}
+        <div class="toolbar">
+          <vaadin-button
+            theme="primary"
+            ?disabled=${disabled}
+            @click=${() => this.saveGrant()}
+            >${existing ? 'Save access' : 'Grant access'}</vaadin-button
+          >
+          ${
+            this.grantEditing || this.grantIdentityId || this.grantLogin
+              ? html`<vaadin-button
+                  ?disabled=${disabled}
+                  @click=${() => this.resetGrant()}
+                  >Cancel</vaadin-button
+                >`
+              : nothing
+          }
+        </div>
       </fieldset>
       <div class="scroll">
-        <table>
+        <table id="current-access">
           <caption>
-            Desired database principals
+            Current access
           </caption>
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Login / live directory identity</th>
-              <th>Desired</th>
-              <th>Action</th>
+              <th>Database user</th>
+              <th>Account</th>
+              <th>Roles</th>
+              <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            ${this.desired.Principals.map(
-              p =>
-                html`<tr>
-                  <td>${p.Name}</td>
-                  <td>${p.Kind}</td>
-                  <td>
-                    ${p.DirectoryId ? (this.directoryNames[p.DirectoryId] ?? p.DirectoryId) : p.LoginName}
-                  </td>
-                  <td>${p.Present ? 'Present' : 'Absent'}</td>
-                  <td>
-                    <vaadin-button
-                      ?disabled=${disabled}
-                      @click=${() =>
-                                        this.save(state => {
-                                          const item = state.Principals.find(
-                                            n => n.Name === p.Name
-                                          )!;
-                                          item.Present = !item.Present;
-                                          if (!item.Present)
-                                            state.Memberships.filter(
-                                              m => m.Principal === item.Name
-                                            ).forEach(m => {
-                                              m.Present = false;
-                                            });
-                                        })}
-                      >${p.Present ? 'Mark absent' : 'Restore'}</vaadin-button
-                    >
-                  </td>
-                </tr>`
-            )}
+            ${desired.Principals.map(p => {
+              const roles = this.presentRoles(p.Name);
+              return html`<tr>
+                <td>${p.Name}</td>
+                <td>${account(p)}</td>
+                <td>
+                  ${roles.length ? nothing : html`<span class="metadata">No roles</span>`}
+                  ${roles.map(
+                    role =>
+                      html`<span class="role-chip"
+                        >${role}<vaadin-button
+                          theme="tertiary small icon"
+                          aria-label=${`Revoke ${role} from ${p.Name}`}
+                          title=${`Revoke ${role}`}
+                          ?disabled=${disabled}
+                          @click=${() =>
+                            this.save(state => {
+                              state.Memberships.find(
+                                m => m.Principal === p.Name && m.Role === role
+                              )!.Present = false;
+                            })}
+                          ><vaadin-icon
+                            icon="vaadin:close-small"
+                          ></vaadin-icon></vaadin-button
+                      ></span>`
+                  )}
+                </td>
+                <td>${p.Present ? 'Active' : 'Removed'}</td>
+                <td class="row-actions">
+                  <vaadin-button
+                    theme="small"
+                    ?disabled=${disabled}
+                    @click=${() => this.editAccess(p)}
+                    >Edit</vaadin-button
+                  >
+                  <vaadin-button
+                    theme="small"
+                    ?disabled=${disabled}
+                    @click=${() =>
+                      this.save(state => {
+                        const item = state.Principals.find(
+                          n => n.Name === p.Name
+                        )!;
+                        item.Present = !item.Present;
+                        if (!item.Present)
+                          state.Memberships.filter(
+                            m => m.Principal === item.Name
+                          ).forEach(m => {
+                            m.Present = false;
+                          });
+                      })}
+                    >${p.Present ? 'Remove' : 'Restore'}</vaadin-button
+                  >
+                </td>
+              </tr>`;
+            })}
           </tbody>
         </table>
       </div>
-      ${!this.desired.Principals.length ? html`<p>No managed principals yet. Add one or preview a legacy import.</p>` : nothing}
-      <fieldset ?disabled=${disabled}>
-        <legend>Add a database role</legend>
-        <vaadin-text-field
-          label="Role name"
-          ?disabled=${disabled}
-          .value=${this.roleName}
-          @value-changed=${(e: TextFieldValueChangedEvent) => {
-            this.roleName = e.detail.value;
-          }}
-        ></vaadin-text-field>
-        <vaadin-checkbox
-          label="Create/manage custom role"
-          ?disabled=${disabled}
-          .checked=${this.managedRole}
-          @checked-changed=${(e: CheckboxCheckedChangedEvent) => {
-            this.managedRole = e.detail.value;
-          }}
-        ></vaadin-checkbox>
-        <vaadin-button
-          ?disabled=${disabled}
-          @click=${() =>
-            this.save(state => {
-              state.Roles.push({
-                Name: this.roleName.trim(),
-                Managed: this.managedRole,
-                Present: true
-              });
-            })}
-          >Save role</vaadin-button
-        >
-      </fieldset>
-      <ul>
-        ${this.desired.Roles.map(
-          r =>
-            html`<li>
-              ${r.Name} (${r.Managed ? 'managed' : 'reference-only'},
-              ${r.Present ? 'present' : 'absent'})
-              ${
-                                r.Managed
-                                  ? html`<vaadin-button
-                                      ?disabled=${disabled}
-                                      @click=${() =>
-                                        this.save(state => {
-                                          const item = state.Roles.find(
-                                            n => n.Name === r.Name
-                                          )!;
-                                          item.Present = !item.Present;
-                                          if (!item.Present)
-                                            state.Memberships.filter(
-                                              m => m.Role === item.Name
-                                            ).forEach(m => {
-                                              m.Present = false;
-                                            });
-                                        })}
-                                      >${r.Present ? 'Mark absent' : 'Restore'}</vaadin-button
-                                    >`
-                                  : nothing
-                              }
-            </li>`
-        )}
-      </ul>
-      <fieldset ?disabled=${disabled}>
-        <legend>Assign a role</legend>
-        <vaadin-combo-box
-          label="Principal"
-          placeholder="Select principal"
-          ?disabled=${disabled}
-          .items=${this.desired.Principals.filter(p => p.Present).map(p => p.Name)}
-          .value=${this.memberPrincipal}
-          @value-changed=${(e: ComboBoxValueChangedEvent) => {
-            this.memberPrincipal = e.detail.value;
-          }}
-        ></vaadin-combo-box>
-        <vaadin-combo-box
-          label="Role"
-          placeholder="Select role"
-          ?disabled=${disabled}
-          .items=${this.desired.Roles.filter(r => r.Present).map(r => r.Name)}
-          .value=${this.memberRole}
-          @value-changed=${(e: ComboBoxValueChangedEvent) => {
-            this.memberRole = e.detail.value;
-          }}
-        ></vaadin-combo-box>
-        <vaadin-button
-          theme="primary"
-          ?disabled=${disabled || !this.memberPrincipal || !this.memberRole}
-          @click=${async () => {
-            const saved = await this.save(state => {
-              const existing = state.Memberships.find(
-                m =>
-                  m.Principal === this.memberPrincipal &&
-                  m.Role === this.memberRole
-              );
-              if (existing) existing.Present = true;
-              else
-                state.Memberships.push({
-                  Principal: this.memberPrincipal,
-                  Role: this.memberRole,
-                  Present: true
-                });
-            });
-            if (saved) {
-              this.memberPrincipal = '';
-              this.memberRole = '';
-            }
-          }}
-          >Save assignment</vaadin-button
-        >
-      </fieldset>
-      <ul>
-        ${this.desired.Memberships.map(
-          m =>
-            html`<li>
-              ${m.Principal} → ${m.Role}: ${m.Present ? 'assigned' : 'revoked'}
-              <vaadin-button
-                ?disabled=${disabled || !m.Present}
-                @click=${() =>
-                                  this.save(state => {
-                                    state.Memberships.find(
-                                      n =>
-                                        n.Principal === m.Principal &&
-                                        n.Role === m.Role
-                                    )!.Present = false;
-                                  })}
-                >Revoke desired membership</vaadin-button
-              >
-            </li>`
-        )}
-      </ul>
+      ${
+        !desired.Principals.length
+          ? html`<p>
+              No managed principals yet. Grant access above or migrate legacy
+              access.
+            </p>`
+          : nothing
+      }
+      <vaadin-details
+        id="custom-roles"
+        summary=${`Custom roles (${customRoles.length})`}
+      >
+        <p class="description">
+          Only needed when the built-in db_ roles don't fit. DOrc creates and
+          drops these roles; object permissions on them come from your database
+          scripts. Once created, a custom role appears in the Roles list above.
+        </p>
+        <fieldset ?disabled=${disabled}>
+          <legend>Create a custom role</legend>
+          <vaadin-text-field
+            label="Role name"
+            ?disabled=${disabled}
+            .value=${this.customRoleName}
+            @value-changed=${(e: TextFieldValueChangedEvent) => {
+              this.customRoleName = e.detail.value;
+              this.customRoleError = '';
+            }}
+          ></vaadin-text-field>
+          <vaadin-button
+            ?disabled=${disabled}
+            @click=${() => this.saveCustomRole()}
+            >Create role</vaadin-button
+          >
+          ${this.customRoleError ? html`<p role="alert">${this.customRoleError}</p>` : nothing}
+        </fieldset>
+        <ul>
+          ${customRoles.map(
+            r =>
+              html`<li>
+                ${r.Name} (${r.Present ? 'active' : 'removed'})
+                <vaadin-button
+                  theme="small"
+                  ?disabled=${disabled}
+                  @click=${() =>
+                    this.save(state => {
+                      const item = state.Roles.find(n => n.Name === r.Name)!;
+                      item.Present = !item.Present;
+                      if (!item.Present)
+                        state.Memberships.filter(
+                          m => m.Role === item.Name
+                        ).forEach(m => {
+                          m.Present = false;
+                        });
+                    })}
+                  >${r.Present ? 'Remove' : 'Restore'}</vaadin-button
+                >
+              </li>`
+          )}
+        </ul>
+      </vaadin-details>
     `;
     return this.view === 'all'
       ? html`<vaadin-details

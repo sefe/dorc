@@ -83,6 +83,11 @@ export interface DatabaseAccessSaveRequest {
     databaseAccessState: DatabaseAccessState;
 }
 
+export interface DatabaseAccessSqlLoginsRequest {
+    envId: number;
+    databaseId: number;
+}
+
 export interface DatabaseAccessStatusRequest {
     envId: number;
     databaseId: number;
@@ -370,6 +375,31 @@ export class DatabaseAccessApi extends BaseAPI {
             method: 'PUT',
             headers,
             body: databaseAccessState,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    databaseAccessSqlLogins({ envId, databaseId }: DatabaseAccessSqlLoginsRequest): Observable<Array<string>>
+    databaseAccessSqlLogins({ envId, databaseId }: DatabaseAccessSqlLoginsRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<string>>>
+    databaseAccessSqlLogins({ envId, databaseId }: DatabaseAccessSqlLoginsRequest, opts?: OperationOpts): Observable<Array<string> | AjaxResponse<Array<string>>> {
+        throwIfNullOrUndefined(envId, 'envId', 'databaseAccessSqlLogins');
+        throwIfNullOrUndefined(databaseId, 'databaseId', 'databaseAccessSqlLogins');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<Array<string>>({
+            url: '/DatabaseAccess/{envId}/{databaseId}/logins'.replace('{envId}', encodeURI(envId)).replace('{databaseId}', encodeURI(databaseId)),
+            method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 

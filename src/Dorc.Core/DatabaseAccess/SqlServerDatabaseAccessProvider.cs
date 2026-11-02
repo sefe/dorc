@@ -56,6 +56,14 @@ public sealed class SqlServerDatabaseAccessProvider : IDatabaseAccessProvider
         return after;
     }
 
+    public List<string> SqlLogins(DatabaseAccessTarget target)
+    {
+        using var connection = Connect(target);
+        return Observe(connection, null).Logins
+            .Where(l => l.Kind == "Native" && !l.Protected)
+            .Select(l => l.Name).Order(DatabaseAccessPlanner.Names).ToList();
+    }
+
     private static DatabaseAccessPreview Plan(DatabaseAccessTarget target, DatabaseAccessState desired, DatabaseAccessObservation observed)
     {
         var result = DatabaseAccessPlanner.Plan(desired, observed);
