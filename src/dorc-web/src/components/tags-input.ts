@@ -51,14 +51,42 @@ export class TagsInput extends LitElement {
     return css`
       :host {
         display: block;
+        width: 100%;
+        box-sizing: border-box;
       }
       :host[hidden] {
         display: none !important;
       }
+      .field {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+      }
+      label {
+        color: var(--lumo-secondary-text-color);
+        font-size: var(--lumo-font-size-s);
+        font-weight: 500;
+        line-height: 1.2;
+        margin-bottom: var(--lumo-space-xs);
+      }
       input {
         height: 36px;
-        width: auto !important;
+        width: 100% !important;
         padding-left: 0.5em;
+      }
+      .tagify {
+        width: 100%;
+        min-height: 36px;
+        box-sizing: border-box;
+        border: 0;
+        border-radius: var(--lumo-border-radius-m);
+        background: var(--lumo-contrast-10pct);
+        color: var(--lumo-body-text-color);
+        font-family: var(--lumo-font-family);
+        font-size: var(--lumo-font-size-m);
+        --tags-border-color: transparent;
+        --tags-hover-border-color: var(--lumo-contrast-20pct);
+        --tags-focus-border-color: var(--lumo-primary-color);
       }
     `;
   }
@@ -71,7 +99,10 @@ export class TagsInput extends LitElement {
         type="text/css"
       />
 
-      <input />
+      <div class="field">
+        <label>${this.label}</label>
+        <input />
+      </div>
     `;
   }
 

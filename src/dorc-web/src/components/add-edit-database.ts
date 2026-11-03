@@ -132,6 +132,9 @@ export class AddEditDatabase extends LitElement {
         width: 100%;
         max-width: 500px;
       }
+      .block + tags-input {
+        margin-top: var(--lumo-space-s);
+      }
     `;
   }
 
