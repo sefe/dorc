@@ -21,6 +21,9 @@ export class LogDialog extends LitElement {
   @property({ type: Boolean })
   isLoading = false;
 
+  @property({ type: Boolean })
+  refreshEnabled = false;
+
   private editor: ace.Ace.Editor | undefined;
   private readonly viewerHeight = 'calc(85dvh - 170px)';
 
@@ -81,26 +84,46 @@ export class LogDialog extends LitElement {
           }
         }}"
         resizable
-        ${dialogRenderer(this.renderLog, [this.isLoading, this.selectedLog])}
+        ${dialogRenderer(this.renderLog, [this.isLoading, this.selectedLog, this.refreshEnabled])}
       ></vaadin-dialog>
     `;
   }
 
   private renderLog = () => html`
-    <vaadin-button
-      @click="${() =>
-        this.dispatchEvent(
-          new CustomEvent('close-log-dialog', {
-            bubbles: true,
-            composed: true
-          })
-        )}"
-    >
-      <vaadin-icon
-        style="color: var(--dorc-link-color);"
-        icon="vaadin:close-small"
-      ></vaadin-icon>
-    </vaadin-button>
+    <div style="display: flex; gap: 4px; align-items: center;">
+      <vaadin-button
+        @click="${() =>
+          this.dispatchEvent(
+            new CustomEvent('close-log-dialog', {
+              bubbles: true,
+              composed: true
+            })
+          )}"
+      >
+        <vaadin-icon
+          style="color: var(--dorc-link-color);"
+          icon="vaadin:close-small"
+        ></vaadin-icon>
+      </vaadin-button>
+      ${
+        this.refreshEnabled
+          ? html`<vaadin-button
+              @click="${() =>
+                this.dispatchEvent(
+                  new CustomEvent('refresh-log-dialog', {
+                    bubbles: true,
+                    composed: true
+                  })
+                )}"
+            >
+              <vaadin-icon
+                style="color: var(--dorc-link-color);"
+                icon="vaadin:refresh"
+              ></vaadin-icon>
+            </vaadin-button>`
+          : html``
+      }
+    </div>
     ${
       this.isLoading
         ? html`

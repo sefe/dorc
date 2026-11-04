@@ -10,5 +10,6 @@ namespace Dorc.Api.Interfaces
         IEnumerable<Response> DeleteProperties(IEnumerable<string> properties, ClaimsPrincipal User);
         IEnumerable<Response> PostProperties(IEnumerable<PropertyApiModel> properties, ClaimsPrincipal User);
         IEnumerable<Response> PutProperties(IDictionary<string, PropertyApiModel> propertiesToUpdate, ClaimsPrincipal User);
+        IEnumerable<Response> ImportProperties(IEnumerable<PropertyImportCsvDto> propertiesToImport, ClaimsPrincipal User);
     }
 }

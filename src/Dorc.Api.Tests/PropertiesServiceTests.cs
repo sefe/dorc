@@ -374,5 +374,77 @@ namespace Dorc.Api.Tests
             mockPropertyValuesPersistentSource.DidNotReceive().UpdatePropertyValue(Arg.Any<long>(), Arg.Any<string>());
         }
 
+        [TestMethod]
+        public void ImportPropertiesRunsPostAndPutPropertyValuesWorkflow()
+        {
+            var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
+            var mockPvs = Substitute.For<IPropertyValuesService>();
+            var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+            var mockPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
+            var mockPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
+            var mockLogger = Substitute.For<ILogger<PropertiesService>>();
+
+            mockPropertiesPersistentSource
+                .CreateProperty(Arg.Any<PropertyApiModel>(), Arg.Any<string>())
+                .Returns(x => x.ArgAt<PropertyApiModel>(0));
+
+            mockPvs.PostPropertyValues(Arg.Any<IEnumerable<PropertyValueDto>>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new List<Response> { new Response { Item = "values", Status = "success" } });
+            mockPvs.PutPropertyValues(Arg.Any<IEnumerable<PropertyValueDto>>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new List<Response> { new Response { Item = "values", Status = "success" } });
+
+            var service = new PropertiesService(
+                mockPropertiesPersistentSource,
+                mockPvs,
+                mockClaimsPrincipalReader,
+                mockPropertyValuesPersistentSource,
+                mockPropertyEncryptor,
+                mockLogger);
+
+            var rows = new[]
+            {
+                new PropertyImportCsvDto
+                {
+                    PropertyName = "ABAgentID",
+                    Value = "Test_DREPIN",
+                    IsSecure = false,
+                    Environment = "EnvA"
+                }
+            };
+
+            var result = service.ImportProperties(rows, _user).ToList();
+
+            Assert.IsTrue(result.Any(r => r.Status == "success"));
+            mockPvs.Received(1).PostPropertyValues(Arg.Any<IEnumerable<PropertyValueDto>>(), _user);
+            mockPvs.Received(1).PutPropertyValues(Arg.Any<IEnumerable<PropertyValueDto>>(), _user);
+        }
+
+        [TestMethod]
+        public void ImportPropertiesReturnsErrorWhenPropertyNameOrValueBlank()
+        {
+            var service = new PropertiesService(
+                Substitute.For<IPropertiesPersistentSource>(),
+                Substitute.For<IPropertyValuesService>(),
+                Substitute.For<IClaimsPrincipalReader>(),
+                Substitute.For<IPropertyValuesPersistentSource>(),
+                Substitute.For<IPropertyEncryptor>(),
+                Substitute.For<ILogger<PropertiesService>>());
+
+            var rows = new[]
+            {
+                new PropertyImportCsvDto
+                {
+                    PropertyName = "",
+                    Value = "",
+                    IsSecure = false
+                }
+            };
+
+            var result = service.ImportProperties(rows, _user).ToList();
+
+            Assert.IsTrue(result.Any(r => r.Status.Contains("PropertyName")));
+            Assert.IsTrue(result.Any(r => r.Status.Contains("Property value")));
+        }
+
     }
 }
