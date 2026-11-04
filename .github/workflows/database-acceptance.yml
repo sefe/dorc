@@ -88,14 +88,14 @@ jobs:
       - name: Build the dacpac
         run: dotnet build src/Dorc.Database/Dorc.Database.sqlproj --configuration Debug
 
+      - name: Configure local SQL Server test connection
+        run: |
+          sa_pw='Dorc-CI-LocalOnly-2026!'
+          conn="Server=localhost,1433;Database=master;User Id=sa;Password=${sa_pw};TrustServerCertificate=True;Encrypt=False"
+          echo "ConnectionStrings__DOrcConnectionString=${conn}" >> "$GITHUB_ENV"
+          echo "DORC_DB_TESTS_REQUIRED=1" >> "$GITHUB_ENV"
+
       - name: Database acceptance tests
-        env:
-          # Read by DatabaseTestBase through AddEnvironmentVariables.
-          ConnectionStrings__DOrcConnectionString: 'Server=localhost,1433;Database=master;User Id=sa;Password=Dorc-CI-LocalOnly-2026!;TrustServerCertificate=True;Encrypt=False'
-          # Without this a missing connection string is an Assert.Inconclusive, and
-          # the suite would report green while testing nothing. Here it is a
-          # failure — the point of the job is that it cannot silently opt out.
-          DORC_DB_TESTS_REQUIRED: '1'
         run: >-
           dotnet test src/Tests.Acceptance/Tests.Acceptance.csproj
           --filter "TestCategory=Database"
@@ -108,9 +108,6 @@ jobs:
       # is the only place they execute, and DORC_DB_TESTS_REQUIRED turns a missing
       # connection into a failure rather than a silent skip.
       - name: API and Monitor SQL-backed tests
-        env:
-          ConnectionStrings__DOrcConnectionString: 'Server=localhost,1433;Database=master;User Id=sa;Password=Dorc-CI-LocalOnly-2026!;TrustServerCertificate=True;Encrypt=False'
-          DORC_DB_TESTS_REQUIRED: '1'
         run: |
           set -e
           for proj in src/Dorc.Api.Tests/Dorc.Api.Tests.csproj src/Dorc.Monitor.Tests/Dorc.Monitor.Tests.csproj; do

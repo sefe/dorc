@@ -71,14 +71,30 @@ function vaadinLumoPlugin() {
 
 // Helper function to copy directory recursively
 function copyDirRecursive(src, dest) {
-  if (!fs.existsSync(src)) return;
+  const resolvedSrc = path.resolve(src);
+  const resolvedDest = path.resolve(dest);
+  const allowedDestRoot = path.resolve(__dirname, 'dist/vaadin-theme');
+  if (
+    !resolvedSrc.startsWith(lumoPath) ||
+    !resolvedDest.startsWith(allowedDestRoot) ||
+    !fs.existsSync(resolvedSrc)
+  ) {
+    return;
+  }
 
-  fs.mkdirSync(dest, { recursive: true });
-  const entries = fs.readdirSync(src, { withFileTypes: true });
+  fs.mkdirSync(resolvedDest, { recursive: true });
+  const entries = fs.readdirSync(resolvedSrc, { withFileTypes: true });
 
   for (const entry of entries) {
-    const srcPath = path.join(src, entry.name);
-    const destPath = path.join(dest, entry.name);
+    const safeName = path.basename(entry.name);
+    if (!safeName || safeName === '.' || safeName === '..' || safeName !== entry.name) {
+      continue;
+    }
+    const srcPath = path.resolve(resolvedSrc, safeName);
+    const destPath = path.resolve(resolvedDest, safeName);
+    if (!srcPath.startsWith(resolvedSrc) || !destPath.startsWith(resolvedDest)) {
+      continue;
+    }
 
     if (entry.isDirectory()) {
       copyDirRecursive(srcPath, destPath);

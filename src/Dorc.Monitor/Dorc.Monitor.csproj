@@ -52,7 +52,7 @@
 		<ProjectReference Include="..\Dorc.Kafka.Events\Dorc.Kafka.Events.csproj" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.10" />
+		<PackageReference Include="Microsoft.AspNetCore.SignalR.Client" Version="9.0.22" />
 	</ItemGroup>
 	<ItemGroup>
 		<InternalsVisibleTo Include="Dorc.Monitor.Tests" />
