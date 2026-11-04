@@ -699,7 +699,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
 
                             transaction.Commit();
 
-                            logger.LogInformation($"Environment '{environment.Name}' deleted successfully by {_claimsPrincipalReader.GetUserLogin(principal)}");
+                            logger.LogInformation("Environment '{EnvironmentName}' (Id: {EnvironmentId}) deleted successfully", environment.Name, environment.Id);
 
                             return true;
                         }

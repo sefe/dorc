@@ -326,8 +326,14 @@ namespace Dorc.PersistentData.Sources
                 }
                 catch (Exception e)
                 {
-                    var errMsg = $"Unable to map environment '{environment}' to '{project}'";
-                    _logger.LogError(errMsg, e);
+                    var safeEnvironment = environment?
+                        .Replace("\r", string.Empty)
+                        .Replace("\n", string.Empty);
+                    var safeProject = project?
+                        .Replace("\r", string.Empty)
+                        .Replace("\n", string.Empty);
+                    var errMsg = $"Unable to map environment '{safeEnvironment}' to '{safeProject}'";
+                    _logger.LogError(e, "Unable to map environment '{Environment}' to '{Project}'", safeEnvironment, safeProject);
                     throw new ArgumentOutOfRangeException(errMsg, e);
                 }
             }

@@ -656,8 +656,7 @@ namespace Dorc.Monitor.RequestProcessors
             if (!string.IsNullOrEmpty(envOwnerEmail))
             {
                 _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwnerEmails, envOwnerEmail);
-                logger.LogInformation("Set EnvOwnerEmails property to '{EnvOwnerEmails}' for request {RequestId}",
-                    envOwnerEmail, request.Id);
+                logger.LogInformation("Set EnvOwnerEmails property for request {RequestId}", request.Id);
             }
             else
             {

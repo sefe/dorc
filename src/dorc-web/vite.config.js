@@ -20,22 +20,28 @@ function vaadinLumoPlugin() {
       server.middlewares.use((req, res, next) => {
         if (req.url?.startsWith('/vaadin-theme/')) {
           const relativePath = req.url.replace('/vaadin-theme/', '');
-          let filePath;
+          const candidatePath =
+            relativePath === 'lumo.css'
+              ? path.resolve(lumoPath, 'dist', relativePath)
+              : path.resolve(lumoPath, relativePath);
 
-          // Map lumo.css to dist/lumo.css (pre-built version)
-          if (relativePath === 'lumo.css') {
-            filePath = path.join(lumoPath, 'dist', relativePath);
-          } else {
-            filePath = path.join(lumoPath, relativePath);
-          }
-
-          if (fs.existsSync(filePath)) {
-            const stat = fs.statSync(filePath);
-            if (stat.isFile()) {
-              const content = fs.readFileSync(filePath, 'utf-8');
-              res.setHeader('Content-Type', 'text/css');
-              res.end(content);
-              return;
+          if (candidatePath.startsWith(lumoPath)) {
+            let fd;
+            try {
+              fd = fs.openSync(candidatePath, 'r');
+              const stat = fs.fstatSync(fd);
+              if (stat.isFile()) {
+                const content = fs.readFileSync(fd, 'utf-8');
+                res.setHeader('Content-Type', 'text/css');
+                res.end(content);
+                return;
+              }
+            } catch {
+              // File does not exist or cannot be opened; fall through to next()
+            } finally {
+              if (fd !== undefined) {
+                fs.closeSync(fd);
+              }
             }
           }
         }
