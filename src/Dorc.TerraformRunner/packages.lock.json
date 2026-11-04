@@ -190,10 +190,10 @@
       },
       "Microsoft.Extensions.DependencyInjection": {
         "type": "Transitive",
-        "resolved": "9.0.10",
-        "contentHash": "iEtXCkNd5XhjNJAOb/wO4IhDRdLIE2CsPxZggZQWJ/q2+sa8dmEPC393nnsiqdH8/4KV8Xn25IzgKPR1UEQ0og==",
+        "resolved": "9.0.22",
+        "contentHash": "fG8YKmh9xZbVSaKEHDQfG/BEToPezfIw9/EfIpIRVGVftJyFpp7KNqaiZmKDm2apBfjRA0iSdeyxNS9Kc842Dw==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.10"
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "9.0.22"
         }
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
@@ -267,12 +267,12 @@
       },
       "Microsoft.Extensions.Logging": {
         "type": "Transitive",
-        "resolved": "9.0.10",
-        "contentHash": "UBXHqE9vyptVhaFnT1R7YJKCve7TqVI10yjjUZBNGMlW2lZ4c031Slt9hxsOzWCzlpPxxIFyf1Yk4a6Iubxx7w==",
+        "resolved": "9.0.22",
+        "contentHash": "mYX+XnqcOr1Mffohw3y91BXlLV0df848jIbT2e/h4GZ5uQBJaBdo7VuX5mWJdnpu7roTUUUMYHjYR9u/O/XRqg==",
         "dependencies": {
-          "Microsoft.Extensions.DependencyInjection": "9.0.10",
-          "Microsoft.Extensions.Logging.Abstractions": "9.0.10",
-          "Microsoft.Extensions.Options": "9.0.10"
+          "Microsoft.Extensions.DependencyInjection": "9.0.22",
+          "Microsoft.Extensions.Logging.Abstractions": "9.0.22",
+          "Microsoft.Extensions.Options": "9.0.22"
         }
       },
       "Microsoft.Extensions.Logging.Abstractions": {
@@ -854,7 +854,7 @@
         "type": "Project",
         "dependencies": {
           "System.ComponentModel.Annotations": "[5.0.0, )",
-          "System.Text.Json": "[9.0.10, )"
+          "System.Text.Json": "[10.0.3, )"
         }
       },
       "dorc.azuredevops.client": {
@@ -872,8 +872,8 @@
         "dependencies": {
           "Microsoft.Extensions.Configuration": "[9.0.10, )",
           "Microsoft.Extensions.Configuration.Json": "[9.0.10, )",
-          "Microsoft.Extensions.Logging": "[9.0.10, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[9.0.10, )",
+          "Microsoft.Extensions.Logging": "[9.0.22, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.3, )",
           "Microsoft.Extensions.Logging.Console": "[9.0.10, )",
           "Newtonsoft.Json": "[13.0.4, )",
           "OpenSearch.Client": "[1.8.0, )",
@@ -894,7 +894,7 @@
         "type": "Project",
         "dependencies": {
           "Dorc.ApiModel": "[1.0.0, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[9.0.10, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.3, )",
           "System.Text.RegularExpressions": "[4.3.1, )",
           "YamlDotNet": "[18.1.0, )"
         }

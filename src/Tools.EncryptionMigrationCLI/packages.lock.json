@@ -1040,8 +1040,8 @@
       },
       "Microsoft.Win32.SystemEvents": {
         "type": "Transitive",
-        "resolved": "8.0.0",
-        "contentHash": "9opKRyOKMCi2xJ7Bj7kxtZ1r9vbzosMvRrdEhVhDz8j8MoBGgB+WmC94yH839NPH+BclAjtQ/pyagvi/8gDLkw=="
+        "resolved": "9.0.10",
+        "contentHash": "P1CEtsxar/RhfoH3r1vc9ra28LLVYphpcFBxyRIEMM/jP3qh4j9TU4sWH2RUhMZX+GbFxZ+zz1oSP2n9MwjshA=="
       },
       "Microsoft.Windows.Compatibility": {
         "type": "Transitive",
@@ -1341,10 +1341,10 @@
       },
       "System.Drawing.Common": {
         "type": "Transitive",
-        "resolved": "8.0.33",
-        "contentHash": "dqd6vGJbMlg2v6Rurtd9akcHeSKnGugCTxEPmORxD/grgLJxZOSs/bs9nz/1osDSEDIIsNgC+/d6XWHzkrXUGw==",
+        "resolved": "9.0.10",
+        "contentHash": "FDakPhIcxHnhslLiz4ZQ+ALpHRpCU3zOep9Mcq+4hL23XwQrzmgJNYvf1tH4kJ/V36wO/ZhRr8nOfiz26P3wKg==",
         "dependencies": {
-          "Microsoft.Win32.SystemEvents": "8.0.0"
+          "Microsoft.Win32.SystemEvents": "9.0.10"
         }
       },
       "System.Formats.Asn1": {
@@ -1664,10 +1664,10 @@
       },
       "System.Security.Permissions": {
         "type": "Transitive",
-        "resolved": "8.0.0",
-        "contentHash": "v/BBylw7XevuAsHXoX9dDUUfmBIcUf7Lkz8K3ZXIKz3YRKpw8YftpSir4n4e/jDTKFoaK37AsC3xnk+GNFI1Ow==",
+        "resolved": "9.0.10",
+        "contentHash": "uqzXSkn2nx9nplIdayurMtbLcQQdOGd7TmIQ+X5P65+QWT2S+1aUZfJuH2f+Blr/4W6wxMkiX9aKzLk7lfMZFQ==",
         "dependencies": {
-          "System.Windows.Extensions": "8.0.0"
+          "System.Windows.Extensions": "9.0.10"
         }
       },
       "System.Security.Principal.Windows": {
@@ -1823,8 +1823,8 @@
       },
       "System.Windows.Extensions": {
         "type": "Transitive",
-        "resolved": "8.0.0",
-        "contentHash": "Obg3a90MkOw9mYKxrardLpY2u0axDMrSmy4JCdq2cYbelM2cUwmUir5Bomvd1yxmPL9h5LVHU1tuKBZpUjfASg=="
+        "resolved": "9.0.10",
+        "contentHash": "6I+OzjcTx2gtZotjDQXEhWdkfPVxRvT9r9nFWsgt9Of6GwLt9szpIlxx0z2dP3dprg6K3zRU/5bbig+zoVKpfg=="
       },
       "System.Xml.ReaderWriter": {
         "type": "Transitive",
@@ -1921,7 +1921,7 @@
         "type": "Project",
         "dependencies": {
           "System.ComponentModel.Annotations": "[5.0.0, )",
-          "System.Text.Json": "[9.0.10, )"
+          "System.Text.Json": "[10.0.3, )"
         }
       },
       "dorc.azuredevops.client": {
@@ -1946,7 +1946,7 @@
           "Microsoft.Extensions.Configuration": "[9.0.10, )",
           "Microsoft.Extensions.Configuration.Json": "[9.0.10, )",
           "Microsoft.Extensions.Http": "[9.0.10, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[9.0.10, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.3, )",
           "Microsoft.Graph": "[5.95.0, )",
           "Microsoft.Identity.Client": "[4.84.2, )",
           "Microsoft.Kiota.Abstractions": "[1.22.2, )",
@@ -1956,8 +1956,10 @@
           "RestSharp": "[112.1.0, )",
           "System.DirectoryServices": "[9.0.10, )",
           "System.DirectoryServices.AccountManagement": "[9.0.10, )",
+          "System.Drawing.Common": "[9.0.10, )",
+          "System.Security.Permissions": "[9.0.10, )",
           "System.ServiceProcess.ServiceController": "[9.0.10, )",
-          "System.Text.Json": "[9.0.10, )",
+          "System.Text.Json": "[10.0.3, )",
           "System.Text.RegularExpressions": "[4.3.1, )",
           "TypedSignalR.Client.TypeScript.Attributes": "[1.15.0, )"
         }
@@ -1979,7 +1981,7 @@
           "Microsoft.EntityFrameworkCore.SqlServer": "[9.0.10, )",
           "Microsoft.Extensions.Configuration": "[9.0.10, )",
           "Microsoft.Extensions.Configuration.Json": "[9.0.10, )",
-          "Microsoft.Extensions.Logging.Abstractions": "[9.0.10, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.3, )",
           "Microsoft.Identity.Client": "[4.84.2, )",
           "Microsoft.IdentityModel.JsonWebTokens": "[8.19.0, )",
           "Microsoft.IdentityModel.Logging": "[8.19.0, )",
@@ -1997,14 +1999,16 @@
           "System.Collections.Immutable": "[9.0.10, )",
           "System.ComponentModel.Composition": "[9.0.10, )",
           "System.Data.SqlClient": "[4.9.1, )",
-          "System.Diagnostics.DiagnosticSource": "[9.0.10, )",
+          "System.Diagnostics.DiagnosticSource": "[10.0.3, )",
           "System.DirectoryServices": "[9.0.10, )",
           "System.DirectoryServices.AccountManagement": "[9.0.10, )",
+          "System.Drawing.Common": "[9.0.10, )",
           "System.IdentityModel.Tokens.Jwt": "[8.19.0, )",
           "System.Reflection.Metadata": "[9.0.10, )",
           "System.Runtime.CompilerServices.Unsafe": "[6.1.2, )",
           "System.Runtime.Loader": "[4.3.0, )",
           "System.Security.Cryptography.Pkcs": "[9.0.22, )",
+          "System.Security.Permissions": "[9.0.10, )",
           "System.Text.RegularExpressions": "[4.3.1, )"
         }
       },
