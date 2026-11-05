@@ -354,6 +354,23 @@ describe('unified reference-data editing', () => {
     );
     treeButton!.click();
     await settle();
+    const parentSelect = page.shadowRoot!.querySelector<HTMLSelectElement>(
+      'select[aria-label="Parent component"]'
+    )!;
+    expect(parentSelect.value).to.equal('0');
+
+    // Selecting the root component and switching back to the child must keep the parent select in sync
+    const rootTreeButton = findHegsTreeButtons(page.shadowRoot!).find(button =>
+      button.textContent?.includes('Parent')
+    );
+    rootTreeButton!.click();
+    await settle();
+    expect(parentSelect.value).to.equal('');
+
+    treeButton!.click();
+    await settle();
+    expect(parentSelect.value).to.equal('0');
+
     const editor = page.shadowRoot!.querySelector(
       'deployment-definition-editor'
     )!;

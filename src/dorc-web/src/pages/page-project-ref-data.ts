@@ -2116,11 +2116,12 @@ export class PageProjectRefData extends PageElement {
                     >Parent component
                     <select
                       aria-label="Parent component"
-                      .value=${parentPath}
                       ?disabled=${!this.editable}
                       @change=${(event: Event) => this.changeParent((event.currentTarget as HTMLSelectElement).value)}
                     >
-                      <option value="">Project root</option>
+                      <option value="" .selected=${live(parentPath === '')}>
+                        Project root
+                      </option>
                       ${this.rows
                         .filter(
                           row =>
@@ -2129,7 +2130,10 @@ export class PageProjectRefData extends PageElement {
                         )
                         .map(
                           row =>
-                            html`<option value=${row.path}>
+                            html`<option
+                              value=${row.path}
+                              .selected=${live(row.path === parentPath)}
+                            >
                               ${'— '.repeat(row.depth)}${row.node.ComponentName || 'New component'}
                             </option>`
                         )}
@@ -2217,26 +2221,42 @@ export class PageProjectRefData extends PageElement {
                 >History scope
                 <select
                   aria-label="History scope"
-                  .value=${String(this.historyComponentId)}
                   @change=${(event: Event) => {
                     this.historyComponentId = Number(
                       (event.currentTarget as HTMLSelectElement).value
                     );
                   }}
                 >
-                  <option value="0">Entire project</option>
+                  <option value="0" .selected=${live(!this.historyComponentId)}>
+                    Entire project
+                  </option>
                   ${
                     this.historyComponentId &&
                     !this.rows.some(
                       row => row.node.ComponentId === this.historyComponentId
                     )
-                      ? html`<option value=${String(this.historyComponentId)}>
+                      ? html`<option
+                          value=${String(this.historyComponentId)}
+                          .selected=${live(true)}
+                        >
                           Retained component #${this.historyComponentId} (not
                           attached)
                         </option>`
                       : nothing
                   }
-                  ${this.rows.filter(row => row.node.ComponentId).map(row => html`<option value=${String(row.node.ComponentId)}>${row.node.ComponentName}</option>`)}
+                  ${this.rows
+                    .filter(row => row.node.ComponentId)
+                    .map(
+                      row =>
+                        html`<option
+                          value=${String(row.node.ComponentId)}
+                          .selected=${live(
+                            row.node.ComponentId === this.historyComponentId
+                          )}
+                        >
+                          ${row.node.ComponentName}
+                        </option>`
+                    )}
                 </select>
               </label>
               <deployment-definition-history
