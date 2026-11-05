@@ -110,16 +110,21 @@ export class DorcApp extends LitElement {
         flex-shrink: 0;
       }
 
-      /* Was height:65px + 6px padding = 71px inside a 50px header with no
-         overflow, so it bled ~10px over the drawer and was clipped at the top
-         by the host's overflow:hidden (D-33). */
+      /* DO NOT CHANGE OR "FIX" THIS SIZING:
+         The mascot PNG (2048x2048) has ~13.5% transparent top padding (276px)
+         and ~12.9% transparent bottom padding (264px) around the artwork.
+         At height: 65px + padding: 3px 0 (71px flex item centered in the 50px
+         header), the transparent margins sit outside the 50px header while the
+         visible illustration renders at ~48px tall with its bottom edge aligned
+         flush with the bottom of the 50px header bar.
+         Shrinking this to <=50px (e.g. max-height: calc(var(--dorc-header-height) - 6px))
+         double-counts the transparent PNG padding, making the character tiny (~29px)
+         and floating above the bottom of the header bar. */
       #header .mascot {
-        height: 100%;
-        max-height: calc(var(--dorc-header-height, 50px) - 6px);
+        height: 65px;
         width: auto;
         padding: 3px 0;
         flex-shrink: 0;
-        box-sizing: border-box;
       }
 
       #header .app-title {
