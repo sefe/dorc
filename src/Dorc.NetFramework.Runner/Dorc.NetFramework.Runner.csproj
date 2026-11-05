@@ -86,10 +86,10 @@
       <Version>9.0.10</Version>
     </PackageReference>
     <PackageReference Include="OpenTelemetry">
-      <Version>1.13.1</Version>
+      <Version>1.15.3</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Logging">
-      <Version>9.0.22</Version>
+      <Version>10.0.3</Version>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions">
       <Version>10.0.3</Version>
