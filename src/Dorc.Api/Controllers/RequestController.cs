@@ -200,6 +200,41 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
+        /// Validates whether a build contains a bundle.json manifest and returns the component names defined in the bundle.
+        /// </summary>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<string>))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest)]
+        [Route("BundleComponents")]
+        [HttpGet]
+        public async Task<IActionResult> GetBundleComponents(int projectId, string? buildDefinitionName, string? buildUrl)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(buildUrl))
+                {
+                    return Ok(new List<string>());
+                }
+
+                var components = await _requestsManager
+                    .GetBundleComponentsAsync(projectId, buildDefinitionName, buildUrl)
+                    .ConfigureAwait(false);
+
+                return Ok(components.ToList());
+            }
+            catch (InvalidOperationException ex)
+            {
+                _log.LogWarning(ex, "Bundle validation failed for project {ProjectId}", projectId);
+                return BadRequest(ex.Message);
+            }
+            catch (Exception e)
+            {
+                _log.LogError(e, "api/Request/BundleComponents");
+                var unrollException = UnrollException(e);
+                return StatusCode(StatusCodes.Status500InternalServerError, unrollException);
+            }
+        }
+
+        /// <summary>
         /// Restarts an existing request
         /// </summary>
         /// <param name="requestId"></param>

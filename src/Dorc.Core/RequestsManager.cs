@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Dorc.ApiModel;
 using Dorc.Core.BuildServer;
 using Dorc.Core.Interfaces;
@@ -200,6 +201,115 @@ namespace Dorc.Core
                 return false;
             // AzureDevOps default — fall back to URL shape for unmigrated rows.
             return IsFileBasedUrl(project.ArtefactsUrl);
+        }
+
+        private static readonly JsonSerializerOptions BundleJsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true
+        };
+
+        public async Task<IReadOnlyList<string>> GetBundleComponentsAsync(int projectId, string? buildDefinitionName, string buildUrl)
+        {
+            if (string.IsNullOrWhiteSpace(buildUrl))
+                return Array.Empty<string>();
+
+            var project = _projectsPersistentSource.GetProject(projectId);
+            if (project == null)
+                return Array.Empty<string>();
+
+            var isPotentialBundle =
+                (!string.IsNullOrEmpty(buildDefinitionName) &&
+                 buildDefinitionName.Contains("bundle", StringComparison.OrdinalIgnoreCase)) ||
+                buildUrl.EndsWith("bundle.json", StringComparison.OrdinalIgnoreCase);
+
+            if (!isPotentialBundle)
+                return Array.Empty<string>();
+
+            string? bundleJson = null;
+
+            if (IsBuildServerProject(project))
+            {
+                if (string.IsNullOrWhiteSpace(buildDefinitionName))
+                    return Array.Empty<string>();
+
+                var buildClient = _buildServerClientFactory.Create(project.SourceControlType);
+                var dropLocation = await buildClient.GetBuildArtifactDownloadUrlAsync(
+                    project.ArtefactsUrl ?? string.Empty,
+                    project.ArtefactsSubPaths ?? string.Empty,
+                    project.ArtefactsBuildRegex ?? string.Empty,
+                    buildDefinitionName,
+                    buildUrl).ConfigureAwait(false);
+
+                if (string.IsNullOrWhiteSpace(dropLocation))
+                    return Array.Empty<string>();
+
+                bundleJson = await buildClient.TryReadArtifactFileTextAsync(dropLocation, "bundle.json")
+                    .ConfigureAwait(false);
+            }
+            else if (IsFileShareProject(project))
+            {
+                var permittedRoots = Security.PathConfinement.SplitRoots(project.ArtefactsUrl).ToList();
+                var localPath = buildUrl.StartsWith("file:", StringComparison.OrdinalIgnoreCase) &&
+                                Uri.TryCreate(buildUrl, UriKind.Absolute, out var fileUri)
+                    ? fileUri.LocalPath
+                    : buildUrl;
+
+                if (permittedRoots.Count == 0 || !Security.PathConfinement.IsWithinAny(localPath, permittedRoots))
+                    return Array.Empty<string>();
+
+                var canonicalDrop = Security.PathConfinement.Canonicalise(localPath);
+                if (string.IsNullOrWhiteSpace(canonicalDrop) || canonicalDrop.Contains("..", StringComparison.Ordinal))
+                    return Array.Empty<string>();
+
+                var dirPath = canonicalDrop.EndsWith(@"\bundle.json", StringComparison.OrdinalIgnoreCase)
+                    ? Path.GetDirectoryName(canonicalDrop)
+                    : canonicalDrop;
+
+                if (!string.IsNullOrWhiteSpace(dirPath))
+                {
+                    var dirInfo = new DirectoryInfo(dirPath);
+                    if (dirInfo.Exists)
+                    {
+                        var bundleFile = dirInfo.EnumerateFiles("bundle.json", SearchOption.TopDirectoryOnly).FirstOrDefault();
+                        if (bundleFile != null)
+                        {
+                            using var reader = bundleFile.OpenText();
+                            bundleJson = await reader.ReadToEndAsync().ConfigureAwait(false);
+                        }
+                    }
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(bundleJson))
+                return Array.Empty<string>();
+
+            var bundle = JsonSerializer.Deserialize<BuildBundle>(bundleJson, BundleJsonOptions);
+            if (bundle?.Items == null || !bundle.Items.Any())
+                return Array.Empty<string>();
+
+            var projectComponents = _projectsPersistentSource.GetComponentsForProject(projectId)
+                .Select(c => c.ComponentName)
+                .Where(n => !string.IsNullOrWhiteSpace(n))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var bundleComponents = bundle.Items
+                .Select(i => i.Component?.Trim() ?? string.Empty)
+                .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var missingComponents = bundleComponents
+                .Where(c => !projectComponents.Contains(c))
+                .ToList();
+
+            if (missingComponents.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Bundle validation failed: the following component(s) in bundle.json do not exist in project '{project.ProjectName}': " +
+                    string.Join(", ", missingComponents.Select(c => $"'{c}'")));
+            }
+
+            return bundleComponents;
         }
     }
 }

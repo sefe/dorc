@@ -237,5 +237,85 @@ namespace Dorc.Core.Tests
             Assert.AreEqual("CompA", result[0].Name);
             Assert.AreEqual("CompB", result[1].Name);
         }
+
+        // --- GetBundleComponentsAsync ---
+
+        [TestMethod]
+        public async Task GetBundleComponentsAsync_NonBundleBuild_ReturnsEmpty()
+        {
+            var sut = CreateSut();
+            var result = await sut.GetBundleComponentsAsync(1, "ETRMs; StandardBuild", "https://dev.azure.com/org/proj/_apis/build/Builds/100");
+            Assert.AreEqual(0, result.Count);
+        }
+
+        [TestMethod]
+        public async Task GetBundleComponentsAsync_ValidBundle_ReturnsValidatedComponents()
+        {
+            var project = new ProjectApiModel
+            {
+                ProjectId = 1,
+                ProjectName = "SSIS Runner",
+                ArtefactsUrl = "https://dev.azure.com/org",
+                SourceControlType = SourceControlType.AzureDevOps
+            };
+            _projectsPds.GetProject(1).Returns(project);
+            _componentsPds.GetComponentsForProject(1).Returns(new List<ComponentApiModel>
+            {
+                new() { ComponentId = 10, ComponentName = "ComponentA" },
+                new() { ComponentId = 20, ComponentName = "ComponentB" }
+            });
+
+            _mockBuildClient.TryReadArtifactFileTextAsync(
+                Arg.Any<string>(),
+                "bundle.json",
+                Arg.Any<CancellationToken>())
+                .Returns(@"[
+                    { ""Component"": ""ComponentA"", ""BuildNumber"": ""Build_1"", ""BuildId"": ""101"" },
+                    { ""Component"": ""ComponentB"", ""BuildNumber"": ""Build_2"", ""BuildId"": ""102"" }
+                ]");
+
+            var sut = CreateSut();
+            var result = await sut.GetBundleComponentsAsync(
+                1,
+                "ETRMs; SSISRunner.Bundle",
+                "https://dev.azure.com/org/proj/_apis/build/Builds/100");
+
+            CollectionAssert.AreEqual(new[] { "ComponentA", "ComponentB" }, result.ToArray());
+        }
+
+        [TestMethod]
+        public async Task GetBundleComponentsAsync_MissingProjectComponent_ThrowsInvalidOperationException()
+        {
+            var project = new ProjectApiModel
+            {
+                ProjectId = 1,
+                ProjectName = "SSIS Runner",
+                ArtefactsUrl = "https://dev.azure.com/org",
+                SourceControlType = SourceControlType.AzureDevOps
+            };
+            _projectsPds.GetProject(1).Returns(project);
+            _componentsPds.GetComponentsForProject(1).Returns(new List<ComponentApiModel>
+            {
+                new() { ComponentId = 10, ComponentName = "ComponentA" }
+            });
+
+            _mockBuildClient.TryReadArtifactFileTextAsync(
+                Arg.Any<string>(),
+                "bundle.json",
+                Arg.Any<CancellationToken>())
+                .Returns(@"[
+                    { ""Component"": ""ComponentA"", ""BuildNumber"": ""Build_1"", ""BuildId"": ""101"" },
+                    { ""Component"": ""UnknownComp"", ""BuildNumber"": ""Build_2"", ""BuildId"": ""102"" }
+                ]");
+
+            var sut = CreateSut();
+            var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                sut.GetBundleComponentsAsync(
+                    1,
+                    "ETRMs; SSISRunner.Bundle",
+                    "https://dev.azure.com/org/proj/_apis/build/Builds/100"));
+
+            StringAssert.Contains(ex.Message, "UnknownComp");
+        }
     }
 }

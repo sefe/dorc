@@ -399,16 +399,27 @@ namespace Dorc.Core
                 return null;
 
             // Preserve the component ordering from expandedComponentNames while filtering to components
-            // requested by the user that exist in bundle.json.
-            var componentOrder = expandedComponentNames
-                .Select((name, index) => (name, index))
-                .ToDictionary(x => x.name, x => x.index, StringComparer.OrdinalIgnoreCase);
+            // requested by the user that exist in bundle.json. If no components were explicitly selected,
+            // default to all components listed in bundle.json.
+            List<BundleItem> matchedItems;
+            if (expandedComponentNames.Count == 0)
+            {
+                matchedItems = bundle.Items
+                    .Where(item => !string.IsNullOrWhiteSpace(item.Component))
+                    .ToList();
+            }
+            else
+            {
+                var componentOrder = expandedComponentNames
+                    .Select((name, index) => (name, index))
+                    .ToDictionary(x => x.name, x => x.index, StringComparer.OrdinalIgnoreCase);
 
-            var matchedItems = bundle.Items
-                .Where(item => !string.IsNullOrWhiteSpace(item.Component) &&
-                               componentOrder.ContainsKey(item.Component))
-                .OrderBy(item => componentOrder[item.Component])
-                .ToList();
+                matchedItems = bundle.Items
+                    .Where(item => !string.IsNullOrWhiteSpace(item.Component) &&
+                                   componentOrder.ContainsKey(item.Component))
+                    .OrderBy(item => componentOrder[item.Component])
+                    .ToList();
+            }
 
             if (matchedItems.Count == 0)
             {

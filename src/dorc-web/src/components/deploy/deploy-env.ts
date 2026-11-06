@@ -78,6 +78,8 @@ export class DeployEnv extends LitElement {
 
   @property({ type: Boolean }) buildsLoading = false;
 
+  @property({ type: Boolean }) bundleValidating = false;
+
   @property({ type: Boolean }) isFolderProject = false;
 
   @property({ type: String }) selectedBuildId: string | undefined;
@@ -223,6 +225,8 @@ export class DeployEnv extends LitElement {
   private propertyValue = '';
 
   private selectedBuild = '';
+
+  private pendingBundleComponents: string[] = [];
 
   constructor() {
     super();
@@ -417,9 +421,10 @@ export class DeployEnv extends LitElement {
       </vaadin-details>
       <vaadin-button
         style="width: 100%; max-width: 600px; margin-left: var(--lumo-space-s); margin-bottom: var(--lumo-space-xl)"
+        ?disabled="${this.bundleValidating || this.buildsLoading}"
         @click="${this.openDeployDialog}"
         theme="primary"
-        >Deploy
+        >${this.bundleValidating ? 'Validating Bundle...' : 'Deploy'}
       </vaadin-button>
       ${this.deploymentStarting ? html` <div class="loader"></div> ` : html``}
       <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
@@ -493,8 +498,8 @@ export class DeployEnv extends LitElement {
       if (itemComboBox) {
         itemComboBox.selectedItem = this.builds[0].Name ?? '';
       }
-      this.buildsLoading = false;
     }
+    this.buildsLoading = false;
   }
 
   public EnvironmentChange(env: string) {
@@ -571,6 +576,8 @@ export class DeployEnv extends LitElement {
               this.ErrorMessage =
                 'The linked component is not available in this project. Reload its current definition before deploying.';
             }
+          } else if (this.pendingBundleComponents.length > 0) {
+            this.applyBundleComponentSelection(this.pendingBundleComponents);
           }
           const hegsTree = this.shadowRoot?.getElementById(
             'hegs-tree'
@@ -688,7 +695,105 @@ export class DeployEnv extends LitElement {
       )?.Id;
 
       this.selectedBuildId = found !== null ? found : undefined;
+      this.validateAndSelectBundleComponents();
     }
+  }
+
+  private validateAndSelectBundleComponents() {
+    this.pendingBundleComponents = [];
+    if (!this._project || !this.selectedBuild) {
+      return;
+    }
+
+    let folder = this._project.ArtefactsUrl ?? '';
+    if (folder.endsWith('/')) {
+      folder = folder.substring(0, folder.length - 1);
+    }
+
+    const buildUrl = this.isFolderProject
+      ? `${folder}/${this.selectedBuild}`
+      : this.selectedBuildId;
+
+    if (!buildUrl) {
+      return;
+    }
+
+    const isPotentialBundle =
+      (this.buildDef && this.buildDef.toLowerCase().includes('bundle')) ||
+      buildUrl.toLowerCase().endsWith('bundle.json');
+
+    if (!isPotentialBundle) {
+      return;
+    }
+
+    this.bundleValidating = true;
+    const api = new RequestApi(dorcApiConfiguration);
+    api
+      .requestBundleComponentsGet({
+        projectId: this._project.ProjectId ?? 0,
+        buildDefinitionName: this.buildDef,
+        buildUrl
+      })
+      .subscribe({
+        next: (bundleComponents: string[]) => {
+          this.bundleValidating = false;
+          this.ErrorMessage = '';
+          this.pendingBundleComponents = bundleComponents ?? [];
+          if (this.pendingBundleComponents.length > 0 && this.data?.length > 0) {
+            this.applyBundleComponentSelection(this.pendingBundleComponents);
+          }
+        },
+        error: (err: any) => {
+          this.bundleValidating = false;
+          console.error(err);
+          const message =
+            err?.response?.Message ??
+            err?.response?.ExceptionMessage ??
+            (typeof err?.response === 'string'
+              ? err.response
+              : 'Failed to validate bundle.json for selected build.');
+          this.ErrorMessage = message;
+          const notification = new ErrorNotification();
+          notification.setAttribute('errorMessage', message);
+          this.shadowRoot?.appendChild(notification);
+          notification.open();
+        }
+      });
+  }
+
+  private applyBundleComponentSelection(bundleComponentNames: string[]) {
+    const targetNames = new Set(
+      bundleComponentNames.map(name => name.trim().toLowerCase())
+    );
+
+    const applySelection = (
+      nodes: TreeNode[]
+    ): { allChecked: boolean; anySelected: boolean } => {
+      let allChecked = nodes.length > 0;
+      let anySelected = false;
+
+      for (const node of nodes) {
+        const isDirectMatch = targetNames.has(node.name.trim().toLowerCase());
+        if (node.children && node.children.length > 0) {
+          const childResult = applySelection(node.children);
+          node.checked = isDirectMatch || childResult.allChecked;
+          node.indeterminate = !node.checked && childResult.anySelected;
+          node.open = childResult.anySelected || isDirectMatch;
+        } else {
+          node.checked = isDirectMatch;
+          node.indeterminate = false;
+        }
+
+        allChecked = allChecked && node.checked;
+        anySelected = anySelected || node.checked || node.indeterminate;
+      }
+
+      return { allChecked, anySelected };
+    };
+
+    const cloned = JSON.parse(JSON.stringify(this.data)) as TreeNode[];
+    applySelection(cloned);
+    this.data = cloned;
   }
 
   private openDeployDialog() {
