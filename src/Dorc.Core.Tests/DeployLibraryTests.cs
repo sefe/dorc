@@ -296,22 +296,22 @@ namespace Dorc.Core.Tests
             var project = new ProjectApiModel
             {
                 ProjectId = 10,
-                ProjectName = "SSISRunner",
-                ArtefactsUrl = "https://dev.azure.com/sefe",
-                ArtefactsSubPaths = "ETRMs",
-                ArtefactsBuildRegex = "^SsisRunner\\..*",
+                ProjectName = "SampleProject",
+                ArtefactsUrl = "https://dev.azure.com/org",
+                ArtefactsSubPaths = "MyAdoProject",
+                ArtefactsBuildRegex = "^SampleApp\\..*",
                 SourceControlType = SourceControlType.AzureDevOps
             };
-            _projectsPersistentSource!.GetProject("SSISRunner").Returns(project);
-            _environmentsPersistentSource!.GetEnvironment("SSISRunner-UT-01", Arg.Any<IPrincipal>())
-                .Returns(new EnvironmentApiModel { EnvironmentId = 20, EnvironmentName = "SSISRunner-UT-01" });
-            _environmentsPersistentSource.EnvironmentIsProd("SSISRunner-UT-01").Returns(false);
-            _environmentsPersistentSource.EnvironmentIsSecure("SSISRunner-UT-01").Returns(false);
+            _projectsPersistentSource!.GetProject("SampleProject").Returns(project);
+            _environmentsPersistentSource!.GetEnvironment("SampleApp-UT-01", Arg.Any<IPrincipal>())
+                .Returns(new EnvironmentApiModel { EnvironmentId = 20, EnvironmentName = "SampleApp-UT-01" });
+            _environmentsPersistentSource.EnvironmentIsProd("SampleApp-UT-01").Returns(false);
+            _environmentsPersistentSource.EnvironmentIsSecure("SampleApp-UT-01").Returns(false);
 
             var compDb = new ComponentApiModel
             {
                 ComponentId = 1,
-                ComponentName = "010 - SSIS Runner Database Deploy Dacpac",
+                ComponentName = "010 - Database Deploy Dacpac",
                 ScriptPath = "DeployDatabase.ps1",
                 IsEnabled = true,
                 Children = new List<ComponentApiModel>()
@@ -341,72 +341,72 @@ namespace Dorc.Core.Tests
             _buildServerClientFactory!.Create(SourceControlType.AzureDevOps).Returns(adoClient);
 
             // Bundle build validation and artifact download URL (container zip)
-            const string bundleVstfsUri = "vstfs:///Build/Build/1019619";
-            const string bundleZipUrl = "https://dev.azure.com/sefe/fab6bb12/_apis/build/builds/1019619/artifacts?artifactName=drop&$format=zip";
+            const string bundleVstfsUri = "vstfs:///Build/Build/1001";
+            const string bundleZipUrl = "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/builds/1001/artifacts?artifactName=drop&$format=zip";
 
             adoClient.ValidateBuildAsync(
                     project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
-                    "ETRMs; SSISRunner.Bundle", null, bundleVstfsUri, false)
+                    "MyAdoProject; SampleApp.Bundle", null, bundleVstfsUri, false)
                 .Returns(new BuildServerBuildInfo
                 {
-                    BuildId = 1019619,
-                    BuildNumber = "SSISRunner.Bundle_main_26.11.06.1",
+                    BuildId = 1001,
+                    BuildNumber = "SampleApp.Bundle_main_1.0.0.1",
                     BuildUri = bundleVstfsUri,
-                    DefinitionName = "SSISRunner.Bundle",
-                    ProjectName = "ETRMs"
+                    DefinitionName = "SampleApp.Bundle",
+                    ProjectName = "MyAdoProject"
                 });
 
             adoClient.GetBuildArtifactDownloadUrlAsync(
                     project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
-                    "ETRMs; SSISRunner.Bundle", bundleVstfsUri)
+                    "MyAdoProject; SampleApp.Bundle", bundleVstfsUri)
                 .Returns(bundleZipUrl);
 
-            // Real ETRMs SSISRunner.Bundle shape (lowercase "items")
+            // Bundle manifest shape (lowercase "items")
             const string bundleJson = """
                 {
                   "items": [
-                    {"Component":"010 - SSIS Runner Database Deploy Dacpac","BuildDefinition":"SsisRunner.Database","Build":"SsisRunner.Database_release.CHG0051437_26.11.06.4"},
-                    {"Component":"050 - Application Layer Web API","BuildDefinition":"SsisRunner.WebApi","Build":"SsisRunner.WebApi_release.CHG0051437_26.11.06.4"},
-                    {"Component":"060 - Blazor Web Portal","BuildDefinition":"SsisRunner.Web","Build":"SsisRunner.Web_release.CHG0051437_26.11.06.4"}
+                    {"Component":"010 - Database Deploy Dacpac","BuildDefinition":"SampleApp.Database","Build":"SampleApp.Database_release_1.0.0.4"},
+                    {"Component":"050 - Application Layer Web API","BuildDefinition":"SampleApp.WebApi","Build":"SampleApp.WebApi_release_1.0.0.4"},
+                    {"Component":"060 - Blazor Web Portal","BuildDefinition":"SampleApp.Web","Build":"SampleApp.Web_release_1.0.0.4"}
                   ]
                 }
                 """;
 
             adoClient.TryReadArtifactFileTextAsync(bundleZipUrl, "bundle.json").Returns(bundleJson);
 
-            // Component 1: SsisRunner.Database
+            // Component 1: SampleApp.Database
             adoClient.ValidateBuildAsync(
                     project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
-                    "ETRMs; SsisRunner.Database", "SsisRunner.Database_release.CHG0051437_26.11.06.4", null, false)
+                    "MyAdoProject; SampleApp.Database", "SampleApp.Database_release_1.0.0.4", null, false)
                 .Returns(new BuildServerBuildInfo
                 {
-                    BuildId = 1019475,
-                    BuildNumber = "SsisRunner.Database_release.CHG0051437_26.11.06.4",
-                    BuildUri = "vstfs:///Build/Build/1019475",
-                    DefinitionName = "SsisRunner.Database",
-                    ProjectName = "ETRMs"
+                    BuildId = 1002,
+                    BuildNumber = "SampleApp.Database_release_1.0.0.4",
+                    BuildUri = "vstfs:///Build/Build/1002",
+                    DefinitionName = "SampleApp.Database",
+                    ProjectName = "MyAdoProject"
                 });
             adoClient.GetBuildArtifactDownloadUrlAsync(
                     project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
-                    "ETRMs; SsisRunner.Database", "vstfs:///Build/Build/1019475")
-                .Returns("file://endfsdv01/endur_dev/TFS/Drops/SsisRunner.Database/SsisRunner.Database_release.CHG0051437_26.11.06.4");
+                    "MyAdoProject; SampleApp.Database", "vstfs:///Build/Build/1002")
+                .Returns("file://fileserver/Drops/SampleApp.Database/SampleApp.Database_release_1.0.0.4");
 
-            // Component 2: SsisRunner.WebApi
+            // Component 2: SampleApp.WebApi
             adoClient.ValidateBuildAsync(
                     project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
-                    "ETRMs; SsisRunner.WebApi", "SsisRunner.WebApi_release.CHG0051437_26.11.06.4", null, false)
+                    "MyAdoProject; SampleApp.WebApi", "SampleApp.WebApi_release_1.0.0.4", null, false)
                 .Returns(new BuildServerBuildInfo
                 {
-                    BuildId = 1019304,
-                    BuildNumber = "SsisRunner.WebApi_release.CHG0051437_26.11.06.4",
-                    BuildUri = "vstfs:///Build/Build/1019304",
-                    DefinitionName = "SsisRunner.WebApi",
-                    ProjectName = "ETRMs"
+                    BuildId = 1003,
+                    BuildNumber = "SampleApp.WebApi_release_1.0.0.4",
+                    BuildUri = "vstfs:///Build/Build/1003",
+                    DefinitionName = "SampleApp.WebApi",
+                    ProjectName = "MyAdoProject"
                 });
             adoClient.GetBuildArtifactDownloadUrlAsync(
                     project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
-                    "ETRMs; SsisRunner.WebApi", "vstfs:///Build/Build/1019304")
-                .Returns("file://endfsdv01/endur_dev/TFS/Drops/SsisRunner.WebApi/SsisRunner.WebApi_release.CHG0051437_26.11.06.4");
+                    "MyAdoProject; SampleApp.WebApi", "vstfs:///Build/Build/1003")
+                .Returns("file://fileserver/Drops/SampleApp.WebApi/SampleApp.WebApi_release_1.0.0.4");
 
             var submittedRequests = new List<DeploymentRequest>();
             var nextId = 900;
@@ -415,10 +415,10 @@ namespace Dorc.Core.Tests
 
             // Act: user selects only Database and WebApi from the bundle
             var firstRequestId = _deployLibrary!.SubmitRequest(
-                "SSISRunner",
-                "SSISRunner-UT-01",
+                "SampleProject",
+                "SampleApp-UT-01",
                 bundleVstfsUri,
-                "ETRMs; SSISRunner.Bundle",
+                "MyAdoProject; SampleApp.Bundle",
                 new List<string> { compDb.ComponentName, compWebApi.ComponentName },
                 new List<RequestProperty> { new() { PropertyName = "PropA", PropertyValue = "ValA", IsSensitive = true } },
                 user);
@@ -426,15 +426,15 @@ namespace Dorc.Core.Tests
             // Assert
             Assert.AreEqual(901, firstRequestId);
             Assert.AreEqual(2, submittedRequests.Count, "Bundle should expand into 2 deployment requests for the 2 selected component builds");
-            Assert.AreEqual("SsisRunner.Database_release.CHG0051437_26.11.06.4", submittedRequests[0].BuildNumber);
+            Assert.AreEqual("SampleApp.Database_release_1.0.0.4", submittedRequests[0].BuildNumber);
             Assert.AreEqual(compDb.ComponentName, submittedRequests[0].Components);
-            Assert.AreEqual("SsisRunner.WebApi_release.CHG0051437_26.11.06.4", submittedRequests[1].BuildNumber);
+            Assert.AreEqual("SampleApp.WebApi_release_1.0.0.4", submittedRequests[1].BuildNumber);
             Assert.AreEqual(compWebApi.ComponentName, submittedRequests[1].Components);
 
             var serializer = new DeploymentRequestDetailSerializer();
             var detail0 = serializer.Deserialize(submittedRequests[0].RequestDetails);
             Assert.AreEqual(
-                "file://endfsdv01/endur_dev/TFS/Drops/SsisRunner.Database/SsisRunner.Database_release.CHG0051437_26.11.06.4",
+                "file://fileserver/Drops/SampleApp.Database/SampleApp.Database_release_1.0.0.4",
                 detail0.BuildDetail.DropLocation);
             Assert.AreEqual(1, detail0.Properties.Count);
             Assert.IsTrue(detail0.Properties[0].IsSensitive);
@@ -448,20 +448,20 @@ namespace Dorc.Core.Tests
             var project = new ProjectApiModel
             {
                 ProjectId = 10,
-                ProjectName = "SSISRunner",
-                ArtefactsUrl = "https://dev.azure.com/sefe",
-                ArtefactsSubPaths = "ETRMs",
-                ArtefactsBuildRegex = "^SsisRunner\\..*",
+                ProjectName = "SampleProject",
+                ArtefactsUrl = "https://dev.azure.com/org",
+                ArtefactsSubPaths = "MyAdoProject",
+                ArtefactsBuildRegex = "^SampleApp\\..*",
                 SourceControlType = SourceControlType.AzureDevOps
             };
-            _projectsPersistentSource!.GetProject("SSISRunner").Returns(project);
-            _environmentsPersistentSource!.GetEnvironment("SSISRunner-UT-01", Arg.Any<IPrincipal>())
-                .Returns(new EnvironmentApiModel { EnvironmentId = 20, EnvironmentName = "SSISRunner-UT-01" });
+            _projectsPersistentSource!.GetProject("SampleProject").Returns(project);
+            _environmentsPersistentSource!.GetEnvironment("SampleApp-UT-01", Arg.Any<IPrincipal>())
+                .Returns(new EnvironmentApiModel { EnvironmentId = 20, EnvironmentName = "SampleApp-UT-01" });
 
             var compDb = new ComponentApiModel
             {
                 ComponentId = 1,
-                ComponentName = "010 - SSIS Runner Database Deploy Dacpac",
+                ComponentName = "010 - Database Deploy Dacpac",
                 ScriptPath = "DeployDatabase.ps1",
                 IsEnabled = true,
                 Children = new List<ComponentApiModel>()
@@ -471,42 +471,42 @@ namespace Dorc.Core.Tests
             var adoClient = Substitute.For<IBuildServerClient>();
             _buildServerClientFactory!.Create(SourceControlType.AzureDevOps).Returns(adoClient);
 
-            const string bundleVstfsUri = "vstfs:///Build/Build/1019619";
-            const string bundleZipUrl = "https://dev.azure.com/sefe/fab6bb12/_apis/build/builds/1019619/artifacts?artifactName=drop&$format=zip";
+            const string bundleVstfsUri = "vstfs:///Build/Build/1001";
+            const string bundleZipUrl = "https://dev.azure.com/org/00000000-0000-0000-0000-000000000001/_apis/build/builds/1001/artifacts?artifactName=drop&$format=zip";
 
             adoClient.ValidateBuildAsync(
                     project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
-                    "ETRMs; SSISRunner.Bundle", null, bundleVstfsUri, false)
+                    "MyAdoProject; SampleApp.Bundle", null, bundleVstfsUri, false)
                 .Returns(new BuildServerBuildInfo
                 {
-                    BuildId = 1019619,
-                    BuildNumber = "SSISRunner.Bundle_main_26.11.06.1",
+                    BuildId = 1001,
+                    BuildNumber = "SampleApp.Bundle_main_1.0.0.1",
                     BuildUri = bundleVstfsUri,
-                    DefinitionName = "SSISRunner.Bundle",
-                    ProjectName = "ETRMs"
+                    DefinitionName = "SampleApp.Bundle",
+                    ProjectName = "MyAdoProject"
                 });
 
             adoClient.GetBuildArtifactDownloadUrlAsync(
                     project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
-                    "ETRMs; SSISRunner.Bundle", bundleVstfsUri)
+                    "MyAdoProject; SampleApp.Bundle", bundleVstfsUri)
                 .Returns(bundleZipUrl);
 
             adoClient.TryReadArtifactFileTextAsync(bundleZipUrl, "bundle.json")
-                .Returns("""{"items":[{"Component":"010 - SSIS Runner Database Deploy Dacpac","BuildDefinition":"SsisRunner.Database","Build":"Purged_Build_1.0"}]}""");
+                .Returns("""{"items":[{"Component":"010 - Database Deploy Dacpac","BuildDefinition":"SampleApp.Database","Build":"Purged_Build_1.0"}]}""");
 
             // Referenced component build returns null (purged/missing)
             adoClient.ValidateBuildAsync(
                     project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
-                    "ETRMs; SsisRunner.Database", "Purged_Build_1.0", null, false)
+                    "MyAdoProject; SampleApp.Database", "Purged_Build_1.0", null, false)
                 .Returns((BuildServerBuildInfo?)null);
 
             // Act & Assert
             var ex = Assert.ThrowsExactly< System.InvalidOperationException>(() =>
                 _deployLibrary!.SubmitRequest(
-                    "SSISRunner",
-                    "SSISRunner-UT-01",
+                    "SampleProject",
+                    "SampleApp-UT-01",
                     bundleVstfsUri,
-                    "ETRMs; SSISRunner.Bundle",
+                    "MyAdoProject; SampleApp.Bundle",
                     new List<string> { compDb.ComponentName },
                     new List<RequestProperty>(),
                     user));
