@@ -319,7 +319,7 @@ namespace Dorc.Core.AzureDevOpsServer
             using var response = await httpClient.GetAsync(downloadUri, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                _log.LogWarning("Failed to download artifact from '{Url}' (HTTP {StatusCode}).", artifactDownloadUrl, (int)response.StatusCode);
+                _log.LogWarning("Failed to download Azure DevOps artifact (HTTP {StatusCode}).", (int)response.StatusCode);
                 return null;
             }
 

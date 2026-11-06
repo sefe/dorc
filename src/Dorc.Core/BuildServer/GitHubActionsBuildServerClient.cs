@@ -439,8 +439,7 @@ namespace Dorc.Core.BuildServer
             using var response = await client.GetAsync(downloadUri, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
-                _logger.LogWarning("Failed to download GitHub Actions artifact from '{Url}' (HTTP {StatusCode}).",
-                    artifactDownloadUrl, (int)response.StatusCode);
+                _logger.LogWarning("Failed to download GitHub Actions artifact (HTTP {StatusCode}).", (int)response.StatusCode);
                 return null;
             }
 
