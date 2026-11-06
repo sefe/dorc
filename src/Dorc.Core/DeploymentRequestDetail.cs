@@ -60,6 +60,7 @@
     [Serializable]
     public class BuildBundle
     {
+        [System.Text.Json.Serialization.JsonPropertyName("items")]
         public IEnumerable<BuildItem> Items { set; get; } = new List<BuildItem>();
     }
     [Serializable]

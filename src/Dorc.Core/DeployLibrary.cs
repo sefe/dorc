@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Security.Claims;
+using System.Text.Json;
 using Dorc.ApiModel;
 using Dorc.Core.AzureDevOpsServer;
 using Dorc.Core.BuildServer;
@@ -211,67 +212,41 @@ namespace Dorc.Core
             {
                 buildDetail.DropLocation = string.Empty;
             }
-            else if (project.SourceControlType == SourceControlType.GitHub &&
-                !string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http"))
+            else if (IsBuildServerProject(project) && !string.IsNullOrEmpty(project.ArtefactsSubPaths))
             {
-                // GitHub Actions: resolve artifact download URL via the GitHub API
-                var gitHubClient = _buildServerClientFactory.Create(SourceControlType.GitHub);
-                var artifactUrl = await gitHubClient.GetBuildArtifactDownloadUrlAsync(
-                    project.ArtefactsUrl, project.ArtefactsSubPaths, project.ArtefactsBuildRegex,
-                    createRequest.BuildDefinitionName, createRequest.BuildUrl).ConfigureAwait(false);
+                if (string.IsNullOrEmpty(createRequest.BuildDefinitionName))
+                    throw new ApplicationException("BuildDefinitionName is required to create a request.");
 
-                buildDetail.DropLocation = artifactUrl;
-                buildDetail.BuildNumber = createRequest.BuildUrl; // run ID
-                buildDetail.Uri = createRequest.BuildUrl;
-                buildDetail.Project = project.ProjectName;
-            }
-            else if (!string.IsNullOrEmpty(project.ArtefactsUrl) && project.ArtefactsUrl.StartsWith("http") &&
-                !string.IsNullOrEmpty(project.ArtefactsSubPaths))
-            {
-                var azureDevOpsServerWebClient = new AzureDevOpsServerWebClient(project.ArtefactsUrl, _loggerFactory.CreateLogger<AzureDevOpsServer.AzureDevOpsServerWebClient>());
+                var buildClient = _buildServerClientFactory.Create(project.SourceControlType);
 
-                var projects = project.ArtefactsSubPaths.Split(';');
+                var buildInfo = await buildClient.ValidateBuildAsync(
+                    project.ArtefactsUrl,
+                    project.ArtefactsSubPaths,
+                    project.ArtefactsBuildRegex,
+                    createRequest.BuildDefinitionName,
+                    null,
+                    createRequest.BuildUrl,
+                    false).ConfigureAwait(false);
 
-                foreach (var adoProject in projects)
+                if (buildInfo != null)
                 {
-                    if (string.IsNullOrEmpty(createRequest.BuildDefinitionName))
-                        throw new ApplicationException("BuildDefinitionName is required to create a request.");
-                    var fullBuildDefinitionName = createRequest.BuildDefinitionName.Split(';');
-                    var projectName = fullBuildDefinitionName[0].Trim();
-                    var buildDefinition = fullBuildDefinitionName[1].Trim();
-
-                    var buildDefsForProject = azureDevOpsServerWebClient.GetBuildDefinitionsForProjects(project.ArtefactsUrl,
-                        project.ArtefactsSubPaths, project.ArtefactsBuildRegex);
-
-                    var buildDefinitionReference = buildDefsForProject.First(def =>
-                        def.Name.Equals(buildDefinition) && def.Project.Name.Equals(projectName));
-
-                    var buildsFromDefinitionsAsync = await azureDevOpsServerWebClient.GetBuildsFromDefinitionsAsync(project.ArtefactsUrl,
-                        [buildDefinitionReference]).ConfigureAwait(false);
-
-                    var buildValue = buildsFromDefinitionsAsync.FirstOrDefault(build =>
-                        build.Uri.ToString().Equals(createRequest.BuildUrl));
-                    if (buildValue == null)
-                        continue;
-
-                    var artifacts =
-                        azureDevOpsServerWebClient.GetBuildArtifacts(project.ArtefactsUrl, adoProject, createRequest.BuildUrl);
-                    if (artifacts.Count > 1)
-                    {
-                        var drop = artifacts.FirstOrDefault(v => v.Name.ToLower().Equals("drop"));
-                        buildDetail.DropLocation = drop?.Resource.DownloadUrl;
-                    }
-                    else
-                    {
-                        buildDetail.DropLocation = artifacts.Count == 1
-                            ? artifacts[0].Resource.DownloadUrl
-                            : string.Empty;
-                    }
-
-                    buildDetail.BuildNumber = buildValue.BuildNumber;
-                    buildDetail.Uri = buildValue.Uri;
-                    buildDetail.Project = project.ProjectName;
+                    buildDetail.BuildNumber = buildInfo.BuildNumber;
+                    buildDetail.Uri = buildInfo.BuildUri;
+                    buildDetail.BuildId = buildInfo.BuildId;
                 }
+                else
+                {
+                    buildDetail.BuildNumber = createRequest.BuildUrl;
+                    buildDetail.Uri = createRequest.BuildUrl;
+                }
+
+                buildDetail.DropLocation = await buildClient.GetBuildArtifactDownloadUrlAsync(
+                    project.ArtefactsUrl,
+                    project.ArtefactsSubPaths,
+                    project.ArtefactsBuildRegex,
+                    createRequest.BuildDefinitionName,
+                    buildInfo?.BuildUri ?? createRequest.BuildUrl).ConfigureAwait(false);
+                buildDetail.Project = project.ProjectName;
             }
             else if (!string.IsNullOrEmpty(project.ArtefactsUrl) &&
                      (project.ArtefactsUrl.StartsWith("file") || project.ArtefactsUrl.StartsWith(@"\\")))
@@ -292,6 +267,21 @@ namespace Dorc.Core
                 if (component == null) continue;
 
                 AddComponent(componentNames, component);
+            }
+
+            if (!createRequest.IsCatalog && IsPotentialBundle(createRequest, buildDetail))
+            {
+                var bundleRequestIds = await TryExpandAndSubmitBundleRequestsAsync(
+                    project, createRequest, buildDetail, componentNames, user).ConfigureAwait(false);
+
+                if (bundleRequestIds != null && bundleRequestIds.Count > 0)
+                {
+                    return new CreateResponse
+                    {
+                        Message = "Done",
+                        RequestId = bundleRequestIds.First()
+                    };
+                }
             }
 
             var requestDetail =
@@ -316,6 +306,231 @@ namespace Dorc.Core
                 RequestId = requestId
             };
         }
+
+        private static readonly JsonSerializerOptions BundleJsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true
+        };
+
+        private static bool IsPotentialBundle(CreateRequest createRequest, BuildDetail buildDetail)
+        {
+            if (!string.IsNullOrEmpty(createRequest.BuildDefinitionName) &&
+                createRequest.BuildDefinitionName.Contains("bundle", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrEmpty(createRequest.BuildUrl) &&
+                createRequest.BuildUrl.EndsWith("bundle.json", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrEmpty(buildDetail.DropLocation) &&
+                buildDetail.DropLocation.EndsWith("bundle.json", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private async Task<List<int>?> TryExpandAndSubmitBundleRequestsAsync(
+            ProjectApiModel project,
+            CreateRequest createRequest,
+            BuildDetail bundleBuildDetail,
+            List<string> expandedComponentNames,
+            ClaimsPrincipal user)
+        {
+            if (string.IsNullOrWhiteSpace(bundleBuildDetail.DropLocation))
+                return null;
+
+            var isBuildServer = IsBuildServerProject(project);
+            var isFileShare = IsFileShareProject(project);
+
+            string? bundleJson = null;
+            IBuildServerClient? buildClient = null;
+
+            if (isBuildServer)
+            {
+                buildClient = _buildServerClientFactory.Create(project.SourceControlType);
+                bundleJson = await buildClient.TryReadArtifactFileTextAsync(bundleBuildDetail.DropLocation, "bundle.json")
+                    .ConfigureAwait(false);
+            }
+            else if (isFileShare)
+            {
+                var permittedRoots = Security.PathConfinement.SplitRoots(project.ArtefactsUrl).ToList();
+                if (permittedRoots.Count == 0 ||
+                    !Security.PathConfinement.IsWithinAny(bundleBuildDetail.DropLocation, permittedRoots))
+                {
+                    return null;
+                }
+
+                var canonicalDrop = Security.PathConfinement.Canonicalise(bundleBuildDetail.DropLocation);
+                if (string.IsNullOrWhiteSpace(canonicalDrop) || canonicalDrop.Contains("..", StringComparison.Ordinal))
+                {
+                    return null;
+                }
+
+                var dirPath = canonicalDrop.EndsWith(@"\bundle.json", StringComparison.OrdinalIgnoreCase)
+                    ? Path.GetDirectoryName(canonicalDrop)
+                    : canonicalDrop;
+
+                if (!string.IsNullOrWhiteSpace(dirPath))
+                {
+                    var dirInfo = new DirectoryInfo(dirPath);
+                    if (dirInfo.Exists)
+                    {
+                        var bundleFile = dirInfo.EnumerateFiles("bundle.json", SearchOption.TopDirectoryOnly).FirstOrDefault();
+                        if (bundleFile != null)
+                        {
+                            using var reader = bundleFile.OpenText();
+                            bundleJson = await reader.ReadToEndAsync().ConfigureAwait(false);
+                        }
+                    }
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(bundleJson))
+                return null;
+
+            var bundle = JsonSerializer.Deserialize<BuildBundle>(bundleJson, BundleJsonOptions);
+            if (bundle?.Items == null || !bundle.Items.Any())
+                return null;
+
+            // Preserve the component ordering from expandedComponentNames while filtering to components
+            // requested by the user that exist in bundle.json.
+            var componentOrder = expandedComponentNames
+                .Select((name, index) => (name, index))
+                .ToDictionary(x => x.name, x => x.index, StringComparer.OrdinalIgnoreCase);
+
+            var matchedItems = bundle.Items
+                .Where(item => !string.IsNullOrWhiteSpace(item.Component) &&
+                               componentOrder.ContainsKey(item.Component))
+                .OrderBy(item => componentOrder[item.Component])
+                .ToList();
+
+            if (matchedItems.Count == 0)
+            {
+                throw new InvalidOperationException(
+                    $"None of the selected components ({string.Join(", ", expandedComponentNames)}) " +
+                    $"were found in bundle.json for build '{bundleBuildDetail.BuildNumber}'.");
+            }
+
+            var properties = createRequest.Properties?
+                .Select(p => new PropertyPair(p.PropertyName, p.PropertyValue) { IsSensitive = p.IsSensitive })
+                .ToList() ?? new List<PropertyPair>();
+
+            var requestIds = new List<int>();
+
+            if (isBuildServer && buildClient != null)
+            {
+                var isPinnedRequired = _environmentsPersistentSource.EnvironmentIsProd(createRequest.Environment) ||
+                                       _environmentsPersistentSource.EnvironmentIsSecure(createRequest.Environment);
+
+                var adoProjectPrefix = !string.IsNullOrEmpty(createRequest.BuildDefinitionName) &&
+                                       createRequest.BuildDefinitionName.Contains(';')
+                    ? createRequest.BuildDefinitionName.Split(';')[0].Trim()
+                    : project.ArtefactsSubPaths?.Split(';', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault()?.Trim() ?? string.Empty;
+
+                foreach (var buildGroup in matchedItems.GroupBy(i => (BuildDefinition: i.BuildDefinition?.Trim() ?? string.Empty, Build: i.Build?.Trim() ?? string.Empty)))
+                {
+                    var itemDefinition = buildGroup.Key.BuildDefinition;
+                    var itemBuildNumber = buildGroup.Key.Build;
+
+                    var fullDefinitionName = project.SourceControlType == SourceControlType.GitHub || itemDefinition.Contains(';')
+                        ? itemDefinition
+                        : $"{adoProjectPrefix}; {itemDefinition}";
+
+                    var buildInfo = await buildClient.ValidateBuildAsync(
+                        project.ArtefactsUrl ?? string.Empty,
+                        project.ArtefactsSubPaths ?? string.Empty,
+                        project.ArtefactsBuildRegex ?? string.Empty,
+                        fullDefinitionName,
+                        itemBuildNumber,
+                        null,
+                        isPinnedRequired).ConfigureAwait(false);
+
+                    if (buildInfo == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"Build '{itemBuildNumber}' (definition '{fullDefinitionName}') referenced in bundle.json was not " +
+                            $"found{(isPinnedRequired ? " (or is not pinned)" : string.Empty)} in {project.SourceControlType} " +
+                            $"for project '{createRequest.Project}'.");
+                    }
+
+                    var dropLocation = await buildClient.GetBuildArtifactDownloadUrlAsync(
+                        project.ArtefactsUrl,
+                        project.ArtefactsSubPaths,
+                        project.ArtefactsBuildRegex,
+                        fullDefinitionName,
+                        buildInfo.BuildUri).ConfigureAwait(false);
+
+                    var componentBuildDetail = new BuildDetail
+                    {
+                        Project = project.ProjectName,
+                        BuildNumber = buildInfo.BuildNumber,
+                        Uri = buildInfo.BuildUri,
+                        BuildId = buildInfo.BuildId,
+                        DropLocation = dropLocation
+                    };
+
+                    var detail = new DeploymentRequestDetail
+                    {
+                        EnvironmentName = createRequest.Environment,
+                        Components = buildGroup.Select(i => i.Component).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                        BuildDetail = componentBuildDetail,
+                        Properties = properties.Select(p => new PropertyPair(p.Name, p.Value) { IsSensitive = p.IsSensitive }).ToList()
+                    };
+
+                    requestIds.Add(CreateRequest(detail, user, createRequest.CatalogSubmission));
+                }
+            }
+            else if (isFileShare)
+            {
+                var baseDropDirectory = File.Exists(bundleBuildDetail.DropLocation)
+                    ? Path.GetDirectoryName(bundleBuildDetail.DropLocation) ?? bundleBuildDetail.DropLocation
+                    : bundleBuildDetail.DropLocation;
+
+                foreach (var buildGroup in matchedItems.GroupBy(i => i.Build?.Trim() ?? string.Empty))
+                {
+                    var componentBuildDetail = new BuildDetail
+                    {
+                        Project = project.ProjectName,
+                        DropLocation = baseDropDirectory,
+                        BuildNumber = !string.IsNullOrWhiteSpace(buildGroup.Key)
+                            ? buildGroup.Key
+                            : Path.GetFileName(baseDropDirectory.TrimEnd('\\', '/'))
+                    };
+
+                    var detail = new DeploymentRequestDetail
+                    {
+                        EnvironmentName = createRequest.Environment,
+                        Components = buildGroup.Select(i => i.Component).Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
+                        BuildDetail = componentBuildDetail,
+                        Properties = properties.Select(p => new PropertyPair(p.Name, p.Value) { IsSensitive = p.IsSensitive }).ToList()
+                    };
+
+                    requestIds.Add(CreateRequest(detail, user, createRequest.CatalogSubmission));
+                }
+            }
+
+            return requestIds;
+        }
+
+        private static bool IsFileBasedUrl(string? url)
+            => !string.IsNullOrEmpty(url) && (url.StartsWith("file", StringComparison.OrdinalIgnoreCase) || url.StartsWith(@"\\", StringComparison.Ordinal));
+
+        private static bool IsBuildServerProject(ProjectApiModel project)
+            => project.SourceControlType == SourceControlType.GitHub ||
+               (project.SourceControlType == SourceControlType.AzureDevOps &&
+                !string.IsNullOrEmpty(project.ArtefactsUrl) &&
+                project.ArtefactsUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase));
+
+        private static bool IsFileShareProject(ProjectApiModel project)
+            => project.SourceControlType == SourceControlType.FileShare ||
+               (project.SourceControlType == SourceControlType.AzureDevOps &&
+                IsFileBasedUrl(project.ArtefactsUrl));
 
         private void AddComponent(ICollection<string> componentNames, ComponentApiModel component)
         {

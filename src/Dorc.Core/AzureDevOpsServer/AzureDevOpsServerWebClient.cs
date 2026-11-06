@@ -1,4 +1,7 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.IO.Compression;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.RegularExpressions;
 using Dorc.Core.Models;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
@@ -248,6 +251,108 @@ namespace Dorc.Core.AzureDevOpsServer
         {
             var uri = new Uri(buildUri);
             return Convert.ToInt32(uri.LocalPath.Split('/').Last());
+        }
+
+        public async Task<string?> TryReadArtifactFileTextAsync(string artifactDownloadUrl, string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(artifactDownloadUrl) || string.IsNullOrWhiteSpace(fileName))
+                return null;
+
+            var sanitizedFileName = Path.GetFileName(fileName);
+            if (string.IsNullOrWhiteSpace(sanitizedFileName))
+                return null;
+
+            if (artifactDownloadUrl.StartsWith("file", StringComparison.OrdinalIgnoreCase) ||
+                artifactDownloadUrl.StartsWith(@"\\", StringComparison.Ordinal))
+            {
+                if (artifactDownloadUrl.Contains("..", StringComparison.Ordinal) ||
+                    fileName.Contains("..", StringComparison.Ordinal) ||
+                    fileName.Contains('/', StringComparison.Ordinal) ||
+                    fileName.Contains('\\', StringComparison.Ordinal))
+                {
+                    return null;
+                }
+
+                var localPath = Security.PathConfinement.Canonicalise(artifactDownloadUrl);
+                if (string.IsNullOrWhiteSpace(localPath) || localPath.Contains("..", StringComparison.Ordinal))
+                    return null;
+
+                var targetPath = localPath.EndsWith($"\\{sanitizedFileName}", StringComparison.OrdinalIgnoreCase)
+                    ? localPath
+                    : Path.Combine(localPath, sanitizedFileName);
+
+                var dirInfo = new DirectoryInfo(Path.GetDirectoryName(targetPath) ?? string.Empty);
+                if (!dirInfo.Exists)
+                    return null;
+
+                var matchingFile = dirInfo.EnumerateFiles(sanitizedFileName, SearchOption.TopDirectoryOnly).FirstOrDefault();
+                if (matchingFile == null)
+                    return null;
+
+                using var reader = matchingFile.OpenText();
+                return await reader.ReadToEndAsync().ConfigureAwait(false);
+            }
+
+            if (!Uri.TryCreate(artifactDownloadUrl, UriKind.Absolute, out var downloadUri) ||
+                (downloadUri.Scheme != Uri.UriSchemeHttp && downloadUri.Scheme != Uri.UriSchemeHttps))
+            {
+                return null;
+            }
+
+            using var handler = new HttpClientHandler();
+            var isCloudAdo = downloadUri.Host.Contains(azureEndpointUrl, StringComparison.OrdinalIgnoreCase);
+            if (!isCloudAdo)
+            {
+                handler.UseDefaultCredentials = true;
+            }
+
+            using var httpClient = new HttpClient(handler);
+            if (isCloudAdo)
+            {
+                var token = _authTokenGenerator.GetToken();
+                if (!string.IsNullOrEmpty(token))
+                {
+                    httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                }
+            }
+
+            using var response = await httpClient.GetAsync(downloadUri, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _log.LogWarning("Failed to download artifact from '{Url}' (HTTP {StatusCode}).", artifactDownloadUrl, (int)response.StatusCode);
+                return null;
+            }
+
+            await using var responseStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+            using var memoryStream = new MemoryStream();
+            await responseStream.CopyToAsync(memoryStream).ConfigureAwait(false);
+            memoryStream.Position = 0;
+
+            return TryExtractTextFromZipOrRawStream(memoryStream, sanitizedFileName);
+        }
+
+        internal static string? TryExtractTextFromZipOrRawStream(Stream stream, string targetFileName)
+        {
+            const long maxEntryBytes = 1024 * 1024; // 1 MB guard for bundle metadata files
+
+            try
+            {
+                using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);
+                var entry = archive.Entries.FirstOrDefault(e =>
+                    string.Equals(e.Name, targetFileName, StringComparison.OrdinalIgnoreCase));
+
+                if (entry == null || entry.Length > maxEntryBytes)
+                    return null;
+
+                using var entryStream = entry.Open();
+                using var reader = new StreamReader(entryStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+                return reader.ReadToEnd();
+            }
+            catch (InvalidDataException)
+            {
+                // Not a zip archive — ignore unless caller explicitly pointed at a raw file URL.
+                return null;
+            }
         }
     }
 }
