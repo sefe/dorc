@@ -401,7 +401,7 @@ namespace Dorc.Core
             // Preserve the component ordering from expandedComponentNames while filtering to components
             // requested by the user that exist in bundle.json. If no components were explicitly selected,
             // default to all components listed in bundle.json.
-            List<BundleItem> matchedItems;
+            List<BuildItem> matchedItems;
             if (expandedComponentNames.Count == 0)
             {
                 matchedItems = bundle.Items
