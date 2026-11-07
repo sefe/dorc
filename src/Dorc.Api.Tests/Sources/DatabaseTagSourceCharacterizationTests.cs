@@ -52,6 +52,74 @@ namespace Dorc.Api.Tests.Sources
         }
 
         [TestMethod]
+        public void UpdateDatabase_OmittedOrNullType_PreservesStoredEngine()
+        {
+            foreach (var payload in new[]
+            {
+                """{"Id":1,"Name":"analytics","ServerName":"project/service"}""",
+                """{"Id":1,"Name":"analytics","ServerName":"project/service","DatabaseType":null}"""
+            })
+            {
+                var existing = new Database
+                {
+                    Id = 1, Name = "analytics", ServerName = "project/service",
+                    DatabaseType = DatabaseType.ClickHouse
+                };
+                var context = ContextWithEnvironmentDatabases(existing);
+                var groups = DbContextMock.GetQueryableMockDbSet(new List<AdGroup>());
+                context.AdGroups.Returns(groups);
+                var input = System.Text.Json.JsonSerializer.Deserialize<DatabaseApiModel>(payload)!;
+
+                var result = DatabasesSource(context).UpdateDatabase(1, input, new System.Security.Claims.ClaimsPrincipal());
+
+                Assert.AreEqual(DatabaseType.ClickHouse, existing.DatabaseType);
+                Assert.AreEqual(DatabaseType.ClickHouse, result!.DatabaseType);
+                context.Received(1).SaveChanges();
+            }
+        }
+
+        [TestMethod]
+        public void UpdateDatabase_ExplicitSqlServer_ReplacesStoredEngine()
+        {
+            var existing = new Database
+            {
+                Id = 1, Name = "analytics", ServerName = "project/service",
+                DatabaseType = DatabaseType.ClickHouse
+            };
+            var context = ContextWithEnvironmentDatabases(existing);
+            var groups = DbContextMock.GetQueryableMockDbSet(new List<AdGroup>());
+            context.AdGroups.Returns(groups);
+
+            DatabasesSource(context).UpdateDatabase(1, new DatabaseApiModel
+            {
+                Id = 1, Name = existing.Name, ServerName = existing.ServerName,
+                DatabaseType = DatabaseType.SqlServer
+            }, new System.Security.Claims.ClaimsPrincipal());
+
+            Assert.AreEqual(DatabaseType.SqlServer, existing.DatabaseType);
+        }
+
+        [TestMethod]
+        public void AddDatabase_DefaultsToSqlServer_AndPersistsExplicitEngine()
+        {
+            foreach (var engine in new DatabaseType?[] { null, DatabaseType.CosmosDb })
+            {
+                var context = ContextWithEnvironmentDatabases();
+                var added = new List<Database>();
+                context.Databases.When(d => d.Add(Arg.Any<Database>())).Do(ci => added.Add(ci.Arg<Database>()));
+                var groups = DbContextMock.GetQueryableMockDbSet(new List<AdGroup>());
+                context.AdGroups.Returns(groups);
+
+                DatabasesSource(context).AddDatabase(new DatabaseApiModel
+                {
+                    Name = "db", ServerName = "server", DatabaseType = engine
+                });
+
+                Assert.AreEqual(engine ?? DatabaseType.SqlServer, added.Single().DatabaseType);
+            }
+        }
+
+        [TestMethod]
         public void GetDatabaseByTag_EnvironmentOverload_UsesTagMembership()
         {
             var context = ContextWithEnvironmentDatabases(

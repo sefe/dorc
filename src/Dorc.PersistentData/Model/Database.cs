@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using Dorc.ApiModel;
 
 namespace Dorc.PersistentData.Model
 {
@@ -18,6 +19,8 @@ namespace Dorc.PersistentData.Model
         public ICollection<DatabaseTag> TagLinks { get; set; } = new List<DatabaseTag>();
 
         public string? ServerName { get; set; }
+
+        public DatabaseType DatabaseType { get; set; } = DatabaseType.SqlServer;
 
         public string? ArrayName { get; set; }
         public int? GroupId { get; set; }

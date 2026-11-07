@@ -73,14 +73,15 @@ namespace Dorc.Core.BuildServer
             var buildsFromDefinitionsAsync = await client.GetBuildsFromDefinitionsAsync(serverUrl,
                 new List<BuildDefinitionReference> { buildDefinitionReference }).ConfigureAwait(false);
 
-            var buildValue = buildsFromDefinitionsAsync.FirstOrDefault(build => build.Url.Equals(buildUrl));
+            var buildValue = buildsFromDefinitionsAsync.FirstOrDefault(build =>
+                build.Url.Equals(buildUrl) || build.Uri.ToString().Equals(buildUrl));
             if (buildValue == null)
                 throw new ApplicationException("Failed to locate the Build requested in Azure DevOps Server!");
 
             var tfsProjects = projectPaths.Split(';');
             foreach (var tfsProject in tfsProjects)
             {
-                var artifacts = client.GetBuildArtifacts(serverUrl, tfsProject, buildUrl);
+                var artifacts = client.GetBuildArtifacts(serverUrl, tfsProject, (int)buildValue.Id);
                 if (artifacts.Count > 1)
                 {
                     var drop = artifacts.FirstOrDefault(v => v.Name.Equals("drop"));
@@ -173,6 +174,12 @@ namespace Dorc.Core.BuildServer
             }
 
             return null;
+        }
+
+        public Task<string?> TryReadArtifactFileTextAsync(string artifactDownloadUrl, string fileName)
+        {
+            var client = CreateClient(artifactDownloadUrl);
+            return client.TryReadArtifactFileTextAsync(artifactDownloadUrl, fileName);
         }
 
         private static (string projectName, string buildDefName) ParseDefinitionName(string definitionName)

@@ -4,16 +4,21 @@ using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
 using System.Management.Automation.Runspaces;
 using System.Management.Automation;
+using Dorc.ApiModel;
 
 namespace Dorc.PowerShell
 {
     public class PowerShellScriptRunner : IPowerShellScriptRunner
     {
         private readonly IRunnerLogger logger;
+        private readonly ScriptGroup evidenceContract;
+        private int ordinal;
 
-        public PowerShellScriptRunner(IRunnerLogger logger)
+        public PowerShellScriptRunner(IRunnerLogger logger, ScriptGroup evidenceContract = null)
         {
             this.logger = logger;
+            this.evidenceContract = evidenceContract;
+            ordinal = evidenceContract?.EvidenceOrdinalOffset ?? 0;
         }
 
         public int Run(string scriptsLocation,
@@ -43,7 +48,15 @@ namespace Dorc.PowerShell
                             powerShell.AddCommand("Set-Location").AddParameter("Path", scriptsLocation);
                         }
 
-                        powerShell.AddScript(File.ReadAllText(scriptName));
+                        var input = new PowerShellInput(scriptName, evidenceContract?.PowerShellEvidenceDirectory,
+                            evidenceContract?.DefinitionRequestId ?? 0, evidenceContract?.DeployResultId ?? 0,
+                            evidenceContract?.DefinitionRevision, ordinal++, evidenceContract?.PowerShellVersionNumber,
+                            runspace.Version.ToString());
+                        powerShell.AddScript(input.Text);
+                        powerShell.InvocationStateChanged += (_, state) =>
+                        {
+                            if (state.InvocationStateInfo.State == PSInvocationState.Running) input.InvocationObserved();
+                        };
 
                         var outputCollection = new PSDataCollection<string>();
                         outputCollection.DataAdded += (sender, e) =>
@@ -64,6 +77,7 @@ namespace Dorc.PowerShell
                         {
                             logger.FileLogger.LogInformation("Execution of the powershell Script {0} is beginning", scriptName);
                             powerShell.Invoke(null, outputCollection);
+                            input.Completed();
                             logger.FileLogger.LogInformation("Execution of the powershell Script {0} has completed", scriptName);
                         }
                         catch (Exception exception)

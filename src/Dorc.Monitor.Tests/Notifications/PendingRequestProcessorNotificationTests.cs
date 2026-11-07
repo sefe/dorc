@@ -31,6 +31,9 @@ namespace Dorc.Monitor.Tests.Notifications
 
             mockComponentProcessor = Substitute.For<IComponentProcessor>();
             mockRequestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
+            mockRequestsPersistentSource.SetRequestStartStatus(
+                Arg.Any<DeploymentRequestApiModel>(), Arg.Any<DeploymentRequestStatus>(), Arg.Any<DateTimeOffset>())
+                .Returns(true);
             mockManageProjectsPersistentSource = Substitute.For<IManageProjectsPersistentSource>();
             mockNotificationSink = Substitute.For<IDeploymentNotificationSink>();
 
@@ -102,8 +105,8 @@ namespace Dorc.Monitor.Tests.Notifications
 
         private void SetupOrderedComponents(List<ComponentApiModel> components)
         {
-            mockManageProjectsPersistentSource
-                .GetOrderedComponents(Arg.Any<IEnumerable<string>>())
+            mockRequestsPersistentSource
+                .GetSubmittedComponents(100)
                 .Returns(components);
 
             var results = components.Select(c => new DeploymentResultApiModel

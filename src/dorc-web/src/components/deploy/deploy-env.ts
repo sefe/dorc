@@ -66,6 +66,7 @@ export class DeployEnv extends LitElement {
   @property({ type: Array }) builds: DeployArtefactDto[] = [];
 
   @property({ type: String }) envName = '';
+  @property({ type: Number }) preselectedComponentId = 0;
 
   @property({ type: Array }) data: TreeNode[];
 
@@ -76,6 +77,8 @@ export class DeployEnv extends LitElement {
   @property({ type: Boolean }) buildDefsLoading = false;
 
   @property({ type: Boolean }) buildsLoading = false;
+
+  @property({ type: Boolean }) bundleValidating = false;
 
   @property({ type: Boolean }) isFolderProject = false;
 
@@ -96,6 +99,44 @@ export class DeployEnv extends LitElement {
 
   static get styles() {
     return css`
+      .catalog-callout {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-s);
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 600px;
+        margin: var(--lumo-space-s) 0 var(--lumo-space-s) 10px;
+        padding: var(--lumo-space-s) var(--lumo-space-m);
+        border: 1px solid var(--dorc-border-color);
+        border-left: 4px solid var(--dorc-icon-interactive);
+        border-radius: var(--lumo-border-radius-m);
+        background: var(--dorc-bg-secondary);
+        flex-wrap: wrap;
+      }
+      .catalog-callout vaadin-icon {
+        color: var(--dorc-icon-interactive);
+        flex-shrink: 0;
+      }
+      .catalog-callout__text {
+        flex: 1 1 240px;
+        min-width: 0;
+        font-size: var(--lumo-font-size-s);
+        color: var(--dorc-text-secondary-strong);
+      }
+      .catalog-callout__text strong {
+        color: var(--dorc-text-primary);
+        margin-right: 4px;
+      }
+      .catalog-callout__link {
+        font-weight: 600;
+        color: var(--dorc-link-color);
+        text-decoration: none;
+        white-space: nowrap;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+      }
         :host{
             overflow-y: scroll;
         }
@@ -185,6 +226,8 @@ export class DeployEnv extends LitElement {
 
   private selectedBuild = '';
 
+  private pendingBundleComponents: string[] = [];
+
   constructor() {
     super();
     this.data = [];
@@ -244,6 +287,19 @@ export class DeployEnv extends LitElement {
         </div>
         <hegs-json-viewer id="jsonviewer">{}</hegs-json-viewer>
       </vaadin-confirm-dialog>
+      <div class="catalog-callout">
+        <vaadin-icon icon="vaadin:puzzle-piece"></vaadin-icon>
+        <div class="catalog-callout__text">
+          <strong>Deploying infrastructure?</strong>
+          Plan a stock Terraform module into ${this.envName} without a build
+          artifact.
+        </div>
+        <a
+          class="catalog-callout__link"
+          href=${`/module-catalog?project=${encodeURIComponent(this.project?.ProjectName ?? '')}&environment=${encodeURIComponent(this.envName)}`}
+          >Open module catalog</a
+        >
+      </div>
       <div class="build-defs-section" ?hidden="${this.isFolderProject}">
         <div class="combo-row">
           <vaadin-combo-box
@@ -365,9 +421,10 @@ export class DeployEnv extends LitElement {
       </vaadin-details>
       <vaadin-button
         style="width: 100%; max-width: 600px; margin-left: var(--lumo-space-s); margin-bottom: var(--lumo-space-xl)"
+        ?disabled="${this.bundleValidating || this.buildsLoading}"
         @click="${this.openDeployDialog}"
         theme="primary"
-        >Deploy
+        >${this.bundleValidating ? 'Validating Bundle...' : 'Deploy'}
       </vaadin-button>
       ${this.deploymentStarting ? html` <div class="loader"></div> ` : html``}
       <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
@@ -441,8 +498,8 @@ export class DeployEnv extends LitElement {
       if (itemComboBox) {
         itemComboBox.selectedItem = this.builds[0].Name ?? '';
       }
-      this.buildsLoading = false;
     }
+    this.buildsLoading = false;
   }
 
   public EnvironmentChange(env: string) {
@@ -502,6 +559,26 @@ export class DeployEnv extends LitElement {
             data.map(node => this.convertDeployCompToTree(node)),
             undefined
           );
+          if (this.preselectedComponentId) {
+            const select = (nodes: TreeNode[], inherited = false): boolean => {
+              let anySelected = false;
+              for (const node of nodes) {
+                node.checked =
+                  inherited || node.id === this.preselectedComponentId;
+                const descendantSelected = select(node.children, node.checked);
+                node.indeterminate = !node.checked && descendantSelected;
+                node.open = descendantSelected;
+                anySelected ||= node.checked || descendantSelected;
+              }
+              return anySelected;
+            };
+            if (!select(this.data)) {
+              this.ErrorMessage =
+                'The linked component is not available in this project. Reload its current definition before deploying.';
+            }
+          } else if (this.pendingBundleComponents.length > 0) {
+            this.applyBundleComponentSelection(this.pendingBundleComponents);
+          }
           const hegsTree = this.shadowRoot?.getElementById(
             'hegs-tree'
           ) as HegsTree;
@@ -618,7 +695,105 @@ export class DeployEnv extends LitElement {
       )?.Id;
 
       this.selectedBuildId = found !== null ? found : undefined;
+      this.validateAndSelectBundleComponents();
     }
+  }
+
+  private validateAndSelectBundleComponents() {
+    this.pendingBundleComponents = [];
+    if (!this._project || !this.selectedBuild) {
+      return;
+    }
+
+    let folder = this._project.ArtefactsUrl ?? '';
+    if (folder.endsWith('/')) {
+      folder = folder.substring(0, folder.length - 1);
+    }
+
+    const buildUrl = this.isFolderProject
+      ? `${folder}/${this.selectedBuild}`
+      : this.selectedBuildId;
+
+    if (!buildUrl) {
+      return;
+    }
+
+    const isPotentialBundle =
+      (this.buildDef && this.buildDef.toLowerCase().includes('bundle')) ||
+      buildUrl.toLowerCase().endsWith('bundle.json');
+
+    if (!isPotentialBundle) {
+      return;
+    }
+
+    this.bundleValidating = true;
+    const api = new RequestApi(dorcApiConfiguration);
+    api
+      .requestBundleComponentsGet({
+        projectId: this._project.ProjectId ?? 0,
+        buildDefinitionName: this.buildDef,
+        buildUrl
+      })
+      .subscribe({
+        next: (bundleComponents: string[]) => {
+          this.bundleValidating = false;
+          this.ErrorMessage = '';
+          this.pendingBundleComponents = bundleComponents ?? [];
+          if (this.pendingBundleComponents.length > 0 && this.data?.length > 0) {
+            this.applyBundleComponentSelection(this.pendingBundleComponents);
+          }
+        },
+        error: (err: any) => {
+          this.bundleValidating = false;
+          console.error(err);
+          const message =
+            err?.response?.Message ??
+            err?.response?.ExceptionMessage ??
+            (typeof err?.response === 'string'
+              ? err.response
+              : 'Failed to validate bundle.json for selected build.');
+          this.ErrorMessage = message;
+          const notification = new ErrorNotification();
+          notification.setAttribute('errorMessage', message);
+          this.shadowRoot?.appendChild(notification);
+          notification.open();
+        }
+      });
+  }
+
+  private applyBundleComponentSelection(bundleComponentNames: string[]) {
+    const targetNames = new Set(
+      bundleComponentNames.map(name => name.trim().toLowerCase())
+    );
+
+    const applySelection = (
+      nodes: TreeNode[]
+    ): { allChecked: boolean; anySelected: boolean } => {
+      let allChecked = nodes.length > 0;
+      let anySelected = false;
+
+      for (const node of nodes) {
+        const isDirectMatch = targetNames.has(node.name.trim().toLowerCase());
+        if (node.children && node.children.length > 0) {
+          const childResult = applySelection(node.children);
+          node.checked = isDirectMatch || childResult.allChecked;
+          node.indeterminate = !node.checked && childResult.anySelected;
+          node.open = childResult.anySelected || isDirectMatch;
+        } else {
+          node.checked = isDirectMatch;
+          node.indeterminate = false;
+        }
+
+        allChecked = allChecked && node.checked;
+        anySelected = anySelected || node.checked || node.indeterminate;
+      }
+
+      return { allChecked, anySelected };
+    };
+
+    const cloned = JSON.parse(JSON.stringify(this.data)) as TreeNode[];
+    applySelection(cloned);
+    this.data = cloned;
   }
 
   private openDeployDialog() {
@@ -642,6 +817,15 @@ export class DeployEnv extends LitElement {
 
     const checkedElems = hegsTree.getCheckedComponents();
     const components = checkedElems.map(e => e.data.name);
+
+    // (v1 partial): the deploy-page's source-type awareness requires
+    // DeployComponentDto + TreeNode to carry TerraformSourceType, which
+    // isn't in v1. Catalog-only deployments via the deploy page therefore
+    // still require the user to supply a (dummy) build artifact today; the
+    // artifact is unused for Catalog components at runtime because the
+    // runner's CatalogReferenceCodeSourceProvider resolves source from the
+    // manifest. Wizard remains the canonical entry point for
+    // first-time catalog deployments. v2 will extend the DTO + TreeNode.
 
     this.req = { requestDto: {} };
     this.req = {

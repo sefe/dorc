@@ -20,6 +20,26 @@ export interface DeploymentResultAttemptApiModel {
      * @type {number}
      * @memberof DeploymentResultAttemptApiModel
      */
+    ProjectId?: number | null;
+    /**
+     * @type {boolean}
+     * @memberof DeploymentResultAttemptApiModel
+     */
+    IsTerraform?: boolean | null;
+    /**
+     * @type {string}
+     * @memberof DeploymentResultAttemptApiModel
+     */
+    DefinitionRevision?: string | null;
+    /**
+     * @type {string}
+     * @memberof DeploymentResultAttemptApiModel
+     */
+    SourceRevisionLabel?: string | null;
+    /**
+     * @type {number}
+     * @memberof DeploymentResultAttemptApiModel
+     */
     Id?: number;
     /**
      * @type {number}
@@ -61,4 +81,9 @@ export interface DeploymentResultAttemptApiModel {
      * @memberof DeploymentResultAttemptApiModel
      */
     Log?: string | null;
+    /**
+     * @type {boolean}
+     * @memberof DeploymentResultAttemptApiModel
+     */
+    HasTerraformPlan?: boolean;
 }

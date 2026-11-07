@@ -19,18 +19,21 @@ namespace Dorc.Api.Controllers
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IDeploymentDefinitions _definitions;
 
         public RefDataController(
             IManageProjectsPersistentSource manageProjectsPersistentSource,
             IProjectsPersistentSource projectsPersistentSource,
             ISecurityPrivilegesChecker securityPrivilegesChecker,
-            IClaimsPrincipalReader claimsPrincipalReader
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IDeploymentDefinitions definitions = null
             )
         {
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _projectsPersistentSource = projectsPersistentSource;
             _manageProjectsPersistentSource = manageProjectsPersistentSource;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _definitions = definitions;
         }
 
         /// <summary>
@@ -39,17 +42,20 @@ namespace Dorc.Api.Controllers
         /// <param name="id"></param>
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(RefDataApiModel))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
         [HttpGet]
         [Route("{id}")]
         public IActionResult Get(string id)
         {
-            var projectId = Convert.ToInt32(id);
+            if (!int.TryParse(id, out var projectId)) return NotFound("Project not found.");
 
-            var project = _projectsPersistentSource.GetProject(projectId);
-            var components =
-                _manageProjectsPersistentSource.GetOrderedComponents(projectId);
-
-            var refData = new RefDataApiModel { Components = components, Project = project };
+            RefDataApiModel refData;
+            try { refData = _definitions.Get(projectId); }
+            catch (ProjectNotFoundException e) { return NotFound(e.Message); }
+            refData.CanEdit = _securityPrivilegesChecker.CanModifyProject(User, projectId);
+            if (!refData.CanEdit && _projectsPersistentSource.GetProjectEnvironments(refData.Project.ProjectName, User, true)?.Items?.Any() != true)
+                return Forbid();
+            refData.CanDeploy = _projectsPersistentSource.GetProjectEnvironments(refData.Project.ProjectName, User, false)?.Items?.Any() == true;
 
             return StatusCode(StatusCodes.Status200OK, refData);
         }
@@ -61,6 +67,8 @@ namespace Dorc.Api.Controllers
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(RefDataApiModel))]
         [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
+        [SwaggerResponse(428, Type = typeof(string))]
+        [SwaggerResponse(409, Type = typeof(string))]
         [HttpPut]
         public IActionResult Put(RefDataApiModel refData)
         {
@@ -70,34 +78,19 @@ namespace Dorc.Api.Controllers
             try
             {
                 string username = _claimsPrincipalReader.GetUserFullDomainName(User);
-                _manageProjectsPersistentSource.InsertRefDataAudit(username, HttpRequestType.Put,
-                    refData);
-                _projectsPersistentSource.ValidateProject(refData.Project, HttpRequestType.Put);
-
-                _manageProjectsPersistentSource.ValidateComponents(refData.Components, refData.Project.ProjectId,
-                    HttpRequestType.Put);
-
-                _projectsPersistentSource.UpdateProject(refData.Project);
-
-                Action<ComponentApiModel, int, int?, string> updateAndInsertComponents =
-                    _manageProjectsPersistentSource.UpdateComponent;
-                updateAndInsertComponents += _manageProjectsPersistentSource.CreateComponent;
-
-                _manageProjectsPersistentSource.TraverseComponents(refData.Components, null,
-                    refData.Project.ProjectId, updateAndInsertComponents, username);
-
-                var flattenedComponents = new List<ComponentApiModel>();
-                _manageProjectsPersistentSource.FlattenApiComponents(refData.Components, flattenedComponents);
-
-                _manageProjectsPersistentSource.DeleteComponents(flattenedComponents,
-                    refData.Project.ProjectId, username);
-
-                refData.Components = _manageProjectsPersistentSource.GetOrderedComponents(refData.Project.ProjectId);
-
-                refData.Project = _projectsPersistentSource.GetProject(refData.Project.ProjectId);
-
-                return StatusCode(StatusCodes.Status200OK, refData);
+                var saved = _definitions.Save(refData, false, username,
+                    id => _securityPrivilegesChecker.CanModifyProject(User, id), () =>
+                    {
+                        _projectsPersistentSource.ValidateProject(refData.Project, HttpRequestType.Put);
+                        Validation.TerraformExclusivityValidator.ValidateAll(refData.Components);
+                        _manageProjectsPersistentSource.ValidateComponents(refData.Components, refData.Project.ProjectId, HttpRequestType.Put);
+                    });
+                saved.CanEdit = true;
+                saved.CanDeploy = _projectsPersistentSource.GetProjectEnvironments(saved.Project.ProjectName, User, false)?.Items?.Any() == true;
+                return Ok(saved);
             }
+            catch (DefinitionPreconditionException e) { return StatusCode(e.StatusCode, e.Message); }
+            catch (UnauthorizedAccessException) { return Forbid(); }
             catch (Exception e)
             {
                 return StatusCode(StatusCodes.Status400BadRequest, e.Message);
@@ -117,26 +110,19 @@ namespace Dorc.Api.Controllers
             if (!User.IsInRole("Admin"))
                 throw new Exception("User must be part of 'Admin' group to create new Projects");
 
-            _projectsPersistentSource.ValidateProject(refData.Project, HttpRequestType.Post);
-
-            _manageProjectsPersistentSource.ValidateComponents(refData.Components, refData.Project.ProjectId,
-                HttpRequestType.Post);
-
-            _projectsPersistentSource.InsertProject(refData.Project);
-
-            string username = _claimsPrincipalReader.GetUserFullDomainName(User);
-
-            _manageProjectsPersistentSource.TraverseComponents(refData.Components, null,
-                refData.Project.ProjectId, _manageProjectsPersistentSource.CreateComponent, username);
-
-            refData.Components = _manageProjectsPersistentSource.GetOrderedComponents(refData.Project.ProjectId);
-
-            refData.Project = _projectsPersistentSource.GetProject(refData.Project.ProjectId);
-
-            _manageProjectsPersistentSource.InsertRefDataAudit(username, HttpRequestType.Post,
-                refData);
-
-            return StatusCode(StatusCodes.Status200OK, refData);
+            try
+            {
+                var saved = _definitions.Save(refData, true, _claimsPrincipalReader.GetUserFullDomainName(User),
+                    id => User.IsInRole("Admin"), () =>
+                    {
+                        _projectsPersistentSource.ValidateProject(refData.Project, HttpRequestType.Post);
+                        Validation.TerraformExclusivityValidator.ValidateAll(refData.Components);
+                        _manageProjectsPersistentSource.ValidateComponents(refData.Components, refData.Project.ProjectId, HttpRequestType.Post);
+                    });
+                saved.CanEdit = true;
+                return Ok(saved);
+            }
+            catch (ArgumentException e) { return BadRequest(e.Message); }
         }
     }
 }

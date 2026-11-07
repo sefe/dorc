@@ -18,6 +18,7 @@ CREATE TABLE [deploy].[Database] (
     -- runs. Plan for that; it is not a free consequence of waiting.
     [Tags]       NVARCHAR (4000) NULL,
     [ServerName] NVARCHAR (250)  NULL,
+    [DatabaseType] NVARCHAR (32) NOT NULL CONSTRAINT [DF_Database_DatabaseType] DEFAULT N'SqlServer',
     [ArrayName]  NVARCHAR (250)  NULL,
     [GroupId]    INT             NULL,
     CONSTRAINT [PK_Database] PRIMARY KEY CLUSTERED ([Id] ASC) WITH (DATA_COMPRESSION = PAGE),

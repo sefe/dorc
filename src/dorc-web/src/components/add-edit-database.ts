@@ -15,6 +15,7 @@ import {
 import {
   ApiBoolResult,
   DatabaseApiModel,
+  DatabaseType,
   GroupApiModel
 } from '../apis/dorc-api';
 import { Notification } from '@vaadin/notification';
@@ -25,6 +26,7 @@ import { MAX_TAG_LENGTH } from '../helpers/tag-limits';
 import '@vaadin/button';
 import '@vaadin/vertical-layout';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { databaseTypes } from '../helpers/database-type';
 
 @customElement('add-edit-database')
 export class AddEditDatabase extends LitElement {
@@ -43,6 +45,7 @@ export class AddEditDatabase extends LitElement {
     this._database = JSON.parse(JSON.stringify(value));
 
     this.DatabaseName = this._database.Name ?? '';
+    this.databaseType = this._database.DatabaseType ?? DatabaseType.SqlServer;
     this.DatabaseTags = normaliseTags(this._database.Tags);
     this.DbServerName = this._database.ServerName ?? '';
     this.AdGroup = this._database.AdGroup ?? '';
@@ -73,6 +76,9 @@ export class AddEditDatabase extends LitElement {
 
   @property({ type: String })
   public DatabaseName = '';
+
+  @property({ type: String })
+  public databaseType = DatabaseType.SqlServer;
 
   @property({ type: Array })
   public DatabaseTags: string[] = [];
@@ -151,6 +157,17 @@ export class AddEditDatabase extends LitElement {
             @input="${this._dbNameValueChanged}"
             .value="${this.DatabaseName}"
           ></vaadin-text-field>
+          <vaadin-combo-box
+            id="database-type"
+            class="block"
+            label="Database Engine"
+            item-value-path="value"
+            item-label-path="label"
+            .items="${databaseTypes}"
+            .value="${this.databaseType}"
+            @value-changed="${this._databaseTypeChanged}"
+            required
+          ></vaadin-combo-box>
           <tags-input
             id="db-tags"
             class="block"
@@ -161,8 +178,9 @@ export class AddEditDatabase extends LitElement {
           ></tags-input>
           <vaadin-text-field
             class="block"
-            pattern="^[a-zA-Z0-9_\\-]{1,128}(\\\\[a-zA-Z0-9_\\-]{1,128})?$"
+            pattern="^[a-zA-Z0-9_\\-]{1,128}([\\/\\\\][a-zA-Z0-9_\\-]{1,128})?$"
             label="Instance"
+            helper-text="For Aiven, use project/service. For Cosmos DB, use the account name."
             maxlength="${this.maxFieldLength}"
             title="Maximum length: ${this.maxFieldLength} symbols"
             required
@@ -226,6 +244,7 @@ export class AddEditDatabase extends LitElement {
     if (activeDirectoryGroups) activeDirectoryGroups.clear();
 
     this.DatabaseName = '';
+    this.databaseType = DatabaseType.SqlServer;
     this.DatabaseTags = [];
     this.DbServerName = '';
     this.ArrayName = '';
@@ -262,6 +281,7 @@ export class AddEditDatabase extends LitElement {
           databaseApiModel: {
             Id: this._database.Id,
             ServerName: this.DbServerName,
+            DatabaseType: this.databaseType,
             Name: this.DatabaseName,
             Tags: this.DatabaseTags,
             AdGroup: this.AdGroup,
@@ -285,6 +305,7 @@ export class AddEditDatabase extends LitElement {
         .refDataDatabasesPost({
           databaseApiModel: {
             ServerName: this.DbServerName,
+            DatabaseType: this.databaseType,
             Name: this.DatabaseName,
             Tags: this.DatabaseTags,
             AdGroup: this.AdGroup,
@@ -323,6 +344,18 @@ export class AddEditDatabase extends LitElement {
   _dbaArrayNameValueChanged(data: any) {
     this.ArrayName = data.currentTarget.value;
     this.checkDBExists();
+  }
+
+  private _databaseTypeChanged(event: CustomEvent<{ value: string }>) {
+    const selected = databaseTypes.find(
+      type => type.value === event.detail.value
+    );
+    if (selected) {
+      this.databaseType = selected.value;
+      this.checkDBExists();
+    } else {
+      (event.currentTarget as ComboBox).value = this.databaseType;
+    }
   }
 
   _dbTagsChanged(e: CustomEvent) {

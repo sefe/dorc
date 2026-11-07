@@ -111,5 +111,17 @@ namespace Dorc.Core.Tests
             Assert.AreEqual(50, entity.FindProperty(nameof(Database.Name))!.GetMaxLength());
             Assert.AreEqual(50, entity.FindProperty(nameof(Database.ServerName))!.GetMaxLength());
         }
+
+        [TestMethod]
+        public void DatabaseType_IsStoredAsAStringAndDefaultsToSqlServer()
+        {
+            using var context = CreateContextWithoutEnsureCreated();
+            var property = context.Model.FindEntityType(typeof(Database))!
+                .FindProperty(nameof(Database.DatabaseType))!;
+
+            Assert.AreEqual(32, property.GetMaxLength());
+            Assert.AreEqual(DatabaseType.SqlServer, property.GetDefaultValue());
+            Assert.AreEqual(typeof(string), property.GetProviderClrType());
+        }
     }
 }

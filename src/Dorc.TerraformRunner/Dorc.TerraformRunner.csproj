@@ -22,10 +22,12 @@
     <ProjectReference Include="..\Dorc.Runner.Logger\Dorc.Runner.Logger.csproj" />
     <ProjectReference Include="..\Dorc.AzureDevOps.Client\Dorc.AzureDevOps.Client.csproj" />
     <ProjectReference Include="..\Dorc.AzureDevOps\src\Org.OpenAPITools\Org.OpenAPITools.csproj" />
+    <ProjectReference Include="..\Dorc.Terraform.Catalog\Dorc.Terraform.Catalog.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <InternalsVisibleTo Include="Dorc.Core.Tests" />
+    <InternalsVisibleTo Include="Dorc.TerraformRunner.Tests" />
   </ItemGroup>
 
   <ItemGroup>

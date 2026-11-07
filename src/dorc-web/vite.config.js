@@ -20,22 +20,28 @@ function vaadinLumoPlugin() {
       server.middlewares.use((req, res, next) => {
         if (req.url?.startsWith('/vaadin-theme/')) {
           const relativePath = req.url.replace('/vaadin-theme/', '');
-          let filePath;
+          const candidatePath =
+            relativePath === 'lumo.css'
+              ? path.resolve(lumoPath, 'dist', relativePath)
+              : path.resolve(lumoPath, relativePath);
 
-          // Map lumo.css to dist/lumo.css (pre-built version)
-          if (relativePath === 'lumo.css') {
-            filePath = path.join(lumoPath, 'dist', relativePath);
-          } else {
-            filePath = path.join(lumoPath, relativePath);
-          }
-
-          if (fs.existsSync(filePath)) {
-            const stat = fs.statSync(filePath);
-            if (stat.isFile()) {
-              const content = fs.readFileSync(filePath, 'utf-8');
-              res.setHeader('Content-Type', 'text/css');
-              res.end(content);
-              return;
+          if (candidatePath.startsWith(lumoPath)) {
+            let fd;
+            try {
+              fd = fs.openSync(candidatePath, 'r');
+              const stat = fs.fstatSync(fd);
+              if (stat.isFile()) {
+                const content = fs.readFileSync(fd, 'utf-8');
+                res.setHeader('Content-Type', 'text/css');
+                res.end(content);
+                return;
+              }
+            } catch {
+              // File does not exist or cannot be opened; fall through to next()
+            } finally {
+              if (fd !== undefined) {
+                fs.closeSync(fd);
+              }
             }
           }
         }
@@ -71,14 +77,30 @@ function vaadinLumoPlugin() {
 
 // Helper function to copy directory recursively
 function copyDirRecursive(src, dest) {
-  if (!fs.existsSync(src)) return;
+  const resolvedSrc = path.resolve(src);
+  const resolvedDest = path.resolve(dest);
+  const allowedDestRoot = path.resolve(__dirname, 'dist/vaadin-theme');
+  if (
+    !resolvedSrc.startsWith(lumoPath) ||
+    !resolvedDest.startsWith(allowedDestRoot) ||
+    !fs.existsSync(resolvedSrc)
+  ) {
+    return;
+  }
 
-  fs.mkdirSync(dest, { recursive: true });
-  const entries = fs.readdirSync(src, { withFileTypes: true });
+  fs.mkdirSync(resolvedDest, { recursive: true });
+  const entries = fs.readdirSync(resolvedSrc, { withFileTypes: true });
 
   for (const entry of entries) {
-    const srcPath = path.join(src, entry.name);
-    const destPath = path.join(dest, entry.name);
+    const safeName = path.basename(entry.name);
+    if (!safeName || safeName === '.' || safeName === '..' || safeName !== entry.name) {
+      continue;
+    }
+    const srcPath = path.resolve(resolvedSrc, safeName);
+    const destPath = path.resolve(resolvedDest, safeName);
+    if (!srcPath.startsWith(resolvedSrc) || !destPath.startsWith(resolvedDest)) {
+      continue;
+    }
 
     if (entry.isDirectory()) {
       copyDirRecursive(srcPath, destPath);

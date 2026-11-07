@@ -20,6 +20,21 @@ export interface DeploymentResultApiModel {
      * @type {number}
      * @memberof DeploymentResultApiModel
      */
+    ProjectId?: number | null;
+    /**
+     * @type {string}
+     * @memberof DeploymentResultApiModel
+     */
+    DefinitionRevision?: string | null;
+    /**
+     * @type {string}
+     * @memberof DeploymentResultApiModel
+     */
+    SourceRevisionLabel?: string | null;
+    /**
+     * @type {number}
+     * @memberof DeploymentResultApiModel
+     */
     Id?: number;
     /**
      * @type {string}
@@ -56,4 +71,9 @@ export interface DeploymentResultApiModel {
      * @memberof DeploymentResultApiModel
      */
     CompletedTime?: string | null;
+    /**
+     * @type {boolean}
+     * @memberof DeploymentResultApiModel
+     */
+    IsTerraform?: boolean;
 }

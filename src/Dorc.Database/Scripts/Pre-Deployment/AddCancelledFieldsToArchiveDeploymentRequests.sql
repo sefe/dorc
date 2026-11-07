@@ -3,7 +3,8 @@ Pre-Deployment Script: Add CancelledBy and CancelledTime fields to ArchiveDeploy
 This script adds the new cancellation tracking fields to match the DeploymentRequest entity model.
 */
 
-IF NOT EXISTS (
+IF OBJECT_ID(N'[archive].[DeploymentRequest]') IS NOT NULL
+AND NOT EXISTS (
     SELECT 1 
     FROM sys.columns 
     WHERE object_id = OBJECT_ID(N'[archive].[DeploymentRequest]') 
@@ -17,13 +18,10 @@ BEGIN
     
     PRINT 'CancelledBy column added successfully'
 END
-ELSE
-BEGIN
-    PRINT 'CancelledBy column already exists in [archive].[DeploymentRequest]'
-END
 GO
 
-IF NOT EXISTS (
+IF OBJECT_ID(N'[archive].[DeploymentRequest]') IS NOT NULL
+AND NOT EXISTS (
     SELECT 1 
     FROM sys.columns 
     WHERE object_id = OBJECT_ID(N'[archive].[DeploymentRequest]') 
@@ -36,10 +34,6 @@ BEGIN
     ADD [CancelledTime] DATETIMEOFFSET(7) NULL
     
     PRINT 'CancelledTime column added successfully'
-END
-ELSE
-BEGIN
-    PRINT 'CancelledTime column already exists in [archive].[DeploymentRequest]'
 END
 GO
 

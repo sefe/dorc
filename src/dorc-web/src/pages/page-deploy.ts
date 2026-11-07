@@ -18,6 +18,7 @@ import {
 import type { ProjectApiModel } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
 @customElement('page-deploy')
 export class PageDeploy extends PageElement {
@@ -25,7 +26,7 @@ export class PageDeploy extends PageElement {
 
   @property({ type: Array }) buildDefinitions: DeployArtefactDto[] = [];
 
-  @property({ type: Object }) project!: ProjectApiModel;
+  @property({ type: Object }) project: ProjectApiModel | undefined;
 
   @property({ type: Array }) environments:
     Array<EnvironmentApiModel> | undefined = [];
@@ -33,8 +34,16 @@ export class PageDeploy extends PageElement {
   @property({ type: Boolean }) projectsLoading = true;
 
   @property({ type: Boolean }) envsLoading = false;
+  @property({ type: String }) selectionError = '';
 
   @property({ type: String }) selectedEnvironmentName = '';
+  @property({ type: String }) selectedProjectId =
+    new URLSearchParams(window.location.search).get('projectId') ?? '';
+  private readonly initialProjectId = Number(this.selectedProjectId);
+  private readonly initialComponentId = Number(
+    new URLSearchParams(window.location.search).get('componentId')
+  );
+  private initialSelectionApplied = false;
 
   private environment: EnvironmentApiModel | undefined;
 
@@ -80,7 +89,12 @@ export class PageDeploy extends PageElement {
         this.setProjects(data);
       },
 
-      (err: any) => console.error(err),
+      error => {
+        this.projectsLoading = false;
+        this.selectionError =
+          retrieveErrorMessage(error) ||
+          'Could not load deployment projects. Reload to try again.';
+      },
       () => console.log('done loading projects')
     );
   }
@@ -99,11 +113,16 @@ export class PageDeploy extends PageElement {
     const sortedProjects = projects.sort(this.sortProjects);
     this.projects = sortedProjects;
     this.projectsLoading = false;
+    if (this.initialProjectId && !this.initialSelectionApplied) {
+      this.initialSelectionApplied = true;
+      this.selectProject(this.initialProjectId);
+    }
   }
 
   render() {
     return html`
       <div class="scroller">
+        ${this.selectionError ? html`<p role="alert">${this.selectionError}</p>` : ''}
         <div
           style="display: flex; flex-direction: column; gap: var(--lumo-space-xs); width: 100%; max-width: 600px; padding-left: var(--lumo-space-s);"
         >
@@ -112,8 +131,9 @@ export class PageDeploy extends PageElement {
           >
             <vaadin-combo-box
               style="flex: 1;"
-              @value-changed="${this._projectValueChanged}"
+              @change="${this._projectValueChanged}"
               .items="${this.projects}"
+              .selectedItem="${this.project}"
               ${comboBoxRenderer(this._projectsRenderer, [])}
               placeholder="Select Project"
               label="Project"
@@ -150,6 +170,7 @@ export class PageDeploy extends PageElement {
         </div>
         <deploy-env
           id="deployEnv"
+          .preselectedComponentId="${this.project?.ProjectId === this.initialProjectId ? this.initialComponentId : 0}"
           .project="${this.project}"
           .envName="${this.selectedEnvironmentName}"
         ></deploy-env>
@@ -163,15 +184,27 @@ export class PageDeploy extends PageElement {
   }
 
   _projectValueChanged(data: any) {
-    const projectId = data.target.value as number;
+    if (this.projectsLoading) return;
+    this.selectProject(Number(data.target.value));
+  }
+
+  private selectProject(projectId: number) {
+    this.selectedProjectId = projectId ? String(projectId) : '';
     const proj = this.projects?.find(value => value.ProjectId === projectId);
-    if (proj) this.project = proj;
+    if (proj === this.project) return;
+    this.project = proj;
 
     this.clearComboboxSelectedItem('environments');
+    this.environments = [];
+    this.selectedEnvironmentName = '';
+    this.selectionError = '';
 
     if (this.project !== undefined) {
+      const project = this.project;
       this.envsLoading = true;
-      const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
+      const api = new RefDataProjectEnvironmentMappingsApi(
+        dorcApiConfiguration
+      );
       api
         .refDataProjectEnvironmentMappingsGet({
           project: this.project?.ProjectName ?? '',
@@ -181,20 +214,27 @@ export class PageDeploy extends PageElement {
           next: (
             templateApiModelEnvironmentApiModel: EnvironmentApiModelTemplateApiModel
           ) => {
+            if (this.project !== project) return;
             this.setEnvironments(templateApiModelEnvironmentApiModel);
           },
           error: (err: any) => {
-            console.error(err);
+            if (this.project !== project) return;
+            this.envsLoading = false;
+            this.selectionError =
+              retrieveErrorMessage(err) ||
+              'Could not load deployable environments.';
           },
           complete: () => {
             console.log('done loading environments');
           }
         });
+    } else {
+      this.envsLoading = false;
     }
   }
 
   _environmentValueChanged(data: any) {
-    const envId = data.target.value as number;
+    const envId = Number(data.target.value);
     this.environment = this.environments?.find(
       value => value.EnvironmentId === envId
     );

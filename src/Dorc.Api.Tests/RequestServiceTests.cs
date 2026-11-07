@@ -12,12 +12,101 @@ using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
+using Dorc.Terraform.Catalog;
+using Dorc.Core;
+using System.Security.Claims;
 
 namespace Dorc.Api.Tests
 {
     [TestClass]
     public class RequestServiceTests
     {
+        [TestMethod]
+        [DataRow("dorc-catalog://", false)]
+        [DataRow("file:\\\\build", false)]
+        [DataRow("file:\\\\build", true)]
+        public void CreateRequest_DerivesSensitivityBeforeAnyBuildPath(string buildUrl, bool callerFlag)
+        {
+            var projects = Substitute.For<IProjectsPersistentSource>();
+            projects.GetComponentsForProject("project").Returns(new[]
+            {
+                new ComponentApiModel
+                {
+                    ComponentName = "component", TerraformSourceType = TerraformSourceType.Catalog,
+                    TerraformTemplateName = "module", TerraformTemplateVersion = "1.0.0"
+                }
+            });
+            var catalog = Substitute.For<ITemplateCatalog>();
+            catalog.GetAsync("module", "1.0.0", Arg.Any<CancellationToken>()).Returns(
+                new TerraformTemplateManifest("module", "1.0.0",
+                    new TerraformTemplateSource("git", "https://example.invalid/module", "v1"),
+                    new[] { new TerraformTemplateParameter("password", TerraformParameterType.String,
+                        true, null, null, null, null, null, null, true) },
+                    Array.Empty<TerraformTemplateOutput>(), null, Array.Empty<string>(), null,
+                    new Dictionary<string, string>(), null, null, false, null));
+            var properties = Substitute.For<IPropertiesPersistentSource>();
+            properties.GetAllProperties().Returns(new[] { new PropertyApiModel { Name = "secureSetting", Secure = true } });
+            var request = new RequestDto
+            {
+                Project = "project", BuildUrl = buildUrl, Components = new List<string> { "component" },
+                RequestProperties = new List<RequestProperty>
+                {
+                    new() { PropertyName = "password", PropertyValue = "manifest-secret", IsSensitive = callerFlag },
+                    new() { PropertyName = "secureSetting", PropertyValue = "secure-value" },
+                    new() { PropertyName = "callerOnly", PropertyValue = "caller-secret", IsSensitive = true },
+                    new() { PropertyName = "ordinary", PropertyValue = "public-value" }
+                }
+            };
+            var build = Substitute.For<IDeployableBuild>();
+            build.IsValid(Arg.Any<Dorc.Api.Model.BuildDetails>()).Returns(true);
+            string? storedXml = null;
+            build.Process(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>()).Returns(call =>
+            {
+                var actual = call.Arg<RequestDto>();
+                storedXml = new DeploymentRequestDetailSerializer().Serialize(new DeploymentRequestDetail
+                {
+                    Properties = actual.RequestProperties.Select(p => new PropertyPair(p.PropertyName, p.PropertyValue)
+                        { IsSensitive = p.IsSensitive }).ToList()
+                });
+                return new RequestStatusDto { Id = 1 };
+            });
+            var factory = Substitute.For<IDeployableBuildFactory>();
+            factory.CreateInstance(request).Returns(build);
+            var service = new RequestService(Substitute.For<ILogger<RequestService>>(), factory, projects, catalog, properties);
+
+            Assert.AreEqual(1, service.CreateRequest(request, new ClaimsPrincipal()).Id);
+
+            Assert.IsNotNull(storedXml);
+            StringAssert.Contains(storedXml, "manifest-secret");
+            var emitted = RequestPropertyRedaction.RedactRequestDetailsXml(storedXml);
+            foreach (var secret in new[] { "manifest-secret", "secure-value", "caller-secret" })
+            {
+                Assert.IsFalse(emitted.Contains(secret));
+                Assert.IsFalse(RequestPropertyRedaction.FormatForLog(request.RequestProperties).Contains(secret));
+            }
+            StringAssert.Contains(emitted, "public-value");
+        }
+
+        [TestMethod]
+        public void CreateRequest_UnavailableCatalog_DoesNotSubmitUnclassifiedProperties()
+        {
+            var projects = Substitute.For<IProjectsPersistentSource>();
+            projects.GetComponentsForProject("project").Returns(new[]
+            {
+                new ComponentApiModel { ComponentName = "component", TerraformSourceType = TerraformSourceType.Catalog,
+                    TerraformTemplateName = "missing", TerraformTemplateVersion = "1.0.0" }
+            });
+            var factory = Substitute.For<IDeployableBuildFactory>();
+            var service = new RequestService(Substitute.For<ILogger<RequestService>>(), factory, projects,
+                Substitute.For<ITemplateCatalog>(), Substitute.For<IPropertiesPersistentSource>());
+            var request = new RequestDto { Project = "project", BuildUrl = "file:\\\\build",
+                Components = new List<string> { "component" },
+                RequestProperties = new List<RequestProperty> { new() { PropertyName = "password", PropertyValue = "secret" } } };
+
+            Assert.Throws<InvalidOperationException>(() => service.CreateRequest(request, new ClaimsPrincipal()));
+            factory.DidNotReceive().CreateInstance(Arg.Any<RequestDto>());
+        }
+
         [TestMethod]
         public void GetRequestStatusTest()
         {
@@ -76,7 +165,8 @@ namespace Dorc.Api.Tests
             };
             mockedFactory.CreateInstance(Arg.Any<RequestDto>())
                 .Returns(new FileShareBuildStub(new RequestStatusDto { Id = 1 }, true));
-            var test1Service = new RequestService(mockedLog, mockedFactory, mockedProjectsPds);
+            var test1Service = new RequestService(mockedLog, mockedFactory, mockedProjectsPds,
+                Substitute.For<ITemplateCatalog>(), Substitute.For<IPropertiesPersistentSource>());
 
             var result1 = test1Service.CreateRequest(request, new GenericPrincipal(new GenericIdentity("test-user"), null));
             Assert.AreEqual(1, result1.Id);
@@ -103,7 +193,8 @@ namespace Dorc.Api.Tests
             var mockedFactory = Substitute.For<IDeployableBuildFactory>();
             mockedFactory.CreateInstance(Arg.Any<RequestDto>())
                 .Returns(new FileShareBuildStub(null, true));
-            var test2Service = new RequestService(mockedLog, mockedFactory, mockedProjectsPds);
+            var test2Service = new RequestService(mockedLog, mockedFactory, mockedProjectsPds,
+                Substitute.For<ITemplateCatalog>(), Substitute.For<IPropertiesPersistentSource>());
             var result2 = test2Service.CreateRequest(request, new GenericPrincipal(new GenericIdentity("test-user"), null));
             Assert.IsNull(result2);
         }
@@ -129,7 +220,8 @@ namespace Dorc.Api.Tests
             var mockedFactory = Substitute.For<IDeployableBuildFactory>();
             mockedFactory.CreateInstance(Arg.Any<RequestDto>())
                 .Returns(new FileShareBuildStub(null, false));
-            var test3service = new RequestService(mockedLog, mockedFactory, mockedProjectsPds);
+            var test3service = new RequestService(mockedLog, mockedFactory, mockedProjectsPds,
+                Substitute.For<ITemplateCatalog>(), Substitute.For<IPropertiesPersistentSource>());
             Exception expectedException = null;
             try
             {
@@ -167,7 +259,8 @@ namespace Dorc.Api.Tests
             var mockDeployLibrary = Substitute.For<IDeployLibrary>();
             Func<GitHubDeployableBuild> mockedGitHubDeployableBuildFactory = () => null!;
             IDeployableBuildFactory factory = new DeployableBuildFactory(mockedFileSystemHelper, mockedLoggerFactory, mockedProjectsPds, mockDeployLibrary, mockRequestsPersistentSource, mockedGitHubDeployableBuildFactory);
-            var test4Service = new RequestService(mockedLogger, factory, mockedProjectsPds);
+            var test4Service = new RequestService(mockedLogger, factory, mockedProjectsPds,
+                Substitute.For<ITemplateCatalog>(), Substitute.For<IPropertiesPersistentSource>());
             Exception expectedException1 = null;
             try
             {
@@ -197,7 +290,8 @@ namespace Dorc.Api.Tests
                     ArtefactsUrl = "http://some_url"
                 });
 
-            var service = new RequestService(mockedLog, mockedBuildFactory, mockedProjectsPds);
+            var service = new RequestService(mockedLog, mockedBuildFactory, mockedProjectsPds,
+                Substitute.For<ITemplateCatalog>(), Substitute.For<IPropertiesPersistentSource>());
             service.CheckRequest(ref request);
             Assert.IsTrue(request.BuildUrl.Equals("http://some_url"));
         }

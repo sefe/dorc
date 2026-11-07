@@ -19,6 +19,10 @@ namespace Dorc.ApiModel
         public ICollection<RequestProperty> RequestProperties { set; get; }
         public string VstsUrl { set; get; }
 
+        [System.Text.Json.Serialization.JsonIgnore]
+        [System.Runtime.Serialization.IgnoreDataMember]
+        public CatalogSubmissionIdentity CatalogSubmission { get; set; }
+
         public override string ToString()
         {
             return

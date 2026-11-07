@@ -22,6 +22,10 @@ import type {
     PagedDataOperators,
 } from '../models';
 
+export interface RefDataDatabasesByEnvIdEnvIdGetRequest {
+    envId: number;
+}
+
 export interface RefDataDatabasesByPagePutRequest {
     page?: number;
     limit?: number;
@@ -59,6 +63,30 @@ export interface RefDataDatabasesPutRequest {
  * no description
  */
 export class RefDataDatabasesApi extends BaseAPI {
+
+    /**
+     */
+    refDataDatabasesByEnvIdEnvIdGet({ envId }: RefDataDatabasesByEnvIdEnvIdGetRequest): Observable<Array<DatabaseApiModel>>
+    refDataDatabasesByEnvIdEnvIdGet({ envId }: RefDataDatabasesByEnvIdEnvIdGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DatabaseApiModel>>>
+    refDataDatabasesByEnvIdEnvIdGet({ envId }: RefDataDatabasesByEnvIdEnvIdGetRequest, opts?: OperationOpts): Observable<Array<DatabaseApiModel> | AjaxResponse<Array<DatabaseApiModel>>> {
+        throwIfNullOrUndefined(envId, 'envId', 'refDataDatabasesByEnvIdEnvIdGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<Array<DatabaseApiModel>>({
+            url: '/RefDataDatabases/ByEnvId/{envId}'.replace('{envId}', encodeURI(envId)),
+            method: 'GET',
+            headers,
+        }, opts?.responseOpts);
+    };
 
     /**
      */

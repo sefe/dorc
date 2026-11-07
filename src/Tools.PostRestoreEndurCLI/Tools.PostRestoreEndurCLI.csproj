@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
@@ -29,8 +29,7 @@
     <PackageReference Include="BaselineTypeDiscovery" Version="2.0.0" />
     <PackageReference Include="Lamar" Version="15.0.1" />
     <PackageReference Include="LamarCodeGeneration" Version="6.3.0" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.10" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.3" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="9.0.10" />
-    <PackageReference Include="Microsoft.Kiota.Abstractions" Version="1.22.0" />
   </ItemGroup>
 </Project>

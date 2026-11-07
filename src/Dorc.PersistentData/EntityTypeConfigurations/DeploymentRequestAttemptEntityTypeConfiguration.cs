@@ -16,7 +16,8 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .HasOne(x => x.DeploymentRequest)
                 .WithMany(x => x.DeploymentRequestAttempts)
                 .IsRequired()
-                .HasForeignKey("DeploymentRequestId");
+                .HasForeignKey("DeploymentRequestId")
+                .OnDelete(DeleteBehavior.Cascade);
 
             builder
                 .Property(x => x.Status)

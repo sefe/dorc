@@ -1,508 +1,1580 @@
 using Dorc.Api.Controllers;
+using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
+using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.Configuration;
+using Dorc.Core;
 using Dorc.Core.Interfaces;
-using Dorc.Core.Security;
+using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
+using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
+using Dorc.Terraform.Catalog;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using System.Security.Claims;
 
 namespace Dorc.Api.Tests.Controllers
 {
-    /// <summary>
-    /// The defect these tests exist for was not an absent authorization check. It was a
-    /// check that was present, was called, and always returned true - so a suite that only
-    /// exercised the allow path would have stayed green throughout. Every refuse path is
-    /// therefore covered, and the assertions check that refused calls leave the downstream
-    /// collaborators untouched rather than only that the status code is 403.
-    /// </summary>
     [TestClass]
     public class TerraformControllerTests
     {
-        private const int ResultId = 42;
-        private const int RequestId = 7;
-        private const string Environment = "PROD ENV 01";
-
-        private ILogger<TerraformController> _logger = null!;
-        private IRequestsPersistentSource _requestsPersistentSource = null!;
-        private ISecurityPrivilegesChecker _privilegesChecker = null!;
-        private IClaimsPrincipalReader _claimsPrincipalReader = null!;
+        private IRequestsPersistentSource _requests = null!;
+        private ISecurityPrivilegesChecker _security = null!;
+        private IClaimsPrincipalReader _claimsReader = null!;
         private IAzureStorageAccountWorker _storage = null!;
-        private IConfigurationSettings _configurationSettings = null!;
+        private ITemplateCatalog _catalog = null!;
+        private IProjectsPersistentSource _projects = null!;
+        private IEnvironmentsPersistentSource _environments = null!;
+        private IManageProjectsPersistentSource _manageProjects = null!;
+        private IParameterValidator _parameterValidator = null!;
+        private IRequestService _requestService = null!;
+        private IPropertyValuesPersistentSource _propertyValues = null!;
+        private IVariableResolver _variableResolver = null!;
+        private IVariableScopeOptionsResolver _variableScopeOptionsResolver = null!;
+        private IConfigValuesPersistentSource _configValues = null!;
         private TerraformController _controller = null!;
+
+        private const int DeploymentResultId = 42;
+        private const int RequestId = 1001;
+        private const string EnvName = "TEVO DV 11";
+        private const string ProjectName = "TEVO";
 
         [TestInitialize]
         public void Setup()
         {
-            _logger = Substitute.For<ILogger<TerraformController>>();
-            _requestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
-            _privilegesChecker = Substitute.For<ISecurityPrivilegesChecker>();
-            _claimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+            _requests = Substitute.For<IRequestsPersistentSource>();
+            _security = Substitute.For<ISecurityPrivilegesChecker>();
+            _claimsReader = Substitute.For<IClaimsPrincipalReader>();
             _storage = Substitute.For<IAzureStorageAccountWorker>();
-            _configurationSettings = Substitute.For<IConfigurationSettings>();
+            _catalog = Substitute.For<ITemplateCatalog>();
+            _projects = Substitute.For<IProjectsPersistentSource>();
+            _environments = Substitute.For<IEnvironmentsPersistentSource>();
+            _manageProjects = Substitute.For<IManageProjectsPersistentSource>();
+            _parameterValidator = Substitute.For<IParameterValidator>();
+            _requestService = Substitute.For<IRequestService>();
+            _propertyValues = Substitute.For<IPropertyValuesPersistentSource>();
+            _variableResolver = Substitute.For<IVariableResolver>();
+            _variableScopeOptionsResolver = Substitute.For<IVariableScopeOptionsResolver>();
+            _configValues = Substitute.For<IConfigValuesPersistentSource>();
+
+            _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>());
+            _variableResolver.SetPropertyValue(Arg.Any<string>(), Arg.Any<string>());
+            _variableResolver.SetPropertyValue(Arg.Any<string>(), Arg.Any<VariableValue?>());
+            _parameterValidator.Validate(
+                    Arg.Any<TerraformTemplateManifest>(),
+                    Arg.Any<IReadOnlyDictionary<string, string?>>())
+                .Returns(new ParameterValidationResult(true, Array.Empty<ParameterValidationError>()));
+            _manageProjects.CreateCatalogComponent(
+                    Arg.Any<ComponentApiModel>(), Arg.Any<int>(), Arg.Any<int?>(), Arg.Any<bool>())
+                .Returns(call => new CatalogComponentCreation(
+                    CatalogComponentCreationStatus.Created, call.Arg<ComponentApiModel>()));
 
             _controller = new TerraformController(
-                _logger,
-                _requestsPersistentSource,
-                _privilegesChecker,
-                _claimsPrincipalReader,
+                NullLogger<TerraformController>.Instance,
+                _requests,
+                _security,
+                _claimsReader,
                 _storage,
-                _configurationSettings)
+                _catalog,
+                _projects,
+                _environments,
+                _manageProjects,
+                _parameterValidator,
+                _requestService,
+                _propertyValues,
+                _variableResolver,
+                _variableScopeOptionsResolver,
+                Substitute.For<IConfigurationSettings>(),
+                _configValues)
             {
                 ControllerContext = new ControllerContext
                 {
-                    HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity()) }
+                    HttpContext = new DefaultHttpContext()
                 }
             };
-
-            // Default world: a result awaiting confirmation, on a non-production environment,
-            // submitted by someone other than the caller. Individual tests narrow from here.
-            GivenResult(DeploymentResultStatus.WaitingConfirmation);
-            GivenRequest(Environment, isProd: false, submitter: @"CORP\alice");
-            GivenCaller(@"CORP\bob");
-            _privilegesChecker.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(true);
-            _requestsPersistentSource
-                .UpdateResultStatus(Arg.Any<DeploymentResultApiModel>(), Arg.Any<DeploymentResultStatus>(),
-                    Arg.Any<DeploymentResultStatus>())
-                .Returns(true);
+            _controller.HttpContext.User = new ClaimsPrincipal(
+                new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "TestUser") }, "TestAuth"));
         }
-
-        // ---------------------------------------------------------------- helpers
-
-        private void GivenResult(DeploymentResultStatus status) =>
-            _requestsPersistentSource.GetDeploymentResults(ResultId).Returns(new DeploymentResultApiModel
-            {
-                Id = ResultId,
-                RequestId = RequestId,
-                Status = status.ToString()
-            });
-
-        private void GivenRequest(string? environment, bool isProd, string? submitter) =>
-            _requestsPersistentSource.GetRequest(RequestId).Returns(new DeploymentRequestApiModel
-            {
-                Id = RequestId,
-                EnvironmentName = environment!,
-                IsProd = isProd,
-                UserName = submitter!
-            });
-
-        private void GivenCaller(string fullDomainName, string? login = null, string? safeIdentifier = null)
-        {
-            _claimsPrincipalReader.GetUserFullDomainName(Arg.Any<System.Security.Principal.IPrincipal>())
-                .Returns(fullDomainName);
-            _claimsPrincipalReader.GetUserLogin(Arg.Any<System.Security.Principal.IPrincipal>())
-                .Returns(login ?? UserIdentityCanonicaliser.Canonicalise(fullDomainName));
-            _claimsPrincipalReader.GetUserSafeIdentifier(Arg.Any<System.Security.Principal.IPrincipal>())
-                .Returns(safeIdentifier ?? "test-user");
-        }
-
-        private void GivenRestartedBy(string restarter, string originalSubmitter)
-        {
-            // Restart overwrites DeploymentRequest.UserName with the restarter's name, having
-            // first archived the pre-restart name onto an attempt.
-            GivenRequest(Environment, isProd: true, submitter: restarter);
-            _requestsPersistentSource.GetAttemptsForRequest(RequestId).Returns(new[]
-            {
-                new DeploymentRequestAttemptApiModel { AttemptNumber = 1, UserName = originalSubmitter },
-                new DeploymentRequestAttemptApiModel { AttemptNumber = 2, UserName = restarter }
-            });
-        }
-
-        /// <summary>
-        /// DeploymentResultStatus is a class, not an enum, and each static property returns a
-        /// NEW instance. It overloads == but overrides neither Equals(object) nor
-        /// GetHashCode, so NSubstitute's argument matching falls back to reference equality
-        /// and two "Confirmed" values do not match. Match on the value instead.
-        /// </summary>
-        private static DeploymentResultStatus Status(DeploymentResultStatus expected) =>
-            Arg.Is<DeploymentResultStatus>(actual => actual.Value == expected.Value);
-
-        private static int StatusOf(IActionResult result) => result switch
-        {
-            ObjectResult objectResult => objectResult.StatusCode ?? 0,
-            StatusCodeResult statusCodeResult => statusCodeResult.StatusCode,
-            _ => 0
-        };
-
-        private void AssertNoStateChanged()
-        {
-            _requestsPersistentSource.DidNotReceiveWithAnyArgs()
-                .UpdateResultStatus(default!, default);
-            _requestsPersistentSource.DidNotReceiveWithAnyArgs()
-                .UpdateResultStatus(default!, default, default);
-            _requestsPersistentSource.DidNotReceiveWithAnyArgs()
-                .UpdateRequestStatus(default, default);
-        }
-
-        // ---------------------------------------------- environment authority (R2, R4)
 
         [TestMethod]
-        public void GetTerraformPlan_WithoutEnvironmentAuthority_Returns403AndDoesNotReadPlan()
+        public async Task Upgrade_RequiresAuthorizationForEveryMappedEnvironment()
         {
-            _privilegesChecker.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), Environment).Returns(false);
+            GivenTemplateAndProject(Manifest());
+            _projects.GetComponentsForProject(ProjectId).Returns(new List<ComponentApiModel>
+            {
+                new() { ComponentId = 12, TerraformSourceType = TerraformSourceType.Catalog, TerraformTemplateName = TemplateName }
+            });
+            _requests.GetCatalogUpgradeScope(12, ProjectId).Returns(new CatalogUpgradePreviewApiModel
+            {
+                CurrentVersion = "1.0.0", Environments = new List<EnvironmentApiModel>
+                {
+                    new() { EnvironmentId = 1, EnvironmentName = "allowed" },
+                    new() { EnvironmentId = 2, EnvironmentName = "restricted" }
+                }
+            });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), "allowed").Returns(true);
+            var result = await _controller.PreviewUpgrade(12, TemplateName, "2.0.0", ProjectId, CancellationToken.None);
+            Assert.IsInstanceOfType<ForbidResult>(result);
+        }
 
-            var response = _controller.GetTerraformPlan(ResultId);
+        [TestMethod]
+        public async Task SaveEnvironmentInputs_RejectsManifestSensitiveValuesBeforePersistence()
+        {
+            GivenTemplateAndProject(Manifest(new TerraformTemplateParameter("credential", TerraformParameterType.String,
+                true, null, null, null, null, null, null, Sensitive: true)));
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _projects.GetComponentsForProject(ProjectId).Returns(new List<ComponentApiModel>
+            {
+                new() { ComponentId = 12, TerraformSourceType = TerraformSourceType.Catalog,
+                    TerraformTemplateName = TemplateName, TerraformTemplateVersion = TemplateVersion }
+            });
+            var result = await _controller.SaveEnvironmentInputs(TemplateName, TemplateVersion, ProjectId, 12, EnvName,
+                new SaveCatalogEnvironmentInputsApiModel { Inputs = new Dictionary<string, string> { ["credential"] = "never-persist" } },
+                CancellationToken.None);
+            Assert.IsInstanceOfType<BadRequestObjectResult>(result);
+            _requests.DidNotReceiveWithAnyArgs().SaveCatalogEnvironmentInputs(default, default, default, default!, default, default!);
+        }
 
-            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
-            // Ordering matters: the plan embeds resolved variable values, so a refused caller
-            // must not cause it to be read at all.
+        [TestMethod]
+        public void RecoverPostApply_RequiresAdministratorBeforeReadingArtifacts()
+        {
+            GivenStandardDeploymentResult("Complete");
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            var result = _controller.RecoverPostApply(DeploymentResultId, 0, Substitute.For<IRolePrivilegesChecker>(),
+                Substitute.For<ICloudResourcesPersistentSource>(), Substitute.For<ICloudResourceAuditPersistentSource>(),
+                Substitute.For<IDatabasesPersistentSource>());
+            Assert.IsInstanceOfType<ForbidResult>(result);
+            _requests.DidNotReceive().GetTerraformDeploymentReceipt(Arg.Any<int>());
+            _storage.DidNotReceiveWithAnyArgs().CopyVerifiedBlob(default!, default!, default!);
+        }
+
+        [TestMethod]
+        public void RecoverAuditCopy_UsesApprovedSourceAndDoesNotConfirmOrRegisterAgain()
+        {
+            GivenStandardDeploymentResult("Complete");
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _environments.GetEnvironment(EnvName).Returns(new EnvironmentApiModel { EnvironmentId = 9, EnvironmentName = EnvName });
+            _claimsReader.GetUserFullDomainName(Arg.Any<ClaimsPrincipal>()).Returns("recovery-admin");
+            var roles = Substitute.For<IRolePrivilegesChecker>();
+            roles.IsAdmin(Arg.Any<ClaimsPrincipal>()).Returns(true);
+            _requests.GetTerraformDeploymentReceipt(DeploymentResultId).Returns(new TerraformDeploymentReceipt
+            {
+                DeploymentResultId = DeploymentResultId, DeploymentRequestId = RequestId, EnvironmentId = 9,
+                EnvironmentName = EnvName, SourceSha256 = new string('A', 64),
+                PlanSha256 = new string('B', 64), PlanContentSha256 = new string('C', 64)
+            });
+            _requests.GetTerraformPlanApproval(DeploymentResultId).Returns(new TerraformPlanApproval
+            {
+                DeploymentResultId = DeploymentResultId, DeploymentRequestId = RequestId,
+                SourceSha256 = new string('A', 64), PlanSha256 = new string('B', 64), PlanContentSha256 = new string('C', 64)
+            });
+            _requests.RecoverTerraformPostApply(DeploymentResultId, 4, Arg.Any<Action<TerraformDeploymentOutcome>>(), false)
+                .Returns(call =>
+                {
+                    var outcome = new TerraformDeploymentOutcome
+                    {
+                        DeploymentResultId = DeploymentResultId, ApplyOutcome = "Succeeded",
+                        AppliedAt = DateTimeOffset.UtcNow, InventoryOutcome = "Unavailable", ArchiveOutcome = "Failed"
+                    };
+                    call.Arg<Action<TerraformDeploymentOutcome>>()(outcome);
+                    return outcome;
+                });
+            var cloud = Substitute.For<ICloudResourcesPersistentSource>();
+            var result = _controller.RecoverPostApply(DeploymentResultId, 4, roles, cloud,
+                Substitute.For<ICloudResourceAuditPersistentSource>(), Substitute.For<IDatabasesPersistentSource>(),
+                recoverInventory: false, recoverArchive: true);
+            Assert.IsInstanceOfType<OkObjectResult>(result);
+            _storage.Received(1).CopyVerifiedBlob(DeploymentResultId.CreateTerraformPlanBlobName() + ".source.zip",
+                $"{DeploymentResultId}.terraform-source.zip", new string('A', 64));
+            _storage.DidNotReceiveWithAnyArgs().LoadVerifiedTextFromBlobs(default!, default!, default);
+            _requests.DidNotReceiveWithAnyArgs().TryConfirmTerraformPlan(default!, default!);
+            cloud.DidNotReceiveWithAnyArgs().ExecuteMutation(default(Func<int>)!);
+        }
+
+        private void GivenStandardDeploymentResult(string status = "WaitingConfirmation")
+        {
+            _requests.GetDeploymentResults(DeploymentResultId).Returns(new DeploymentResultApiModel
+            {
+                Id = DeploymentResultId,
+                RequestId = RequestId,
+                Status = status
+            });
+            _requests.GetRequest(RequestId).Returns(new DeploymentRequestApiModel
+            {
+                Id = RequestId,
+                Status = DeploymentRequestStatus.WaitingConfirmation.ToString(),
+                EnvironmentName = EnvName,
+                Project = ProjectName
+            });
+        }
+
+        [TestCleanup]
+        public void NoLegacyComponentMutation()
+        {
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateComponent(default!, default, default, default!);
+            _manageProjects.DidNotReceiveWithAnyArgs().UpdateComponent(default!, default, default, default!);
+        }
+
+        private void GivenCreationOutcome(CatalogComponentCreationStatus status, string message)
+        {
+            _manageProjects.CreateCatalogComponent(
+                    Arg.Any<ComponentApiModel>(), ProjectId, Arg.Any<int?>(), Arg.Any<bool>())
+                .Returns(new CatalogComponentCreation(status, Message: message));
+        }
+
+        // ---------- InstantiateTemplate ----------
+
+        private const int ProjectId = 7;
+        private const string TemplateName = "testmod";
+        private const string TemplateVersion = "1.0.0";
+
+        private static TerraformTemplateManifest Manifest(params TerraformTemplateParameter[] parameters)
+            => new(
+                Name: TemplateName,
+                Version: TemplateVersion,
+                Source: new TerraformTemplateSource("git", "https://example/repo", "v1.0.0"),
+                Parameters: parameters,
+                Outputs: Array.Empty<TerraformTemplateOutput>(),
+                Description: null,
+                Tags: Array.Empty<string>(),
+                Category: null,
+                RequiredProviders: new Dictionary<string, string>(),
+                RequiredTerraformVersion: ">= 1.5.0",
+                Owner: null,
+                Deprecated: false,
+                DeprecationReason: null);
+
+        private void GivenTemplateAndProject(TerraformTemplateManifest manifest)
+        {
+            _catalog.GetAsync(TemplateName, TemplateVersion, Arg.Any<CancellationToken>())
+                .Returns(manifest);
+            _projects.GetProject(ProjectId).Returns(new ProjectApiModel
+            {
+                ProjectId = ProjectId,
+                ProjectName = ProjectName,
+                TerraformStateBackends = new List<TerraformStateBackendApiModel>
+                {
+                    new() { StorageAccount = "teststate", ContainerName = "tfstate",
+                        SubscriptionId = "11111111-1111-1111-1111-111111111111" }
+                }
+            });
+            _environments.GetEnvironment(Arg.Any<string>())
+                .Returns(new EnvironmentApiModel { EnvironmentName = EnvName });
+            _environments.GetMappedProjects(Arg.Any<string>())
+                .Returns(new List<ProjectApiModel>
+                {
+                    new ProjectApiModel { ProjectName = ProjectName }
+                });
+            _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(true);
+        }
+
+        private TerraformController CreateController(IParameterValidator parameterValidator)
+        {
+            var controller = new TerraformController(
+                NullLogger<TerraformController>.Instance,
+                _requests,
+                _security,
+                _claimsReader,
+                _storage,
+                _catalog,
+                _projects,
+                _environments,
+                _manageProjects,
+                parameterValidator,
+                _requestService,
+                _propertyValues,
+                _variableResolver,
+                _variableScopeOptionsResolver,
+                Substitute.For<IConfigurationSettings>(),
+                _configValues)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext()
+                }
+            };
+            controller.HttpContext.User = _controller.HttpContext.User;
+            return controller;
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_UnknownTemplate_Returns404()
+        {
+            _catalog.GetAsync(TemplateName, TemplateVersion, Arg.Any<CancellationToken>())
+                .Returns((TerraformTemplateManifest?)null);
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel { ProjectId = ProjectId },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(NotFoundObjectResult));
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_UnknownProject_Returns404()
+        {
+            _catalog.GetAsync(TemplateName, TemplateVersion, Arg.Any<CancellationToken>())
+                .Returns(Manifest());
+            // ProjectsPersistentSource.GetProject(int) resolves via Single(),
+            // which throws for an unknown id instead of returning null; the
+            // controller must translate that into the declared 404.
+            _projects.When(x => x.GetProject(ProjectId))
+                .Do(_ => throw new InvalidOperationException("Sequence contains no elements"));
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel { ProjectId = ProjectId },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(NotFoundObjectResult));
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_NotProjectOwnerOrAdmin_Returns403()
+        {
+            GivenTemplateAndProject(Manifest());
+            _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(false);
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel { ProjectId = ProjectId },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(ForbidResult),
+                "Create-path RBAC failure (not project owner/admin) returns Forbid.");
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateCatalogComponent(default!, default, default, default);
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_DeployRequestedButCannotModifyEnvironment_Returns403()
+        {
+            GivenTemplateAndProject(Manifest());
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(false);
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>()
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(ObjectResult), "Deploy-path RBAC failure returns StatusCode(403, message).");
+            var objectResult = (ObjectResult)result;
+            Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateCatalogComponent(default!, default, default, default);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_ParameterValidationFails_Returns400WithoutSensitiveValue()
+        {
+            // Uses the real ParameterValidator (not the mock) so the test
+            // proves the sensitive value is redacted end-to-end: manifest
+            // Sensitive flag -> validator message -> 400 response body.
+            const string rawSecret = "hunter2-not-a-number";
+            var manifest = Manifest(new TerraformTemplateParameter(
+                Name: "admin_password",
+                Type: TerraformParameterType.Number,
+                Required: true,
+                Description: null,
+                Default: null,
+                AllowedValues: null,
+                Pattern: null,
+                Min: null,
+                Max: null,
+                Sensitive: true));
+            GivenTemplateAndProject(manifest);
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+
+            var controller = CreateController(new ParameterValidator());
+
+            var result = await controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string> { ["admin_password"] = rawSecret }
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult), "Validation failure must produce 400.");
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateCatalogComponent(default!, default, default, default);
+            var badRequest = (BadRequestObjectResult)result;
+            Assert.IsInstanceOfType(badRequest.Value, typeof(string), "400 body is the validation message string.");
+            var body = (string)badRequest.Value!;
+            Assert.IsFalse(body.Contains(rawSecret),
+                "Sensitive parameter's raw value must not appear in the 400 response body.");
+            StringAssert.Contains(body, "[REDACTED]",
+                "Sensitive parameter's value is replaced with the redaction marker.");
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_InheritedRequiredInputs_ValidateFromEnvironmentAndDoNotPersist()
+        {
+            GivenTemplateAndProject(Manifest(new TerraformTemplateParameter(
+                Name: "required_input",
+                Type: TerraformParameterType.String,
+                Required: true,
+                Description: null,
+                Default: null,
+                AllowedValues: null,
+                Pattern: null,
+                Min: null,
+                Max: null,
+                Sensitive: false)));
+
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>
+            {
+                ["required_input"] = new VariableValue { Value = "resolved-from-env", Type = typeof(string) }
+            });
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 123, Status = "Pending" });
+
+            var controller = CreateController(new ParameterValidator());
+            var result = await controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>()
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            _manageProjects.Received(1).CreateCatalogComponent(
+                Arg.Is<ComponentApiModel>(c => c.ComponentId == 0),
+                ProjectId, Arg.Any<int?>(), true);
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(dto =>
+                    dto.Environment == EnvName
+                    && dto.Project == ProjectName
+                    && dto.RequestProperties.Count == 0),
+                Arg.Any<ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_ExplicitOverrideWinsAndOnlyOverridePersists()
+        {
+            GivenTemplateAndProject(Manifest(
+                new TerraformTemplateParameter(
+                    Name: "required_input",
+                    Type: TerraformParameterType.String,
+                    Required: true,
+                    Description: null,
+                    Default: null,
+                    AllowedValues: null,
+                    Pattern: null,
+                    Min: null,
+                    Max: null,
+                    Sensitive: false),
+                new TerraformTemplateParameter(
+                    Name: "override_me",
+                    Type: TerraformParameterType.String,
+                    Required: false,
+                    Description: null,
+                    Default: "manifest-default",
+                    AllowedValues: null,
+                    Pattern: null,
+                    Min: null,
+                    Max: null,
+                    Sensitive: false)));
+
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>
+            {
+                ["required_input"] = new VariableValue { Value = "resolved-from-env", Type = typeof(string) },
+                ["override_me"] = new VariableValue { Value = "env-value", Type = typeof(string) }
+            });
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 123, Status = "Pending" });
+
+            var controller = CreateController(new ParameterValidator());
+            var result = await controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>
+                    {
+                        ["override_me"] = "user-value"
+                    }
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            _manageProjects.Received(1).CreateCatalogComponent(
+                Arg.Is<ComponentApiModel>(c => c.ComponentId == 0),
+                ProjectId, Arg.Any<int?>(), true);
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(dto =>
+                    dto.Environment == EnvName
+                    && dto.Project == ProjectName
+                    && dto.RequestProperties.Count == 1
+                    && dto.RequestProperties.Any(p => p.PropertyName == "override_me" && p.PropertyValue == "user-value")
+                    && dto.RequestProperties.All(p => p.PropertyName != "required_input")),
+                Arg.Any<ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_DerivedEnvironmentInput_ResolvesUsingRequestOverrides()
+        {
+            GivenTemplateAndProject(Manifest(
+                new TerraformTemplateParameter("prefix", TerraformParameterType.String, true,
+                    null, null, null, null, null, null, false),
+                new TerraformTemplateParameter("resource_name", TerraformParameterType.String, true,
+                    null, null, null, "^override_storage$", null, null, false)));
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _propertyValues.LoadAllPropertiesIntoCache().Returns(new Dictionary<string, PropertyValueDto>
+            {
+                ["prefix"] = new PropertyValueDto { Value = "environment" },
+                ["resource_name"] = new PropertyValueDto { Value = "$prefix$_storage" },
+                ["unrelated"] = new PropertyValueDto { Value = "not-a-manifest-input" }
+            });
+            _variableResolver = new VariableResolver(
+                _propertyValues, NullLoggerFactory.Instance, new PropertyEvaluator());
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 123, Status = "Pending" });
+
+            var controller = CreateController(new ParameterValidator());
+            var result = await controller.InstantiateTemplate(
+                TemplateName, TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId, EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string> { ["prefix"] = "override" }
+                }, CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            _propertyValues.Received(1).AddFilter(
+                PropertyValueFilterTypes.EnvironmentPropertyFilterType, EnvName);
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(dto => dto.RequestProperties.Count == 1
+                    && dto.RequestProperties.First().PropertyName == "prefix"
+                    && dto.RequestProperties.First().PropertyValue == "override"),
+                Arg.Any<ClaimsPrincipal>());
+        }
+
+        private void GivenConfigValueInputs(bool environmentIsProd, bool? configIsForProd)
+        {
+            GivenTemplateAndProject(Manifest(
+                new TerraformTemplateParameter("account_name", TerraformParameterType.String, true,
+                    null, null, null, "^[a-z0-9][a-z0-9-]{1,42}[a-z0-9]$", null, null, false),
+                new TerraformTemplateParameter("location", TerraformParameterType.String, true,
+                    null, null, new[] { "uksouth", "request-region", "scope-region" }, null, null, null, false),
+                new TerraformTemplateParameter("AppCode", TerraformParameterType.String, false,
+                    null, null, null, null, null, null, false)));
+            _environments.GetEnvironment(EnvName).Returns(new EnvironmentApiModel
+            {
+                EnvironmentName = EnvName, EnvironmentIsProd = environmentIsProd
+            });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _configValues.GetAllConfigValues(true).Returns(new[]
+            {
+                new ConfigValueApiModel { Key = "AppCode", Value = "testapp", IsForProd = configIsForProd },
+                new ConfigValueApiModel { Key = "location", Value = "uksouth", IsForProd = configIsForProd }
+            });
+            _propertyValues.LoadAllPropertiesIntoCache().Returns(new Dictionary<string, PropertyValueDto>
+            {
+                ["account_name"] = new PropertyValueDto { Value = "$AppCode$-cosmos" },
+                ["location"] = new PropertyValueDto { Value = "lower-priority-property" }
+            });
+            _variableResolver = new VariableResolver(
+                _propertyValues, NullLoggerFactory.Instance, new PropertyEvaluator());
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 123, Status = "Pending" });
+        }
+
+        [DataTestMethod]
+        [DataRow(false, null)]
+        [DataRow(true, null)]
+        [DataRow(false, false)]
+        [DataRow(true, true)]
+        public async Task InstantiateTemplate_ConfigValuesResolveInheritedCosmosAndDirectInputs(
+            bool environmentIsProd, bool? configIsForProd)
+        {
+            GivenConfigValueInputs(environmentIsProd, configIsForProd);
+            var controller = CreateController(new ParameterValidator());
+
+            var result = await controller.InstantiateTemplate(
+                TemplateName, TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId, EnvironmentName = EnvName
+                }, CancellationToken.None);
+
+            Assert.IsInstanceOfType<OkObjectResult>(result);
+            Assert.AreEqual("testapp-cosmos", _variableResolver.GetPropertyValue("account_name")!.Value);
+            Assert.AreEqual("uksouth", _variableResolver.GetPropertyValue("location")!.Value);
+            _configValues.Received(1).GetAllConfigValues(true);
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(dto => dto.RequestProperties.Count == 0),
+                Arg.Any<ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public async Task ResolveTemplateInputs_ConfigValuesResolveInheritedAndDirectInputsWithoutDisclosingValues()
+        {
+            GivenConfigValueInputs(false, false);
+            var controller = CreateController(new ParameterValidator());
+
+            var result = await controller.ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+
+            Assert.IsInstanceOfType<OkObjectResult>(result);
+            var resolution = (TerraformTemplateResolutionApiModel)((OkObjectResult)result).Value!;
+            Assert.IsTrue(resolution.Parameters.All(p => p.Status == TerraformParameterResolutionStatus.Environment));
+            var json = System.Text.Json.JsonSerializer.Serialize(resolution);
+            Assert.IsFalse(json.Contains("testapp"));
+            Assert.IsFalse(json.Contains("uksouth"));
+            Assert.AreEqual("testapp-cosmos", _variableResolver.GetPropertyValue("account_name")!.Value);
+        }
+
+        [DataTestMethod]
+        [DataRow(false, true)]
+        [DataRow(true, false)]
+        public async Task InstantiateTemplate_ConfigValuesForOtherEnvironmentType_DoNotSatisfyValidation(
+            bool environmentIsProd, bool configIsForProd)
+        {
+            GivenConfigValueInputs(environmentIsProd, configIsForProd);
+
+            var result = await CreateController(new ParameterValidator()).InstantiateTemplate(
+                TemplateName, TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId, EnvironmentName = EnvName
+                }, CancellationToken.None);
+
+            Assert.IsInstanceOfType<BadRequestObjectResult>(result);
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateComponent(default!, default, default, default!);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+        }
+
+        [DataTestMethod]
+        [DataRow(false)]
+        [DataRow(true)]
+        public async Task InstantiateTemplate_ScopeAndRequestOverridesWinOverConfigValues(bool requestOverride)
+        {
+            GivenConfigValueInputs(false, null);
+            _variableScopeOptionsResolver.When(x => x.SetPropertyValues(
+                    Arg.Any<IVariableResolver>(), Arg.Any<EnvironmentApiModel>()))
+                .Do(call =>
+                {
+                    var resolver = call.Arg<IVariableResolver>();
+                    resolver.SetPropertyValue("AppCode", "scopeapp");
+                    resolver.SetPropertyValue("location", "scope-region");
+                });
+            var supplied = requestOverride
+                ? new Dictionary<string, string> { ["AppCode"] = "requestapp", ["location"] = "request-region" }
+                : new Dictionary<string, string>();
+
+            var result = await CreateController(new ParameterValidator()).InstantiateTemplate(
+                TemplateName, TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId, EnvironmentName = EnvName, Parameters = supplied
+                }, CancellationToken.None);
+
+            Assert.IsInstanceOfType<OkObjectResult>(result);
+            Assert.AreEqual(requestOverride ? "requestapp-cosmos" : "scopeapp-cosmos",
+                _variableResolver.GetPropertyValue("account_name")!.Value);
+            Assert.AreEqual(requestOverride ? "request-region" : "scope-region",
+                _variableResolver.GetPropertyValue("location")!.Value);
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(dto => dto.RequestProperties.Count == supplied.Count
+                    && dto.RequestProperties.All(p => supplied[p.PropertyName] == p.PropertyValue)),
+                Arg.Any<ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_InvalidInheritedValue_IsNotReturnedToTheBrowser()
+        {
+            const string inheritedValue = "environment-only-value";
+            GivenTemplateAndProject(Manifest(
+                new TerraformTemplateParameter("required_input", TerraformParameterType.Number, true,
+                    null, null, null, null, null, null, false)));
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>
+            {
+                ["required_input"] = new VariableValue { Value = inheritedValue, Type = typeof(string) }
+            });
+
+            var result = await CreateController(new ParameterValidator()).InstantiateTemplate(
+                TemplateName, TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId, EnvironmentName = EnvName
+                }, CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
+            var message = ((BadRequestObjectResult)result).Value!.ToString()!;
+            StringAssert.Contains(message, "required_input");
+            Assert.IsFalse(message.Contains(inheritedValue));
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateComponent(default!, default, default, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_MissingRequiredInput_Returns400BeforeCreatingComponent()
+        {
+            GivenTemplateAndProject(Manifest(new TerraformTemplateParameter(
+                Name: "required_input",
+                Type: TerraformParameterType.String,
+                Required: true,
+                Description: null,
+                Default: null,
+                AllowedValues: null,
+                Pattern: null,
+                Min: null,
+                Max: null,
+                Sensitive: false)));
+
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>());
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 123, Status = "Pending" });
+
+            var controller = CreateController(new ParameterValidator());
+            var result = await controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>()
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_CreateAndDeployHappyPath_SubmitsRequestAndReturns200()
+        {
+            const int newRequestId = 123;
+            GivenTemplateAndProject(Manifest());
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _parameterValidator.Validate(
+                    Arg.Any<TerraformTemplateManifest>(),
+                    Arg.Any<IReadOnlyDictionary<string, string?>>())
+                .Returns(new ParameterValidationResult(true, Array.Empty<ParameterValidationError>()));
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = newRequestId, Status = "Pending" });
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>()
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult), "Happy-path create-and-deploy returns 200.");
+            var ok = (OkObjectResult)result;
+            // ComponentId must be 0 (not the int? default of null): the Post
+            // validation pipeline requires it, and CreateComponent only
+            // inserts inside `if (ComponentId == 0)`. A null id would pass the
+            // mock here but silently no-op the real persistence.
+            _manageProjects.Received(1).CreateCatalogComponent(
+                Arg.Is<ComponentApiModel>(c => c.ComponentId == 0),
+                ProjectId, Arg.Any<int?>(), true);
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(dto =>
+                    dto.Environment == EnvName
+                    && dto.Project == ProjectName
+                    && dto.Components.Contains(TemplateName)),
+                Arg.Any<ClaimsPrincipal>());
+
+            // The 200 body is the instantiate response envelope carrying the
+            // submitted deploy request id.
+            Assert.IsInstanceOfType(ok.Value, typeof(TerraformTemplateInstantiateResponseApiModel),
+                "200 body is the instantiate response envelope.");
+            var envelope = (TerraformTemplateInstantiateResponseApiModel)ok.Value!;
+            Assert.AreEqual(newRequestId, envelope.RequestId);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_CreateAndDeployUsesCanonicalEnvironmentAndPersistsEmptyOverride()
+        {
+            const int newRequestId = 123;
+            GivenTemplateAndProject(Manifest(new TerraformTemplateParameter(
+                Name: "optional_feature",
+                Type: TerraformParameterType.String,
+                Required: false,
+                Description: null,
+                Default: "default-value",
+                AllowedValues: null,
+                Pattern: null,
+                Min: null,
+                Max: null,
+                Sensitive: false)));
+
+            _environments.GetEnvironment(Arg.Any<string>())
+                .Returns(new EnvironmentApiModel { EnvironmentName = EnvName });
+            _environments.GetMappedProjects(Arg.Any<string>())
+                .Returns(new List<ProjectApiModel>
+                {
+                    new ProjectApiModel { ProjectName = ProjectName }
+                });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _parameterValidator.Validate(
+                    Arg.Any<TerraformTemplateManifest>(),
+                    Arg.Any<IReadOnlyDictionary<string, string?>>())
+                .Returns(new ParameterValidationResult(true, Array.Empty<ParameterValidationError>()));
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = newRequestId, Status = "Pending" });
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = "  tevo dv 11  ",
+                    Parameters = new Dictionary<string, string> { ["optional_feature"] = string.Empty }
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            _security.Received(1).CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName);
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(dto =>
+                    dto.Environment == EnvName
+                    && dto.RequestProperties.Any(p => p.PropertyName == "optional_feature" && p.PropertyValue == string.Empty)),
+                Arg.Any<ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_CreateAndDeployRejectsUnmappedEnvironment_Returns400()
+        {
+            GivenTemplateAndProject(Manifest());
+            _environments.GetEnvironment(Arg.Any<string>())
+                .Returns(new EnvironmentApiModel { EnvironmentName = EnvName });
+            _environments.GetMappedProjects(Arg.Any<string>())
+                .Returns(Array.Empty<ProjectApiModel>());
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>()
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
+            var badRequest = (BadRequestObjectResult)result;
+            StringAssert.Contains((string)badRequest.Value!, ProjectName);
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateComponent(default!, default, default, default!);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_UnknownEnvironment_Returns400BeforeCreatingComponent()
+        {
+            GivenTemplateAndProject(Manifest());
+            _environments.GetEnvironment(Arg.Any<string>()).Returns((EnvironmentApiModel?)null);
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = "MissingEnvironment"
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
+            StringAssert.Contains((string)((BadRequestObjectResult)result).Value!, "MissingEnvironment");
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateComponent(default!, default, default, default!);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+        }
+
+        [TestMethod]
+        [DataRow(null)]
+        [DataRow("")]
+        [DataRow("   ")]
+        public async Task InstantiateTemplate_CreateOnlyWithoutEnvironment_Returns200AndDoesNotSubmitRequest(string? environmentName)
+        {
+            GivenTemplateAndProject(Manifest());
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = environmentName
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult), "Create-only mode returns 200.");
+            var ok = (OkObjectResult)result;
+            // Create-only mode returns the same envelope type as create-and-deploy,
+            // with the created component set and no deploy request (RequestId 0).
+            Assert.IsInstanceOfType(ok.Value, typeof(TerraformTemplateInstantiateResponseApiModel),
+                "Create-only 200 body is the instantiate response envelope.");
+            var envelope = (TerraformTemplateInstantiateResponseApiModel)ok.Value!;
+            Assert.AreEqual(TemplateName, envelope.Component.TerraformTemplateName);
+            Assert.AreEqual(TemplateVersion, envelope.Component.TerraformTemplateVersion);
+            Assert.AreEqual(0, envelope.RequestId, "Create-only mode submits no deploy request.");
+            _manageProjects.Received(1).CreateCatalogComponent(
+                Arg.Is<ComponentApiModel>(c => c.ComponentId == 0),
+                ProjectId, Arg.Any<int?>(), false);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+            _environments.DidNotReceiveWithAnyArgs().GetEnvironment(default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_DuplicateComponentNameInProject_Returns409()
+        {
+            GivenTemplateAndProject(Manifest());
+            GivenCreationOutcome(CatalogComponentCreationStatus.Conflict, $"Component '{TemplateName}' already exists.");
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel { ProjectId = ProjectId },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(ConflictObjectResult),
+                "A duplicate component name inside the destination project returns 409 Conflict.");
+            var conflict = (ConflictObjectResult)result;
+            Assert.IsInstanceOfType(conflict.Value, typeof(string), "409 body is the conflict message string.");
+            StringAssert.Contains((string)conflict.Value!, TemplateName,
+                "Conflict message names the contested component name.");
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_RetryWithDifferentParent_Returns409()
+        {
+            GivenTemplateAndProject(Manifest());
+            GivenCreationOutcome(CatalogComponentCreationStatus.Conflict, "Different parent.");
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _parameterValidator.Validate(
+                    Arg.Any<TerraformTemplateManifest>(),
+                    Arg.Any<IReadOnlyDictionary<string, string?>>())
+                .Returns(new ParameterValidationResult(true, Array.Empty<ParameterValidationError>()));
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    ParentComponentId = 999,
+                    Parameters = new Dictionary<string, string>()
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(ConflictObjectResult),
+                "A retry that changes the parent should not silently reuse the existing component.");
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_RetryAfterPartialFailure_ReusesIdenticalCatalogComponentAndDeploys()
+        {
+            // Retry path: a previous create-and-deploy call persisted the
+            // component but failed to submit the deploy request. Retrying the
+            // identical create-and-deploy request must reuse the existing
+            // Catalog-mode component and proceed to the deploy instead of
+            // returning 409.
+            const int existingComponentId = 55;
+            const int newRequestId = 321;
+            GivenTemplateAndProject(Manifest());
+            _manageProjects.CreateCatalogComponent(
+                    Arg.Any<ComponentApiModel>(), ProjectId, null, true)
+                .Returns(new CatalogComponentCreation(CatalogComponentCreationStatus.Reused, new ComponentApiModel
+                {
+                    ComponentId = existingComponentId,
+                    ComponentName = TemplateName,
+                    ComponentType = ComponentType.Terraform,
+                    TerraformSourceType = TerraformSourceType.Catalog,
+                    TerraformTemplateName = TemplateName,
+                    TerraformTemplateVersion = TemplateVersion,
+                    IsEnabled = true,
+                }));
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _parameterValidator.Validate(
+                    Arg.Any<TerraformTemplateManifest>(),
+                    Arg.Any<IReadOnlyDictionary<string, string?>>())
+                .Returns(new ParameterValidationResult(true, Array.Empty<ParameterValidationError>()));
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = newRequestId, Status = "Pending" });
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>()
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult),
+                "Retrying an identical catalog instantiation in create-and-deploy mode succeeds instead of 409ing.");
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(dto =>
+                    dto.Environment == EnvName
+                    && dto.Project == ProjectName
+                    && dto.Components.Contains(TemplateName)),
+                Arg.Any<ClaimsPrincipal>());
+
+            // The 200 envelope carries the reused (already persisted) component.
+            var ok = (OkObjectResult)result;
+            Assert.IsInstanceOfType(ok.Value, typeof(TerraformTemplateInstantiateResponseApiModel),
+                "200 body is the instantiate response envelope.");
+            var envelope = (TerraformTemplateInstantiateResponseApiModel)ok.Value!;
+            Assert.AreEqual(existingComponentId, envelope.Component.ComponentId,
+                "The envelope's component is the reused existing component, not a newly created one.");
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_DisabledIdenticalComponent_RejectsUntilExplicitlyEnabled()
+        {
+            GivenTemplateAndProject(Manifest());
+            var existing = new ComponentApiModel
+            {
+                ComponentId = 55,
+                ComponentName = TemplateName,
+                ComponentType = ComponentType.Terraform,
+                TerraformSourceType = TerraformSourceType.Catalog,
+                TerraformTemplateName = TemplateName,
+                TerraformTemplateVersion = TemplateVersion,
+                IsEnabled = false
+            };
+            _manageProjects.CreateCatalogComponent(
+                    Arg.Any<ComponentApiModel>(), ProjectId, null, true)
+                .Returns(_ => existing.IsEnabled
+                    ? new CatalogComponentCreation(CatalogComponentCreationStatus.Reused, existing)
+                    : new CatalogComponentCreation(CatalogComponentCreationStatus.Disabled, Message: "Enable it before retrying."));
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 321, Status = "Pending" });
+            var request = new TerraformTemplateInstantiateRequestApiModel
+            {
+                ProjectId = ProjectId, EnvironmentName = EnvName
+            };
+
+            var rejected = await _controller.InstantiateTemplate(
+                TemplateName, TemplateVersion, request, CancellationToken.None);
+
+            Assert.IsInstanceOfType<BadRequestObjectResult>(rejected);
+            StringAssert.Contains((string)((BadRequestObjectResult)rejected).Value!, "Enable it");
+            Assert.IsFalse(existing.IsEnabled);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateComponent(default!, default, default, default!);
+            _manageProjects.DidNotReceiveWithAnyArgs().UpdateComponent(default!, default, default, default!);
+
+            existing.IsEnabled = true;
+            var retried = await _controller.InstantiateTemplate(
+                TemplateName, TemplateVersion, request, CancellationToken.None);
+
+            Assert.IsInstanceOfType<OkObjectResult>(retried);
+            var response = (TerraformTemplateInstantiateResponseApiModel)((OkObjectResult)retried).Value!;
+            Assert.AreSame(existing, response.Component);
+            Assert.AreEqual(321, response.RequestId);
+            _requestService.Received(1).CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>());
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateComponent(default!, default, default, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_RetryWithDifferentTemplateVersion_StillReturns409()
+        {
+            // The reuse exception is strictly for identical instantiations: an
+            // existing same-named Catalog component of a DIFFERENT template
+            // version must still be rejected with 409.
+            GivenTemplateAndProject(Manifest());
+            GivenCreationOutcome(CatalogComponentCreationStatus.Conflict, "Different template version.");
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>()
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(ConflictObjectResult),
+                "A same-named catalog component of a different version is not reusable and returns 409.");
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_InvalidComponentName_Returns400()
+        {
+            GivenTemplateAndProject(Manifest());
+            _manageProjects.CreateCatalogComponent(
+                    Arg.Any<ComponentApiModel>(), ProjectId, Arg.Any<int?>(), Arg.Any<bool>())
+                .Returns(_ => throw new ArgumentException("bad component name"));
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel { ProjectId = ProjectId },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult),
+                "Component validation rejection surfaces as 400 Bad Request.");
+            var badRequest = (BadRequestObjectResult)result;
+            Assert.IsInstanceOfType(badRequest.Value, typeof(string), "400 body is the validation message.");
+            StringAssert.Contains((string)badRequest.Value!, "bad component name",
+                "400 body carries the ArgumentException message.");
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_ParentComponentNotInProject_Returns400()
+        {
+            GivenTemplateAndProject(Manifest());
+            GivenCreationOutcome(CatalogComponentCreationStatus.InvalidParent, "Parent component id 999 does not belong to project.");
+
+            var result = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    ParentComponentId = 999
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult),
+                "A ParentComponentId outside the destination project returns 400 Bad Request.");
+            var badRequest = (BadRequestObjectResult)result;
+            Assert.IsInstanceOfType(badRequest.Value, typeof(string), "400 body is the rejection message.");
+            StringAssert.Contains((string)badRequest.Value!, "999",
+                "Rejection message names the offending parent component id.");
+            _manageProjects.DidNotReceiveWithAnyArgs()
+                .CreateComponent(default!, default, default, default!);
+        }
+
+        // ---------- Resolution ----------
+
+        private static TerraformTemplateParameter Parameter(string name, bool required, string? @default = null, bool sensitive = false)
+            => new(
+                Name: name,
+                Type: TerraformParameterType.String,
+                Required: required,
+                Description: null,
+                Default: @default,
+                AllowedValues: null,
+                Pattern: null,
+                Min: null,
+                Max: null,
+                Sensitive: sensitive);
+
+        [TestMethod]
+        public async Task ResolveTemplateInputs_ClassifiesEachInputWithoutReturningValues()
+        {
+            GivenTemplateAndProject(Manifest(
+                Parameter("from_env", required: true),
+                Parameter("defaulted", required: false, @default: "S0"),
+                Parameter("missing", required: true),
+                Parameter("optional_unset", required: false),
+                Parameter("secret", required: true, sensitive: true)));
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>
+            {
+                ["from_env"] = new VariableValue { Value = "resolved-from-env", Type = typeof(string) },
+                ["secret"] = new VariableValue { Value = "fictional-secret", Type = typeof(string) }
+            });
+
+            var result = await _controller.ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            var ok = (OkObjectResult)result;
+            Assert.IsInstanceOfType(ok.Value, typeof(TerraformTemplateResolutionApiModel));
+            var body = (TerraformTemplateResolutionApiModel)ok.Value!;
+            Assert.AreEqual(EnvName, body.EnvironmentName);
+            var byName = body.Parameters.ToDictionary(p => p.Name, p => p.Status);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Environment, byName["from_env"]);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Default, byName["defaulted"]);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Missing, byName["missing"]);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Unset, byName["optional_unset"]);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Environment, byName["secret"]);
+            Assert.IsTrue(body.Parameters.Single(p => p.Name == "secret").Sensitive);
+            // Resolved values are never echoed: SuggestedValue is the only value
+            // member and must stay empty for every non-Suggested status, so an
+            // environment-resolved secret can never be serialised to the browser.
+            Assert.IsTrue(body.Parameters.All(p => p.Status == TerraformParameterResolutionStatus.Suggested || p.SuggestedValue is null));
+            Assert.IsNull(body.Parameters.Single(p => p.Name == "secret").SuggestedValue);
+        }
+
+        [TestMethod]
+        public async Task ResolveTemplateInputs_SuggestsContextValuesBelowSavedAndEnvironmentButAboveDefaults()
+        {
+            GivenTemplateAndProject(Manifest(
+                Parameter("dorc_environment", required: true),
+                Parameter("environment_tier", required: true),
+                Parameter("business_vertical", required: true),
+                Parameter("origin", required: false, @default: ""),
+                Parameter("termination_protection", required: false, @default: "true"),
+                Parameter("location", required: true, sensitive: true)));
+            _projects.GetProject(ProjectId).Returns(new ProjectApiModel
+            {
+                ProjectId = ProjectId, ProjectName = ProjectName, ApplicationCode = "tev"
+            });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>
+            {
+                ["environment_tier"] = new VariableValue { Value = "from-env", Type = typeof(string) }
+            });
+
+            var result = await _controller.ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+
+            var body = (TerraformTemplateResolutionApiModel)((OkObjectResult)result).Value!;
+            var byName = body.Parameters.ToDictionary(p => p.Name);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Suggested, byName["dorc_environment"].Status);
+            Assert.AreEqual("tevodv11", byName["dorc_environment"].SuggestedValue);
+            Assert.IsFalse(string.IsNullOrEmpty(byName["dorc_environment"].SuggestionReason));
+            Assert.AreEqual(TerraformParameterResolutionStatus.Environment, byName["environment_tier"].Status,
+                "An environment property always wins over a suggestion.");
+            Assert.IsNull(byName["environment_tier"].SuggestedValue);
+            Assert.AreEqual("tr", byName["business_vertical"].SuggestedValue);
+            Assert.AreEqual("tev", byName["origin"].SuggestedValue, "Project application code seeds the origin segment.");
+            Assert.AreEqual("false", byName["termination_protection"].SuggestedValue,
+                "A context suggestion outranks the manifest default.");
+            Assert.AreEqual(TerraformParameterResolutionStatus.Missing, byName["location"].Status,
+                "Sensitive inputs are never suggested even when a rule matches the name.");
+            Assert.IsNull(byName["location"].SuggestedValue);
+        }
+
+        [TestMethod]
+        public async Task Readiness_UsesCredentialRulesWithoutReturningValuesOrClaimingAccess()
+        {
+            GivenTemplateAndProject(Manifest(Parameter("required_input", required: true)));
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>
+            {
+                ["TerraformClientId"] = new() { Value = "not-a-guid-private-value" },
+                ["TerraformClientSecret"] = new() { Value = "secret-value" },
+                ["TerraformAivenApiToken"] = new() { Value = "aiven-private-token" }
+            });
+            var response = await CreateController(new ParameterValidator()).ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+            var readiness = ((TerraformTemplateResolutionApiModel)((OkObjectResult)response).Value!).Readiness;
+            StringAssert.Contains(readiness.AzureCredentialMode, "Invalid");
+            StringAssert.Contains(readiness.AivenCredentialMode, "configured");
+            StringAssert.Contains(readiness.BackendStatus, "Project default: teststate/tfstate");
+            StringAssert.Contains(readiness.AccessStatus, "Not checked");
+            CollectionAssert.Contains(readiness.InvalidInputs, "required_input");
+            var json = System.Text.Json.JsonSerializer.Serialize(readiness);
+            Assert.IsFalse(json.Contains("not-a-guid-private-value"));
+            Assert.IsFalse(json.Contains("secret-value"));
+            Assert.IsFalse(json.Contains("aiven-private-token"));
+        }
+
+        [TestMethod]
+        public async Task ScopedBackend_ReadinessSelectsOverrideAndMissingBackendPreventsCreation()
+        {
+            GivenTemplateAndProject(Manifest());
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _environments.GetEnvironment(Arg.Any<string>()).Returns(new EnvironmentApiModel { EnvironmentId = 12, EnvironmentName = EnvName });
+            var project = _projects.GetProject(ProjectId);
+            project.TerraformStateBackends.Add(new TerraformStateBackendApiModel
+            {
+                EnvironmentId = 12, StorageAccount = "envstate", ContainerName = "envstate",
+                SubscriptionId = "22222222-2222-2222-2222-222222222222"
+            });
+            var response = await _controller.ResolveTemplateInputs(TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+            StringAssert.Contains(((TerraformTemplateResolutionApiModel)((OkObjectResult)response).Value!).Readiness.BackendStatus,
+                "Environment override: envstate/envstate");
+
+            project.TerraformStateBackends.Clear();
+            var refused = await _controller.InstantiateTemplate(TemplateName, TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel { ProjectId = ProjectId, EnvironmentName = EnvName }, CancellationToken.None);
+            Assert.IsInstanceOfType<BadRequestObjectResult>(refused);
+            StringAssert.Contains((string)((BadRequestObjectResult)refused).Value!, "Project Ref Data");
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateCatalogComponent(default!, default, default, default, default!);
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_IdempotentReplayReturnsStoredReceiptBeforeValidationOrCreation()
+        {
+            GivenTemplateAndProject(Manifest(Parameter("required_input", required: true)));
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _claimsReader.GetUserFullDomainName(Arg.Any<System.Security.Principal.IPrincipal>()).Returns(@"DOMAIN\caller");
+            var key = Guid.NewGuid();
+            _requests.FindCatalogSubmission(Arg.Is<CatalogSubmissionIdentity>(identity => identity.Key == key))
+                .Returns(new TerraformTemplateInstantiateResponseApiModel { RequestId = 92 });
+            var response = await _controller.InstantiateTemplate(TemplateName, TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel { ProjectId = ProjectId, EnvironmentName = EnvName, SubmissionKey = key },
+                CancellationToken.None);
+            Assert.AreEqual(92, ((TerraformTemplateInstantiateResponseApiModel)((OkObjectResult)response).Value!).RequestId);
+            _parameterValidator.DidNotReceiveWithAnyArgs().Validate(default!, default!);
+            _manageProjects.DidNotReceiveWithAnyArgs().CreateCatalogComponent(default!, default, default, default);
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+        }
+
+        [TestMethod]
+        public async Task ResolveTemplateInputs_WithoutEnvModifyAuthority_Returns403AndDoesNotResolve()
+        {
+            GivenTemplateAndProject(Manifest(Parameter("from_env", required: true)));
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(false);
+
+            var result = await _controller.ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+
+            AssertForbidden(result);
+            _variableResolver.DidNotReceive().LoadProperties();
+        }
+
+        [TestMethod]
+        public async Task ResolveTemplateInputs_NotProjectOwnerOrAdmin_Returns403()
+        {
+            GivenTemplateAndProject(Manifest(Parameter("from_env", required: true)));
+            _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(false);
+
+            var result = await _controller.ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(ForbidResult));
+            _variableResolver.DidNotReceive().LoadProperties();
+        }
+
+        [TestMethod]
+        public async Task ResolveTemplateInputs_UnmappedEnvironment_Returns400()
+        {
+            GivenTemplateAndProject(Manifest(Parameter("from_env", required: true)));
+            _environments.GetMappedProjects(Arg.Any<string>())
+                .Returns(new List<ProjectApiModel> { new ProjectApiModel { ProjectName = "SomeOtherProject" } });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+
+            var result = await _controller.ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
+            _variableResolver.DidNotReceive().LoadProperties();
+        }
+
+        [TestMethod]
+        public async Task ResolveTemplateInputs_UnknownTemplate_Returns404()
+        {
+            _catalog.GetAsync(TemplateName, TemplateVersion, Arg.Any<CancellationToken>())
+                .Returns((TerraformTemplateManifest?)null);
+
+            var result = await _controller.ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+
+            Assert.IsInstanceOfType(result, typeof(NotFoundObjectResult));
+        }
+
+        // ---------- View ----------
+
+        // Refusals are StatusCode(403, message), not Forbid(): the plan
+        // endpoints return a message body the wizard surfaces to the user.
+        private static void AssertForbidden(IActionResult result)
+        {
+            Assert.IsInstanceOfType(result, typeof(ObjectResult),
+                "Refusals return 403 with a message body.");
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((ObjectResult)result).StatusCode);
+        }
+
+        [TestMethod]
+        public void GetTerraformPlan_EnvOwnerWithoutEnvModify_Returns403()
+        {
+            // Ownership alone no longer grants plan access: the gate is
+            // env-modify authority, matching who may confirm/decline. The
+            // full authorization matrix lives in
+            // TerraformControllerPlanAuthorizationTests.
+            GivenStandardDeploymentResult();
+            _security.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(false);
+
+            var result = _controller.GetTerraformPlan(DeploymentResultId);
+
+            AssertForbidden(result);
             _storage.DidNotReceiveWithAnyArgs().LoadFileFromBlobs(default!);
         }
 
         [TestMethod]
-        public void GetTerraformPlan_WithEnvironmentAuthority_ReturnsPlan()
+        public void GetTerraformPlan_ProjectOwnerWithoutEnvModify_Returns403()
         {
-            _storage.LoadFileFromBlobs(Arg.Any<string>()).Returns("plan output");
+            GivenStandardDeploymentResult();
+            _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(true);
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(false);
 
-            var response = _controller.GetTerraformPlan(ResultId);
+            var result = _controller.GetTerraformPlan(DeploymentResultId);
 
-            Assert.IsInstanceOfType(response, typeof(OkObjectResult));
+            AssertForbidden(result);
+            _storage.DidNotReceiveWithAnyArgs().LoadFileFromBlobs(default!);
         }
 
         [TestMethod]
-        public void ConfirmTerraformPlan_WithoutEnvironmentAuthority_Returns403AndDoesNotTransition()
+        public void GetTerraformPlan_CanModifyEnvironmentOnly_Returns200()
         {
-            _privilegesChecker.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), Environment).Returns(false);
+            // A user who is neither env nor project owner/admin but holds
+            // env-modify (Write) rights can confirm/decline the plan, so the
+            // view gate must admit them too - otherwise the confirmation
+            // dialog can never render its actions for exactly the role
+            // permitted to confirm.
+            GivenStandardDeploymentResult();
+            _security.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(false);
+            _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(false);
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _storage.LoadFileFromBlobs(Arg.Any<string>()).Returns("plan-content");
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var result = _controller.GetTerraformPlan(DeploymentResultId);
 
-            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
-            AssertNoStateChanged();
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
         }
 
         [TestMethod]
-        public void DeclineTerraformPlan_WithoutEnvironmentAuthority_Returns403AndDoesNotTransition()
+        public void GetTerraformPlan_NeitherOwnerNorAdminNorEnvModifier_Returns403()
         {
-            _privilegesChecker.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), Environment).Returns(false);
+            GivenStandardDeploymentResult();
+            _security.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(false);
+            _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(false);
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(false);
 
-            var response = _controller.DeclineTerraformPlan(ResultId);
+            var result = _controller.GetTerraformPlan(DeploymentResultId);
 
-            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
-            AssertNoStateChanged();
-        }
-
-        /// <summary>
-        /// AC-9. A suite that stubbed the checker to false for every argument would pass
-        /// against a predicate reading the wrong environment, so assert the checker was
-        /// consulted with the environment resolved from the request.
-        /// </summary>
-        [TestMethod]
-        public void ConfirmTerraformPlan_ConsultsThePrivilegesCheckerWithTheRequestsEnvironment()
-        {
-            _controller.ConfirmTerraformPlan(ResultId);
-
-            _privilegesChecker.Received(1).CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), Environment);
-        }
-
-        // ------------------------------------------------------- fail closed (R1, AC-8)
-
-        [TestMethod]
-        public void ConfirmTerraformPlan_WhenRequestCannotBeResolved_Returns403NotAllow()
-        {
-            _requestsPersistentSource.GetRequest(RequestId).Returns((DeploymentRequestApiModel)null!);
-
-            var response = _controller.ConfirmTerraformPlan(ResultId);
-
-            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
-            AssertNoStateChanged();
-        }
-
-        /// <summary>
-        /// CanModifyEnvironment falls back to an administrator check when the environment
-        /// cannot be found, so a blank environment name must be refused by the controller
-        /// before the checker is consulted - otherwise every administrator is permitted.
-        /// </summary>
-        [TestMethod]
-        public void ConfirmTerraformPlan_WithBlankEnvironmentName_Returns403EvenWhenCheckerWouldAllow()
-        {
-            GivenRequest("   ", isProd: true, submitter: @"CORP\alice");
-            _privilegesChecker.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>()).Returns(true);
-
-            var response = _controller.ConfirmTerraformPlan(ResultId);
-
-            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
-            _privilegesChecker.DidNotReceiveWithAnyArgs().CanModifyEnvironment(default!, default!);
-            AssertNoStateChanged();
+            AssertForbidden(result);
         }
 
         [TestMethod]
-        public void ConfirmTerraformPlan_WhenResolutionThrows_Returns403Not500()
+        public void GetTerraformPlan_DeploymentResultMissing_Returns404()
         {
-            _requestsPersistentSource.GetRequest(RequestId).Returns(_ => throw new InvalidOperationException("database unavailable"));
+            _requests.GetDeploymentResults(DeploymentResultId).Returns((DeploymentResultApiModel?)null);
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var result = _controller.GetTerraformPlan(DeploymentResultId);
 
-            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
-            AssertNoStateChanged();
+            Assert.IsInstanceOfType(result, typeof(NotFoundObjectResult));
         }
 
         [TestMethod]
-        public void ConfirmTerraformPlan_WhenResultMissing_Returns404()
+        public void GetTerraformPlan_RequestLookupNull_Returns403()
         {
-            _requestsPersistentSource.GetDeploymentResults(ResultId).Returns((DeploymentResultApiModel)null!);
+            _requests.GetDeploymentResults(DeploymentResultId).Returns(new DeploymentResultApiModel
+            {
+                Id = DeploymentResultId,
+                RequestId = RequestId
+            });
+            _requests.GetRequest(RequestId).Returns((DeploymentRequestApiModel?)null);
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var result = _controller.GetTerraformPlan(DeploymentResultId);
 
-            Assert.IsInstanceOfType(response, typeof(NotFoundObjectResult));
+            AssertForbidden(result);
         }
 
-        // ------------------------------------------------ segregation of duties (R3)
+        // ---------- Confirm ----------
 
         [TestMethod]
-        public void ConfirmTerraformPlan_BySubmitter_OnProductionTier_Returns403()
+        public void ConfirmTerraformPlan_CanModifyEnvironment_Returns200()
         {
-            GivenRequest(Environment, isProd: true, submitter: @"CORP\alice");
-            GivenCaller(@"CORP\alice");
+            GivenStandardDeploymentResult();
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _requests.TryConfirmTerraformPlan(
+                    Arg.Any<DeploymentResultApiModel>(), Arg.Any<TerraformPlanApproval>())
+                .Returns(true);
+            _claimsReader.GetUserFullDomainName(Arg.Any<System.Security.Principal.IPrincipal>())
+                .Returns("TestUser");
+            _storage.LoadFileFromBlobs(Arg.Any<string>()).Returns("reviewed plan");
+            _storage.GetFileSha256FromBlobs(Arg.Any<string>()).Returns(new string('A', 64));
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var result = _controller.ConfirmTerraformPlan(DeploymentResultId,
+                TerraformPlanArtifactIntegrity.HashPlanContent("reviewed plan"));
 
-            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
-            AssertNoStateChanged();
-        }
-
-        [TestMethod]
-        public void ConfirmTerraformPlan_BySubmitter_OnNonProductionTier_IsAllowed()
-        {
-            GivenRequest(Environment, isProd: false, submitter: @"CORP\alice");
-            GivenCaller(@"CORP\alice");
-
-            var response = _controller.ConfirmTerraformPlan(ResultId);
-
-            Assert.IsInstanceOfType(response, typeof(OkObjectResult));
-        }
-
-        /// <summary>
-        /// AC-13. The same person submitting under Windows authentication and confirming
-        /// under OAuth is recorded under two different strings. Comparing them directly
-        /// would report them as different people and permit self-approval - the failure
-        /// direction that matters, and one that every other test here would miss.
-        /// </summary>
-        [TestMethod]
-        public void ConfirmTerraformPlan_BySameHumanAcrossAuthenticationSchemes_Returns403()
-        {
-            GivenRequest(Environment, isProd: true, submitter: @"CORP\jsmith");
-            GivenCaller("jsmith@corp.example.com");
-
-            var response = _controller.ConfirmTerraformPlan(ResultId);
-
-            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
-            AssertNoStateChanged();
-        }
-
-        /// <summary>
-        /// An OAuth email local part is not guaranteed to be the user's SAM account name.
-        /// The scheme-independent login must also be checked or this same human is treated
-        /// as a separate approver.
-        /// </summary>
-        [TestMethod]
-        public void ConfirmTerraformPlan_WhenEmailLocalPartDiffersFromSamAccount_Returns403()
-        {
-            GivenRequest(Environment, isProd: true, submitter: @"CORP\jsmith");
-            GivenCaller(
-                fullDomainName: "john.smith@corp.example.com",
-                login: "jsmith",
-                safeIdentifier: "user-123");
-
-            var response = _controller.ConfirmTerraformPlan(ResultId);
-
-            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
-            AssertNoStateChanged();
-        }
-
-        /// <summary>
-        /// AC-11. Restart overwrites the request's user name with the restarter's, so
-        /// comparing against it would let the original author approve their own change
-        /// once anyone else restarted it.
-        /// </summary>
-        [TestMethod]
-        public void ConfirmTerraformPlan_ByOriginalSubmitterAfterAnotherUserRestarted_Returns403()
-        {
-            GivenRestartedBy(restarter: @"CORP\bob", originalSubmitter: @"CORP\alice");
-            GivenCaller(@"CORP\alice");
-
-            var response = _controller.ConfirmTerraformPlan(ResultId);
-
-            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
-            AssertNoStateChanged();
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
         }
 
         [TestMethod]
-        public void ConfirmTerraformPlan_ByRestarterWhoIsNotTheOriginalSubmitter_IsAllowed()
+        public void ConfirmTerraformPlan_CannotModifyEnvironment_Returns403()
         {
-            GivenRestartedBy(restarter: @"CORP\bob", originalSubmitter: @"CORP\alice");
-            GivenCaller(@"CORP\bob");
+            GivenStandardDeploymentResult();
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(false);
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var result = _controller.ConfirmTerraformPlan(DeploymentResultId);
 
-            Assert.IsInstanceOfType(response, typeof(OkObjectResult));
+            AssertForbidden(result);
+        }
+
+        // ---------- Decline ----------
+
+        [TestMethod]
+        public void DeclineTerraformPlan_CanModifyEnvironment_Returns200()
+        {
+            GivenStandardDeploymentResult();
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _requests.TryDeclineTerraformPlan(
+                    Arg.Any<DeploymentResultApiModel>(), Arg.Any<string>(), Arg.Any<DateTimeOffset>())
+                .Returns(true);
+
+            var result = _controller.DeclineTerraformPlan(DeploymentResultId);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
         }
 
         [TestMethod]
-        public void ConfirmTerraformPlan_WhenSubmitterIdentityCannotBeEstablished_Returns403()
+        public void DeclineTerraformPlan_CannotModifyEnvironment_Returns403()
         {
-            GivenRequest(Environment, isProd: true, submitter: "   ");
-            GivenCaller(@"CORP\bob");
+            GivenStandardDeploymentResult();
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(false);
 
-            var response = _controller.ConfirmTerraformPlan(ResultId);
+            var result = _controller.DeclineTerraformPlan(DeploymentResultId);
 
-            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
-            AssertNoStateChanged();
-        }
-
-        [TestMethod]
-        public void ConfirmTerraformPlan_WhenApproverFullDomainIdentityCannotBeEstablished_Returns403()
-        {
-            GivenRequest(Environment, isProd: true, submitter: @"CORP\alice");
-            GivenCaller(fullDomainName: "   ", login: "bob");
-
-            var response = _controller.ConfirmTerraformPlan(ResultId);
-
-            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
-            AssertNoStateChanged();
-        }
-
-        [TestMethod]
-        public void ConfirmTerraformPlan_WhenApproverLoginCannotBeEstablished_Returns403()
-        {
-            GivenRequest(Environment, isProd: true, submitter: @"CORP\alice");
-            GivenCaller(fullDomainName: "bob@corp.example.com", login: "   ");
-
-            var response = _controller.ConfirmTerraformPlan(ResultId);
-
-            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
-            AssertNoStateChanged();
-        }
-
-        /// <summary>
-        /// AC-15. The codebase's usual boolean-setting pattern resolves an absent key to
-        /// false, which would ship this control silently off. Absent must mean enabled for
-        /// production-tier.
-        /// </summary>
-        [TestMethod]
-        public void ConfirmTerraformPlan_WithSeparateApproverSettingAbsent_StillEnforcesOnProductionTier()
-        {
-            _configurationSettings.GetTerraformSeparateApproverRequired().Returns((bool?)null);
-            GivenRequest(Environment, isProd: true, submitter: @"CORP\alice");
-            GivenCaller(@"CORP\alice");
-
-            var response = _controller.ConfirmTerraformPlan(ResultId);
-
-            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
-        }
-
-        [TestMethod]
-        public void ConfirmTerraformPlan_WithSeparateApproverExplicitlyDisabled_AllowsSelfApproval()
-        {
-            _configurationSettings.GetTerraformSeparateApproverRequired().Returns(false);
-            GivenRequest(Environment, isProd: true, submitter: @"CORP\alice");
-            GivenCaller(@"CORP\alice");
-
-            var response = _controller.ConfirmTerraformPlan(ResultId);
-
-            Assert.IsInstanceOfType(response, typeof(OkObjectResult));
-        }
-
-        [TestMethod]
-        public void ConfirmTerraformPlan_WithSeparateApproverExplicitlyEnabled_AppliesToNonProductionToo()
-        {
-            _configurationSettings.GetTerraformSeparateApproverRequired().Returns(true);
-            GivenRequest(Environment, isProd: false, submitter: @"CORP\alice");
-            GivenCaller(@"CORP\alice");
-
-            var response = _controller.ConfirmTerraformPlan(ResultId);
-
-            Assert.AreEqual(StatusCodes.Status403Forbidden, StatusOf(response));
-        }
-
-        /// <summary>
-        /// AC-12. Declining stops a deployment rather than starting one, so there is no
-        /// self-approval to prevent. Applying segregation of duties here would stop a
-        /// requester cancelling their own pending plan.
-        /// </summary>
-        [TestMethod]
-        public void DeclineTerraformPlan_BySubmitter_OnProductionTier_IsAllowed()
-        {
-            GivenRequest(Environment, isProd: true, submitter: @"CORP\alice");
-            GivenCaller(@"CORP\alice");
-
-            var response = _controller.DeclineTerraformPlan(ResultId);
-
-            Assert.IsInstanceOfType(response, typeof(OkObjectResult));
-        }
-
-        // ------------------------------------------------------- guarded transition (R8)
-
-        /// <summary>
-        /// AC-14. The status is read before the authorization checks, so it may have moved
-        /// since. An unguarded write would push a running result back to Confirmed and
-        /// cause a second apply dispatch.
-        /// </summary>
-        [TestMethod]
-        public void ConfirmTerraformPlan_WhenResultLeftWaitingConfirmationConcurrently_Returns409()
-        {
-            _requestsPersistentSource
-                .UpdateResultStatus(Arg.Any<DeploymentResultApiModel>(),
-                    Status(DeploymentResultStatus.Confirmed),
-                    Status(DeploymentResultStatus.WaitingConfirmation))
-                .Returns(false);
-
-            var response = _controller.ConfirmTerraformPlan(ResultId);
-
-            Assert.IsInstanceOfType(response, typeof(ConflictObjectResult));
-            _requestsPersistentSource.DidNotReceiveWithAnyArgs().UpdateRequestStatus(default, default);
-        }
-
-        [TestMethod]
-        public void ConfirmTerraformPlan_TransitionsOnlyFromWaitingConfirmation()
-        {
-            _controller.ConfirmTerraformPlan(ResultId);
-
-            _requestsPersistentSource.Received(1).UpdateResultStatus(
-                Arg.Any<DeploymentResultApiModel>(),
-                Status(DeploymentResultStatus.Confirmed),
-                Status(DeploymentResultStatus.WaitingConfirmation));
-        }
-
-        [TestMethod]
-        public void DeclineTerraformPlan_WhenResultLeftWaitingConfirmationConcurrently_Returns409()
-        {
-            _requestsPersistentSource
-                .UpdateResultStatus(Arg.Any<DeploymentResultApiModel>(),
-                    Status(DeploymentResultStatus.Cancelled),
-                    Status(DeploymentResultStatus.WaitingConfirmation))
-                .Returns(false);
-
-            var response = _controller.DeclineTerraformPlan(ResultId);
-
-            Assert.IsInstanceOfType(response, typeof(ConflictObjectResult));
-            _requestsPersistentSource.DidNotReceiveWithAnyArgs().UpdateRequestStatus(default, default);
-        }
-
-        [TestMethod]
-        public void DeclineTerraformPlan_TransitionsOnlyFromWaitingConfirmation()
-        {
-            _controller.DeclineTerraformPlan(ResultId);
-
-            _requestsPersistentSource.Received(1).UpdateResultStatus(
-                Arg.Any<DeploymentResultApiModel>(),
-                Status(DeploymentResultStatus.Cancelled),
-                Status(DeploymentResultStatus.WaitingConfirmation));
-        }
-
-        [TestMethod]
-        public void ConfirmTerraformPlan_WhenNotAwaitingConfirmation_ReturnsBadRequest()
-        {
-            GivenResult(DeploymentResultStatus.Running);
-
-            var response = _controller.ConfirmTerraformPlan(ResultId);
-
-            Assert.IsInstanceOfType(response, typeof(BadRequestObjectResult));
-            AssertNoStateChanged();
+            AssertForbidden(result);
         }
     }
 }

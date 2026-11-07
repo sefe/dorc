@@ -23,13 +23,17 @@ import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 export class CloneEnvironment extends LitElement {
   @state() private dialogOpened = false;
 
-  @property({ type: Object }) sourceEnvironment: EnvironmentApiModel | undefined;
+  @property({ type: Object }) sourceEnvironment:
+    EnvironmentApiModel | undefined;
 
   @state() private newEnvironmentName = '';
   @state() private copyPropertyValues = false;
   @state() private copyServerMappings = false;
   @state() private copyDatabaseMappings = false;
   @state() private copyProjectMappings = false;
+  @state() private copyContainerMappings = false;
+  @state() private copyCloudResourceMappings = false;
+  @state() private copyApiRegistrationMappings = false;
   @state() private copyAccessControls = false;
   @state() private isCloning = false;
   @state() private canClone = false;
@@ -106,6 +110,9 @@ export class CloneEnvironment extends LitElement {
           this.copyServerMappings,
           this.copyDatabaseMappings,
           this.copyProjectMappings,
+          this.copyContainerMappings,
+          this.copyCloudResourceMappings,
+          this.copyApiRegistrationMappings,
           this.copyAccessControls
         ])}
         ${dialogFooterRenderer(this.renderCloneFooter, [
@@ -117,6 +124,9 @@ export class CloneEnvironment extends LitElement {
           this.copyServerMappings,
           this.copyDatabaseMappings,
           this.copyProjectMappings,
+          this.copyContainerMappings,
+          this.copyCloudResourceMappings,
+          this.copyApiRegistrationMappings,
           this.copyAccessControls
         ])}
       ></vaadin-dialog>
@@ -136,8 +146,7 @@ export class CloneEnvironment extends LitElement {
       this.newEnvironmentName.trim() !== this.sourceEnvironment.EnvironmentName;
 
     if (
-      this.newEnvironmentName.trim() ===
-      this.sourceEnvironment?.EnvironmentName
+      this.newEnvironmentName.trim() === this.sourceEnvironment?.EnvironmentName
     ) {
       this.errorMessage =
         'New environment name must be different from the source';
@@ -162,11 +171,16 @@ export class CloneEnvironment extends LitElement {
       CopyServerMappings: this.copyServerMappings,
       CopyDatabaseMappings: this.copyDatabaseMappings,
       CopyProjectMappings: this.copyProjectMappings,
+      CopyContainerMappings: this.copyContainerMappings,
+      CopyCloudResourceMappings: this.copyCloudResourceMappings,
+      CopyApiRegistrationMappings: this.copyApiRegistrationMappings,
       CopyAccessControls: this.copyAccessControls
     };
 
     const api = new RefDataEnvironmentsApi(dorcApiConfiguration);
-    api.refDataEnvironmentsClonePost({ cloneEnvironmentRequest: request }).subscribe({
+    api
+      .refDataEnvironmentsClonePost({ cloneEnvironmentRequest: request })
+      .subscribe({
         next: (clonedEnv: EnvironmentApiModel) => {
           this.isCloning = false;
 
@@ -207,6 +221,9 @@ export class CloneEnvironment extends LitElement {
     this.copyServerMappings = false;
     this.copyDatabaseMappings = false;
     this.copyProjectMappings = false;
+    this.copyContainerMappings = false;
+    this.copyCloudResourceMappings = false;
+    this.copyApiRegistrationMappings = false;
     this.copyAccessControls = false;
     this.canClone = false;
     this.errorMessage = '';
@@ -218,9 +235,7 @@ export class CloneEnvironment extends LitElement {
     this.dialogOpened = true;
   }
 
-
   private renderCloneContent = () => html`
-
     <table>
       <tr>
         <td>
@@ -232,9 +247,11 @@ export class CloneEnvironment extends LitElement {
         <td>
           <h2>
             ${this.sourceEnvironment?.EnvironmentName ?? 'Not selected'}
-                ${this.sourceEnvironment?.EnvironmentIsProd
-                    ? html`<span class="prod-badge">(Production)</span>`
-                  : ''}
+            ${
+              this.sourceEnvironment?.EnvironmentIsProd
+                ? html`<span class="prod-badge">(Production)</span>`
+                : ''
+            }
           </h2>
         </td>
       </tr>
@@ -253,15 +270,13 @@ export class CloneEnvironment extends LitElement {
       <div
         style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding: 12px; margin-top: 10px;"
       >
-            <div style="font-weight: bold; margin-bottom: 8px;">
-              Clone Options
-            </div>
+        <div style="font-weight: bold; margin-bottom: 8px;">Clone Options</div>
 
         <vaadin-checkbox
           .checked=${this.copyPropertyValues}
           @checked-changed=${(e: CustomEvent<{ value: boolean }>) => {
-                this.copyPropertyValues = e.detail.value;
-              }}
+            this.copyPropertyValues = e.detail.value;
+          }}
         >
           <label slot="label">Copy Property Values (Variables)</label>
         </vaadin-checkbox>
@@ -269,8 +284,8 @@ export class CloneEnvironment extends LitElement {
         <vaadin-checkbox
           .checked=${this.copyServerMappings}
           @checked-changed=${(e: CustomEvent<{ value: boolean }>) => {
-                this.copyServerMappings = e.detail.value;
-              }}
+            this.copyServerMappings = e.detail.value;
+          }}
         >
           <label slot="label">Copy Server Mappings</label>
         </vaadin-checkbox>
@@ -278,8 +293,8 @@ export class CloneEnvironment extends LitElement {
         <vaadin-checkbox
           .checked=${this.copyDatabaseMappings}
           @checked-changed=${(e: CustomEvent<{ value: boolean }>) => {
-                this.copyDatabaseMappings = e.detail.value;
-              }}
+            this.copyDatabaseMappings = e.detail.value;
+          }}
         >
           <label slot="label">Copy Database Mappings</label>
         </vaadin-checkbox>
@@ -287,30 +302,66 @@ export class CloneEnvironment extends LitElement {
         <vaadin-checkbox
           .checked=${this.copyProjectMappings}
           @checked-changed=${(e: CustomEvent<{ value: boolean }>) => {
-                this.copyProjectMappings = e.detail.value;
-              }}
+            this.copyProjectMappings = e.detail.value;
+          }}
         >
           <label slot="label">Copy Project Mappings</label>
         </vaadin-checkbox>
 
+        <p>
+          Component mappings attach the same existing resources; they do not
+          provision new ones. Copying Cloud mappings also copies subscription
+          and resource-group targeting.
+        </p>
+        <vaadin-checkbox
+          id="copy-container-mappings"
+          .checked=${this.copyContainerMappings}
+          @checked-changed=${(e: CustomEvent<{ value: boolean }>) => {
+            this.copyContainerMappings = e.detail.value;
+          }}
+        >
+          <label slot="label">Copy Container Mappings</label>
+        </vaadin-checkbox>
+        <vaadin-checkbox
+          id="copy-cloud-mappings"
+          .checked=${this.copyCloudResourceMappings}
+          @checked-changed=${(e: CustomEvent<{ value: boolean }>) => {
+            this.copyCloudResourceMappings = e.detail.value;
+          }}
+        >
+          <label slot="label">Copy Cloud Resource Mappings</label>
+        </vaadin-checkbox>
+        <vaadin-checkbox
+          id="copy-api-mappings"
+          .checked=${this.copyApiRegistrationMappings}
+          @checked-changed=${(e: CustomEvent<{ value: boolean }>) => {
+            this.copyApiRegistrationMappings = e.detail.value;
+          }}
+        >
+          <label slot="label">Copy API Registration Mappings</label>
+        </vaadin-checkbox>
         <vaadin-checkbox
           .checked=${this.copyAccessControls}
           @checked-changed=${(e: CustomEvent<{ value: boolean }>) => {
-                this.copyAccessControls = e.detail.value;
-              }}
+            this.copyAccessControls = e.detail.value;
+          }}
         >
           <label slot="label">Copy Access Controls (Permissions)</label>
         </vaadin-checkbox>
       </div>
 
-          ${this.errorMessage
-              ? html`<div class="error-message">${this.errorMessage}</div>`
-            : ''}
+      ${
+        this.errorMessage
+          ? html`<div class="error-message">${this.errorMessage}</div>`
+          : ''
+      }
     </div>
   `;
 
   private renderCloneFooter = () => html`
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;">
+    <div
+      style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;"
+    >
       <div>
         <vaadin-button
           .disabled=${!this.canClone || this.isCloning}
