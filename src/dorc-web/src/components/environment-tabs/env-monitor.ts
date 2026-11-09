@@ -233,16 +233,6 @@ export class EnvMonitor
           --divider-color: rgb(223, 232, 239);
         }
 
-        .monitor-toolbar {
-          display: flex;
-          align-items: center;
-          gap: var(--lumo-space-xs);
-          padding: 4px var(--lumo-space-s);
-          background: var(--dorc-bg-secondary);
-          border-bottom: 1px solid var(--dorc-border-color);
-          flex-shrink: 0;
-        }
-
         vaadin-text-field {
           padding: 0;
           margin: 0;
@@ -258,6 +248,49 @@ export class EnvMonitor
           cursor: pointer;
         }
 
+        .id-badge {
+          font-size: 0.78rem;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-weight: 600;
+          font-variant-numeric: tabular-nums;
+          color: var(--dorc-link-color, #58a6ff);
+          background: color-mix(
+            in srgb,
+            var(--dorc-link-color, #58a6ff) 10%,
+            transparent
+          );
+          border: 1px solid
+            color-mix(in srgb, var(--dorc-link-color, #58a6ff) 24%, transparent);
+          border-radius: 5px;
+          padding: 2px 7px;
+          display: inline-flex;
+          align-items: center;
+        }
+
+        .details-primary {
+          font-size: var(--lumo-font-size-s);
+          font-weight: 500;
+          color: var(--dorc-text-primary);
+          line-height: 1.35;
+        }
+
+        .details-secondary {
+          font-size: var(--lumo-font-size-xs);
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          color: var(--lumo-secondary-text-color);
+          line-height: 1.35;
+        }
+
+        .timings-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          font-size: var(--lumo-font-size-xs);
+          font-variant-numeric: tabular-nums;
+          color: var(--lumo-secondary-text-color);
+          line-height: 1.35;
+        }
+
         .status-cell {
           display: flex;
           align-items: center;
@@ -268,8 +301,43 @@ export class EnvMonitor
         }
 
         .status-text {
-          min-width: 75px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 85px;
           flex-shrink: 0;
+          font-size: var(--lumo-font-size-xs);
+          font-weight: 600;
+          letter-spacing: 0.01em;
+        }
+
+        .status-text::before {
+          content: '';
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: currentColor;
+          flex-shrink: 0;
+        }
+
+        .status-text.status-ok {
+          color: var(--dorc-success-text, #3fb950);
+        }
+
+        .status-text.status-active {
+          color: var(--dorc-link-color, #58a6ff);
+        }
+
+        .status-text.status-warn {
+          color: var(--dorc-warning-text, #d29922);
+        }
+
+        .status-text.status-err {
+          color: var(--dorc-error-color, #f85149);
+        }
+
+        .status-text.status-muted {
+          color: var(--dorc-text-secondary, #8b949e);
         }
 
         .cover {
@@ -296,45 +364,13 @@ export class EnvMonitor
         ?hidden="${!this.isLoading && !this.isSearching}"
       ></dorc-spinner>
 
-      <div class="monitor-toolbar" role="region" aria-label="Live updates">
-        <connection-status-indicator
-          mode="toggle"
-          .state="${this.hubConnectionState}"
-          .autoRefresh="${this.autoRefresh}"
-          @toggle-auto-refresh="${() => {
-            void this.toggleAutoRefresh();
-          }}"
-        ></connection-status-indicator>
-
-        ${
-          !this.autoRefresh
-            ? html`
-                <vaadin-button
-                  theme="icon small"
-                  style="padding:0;margin:0"
-                  aria-label="Manual refresh"
-                  @click="${() => {
-                    const event = new CustomEvent('refresh-requests', {
-                      detail: {},
-                      bubbles: true,
-                      composed: true
-                    });
-                    this.dispatchEvent(event);
-                  }}"
-                >
-                  <vaadin-tooltip
-                    slot="tooltip"
-                    text="Manual refresh"
-                  ></vaadin-tooltip>
-                  <vaadin-icon
-                    icon="icons:refresh"
-                    style="color: var(--dorc-link-color)"
-                  ></vaadin-icon>
-                </vaadin-button>
-              `
-            : null
-        }
-      </div>
+      <connection-status-indicator
+        .state="${this.hubConnectionState}"
+        .autoRefresh="${this.autoRefresh}"
+        @toggle-auto-refresh="${() => {
+          void this.toggleAutoRefresh();
+        }}"
+      ></connection-status-indicator>
 
       <vaadin-grid
         id="grid"
@@ -658,12 +694,10 @@ export class EnvMonitor
     return html`
       <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
         <vaadin-vertical-layout>
-          <div>${request.Project} - ${request.EnvironmentName}</div>
-          <div
-            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-          >
-            ${request.BuildNumber}
+          <div class="details-primary">
+            ${request.Project} - ${request.EnvironmentName}
           </div>
+          <div class="details-secondary">${request.BuildNumber}</div>
         </vaadin-vertical-layout>
       </vaadin-horizontal-layout>
     `;
@@ -699,32 +733,16 @@ export class EnvMonitor
     }
 
     return html`
-      <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-        <vaadin-vertical-layout style="line-height: var(--lumo-line-height-s);">
-          <div
-            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-          >
-            ${`${sDate} ${sTime}`}
-          </div>
-          <div
-            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-          >
-            ${`${cDate} ${cTime}`}
-          </div>
-        </vaadin-vertical-layout>
-      </vaadin-horizontal-layout>
+      <div class="timings-stack">
+        <div>${`${sDate} ${sTime}`}</div>
+        <div>${`${cDate} ${cTime}`}</div>
+      </div>
     `;
   };
 
   private idRenderer = (item: DeploymentRequestApiModel) => {
     const request = item;
-    return html`
-      <span
-        style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-      >
-        ${request.Id}
-      </span>
-    `;
+    return html`<span class="id-badge">${request.Id}</span>`;
   };
 
   private onRowClick = (e: CustomEvent) => {
@@ -773,10 +791,32 @@ export class EnvMonitor
     grid.activeItem = item;
   };
 
+  private statusToneClass(status: string | null | undefined): string {
+    switch (status) {
+      case 'Completed':
+      case 'Complete':
+        return 'status-ok';
+      case 'Running':
+      case 'Requesting':
+      case 'Restarting':
+        return 'status-active';
+      case 'Pending':
+      case 'Paused':
+        return 'status-warn';
+      case 'Failed':
+      case 'Errored':
+        return 'status-err';
+      default:
+        return 'status-muted';
+    }
+  }
+
   private statusRenderer = (item: DeploymentRequestApiModel) => {
     return html`
       <div class="status-cell">
-        <span class="status-text">${item.Status}</span>
+        <span class="status-text ${this.statusToneClass(item.Status)}"
+          >${item.Status}</span
+        >
         ${this._requestControlsRenderer(item)}
       </div>
     `;

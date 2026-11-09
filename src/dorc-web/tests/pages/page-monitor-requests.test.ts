@@ -591,25 +591,20 @@ describe('PageMonitorRequests', () => {
       expect(input?.getAttribute('placeholder')).toBe('Status');
     });
 
-    it('renders connection status indicator and manual refresh button in the page-level monitor toolbar', async () => {
+    it('renders connection-status-indicator strip above the grid', async () => {
       el.autoRefresh = true;
       await el.updateComplete;
 
-      const toolbar = el.shadowRoot?.querySelector('.monitor-toolbar');
-      expect(toolbar).not.toBeNull();
-      expect(
-        toolbar?.querySelector('connection-status-indicator')
-      ).not.toBeNull();
-      expect(
-        toolbar?.querySelector('vaadin-button[aria-label="Manual refresh"]')
-      ).toBeNull();
+      const indicator = el.shadowRoot?.querySelector(
+        'connection-status-indicator'
+      ) as any;
+      expect(indicator).not.toBeNull();
+      expect(indicator?.autoRefresh).toBe(true);
 
       el.autoRefresh = false;
       await el.updateComplete;
 
-      expect(
-        toolbar?.querySelector('vaadin-button[aria-label="Manual refresh"]')
-      ).not.toBeNull();
+      expect(indicator?.autoRefresh).toBe(false);
     });
 
     it('pairs status text and request-controls inside statusRenderer and removes separate controls column', () => {
