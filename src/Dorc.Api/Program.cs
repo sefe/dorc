@@ -39,7 +39,7 @@ if (args.Length >= 2 && string.Equals(args[0], "--export-swagger", StringCompari
         .AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["AppSettings:OAuth2:Authority"] = "https://identityserver:5200",
-            ["AppSettings:OAuth2:ApiGlobalScope"] = "dorc-api.manage"
+            ["AppSettings:OAuth2:ApiGlobalScope"] = "dorc-api-np.manage"
         })
         .Build();
     var swaggerSettings = new ConfigurationSettings(swaggerConfig);
@@ -73,6 +73,16 @@ if (args.Length >= 2 && string.Equals(args[0], "--export-swagger", StringCompari
         json += "\n";
     }
     var outputPath = Path.GetFullPath(args[1]);
+    var outputDir = Path.GetDirectoryName(outputPath);
+    if (!string.IsNullOrEmpty(outputDir) && !Directory.Exists(outputDir) && !Path.IsPathRooted(args[1]))
+    {
+        var siblingWebPath = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "dorc-web", args[1]));
+        var siblingWebDir = Path.GetDirectoryName(siblingWebPath);
+        if (!string.IsNullOrEmpty(siblingWebDir) && Directory.Exists(siblingWebDir))
+        {
+            outputPath = siblingWebPath;
+        }
+    }
     await File.WriteAllTextAsync(outputPath, json, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
     return;
 }
