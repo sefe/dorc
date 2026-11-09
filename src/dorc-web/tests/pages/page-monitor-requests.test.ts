@@ -565,4 +565,70 @@ describe('PageMonitorRequests', () => {
       expect(text).toContain('3.1.4');
     });
   });
+
+  // -------------------------------------------------------
+  // Id and Status column layout (Option 1)
+  // -------------------------------------------------------
+  describe('Id and Status column layout', () => {
+    it('renders compact Id header without connection status indicator', () => {
+      const root = document.createElement('div');
+      render(el.idHeaderRenderer(), root);
+
+      expect(root.querySelector('connection-status-indicator')).toBeNull();
+      const sorter = root.querySelector('vaadin-grid-sorter');
+      expect(sorter?.getAttribute('path')).toBe('Id');
+      const input = root.querySelector('vaadin-text-field') as HTMLElement;
+      expect(input?.getAttribute('placeholder')).toBe('Id');
+      expect(input?.style.width).toBe('75px');
+    });
+
+    it('renders connection status indicator and Status filter in statusHeaderRenderer', () => {
+      const root = document.createElement('div');
+      el.autoRefresh = true;
+      render(el.statusHeaderRenderer(), root);
+
+      expect(root.querySelector('connection-status-indicator')).not.toBeNull();
+      expect(
+        root.querySelector('vaadin-button[aria-label="Manual refresh"]')
+      ).toBeNull();
+      const input = root.querySelector('vaadin-text-field');
+      expect(input?.getAttribute('placeholder')).toBe('Status');
+    });
+
+    it('shows manual refresh button in statusHeaderRenderer when autoRefresh is false', () => {
+      const root = document.createElement('div');
+      el.autoRefresh = false;
+      render(el.statusHeaderRenderer(), root);
+
+      expect(
+        root.querySelector('vaadin-button[aria-label="Manual refresh"]')
+      ).not.toBeNull();
+    });
+
+    it('pairs status text and request-controls inside statusRenderer and removes separate controls column', () => {
+      const root = document.createElement('div');
+      const item = {
+        Id: 2085274,
+        Status: 'Completed',
+        UserEditable: true
+      };
+
+      render((el as any).statusRenderer(item), root);
+
+      const statusCell = root.querySelector('.status-cell');
+      expect(statusCell).not.toBeNull();
+      expect(statusCell?.querySelector('.status-text')?.textContent).toBe(
+        'Completed'
+      );
+      const controls = statusCell?.querySelector('request-controls') as any;
+      expect(controls).not.toBeNull();
+      expect(controls.requestId).toBe(2085274);
+      expect(controls.canRestart).toBe(true);
+
+      const columns = el.shadowRoot?.querySelectorAll(
+        '#grid > vaadin-grid-column'
+      );
+      expect(columns?.length).toBe(6);
+    });
+  });
 });
