@@ -94,12 +94,14 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
         overflow: auto;
         width: calc(100% - 4px);
         flex: 1;
-        min-height: 150px;
         --divider-color: var(--dorc-border-color);
       }
+      vaadin-grid#grid::part(last-row) {
+        padding-bottom: 18px;
+      }
       vaadin-grid-cell-content {
-        padding-top: 0px;
-        padding-bottom: 0px;
+        padding-top: 4px;
+        padding-bottom: 4px;
         margin: 0px;
       }
 

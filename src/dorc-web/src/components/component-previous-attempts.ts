@@ -56,14 +56,17 @@ export class ComponentPreviousAttempts extends LitElement {
   static get styles() {
     return css`
       ${shaBadgeStyles}
-      vaadin-grid#grid {
+      vaadin-grid {
         overflow: auto;
         width: calc(100% - 4px);
         --divider-color: rgb(223, 232, 239);
       }
+      vaadin-grid::part(last-row) {
+        padding-bottom: 18px;
+      }
       vaadin-grid-cell-content {
-        padding-top: 0px;
-        padding-bottom: 0px;
+        padding-top: 4px;
+        padding-bottom: 4px;
         margin: 0px;
       }
 
