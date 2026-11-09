@@ -66,15 +66,34 @@ export function confirmPrompt(
     dialog.cancelTheme = cancelTheme;
     dialog.cancelButtonVisible = true;
 
+    // `white-space: pre-line` so the message keeps its line breaks. Several
+    // call sites separate a question from its consequence with a blank line —
+    // "mark this property as secure?\n\nThis will encrypt all existing
+    // values. This action cannot be undone." — and window.confirm() honoured
+    // that. Slotted into the overlay under the default `normal`, every break
+    // collapses to a space and the warning runs on from the question.
+    const text = document.createElement('div');
+    text.style.whiteSpace = 'pre-line';
+    // Every message interpolates an identifier the user did not choose — an
+    // FQDN from `Delete server ${name}?`, a domain-qualified group from
+    // `Remove Access from ${accessControl?.Name}?`. Dots and backslashes are
+    // not break opportunities in CSS, and vaadin-confirm-dialog's overlay
+    // content is `overflow-x: visible` (unlike vaadin-dialog's, which is
+    // `auto`), so without this the name runs past the edge with nothing able
+    // to scroll to it.
+    text.style.overflowWrap = 'anywhere';
+    text.textContent = message;
+    dialog.appendChild(text);
+
     if (warningTitle || warningMessage || warningActionHint) {
       const banner = document.createElement('div');
       banner.className = 'confirm-prompt-warning';
       banner.setAttribute('role', 'alert');
       banner.style.display = 'flex';
       banner.style.alignItems = 'flex-start';
-      banner.style.gap = '16px';
-      banner.style.padding = '14px 16px';
-      banner.style.marginBottom = '14px';
+      banner.style.gap = '12px';
+      banner.style.padding = '12px 14px';
+      banner.style.marginTop = '14px';
       banner.style.borderRadius = '8px';
       banner.style.border = '2px solid #d97706';
       banner.style.backgroundColor = 'rgba(245, 158, 11, 0.14)';
@@ -85,8 +104,8 @@ export function confirmPrompt(
       iconWrap.style.display = 'flex';
       iconWrap.style.alignItems = 'center';
       iconWrap.style.justifyContent = 'center';
-      iconWrap.style.width = '52px';
-      iconWrap.style.height = '52px';
+      iconWrap.style.width = '35px';
+      iconWrap.style.height = '35px';
       iconWrap.style.borderRadius = '50%';
       iconWrap.style.backgroundColor = 'rgba(217, 119, 6, 0.2)';
       iconWrap.style.color = '#b45309';
@@ -94,8 +113,8 @@ export function confirmPrompt(
 
       const icon = document.createElement('vaadin-icon');
       icon.setAttribute('icon', 'vaadin:warning');
-      icon.style.width = '32px';
-      icon.style.height = '32px';
+      icon.style.width = '21px';
+      icon.style.height = '21px';
       iconWrap.appendChild(icon);
       banner.appendChild(iconWrap);
 
@@ -135,25 +154,6 @@ export function confirmPrompt(
       banner.appendChild(body);
       dialog.appendChild(banner);
     }
-
-    // `white-space: pre-line` so the message keeps its line breaks. Several
-    // call sites separate a question from its consequence with a blank line —
-    // "mark this property as secure?\n\nThis will encrypt all existing
-    // values. This action cannot be undone." — and window.confirm() honoured
-    // that. Slotted into the overlay under the default `normal`, every break
-    // collapses to a space and the warning runs on from the question.
-    const text = document.createElement('div');
-    text.style.whiteSpace = 'pre-line';
-    // Every message interpolates an identifier the user did not choose — an
-    // FQDN from `Delete server ${name}?`, a domain-qualified group from
-    // `Remove Access from ${accessControl?.Name}?`. Dots and backslashes are
-    // not break opportunities in CSS, and vaadin-confirm-dialog's overlay
-    // content is `overflow-x: visible` (unlike vaadin-dialog's, which is
-    // `auto`), so without this the name runs past the edge with nothing able
-    // to scroll to it.
-    text.style.overflowWrap = 'anywhere';
-    text.textContent = message;
-    dialog.appendChild(text);
 
     let settled = false;
     const finish = (result: boolean) => {

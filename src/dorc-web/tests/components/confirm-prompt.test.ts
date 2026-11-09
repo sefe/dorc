@@ -165,28 +165,35 @@ describe('confirmPrompt', () => {
 
   it('renders a prominent warning banner with a warning icon when warning options are passed', async () => {
     void confirmPrompt('Restart job 42?', {
-      header: 'Restart Job — Old SHA / Snapshot Warning',
+      header: 'Restart deployment',
       warningTitle:
-        'Restarting runs the old pinned SHA and deployment snapshot',
+        "Warning: restart doesn't use latest version of component(s)",
       warningMessage:
-        'This job will restart using the original SHA revision and deployment definitions captured when the job was first created.',
+        "This restarts the deploy exactly as it was when first created, ignoring any recent changes to project's components.",
       warningActionHint:
-        'To deploy a recently changed project, cancel this dialog and create a new deployment job instead.'
+        'To deploy recent updates create a new deployment job instead.'
     });
     await settle();
 
     const dialog = openDialog();
-    const banner = dialog?.querySelector('.confirm-prompt-warning');
+    const banner = dialog?.querySelector(
+      '.confirm-prompt-warning'
+    ) as HTMLElement | null;
     expect(banner).to.not.equal(null);
     expect(banner?.getAttribute('role')).to.equal('alert');
-    expect(
-      banner?.querySelector('vaadin-icon[icon="vaadin:warning"]')
-    ).to.not.equal(null);
+    expect(banner?.previousElementSibling?.textContent).to.equal(
+      'Restart job 42?'
+    );
+    const icon = banner?.querySelector(
+      'vaadin-icon[icon="vaadin:warning"]'
+    ) as HTMLElement | null;
+    expect(icon).to.not.equal(null);
+    expect(icon?.style.width).to.equal('21px');
     expect(banner?.textContent).to.contain(
-      'Restarting runs the old pinned SHA and deployment snapshot'
+      "Warning: restart doesn't use latest version of component(s)"
     );
     expect(banner?.textContent).to.contain(
-      'create a new deployment job instead'
+      'To deploy recent updates create a new deployment job instead.'
     );
   });
 });

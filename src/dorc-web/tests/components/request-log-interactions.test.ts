@@ -118,12 +118,16 @@ describe('request control row snapshots', () => {
     const restartOptions = (
       confirmPromptSpy.mock.calls[1] as unknown[]
     )[1] as Record<string, string>;
-    expect(restartOptions.warningTitle).to.contain('pinned SHA');
-    expect(restartOptions.warningMessage).to.contain(
-      'NOT from any recent changes'
+    expect(restartOptions.header).to.equal('Restart deployment');
+    expect(restartOptions.confirmText).to.equal('OK');
+    expect(restartOptions.warningTitle).to.equal(
+      "Warning: restart doesn't use latest version of component(s)"
     );
-    expect(restartOptions.warningActionHint).to.contain(
-      'create a new deployment job'
+    expect(restartOptions.warningMessage).to.equal(
+      "This restarts the deploy exactly as it was when first created, ignoring any recent changes to project's components."
+    );
+    expect(restartOptions.warningActionHint).to.equal(
+      'To deploy recent updates create a new deployment job instead.'
     );
 
     for (const button of el.shadowRoot?.querySelectorAll(

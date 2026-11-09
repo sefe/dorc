@@ -177,15 +177,15 @@ export class RequestControls extends LitElement {
     const answer = await confirmPrompt(
       `Are you sure you want to restart the job with ID ${requestId}?`,
       {
-        header: 'Restart Job — Old SHA / Snapshot Warning',
-        confirmText: 'Restart Using Old Snapshot',
+        header: 'Restart deployment',
+        confirmText: 'OK',
         confirmTheme: 'primary error',
         warningTitle:
-          'Restarting runs the old pinned SHA and deployment snapshot',
+          "Warning: restart doesn't use latest version of component(s)",
         warningMessage:
-          'This job will restart using the original SHA revision and deployment definitions captured when the job was first created — NOT from any recent changes made to the project or components.',
+          "This restarts the deploy exactly as it was when first created, ignoring any recent changes to project's components.",
         warningActionHint:
-          'To deploy a recently changed project, cancel this dialog and create a new deployment job instead.'
+          'To deploy recent updates create a new deployment job instead.'
       }
     );
 
