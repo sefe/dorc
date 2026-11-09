@@ -257,10 +257,12 @@ export class PageMonitorRequests
           justify-content: space-between;
           gap: var(--lumo-space-s);
           width: 100%;
+          min-width: 245px;
         }
 
         .status-text {
           min-width: 75px;
+          flex-shrink: 0;
         }
 
         .cover {
@@ -552,6 +554,9 @@ export class PageMonitorRequests
 
   private monitorRequestsLoaded() {
     this.isLoading = false;
+    requestAnimationFrame(() => {
+      this.grid?.recalculateColumnWidths();
+    });
   }
 
   updateGrid() {

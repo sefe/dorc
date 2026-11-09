@@ -630,5 +630,20 @@ describe('PageMonitorRequests', () => {
       );
       expect(columns?.length).toBe(6);
     });
+
+    it('enforces a minimum width on .status-cell and recalculates column widths after loading so all 4 control buttons fit', async () => {
+      const cssText = PageMonitorRequests.styles
+        .map((s: any) => s.cssText ?? '')
+        .join('');
+      expect(cssText).toContain('min-width: 245px');
+
+      const grid = el.shadowRoot?.querySelector('#grid') as any;
+      grid.recalculateColumnWidths = vi.fn();
+
+      (el as any).monitorRequestsLoaded();
+      await new Promise(resolve => requestAnimationFrame(resolve));
+
+      expect(grid.recalculateColumnWidths).toHaveBeenCalled();
+    });
   });
 });
