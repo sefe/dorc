@@ -17,6 +17,10 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import { Notification } from '@vaadin/notification';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import {
+  renderCompactSourceEvidence,
+  shaBadgeStyles
+} from './dorc-sha-badge';
 
 @customElement('component-deployment-results')
 export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
@@ -79,6 +83,7 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
 
   static get styles() {
     return css`
+      ${shaBadgeStyles}
       :host {
         display: block;
         min-width: 0;
@@ -217,14 +222,18 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
     const result = item as DeploymentResultApiModel;
     if (result.ProjectId && result.ComponentId)
       return html`
-        <a
-          href="/project-ref-data/${result.ProjectId}?componentId=${result.ComponentId}&amp;tab=history"
-          >${result.ComponentName}</a
-        >
         <div>
-          ${result.SourceRevisionLabel || 'Executed source not recorded'}
+          <a
+            href="/project-ref-data/${result.ProjectId}?componentId=${result.ComponentId}&amp;tab=history"
+            >${result.ComponentName}</a
+          >
         </div>
-        ${result.DefinitionRevision ? html`<small>Submitted revision: ${result.DefinitionRevision}</small>` : ''}
+        <div>
+          ${renderCompactSourceEvidence(
+            result.SourceRevisionLabel,
+            result.DefinitionRevision
+          )}
+        </div>
       `;
     if (result.IsTerraform) return html`${result.ComponentName}`;
     return html`

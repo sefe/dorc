@@ -175,7 +175,18 @@ export class RequestControls extends LitElement {
     // next row's by the time the user answers.
     const requestId = this.requestId;
     const answer = await confirmPrompt(
-      `Are you sure you want to restart the job with ID ${requestId}?`
+      `Are you sure you want to restart the job with ID ${requestId}?`,
+      {
+        header: 'Restart Job — Old SHA / Snapshot Warning',
+        confirmText: 'Restart Using Old Snapshot',
+        confirmTheme: 'primary error',
+        warningTitle:
+          'Restarting runs the old pinned SHA and deployment snapshot',
+        warningMessage:
+          'This job will restart using the original SHA revision and deployment definitions captured when the job was first created — NOT from any recent changes made to the project or components.',
+        warningActionHint:
+          'To deploy a recently changed project, cancel this dialog and create a new deployment job instead.'
+      }
     );
 
     if (answer) {

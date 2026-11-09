@@ -19,6 +19,10 @@ import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import { drawerShortcuts } from '../components/drawer-shortcuts';
+import {
+  renderShaBadge,
+  shaBadgeStyles
+} from '../components/dorc-sha-badge';
 
 @customElement('page-deployment-definitions')
 export class PageDeploymentDefinitions extends ResponsiveMixin(PageElement) {
@@ -42,6 +46,7 @@ export class PageDeploymentDefinitions extends ResponsiveMixin(PageElement) {
   } = {};
 
   static styles = css`
+    ${shaBadgeStyles}
     :host {
       display: flex;
       flex-direction: column;
@@ -239,8 +244,11 @@ export class PageDeploymentDefinitions extends ResponsiveMixin(PageElement) {
     return html`<div class="source">
         ${item.SourceSummary || 'Source not configured'}
       </div>
-      <div class="source">
-        Current definition: ${item.Revision || 'Not versioned'}
+      <div class="source dorc-sha-meta">
+        <span>Current definition:</span>
+        ${item.Revision
+          ? renderShaBadge(item.Revision, { label: 'rev' })
+          : html`<span>Not versioned</span>`}
       </div>`;
   }
 

@@ -258,4 +258,37 @@ describe('component and variable renderers', () => {
       ).editing
     ).to.equal(true);
   });
+
+  it('renders 64-character SHAs as compact, copyable badges without repeating identical definition revisions', async () => {
+    const fullSha =
+      'E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855';
+    const result = {
+      Id: 21,
+      ProjectId: 7,
+      ComponentId: 11,
+      ComponentName: 'Database migration',
+      SourceRevisionLabel: `Submitted PowerShell definition ${fullSha}`,
+      DefinitionRevision: fullSha
+    };
+    const el = await fixture<
+      HTMLElement & {
+        componentNameRenderer(item: unknown): unknown;
+      }
+    >(
+      html`<component-deployment-results
+        .resultItems=${[result]}
+      ></component-deployment-results>`
+    );
+
+    render(el.componentNameRenderer(result) as never, host);
+    await settle();
+
+    const badges = host.querySelectorAll<HTMLButtonElement>(
+      'button.dorc-sha-badge'
+    );
+    expect(badges.length).to.equal(1);
+    expect(badges[0].dataset.sha).to.equal(fullSha);
+    expect(badges[0].textContent?.trim()).to.equal('e3b0c442');
+    expect(host.textContent).to.not.contain(fullSha);
+  });
 });

@@ -1,4 +1,6 @@
 import '@vaadin/confirm-dialog';
+import '@vaadin/icon';
+import '@vaadin/icons/vaadin-icons';
 import { LOCATION_CHANGED_EVENT } from '../router/router';
 import type { ConfirmDialog } from '@vaadin/confirm-dialog';
 
@@ -30,6 +32,13 @@ export interface ConfirmPromptOptions {
   confirmTheme?: string;
   /** Theme for the cancel button. Defaults to a filled neutral button. */
   cancelTheme?: string;
+  /**
+   * Optional prominent warning callout rendered with a large warning symbol
+   * inside the confirmation dialog.
+   */
+  warningTitle?: string;
+  warningMessage?: string;
+  warningActionHint?: string;
 }
 
 export function confirmPrompt(
@@ -40,7 +49,10 @@ export function confirmPrompt(
     header = 'Confirm',
     confirmText = 'OK',
     confirmTheme = 'primary error',
-    cancelTheme = 'primary'
+    cancelTheme = 'primary',
+    warningTitle,
+    warningMessage,
+    warningActionHint
   } = options;
 
   return new Promise<boolean>(resolve => {
@@ -53,6 +65,76 @@ export function confirmPrompt(
     dialog.confirmTheme = confirmTheme;
     dialog.cancelTheme = cancelTheme;
     dialog.cancelButtonVisible = true;
+
+    if (warningTitle || warningMessage || warningActionHint) {
+      const banner = document.createElement('div');
+      banner.className = 'confirm-prompt-warning';
+      banner.setAttribute('role', 'alert');
+      banner.style.display = 'flex';
+      banner.style.alignItems = 'flex-start';
+      banner.style.gap = '16px';
+      banner.style.padding = '14px 16px';
+      banner.style.marginBottom = '14px';
+      banner.style.borderRadius = '8px';
+      banner.style.border = '2px solid #d97706';
+      banner.style.backgroundColor = 'rgba(245, 158, 11, 0.14)';
+      banner.style.maxWidth = '520px';
+      banner.style.overflowWrap = 'anywhere';
+
+      const iconWrap = document.createElement('div');
+      iconWrap.style.display = 'flex';
+      iconWrap.style.alignItems = 'center';
+      iconWrap.style.justifyContent = 'center';
+      iconWrap.style.width = '52px';
+      iconWrap.style.height = '52px';
+      iconWrap.style.borderRadius = '50%';
+      iconWrap.style.backgroundColor = 'rgba(217, 119, 6, 0.2)';
+      iconWrap.style.color = '#b45309';
+      iconWrap.style.flexShrink = '0';
+
+      const icon = document.createElement('vaadin-icon');
+      icon.setAttribute('icon', 'vaadin:warning');
+      icon.style.width = '32px';
+      icon.style.height = '32px';
+      iconWrap.appendChild(icon);
+      banner.appendChild(iconWrap);
+
+      const body = document.createElement('div');
+      body.style.display = 'flex';
+      body.style.flexDirection = 'column';
+      body.style.gap = '6px';
+      body.style.minWidth = '0';
+      body.style.overflowWrap = 'anywhere';
+
+      if (warningTitle) {
+        const titleEl = document.createElement('strong');
+        titleEl.style.fontSize = 'var(--lumo-font-size-m, 1rem)';
+        titleEl.style.lineHeight = '1.3';
+        titleEl.textContent = warningTitle;
+        body.appendChild(titleEl);
+      }
+
+      if (warningMessage) {
+        const msgEl = document.createElement('div');
+        msgEl.style.fontSize = 'var(--lumo-font-size-s, 0.875rem)';
+        msgEl.style.lineHeight = '1.45';
+        msgEl.textContent = warningMessage;
+        body.appendChild(msgEl);
+      }
+
+      if (warningActionHint) {
+        const hintEl = document.createElement('div');
+        hintEl.style.fontSize = 'var(--lumo-font-size-s, 0.875rem)';
+        hintEl.style.fontWeight = '600';
+        hintEl.style.lineHeight = '1.4';
+        hintEl.style.marginTop = '2px';
+        hintEl.textContent = warningActionHint;
+        body.appendChild(hintEl);
+      }
+
+      banner.appendChild(body);
+      dialog.appendChild(banner);
+    }
 
     // `white-space: pre-line` so the message keeps its line breaks. Several
     // call sites separate a question from its consequence with a blank line —

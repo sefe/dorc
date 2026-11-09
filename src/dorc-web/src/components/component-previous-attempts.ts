@@ -20,6 +20,10 @@ import '@vaadin/icon';
 import '@vaadin/horizontal-layout';
 import '@vaadin/vertical-layout';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import {
+  renderCompactSourceEvidence,
+  shaBadgeStyles
+} from './dorc-sha-badge';
 
 @customElement('component-previous-attempts')
 export class ComponentPreviousAttempts extends LitElement {
@@ -51,6 +55,7 @@ export class ComponentPreviousAttempts extends LitElement {
 
   static get styles() {
     return css`
+      ${shaBadgeStyles}
       vaadin-grid#grid {
         overflow: auto;
         width: calc(100% - 4px);
@@ -255,14 +260,18 @@ export class ComponentPreviousAttempts extends LitElement {
     const result = item as DeploymentResultAttemptApiModel;
     if (result.ProjectId && result.ComponentId)
       return html`
-        <a
-          href="/project-ref-data/${result.ProjectId}?componentId=${result.ComponentId}&amp;tab=history"
-          >${result.ComponentName}</a
-        >
         <div>
-          ${result.SourceRevisionLabel || 'Executed source not recorded'}
+          <a
+            href="/project-ref-data/${result.ProjectId}?componentId=${result.ComponentId}&amp;tab=history"
+            >${result.ComponentName}</a
+          >
         </div>
-        ${result.DefinitionRevision ? html`<small>Submitted revision: ${result.DefinitionRevision}</small>` : ''}
+        <div>
+          ${renderCompactSourceEvidence(
+            result.SourceRevisionLabel,
+            result.DefinitionRevision
+          )}
+        </div>
       `;
     if (result.IsTerraform || result.HasTerraformPlan)
       return html`${result.ComponentName}`;

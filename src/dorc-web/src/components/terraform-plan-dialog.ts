@@ -16,6 +16,7 @@ import {
 import { TerraformApi } from '../apis/dorc-api/apis/TerraformApi';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import { renderShaBadge, shaBadgeStyles } from './dorc-sha-badge';
 
 @customElement('terraform-plan-dialog')
 export class TerraformPlanDialog extends LitElement {
@@ -44,6 +45,7 @@ export class TerraformPlanDialog extends LitElement {
 
   static get styles() {
     return css`
+      ${shaBadgeStyles}
       .dialog-content {
         padding: var(--lumo-space-s) var(--lumo-space-m);
         height: 100%;
@@ -340,7 +342,11 @@ export class TerraformPlanDialog extends LitElement {
                   </div>
                   <div>
                     <dt>Source commit</dt>
-                    <dd>${this.plan.Receipt.GitCommitSha || 'Unavailable'}</dd>
+                    <dd>
+                      ${this.plan.Receipt.GitCommitSha
+                        ? renderShaBadge(this.plan.Receipt.GitCommitSha)
+                        : 'Unavailable'}
+                    </dd>
                   </div>
                   <div>
                     <dt>Planned workload target</dt>

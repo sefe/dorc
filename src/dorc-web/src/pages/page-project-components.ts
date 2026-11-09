@@ -26,6 +26,10 @@ import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import '@vaadin/grid/vaadin-grid-column';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import '../components/project-workspace-nav';
+import {
+  renderShaBadge,
+  shaBadgeStyles
+} from '../components/dorc-sha-badge';
 
 interface ComponentDeploymentInfo extends ComponentApiModel {
   Children?: ComponentDeploymentInfo[] | null;
@@ -48,6 +52,7 @@ interface EnvironmentDeploymentRow {
 export class PageProjectComponents extends ResponsiveMixin(PageElement) {
   static get styles() {
     return css`
+      ${shaBadgeStyles}
       :host {
         display: flex;
         flex-direction: column;
@@ -611,28 +616,48 @@ export class PageProjectComponents extends ResponsiveMixin(PageElement) {
   }
 
   private buildNumberRenderer(row: EnvironmentDeploymentRow) {
+    const rawText = row.buildNumber || '';
+    const shaMatch = rawText.match(/\b([0-9a-f]{12,64})\b/i);
+    const extractedSha = shaMatch ? shaMatch[1] : null;
+    const compactLabel = extractedSha
+      ? row.build?.RequestBuildNum ||
+        rawText
+          .replace(/\b(?:text|source)\s+SHA256\s+/gi, '')
+          .replace(/\bSubmitted PowerShell definition\s+/i, 'PowerShell')
+          .replace(extractedSha, '')
+          .replace(/[·\s]+$/, '')
+          .trim() ||
+        `Request #${row.requestId ?? ''}`.trim()
+      : rawText;
+
     if (row.build && row.requestId) {
       // A real button rather than a clickable span: the click handler
       // used to live on innerHTML-produced markup, so it was reachable
       // by mouse only.
-      return html`<button
-        type="button"
-        class="request-link build-number"
-        data-request-id="${row.requestId}"
-        @click="${() =>
-          window.open(
-            `/monitor-result/${row.requestId}`,
-            '_blank',
-            'noopener,noreferrer'
-          )}"
-      >
-        ${row.buildNumber}
-      </button>`;
+      return html`<span class="dorc-sha-meta">
+        <button
+          type="button"
+          class="request-link build-number"
+          data-request-id="${row.requestId}"
+          @click="${() =>
+            window.open(
+              `/monitor-result/${row.requestId}`,
+              '_blank',
+              'noopener,noreferrer'
+            )}"
+        >
+          ${compactLabel}
+        </button>
+        ${extractedSha ? renderShaBadge(extractedSha) : ''}
+      </span>`;
     }
     if (row.buildNumber === 'Not deployed') {
       return html`<span class="no-deployment">${row.buildNumber}</span>`;
     }
-    return html`<span class="build-number">${row.buildNumber}</span>`;
+    return html`<span class="build-number dorc-sha-meta">
+      <span>${compactLabel}</span>
+      ${extractedSha ? renderShaBadge(extractedSha) : ''}
+    </span>`;
   }
 
   private dateRenderer(row: EnvironmentDeploymentRow) {

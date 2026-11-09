@@ -7,6 +7,11 @@ import {
 } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import {
+  renderCompactSourceEvidence,
+  renderShaBadge,
+  shaBadgeStyles
+} from './dorc-sha-badge';
 
 @customElement('deployment-definition-history')
 export class DeploymentDefinitionHistory extends LitElement {
@@ -22,6 +27,7 @@ export class DeploymentDefinitionHistory extends LitElement {
   private readonly pageSize = 25;
 
   static styles = css`
+    ${shaBadgeStyles}
     :host {
       display: block;
       color: var(--dorc-text-primary);
@@ -182,10 +188,22 @@ export class DeploymentDefinitionHistory extends LitElement {
               <div class="metadata">
                 ${item.ComponentName || 'Project configuration'}${item.Actor ? ` by ${item.Actor}` : ''}
               </div>
-              <p>${item.Summary}</p>
+              <p>
+                ${item.Summary
+                  ? renderCompactSourceEvidence(item.Summary)
+                  : nothing}
+              </p>
               ${item.IsLegacy ? html`<p class="legacy">Legacy evidence; not proof of a successful configuration save or exact executed source.</p>` : nothing}
-              ${item.DefinitionRevision ? html`<div class="metadata">Definition revision: ${item.DefinitionRevision}</div>` : nothing}
-              ${item.SourceSummary ? html`<p>${item.SourceSummary}</p>` : nothing}
+              ${item.DefinitionRevision &&
+              !(item.Summary ?? '')
+                .toLowerCase()
+                .includes(item.DefinitionRevision.toLowerCase())
+                ? html`<div class="metadata dorc-sha-meta">
+                    <span>Definition revision:</span>
+                    ${renderShaBadge(item.DefinitionRevision)}
+                  </div>`
+                : nothing}
+              ${item.SourceSummary ? html`<p>${renderCompactSourceEvidence(item.SourceSummary)}</p>` : nothing}
               <nav>
                 ${item.RequestId ? html`<a href="/monitor-result/${item.RequestId}">Deployment request #${item.RequestId}</a>` : nothing}
                 ${item.ComponentId ? html`<a href="/project-ref-data/${this.projectId}?componentId=${item.ComponentId}">Current definition</a>` : nothing}

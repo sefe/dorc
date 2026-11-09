@@ -115,6 +115,16 @@ describe('request control row snapshots', () => {
     expect(confirmPromptSpy.mock.calls[1][0]).to.contain('restart');
     expect(confirmPromptSpy.mock.calls[0][0]).to.not.contain(' ?');
     expect(confirmPromptSpy.mock.calls[1][0]).to.not.contain(' ?');
+    const restartOptions = (
+      confirmPromptSpy.mock.calls[1] as unknown[]
+    )[1] as Record<string, string>;
+    expect(restartOptions.warningTitle).to.contain('pinned SHA');
+    expect(restartOptions.warningMessage).to.contain(
+      'NOT from any recent changes'
+    );
+    expect(restartOptions.warningActionHint).to.contain(
+      'create a new deployment job'
+    );
 
     for (const button of el.shadowRoot?.querySelectorAll(
       'vaadin-button[theme~="icon"]'

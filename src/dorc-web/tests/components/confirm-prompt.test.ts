@@ -162,4 +162,31 @@ describe('confirmPrompt', () => {
 
     expect(withBreaks).to.be.greaterThan(withSpaces);
   });
+
+  it('renders a prominent warning banner with a warning icon when warning options are passed', async () => {
+    void confirmPrompt('Restart job 42?', {
+      header: 'Restart Job — Old SHA / Snapshot Warning',
+      warningTitle:
+        'Restarting runs the old pinned SHA and deployment snapshot',
+      warningMessage:
+        'This job will restart using the original SHA revision and deployment definitions captured when the job was first created.',
+      warningActionHint:
+        'To deploy a recently changed project, cancel this dialog and create a new deployment job instead.'
+    });
+    await settle();
+
+    const dialog = openDialog();
+    const banner = dialog?.querySelector('.confirm-prompt-warning');
+    expect(banner).to.not.equal(null);
+    expect(banner?.getAttribute('role')).to.equal('alert');
+    expect(
+      banner?.querySelector('vaadin-icon[icon="vaadin:warning"]')
+    ).to.not.equal(null);
+    expect(banner?.textContent).to.contain(
+      'Restarting runs the old pinned SHA and deployment snapshot'
+    );
+    expect(banner?.textContent).to.contain(
+      'create a new deployment job instead'
+    );
+  });
 });

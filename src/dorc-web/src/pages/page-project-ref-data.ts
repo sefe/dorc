@@ -40,6 +40,11 @@ import {
   serializeScriptPathValue,
   type GenericScriptTemplate
 } from '../helpers/generic-scripts';
+import {
+  formatShortSha,
+  renderShaBadge,
+  shaBadgeStyles
+} from '../components/dorc-sha-badge';
 
 type DefinitionNode = ComponentApiModel;
 type ReferenceDocument = RefDataApiModel;
@@ -127,6 +132,7 @@ export class PageProjectRefData extends PageElement {
   private scriptCatalogGeneration = 0;
 
   static styles = css`
+    ${shaBadgeStyles}
     :host {
       display: flex;
       flex-direction: column;
@@ -1992,9 +1998,12 @@ export class PageProjectRefData extends PageElement {
       <header>
         <div>
           <h1>${project?.ProjectName ?? 'Project'} reference data</h1>
-          <span
-            >Current revision: ${this.document?.Revision ?? 'Not loaded'}</span
-          >
+          <span class="dorc-sha-meta">
+            <span>Revision:</span>
+            ${this.document?.Revision
+              ? renderShaBadge(this.document.Revision)
+              : html`<span>Not loaded</span>`}
+          </span>
         </div>
         <div class="actions">
           <vaadin-button
@@ -2280,7 +2289,7 @@ export class PageProjectRefData extends PageElement {
                 class="diff"
                 .oldText=${JSON.stringify(this.baseline, null, 2)}
                 .newText=${JSON.stringify(this.preview, null, 2)}
-                before-label="Current (revision ${this.baseline?.Revision ?? '?'})"
+                before-label="Current (revision ${formatShortSha(this.baseline?.Revision) || '?'})"
                 after-label="After save"
               ></hegs-json-diff>
               <div class="actions">
