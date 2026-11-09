@@ -251,6 +251,16 @@ export class PageMonitorRequests
           color: var(--dorc-badge-text);
         }
 
+        .monitor-toolbar {
+          display: flex;
+          align-items: center;
+          gap: var(--lumo-space-xs);
+          padding: 4px var(--lumo-space-s);
+          background: var(--dorc-bg-secondary);
+          border-bottom: 1px solid var(--dorc-border-color);
+          flex-shrink: 0;
+        }
+
         .status-cell {
           display: flex;
           align-items: center;
@@ -281,6 +291,46 @@ export class PageMonitorRequests
       <dorc-spinner
         ?hidden="${!this.isLoading && !this.isSearching}"
       ></dorc-spinner>
+
+      <div class="monitor-toolbar" role="region" aria-label="Live updates">
+        <connection-status-indicator
+          mode="toggle"
+          .state="${this.hubConnectionState}"
+          .autoRefresh="${this.autoRefresh}"
+          @toggle-auto-refresh="${() => {
+            void this.toggleAutoRefresh();
+          }}"
+        ></connection-status-indicator>
+
+        ${
+          !this.autoRefresh
+            ? html`
+                <vaadin-button
+                  theme="icon small"
+                  style="padding:0;margin:0"
+                  aria-label="Manual refresh"
+                  @click="${() => {
+                    const event = new CustomEvent('refresh-requests', {
+                      detail: {},
+                      bubbles: true,
+                      composed: true
+                    });
+                    this.dispatchEvent(event);
+                  }}"
+                >
+                  <vaadin-tooltip
+                    slot="tooltip"
+                    text="Manual refresh"
+                  ></vaadin-tooltip>
+                  <vaadin-icon
+                    icon="icons:refresh"
+                    style="color: var(--dorc-link-color)"
+                  ></vaadin-icon>
+                </vaadin-button>
+              `
+            : null
+        }
+      </div>
 
       <vaadin-grid
         id="grid"
@@ -325,10 +375,7 @@ export class PageMonitorRequests
         <vaadin-grid-column
           path="Status"
           header="Status"
-          ${columnHeaderRenderer(this.statusHeaderRenderer, [
-            this.hubConnectionState,
-            this.autoRefresh
-          ])}
+          ${columnHeaderRenderer(this.statusHeaderRenderer, [])}
           ${columnBodyRenderer(this.statusRenderer, [])}
           resizable
           auto-width
@@ -889,70 +936,27 @@ export class PageMonitorRequests
 
   statusHeaderRenderer = () => {
     return html`
-      <vaadin-horizontal-layout
-        style="align-items:center; gap:2px;"
-        theme="spacing-xs"
-      >
-        <connection-status-indicator
-          mode="toggle"
-          .state="${this.hubConnectionState}"
-          .autoRefresh="${this.autoRefresh}"
-          @toggle-auto-refresh="${() => {
-            void this.toggleAutoRefresh();
-          }}"
-        ></connection-status-indicator>
+      <vaadin-text-field
+        placeholder="Status"
+        clear-button-visible
+        focus-target
+        style="width: 100px"
+        theme="small"
+        @input="${(e: InputEvent) => {
+          const textField = e.target as any;
 
-        ${
-          !this.autoRefresh
-            ? html`
-                <vaadin-button
-                  theme="icon small"
-                  style="padding:0;margin:0"
-                  aria-label="Manual refresh"
-                  @click="${() => {
-                    const event = new CustomEvent('refresh-requests', {
-                      detail: {},
-                      bubbles: true,
-                      composed: true
-                    });
-                    this.dispatchEvent(event);
-                  }}"
-                >
-                  <vaadin-tooltip
-                    slot="tooltip"
-                    text="Manual refresh"
-                  ></vaadin-tooltip>
-                  <vaadin-icon
-                    icon="icons:refresh"
-                    style="color: var(--dorc-link-color)"
-                  ></vaadin-icon>
-                </vaadin-button>
-              `
-            : null
-        }
-
-        <vaadin-text-field
-          placeholder="Status"
-          clear-button-visible
-          focus-target
-          style="width: 100px"
-          theme="small"
-          @input="${(e: InputEvent) => {
-            const textField = e.target as any;
-
-            this.dispatchEvent(
-              new CustomEvent('searching-requests-started', {
-                detail: {
-                  field: status,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
-        ></vaadin-text-field>
-      </vaadin-horizontal-layout>
+          this.dispatchEvent(
+            new CustomEvent('searching-requests-started', {
+              detail: {
+                field: status,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
+      ></vaadin-text-field>
     `;
   };
 

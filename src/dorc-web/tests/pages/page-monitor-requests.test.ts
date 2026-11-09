@@ -567,9 +567,9 @@ describe('PageMonitorRequests', () => {
   });
 
   // -------------------------------------------------------
-  // Id and Status column layout (Option 1)
+  // Id, Status column layout and monitor toolbar
   // -------------------------------------------------------
-  describe('Id and Status column layout', () => {
+  describe('Id, Status column layout and monitor toolbar', () => {
     it('renders compact Id header without connection status indicator', () => {
       const root = document.createElement('div');
       render(el.idHeaderRenderer(), root);
@@ -582,26 +582,33 @@ describe('PageMonitorRequests', () => {
       expect(input?.style.width).toBe('75px');
     });
 
-    it('renders connection status indicator and Status filter in statusHeaderRenderer', () => {
+    it('renders Status filter in statusHeaderRenderer without connection status indicator', () => {
       const root = document.createElement('div');
-      el.autoRefresh = true;
       render(el.statusHeaderRenderer(), root);
 
-      expect(root.querySelector('connection-status-indicator')).not.toBeNull();
-      expect(
-        root.querySelector('vaadin-button[aria-label="Manual refresh"]')
-      ).toBeNull();
+      expect(root.querySelector('connection-status-indicator')).toBeNull();
       const input = root.querySelector('vaadin-text-field');
       expect(input?.getAttribute('placeholder')).toBe('Status');
     });
 
-    it('shows manual refresh button in statusHeaderRenderer when autoRefresh is false', () => {
-      const root = document.createElement('div');
+    it('renders connection status indicator and manual refresh button in the page-level monitor toolbar', async () => {
+      el.autoRefresh = true;
+      await el.updateComplete;
+
+      const toolbar = el.shadowRoot?.querySelector('.monitor-toolbar');
+      expect(toolbar).not.toBeNull();
+      expect(
+        toolbar?.querySelector('connection-status-indicator')
+      ).not.toBeNull();
+      expect(
+        toolbar?.querySelector('vaadin-button[aria-label="Manual refresh"]')
+      ).toBeNull();
+
       el.autoRefresh = false;
-      render(el.statusHeaderRenderer(), root);
+      await el.updateComplete;
 
       expect(
-        root.querySelector('vaadin-button[aria-label="Manual refresh"]')
+        toolbar?.querySelector('vaadin-button[aria-label="Manual refresh"]')
       ).not.toBeNull();
     });
 
