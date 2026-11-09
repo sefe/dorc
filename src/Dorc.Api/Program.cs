@@ -33,6 +33,50 @@ using System.Text.Json.Serialization;
 const string dorcCorsRefDataPolicy = "DOrcCORSRefData";
 const string apiScopeAuthorizationPolicy = "ApiGlobalScopeAuthorizationPolicy";
 
+if (args.Length >= 2 && string.Equals(args[0], "--export-swagger", StringComparison.OrdinalIgnoreCase))
+{
+    var swaggerConfig = new ConfigurationBuilder()
+        .AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["AppSettings:OAuth2:Authority"] = "https://identityserver:5200",
+            ["AppSettings:OAuth2:ApiGlobalScope"] = "dorc-api.manage"
+        })
+        .Build();
+    var swaggerSettings = new ConfigurationSettings(swaggerConfig);
+    var swaggerBuilder = WebApplication.CreateBuilder();
+    swaggerBuilder.Services
+        .AddControllers(opts =>
+        {
+            opts.OutputFormatters.RemoveType<StringOutputFormatter>();
+        })
+        .AddJsonOptions(opts =>
+        {
+            opts.JsonSerializerOptions.PropertyNamingPolicy = null;
+            opts.JsonSerializerOptions.MaxDepth = 64;
+            opts.JsonSerializerOptions.IncludeFields = true;
+            opts.JsonSerializerOptions.Converters.Add(new ExceptionJsonConverter());
+            opts.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+            opts.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+        });
+    swaggerBuilder.Services.AddEndpointsApiExplorer();
+    AddSwaggerGen(swaggerBuilder.Services, swaggerSettings);
+
+    await using var swaggerApp = swaggerBuilder.Build();
+    var swaggerProvider = swaggerApp.Services.GetRequiredService<Swashbuckle.AspNetCore.Swagger.ISwaggerProvider>();
+    var doc = swaggerProvider.GetSwagger("v1");
+    await using var stringWriter = new StringWriter();
+    var jsonWriter = new Microsoft.OpenApi.Writers.OpenApiJsonWriter(stringWriter);
+    doc.SerializeAsV3(jsonWriter);
+    var json = stringWriter.ToString().Replace("\r\n", "\n");
+    if (!json.EndsWith('\n'))
+    {
+        json += "\n";
+    }
+    var outputPath = Path.GetFullPath(args[1]);
+    await File.WriteAllTextAsync(outputPath, json, new System.Text.UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddTransient<Dorc.PersistentData.Sources.DeploymentDefinitions>();
 builder.Services.AddTransient<Dorc.PersistentData.Sources.Interfaces.IDeploymentDefinitions, Dorc.PersistentData.Sources.DeploymentDefinitions>();
@@ -262,10 +306,15 @@ static void ConfigureBoth(WebApplicationBuilder builder, IConfigurationSettings 
 static void AddSwaggerGen(IServiceCollection services, IConfigurationSettings configurationSettings)
 {
     string? authority = configurationSettings.GetOAuthAuthority();
+    if (string.IsNullOrWhiteSpace(authority))
+    {
+        authority = "https://identityserver:5200";
+    }
     string dorcApiGlobalScope = configurationSettings.GetOAuthApiGlobalScope();
 
     services.AddSwaggerGen(options =>
     {
+        options.EnableAnnotations();
         // Always configure OAuth2 for Swagger UI regardless of auth scheme
         options.AddSecurityDefinition("oauth2", new OpenApiSecurityScheme
         {

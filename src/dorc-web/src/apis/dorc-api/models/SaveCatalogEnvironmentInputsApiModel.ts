@@ -22,8 +22,8 @@ export interface SaveCatalogEnvironmentInputsApiModel {
      */
     ExpectedRevision?: number;
     /**
-     * @type {{ [key: string]: string; }}
+     * @type {{ [key: string]: string | null; }}
      * @memberof SaveCatalogEnvironmentInputsApiModel
      */
-    Inputs?: { [key: string]: string; };
+    Inputs: { [key: string]: string | null; };
 }

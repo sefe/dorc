@@ -55,12 +55,12 @@ export interface TerraformInventoryProvenanceApiModel {
      * @type {string}
      * @memberof TerraformInventoryProvenanceApiModel
      */
-    ResourceIdentifier?: string;
+    ResourceIdentifier: string;
     /**
      * @type {string}
      * @memberof TerraformInventoryProvenanceApiModel
      */
-    ReconciliationState?: string;
+    ReconciliationState: string;
     /**
      * @type {number}
      * @memberof TerraformInventoryProvenanceApiModel

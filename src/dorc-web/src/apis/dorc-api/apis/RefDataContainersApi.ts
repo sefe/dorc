@@ -262,7 +262,6 @@ export class RefDataContainersApi extends BaseAPI {
     };
 
     /**
-     * Update only tags, comparing ExpectedTags atomically; unrelated definition fields are preserved.
      */
     refDataContainersIdTagsPut({ id, resourceTagsUpdate }: RefDataContainersIdTagsPutRequest): Observable<ContainerApiModel>
     refDataContainersIdTagsPut({ id, resourceTagsUpdate }: RefDataContainersIdTagsPutRequest, opts?: OperationOpts): Observable<AjaxResponse<ContainerApiModel>>

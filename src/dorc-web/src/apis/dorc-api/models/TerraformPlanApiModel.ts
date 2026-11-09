@@ -22,10 +22,30 @@ import type {
  */
 export interface TerraformPlanApiModel {
     /**
-     * @type {TerraformDeploymentOutcomeApiModel}
+     * @type {number}
      * @memberof TerraformPlanApiModel
      */
-    Outcome?: TerraformDeploymentOutcomeApiModel;
+    DeploymentResultId?: number;
+    /**
+     * @type {string}
+     * @memberof TerraformPlanApiModel
+     */
+    PlanContent?: string | null;
+    /**
+     * @type {string}
+     * @memberof TerraformPlanApiModel
+     */
+    CreatedAt?: string | null;
+    /**
+     * @type {string}
+     * @memberof TerraformPlanApiModel
+     */
+    Status?: string | null;
+    /**
+     * @type {string}
+     * @memberof TerraformPlanApiModel
+     */
+    PlanContentSha256: string;
     /**
      * @type {TerraformDeploymentReceiptApiModel}
      * @memberof TerraformPlanApiModel
@@ -47,28 +67,8 @@ export interface TerraformPlanApiModel {
      */
     IsHistorical?: boolean;
     /**
-     * @type {string}
+     * @type {TerraformDeploymentOutcomeApiModel}
      * @memberof TerraformPlanApiModel
      */
-    PlanContentSha256?: string | null;
-    /**
-     * @type {number}
-     * @memberof TerraformPlanApiModel
-     */
-    DeploymentResultId?: number;
-    /**
-     * @type {string}
-     * @memberof TerraformPlanApiModel
-     */
-    PlanContent?: string | null;
-    /**
-     * @type {string}
-     * @memberof TerraformPlanApiModel
-     */
-    CreatedAt?: string | null;
-    /**
-     * @type {string}
-     * @memberof TerraformPlanApiModel
-     */
-    Status?: string | null;
+    Outcome?: TerraformDeploymentOutcomeApiModel;
 }

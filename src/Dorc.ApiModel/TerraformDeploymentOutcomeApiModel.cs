@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace Dorc.ApiModel
 {
@@ -7,13 +8,17 @@ namespace Dorc.ApiModel
     {
         public int DeploymentResultId { get; set; }
         public long Revision { get; set; }
+        [Required]
         public string ApplyOutcome { get; set; }
+        [Required]
         public string InventoryOutcome { get; set; }
+        [Required]
         public string ArchiveOutcome { get; set; }
         public int RegisteredCount { get; set; }
         public int FailedCount { get; set; }
         public DateTimeOffset? AppliedAt { get; set; }
         public bool InventoryRecoveryAvailable { get; set; }
+        [Required]
         public List<string> InventoryWarnings { get; set; } = new List<string>();
     }
 
@@ -40,7 +45,9 @@ namespace Dorc.ApiModel
         public int FirstSeenResultId { get; set; }
         public int LastSeenResultId { get; set; }
         public DateTimeOffset LastSeenAt { get; set; }
+        [Required]
         public string ResourceIdentifier { get; set; }
+        [Required]
         public string ReconciliationState { get; set; }
         public long Revision { get; set; }
     }

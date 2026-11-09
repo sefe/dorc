@@ -21,7 +21,7 @@ import type {
 
 export interface DaemonObservationGetRequest {
     daemonId?: number;
-    serverId?: number | null;
+    serverId?: number;
     page?: number;
     limit?: number;
 }

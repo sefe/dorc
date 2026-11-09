@@ -34,27 +34,27 @@ export interface CatalogUpgradePreviewApiModel {
      * @type {string}
      * @memberof CatalogUpgradePreviewApiModel
      */
-    CurrentVersion?: string;
+    CurrentVersion: string;
     /**
      * @type {string}
      * @memberof CatalogUpgradePreviewApiModel
      */
-    TargetVersion?: string;
+    TargetVersion: string;
     /**
      * @type {Array<EnvironmentApiModel>}
      * @memberof CatalogUpgradePreviewApiModel
      */
-    Environments?: Array<EnvironmentApiModel>;
+    Environments: Array<EnvironmentApiModel>;
     /**
      * @type {Array<string>}
      * @memberof CatalogUpgradePreviewApiModel
      */
-    InputChanges?: Array<string>;
+    InputChanges: Array<string>;
     /**
      * @type {{ [key: string]: number; }}
      * @memberof CatalogUpgradePreviewApiModel
      */
-    ConfigurationRevisions?: { [key: string]: number; };
+    ConfigurationRevisions: { [key: string]: number; };
     /**
      * @type {boolean}
      * @memberof CatalogUpgradePreviewApiModel

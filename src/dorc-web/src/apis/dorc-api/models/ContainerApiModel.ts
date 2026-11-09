@@ -17,17 +17,6 @@
  */
 export interface ContainerApiModel {
     /**
-     * Content revision from the last read; required unchanged when updating the full definition.
-     * @type {string}
-     * @memberof ContainerApiModel
-     */
-    Revision?: string | null;
-    /**
-     * @type {boolean}
-     * @memberof ContainerApiModel
-     */
-    readonly CanEditDefinition?: boolean;
-    /**
      * @type {Array<string>}
      * @memberof ContainerApiModel
      */
@@ -67,4 +56,14 @@ export interface ContainerApiModel {
      * @memberof ContainerApiModel
      */
     Tags?: string | null;
+    /**
+     * @type {string}
+     * @memberof ContainerApiModel
+     */
+    Revision?: string | null;
+    /**
+     * @type {boolean}
+     * @memberof ContainerApiModel
+     */
+    CanEditDefinition?: boolean;
 }

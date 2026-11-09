@@ -25,17 +25,17 @@ export interface CatalogUpgradeRequestApiModel {
      * @type {string}
      * @memberof CatalogUpgradeRequestApiModel
      */
-    ExpectedVersion?: string;
+    ExpectedVersion: string;
     /**
      * @type {Array<number>}
      * @memberof CatalogUpgradeRequestApiModel
      */
-    EnvironmentIds?: Array<number>;
+    EnvironmentIds: Array<number>;
     /**
      * @type {{ [key: string]: number; }}
      * @memberof CatalogUpgradeRequestApiModel
      */
-    ConfigurationRevisions?: { [key: string]: number; };
+    ConfigurationRevisions: { [key: string]: number; };
     /**
      * @type {boolean}
      * @memberof CatalogUpgradeRequestApiModel

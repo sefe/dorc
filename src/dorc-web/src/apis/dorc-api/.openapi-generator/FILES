@@ -107,6 +107,7 @@ models/DaemonStatusApiModel.ts
 models/DatabaseApiModel.ts
 models/DatabaseApiModelEnvironmentComponentsDto.ts
 models/DatabaseAuditApiModel.ts
+models/DatabaseRelatedResourcesApiModel.ts
 models/DatabaseType.ts
 models/DeployArtefactDto.ts
 models/DeployComponentDto.ts
@@ -126,6 +127,7 @@ models/EnvironmentContentWindowsServicesApiModel.ts
 models/EnvironmentDetailsApiModel.ts
 models/EnvironmentHistoryApiModel.ts
 models/EnvironmentOwnerApiModel.ts
+models/EnvironmentShortApiModel.ts
 models/FlatPropertyValueApiModel.ts
 models/GetComponentAuditListResponseDto.ts
 models/GetDaemonAuditListResponseDto.ts
@@ -154,6 +156,7 @@ models/ProjectApiModel.ts
 models/Property.ts
 models/PropertyApiModel.ts
 models/PropertyFilter.ts
+models/PropertyImportCsvDto.ts
 models/PropertyValue.ts
 models/PropertyValueAuditApiModel.ts
 models/PropertyValueDto.ts

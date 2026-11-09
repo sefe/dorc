@@ -262,7 +262,6 @@ export class RefDataApiRegistrationsApi extends BaseAPI {
     };
 
     /**
-     * Update only tags, comparing ExpectedTags atomically; unrelated definition fields are preserved.
      */
     refDataApiRegistrationsIdTagsPut({ id, resourceTagsUpdate }: RefDataApiRegistrationsIdTagsPutRequest): Observable<ApiRegistrationApiModel>
     refDataApiRegistrationsIdTagsPut({ id, resourceTagsUpdate }: RefDataApiRegistrationsIdTagsPutRequest, opts?: OperationOpts): Observable<AjaxResponse<ApiRegistrationApiModel>>

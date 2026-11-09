@@ -12,6 +12,7 @@ namespace Dorc.Api.Controllers;
 public partial class TerraformController
 {
     [HttpPost("plan/{deploymentResultId}/recover")]
+    [SwaggerOperation(OperationId = "TerraformRecoverPost")]
     [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(TerraformDeploymentOutcomeApiModel))]
     [SwaggerResponse(StatusCodes.Status403Forbidden)]
     [SwaggerResponse(StatusCodes.Status409Conflict)]
@@ -86,6 +87,7 @@ public partial class TerraformController
     }
 
     [HttpGet("plan/{deploymentResultId}/inventory")]
+    [SwaggerOperation(OperationId = "TerraformInventoryGet")]
     [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IReadOnlyList<TerraformInventoryProvenanceApiModel>))]
     public IActionResult GetInventoryProvenance(int deploymentResultId)
     {
@@ -101,6 +103,7 @@ public partial class TerraformController
     }
 
     [HttpPost("plan/{deploymentResultId}/inventory/{cloudResourceId}/review")]
+    [SwaggerOperation(OperationId = "TerraformInventoryReviewPost")]
     [SwaggerResponse(StatusCodes.Status200OK)]
     [SwaggerResponse(StatusCodes.Status409Conflict)]
     public IActionResult ReviewInventoryProvenance(int deploymentResultId, int cloudResourceId, [FromQuery] long expectedRevision)

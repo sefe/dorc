@@ -262,7 +262,6 @@ export class RefDataCloudResourcesApi extends BaseAPI {
     };
 
     /**
-     * Update only tags, comparing ExpectedTags atomically; unrelated definition fields are preserved.
      */
     refDataCloudResourcesIdTagsPut({ id, resourceTagsUpdate }: RefDataCloudResourcesIdTagsPutRequest): Observable<CloudResourceApiModel>
     refDataCloudResourcesIdTagsPut({ id, resourceTagsUpdate }: RefDataCloudResourcesIdTagsPutRequest, opts?: OperationOpts): Observable<AjaxResponse<CloudResourceApiModel>>

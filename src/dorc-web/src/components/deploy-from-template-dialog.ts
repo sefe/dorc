@@ -2111,7 +2111,7 @@ export class DeployFromTemplateDialog extends LitElement {
       .terraformTemplateInstantiatePost({
         name: this.template.Name,
         version: this.template.Version,
-        body: {
+        terraformTemplateInstantiateRequestApiModel: {
           SubmissionKey: this.submissionIdentity.key,
           ProjectId: this.selectedProject.ProjectId,
           ComponentName: componentName,

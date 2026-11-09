@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations;
+
 namespace Dorc.Terraform.Catalog
 {
     // Manifest for one published version of a stock template.
@@ -7,56 +9,56 @@ namespace Dorc.Terraform.Catalog
     // the resolver falls back to stock-modules/<Name>. TerraformTemplateParameter.Sensitive
     // defaults to false.
     public sealed record TerraformTemplateManifest(
-        string Name,
-        string Version,
-        TerraformTemplateSource Source,
-        IReadOnlyList<TerraformTemplateParameter> Parameters,
-        IReadOnlyList<TerraformTemplateOutput> Outputs,
+        [property: Required] string Name,
+        [property: Required] string Version,
+        [property: Required] TerraformTemplateSource Source,
+        [property: Required] IReadOnlyList<TerraformTemplateParameter> Parameters,
+        [property: Required] IReadOnlyList<TerraformTemplateOutput> Outputs,
         string? Description,
-        IReadOnlyList<string> Tags,
+        [property: Required] IReadOnlyList<string> Tags,
         string? Category,
-        IReadOnlyDictionary<string, string> RequiredProviders,
-        string RequiredTerraformVersion,
+        [property: Required] IReadOnlyDictionary<string, string> RequiredProviders,
+        [property: Required] string RequiredTerraformVersion,
         string? Owner,
-        bool Deprecated,
+        [property: Required] bool Deprecated,
         string? DeprecationReason,
         IReadOnlyList<TerraformParameterConflict>? ParameterConflicts = null);
 
     public sealed record TerraformParameterConflict(
-        string Parameter,
-        string Value,
-        string WhenParameter,
-        string WhenValue,
-        string Message);
+        [property: Required] string Parameter,
+        [property: Required] string Value,
+        [property: Required] string WhenParameter,
+        [property: Required] string WhenValue,
+        [property: Required] string Message);
 
     public sealed record TerraformTemplateSource(
-        string Kind,
-        string Locator,
-        string Ref,
+        [property: Required] string Kind,
+        [property: Required] string Locator,
+        [property: Required] string Ref,
         string? SubPath = null,
         string? CommitSha = null);
 
     public sealed record TerraformTemplateParameter(
-        string Name,
-        TerraformParameterType Type,
-        bool Required,
+        [property: Required] string Name,
+        [property: Required] TerraformParameterType Type,
+        [property: Required] bool Required,
         string? Description,
         string? Default,
         IReadOnlyList<string>? AllowedValues,
         string? Pattern,
         decimal? Min,
         decimal? Max,
-        bool Sensitive = false,
+        [property: Required] bool Sensitive = false,
         bool Integer = false,
         // Optional context-suggestion hint (see CatalogInputSuggestions); when
         // absent the parameter name selects the rule. Never applied to Sensitive inputs.
         string? Suggest = null);
 
     public sealed record TerraformTemplateOutput(
-        string Name,
-        TerraformParameterType Type,
+        [property: Required] string Name,
+        [property: Required] TerraformParameterType Type,
         string? Description,
-        bool Sensitive);
+        [property: Required] bool Sensitive);
 
     public enum TerraformParameterType
     {

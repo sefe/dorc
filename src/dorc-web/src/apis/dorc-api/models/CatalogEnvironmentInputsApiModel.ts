@@ -25,5 +25,5 @@ export interface CatalogEnvironmentInputsApiModel {
      * @type {Array<string>}
      * @memberof CatalogEnvironmentInputsApiModel
      */
-    ParameterNames?: Array<string>;
+    ParameterNames: Array<string>;
 }

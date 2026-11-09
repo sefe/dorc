@@ -94,6 +94,7 @@ namespace Dorc.Api.Controllers
         /// <summary>
         /// Lists all stock Terraform templates available in the catalog.
         /// </summary>
+        [SwaggerOperation(OperationId = "TerraformTemplatesGet")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IReadOnlyList<TerraformTemplateManifest>))]
         [HttpGet("templates")]
         public async Task<IActionResult> ListTemplates(CancellationToken cancellationToken)
@@ -105,6 +106,7 @@ namespace Dorc.Api.Controllers
         /// <summary>
         /// Gets the latest version of a named stock template.
         /// </summary>
+        [SwaggerOperation(OperationId = "TerraformTemplateLatestGet")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(TerraformTemplateManifest))]
         [SwaggerResponse(StatusCodes.Status404NotFound)]
         [HttpGet("templates/{name}")]
@@ -117,6 +119,7 @@ namespace Dorc.Api.Controllers
         /// <summary>
         /// Gets a specific (name, version) of a stock template.
         /// </summary>
+        [SwaggerOperation(OperationId = "TerraformTemplateVersionGet")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(TerraformTemplateManifest))]
         [SwaggerResponse(StatusCodes.Status404NotFound)]
         [HttpGet("templates/{name}/{version}")]
@@ -133,6 +136,7 @@ namespace Dorc.Api.Controllers
         /// value ever leaves the server. This is what lets the wizard mark an
         /// inherited required input as missing before the user submits.
         /// </summary>
+        [SwaggerOperation(OperationId = "TerraformTemplateResolutionGet")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(TerraformTemplateResolutionApiModel))]
         [SwaggerResponse(StatusCodes.Status400BadRequest)]
         [SwaggerResponse(StatusCodes.Status403Forbidden)]
@@ -258,6 +262,7 @@ namespace Dorc.Api.Controllers
         private static Dictionary<string, string> ReadSavedInputs(CatalogEnvironmentInputs? configuration) =>
             System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, string>>(configuration?.InputsJson ?? "{}")!;
 
+        [SwaggerOperation(OperationId = "TerraformTemplateConfigurationPut")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(CatalogEnvironmentInputsApiModel))]
         [SwaggerResponse(StatusCodes.Status400BadRequest)]
         [SwaggerResponse(StatusCodes.Status403Forbidden)]
@@ -305,6 +310,7 @@ namespace Dorc.Api.Controllers
         }
 
         [HttpGet("components/{componentId}/upgrade/{name}/{version}")]
+        [SwaggerOperation(OperationId = "TerraformUpgradePreviewGet")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(CatalogUpgradePreviewApiModel))]
         [SwaggerResponse(StatusCodes.Status403Forbidden)]
         [SwaggerResponse(StatusCodes.Status409Conflict)]
@@ -350,6 +356,7 @@ namespace Dorc.Api.Controllers
         }
 
         [HttpPost("components/{componentId}/upgrade/{name}/{version}")]
+        [SwaggerOperation(OperationId = "TerraformUpgradePost")]
         [SwaggerResponse(StatusCodes.Status200OK)]
         [SwaggerResponse(StatusCodes.Status403Forbidden)]
         [SwaggerResponse(StatusCodes.Status409Conflict)]
@@ -461,6 +468,7 @@ namespace Dorc.Api.Controllers
         /// TerraformSourceType=Catalog and the chosen
         /// (TerraformTemplateName, TerraformTemplateVersion).
         /// </summary>
+        [SwaggerOperation(OperationId = "TerraformTemplateInstantiatePost")]
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(TerraformTemplateInstantiateResponseApiModel))]
         [SwaggerResponse(StatusCodes.Status400BadRequest)]
         [SwaggerResponse(StatusCodes.Status403Forbidden)]

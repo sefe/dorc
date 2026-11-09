@@ -75,6 +75,11 @@ export interface TerraformTemplateParameter {
      * @memberof TerraformTemplateParameter
      */
     Integer?: boolean;
+    /**
+     * @type {string}
+     * @memberof TerraformTemplateParameter
+     */
+    Suggest?: string | null;
 }
 
 

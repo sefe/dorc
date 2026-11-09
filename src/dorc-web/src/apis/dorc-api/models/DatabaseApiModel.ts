@@ -46,11 +46,10 @@ export interface DatabaseApiModel {
      */
     ServerName?: string | null;
     /**
-     * Omitted or null defaults to SQL Server on create and preserves the stored engine on update. Responses always include the stored engine.
      * @type {DatabaseType}
      * @memberof DatabaseApiModel
      */
-    DatabaseType?: DatabaseType | null;
+    DatabaseType?: DatabaseType;
     /**
      * @type {string}
      * @memberof DatabaseApiModel

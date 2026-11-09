@@ -36,12 +36,12 @@ export interface TerraformInventoryGetRequest {
 export interface TerraformInventoryReviewPostRequest {
     deploymentResultId: number;
     cloudResourceId: number;
-    expectedRevision: number;
+    expectedRevision?: number;
 }
 
 export interface TerraformPlanDeploymentResultIdConfirmPostRequest {
     deploymentResultId: number;
-    planContentSha256?: string | null;
+    planContentSha256?: string;
 }
 
 export interface TerraformPlanDeploymentResultIdDeclinePostRequest {
@@ -54,7 +54,7 @@ export interface TerraformPlanDeploymentResultIdGetRequest {
 
 export interface TerraformRecoverPostRequest {
     deploymentResultId: number;
-    expectedRevision: number;
+    expectedRevision?: number;
     recoverInventory?: boolean;
     recoverArchive?: boolean;
 }
@@ -62,16 +62,16 @@ export interface TerraformRecoverPostRequest {
 export interface TerraformTemplateConfigurationPutRequest {
     name: string;
     version: string;
-    projectId: number;
-    componentId: number;
-    environmentName: string;
-    saveCatalogEnvironmentInputsApiModel: SaveCatalogEnvironmentInputsApiModel;
+    projectId?: number;
+    componentId?: number;
+    environmentName?: string;
+    saveCatalogEnvironmentInputsApiModel?: SaveCatalogEnvironmentInputsApiModel;
 }
 
 export interface TerraformTemplateInstantiatePostRequest {
     name: string;
     version: string;
-    body?: TerraformTemplateInstantiateRequestApiModel;
+    terraformTemplateInstantiateRequestApiModel?: TerraformTemplateInstantiateRequestApiModel;
 }
 
 export interface TerraformTemplateLatestGetRequest {
@@ -81,9 +81,9 @@ export interface TerraformTemplateLatestGetRequest {
 export interface TerraformTemplateResolutionGetRequest {
     name: string;
     version: string;
-    componentId?: number | null;
     projectId?: number;
     environmentName?: string;
+    componentId?: number;
 }
 
 export interface TerraformTemplateVersionGetRequest {
@@ -95,15 +95,15 @@ export interface TerraformUpgradePostRequest {
     componentId: number;
     name: string;
     version: string;
-    projectId: number;
-    catalogUpgradeRequestApiModel: CatalogUpgradeRequestApiModel;
+    projectId?: number;
+    catalogUpgradeRequestApiModel?: CatalogUpgradeRequestApiModel;
 }
 
 export interface TerraformUpgradePreviewGetRequest {
     componentId: number;
     name: string;
     version: string;
-    projectId: number;
+    projectId?: number;
 }
 
 /**
@@ -142,7 +142,6 @@ export class TerraformApi extends BaseAPI {
     terraformInventoryReviewPost({ deploymentResultId, cloudResourceId, expectedRevision }: TerraformInventoryReviewPostRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
         throwIfNullOrUndefined(deploymentResultId, 'deploymentResultId', 'terraformInventoryReviewPost');
         throwIfNullOrUndefined(cloudResourceId, 'cloudResourceId', 'terraformInventoryReviewPost');
-        throwIfNullOrUndefined(expectedRevision, 'expectedRevision', 'terraformInventoryReviewPost');
 
         const headers: HttpHeaders = {
             // oauth required
@@ -154,9 +153,9 @@ export class TerraformApi extends BaseAPI {
             ),
         };
 
-        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-            'expectedRevision': expectedRevision,
-        };
+        const query: HttpQuery = {};
+
+        if (expectedRevision != null) { query['expectedRevision'] = expectedRevision; }
 
         return this.request<void>({
             url: '/Terraform/plan/{deploymentResultId}/inventory/{cloudResourceId}/review'.replace('{deploymentResultId}', encodeURI(deploymentResultId)).replace('{cloudResourceId}', encodeURI(cloudResourceId)),
@@ -249,7 +248,6 @@ export class TerraformApi extends BaseAPI {
     terraformRecoverPost({ deploymentResultId, expectedRevision, recoverInventory, recoverArchive }: TerraformRecoverPostRequest, opts?: OperationOpts): Observable<AjaxResponse<TerraformDeploymentOutcomeApiModel>>
     terraformRecoverPost({ deploymentResultId, expectedRevision, recoverInventory, recoverArchive }: TerraformRecoverPostRequest, opts?: OperationOpts): Observable<TerraformDeploymentOutcomeApiModel | AjaxResponse<TerraformDeploymentOutcomeApiModel>> {
         throwIfNullOrUndefined(deploymentResultId, 'deploymentResultId', 'terraformRecoverPost');
-        throwIfNullOrUndefined(expectedRevision, 'expectedRevision', 'terraformRecoverPost');
 
         const headers: HttpHeaders = {
             // oauth required
@@ -261,10 +259,9 @@ export class TerraformApi extends BaseAPI {
             ),
         };
 
-        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-            'expectedRevision': expectedRevision,
-        };
+        const query: HttpQuery = {};
 
+        if (expectedRevision != null) { query['expectedRevision'] = expectedRevision; }
         if (recoverInventory != null) { query['recoverInventory'] = recoverInventory; }
         if (recoverArchive != null) { query['recoverArchive'] = recoverArchive; }
 
@@ -283,10 +280,6 @@ export class TerraformApi extends BaseAPI {
     terraformTemplateConfigurationPut({ name, version, projectId, componentId, environmentName, saveCatalogEnvironmentInputsApiModel }: TerraformTemplateConfigurationPutRequest, opts?: OperationOpts): Observable<CatalogEnvironmentInputsApiModel | AjaxResponse<CatalogEnvironmentInputsApiModel>> {
         throwIfNullOrUndefined(name, 'name', 'terraformTemplateConfigurationPut');
         throwIfNullOrUndefined(version, 'version', 'terraformTemplateConfigurationPut');
-        throwIfNullOrUndefined(projectId, 'projectId', 'terraformTemplateConfigurationPut');
-        throwIfNullOrUndefined(componentId, 'componentId', 'terraformTemplateConfigurationPut');
-        throwIfNullOrUndefined(environmentName, 'environmentName', 'terraformTemplateConfigurationPut');
-        throwIfNullOrUndefined(saveCatalogEnvironmentInputsApiModel, 'saveCatalogEnvironmentInputsApiModel', 'terraformTemplateConfigurationPut');
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
@@ -299,11 +292,11 @@ export class TerraformApi extends BaseAPI {
             ),
         };
 
-        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-            'projectId': projectId,
-            'componentId': componentId,
-            'environmentName': environmentName,
-        };
+        const query: HttpQuery = {};
+
+        if (projectId != null) { query['projectId'] = projectId; }
+        if (componentId != null) { query['componentId'] = componentId; }
+        if (environmentName != null) { query['environmentName'] = environmentName; }
 
         return this.request<CatalogEnvironmentInputsApiModel>({
             url: '/Terraform/templates/{name}/{version}/configuration'.replace('{name}', encodeURI(name)).replace('{version}', encodeURI(version)),
@@ -316,9 +309,9 @@ export class TerraformApi extends BaseAPI {
 
     /**
      */
-    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiatePostRequest): Observable<TerraformTemplateInstantiateResponseApiModel>
-    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiatePostRequest, opts?: OperationOpts): Observable<AjaxResponse<TerraformTemplateInstantiateResponseApiModel>>
-    terraformTemplateInstantiatePost({ name, version, body }: TerraformTemplateInstantiatePostRequest, opts?: OperationOpts): Observable<TerraformTemplateInstantiateResponseApiModel | AjaxResponse<TerraformTemplateInstantiateResponseApiModel>> {
+    terraformTemplateInstantiatePost({ name, version, terraformTemplateInstantiateRequestApiModel }: TerraformTemplateInstantiatePostRequest): Observable<TerraformTemplateInstantiateResponseApiModel>
+    terraformTemplateInstantiatePost({ name, version, terraformTemplateInstantiateRequestApiModel }: TerraformTemplateInstantiatePostRequest, opts?: OperationOpts): Observable<AjaxResponse<TerraformTemplateInstantiateResponseApiModel>>
+    terraformTemplateInstantiatePost({ name, version, terraformTemplateInstantiateRequestApiModel }: TerraformTemplateInstantiatePostRequest, opts?: OperationOpts): Observable<TerraformTemplateInstantiateResponseApiModel | AjaxResponse<TerraformTemplateInstantiateResponseApiModel>> {
         throwIfNullOrUndefined(name, 'name', 'terraformTemplateInstantiatePost');
         throwIfNullOrUndefined(version, 'version', 'terraformTemplateInstantiatePost');
 
@@ -337,7 +330,7 @@ export class TerraformApi extends BaseAPI {
             url: '/Terraform/templates/{name}/{version}/instantiate'.replace('{name}', encodeURI(name)).replace('{version}', encodeURI(version)),
             method: 'POST',
             headers,
-            body: body,
+            body: terraformTemplateInstantiateRequestApiModel,
         }, opts?.responseOpts);
     };
 
@@ -367,9 +360,9 @@ export class TerraformApi extends BaseAPI {
 
     /**
      */
-    terraformTemplateResolutionGet({ name, version, componentId, projectId, environmentName }: TerraformTemplateResolutionGetRequest): Observable<TerraformTemplateResolutionApiModel>
-    terraformTemplateResolutionGet({ name, version, componentId, projectId, environmentName }: TerraformTemplateResolutionGetRequest, opts?: OperationOpts): Observable<AjaxResponse<TerraformTemplateResolutionApiModel>>
-    terraformTemplateResolutionGet({ name, version, componentId, projectId, environmentName }: TerraformTemplateResolutionGetRequest, opts?: OperationOpts): Observable<TerraformTemplateResolutionApiModel | AjaxResponse<TerraformTemplateResolutionApiModel>> {
+    terraformTemplateResolutionGet({ name, version, projectId, environmentName, componentId }: TerraformTemplateResolutionGetRequest): Observable<TerraformTemplateResolutionApiModel>
+    terraformTemplateResolutionGet({ name, version, projectId, environmentName, componentId }: TerraformTemplateResolutionGetRequest, opts?: OperationOpts): Observable<AjaxResponse<TerraformTemplateResolutionApiModel>>
+    terraformTemplateResolutionGet({ name, version, projectId, environmentName, componentId }: TerraformTemplateResolutionGetRequest, opts?: OperationOpts): Observable<TerraformTemplateResolutionApiModel | AjaxResponse<TerraformTemplateResolutionApiModel>> {
         throwIfNullOrUndefined(name, 'name', 'terraformTemplateResolutionGet');
         throwIfNullOrUndefined(version, 'version', 'terraformTemplateResolutionGet');
 
@@ -385,9 +378,9 @@ export class TerraformApi extends BaseAPI {
 
         const query: HttpQuery = {};
 
-        if (componentId != null) { query['componentId'] = componentId; }
         if (projectId != null) { query['projectId'] = projectId; }
         if (environmentName != null) { query['environmentName'] = environmentName; }
+        if (componentId != null) { query['componentId'] = componentId; }
 
         return this.request<TerraformTemplateResolutionApiModel>({
             url: '/Terraform/templates/{name}/{version}/resolution'.replace('{name}', encodeURI(name)).replace('{version}', encodeURI(version)),
@@ -452,8 +445,6 @@ export class TerraformApi extends BaseAPI {
         throwIfNullOrUndefined(componentId, 'componentId', 'terraformUpgradePost');
         throwIfNullOrUndefined(name, 'name', 'terraformUpgradePost');
         throwIfNullOrUndefined(version, 'version', 'terraformUpgradePost');
-        throwIfNullOrUndefined(projectId, 'projectId', 'terraformUpgradePost');
-        throwIfNullOrUndefined(catalogUpgradeRequestApiModel, 'catalogUpgradeRequestApiModel', 'terraformUpgradePost');
 
         const headers: HttpHeaders = {
             'Content-Type': 'application/json',
@@ -466,9 +457,9 @@ export class TerraformApi extends BaseAPI {
             ),
         };
 
-        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-            'projectId': projectId,
-        };
+        const query: HttpQuery = {};
+
+        if (projectId != null) { query['projectId'] = projectId; }
 
         return this.request<void>({
             url: '/Terraform/components/{componentId}/upgrade/{name}/{version}'.replace('{componentId}', encodeURI(componentId)).replace('{name}', encodeURI(name)).replace('{version}', encodeURI(version)),
@@ -487,7 +478,6 @@ export class TerraformApi extends BaseAPI {
         throwIfNullOrUndefined(componentId, 'componentId', 'terraformUpgradePreviewGet');
         throwIfNullOrUndefined(name, 'name', 'terraformUpgradePreviewGet');
         throwIfNullOrUndefined(version, 'version', 'terraformUpgradePreviewGet');
-        throwIfNullOrUndefined(projectId, 'projectId', 'terraformUpgradePreviewGet');
 
         const headers: HttpHeaders = {
             // oauth required
@@ -499,9 +489,9 @@ export class TerraformApi extends BaseAPI {
             ),
         };
 
-        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-            'projectId': projectId,
-        };
+        const query: HttpQuery = {};
+
+        if (projectId != null) { query['projectId'] = projectId; }
 
         return this.request<CatalogUpgradePreviewApiModel>({
             url: '/Terraform/components/{componentId}/upgrade/{name}/{version}'.replace('{componentId}', encodeURI(componentId)).replace('{name}', encodeURI(name)).replace('{version}', encodeURI(version)),

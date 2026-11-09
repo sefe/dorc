@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations;
 
 namespace Dorc.ApiModel
 {
@@ -34,9 +35,13 @@ namespace Dorc.ApiModel
 
     public class TerraformParameterResolutionApiModel
     {
+        [Required]
         public string Name { get; set; } = string.Empty;
+        [Required]
         public bool Required { get; set; }
+        [Required]
         public bool Sensitive { get; set; }
+        [Required]
         public TerraformParameterResolutionStatus Status { get; set; }
 
         /// <summary>Populated only when <see cref="Status"/> is <see cref="TerraformParameterResolutionStatus.Suggested"/>.</summary>
@@ -51,8 +56,11 @@ namespace Dorc.ApiModel
     /// </summary>
     public class TerraformTemplateResolutionApiModel
     {
+        [Required]
         public string ProjectName { get; set; } = string.Empty;
+        [Required]
         public string EnvironmentName { get; set; } = string.Empty;
+        [Required]
         public List<TerraformParameterResolutionApiModel> Parameters { get; set; } = new List<TerraformParameterResolutionApiModel>();
         public TerraformReadinessApiModel Readiness { get; set; }
         public CatalogEnvironmentInputsApiModel SavedConfiguration { get; set; }

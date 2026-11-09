@@ -30,17 +30,17 @@ export interface TerraformDeploymentOutcomeApiModel {
      * @type {string}
      * @memberof TerraformDeploymentOutcomeApiModel
      */
-    ApplyOutcome?: string;
+    ApplyOutcome: string;
     /**
      * @type {string}
      * @memberof TerraformDeploymentOutcomeApiModel
      */
-    InventoryOutcome?: string;
+    InventoryOutcome: string;
     /**
      * @type {string}
      * @memberof TerraformDeploymentOutcomeApiModel
      */
-    ArchiveOutcome?: string;
+    ArchiveOutcome: string;
     /**
      * @type {number}
      * @memberof TerraformDeploymentOutcomeApiModel
@@ -65,5 +65,5 @@ export interface TerraformDeploymentOutcomeApiModel {
      * @type {Array<string>}
      * @memberof TerraformDeploymentOutcomeApiModel
      */
-    InventoryWarnings?: Array<string>;
+    InventoryWarnings: Array<string>;
 }

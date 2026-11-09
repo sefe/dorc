@@ -353,8 +353,13 @@ describe('catalog environment deployment workflow', () => {
     expect(dialog.textContent).to.contain('Review');
     expect(mocks.instantiate.mock.calls).to.have.length(0);
     await click(dialog, 'Submit plan request');
-    expect(mocks.instantiate.mock.calls[0][0].body).to.deep.equal({
-      SubmissionKey: mocks.instantiate.mock.calls[0][0].body.SubmissionKey,
+    expect(
+      mocks.instantiate.mock.calls[0][0]
+        .terraformTemplateInstantiateRequestApiModel
+    ).to.deep.equal({
+      SubmissionKey:
+        mocks.instantiate.mock.calls[0][0]
+          .terraformTemplateInstantiateRequestApiModel.SubmissionKey,
       ProjectId: 7,
       ComponentName: 'storage-account',
       ParentComponentId: null,
@@ -376,9 +381,10 @@ describe('catalog environment deployment workflow', () => {
     await click(dialog, 'Continue');
     await click(dialog, 'Continue');
     await click(dialog, 'Submit plan request');
-    expect(mocks.instantiate.mock.calls[0][0].body.ComponentName).to.equal(
-      'Service_Bus 02'
-    );
+    expect(
+      mocks.instantiate.mock.calls[0][0]
+        .terraformTemplateInstantiateRequestApiModel.ComponentName
+    ).to.equal('Service_Bus 02');
   });
 
   it('blocks blank and fractional optional integer overrides but allows omission and an empty String', async () => {
@@ -418,7 +424,10 @@ describe('catalog environment deployment workflow', () => {
     await click(dialog, 'Override label for this request');
     await click(dialog, 'Continue');
     await click(dialog, 'Submit plan request');
-    expect(mocks.instantiate.mock.calls[0][0].body.Parameters).to.deep.equal({
+    expect(
+      mocks.instantiate.mock.calls[0][0]
+        .terraformTemplateInstantiateRequestApiModel.Parameters
+    ).to.deep.equal({
       label: ''
     });
   });
@@ -449,12 +458,14 @@ describe('catalog environment deployment workflow', () => {
     await click(dialog, 'Continue');
     expect(dialog.textContent).to.contain('ApplicationStorage (reuse)');
     await click(dialog, 'Submit plan request');
-    expect(mocks.instantiate.mock.calls[0][0].body.ComponentName).to.equal(
-      'ApplicationStorage'
-    );
-    expect(mocks.instantiate.mock.calls[0][0].body.ParentComponentId).to.equal(
-      8
-    );
+    expect(
+      mocks.instantiate.mock.calls[0][0]
+        .terraformTemplateInstantiateRequestApiModel.ComponentName
+    ).to.equal('ApplicationStorage');
+    expect(
+      mocks.instantiate.mock.calls[0][0]
+        .terraformTemplateInstantiateRequestApiModel.ParentComponentId
+    ).to.equal(8);
   });
 
   it('distinguishes an omitted Boolean from an explicit false and masks sensitive review values', async () => {
@@ -469,7 +480,10 @@ describe('catalog environment deployment workflow', () => {
     expect(dialog.textContent).to.contain('Sensitive override (hidden)');
     expect(dialog.textContent).not.to.contain('fictional-test-secret');
     await click(dialog, 'Submit plan request');
-    expect(mocks.instantiate.mock.calls[0][0].body.Parameters).to.deep.equal({
+    expect(
+      mocks.instantiate.mock.calls[0][0]
+        .terraformTemplateInstantiateRequestApiModel.Parameters
+    ).to.deep.equal({
       enabled: 'false',
       credential: 'fictional-test-secret'
     });
@@ -898,11 +912,14 @@ describe('input provenance and submission retries', () => {
     await click(dialog, 'Continue');
     await click(dialog, 'Submit plan request');
     await click(dialog, 'Submit plan request');
-    const firstKey = mocks.instantiate.mock.calls[0][0].body.SubmissionKey;
+    const firstKey =
+      mocks.instantiate.mock.calls[0][0]
+        .terraformTemplateInstantiateRequestApiModel.SubmissionKey;
     expect(firstKey).to.match(/^[0-9a-f-]{36}$/);
-    expect(mocks.instantiate.mock.calls[1][0].body.SubmissionKey).to.equal(
-      firstKey
-    );
+    expect(
+      mocks.instantiate.mock.calls[1][0]
+        .terraformTemplateInstantiateRequestApiModel.SubmissionKey
+    ).to.equal(firstKey);
     await click(dialog, 'Back');
     await click(dialog, 'Override location for this request');
     dialog.querySelector<TextField>('.param-field vaadin-text-field')!.value =
@@ -910,9 +927,10 @@ describe('input provenance and submission retries', () => {
     await settle();
     await click(dialog, 'Continue');
     await click(dialog, 'Submit plan request');
-    expect(mocks.instantiate.mock.calls[2][0].body.SubmissionKey).not.to.equal(
-      firstKey
-    );
+    expect(
+      mocks.instantiate.mock.calls[2][0]
+        .terraformTemplateInstantiateRequestApiModel.SubmissionKey
+    ).not.to.equal(firstKey);
   });
 });
 
@@ -966,7 +984,10 @@ describe('resource-group convenience fill', () => {
     expect(dialog.textContent).not.to.contain('Friendly label');
     await click(dialog, 'Continue');
     await click(dialog, 'Submit plan request');
-    expect(mocks.instantiate.mock.calls[0][0].body.Parameters).to.deep.equal({
+    expect(
+      mocks.instantiate.mock.calls[0][0]
+        .terraformTemplateInstantiateRequestApiModel.Parameters
+    ).to.deep.equal({
       resource_group_name: 'rg-real'
     });
   });
@@ -983,9 +1004,10 @@ describe('resource-group convenience fill', () => {
       expect(input(dialog)).to.equal(null);
       await click(dialog, 'Continue');
       await click(dialog, 'Submit plan request');
-      expect(mocks.instantiate.mock.calls[0][0].body.Parameters).to.deep.equal(
-        {}
-      );
+      expect(
+        mocks.instantiate.mock.calls[0][0]
+          .terraformTemplateInstantiateRequestApiModel.Parameters
+      ).to.deep.equal({});
     });
   }
 
@@ -1064,9 +1086,10 @@ describe('resource-group convenience fill', () => {
     expect(input(dialog)).to.equal(null);
     await click(dialog, 'Continue');
     await click(dialog, 'Submit plan request');
-    expect(mocks.instantiate.mock.calls[0][0].body.Parameters).to.deep.equal(
-      {}
-    );
+    expect(
+      mocks.instantiate.mock.calls[0][0]
+        .terraformTemplateInstantiateRequestApiModel.Parameters
+    ).to.deep.equal({});
   });
 });
 

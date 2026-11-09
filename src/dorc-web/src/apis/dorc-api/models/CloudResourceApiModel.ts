@@ -17,17 +17,6 @@
  */
 export interface CloudResourceApiModel {
     /**
-     * Content revision from the last read; required unchanged when updating the full definition.
-     * @type {string}
-     * @memberof CloudResourceApiModel
-     */
-    Revision?: string | null;
-    /**
-     * @type {boolean}
-     * @memberof CloudResourceApiModel
-     */
-    readonly CanEditDefinition?: boolean;
-    /**
      * @type {Array<string>}
      * @memberof CloudResourceApiModel
      */
@@ -72,4 +61,14 @@ export interface CloudResourceApiModel {
      * @memberof CloudResourceApiModel
      */
     Tags?: string | null;
+    /**
+     * @type {string}
+     * @memberof CloudResourceApiModel
+     */
+    Revision?: string | null;
+    /**
+     * @type {boolean}
+     * @memberof CloudResourceApiModel
+     */
+    CanEditDefinition?: boolean;
 }

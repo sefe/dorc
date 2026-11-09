@@ -23,16 +23,6 @@ import type {
  */
 export interface TerraformTemplateResolutionApiModel {
     /**
-     * @type {CatalogEnvironmentInputsApiModel}
-     * @memberof TerraformTemplateResolutionApiModel
-     */
-    SavedConfiguration?: CatalogEnvironmentInputsApiModel;
-    /**
-     * @type {TerraformReadinessApiModel}
-     * @memberof TerraformTemplateResolutionApiModel
-     */
-    Readiness?: TerraformReadinessApiModel;
-    /**
      * @type {string}
      * @memberof TerraformTemplateResolutionApiModel
      */
@@ -47,4 +37,14 @@ export interface TerraformTemplateResolutionApiModel {
      * @memberof TerraformTemplateResolutionApiModel
      */
     Parameters: Array<TerraformParameterResolutionApiModel>;
+    /**
+     * @type {TerraformReadinessApiModel}
+     * @memberof TerraformTemplateResolutionApiModel
+     */
+    Readiness?: TerraformReadinessApiModel;
+    /**
+     * @type {CatalogEnvironmentInputsApiModel}
+     * @memberof TerraformTemplateResolutionApiModel
+     */
+    SavedConfiguration?: CatalogEnvironmentInputsApiModel;
 }
