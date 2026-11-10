@@ -126,6 +126,8 @@ export class DorcApp extends LitElement {
         width: auto;
         padding: 3px 0;
         flex-shrink: 0;
+        position: relative;
+        z-index: 2;
       }
 
       #header .app-title {

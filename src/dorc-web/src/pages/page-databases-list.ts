@@ -239,7 +239,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         class='cover'
         style='z-index: 2; height: 400px'
         ?hidden='${!this.noResults}'
-        src='/hegsie_white_background_cartoon_geek_code_simple_icon_searching_12343b57-9c4e-45c6-b2f3-7765e8596718.png'
+        src='/modern-dorc-searching.webp'
         alt='No Results Found'
       />
     `;

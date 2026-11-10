@@ -119,23 +119,34 @@ export class MakeLikeProduction extends LitElement {
   render() {
     return html`
       <vaadin-vertical-layout style="width: 100%; max-width: 700px">
-        <vaadin-combo-box
-          label="Bundle Request"
-          class="block"
-          .items="${this.bundledRequests}"
-          .itemValuePath=""
-          .value="${this.selectedBundleName}"
-          style="width: 100%; max-width: 600px"
-          @value-changed="${this._dataSourceBundleNameChanged}"
-        ></vaadin-combo-box>
-        <vaadin-combo-box
-          label="Data Source"
-          class="block"
-          .items="${this.dataBackups}"
-          .value="${this.selectedDataBackup}"
-          style="width: 100%; max-width: 600px"
-          @value-changed="${this._dataSourceDataBackupChanged}"
-        ></vaadin-combo-box>
+        <div
+          style="display: flex; align-items: center; gap: var(--lumo-space-m); width: 100%; max-width: 600px;"
+        >
+          <img
+            src="/modern-dorc-clone.webp"
+            alt="Make Like Production"
+            style="height: 110px; width: auto; flex-shrink: 0;"
+          />
+          <div style="flex: 1; min-width: 0;">
+            <vaadin-combo-box
+              label="Bundle Request"
+              class="block"
+              .items="${this.bundledRequests}"
+              .itemValuePath=""
+              .value="${this.selectedBundleName}"
+              style="width: 100%; max-width: 600px"
+              @value-changed="${this._dataSourceBundleNameChanged}"
+            ></vaadin-combo-box>
+            <vaadin-combo-box
+              label="Data Source"
+              class="block"
+              .items="${this.dataBackups}"
+              .value="${this.selectedDataBackup}"
+              style="width: 100%; max-width: 600px"
+              @value-changed="${this._dataSourceDataBackupChanged}"
+            ></vaadin-combo-box>
+          </div>
+        </div>
         <vaadin-details
           closed
           summary="Property Overrides (Optional)"
@@ -298,9 +309,9 @@ export class MakeLikeProduction extends LitElement {
     const selectedBundleName = this.selectedBundleName;
     const requestVersion = ++this.dataBackupsRequestVersion;
 
-    const selectedBundleReqs = this.bundleRequests?.filter(
-      b => b.BundleName === selectedBundleName
-    ) ?? [];
+    const selectedBundleReqs =
+      this.bundleRequests?.filter(b => b.BundleName === selectedBundleName) ??
+      [];
 
     if (selectedBundleReqs.length === 0) {
       this.dialog?.bundleChanged(undefined);

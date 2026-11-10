@@ -64,6 +64,20 @@ describe('mascot-icon helper', () => {
     expect(getMascotIconPath(new Date(2026, 8, 1))).toBe('/modern-dorc.webp');
   });
 
+  it('returns the Halloween mascot from October 24 through November 2', () => {
+    expect(getMascotIconPath(new Date(2026, 9, 23))).toBe('/modern-dorc.webp');
+    expect(getMascotIconPath(new Date(2026, 9, 24))).toBe(
+      '/modern-dorc-halloween.webp'
+    );
+    expect(getMascotIconPath(new Date(2026, 9, 31))).toBe(
+      '/modern-dorc-halloween.webp'
+    );
+    expect(getMascotIconPath(new Date(2026, 10, 2))).toBe(
+      '/modern-dorc-halloween.webp'
+    );
+    expect(getMascotIconPath(new Date(2026, 10, 3))).toBe('/modern-dorc.webp');
+  });
+
   it('returns the default mascot outside holiday windows', () => {
     expect(getMascotIconPath(new Date(2026, 0, 15))).toBe('/modern-dorc.webp');
     expect(getMascotIconPath(new Date(2026, 9, 20))).toBe('/modern-dorc.webp');

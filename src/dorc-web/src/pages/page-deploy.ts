@@ -174,6 +174,21 @@ export class PageDeploy extends PageElement {
           .project="${this.project}"
           .envName="${this.selectedEnvironmentName}"
         ></deploy-env>
+        ${
+          !this.selectedEnvironmentName
+            ? html`
+                <div
+                  style="display: flex; flex-direction: column; align-items: center; max-width: 600px; padding: var(--lumo-space-m); opacity: 0.9;"
+                >
+                  <img
+                    src="/modern-dorc-deploy.webp"
+                    alt="Select a project and environment to deploy"
+                    style="height: 200px; width: auto;"
+                  />
+                </div>
+              `
+            : html``
+        }
         <div></div>
       </div>
     `;

@@ -2,6 +2,7 @@ const DEFAULT_MASCOT_ICON = '/modern-dorc.webp';
 const CHRISTMAS_MASCOT_ICON = '/modern-dorc-christmas.webp';
 const EASTER_MASCOT_ICON = '/modern-dorc-easter.webp';
 const SUMMER_MASCOT_ICON = '/modern-dorc-summer.webp';
+const HALLOWEEN_MASCOT_ICON = '/modern-dorc-halloween.webp';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -30,6 +31,7 @@ export function getEasterSundayUtc(year: number): Date {
 /**
  * Returns the seasonal DOrc mascot icon path for the given date:
  * - Christmas (`/modern-dorc-christmas.webp`): December (Dec 1 – Dec 31)
+ * - Halloween (`/modern-dorc-halloween.webp`): October 24 – November 2
  * - Easter (`/modern-dorc-easter.webp`): Palm Sunday through Easter Tuesday (Easter - 7 days to Easter + 2 days)
  * - Summer (`/modern-dorc-summer.webp`): Meteorological summer (June 1 – August 31)
  * - Default (`/modern-dorc.webp`): All other dates
@@ -41,6 +43,10 @@ export function getMascotIconPath(date: Date = new Date()): string {
 
   if (month === 11) {
     return CHRISTMAS_MASCOT_ICON;
+  }
+
+  if ((month === 9 && day >= 24) || (month === 10 && day <= 2)) {
+    return HALLOWEEN_MASCOT_ICON;
   }
 
   const currentUtc = Date.UTC(year, month, day);
