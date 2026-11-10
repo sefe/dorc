@@ -321,7 +321,6 @@ namespace Dorc.Api.Tests
             };
             var definition = new DeploymentRequestDefinition
             {
-                Id = 1,
                 DeploymentRequestId = 77,
                 ProjectId = 5,
                 ComponentId = 42,
@@ -338,35 +337,37 @@ namespace Dorc.Api.Tests
                 Status = "Complete"
             };
 
-            using var dbContext = new DbContext(new DbContextOptions<DbContext>());
+            using var dbContext = new DbContext(
+                new DbContextOptionsBuilder<DbContext>().UseSqlServer("Server=.;Database=Dummy;").Options);
             var database = Substitute.For<DatabaseFacade>(dbContext);
             _context.Database.Returns(database);
-            _context.EnvironmentComponentStatuses.Returns(
-                DbContextMock.GetQueryableMockDbSet(new List<EnvironmentComponentStatus> { envStatus }),
-                DbContextMock.GetQueryableMockDbSet(new List<EnvironmentComponentStatus> { envStatus }));
-            _context.DeploymentResults.Returns(
-                DbContextMock.GetQueryableMockDbSet(new List<DeploymentResult> { resultRow }));
-            _context.DeploymentRequestDefinitions.Returns(
-                DbContextMock.GetQueryableMockDbSet(new List<DeploymentRequestDefinition> { definition }),
-                DbContextMock.GetQueryableMockDbSet(new List<DeploymentRequestDefinition> { definition }));
-            _context.TerraformDeploymentReceipts.Returns(
-                DbContextMock.GetQueryableMockDbSet(new List<TerraformDeploymentReceipt>()));
-            _context.PowerShellExecutionReceipts.Returns(
-                DbContextMock.GetQueryableMockDbSet(new List<PowerShellExecutionReceipt>()));
-            _context.DeploymentRequests.Returns(
-                DbContextMock.GetQueryableMockDbSet(new List<DeploymentRequest> { request }));
+            var envStatusesSet1 = DbContextMock.GetQueryableMockDbSet(new List<EnvironmentComponentStatus> { envStatus });
+            var envStatusesSet2 = DbContextMock.GetQueryableMockDbSet(new List<EnvironmentComponentStatus> { envStatus });
+            var deploymentResultsSet = DbContextMock.GetQueryableMockDbSet(new List<DeploymentResult> { resultRow });
+            var definitionsSet1 = DbContextMock.GetQueryableMockDbSet(new List<DeploymentRequestDefinition> { definition });
+            var definitionsSet2 = DbContextMock.GetQueryableMockDbSet(new List<DeploymentRequestDefinition> { definition });
+            var tfReceiptsSet = DbContextMock.GetQueryableMockDbSet(new List<TerraformDeploymentReceipt>());
+            var psReceiptsSet = DbContextMock.GetQueryableMockDbSet(new List<PowerShellExecutionReceipt>());
+            var requestsSet = DbContextMock.GetQueryableMockDbSet(new List<DeploymentRequest> { request });
+
+            _context.EnvironmentComponentStatuses.Returns(envStatusesSet1, envStatusesSet2);
+            _context.DeploymentResults.Returns(deploymentResultsSet);
+            _context.DeploymentRequestDefinitions.Returns(definitionsSet1, definitionsSet2);
+            _context.TerraformDeploymentReceipts.Returns(tfReceiptsSet);
+            _context.PowerShellExecutionReceipts.Returns(psReceiptsSet);
+            _context.DeploymentRequests.Returns(requestsSet);
 
             var builds = _environmentsPersistentSource
                 .GetEnvironmentComponentStatuses("UT02", completedAt.UtcDateTime.AddMinutes(5))
                 .ToList();
-            Assert.AreEqual(1, builds.Count);
+            Assert.HasCount(1, builds);
             Assert.AreEqual("OriginalJobName", builds[0].ComponentName);
             Assert.AreEqual(new string('a', 64), builds[0].DefinitionRevision);
 
             var models = _environmentsPersistentSource
                 .GetEnvironmentComponentStatuses(10)
                 .ToList();
-            Assert.AreEqual(1, models.Count);
+            Assert.HasCount(1, models);
             Assert.AreEqual("OriginalJobName", models[0].Component);
         }
 
@@ -398,7 +399,6 @@ namespace Dorc.Api.Tests
             };
             var definition = new DeploymentRequestDefinition
             {
-                Id = 1,
                 DeploymentRequestId = 77,
                 ProjectId = 5,
                 ComponentId = 42,
@@ -432,7 +432,7 @@ namespace Dorc.Api.Tests
 
             // 1. ArchiveCurrentAttempt stores the pinned ComponentName rather than the live renamed Component.Name
             requestsSource.ArchiveCurrentAttempt(77);
-            Assert.AreEqual(1, resultAttempts.Count);
+            Assert.HasCount(1, resultAttempts);
             Assert.AreEqual("OriginalJobName", resultAttempts[0].ComponentName);
 
             // 2. Even if an older attempt row in DB had the live name stored, GetArchivedDeploymentResult returns the pinned name and SHA
