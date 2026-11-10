@@ -526,7 +526,9 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                             SourceRevisionLabel = evidence?.Label,
                             State = build.Status,
                             UpdateDate = build.UpdateDate.DateTime.ToString("o"),
-                            ComponentName = build.ComponentName,
+                            ComponentName = !string.IsNullOrEmpty(evidence?.ComponentName)
+                                ? evidence.ComponentName
+                                : build.ComponentName,
                             RequestBuildNum = xPathToString(build.RequestDetailsXml),
                             RequestId = build.Id
                         });
@@ -545,8 +547,19 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             {
                 var environmentComponentStatus = context.EnvironmentComponentStatuses.Include(e => e.Environment)
                     .Include(cs => cs.Component)
-                    .Include(c => c.DeploymentRequest).Where(e => e.Environment.Id == environmentId);
-                return environmentComponentStatus.ToList().Select(MapToEnvironmentComponentStatusModel).ToList();
+                    .Include(c => c.DeploymentRequest)
+                    .Where(e => e.Environment.Id == environmentId)
+                    .ToList();
+                var requestIds = environmentComponentStatus.Select(s => s.DeploymentRequest.Id).Distinct().ToList();
+                var pinnedNames = requestIds.Count == 0
+                    ? new Dictionary<(int RequestId, int ComponentId), string>()
+                    : context.DeploymentRequestDefinitions.AsNoTracking()
+                        .Where(d => requestIds.Contains(d.DeploymentRequestId))
+                        .ToDictionary(d => (d.DeploymentRequestId, d.ComponentId), d => d.ComponentName);
+                return environmentComponentStatus
+                    .Select(s => MapToEnvironmentComponentStatusModel(
+                        s, pinnedNames.GetValueOrDefault((s.DeploymentRequest.Id, s.Component.Id))))
+                    .ToList();
             }
         }
 
@@ -832,11 +845,11 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
         }
 
         private static EnvironmentComponentStatusModel MapToEnvironmentComponentStatusModel(
-            EnvironmentComponentStatus s)
+            EnvironmentComponentStatus s, string? pinnedComponentName = null)
         {
             return new EnvironmentComponentStatusModel
             {
-                Component = s.Component.Name,
+                Component = !string.IsNullOrEmpty(pinnedComponentName) ? pinnedComponentName : s.Component.Name,
                 Status = s.Status,
                 UpdateDate = s.UpdateDate,
                 BuildNumber = s.DeploymentRequest.BuildNumber,

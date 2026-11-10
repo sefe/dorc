@@ -280,5 +280,175 @@ namespace Dorc.Api.Tests
             Assert.IsTrue(result);
             AssertOwnerChange(testEnv, oldOwnerSid, newOwnerSid, null, AccessLevel.Owner | AccessLevel.Write);
         }
+
+        [TestMethod]
+        public void GetEnvironmentComponentStatuses_AfterComponentRename_ReturnsPinnedComponentName()
+        {
+            var env = new Environment { Id = 10, Name = "UT02", ObjectId = Guid.NewGuid() };
+            var liveComponent = new Component
+            {
+                Id = 42,
+                Name = "RenamedJobName",
+                ComponentType = ComponentType.PowerShell,
+                IsEnabled = true
+            };
+            var completedAt = new DateTimeOffset(2026, 1, 15, 10, 0, 0, TimeSpan.Zero);
+            var request = new DeploymentRequest
+            {
+                Id = 77,
+                Project = "TestProject",
+                Environment = "UT02",
+                BuildNumber = "1.0.0",
+                RequestDetails = "<DeploymentRequestDetail><BuildDetail><BuildNumber>1.0.0</BuildNumber></BuildDetail></DeploymentRequestDetail>",
+                CompletedTime = completedAt,
+                Status = "Completed"
+            };
+            var envStatus = new EnvironmentComponentStatus
+            {
+                Id = 1,
+                Environment = env,
+                Component = liveComponent,
+                DeploymentRequest = request,
+                Status = "Complete",
+                UpdateDate = completedAt
+            };
+            var pinnedModel = new ComponentApiModel
+            {
+                ComponentId = 42,
+                ComponentName = "OriginalJobName",
+                ComponentType = ComponentType.PowerShell,
+                IsEnabled = true
+            };
+            var definition = new DeploymentRequestDefinition
+            {
+                Id = 1,
+                DeploymentRequestId = 77,
+                ProjectId = 5,
+                ComponentId = 42,
+                ComponentName = "OriginalJobName",
+                DefinitionRevision = new string('a', 64),
+                DefinitionJson = System.Text.Json.JsonSerializer.Serialize(pinnedModel),
+                ProjectJson = "{}"
+            };
+            var resultRow = new DeploymentResult
+            {
+                Id = 500,
+                Component = liveComponent,
+                DeploymentRequest = request,
+                Status = "Complete"
+            };
+
+            using var dbContext = new DbContext(new DbContextOptions<DbContext>());
+            var database = Substitute.For<DatabaseFacade>(dbContext);
+            _context.Database.Returns(database);
+            _context.EnvironmentComponentStatuses.Returns(
+                DbContextMock.GetQueryableMockDbSet(new List<EnvironmentComponentStatus> { envStatus }),
+                DbContextMock.GetQueryableMockDbSet(new List<EnvironmentComponentStatus> { envStatus }));
+            _context.DeploymentResults.Returns(
+                DbContextMock.GetQueryableMockDbSet(new List<DeploymentResult> { resultRow }));
+            _context.DeploymentRequestDefinitions.Returns(
+                DbContextMock.GetQueryableMockDbSet(new List<DeploymentRequestDefinition> { definition }),
+                DbContextMock.GetQueryableMockDbSet(new List<DeploymentRequestDefinition> { definition }));
+            _context.TerraformDeploymentReceipts.Returns(
+                DbContextMock.GetQueryableMockDbSet(new List<TerraformDeploymentReceipt>()));
+            _context.PowerShellExecutionReceipts.Returns(
+                DbContextMock.GetQueryableMockDbSet(new List<PowerShellExecutionReceipt>()));
+            _context.DeploymentRequests.Returns(
+                DbContextMock.GetQueryableMockDbSet(new List<DeploymentRequest> { request }));
+
+            var builds = _environmentsPersistentSource
+                .GetEnvironmentComponentStatuses("UT02", completedAt.UtcDateTime.AddMinutes(5))
+                .ToList();
+            Assert.AreEqual(1, builds.Count);
+            Assert.AreEqual("OriginalJobName", builds[0].ComponentName);
+            Assert.AreEqual(new string('a', 64), builds[0].DefinitionRevision);
+
+            var models = _environmentsPersistentSource
+                .GetEnvironmentComponentStatuses(10)
+                .ToList();
+            Assert.AreEqual(1, models.Count);
+            Assert.AreEqual("OriginalJobName", models[0].Component);
+        }
+
+        [TestMethod]
+        public void RequestsPersistentSource_AfterComponentRename_PreservesPinnedNameAndEnabledAcrossRestartAndAttempts()
+        {
+            var liveComponent = new Component
+            {
+                Id = 42,
+                Name = "RenamedJobName",
+                ComponentType = ComponentType.PowerShell,
+                IsEnabled = false
+            };
+            var request = new DeploymentRequest
+            {
+                Id = 77,
+                Project = "TestProject",
+                Environment = "UT02",
+                BuildNumber = "1.0.0",
+                Status = "Failed",
+                UserName = "tester"
+            };
+            var pinnedModel = new ComponentApiModel
+            {
+                ComponentId = 42,
+                ComponentName = "OriginalJobName",
+                ComponentType = ComponentType.PowerShell,
+                IsEnabled = true
+            };
+            var definition = new DeploymentRequestDefinition
+            {
+                Id = 1,
+                DeploymentRequestId = 77,
+                ProjectId = 5,
+                ComponentId = 42,
+                ComponentName = "OriginalJobName",
+                DefinitionRevision = new string('b', 64),
+                DefinitionJson = System.Text.Json.JsonSerializer.Serialize(pinnedModel),
+                ProjectJson = "{}"
+            };
+            var existingResult = new DeploymentResult
+            {
+                Id = 500,
+                Component = liveComponent,
+                DeploymentRequest = request,
+                Status = "Failed"
+            };
+            var results = new List<DeploymentResult> { existingResult };
+            var requestAttempts = new List<DeploymentRequestAttempt>();
+            var resultAttempts = new List<DeploymentResultAttempt>();
+
+            _context.Components.Returns(_ => DbContextMock.GetQueryableMockDbSet(new List<Component> { liveComponent }));
+            _context.DeploymentRequests.Returns(_ => DbContextMock.GetQueryableMockDbSet(new List<DeploymentRequest> { request }));
+            _context.DeploymentResults.Returns(_ => DbContextMock.GetQueryableMockDbSet(results));
+            _context.DeploymentRequestDefinitions.Returns(_ => DbContextMock.GetQueryableMockDbSet(new List<DeploymentRequestDefinition> { definition }));
+            _context.DeploymentRequestAttempts.Returns(_ => DbContextMock.GetQueryableMockDbSet(requestAttempts));
+            _context.DeploymentResultAttempts.Returns(_ => DbContextMock.GetQueryableMockDbSet(resultAttempts));
+            _context.TerraformDeploymentReceipts.Returns(_ => DbContextMock.GetQueryableMockDbSet(new List<TerraformDeploymentReceipt>()));
+            _context.TerraformPlanApprovals.Returns(_ => DbContextMock.GetQueryableMockDbSet(new List<TerraformPlanApproval>()));
+            _context.PowerShellExecutionReceipts.Returns(_ => DbContextMock.GetQueryableMockDbSet(new List<PowerShellExecutionReceipt>()));
+
+            var requestsSource = new RequestsPersistentSource(_contextFactory, _claimsPrincipalReader);
+
+            // 1. ArchiveCurrentAttempt stores the pinned ComponentName rather than the live renamed Component.Name
+            requestsSource.ArchiveCurrentAttempt(77);
+            Assert.AreEqual(1, resultAttempts.Count);
+            Assert.AreEqual("OriginalJobName", resultAttempts[0].ComponentName);
+
+            // 2. Even if an older attempt row in DB had the live name stored, GetArchivedDeploymentResult returns the pinned name and SHA
+            resultAttempts[0].ComponentName = "RenamedJobName";
+            resultAttempts[0].DeploymentRequestAttempt = requestAttempts[0];
+            var archived = requestsSource.GetArchivedDeploymentResult(500);
+            Assert.IsNotNull(archived);
+            Assert.AreEqual("OriginalJobName", archived.ComponentName);
+            Assert.AreEqual(new string('b', 64), archived.DefinitionRevision);
+
+            // 3. CreateDeploymentResult on restart uses pinned IsEnabled (true) and pinned ComponentName ("OriginalJobName")
+            results.Clear();
+            var newResult = requestsSource.CreateDeploymentResult(42, 77);
+            Assert.AreEqual("OriginalJobName", newResult.ComponentName);
+            Assert.AreEqual(DeploymentResultStatus.Pending.ToString(), newResult.Status);
+            Assert.AreEqual(new string('b', 64), newResult.DefinitionRevision);
+        }
     }
 } 

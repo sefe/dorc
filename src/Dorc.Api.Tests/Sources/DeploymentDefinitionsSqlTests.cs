@@ -716,19 +716,30 @@ public class DeploymentDefinitionsSqlTests
     public void SubmittedGraphSurvivesSourceRuntimeAndNameEdits()
     {
         var document = Create();
+        var originalName = document.Components[0].ComponentName;
+        var componentId = document.Components[0].ComponentId!.Value;
         var requests = new RequestsPersistentSource(factory, Substitute.For<IClaimsPrincipalReader>());
         var requestId = requests.SubmitRequest(new DeploymentRequest
         {
-            Project = document.Project.ProjectName, Components = document.Components[0].ComponentName,
+            Project = document.Project.ProjectName, Components = originalName,
             RequestDetails = "<root/>", UserName = "requester", RequestedTime = DateTimeOffset.UtcNow
         });
         document.Components[0].ScriptPath = "changed.ps1";
         document.Components[0].PSVersion = "5";
         document.Components[0].ComponentName = Guid.NewGuid().ToString("N");
+        document.Components[0].IsEnabled = false;
         document.Project.TerraformGitRepoUrl = "https://example.org/changed";
         definitions.Save(document, false, "editor", _ => true, () => { });
-        Assert.AreEqual("original.ps1", requests.GetSubmittedScript(requestId, document.Components[0].ComponentId!.Value).Path);
-        Assert.IsNull(requests.GetSubmittedProject(requestId, document.Components[0].ComponentId!.Value).TerraformGitRepoUrl);
+        Assert.AreEqual("original.ps1", requests.GetSubmittedScript(requestId, componentId).Path);
+        Assert.IsNull(requests.GetSubmittedProject(requestId, componentId).TerraformGitRepoUrl);
+        var createdResult = requests.CreateDeploymentResult(componentId, requestId);
+        Assert.AreEqual(originalName, createdResult.ComponentName);
+        Assert.AreEqual(DeploymentResultStatus.Pending.ToString(), createdResult.Status);
+        requests.ArchiveCurrentAttempt(requestId);
+        var attempts = requests.GetAttemptsForRequest(requestId).ToList();
+        Assert.AreEqual(originalName, attempts.Single().ComponentResults.Single().ComponentName);
+        Assert.AreEqual(createdResult.DefinitionRevision, attempts.Single().ComponentResults.Single().DefinitionRevision);
+        Assert.AreEqual(originalName, requests.GetArchivedDeploymentResult(createdResult.Id)!.ComponentName);
         Assert.Throws<InvalidOperationException>(() => requests.GetRequestDefinitions(int.MaxValue));
     }
 

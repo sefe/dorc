@@ -176,15 +176,23 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
+                var pinnedDefinitions = context.DeploymentRequestDefinitions.AsNoTracking()
+                    .Where(d => d.DeploymentRequestId == requestId)
+                    .ToDictionary(d => d.ComponentId, d => d.DefinitionJson);
+
                 foreach (ComponentApiModel component in components)
                 {
+                    var componentId = component.ComponentId ?? 0;
                     var deploymentResult = new DeploymentResult
                     {
-                        Component = context.Components.First(c => c.Id == component.ComponentId),
+                        Component = context.Components.First(c => c.Id == componentId),
                         DeploymentRequest = context.DeploymentRequests.First(dr => dr.Id == requestId),
                         Status = DeploymentResultStatus.Pending.ToString()
                     };
-                    if (deploymentResult.Component.IsEnabled != null && deploymentResult.Component.IsEnabled == false)
+                    var isEnabled = pinnedDefinitions.TryGetValue(componentId, out var definitionJson)
+                        ? System.Text.Json.JsonSerializer.Deserialize<ComponentApiModel>(definitionJson)?.IsEnabled ?? component.IsEnabled
+                        : deploymentResult.Component.IsEnabled;
+                    if (!isEnabled)
                     {
                         deploymentResult.Status = DeploymentResultStatus.Disabled.ToString();
                     }
@@ -207,7 +215,15 @@ namespace Dorc.PersistentData.Sources
                     Status = DeploymentResultStatus.Pending.ToString()
                 };
 
-                if (!deploymentResult.Component.IsEnabled)
+                var pinnedDefinitionJson = context.DeploymentRequestDefinitions.AsNoTracking()
+                    .Where(d => d.DeploymentRequestId == requestId && d.ComponentId == componentId)
+                    .Select(d => d.DefinitionJson)
+                    .FirstOrDefault();
+                var isEnabled = !string.IsNullOrEmpty(pinnedDefinitionJson)
+                    ? System.Text.Json.JsonSerializer.Deserialize<ComponentApiModel>(pinnedDefinitionJson)?.IsEnabled ?? deploymentResult.Component.IsEnabled
+                    : deploymentResult.Component.IsEnabled;
+
+                if (!isEnabled)
                 {
                     deploymentResult.Status = DeploymentResultStatus.Disabled.ToString();
                 }
@@ -326,7 +342,7 @@ namespace Dorc.PersistentData.Sources
         public DeploymentResultApiModel? GetArchivedDeploymentResult(int deploymentResultId)
         {
             using var context = _contextFactory.GetContext();
-            return context.DeploymentResultAttempts.AsNoTracking()
+            var archived = context.DeploymentResultAttempts.AsNoTracking()
                 .Where(result => result.DeploymentResultId == deploymentResultId)
                 .Select(result => new DeploymentResultApiModel
                 {
@@ -338,6 +354,22 @@ namespace Dorc.PersistentData.Sources
                     StartedTime = result.StartedTime,
                     CompletedTime = result.CompletedTime
                 }).FirstOrDefault();
+
+            if (archived == null)
+                return null;
+
+            var evidence = DeploymentSourceEvidence.Read(context, archived.RequestId, archived.ComponentId, deploymentResultId);
+            if (evidence != null)
+            {
+                if (!string.IsNullOrEmpty(evidence.ComponentName))
+                    archived.ComponentName = evidence.ComponentName;
+                archived.ProjectId = evidence.ProjectId;
+                archived.DefinitionRevision = evidence.Revision;
+                archived.SourceRevisionLabel = evidence.Label;
+                archived.IsTerraform = evidence.IsTerraform;
+            }
+
+            return archived;
         }
 
         public bool TryConfirmTerraformPlan(DeploymentResultApiModel result, TerraformPlanApproval approval)
@@ -787,13 +819,18 @@ namespace Dorc.PersistentData.Sources
                 context.DeploymentRequestAttempts.Add(attempt);
                 context.SaveChanges();
 
+                var pinnedNames = context.DeploymentRequestDefinitions.AsNoTracking()
+                    .Where(d => d.DeploymentRequestId == requestId)
+                    .ToDictionary(d => d.ComponentId, d => d.ComponentName);
+
                 foreach (var result in componentResults)
                 {
+                    var pinnedName = pinnedNames.GetValueOrDefault(result.Component.Id);
                     var resultAttempt = new DeploymentResultAttempt
                     {
                         DeploymentRequestAttempt = attempt,
                         ComponentId = result.Component.Id,
-                        ComponentName = result.Component.Name,
+                        ComponentName = !string.IsNullOrEmpty(pinnedName) ? pinnedName : result.Component.Name,
                         StartedTime = result.StartedTime,
                         CompletedTime = result.CompletedTime,
                         Status = result.Status ?? "Unknown",
@@ -850,6 +887,8 @@ namespace Dorc.PersistentData.Sources
                 {
                     var evidence = evidenceByKey.GetValueOrDefault(
                         new DeploymentSourceEvidence.Key(requestId, result.ComponentId, result.DeploymentResultId));
+                    if (!string.IsNullOrEmpty(evidence?.ComponentName))
+                        result.ComponentName = evidence.ComponentName;
                     result.ProjectId = evidence?.ProjectId;
                     result.IsTerraform = evidence?.IsTerraform ?? (result.HasTerraformPlan ? true : (bool?)null);
                     result.DefinitionRevision = evidence?.Revision;
@@ -906,7 +945,9 @@ namespace Dorc.PersistentData.Sources
                 DefinitionRevision = evidence?.Revision,
                 SourceRevisionLabel = evidence?.Label,
                 Status = status.ToString(),
-                ComponentName = evidence?.ComponentName ?? deploymentResult.Component.Name,
+                ComponentName = !string.IsNullOrEmpty(evidence?.ComponentName)
+                    ? evidence.ComponentName
+                    : deploymentResult.Component.Name,
                 ComponentId = deploymentResult.Component.Id,
                 IsTerraform = evidence?.IsTerraform ?? deploymentResult.Component.ComponentType == ComponentType.Terraform,
                 RequestId = deploymentResult.DeploymentRequest.Id,
