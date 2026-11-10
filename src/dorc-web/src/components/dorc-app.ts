@@ -370,11 +370,7 @@ export class DorcApp extends LitElement {
         >
           <vaadin-icon icon="lumo:menu"></vaadin-icon>
         </vaadin-button>
-        <img
-          class="mascot"
-          src="/hegsie_white_background_cartoon_dork_code_markdown_simple_icon__ef4f70a2-200b-4a67-82ba-73b12eb495d3.png"
-          alt="DOrc mascot"
-        />
+        <img class="mascot" src="/modern-dorc.webp" alt="DOrc mascot" />
         ${
           appConfig.isProduction
             ? html`<span class="app-title" title="DevOps Orchestrator"
