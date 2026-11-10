@@ -214,11 +214,16 @@ export class PageMonitorRequests
           flex-direction: column;
           height: 100%;
           overflow: hidden;
+          font-family:
+            -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter,
+            var(--lumo-font-family, sans-serif);
+          -webkit-font-smoothing: antialiased;
           --divider-color: var(--dorc-border-color);
         }
         vaadin-grid {
           flex: 1;
           min-height: 0;
+          font-family: inherit;
         }
 
         vaadin-text-field {
@@ -230,22 +235,25 @@ export class PageMonitorRequests
           padding-top: 0px;
           padding-bottom: 0px;
           margin: 0px;
+          font-family: inherit;
         }
 
         .id-btn {
-          font-size: 0.78rem;
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-family: inherit;
+          font-size: 0.76rem;
           font-weight: 600;
           font-variant-numeric: tabular-nums;
           background: color-mix(
             in srgb,
-            var(--dorc-link-color, #58a6ff) 12%,
-            var(--dorc-chip-bg, #2a2d3a)
+            var(--dorc-link-color, #58a6ff) 10%,
+            transparent
           );
           color: var(--dorc-link-color, #58a6ff);
           display: inline-flex;
           align-items: center;
-          padding: 3px 8px;
+          gap: 5px;
+          height: 24px;
+          padding: 0 8px;
           margin: 2px 0;
           text-decoration: none;
           border-radius: 5px;
@@ -260,37 +268,60 @@ export class PageMonitorRequests
         .id-btn:hover {
           background: color-mix(
             in srgb,
-            var(--dorc-link-color, #58a6ff) 22%,
-            var(--dorc-chip-bg, #2a2d3a)
+            var(--dorc-link-color, #58a6ff) 18%,
+            transparent
           );
           border-color: color-mix(
             in srgb,
-            var(--dorc-link-color, #58a6ff) 50%,
+            var(--dorc-link-color, #58a6ff) 48%,
             transparent
           );
         }
 
         .details-primary {
-          font-size: var(--lumo-font-size-s);
-          font-weight: 500;
+          font-family: inherit;
+          font-size: 0.8125rem;
+          font-weight: 600;
           color: var(--dorc-text-primary);
-          line-height: 1.35;
+          line-height: 1.3;
         }
 
         .details-secondary {
-          font-size: var(--lumo-font-size-xs);
-          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-          color: var(--lumo-secondary-text-color);
-          line-height: 1.35;
+          font-family: inherit;
+          font-size: 0.75rem;
+          font-weight: 400;
+          font-variant-numeric: tabular-nums;
+          color: var(--dorc-text-secondary);
+          line-height: 1.3;
         }
 
         .timings-stack {
           display: flex;
           flex-direction: column;
-          gap: 1px;
-          font-size: var(--lumo-font-size-xs);
+          gap: 2px;
+          font-family: inherit;
+          font-size: 0.75rem;
           font-variant-numeric: tabular-nums;
-          color: var(--lumo-secondary-text-color);
+          color: var(--dorc-text-primary);
+          line-height: 1.3;
+        }
+
+        .timings-row {
+          display: flex;
+          align-items: baseline;
+          gap: 6px;
+        }
+
+        .timings-label {
+          color: var(--dorc-text-secondary);
+          min-width: 52px;
+        }
+
+        .cell-secondary {
+          font-family: inherit;
+          font-size: 0.78rem;
+          font-weight: 400;
+          color: var(--dorc-text-secondary);
           line-height: 1.35;
         }
 
@@ -309,7 +340,8 @@ export class PageMonitorRequests
           gap: 6px;
           min-width: 85px;
           flex-shrink: 0;
-          font-size: var(--lumo-font-size-xs);
+          font-family: inherit;
+          font-size: 0.78rem;
           font-weight: 600;
           letter-spacing: 0.01em;
         }
@@ -690,12 +722,7 @@ export class PageMonitorRequests
     return html`
       <vaadin-vertical-layout>
         ${elements?.map(
-          element =>
-            html`<div
-              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-            >
-              ${element}
-            </div>`
+          element => html`<div class="cell-secondary">${element}</div>`
         )}
       </vaadin-vertical-layout>
     `;
@@ -703,11 +730,7 @@ export class PageMonitorRequests
 
   private usernameRenderer(item: DeploymentRequestApiModel) {
     const request = item as DeploymentRequestApiModel;
-    return html` <div
-      style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-    >
-      ${request.UserName}
-    </div>`;
+    return html`<div class="cell-secondary">${request.UserName}</div>`;
   }
 
   private detailsRenderer = (item: DeploymentRequestApiModel) => {
@@ -753,10 +776,27 @@ export class PageMonitorRequests
       );
     }
 
+    const started = `${sDate} ${sTime}`.trim();
+    const finished = `${cDate} ${cTime}`.trim();
+
     return html`
       <div class="timings-stack">
-        <div>${`${sDate} ${sTime}`}</div>
-        <div>${`${cDate} ${cTime}`}</div>
+        ${
+          started
+            ? html`<div class="timings-row">
+                <span class="timings-label">Started</span>
+                <span>${started}</span>
+              </div>`
+            : html`<div class="timings-row"></div>`
+        }
+        ${
+          finished
+            ? html`<div class="timings-row">
+                <span class="timings-label">Finished</span>
+                <span>${finished}</span>
+              </div>`
+            : html`<div class="timings-row"></div>`
+        }
       </div>
     `;
   };
@@ -778,7 +818,18 @@ export class PageMonitorRequests
           );
         }}"
       >
-        ${request.Id}
+        <span>${request.Id}</span>
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          aria-hidden="true"
+        >
+          <path d="M6 3h7v7M13 3L6 10" />
+        </svg>
       </button>
     `;
   };

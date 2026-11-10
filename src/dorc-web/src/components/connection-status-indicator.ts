@@ -22,7 +22,7 @@ type IndicatorStatus = 'live' | 'paused' | 'reconnecting' | 'offline';
  */
 @customElement('connection-status-indicator')
 export class ConnectionStatusIndicator extends LitElement {
-  static LIVE_COLLAPSE_DELAY_MS = 2200;
+  static LIVE_COLLAPSE_DELAY_MS = 3000;
 
   @property({ type: String }) state: string | undefined =
     HubConnectionState.Disconnected;
@@ -77,22 +77,38 @@ export class ConnectionStatusIndicator extends LitElement {
     .strip.live.collapsed {
       height: 3px;
       padding: 0;
+      overflow: visible;
       border-bottom-color: transparent;
       background: linear-gradient(
         90deg,
-        color-mix(in srgb, var(--dorc-success-text, #2ea043) 55%, transparent)
+        color-mix(
+            in srgb,
+            var(--dorc-success-text, #2ea043) 22%,
+            var(--dorc-bg-secondary, #1c2029)
+          )
           0%,
-        var(--dorc-success-text, #3fb950) 50%,
-        color-mix(in srgb, var(--dorc-success-text, #2ea043) 55%, transparent)
+        color-mix(
+            in srgb,
+            var(--dorc-success-text, #2ea043) 35%,
+            var(--dorc-bg-secondary, #1c2029)
+          )
+          30%,
+        color-mix(in srgb, var(--dorc-success-text, #3fb950) 75%, #ffffff) 50%,
+        color-mix(
+            in srgb,
+            var(--dorc-success-text, #2ea043) 35%,
+            var(--dorc-bg-secondary, #1c2029)
+          )
+          70%,
+        color-mix(
+            in srgb,
+            var(--dorc-success-text, #2ea043) 22%,
+            var(--dorc-bg-secondary, #1c2029)
+          )
           100%
       );
-      background-color: color-mix(
-        in srgb,
-        var(--dorc-success-text, #2ea043) 35%,
-        var(--dorc-bg-secondary, #1e222a)
-      );
-      background-size: 200% 100%;
-      animation: csi-strip-flow 6s ease-in-out infinite;
+      background-size: 240% 100%;
+      animation: csi-strip-pulse 8s ease-in-out infinite;
     }
 
     .strip.live.collapsed .strip-content {
@@ -103,9 +119,8 @@ export class ConnectionStatusIndicator extends LitElement {
 
     .strip-live-trigger {
       position: absolute;
-      inset: 0;
+      inset: -3px 0 -5px 0;
       width: 100%;
-      height: 100%;
       padding: 0;
       margin: 0;
       border: 0;
@@ -114,18 +129,28 @@ export class ConnectionStatusIndicator extends LitElement {
     }
 
     .strip.live.collapsed:hover {
-      filter: brightness(1.18);
+      filter: brightness(1.25);
     }
 
-    @keyframes csi-strip-flow {
-      0% {
-        background-position: 100% 0;
-      }
-      50% {
-        background-position: 0% 0;
-      }
+    @keyframes csi-strip-pulse {
+      0%,
       100% {
-        background-position: -100% 0;
+        background-position: 120% 0;
+        opacity: 0.45;
+        box-shadow: 0 0 0 rgba(63, 185, 80, 0);
+      }
+      40%,
+      60% {
+        background-position: 50% 0;
+        opacity: 1;
+        box-shadow: 0 0 8px
+          color-mix(in srgb, var(--dorc-success-text, #3fb950) 65%, transparent);
+      }
+      85% {
+        background-position: -20% 0;
+        opacity: 0.55;
+        box-shadow: 0 0 2px
+          color-mix(in srgb, var(--dorc-success-text, #3fb950) 20%, transparent);
       }
     }
 
