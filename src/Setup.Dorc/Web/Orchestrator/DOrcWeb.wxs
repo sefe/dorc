@@ -44,6 +44,7 @@
 				<iis:WebVirtualDir Id="DeploymentOrchestratorVirtualDir" Alias="/" Directory="DorcWebFolder">
 					<iis:MimeMap Id="MIME_JSON_P3" Extension=".json" Type="application/json" />
 					<iis:MimeMap Id="MIME_WEBMANIFEST" Extension=".webmanifest" Type="application/manifest+json" />
+					<iis:MimeMap Id="MIME_WEBP_P3" Extension=".webp" Type="image/webp" />
 					<iis:WebDirProperties Id="DeploymentOrchestratorProperties" WindowsAuthentication="yes" AnonymousAccess="yes" />
 				</iis:WebVirtualDir>
 
@@ -85,6 +86,7 @@
 				<iis:WebVirtualDir Id="DeploymentOrchestratorVirtualDirProd" Alias="/" Directory="DorcWebFolder">
 					<iis:MimeMap Id="MIME_JSON_P3PROD" Extension=".json" Type="application/json" />
 					<iis:MimeMap Id="MIME_WEBMANIFESTPROD" Extension=".webmanifest" Type="application/manifest+json" />
+					<iis:MimeMap Id="MIME_WEBP_P3PROD" Extension=".webp" Type="image/webp" />
 					<iis:WebDirProperties Id="DeploymentOrchestratorPropertiesProd" WindowsAuthentication="yes" AnonymousAccess="yes" />
 				</iis:WebVirtualDir>
 
