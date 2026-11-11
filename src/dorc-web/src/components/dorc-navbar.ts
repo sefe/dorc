@@ -267,7 +267,7 @@ export class DorcNavbar extends LitElement {
         id="tabs"
         style="flex: 1; min-height: 0;"
       >
-        <vaadin-tab data-section-label="Workspaces & Deployments">
+        <vaadin-tab data-section-label="Workspaces &amp; Deployments">
           <a href="${urlForName('deploy')}" @click="${this.openDeploy}">
             <vaadin-icon
               icon="vaadin:expand-square"
