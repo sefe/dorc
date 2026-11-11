@@ -177,19 +177,30 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                 if (env == null) return false;
 
                 var permissions = _accessControlPersistentSource.GetAccessControls(env.ObjectId);
-                var ownerAccessList = permissions.Where(p => p.Allow.HasAccessLevel(AccessLevel.Owner)).ToList();
-                if (ownerAccessList.Count == 0) return false;
+                if (!permissions.Any(p => p.Allow.HasAccessLevel(AccessLevel.Owner)))
+                    return false;
 
+                var userSids = _claimsPrincipalReader.GetSidsForUser(user) ?? [];
                 string userId = _claimsPrincipalReader.GetUserId(user);
                 string userlogin = _claimsPrincipalReader.GetUserLogin(user);
                 // Direct OID from token, unaffected by IsUseAdSidsForAccessControl config
                 string userOid = user.FindFirst("oid")?.Value ?? string.Empty;
 
-                return ownerAccessList.Any(ownerAccess =>
-                    ownerAccess.Pid == userId ||    // 1. oauth user, permission was added via oauth with pid
-                    ownerAccess.Pid == userOid ||   // 2. oauth user, GetUserId returned AD SID due to config, but Pid stores OID
-                    ownerAccess.Sid == userId ||     // 3. winauth user, permission was added via AD with sid
-                    ownerAccess.Sid == userlogin);   // 4. oauth user, permission was added via AD and sid was set as loginId
+                bool MatchesPrincipal(AccessControlApiModel ac) =>
+                    (!string.IsNullOrEmpty(ac.Pid) && (
+                        ac.Pid == userId ||      // 1. oauth user, permission was added via oauth with pid
+                        ac.Pid == userOid ||     // 2. oauth user, GetUserId returned AD SID due to config, but Pid stores OID
+                        userSids.Contains(ac.Pid))) || // 3. AD/Entra group or principal OID/SID from GetSidsForUser
+                    (!string.IsNullOrEmpty(ac.Sid) && (
+                        ac.Sid == userId ||      // 4. winauth user, permission was added via AD with sid
+                        ac.Sid == userlogin ||   // 5. oauth user, permission was added via AD and sid was set as loginId
+                        userSids.Contains(ac.Sid)));   // 6. AD group SID from GetSidsForUser
+
+                var matchingControls = permissions.Where(MatchesPrincipal).ToList();
+                if (matchingControls.Any(ac => ac.Deny != 0))
+                    return false;
+
+                return matchingControls.Any(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
             }
         }
 
@@ -396,11 +407,14 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                 where project.Name == projectName
                 let permissions = (from env in context.Environments
                                    join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                   where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid)) &&
-                                 ac.Allow != 0
-                                   select ac.Allow).ToList()
-                let hasPermission = permissions.Any(a => (a & (int)accessLevel) != 0)
-                let isOwner = permissions.Any(a => (a & (int)AccessLevel.Owner) != 0)
+                                   where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid))
+                                   select new { ac.Allow, ac.Deny }).ToList()
+                let hasDeny = permissions.Any(a => a.Deny != 0)
+                let hasPermission = !hasDeny && permissions.Any(a =>
+                    accessLevel == AccessLevel.ReadSecrets
+                        ? (a.Allow & (int)AccessLevel.ReadSecrets) != 0
+                        : (a.Allow & (int)(accessLevel | AccessLevel.Owner)) != 0)
+                let isOwner = !hasDeny && permissions.Any(a => (a.Allow & (int)AccessLevel.Owner) != 0)
                 select new EnvironmentData
                 {
                     Environment = environment,
@@ -411,7 +425,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
 
             var environmentData = output.ToList().DistinctBy(e => e.Environment.Id);
 
-            if (isAdmin)
+            if (isAdmin && accessLevel != AccessLevel.ReadSecrets)
                 return environmentData;
 
             return environmentData.Where(e =>
@@ -448,7 +462,9 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                     .Where(ac => ac.ObjectId == environment.ObjectId && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid)))
                     .ToList();
 
-                var isOwner = envPermissions
+                var hasDeny = envPermissions.Any(ac => ac.Deny != 0);
+
+                var isOwner = !hasDeny && envPermissions
                     .Any(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
 
                 result.IsOwner = isOwner;
@@ -459,7 +475,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                 }
                 else
                 {
-                    var isModify = envPermissions
+                    var isModify = !hasDeny && envPermissions
                         .Any(p => (p.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0);
 
                     result.UserEditable = isOwner || isModify;
@@ -476,8 +492,12 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                 if (environment == null)
                     return null;
 
-                return MapToEnvironmentApiModel(environment, objectFilter.HasPrivilege(environment, user, AccessLevel.Write),
-                    IsEnvironmentOwner(environment.Name, user));
+                var isOwner = IsEnvironmentOwner(environment.Name, user);
+                var isEditable = _rolePrivilegesChecker.IsAdmin(user) ||
+                                 objectFilter.HasPrivilege(environment, user, AccessLevel.Write | AccessLevel.Owner) ||
+                                 isOwner;
+
+                return MapToEnvironmentApiModel(environment, isEditable, isOwner);
             }
         }
 
@@ -588,7 +608,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                         ObjectId = Guid.NewGuid()
                     };
 
-                    MapToEnvironment(env, e);
+                    MapToEnvironment(env, e, isNewEnvironment: true);
 
                     context.Environments.Add(e);
 
@@ -668,7 +688,9 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                             if (environment == null)
                                 return false;
 
-                            if (!objectFilter.HasPrivilege(environment, principal, AccessLevel.Write))
+                            if (!(principal is ClaimsPrincipal claimsPrincipal && IsEnvironmentOwner(environment.Name, claimsPrincipal)) &&
+                                !objectFilter.HasPrivilege(environment, principal, AccessLevel.Owner) &&
+                                !_rolePrivilegesChecker.IsAdmin(principal))
                                 throw new UnauthorizedAccessException($"User does not have permission to delete environment '{environment.Name}'");
 
                             var username = _claimsPrincipalReader.GetUserFullDomainName(principal);
@@ -821,9 +843,10 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                           let permissions = (from env in context.Environments
                                              join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
                                              where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid))
-                                             select ac.Allow).ToList()
-                          let isModify = permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
-                          let isOwner = permissions.Any(a => (a & (int)AccessLevel.Owner) != 0)
+                                             select new { ac.Allow, ac.Deny }).ToList()
+                          let hasDeny = permissions.Any(p => p.Deny != 0)
+                          let isModify = !hasDeny && permissions.Any(p => (p.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
+                          let isOwner = !hasDeny && permissions.Any(a => (a.Allow & (int)AccessLevel.Owner) != 0)
                           select new EnvironmentData
                           {
                               Environment = environment,
@@ -864,7 +887,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
         /// </summary>
         /// <param name="env">model to set values from</param>
         /// <param name="e">model to set values to. DTO for DB</param>
-        private static void MapToEnvironment(EnvironmentApiModel env, Environment e)
+        private static void MapToEnvironment(EnvironmentApiModel env, Environment e, bool isNewEnvironment = false)
         {
             e.Name = env.EnvironmentName;
             e.Secure = env.EnvironmentSecure;
@@ -879,12 +902,11 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             e.ThinClientServer = env.Details.ThinClient;
             e.RestoredFromBackup = env.Details.RestoredFromSourceDb;
             e.EnvNote = env.Details.Notes;
-            e.ParentId = env.ParentId;
 
             var ownerAccess = e.AccessControls.FirstOrDefault(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
 
             // for new environment we have to add owner access control, for old env ownership is not changing via update method
-            if (ownerAccess == null)
+            if (isNewEnvironment && ownerAccess == null)
             {
                 // TODO: remove this together with supporting AD and Sids
                 bool isSid = !string.IsNullOrEmpty(env.Details.EnvironmentOwnerId) &&
@@ -1020,12 +1042,13 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                     .Where(e => e.Id != id && e.ParentId == null); // Exclude the parent and all children
 
                 var filteredByAccessLevelEnvs = allRelatedEnvs
-                    .Join(context.AccessControls, // Join with AccessControls to filter by user access
-                          environment => environment.ObjectId,
-                          ac => ac.ObjectId,
-                          (environment, ac) => new { environment, ac })
-                    .Where(joined => (EF.Constant(userSids).Contains(joined.ac.Sid) || joined.ac.Pid != null && EF.Constant(userSids).Contains(joined.ac.Pid)) && (joined.ac.Allow & (int)accessLevelRequired) != 0)
-                    .Select(joined => joined.environment);
+                    .Where(environment =>
+                        !environment.AccessControls.Any(ac =>
+                            (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid)) &&
+                            ac.Deny != 0) &&
+                        environment.AccessControls.Any(ac =>
+                            (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid)) &&
+                            (ac.Allow & (int)accessLevelRequired) != 0));
 
                 var mappedEnvironments = _rolePrivilegesChecker.IsAdmin(user) ? allRelatedEnvs.ToList() : filteredByAccessLevelEnvs.ToList();
 
@@ -1123,6 +1146,17 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                         if (sourceEnv == null)
                         {
                             throw new ArgumentException($"Source environment with ID {request.SourceEnvironmentId} not found.");
+                        }
+
+                        var copiesInfrastructureMappings = request.CopyServerMappings ||
+                                                           request.CopyDatabaseMappings ||
+                                                           request.CopyContainerMappings ||
+                                                           request.CopyCloudResourceMappings ||
+                                                           request.CopyApiRegistrationMappings;
+                        if (sourceEnv.IsProd && copiesInfrastructureMappings && !_rolePrivilegesChecker.IsAdmin(user))
+                        {
+                            throw new UnauthorizedAccessException(
+                                "Only Admins can copy infrastructure mappings (servers, databases, containers, cloud resources, or API registrations) from a Production environment.");
                         }
 
                         // Check if target environment already exists
@@ -1248,7 +1282,8 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                         // Copy property values if requested
                         if (request.CopyPropertyValues)
                         {
-                            CopyPropertyValues(context, sourceEnv.Name, request.NewEnvironmentName, username);
+                            var canReadSourceSecrets = objectFilter.HasPrivilege(sourceEnv, user, AccessLevel.ReadSecrets);
+                            CopyPropertyValues(context, sourceEnv.Name, request.NewEnvironmentName, username, canReadSourceSecrets);
                         }
 
                         context.SaveChanges();
@@ -1278,7 +1313,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             }
         }
 
-        private void CopyPropertyValues(IDeploymentContext context, string sourceEnvName, string destEnvName, string username)
+        private void CopyPropertyValues(IDeploymentContext context, string sourceEnvName, string destEnvName, string username, bool canReadSourceSecrets)
         {
             // Get the environment property filter (ID = 1 is typically "environment")
             var envPropertyFilter = context.PropertyFilters.Find(1);
@@ -1300,6 +1335,11 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             foreach (var sourcePvf in sourcePropertyValues)
             {
                 if (sourcePvf.PropertyValue?.Property == null)
+                {
+                    continue;
+                }
+
+                if (sourcePvf.PropertyValue.Property.Secure && !canReadSourceSecrets)
                 {
                     continue;
                 }

@@ -70,8 +70,6 @@ export class AddEditAccessControl extends LitElement {
   @state()
   private loading = true;
 
-  private _ownerLimitNotified = false;
-
   static get styles() {
     return css`
       vaadin-dialog::part(overlay) {
@@ -229,10 +227,17 @@ export class AddEditAccessControl extends LitElement {
 
   _boundACButtonsRenderer(item: AccessControlApiModel) {
     const accessControl = item as AccessControlApiModel;
+    const allow = item.Allow ?? 0;
+    const isOwnerRow = (allow & AC_ALLOW_OWNER) > 0;
+    const isReadSecretsRow = (allow & AC_ALLOW_READ_SECRETS) > 0;
 
     return html`<access-control-controls
       .accessControl="${accessControl}"
-      .disabled="${!this.UserEditable || item.Allow === AC_ALLOW_OWNER}"
+      .disabled="${
+        !this.UserEditable ||
+        (isOwnerRow && !this.UserIsOwner) ||
+        (isReadSecretsRow && !this.UserCanReadSecrets)
+      }"
       @access-control-removed="${(e: CustomEvent) => {
         // The row comes from the event, not from this closure: the closure is
         // replaced whenever the cell re-renders, which can happen while the
@@ -471,51 +476,15 @@ export class AddEditAccessControl extends LitElement {
 
   acCanOwner(item: AccessControlApiModel) {
     return html`<vaadin-checkbox
-      ?disabled="${!this.UserIsOwner}"
+      ?disabled="${!this.UserEditable || !this.UserIsOwner}"
       .checked="${live(((item.Allow ?? 0) & AC_ALLOW_OWNER) > 0)}"
       @change="${(e: Event) =>
-        this.toggleOwner(
-          e.currentTarget as Checkbox,
+        this.togglePrivilege(
           item,
+          AC_ALLOW_OWNER,
           (e.currentTarget as Checkbox).checked
         )}"
     ></vaadin-checkbox>`;
-  }
-
-  /** Owner is capped at two per environment, so it cannot use togglePrivilege. */
-  private toggleOwner(
-    checkbox: Checkbox,
-    item: AccessControlApiModel,
-    checked: boolean
-  ) {
-    if (item.Allow === undefined) return;
-    const isOwner = (item.Allow & AC_ALLOW_OWNER) > 0;
-
-    if (checked && !isOwner) {
-      const ownerCount =
-        this.Privileges?.filter(p => ((p.Allow ?? 0) & AC_ALLOW_OWNER) > 0)
-          .length ?? 0;
-      if (ownerCount >= 2) {
-        checkbox.checked = false;
-        if (!this._ownerLimitNotified) {
-          this._ownerLimitNotified = true;
-          Promise.resolve().then(() => {
-            this._ownerLimitNotified = false;
-          });
-          Notification.show('Maximum of 2 owners allowed per environment', {
-            theme: 'warning',
-            position: 'bottom-start',
-            duration: 3000
-          });
-        }
-        return;
-      }
-      item.Allow |= AC_ALLOW_OWNER;
-    }
-
-    if (!checked && isOwner) {
-      item.Allow ^= AC_ALLOW_OWNER;
-    }
   }
 
   setTextField(id: string, value: string) {
@@ -669,7 +638,10 @@ export class AddEditAccessControl extends LitElement {
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="Owner"
-          ${columnBodyRenderer(this.acCanOwner, [this.UserIsOwner])}
+          ${columnBodyRenderer(this.acCanOwner, [
+            this.UserEditable,
+            this.UserIsOwner
+          ])}
           flex="1"
           resizable
           auto-width
@@ -677,7 +649,9 @@ export class AddEditAccessControl extends LitElement {
         <vaadin-grid-column
           header="Actions"
           ${columnBodyRenderer(this._boundACButtonsRenderer, [
-            this.UserEditable
+            this.UserEditable,
+            this.UserIsOwner,
+            this.UserCanReadSecrets
           ])}
           flex="1"
           resizable

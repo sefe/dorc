@@ -610,7 +610,7 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
-        public void Put_Returns403WithEnvironmentAndOwner_WhenUserIsNotOwnerOrAdmin()
+        public void Put_Returns403WithEnvironmentAndOwner_WhenUserHasNeitherWriteNorOwner()
         {
             var mlpRequest = new MakeLikeProdRequest
             {
@@ -630,6 +630,7 @@ namespace Dorc.Api.Tests.Controllers
                         EnvironmentOwner = "Jane Doe"
                     }
                 });
+            _securityPrivilegesChecker.CanModifyEnvironment(_user, "Endur DV 10").Returns(false);
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "Endur DV 10").Returns(false);
 
             var result = _controller.Put(mlpRequest) as ObjectResult;
@@ -637,8 +638,36 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsNotNull(result);
             Assert.AreEqual(StatusCodes.Status403Forbidden, result.StatusCode);
             Assert.AreEqual(
-                "Only an Owner of environment 'Endur DV 10' (current owner: Jane Doe) or a DOrc Admin can queue a Bundle Request.",
+                "You do not have Write or Owner permission on environment 'Endur DV 10' (current owner: Jane Doe). Only an Environment Writer, Owner, or DOrc Admin can queue a Bundle Request.",
                 result.Value);
+        }
+
+        [TestMethod]
+        public void Put_AllowsBundleRequest_WhenUserHasWriteOnNonProdEnvironment()
+        {
+            var mlpRequest = new MakeLikeProdRequest
+            {
+                TargetEnv = "Endur DV 10",
+                DataBackup = "Live Snap",
+                BundleName = "EndurMLPMini",
+                BundleProperties = new List<RequestProperty>()
+            };
+
+            _environmentsPersistentSource.GetEnvironment("Endur DV 10")
+                .Returns(new EnvironmentApiModel
+                {
+                    EnvironmentName = "Endur DV 10",
+                    EnvironmentIsProd = false
+                });
+            _securityPrivilegesChecker.CanModifyEnvironment(_user, "Endur DV 10").Returns(true);
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "Endur DV 10").Returns(false);
+            _bundledRequestsPersistentSource.GetRequestsForBundle("EndurMLPMini").Returns(new List<BundledRequestsApiModel>());
+            _claimsPrincipalReader.GetUserEmail(_user).Returns("testuser@example.com");
+
+            var result = _controller.Put(mlpRequest) as OkObjectResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
         }
 
         [TestMethod]

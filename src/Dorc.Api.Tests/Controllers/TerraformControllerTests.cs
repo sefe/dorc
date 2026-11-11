@@ -120,6 +120,10 @@ namespace Dorc.Api.Tests.Controllers
             _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), "allowed").Returns(true);
             var result = await _controller.PreviewUpgrade(12, TemplateName, "2.0.0", ProjectId, CancellationToken.None);
             Assert.IsInstanceOfType<ForbidResult>(result);
+
+            _security.CanModifyProject(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(false);
+            var forbidProjectResult = await _controller.PreviewUpgrade(12, TemplateName, "2.0.0", ProjectId, CancellationToken.None);
+            Assert.IsInstanceOfType<ForbidResult>(forbidProjectResult);
         }
 
         [TestMethod]
@@ -138,6 +142,12 @@ namespace Dorc.Api.Tests.Controllers
                 CancellationToken.None);
             Assert.IsInstanceOfType<BadRequestObjectResult>(result);
             _requests.DidNotReceiveWithAnyArgs().SaveCatalogEnvironmentInputs(default, default, default, default!, default, default!);
+
+            _security.CanModifyProject(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(false);
+            var forbidProjectResult = await _controller.SaveEnvironmentInputs(TemplateName, TemplateVersion, ProjectId, 12, EnvName,
+                new SaveCatalogEnvironmentInputsApiModel { Inputs = new Dictionary<string, string>() },
+                CancellationToken.None);
+            Assert.IsInstanceOfType<ForbidResult>(forbidProjectResult);
         }
 
         [TestMethod]
@@ -271,6 +281,7 @@ namespace Dorc.Api.Tests.Controllers
                     new ProjectApiModel { ProjectName = ProjectName }
                 });
             _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(true);
+            _security.CanModifyProject(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(true);
         }
 
         private TerraformController CreateController(IParameterValidator parameterValidator)
@@ -342,10 +353,10 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
-        public async Task InstantiateTemplate_NotProjectOwnerOrAdmin_Returns403()
+        public async Task InstantiateTemplate_CannotModifyProject_Returns403()
         {
             GivenTemplateAndProject(Manifest());
-            _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(false);
+            _security.CanModifyProject(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(false);
 
             var result = await _controller.InstantiateTemplate(
                 TemplateName,
@@ -354,7 +365,7 @@ namespace Dorc.Api.Tests.Controllers
                 CancellationToken.None);
 
             Assert.IsInstanceOfType(result, typeof(ForbidResult),
-                "Create-path RBAC failure (not project owner/admin) returns Forbid.");
+                "Create-path RBAC failure (cannot modify project) returns Forbid.");
             _manageProjects.DidNotReceiveWithAnyArgs()
                 .CreateCatalogComponent(default!, default, default, default);
             _manageProjects.DidNotReceiveWithAnyArgs()
@@ -1381,10 +1392,10 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
-        public async Task ResolveTemplateInputs_NotProjectOwnerOrAdmin_Returns403()
+        public async Task ResolveTemplateInputs_CannotModifyProject_Returns403()
         {
             GivenTemplateAndProject(Manifest(Parameter("from_env", required: true)));
-            _security.IsProjectOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(false);
+            _security.CanModifyProject(Arg.Any<ClaimsPrincipal>(), ProjectName).Returns(false);
 
             var result = await _controller.ResolveTemplateInputs(
                 TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);

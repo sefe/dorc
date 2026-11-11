@@ -24,6 +24,7 @@ namespace Dorc.Api.Controllers
         private readonly IServersAuditPersistentSource _serversAuditPersistentSource;
         private readonly IDatabasesAuditPersistentSource _databasesAuditPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
 
         public RefDataEnvironmentsDetailsController(
             IApiServices apiServices,
@@ -33,7 +34,8 @@ namespace Dorc.Api.Controllers
             ISecurityPrivilegesChecker securityService,
             IServersAuditPersistentSource serversAuditPersistentSource,
             IDatabasesAuditPersistentSource databasesAuditPersistentSource,
-            IClaimsPrincipalReader claimsPrincipalReader)
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IRolePrivilegesChecker rolePrivilegesChecker)
         {
             this.securityService = securityService;
             this.environmentsPersistentSource = environmentsPersistentSource;
@@ -43,6 +45,7 @@ namespace Dorc.Api.Controllers
             _serversAuditPersistentSource = serversAuditPersistentSource;
             _databasesAuditPersistentSource = databasesAuditPersistentSource;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _rolePrivilegesChecker = rolePrivilegesChecker;
         }
 
         /// <summary>
@@ -139,9 +142,9 @@ namespace Dorc.Api.Controllers
             [FromQuery] string component)
         {
             var environment = environmentsPersistentSource.GetEnvironment(envId, User);
-            if (environment == null || !securityService.CanModifyEnvironment(User, environment.EnvironmentName))
+            if (environment == null || !securityService.IsEnvironmentOwnerOrAdmin(User, environment.EnvironmentName))
                 return new ApiBoolResult
-                { Result = false, Message = "User doesn't have \"Modify\" permission for this action!" };
+                { Result = false, Message = "Only an Environment Owner or Admin can attach or detach servers and databases!" };
 
             try
             {
@@ -183,10 +186,63 @@ namespace Dorc.Api.Controllers
             if (childEnvironment == null)
                 return new ApiBoolResult { Result = false, Message = "Environment not found." };
 
-            if (!securityService.CanModifyEnvironment(User, childEnvironment.EnvironmentName))
+            if (!securityService.IsEnvironmentOwnerOrAdmin(User, childEnvironment.EnvironmentName))
             {
                 return new ApiBoolResult
-                { Result = false, Message = "User doesn't have \"Modify\" permission for this action!" };
+                { Result = false, Message = $"Only an Owner of '{childEnvironment.EnvironmentName}' or an Admin can change its parent environment!" };
+            }
+
+            if (childEnvironment.EnvironmentIsProd && !_rolePrivilegesChecker.IsAdmin(User))
+            {
+                return new ApiBoolResult
+                { Result = false, Message = "Only Admins can attach or detach Production environments in a hierarchy!" };
+            }
+
+            if (childEnvironment.ParentId.HasValue && childEnvironment.ParentId != parentEnvId)
+            {
+                var existingParent = environmentsPersistentSource.GetEnvironment(childEnvironment.ParentId.Value, User);
+                if (existingParent != null)
+                {
+                    if (!securityService.IsEnvironmentOwnerOrAdmin(User, existingParent.EnvironmentName))
+                    {
+                        return new ApiBoolResult
+                        { Result = false, Message = $"Only an Owner of parent environment '{existingParent.EnvironmentName}' or an Admin can detach a child environment from it!" };
+                    }
+
+                    if (existingParent.EnvironmentIsProd && !_rolePrivilegesChecker.IsAdmin(User))
+                    {
+                        return new ApiBoolResult
+                        { Result = false, Message = "Only Admins can attach or detach Production environments in a hierarchy!" };
+                    }
+                }
+            }
+
+            if (parentEnvId.HasValue)
+            {
+                var parentEnvironment = environmentsPersistentSource.GetEnvironment(parentEnvId.Value, User);
+                if (parentEnvironment == null)
+                {
+                    return new ApiBoolResult { Result = false, Message = "Parent environment not found." };
+                }
+
+                if (!securityService.IsEnvironmentOwnerOrAdmin(User, parentEnvironment.EnvironmentName))
+                {
+                    return new ApiBoolResult
+                    { Result = false, Message = $"Only an Owner of parent environment '{parentEnvironment.EnvironmentName}' or an Admin can attach a child environment to it!" };
+                }
+
+                if (parentEnvironment.EnvironmentIsProd && !_rolePrivilegesChecker.IsAdmin(User))
+                {
+                    return new ApiBoolResult
+                    { Result = false, Message = "Only Admins can attach or detach Production environments in a hierarchy!" };
+                }
+
+                if ((parentEnvironment.EnvironmentIsProd || parentEnvironment.EnvironmentSecure) &&
+                    !securityService.CanReadSecrets(User, parentEnvironment.EnvironmentName))
+                {
+                    return new ApiBoolResult
+                    { Result = false, Message = $"Attaching a child environment to parent '{parentEnvironment.EnvironmentName}' requires Read Secrets permission on the parent environment!" };
+                }
             }
 
             try

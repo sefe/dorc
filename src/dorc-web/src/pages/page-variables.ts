@@ -27,6 +27,7 @@ import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { WarningNotification } from '../components/notifications/warning-notification';
 import {
+  EnvironmentApiModel,
   PropertiesApi,
   PropertyApiModel,
   PropertyValueDto,
@@ -95,6 +96,8 @@ export class PageVariables extends PageElement {
   @property({ type: Boolean }) isAdmin = false;
 
   @property({ type: Boolean }) isPowerUser = false;
+
+  @property({ type: Boolean }) hasEditableEnvironment = false;
 
   @property({ type: String }) radioValue = 'existing';
 
@@ -433,7 +436,7 @@ export class PageVariables extends PageElement {
                         id="newVariable"
                         label="New Variable Name"
                         style="min-width: 400px"
-                        ?disabled="${!(this.isPowerUser || this.isAdmin)}"
+                        ?disabled="${!(this.isPowerUser || this.isAdmin || this.hasEditableEnvironment)}"
                         @value-changed="${this.newVariableChanged}"
                       ></vaadin-text-field>
                     </td>
@@ -441,12 +444,12 @@ export class PageVariables extends PageElement {
                       <vaadin-checkbox
                         id="variable-secure"
                         label="Secure"
-                        ?disabled="${!(this.isPowerUser || this.isAdmin)}"
+                        ?disabled="${!(this.isPowerUser || this.isAdmin || this.hasEditableEnvironment)}"
                       ></vaadin-checkbox>
                       <vaadin-checkbox
                         id="variable-array"
                         label="is Array"
-                        ?disabled="${!(this.isPowerUser || this.isAdmin)}"
+                        ?disabled="${!(this.isPowerUser || this.isAdmin || this.hasEditableEnvironment)}"
                       ></vaadin-checkbox>
                     </td>
                     <td style="vertical-align: bottom;">
@@ -731,10 +734,17 @@ export class PageVariables extends PageElement {
 
   private getEnvironments() {
     const api2 = new RefDataEnvironmentsApi(dorcApiConfiguration);
-    api2.refDataEnvironmentsGetAllEnvironmentNamesGet().subscribe({
-      next: (data: string[]) => {
+    api2.refDataEnvironmentsGet({}).subscribe({
+      next: (data: EnvironmentApiModel[]) => {
+        const editableNames = data
+          .filter(
+            env => Boolean(env.UserEditable) && Boolean(env.EnvironmentName)
+          )
+          .map(env => env.EnvironmentName as string)
+          .sort();
+        this.hasEditableEnvironment = editableNames.length > 0;
+        this.environments = editableNames;
         this.removeExistingScopesFromSelectable();
-        this.environments = data;
         this.loadingScopes = false;
       },
       error: (err: any) => {
@@ -1059,6 +1069,7 @@ export class PageVariables extends PageElement {
                 ) as unknown as ComboBox;
                 if (combobox) combobox.value = '';
               }
+              if (textField) textField.value = '';
 
               this.loadVariableValues();
               this.addingVariableValue = false;

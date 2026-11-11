@@ -170,7 +170,7 @@ namespace Dorc.Api.Controllers
             {
                 return NotFound($"Project with id {projectId} was not found.");
             }
-            if (!_apiSecurityService.IsProjectOwnerOrAdmin(User, project.ProjectName))
+            if (!_apiSecurityService.CanModifyProject(User, project.ProjectName))
             {
                 return Forbid();
             }
@@ -282,7 +282,7 @@ namespace Dorc.Api.Controllers
         {
             var project = FindProject(projectId);
             if (project == null) return NotFound();
-            if (!_apiSecurityService.IsProjectOwnerOrAdmin(User, project.ProjectName)) return Forbid();
+            if (!_apiSecurityService.CanModifyProject(User, project.ProjectName)) return Forbid();
             var environment = _environmentsPersistentSource.GetEnvironment(environmentName);
             if (environment == null || !IsProjectMappedTo(project, environment)) return BadRequest("The environment is not mapped to this project.");
             if (!_apiSecurityService.CanModifyEnvironment(User, environment.EnvironmentName)) return Forbid();
@@ -327,7 +327,7 @@ namespace Dorc.Api.Controllers
         {
             var project = FindProject(projectId);
             if (project == null) return NotFound();
-            if (!_apiSecurityService.IsProjectOwnerOrAdmin(User, project.ProjectName)) return Forbid();
+            if (!_apiSecurityService.CanModifyProject(User, project.ProjectName)) return Forbid();
             var component = _projectsPersistentSource.GetComponentsForProject(projectId)
                 .SingleOrDefault(item => item.ComponentId == componentId);
             if (component?.TerraformSourceType != TerraformSourceType.Catalog || component.TerraformTemplateName != name)
@@ -515,7 +515,7 @@ namespace Dorc.Api.Controllers
                 return NotFound($"Project with id {request.ProjectId} was not found.");
             }
 
-            if (!_apiSecurityService.IsProjectOwnerOrAdmin(User, project.ProjectName))
+            if (!_apiSecurityService.CanModifyProject(User, project.ProjectName))
             {
                 return Forbid();
             }

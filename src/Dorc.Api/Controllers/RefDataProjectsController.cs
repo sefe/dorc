@@ -114,7 +114,7 @@ namespace Dorc.Api.Controllers
                 var adSearch = _activeDirectorySearcher.GetUserData(username);
                 var saved = _definitions.CreateProject(project, _claimsPrincipalReader.GetUserFullDomainName(User),
                     new AccessControlApiModel
-                    { Sid = adSearch.Sid, Pid = adSearch.Pid, Name = adSearch.DisplayName, Allow = (int)(AccessLevel.Write | AccessLevel.ReadSecrets), Deny = 0 },
+                    { Sid = adSearch.Sid, Pid = adSearch.Pid, Name = adSearch.DisplayName, Allow = (int)(AccessLevel.Owner | AccessLevel.Write), Deny = 0 },
                     () => _projectsPersistentSource.ValidateProject(project, HttpRequestType.Post));
                 return Ok(saved);
             }

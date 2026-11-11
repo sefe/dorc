@@ -127,20 +127,21 @@ namespace Dorc.Api.Controllers
             {
                 var targetEnv = _environmentsPersistentSource.GetEnvironment(mlpRequest.TargetEnv);
 
-                if (!_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, mlpRequest.TargetEnv))
+                if (targetEnv?.EnvironmentIsProd == true)
+                    return StatusCode(
+                        StatusCodes.Status403Forbidden,
+                        $"Bundle Requests cannot be run against production environment '{mlpRequest.TargetEnv}'.");
+
+                if (!_securityPrivilegesChecker.CanModifyEnvironment(User, mlpRequest.TargetEnv) &&
+                    !_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, mlpRequest.TargetEnv))
                 {
                     var ownerText = !string.IsNullOrWhiteSpace(targetEnv?.Details?.EnvironmentOwner)
                         ? $" (current owner: {targetEnv.Details.EnvironmentOwner})"
                         : string.Empty;
                     return StatusCode(
                         StatusCodes.Status403Forbidden,
-                        $"Only an Owner of environment '{mlpRequest.TargetEnv}'{ownerText} or a DOrc Admin can queue a Bundle Request.");
+                        $"You do not have Write or Owner permission on environment '{mlpRequest.TargetEnv}'{ownerText}. Only an Environment Writer, Owner, or DOrc Admin can queue a Bundle Request.");
                 }
-
-                if (targetEnv?.EnvironmentIsProd == true)
-                    return StatusCode(
-                        StatusCodes.Status403Forbidden,
-                        $"Bundle Requests cannot be run against production environment '{mlpRequest.TargetEnv}'.");
 
                 var requestsForBundle = _bundledRequestsPersistentSource.GetRequestsForBundle(mlpRequest.BundleName).OrderBy(br => br.Sequence);
 

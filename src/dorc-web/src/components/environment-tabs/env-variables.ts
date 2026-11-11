@@ -1111,6 +1111,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
               value.forEach((response: Response) => {
                 console.log(response.Status);
               });
+              if (textField) textField.value = '';
               this.grid?.clearCache();
               this.getAllVariableNames();
               this.addingVariableValue = false;

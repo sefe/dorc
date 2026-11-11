@@ -71,8 +71,7 @@ const checkboxAt = (el: Host, row: number, column: number) => {
   // presence assertions below use chai's strict `equal(null)` — so they would
   // pass with no checkbox rendered at all.
   return (content?.querySelector('vaadin-checkbox') ?? null) as
-    | (HTMLElement & { checked: boolean; disabled: boolean })
-    | null;
+    (HTMLElement & { checked: boolean; disabled: boolean }) | null;
 };
 
 describe('add-edit-access-control permission checkboxes', () => {
@@ -123,7 +122,7 @@ describe('add-edit-access-control permission checkboxes', () => {
     );
   });
 
-  it('refuses a third owner and reverts the checkbox', async () => {
+  it('allows granting a third owner without capping at two', async () => {
     const third: AccessControl = { Name: 'third', Allow: 0 };
     const el = await mount([
       { Name: 'first', Allow: AC_ALLOW_OWNER },
@@ -135,8 +134,8 @@ describe('add-edit-access-control permission checkboxes', () => {
     clickCheckbox(owner);
     await settle();
 
-    expect(third.Allow! & AC_ALLOW_OWNER, 'bit not set').to.equal(0);
-    expect(owner!.checked, 'checkbox reverted').to.equal(false);
+    expect(third.Allow! & AC_ALLOW_OWNER, 'bit set').to.equal(AC_ALLOW_OWNER);
+    expect(owner!.checked, 'checkbox stays checked').to.equal(true);
   });
 
   it('disables the write column when the user cannot edit', async () => {
