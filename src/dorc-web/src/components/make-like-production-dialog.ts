@@ -14,6 +14,7 @@ import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import './make-like-production';
 import '@vaadin/dialog';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
 @customElement('make-like-production-dialog')
 export class MakeLikeProductionDialog extends LitElement {
@@ -206,10 +207,13 @@ export class MakeLikeProductionDialog extends LitElement {
         },
         error: (err: any) => {
           console.error(err);
-          const result = err.response as string;
+          const result = retrieveErrorMessage(
+            err,
+            'An unexpected error occurred while queuing the bundle request.'
+          );
           const event = new CustomEvent('error-alert', {
             detail: {
-              description: 'Unable to Trigger Make Like Prod: ',
+              description: 'Unable to queue Bundle Request:',
               result
             },
             bubbles: true,

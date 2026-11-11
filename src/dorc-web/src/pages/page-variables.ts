@@ -23,6 +23,7 @@ import { css, PropertyValueMap } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/grid-button-groups/variable-value-controls';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { WarningNotification } from '../components/notifications/warning-notification';
 import {
@@ -392,8 +393,8 @@ export class PageVariables extends PageElement {
                       theme="compact row-stripes no-row-borders no-border"
                       all-rows-visible
                       ?disabled="${
-                      this.deletingVariable || !this.existingPropertySelected
-                    }"
+                        this.deletingVariable || !this.existingPropertySelected
+                      }"
                       .cellPartNameGenerator="${this.cellPartNameGenerator}"
                     >
                       <vaadin-grid-column
@@ -411,9 +412,9 @@ export class PageVariables extends PageElement {
                         flex-grow="1"
                         width="20rem"
                         ${columnBodyRenderer(
-                        this.variableValueControlsRenderer,
-                        [this._editingValueId]
-                      )}
+                          this.variableValueControlsRenderer,
+                          [this._editingValueId]
+                        )}
                         ${columnHeaderRenderer(this.valueHeaderRenderer, [])}
                       ></vaadin-grid-column>
                     </vaadin-grid>`
@@ -661,6 +662,7 @@ export class PageVariables extends PageElement {
             this.deletingVariable = false;
           },
           error: (err: any) => {
+            this.deletingVariable = false;
             this.errorAlert(err);
           },
           complete: () => console.log('done deleting variable')
@@ -696,10 +698,14 @@ export class PageVariables extends PageElement {
 
           this.creatingVariable = false;
         } else {
+          this.creatingVariable = false;
           this.errorAlert(data);
         }
       },
-      error: (err: any) => this.errorAlert(err),
+      error: (err: any) => {
+        this.creatingVariable = false;
+        this.errorAlert(err);
+      },
       complete: () => console.log('done creating variable')
     });
   }
@@ -731,7 +737,10 @@ export class PageVariables extends PageElement {
         this.environments = data;
         this.loadingScopes = false;
       },
-      error: (err: any) => console.error(err),
+      error: (err: any) => {
+        this.loadingScopes = false;
+        console.error(err);
+      },
       complete: () => console.log('done loading environments')
     });
   }
@@ -743,7 +752,10 @@ export class PageVariables extends PageElement {
         this.properties = data.sort(this.sortProperties);
         this.loadingProperties = false;
       },
-      error: (err: any) => console.error(err),
+      error: (err: any) => {
+        this.loadingProperties = false;
+        console.error(err);
+      },
       complete: () => console.log('done loading properties')
     });
   }
@@ -818,7 +830,10 @@ export class PageVariables extends PageElement {
             });
             this.loadingScopeOptions = false;
           },
-          error: (err: any) => this.errorAlert(err),
+          error: (err: any) => {
+            this.loadingScopeOptions = false;
+            this.errorAlert(err);
+          },
           complete: () =>
             console.log('done loading variable value scope options')
         });
@@ -986,12 +1001,12 @@ export class PageVariables extends PageElement {
     const textField = this.shadowRoot?.querySelector(
       '#newVariableValue'
     ) as unknown as TextField;
-    this.addingVariableValue = true;
     const api = new PropertyValuesApi(dorcApiConfiguration);
     const existingProperty = this.properties?.find(
       value => value.Name === this.propertyName
     );
     if (existingProperty) {
+      this.addingVariableValue = true;
       const propertyValueDto: PropertyValueDto = {
         Property: existingProperty,
         Value: textField.value.trim(),
@@ -1053,6 +1068,7 @@ export class PageVariables extends PageElement {
             }
           },
           error: (err: any) => {
+            this.addingVariableValue = false;
             this.errorAlert(err);
           },
           complete: () => console.log('done adding variable value')
@@ -1093,18 +1109,29 @@ export class PageVariables extends PageElement {
     </variable-value-controls>`;
   };
 
-  errorAlert(errs: Response[]) {
+  errorAlert(errs: Response[] | any) {
     console.error(errs);
 
-    errs.forEach(element => {
-      const msg = this.processError(element);
-      if (msg !== '') {
-        const notification = new ErrorNotification();
-        notification.setAttribute('errorMessage', msg);
-        this.shadowRoot?.appendChild(notification);
-        notification.open();
-      }
-    });
+    if (Array.isArray(errs)) {
+      errs.forEach(element => {
+        const msg = this.processError(element);
+        if (msg !== '') {
+          const notification = new ErrorNotification();
+          notification.setAttribute('errorMessage', msg);
+          this.shadowRoot?.appendChild(notification);
+          notification.open();
+        }
+      });
+      return;
+    }
+
+    const msg = retrieveErrorMessage(errs, 'An unexpected error occurred.');
+    if (msg !== '') {
+      const notification = new ErrorNotification();
+      notification.setAttribute('errorMessage', msg);
+      this.shadowRoot?.appendChild(notification);
+      notification.open();
+    }
   }
 
   processError(element: Response): string {

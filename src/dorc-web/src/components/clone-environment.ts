@@ -84,6 +84,16 @@ export class CloneEnvironment extends LitElement {
         font-size: var(--lumo-font-size-s);
         margin-left: 8px;
       }
+      .dialog-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-m, 1rem);
+      }
+      .clone-action {
+        display: inline-flex;
+        align-items: center;
+        gap: var(--lumo-space-xs, 0.375rem);
+      }
     `;
   }
 
@@ -359,10 +369,8 @@ export class CloneEnvironment extends LitElement {
   `;
 
   private renderCloneFooter = () => html`
-    <div
-      style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px;"
-    >
-      <div>
+    <div class="dialog-actions">
+      <div class="clone-action">
         <vaadin-button
           .disabled=${!this.canClone || this.isCloning}
           @click=${this._cloneEnvironment}

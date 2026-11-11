@@ -1,7 +1,8 @@
-import { Observable, of } from 'rxjs';
+import { Observable, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import { expect, fixture, html } from '../_helpers';
 import {
+  MakeLikeProdApi,
   PropertiesApi,
   PropertyApiModel
 } from '../../src/apis/dorc-api/index.js';
@@ -125,5 +126,45 @@ describe('MakeLikeProductionDialog reset', () => {
     expect(layout!.children[1]).to.equal(mascotPane);
     expect(getComputedStyle(mascotPane!).justifyContent).to.equal('center');
     expect(getComputedStyle(mascotPane!).alignItems).to.equal('center');
+  });
+
+  it('dispatches error-alert with the API 403 message when queuing a bundle fails', async () => {
+    const mlpApi = MakeLikeProdApi.prototype as unknown as {
+      makeLikeProdPut: () => Observable<string>;
+    };
+    vi.spyOn(mlpApi, 'makeLikeProdPut').mockReturnValue(
+      throwError(() => ({
+        status: 403,
+        response:
+          "Only an Owner of environment 'Endur DV 10' (current owner: Jane Doe) or a DOrc Admin can queue a Bundle Request."
+      }))
+    );
+
+    const el = await fixture<MakeLikeProductionDialog>(
+      html`<make-like-production-dialog
+        .targetEnv=${'Endur DV 10'}
+      ></make-like-production-dialog>`
+    );
+    el.Open();
+    await el.updateComplete;
+    el.bundleChanged('EndurMLPMini');
+    el.backupChanged('Live Snap');
+
+    let capturedDetail: { description: string; result: string } | undefined;
+    el.addEventListener('error-alert', (ev: Event) => {
+      capturedDetail = (
+        ev as CustomEvent<{ description: string; result: string }>
+      ).detail;
+    });
+
+    el.makeLikeProd();
+
+    expect(capturedDetail).to.not.be.undefined;
+    expect(capturedDetail!.description).to.equal(
+      'Unable to queue Bundle Request:'
+    );
+    expect(capturedDetail!.result).to.equal(
+      "Only an Owner of environment 'Endur DV 10' (current owner: Jane Doe) or a DOrc Admin can queue a Bundle Request."
+    );
   });
 });

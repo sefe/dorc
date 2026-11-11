@@ -207,7 +207,15 @@ namespace Dorc.Api.Controllers
                     return Conflict("Saved inputs target a different module version. Review and replace the saved configuration.");
             }
             var savedInputs = ReadSavedInputs(configuration);
-            var resolved = LoadEnvironmentProperties(manifest, new Dictionary<string, string?>(), environment);
+            IDictionary<string, VariableValue> resolved;
+            try
+            {
+                resolved = LoadEnvironmentProperties(manifest, new Dictionary<string, string?>(), environment);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
             foreach (var input in savedInputs)
                 resolved[input.Key] = new VariableValue { Value = input.Value, Type = typeof(string) };
             var secureInputNames = _configValuesPersistentSource.GetAllConfigValues(true)
@@ -618,7 +626,15 @@ namespace Dorc.Api.Controllers
                     ? _requestsPersistentSource.GetCatalogEnvironmentInputs(existing.ComponentId.Value, deployEnvironment.EnvironmentId) : null;
                 if (configuration != null && configuration.TemplateVersion != manifest.Version)
                     return Conflict("Saved inputs target a different module version. Review and replace the configuration.");
-                var validationInputs = BuildValidationInputs(manifest, supplied, deployEnvironment, ReadSavedInputs(configuration));
+                Dictionary<string, string?> validationInputs;
+                try
+                {
+                    validationInputs = BuildValidationInputs(manifest, supplied, deployEnvironment, ReadSavedInputs(configuration));
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return BadRequest(ex.Message);
+                }
                 var validation = _parameterValidator.Validate(manifest, validationInputs);
                 if (!validation.IsValid)
                 {

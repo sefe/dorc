@@ -1,4 +1,7 @@
 import { expect } from '../_helpers';
+import { vi } from 'vitest';
+import { throwError } from 'rxjs';
+import { PropertyValuesApi } from '../../src/apis/dorc-api';
 import '../../src/components/environment-tabs/env-variables';
 import '../../src/pages/page-variables-value-lookup';
 
@@ -23,8 +26,7 @@ const settle = () => new Promise(r => setTimeout(r, 150));
 const providerOf = (el: HTMLElement) =>
   (
     el.shadowRoot?.querySelector('vaadin-grid') as
-      | (HTMLElement & { dataProvider?: unknown })
-      | null
+      (HTMLElement & { dataProvider?: unknown }) | null
   )?.dataProvider;
 
 describe('grid data providers survive a host re-render', () => {
@@ -75,5 +77,49 @@ describe('grid data providers survive a host re-render', () => {
     expect(providerOf(el), 'same provider').to.equal(before);
 
     el.remove();
+  });
+
+  it('env-variables clears loadingScopeOptions and opens ErrorNotification when ScopeOptions fails', async () => {
+    const collisionMessage =
+      "Tags 'A B' and 'A_B' both produce deployment variable 'ServerNames_A_B'. Rename one tag before deployment.";
+    const scopeSpy = vi
+      .spyOn(PropertyValuesApi.prototype, 'propertyValuesScopeOptionsGet')
+      .mockReturnValue(
+        throwError(() => ({
+          status: 400,
+          response: collisionMessage
+        })) as any
+      );
+
+    try {
+      const el = document.createElement('env-variables') as HTMLElement & {
+        envLoaded: boolean;
+        environmentName: string;
+        loadingScopeOptions: boolean;
+        updateComplete: Promise<unknown>;
+      };
+      el.envLoaded = true;
+      el.environmentName = 'Endur DV 10';
+      document.body.appendChild(el);
+      await el.updateComplete;
+      await settle();
+
+      (el as any).loadingScopeOptions = true;
+      (el as any).getAllVariableNames();
+      await el.updateComplete;
+
+      expect(el.loadingScopeOptions, 'spinner flag cleared on error').to.equal(
+        false
+      );
+      const notification = el.shadowRoot?.querySelector('error-notification');
+      expect(notification, 'error notification mounted').to.not.equal(null);
+      expect(notification?.getAttribute('errorMessage')).to.equal(
+        collisionMessage
+      );
+
+      el.remove();
+    } finally {
+      scopeSpy.mockRestore();
+    }
   });
 });
