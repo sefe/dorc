@@ -1,8 +1,8 @@
 import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import '@vaadin/combo-box';
 import { ComboBox } from '@vaadin/combo-box';
-import { css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { css, nothing } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { DeployEnv } from '../components/deploy/deploy-env';
 import '../components/deploy/deploy-env';
@@ -16,9 +16,17 @@ import {
   RefDataProjectsApi
 } from '../apis/dorc-api';
 import type { ProjectApiModel } from '../apis/dorc-api';
+import GlobalCache from '../global-cache';
 import { PageElement } from '../helpers/page-element';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import {
+  DEPLOY_MASCOT_THEMES,
+  getDeployMascotIconPath,
+  getDeployMascotThemeOverride,
+  MascotTheme,
+  setDeployMascotThemeOverride
+} from '../helpers/mascot-icon';
 
 @customElement('page-deploy')
 export class PageDeploy extends PageElement {
@@ -35,6 +43,9 @@ export class PageDeploy extends PageElement {
 
   @property({ type: Boolean }) envsLoading = false;
   @property({ type: String }) selectionError = '';
+  @property({ type: Boolean }) isAdmin = false;
+
+  @state() private mascotTheme: MascotTheme = getDeployMascotThemeOverride();
 
   @property({ type: String }) selectedEnvironmentName = '';
   @property({ type: String }) selectedProjectId =
@@ -76,8 +87,10 @@ export class PageDeploy extends PageElement {
         right: 0;
         height: 360px;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
+        gap: var(--lumo-space-xs);
         pointer-events: none;
       }
 
@@ -86,6 +99,41 @@ export class PageDeploy extends PageElement {
         width: auto;
         object-fit: contain;
         flex-shrink: 0;
+      }
+
+      .mascot-theme-switcher {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        padding: 2px 4px;
+        border-radius: 999px;
+        background: var(--lumo-contrast-5pct);
+        border: 1px solid var(--lumo-contrast-10pct);
+        pointer-events: auto;
+      }
+
+      .mascot-theme-btn {
+        appearance: none;
+        border: none;
+        background: transparent;
+        color: var(--lumo-secondary-text-color);
+        font-family: inherit;
+        font-size: var(--lumo-font-size-xxs);
+        font-weight: 500;
+        padding: 2px 8px;
+        border-radius: 999px;
+        cursor: pointer;
+        line-height: 1.4;
+      }
+
+      .mascot-theme-btn:hover {
+        color: var(--lumo-body-text-color);
+        background: var(--lumo-contrast-10pct);
+      }
+
+      .mascot-theme-btn[aria-pressed='true'] {
+        background: var(--lumo-primary-color);
+        color: var(--lumo-primary-contrast-color);
       }
 
       @media (max-width: 900px) {
@@ -117,6 +165,8 @@ export class PageDeploy extends PageElement {
   constructor() {
     super();
 
+    this.loadUserRoles();
+
     const api = new RefDataProjectsApi(dorcApiConfiguration);
     api.refDataProjectsGet().subscribe(
       (data: ProjectApiModel[]) => {
@@ -131,6 +181,24 @@ export class PageDeploy extends PageElement {
       },
       () => console.log('done loading projects')
     );
+  }
+
+  private loadUserRoles() {
+    const gc = GlobalCache.getInstance();
+    if (gc.userRoles === undefined) {
+      gc.allRolesResp?.subscribe({
+        next: (userRoles: string[]) => {
+          this.isAdmin = userRoles.includes('Admin');
+        }
+      });
+    } else {
+      this.isAdmin = gc.userRoles.includes('Admin');
+    }
+  }
+
+  private selectMascotTheme(theme: MascotTheme) {
+    this.mascotTheme = theme;
+    setDeployMascotThemeOverride(theme);
   }
 
   sortProjects(a: ProjectApiModel, b: ProjectApiModel): number {
@@ -206,9 +274,35 @@ export class PageDeploy extends PageElement {
         <div class="deploy-mascot-pane">
           <img
             class="cover"
-            src="/modern-dorc-deploy.webp"
+            src="${getDeployMascotIconPath(new Date(), this.mascotTheme)}"
             alt="Wait to Deploy"
           />
+          ${
+            this.isAdmin
+              ? html`
+                  <div
+                    class="mascot-theme-switcher"
+                    role="group"
+                    aria-label="Mascot theme preview"
+                  >
+                    ${DEPLOY_MASCOT_THEMES.map(
+                      theme => html`
+                        <button
+                          type="button"
+                          class="mascot-theme-btn"
+                          aria-pressed="${
+                            this.mascotTheme === theme.id ? 'true' : 'false'
+                          }"
+                          @click="${() => this.selectMascotTheme(theme.id)}"
+                        >
+                          ${theme.label}
+                        </button>
+                      `
+                    )}
+                  </div>
+                `
+              : nothing
+          }
         </div>
         <deploy-env
           id="deployEnv"

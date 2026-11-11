@@ -32,7 +32,6 @@ import {
 import { NARROW_BREAKPOINT } from '../helpers/responsive-mixin.ts';
 import { LOCATION_CHANGED_EVENT, navigate } from '../router/router.ts';
 import { dorcEnvironmentNameFromMetadata } from '../helpers/dorc-environment-name';
-import { getMascotIconPath } from '../helpers/mascot-icon';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 let dorcNavbar: DorcNavbar;
@@ -373,7 +372,7 @@ export class DorcApp extends LitElement {
         >
           <vaadin-icon icon="lumo:menu"></vaadin-icon>
         </vaadin-button>
-        <img class="mascot" src="${getMascotIconPath()}" alt="DOrc mascot" />
+        <img class="mascot" src="/modern-dorc.webp" alt="DOrc mascot" />
         ${
           appConfig.isProduction
             ? html`<span class="app-title" title="DevOps Orchestrator"

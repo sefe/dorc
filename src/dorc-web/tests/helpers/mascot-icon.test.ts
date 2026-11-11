@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getDeployMascotIconPath,
+  getDeployMascotThemeOverride,
   getEasterSundayUtc,
-  getMascotIconPath
+  setDeployMascotThemeOverride
 } from '../../src/helpers/mascot-icon';
 
 describe('mascot-icon helper', () => {
@@ -17,70 +19,118 @@ describe('mascot-icon helper', () => {
     );
   });
 
-  it('returns the Christmas mascot throughout December', () => {
-    expect(getMascotIconPath(new Date(2026, 11, 1))).toBe(
-      '/modern-dorc-christmas.webp'
+  it('returns the Christmas deploy mascot from December 1 through Orthodox Christmas (January 8)', () => {
+    expect(getDeployMascotIconPath(new Date(2026, 11, 1))).toBe(
+      '/modern-dorc-deploy-christmas.webp'
     );
-    expect(getMascotIconPath(new Date(2026, 11, 25))).toBe(
-      '/modern-dorc-christmas.webp'
+    expect(getDeployMascotIconPath(new Date(2026, 11, 25))).toBe(
+      '/modern-dorc-deploy-christmas.webp'
     );
-    expect(getMascotIconPath(new Date(2026, 11, 31))).toBe(
-      '/modern-dorc-christmas.webp'
+    expect(getDeployMascotIconPath(new Date(2026, 11, 31))).toBe(
+      '/modern-dorc-deploy-christmas.webp'
+    );
+    expect(getDeployMascotIconPath(new Date(2027, 0, 1))).toBe(
+      '/modern-dorc-deploy-christmas.webp'
+    );
+    expect(getDeployMascotIconPath(new Date(2027, 0, 7))).toBe(
+      '/modern-dorc-deploy-christmas.webp'
+    );
+    expect(getDeployMascotIconPath(new Date(2027, 0, 8))).toBe(
+      '/modern-dorc-deploy-christmas.webp'
+    );
+    expect(getDeployMascotIconPath(new Date(2027, 0, 9))).toBe(
+      '/modern-dorc-deploy.webp'
     );
   });
 
-  it('returns the Easter mascot during Easter week (Palm Sunday through Easter Tuesday)', () => {
+  it('returns the Easter deploy mascot during Easter week (Palm Sunday through Easter Tuesday)', () => {
     // In 2026, Easter Sunday is April 5 (month index 3, day 5)
-    expect(getMascotIconPath(new Date(2026, 2, 28))).toBe('/modern-dorc.webp');
-    expect(getMascotIconPath(new Date(2026, 2, 29))).toBe(
-      '/modern-dorc-easter.webp'
+    expect(getDeployMascotIconPath(new Date(2026, 2, 28))).toBe(
+      '/modern-dorc-deploy.webp'
     );
-    expect(getMascotIconPath(new Date(2026, 3, 3))).toBe(
-      '/modern-dorc-easter.webp'
+    expect(getDeployMascotIconPath(new Date(2026, 2, 29))).toBe(
+      '/modern-dorc-deploy-easter.webp'
     );
-    expect(getMascotIconPath(new Date(2026, 3, 5))).toBe(
-      '/modern-dorc-easter.webp'
+    expect(getDeployMascotIconPath(new Date(2026, 3, 3))).toBe(
+      '/modern-dorc-deploy-easter.webp'
     );
-    expect(getMascotIconPath(new Date(2026, 3, 6))).toBe(
-      '/modern-dorc-easter.webp'
+    expect(getDeployMascotIconPath(new Date(2026, 3, 5))).toBe(
+      '/modern-dorc-deploy-easter.webp'
     );
-    expect(getMascotIconPath(new Date(2026, 3, 7))).toBe(
-      '/modern-dorc-easter.webp'
+    expect(getDeployMascotIconPath(new Date(2026, 3, 6))).toBe(
+      '/modern-dorc-deploy-easter.webp'
     );
-    expect(getMascotIconPath(new Date(2026, 3, 8))).toBe('/modern-dorc.webp');
+    expect(getDeployMascotIconPath(new Date(2026, 3, 7))).toBe(
+      '/modern-dorc-deploy-easter.webp'
+    );
+    expect(getDeployMascotIconPath(new Date(2026, 3, 8))).toBe(
+      '/modern-dorc-deploy.webp'
+    );
   });
 
-  it('returns the Summer mascot during June, July, and August', () => {
-    expect(getMascotIconPath(new Date(2026, 4, 31))).toBe('/modern-dorc.webp');
-    expect(getMascotIconPath(new Date(2026, 5, 1))).toBe(
-      '/modern-dorc-summer.webp'
+  it('returns the Summer deploy mascot during June, July, and August', () => {
+    expect(getDeployMascotIconPath(new Date(2026, 4, 31))).toBe(
+      '/modern-dorc-deploy.webp'
     );
-    expect(getMascotIconPath(new Date(2026, 6, 15))).toBe(
-      '/modern-dorc-summer.webp'
+    expect(getDeployMascotIconPath(new Date(2026, 5, 1))).toBe(
+      '/modern-dorc-deploy-summer.webp'
     );
-    expect(getMascotIconPath(new Date(2026, 7, 31))).toBe(
-      '/modern-dorc-summer.webp'
+    expect(getDeployMascotIconPath(new Date(2026, 6, 15))).toBe(
+      '/modern-dorc-deploy-summer.webp'
     );
-    expect(getMascotIconPath(new Date(2026, 8, 1))).toBe('/modern-dorc.webp');
+    expect(getDeployMascotIconPath(new Date(2026, 7, 31))).toBe(
+      '/modern-dorc-deploy-summer.webp'
+    );
+    expect(getDeployMascotIconPath(new Date(2026, 8, 1))).toBe(
+      '/modern-dorc-deploy.webp'
+    );
   });
 
-  it('returns the Halloween mascot from October 24 through November 2', () => {
-    expect(getMascotIconPath(new Date(2026, 9, 23))).toBe('/modern-dorc.webp');
-    expect(getMascotIconPath(new Date(2026, 9, 24))).toBe(
-      '/modern-dorc-halloween.webp'
+  it('returns the Halloween deploy mascot from October 24 through November 2', () => {
+    expect(getDeployMascotIconPath(new Date(2026, 9, 23))).toBe(
+      '/modern-dorc-deploy.webp'
     );
-    expect(getMascotIconPath(new Date(2026, 9, 31))).toBe(
-      '/modern-dorc-halloween.webp'
+    expect(getDeployMascotIconPath(new Date(2026, 9, 24))).toBe(
+      '/modern-dorc-deploy-halloween.webp'
     );
-    expect(getMascotIconPath(new Date(2026, 10, 2))).toBe(
-      '/modern-dorc-halloween.webp'
+    expect(getDeployMascotIconPath(new Date(2026, 9, 31))).toBe(
+      '/modern-dorc-deploy-halloween.webp'
     );
-    expect(getMascotIconPath(new Date(2026, 10, 3))).toBe('/modern-dorc.webp');
+    expect(getDeployMascotIconPath(new Date(2026, 10, 2))).toBe(
+      '/modern-dorc-deploy-halloween.webp'
+    );
+    expect(getDeployMascotIconPath(new Date(2026, 10, 3))).toBe(
+      '/modern-dorc-deploy.webp'
+    );
   });
 
-  it('returns the default mascot outside holiday windows', () => {
-    expect(getMascotIconPath(new Date(2026, 0, 15))).toBe('/modern-dorc.webp');
-    expect(getMascotIconPath(new Date(2026, 9, 20))).toBe('/modern-dorc.webp');
-    expect(getMascotIconPath(new Date(2026, 10, 30))).toBe('/modern-dorc.webp');
+  it('returns the default deploy mascot outside holiday windows', () => {
+    expect(getDeployMascotIconPath(new Date(2026, 0, 15))).toBe(
+      '/modern-dorc-deploy.webp'
+    );
+    expect(getDeployMascotIconPath(new Date(2026, 9, 20))).toBe(
+      '/modern-dorc-deploy.webp'
+    );
+    expect(getDeployMascotIconPath(new Date(2026, 10, 30))).toBe(
+      '/modern-dorc-deploy.webp'
+    );
+  });
+
+  it('allows overriding the deploy mascot theme explicitly or via storage', () => {
+    expect(getDeployMascotIconPath(new Date(2026, 0, 15), 'halloween')).toBe(
+      '/modern-dorc-deploy-halloween.webp'
+    );
+    expect(getDeployMascotIconPath(new Date(2026, 11, 25), 'default')).toBe(
+      '/modern-dorc-deploy.webp'
+    );
+
+    setDeployMascotThemeOverride('christmas');
+    expect(getDeployMascotThemeOverride()).toBe('christmas');
+    expect(getDeployMascotIconPath(new Date(2026, 0, 15))).toBe(
+      '/modern-dorc-deploy-christmas.webp'
+    );
+
+    setDeployMascotThemeOverride('auto');
+    expect(getDeployMascotThemeOverride()).toBe('auto');
   });
 });

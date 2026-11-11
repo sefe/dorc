@@ -89,6 +89,54 @@ export class MakeLikeProduction extends LitElement {
 
   static get styles() {
     return css`
+      :host {
+        display: block;
+        width: 100%;
+      }
+
+      .mlp-layout {
+        display: flex;
+        align-items: stretch;
+        gap: var(--lumo-space-l);
+        width: 100%;
+      }
+
+      .mlp-form-column {
+        flex: 1 1 600px;
+        max-width: 640px;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: var(--lumo-space-s);
+      }
+
+      .mlp-mascot-pane {
+        flex: 1 1 260px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 230px;
+        padding: var(--lumo-space-s);
+      }
+
+      .mlp-mascot {
+        height: 220px;
+        max-width: 100%;
+        width: auto;
+        object-fit: contain;
+        flex-shrink: 0;
+      }
+
+      @media (max-width: 768px) {
+        .mlp-layout {
+          flex-direction: column;
+        }
+
+        .mlp-mascot-pane {
+          display: none;
+        }
+      }
+
       .block {
         display: flex;
         align-items: center;
@@ -118,16 +166,9 @@ export class MakeLikeProduction extends LitElement {
 
   render() {
     return html`
-      <vaadin-vertical-layout style="width: 100%; max-width: 700px">
-        <div
-          style="display: flex; align-items: center; gap: var(--lumo-space-m); width: 100%; max-width: 600px;"
-        >
-          <img
-            src="/modern-dorc-clone.webp"
-            alt="Make Like Production"
-            style="height: 110px; width: auto; flex-shrink: 0;"
-          />
-          <div style="flex: 1; min-width: 0;">
+      <div class="mlp-layout">
+        <div class="mlp-form-column">
+          <div>
             <vaadin-combo-box
               label="Bundle Request"
               class="block"
@@ -146,66 +187,73 @@ export class MakeLikeProduction extends LitElement {
               @value-changed="${this._dataSourceDataBackupChanged}"
             ></vaadin-combo-box>
           </div>
+          <vaadin-details
+            closed
+            summary="Property Overrides (Optional)"
+            style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); width: 100%"
+          >
+            <vaadin-vertical-layout style="align-items: stretch">
+              <vaadin-combo-box
+                @value-changed="${this._propNameValueChanged}"
+                .items="${this.properties}"
+                placeholder="Select Property"
+                clear-button-visible
+                item-label-path="Name"
+                item-value-path="Name"
+                .value="${this.propertyName}"
+                style="width: 100%; max-width: 600px"
+              ></vaadin-combo-box>
+              <vaadin-text-field
+                required
+                placeholder="Property Value"
+                .value="${this.propertyValue}"
+                @value-changed="${this._propValueChanged}"
+                style="width: 100%; max-width: 500px"
+              ></vaadin-text-field>
+              <vaadin-button
+                @click="${this.AddOverrideProperty}"
+                style="width: 96px"
+                theme="primary"
+                >Add
+              </vaadin-button>
+              <vaadin-grid
+                id="grid"
+                .items="${this.propertyOverrides}"
+                column-reordering-allowed
+                multi-sort
+                style="height: 200px"
+                theme="compact row-stripes no-row-borders no-border"
+              >
+                <vaadin-grid-sort-column
+                  header="Property Name"
+                  path="PropertyName"
+                  width="300px"
+                  flex-grow="0"
+                  resizable
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-sort-column
+                  header="Property Value"
+                  path="PropertyValue"
+                  flex-grow="0"
+                  width="300px"
+                  resizable
+                ></vaadin-grid-sort-column>
+                <vaadin-grid-column
+                  ${columnBodyRenderer(this._boundPropOverridesButtonsRenderer, [])}
+                  resizable
+                ></vaadin-grid-column>
+              </vaadin-grid>
+            </vaadin-vertical-layout>
+          </vaadin-details>
         </div>
-        <vaadin-details
-          closed
-          summary="Property Overrides (Optional)"
-          style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); width: 100%"
-        >
-          <vaadin-vertical-layout style="align-items: stretch">
-            <vaadin-combo-box
-              @value-changed="${this._propNameValueChanged}"
-              .items="${this.properties}"
-              placeholder="Select Property"
-              clear-button-visible
-              item-label-path="Name"
-              item-value-path="Name"
-              .value="${this.propertyName}"
-              style="width: 100%; max-width: 600px"
-            ></vaadin-combo-box>
-            <vaadin-text-field
-              required
-              placeholder="Property Value"
-              .value="${this.propertyValue}"
-              @value-changed="${this._propValueChanged}"
-              style="width: 100%; max-width: 500px"
-            ></vaadin-text-field>
-            <vaadin-button
-              @click="${this.AddOverrideProperty}"
-              style="width: 96px"
-              theme="primary"
-              >Add
-            </vaadin-button>
-            <vaadin-grid
-              id="grid"
-              .items="${this.propertyOverrides}"
-              column-reordering-allowed
-              multi-sort
-              style="height: 200px"
-              theme="compact row-stripes no-row-borders no-border"
-            >
-              <vaadin-grid-sort-column
-                header="Property Name"
-                path="PropertyName"
-                width="300px"
-                flex-grow="0"
-                resizable
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-sort-column
-                header="Property Value"
-                path="PropertyValue"
-                flex-grow="0"
-                width="300px"
-                resizable
-              ></vaadin-grid-sort-column>
-              <vaadin-grid-column
-                ${columnBodyRenderer(this._boundPropOverridesButtonsRenderer, [])}
-                resizable
-              ></vaadin-grid-column>
-            </vaadin-grid>
-          </vaadin-vertical-layout>
-        </vaadin-details>
-      </vaadin-vertical-layout>
+        <div class="mlp-mascot-pane">
+          <img
+            class="mlp-mascot"
+            src="/modern-dorc-clone.webp"
+            alt="Make Like Production"
+          />
+        </div>
+      </div>
     `;
   }
 

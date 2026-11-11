@@ -76,7 +76,42 @@ describe('PageDeploy responsive layout', () => {
     expect(pane).to.not.be.null;
     expect(img).to.not.be.null;
     expect(img!.hidden).to.be.false;
+    expect(img!.getAttribute('src')).to.match(/^\/modern-dorc-deploy/);
     expect(getComputedStyle(pane!).justifyContent).to.equal('center');
     expect(getComputedStyle(pane!).alignItems).to.equal('center');
+  });
+
+  it('shows an in-place mascot theme switcher only for Admin users and switches the image in place', async () => {
+    const el = await fixture<PageDeploy>(html` <page-deploy></page-deploy> `);
+    el.isAdmin = false;
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.mascot-theme-switcher')).to.be.null;
+
+    el.isAdmin = true;
+    await el.updateComplete;
+
+    const switcher = el.shadowRoot!.querySelector('.mascot-theme-switcher');
+    expect(switcher).to.not.be.null;
+
+    const buttons = Array.from(
+      switcher!.querySelectorAll<HTMLButtonElement>('.mascot-theme-btn')
+    );
+    const halloweenBtn = buttons.find(
+      b => b.textContent?.trim() === 'Halloween'
+    );
+    expect(halloweenBtn).to.not.be.undefined;
+    halloweenBtn!.click();
+    await el.updateComplete;
+
+    const img = el.shadowRoot!.querySelector(
+      '.deploy-mascot-pane img.cover'
+    ) as HTMLImageElement;
+    expect(img.getAttribute('src')).to.equal(
+      '/modern-dorc-deploy-halloween.webp'
+    );
+
+    const autoBtn = buttons.find(b => b.textContent?.trim() === 'Auto');
+    autoBtn!.click();
+    await el.updateComplete;
   });
 });

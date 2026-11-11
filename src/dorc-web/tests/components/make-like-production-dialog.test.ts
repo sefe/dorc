@@ -28,9 +28,8 @@ describe('MakeLikeProductionDialog reset', () => {
     );
     el.Open();
     await el.updateComplete;
-    const openedResetVersion = (
-      el as unknown as { formResetVersion: number }
-    ).formResetVersion;
+    const openedResetVersion = (el as unknown as { formResetVersion: number })
+      .formResetVersion;
 
     el.bundleChanged('Bundle A');
     el.backupChanged('Backup A');
@@ -39,15 +38,11 @@ describe('MakeLikeProductionDialog reset', () => {
       PropertyValue: 'Value A'
     });
 
-    expect(
-      (el as unknown as { canSubmit: boolean }).canSubmit
-    ).to.equal(true);
+    expect((el as unknown as { canSubmit: boolean }).canSubmit).to.equal(true);
 
     el.closeDialog();
 
-    expect(
-      (el as unknown as { canSubmit: boolean }).canSubmit
-    ).to.equal(false);
+    expect((el as unknown as { canSubmit: boolean }).canSubmit).to.equal(false);
     expect(el.propertyOverrides).to.deep.equal([]);
     expect(
       (el as unknown as { formResetVersion: number }).formResetVersion
@@ -100,8 +95,35 @@ describe('MakeLikeProductionDialog reset', () => {
     );
     await el.updateComplete;
 
-    expect(
-      (el as unknown as { canSubmit: boolean }).canSubmit
-    ).to.equal(false);
+    expect((el as unknown as { canSubmit: boolean }).canSubmit).to.equal(false);
+  });
+
+  it('places the Make Like Production mascot centered in the right-hand whitespace pane', async () => {
+    const el = await fixture<MakeLikeProduction>(
+      html`<make-like-production></make-like-production>`
+    );
+    await el.updateComplete;
+
+    const layout = el.shadowRoot!.querySelector(
+      '.mlp-layout'
+    ) as HTMLElement | null;
+    const formCol = el.shadowRoot!.querySelector(
+      '.mlp-form-column'
+    ) as HTMLElement | null;
+    const mascotPane = el.shadowRoot!.querySelector(
+      '.mlp-mascot-pane'
+    ) as HTMLElement | null;
+    const mascotImg = el.shadowRoot!.querySelector(
+      '.mlp-mascot'
+    ) as HTMLImageElement | null;
+
+    expect(layout).to.not.be.null;
+    expect(formCol).to.not.be.null;
+    expect(mascotPane).to.not.be.null;
+    expect(mascotImg).to.not.be.null;
+    expect(layout!.children[0]).to.equal(formCol);
+    expect(layout!.children[1]).to.equal(mascotPane);
+    expect(getComputedStyle(mascotPane!).justifyContent).to.equal('center');
+    expect(getComputedStyle(mascotPane!).alignItems).to.equal('center');
   });
 });
