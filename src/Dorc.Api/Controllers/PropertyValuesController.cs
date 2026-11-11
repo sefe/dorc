@@ -67,8 +67,8 @@ namespace Dorc.Api.Controllers
                 catch (InvalidOperationException ex)
                 {
                     _logger.LogWarning(ex,
-                        "Unable to resolve scope options for environment '{EnvironmentName}'.",
-                        propertyValueScope);
+                        "Unable to resolve scope options for environment ID {EnvironmentId}.",
+                        environment.EnvironmentId);
                     return BadRequest(ex.Message);
                 }
             }
