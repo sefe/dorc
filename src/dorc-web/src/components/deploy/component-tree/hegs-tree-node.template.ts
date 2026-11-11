@@ -24,7 +24,11 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
         'is-child': Boolean(this.data?.hasParent)
       })}"
     >
-      <div class="node-row ${this.selectable ? 'selectable-row' : ''}">
+      <div
+        class="node-row ${this.selectable ? 'selectable-row' : ''} ${
+          !this.selectable && this.data?.disabled ? 'disabled' : ''
+        }"
+      >
         <span
           class="node-preicon ${classMap(this._computePreIconClass())}"
           role=${hasChildren ? 'button' : nothing}
@@ -77,13 +81,24 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
                 <input
                   .checked="${this.checked}"
                   .indeterminate="${this.indeterminate}"
+                  ?disabled="${this.isCheckboxDisabled()}"
                   type="checkbox"
                   id="deployment"
                   data-componentId="${this.data?.id}"
                   @click="${this.selectComponentForDeployment}"
                 />
 
-                <label for="checkbox">${this.data?.name}</label>
+                <label
+                  for="deployment"
+                  class="${this.data?.disabled ? 'disabled-label' : ''}"
+                >
+                  <span class="component-name">${this.data?.name}</span>
+                  ${
+                    this.data?.disabled
+                      ? html`<span class="badge badge-off">Disabled</span>`
+                      : nothing
+                  }
+                </label>
               `
         }
         ${

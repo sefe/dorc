@@ -214,16 +214,11 @@ export class PageMonitorRequests
           flex-direction: column;
           height: 100%;
           overflow: hidden;
-          font-family:
-            -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter,
-            var(--lumo-font-family, sans-serif);
-          -webkit-font-smoothing: antialiased;
           --divider-color: var(--dorc-border-color);
         }
         vaadin-grid {
           flex: 1;
           min-height: 0;
-          font-family: inherit;
         }
 
         vaadin-text-field {
@@ -235,14 +230,11 @@ export class PageMonitorRequests
           padding-top: 0px;
           padding-bottom: 0px;
           margin: 0px;
-          font-family: inherit;
         }
 
         .id-btn {
-          font-family: inherit;
-          font-size: 0.76rem;
-          font-weight: 600;
-          font-variant-numeric: tabular-nums;
+          font-size: 14px;
+          font-family: monospace;
           background: color-mix(
             in srgb,
             var(--dorc-link-color, #58a6ff) 10%,
@@ -279,31 +271,21 @@ export class PageMonitorRequests
         }
 
         .details-primary {
-          font-family: inherit;
-          font-size: 0.8125rem;
-          font-weight: 600;
-          color: var(--dorc-text-primary);
-          line-height: 1.3;
+          color: var(--lumo-body-text-color);
         }
 
         .details-secondary {
-          font-family: inherit;
-          font-size: 0.75rem;
-          font-weight: 400;
-          font-variant-numeric: tabular-nums;
-          color: var(--dorc-text-secondary);
-          line-height: 1.3;
+          font-size: var(--lumo-font-size-s);
+          color: var(--lumo-secondary-text-color);
         }
 
         .timings-stack {
           display: flex;
           flex-direction: column;
           gap: 2px;
-          font-family: inherit;
-          font-size: 0.75rem;
-          font-variant-numeric: tabular-nums;
-          color: var(--dorc-text-primary);
-          line-height: 1.3;
+          line-height: var(--lumo-line-height-s);
+          font-size: var(--lumo-font-size-s);
+          color: var(--lumo-secondary-text-color);
         }
 
         .timings-row {
@@ -318,11 +300,8 @@ export class PageMonitorRequests
         }
 
         .cell-secondary {
-          font-family: inherit;
-          font-size: 0.78rem;
-          font-weight: 400;
-          color: var(--dorc-text-secondary);
-          line-height: 1.35;
+          font-size: var(--lumo-font-size-s);
+          color: var(--lumo-secondary-text-color);
         }
 
         .status-cell {
@@ -340,10 +319,6 @@ export class PageMonitorRequests
           gap: 6px;
           min-width: 85px;
           flex-shrink: 0;
-          font-family: inherit;
-          font-size: 0.78rem;
-          font-weight: 600;
-          letter-spacing: 0.01em;
         }
 
         .status-text::before {

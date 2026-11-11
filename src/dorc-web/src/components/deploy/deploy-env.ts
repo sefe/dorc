@@ -559,22 +559,46 @@ export class DeployEnv extends LitElement {
             data.map(node => this.convertDeployCompToTree(node)),
             undefined
           );
+          this.data.forEach(root => this.propagateDisabled(root));
           if (this.preselectedComponentId) {
+            let disabledTargetName: string | undefined;
             const select = (nodes: TreeNode[], inherited = false): boolean => {
               let anySelected = false;
               for (const node of nodes) {
-                node.checked =
-                  inherited || node.id === this.preselectedComponentId;
-                const descendantSelected = select(node.children, node.checked);
-                node.indeterminate = !node.checked && descendantSelected;
-                node.open = descendantSelected;
-                anySelected ||= node.checked || descendantSelected;
+                const isTarget = node.id === this.preselectedComponentId;
+                if (isTarget && node.disabled) {
+                  disabledTargetName = node.name;
+                  node.checked = false;
+                  node.indeterminate = false;
+                  continue;
+                }
+                const shouldSelect = !node.disabled && (inherited || isTarget);
+                if (node.children && node.children.length > 0) {
+                  const descendantSelected = select(
+                    node.children,
+                    shouldSelect
+                  );
+                  const allChildrenChecked =
+                    node.children.length > 0 &&
+                    node.children.every(
+                      child => child.checked && !child.indeterminate
+                    );
+                  node.checked = shouldSelect && allChildrenChecked;
+                  node.indeterminate = !node.checked && descendantSelected;
+                  node.open = descendantSelected || isTarget;
+                  anySelected ||= node.checked || descendantSelected;
+                } else {
+                  node.checked = shouldSelect;
+                  node.indeterminate = false;
+                  anySelected ||= node.checked;
+                }
               }
               return anySelected;
             };
             if (!select(this.data)) {
-              this.ErrorMessage =
-                'The linked component is not available in this project. Reload its current definition before deploying.';
+              this.ErrorMessage = disabledTargetName
+                ? `Component "${disabledTargetName}" is disabled and cannot be queued for deployment.`
+                : 'The linked component is not available in this project. Reload its current definition before deploying.';
             }
           } else if (this.pendingBundleComponents.length > 0) {
             this.applyBundleComponentSelection(this.pendingBundleComponents);
@@ -604,12 +628,24 @@ export class DeployEnv extends LitElement {
     if (parents.length > 0) {
       output.push(...parents);
       output.forEach(root => {
+        if (parent?.disabled) {
+          root.disabled = true;
+        }
         if (root.numOfChildren > 0)
           root.children = this.createTreeFromList(list, root);
       });
       return output;
     }
     return [];
+  }
+
+  private propagateDisabled(node: TreeNode, parentDisabled = false) {
+    if (parentDisabled) {
+      node.disabled = true;
+    }
+    node.children?.forEach(child =>
+      this.propagateDisabled(child, Boolean(node.disabled))
+    );
   }
 
   private convertDeployCompToTree(deploy: DeployComponentDto): TreeNode {
@@ -627,7 +663,8 @@ export class DeployEnv extends LitElement {
       hasParent: (numChildren ?? 0) > 0,
       parentId: deploy.ParentId ?? 0,
       checked: false,
-      indeterminate: false
+      indeterminate: false,
+      disabled: deploy.IsEnabled === false
     };
     return child;
   }
@@ -739,7 +776,10 @@ export class DeployEnv extends LitElement {
           this.bundleValidating = false;
           this.ErrorMessage = '';
           this.pendingBundleComponents = bundleComponents ?? [];
-          if (this.pendingBundleComponents.length > 0 && this.data?.length > 0) {
+          if (
+            this.pendingBundleComponents.length > 0 &&
+            this.data?.length > 0
+          ) {
             this.applyBundleComponentSelection(this.pendingBundleComponents);
           }
         },
@@ -767,16 +807,28 @@ export class DeployEnv extends LitElement {
     );
 
     const applySelection = (
-      nodes: TreeNode[]
+      nodes: TreeNode[],
+      inheritedMatch = false
     ): { allChecked: boolean; anySelected: boolean } => {
       let allChecked = nodes.length > 0;
       let anySelected = false;
 
       for (const node of nodes) {
-        const isDirectMatch = targetNames.has(node.name.trim().toLowerCase());
+        if (node.disabled) {
+          node.checked = false;
+          node.indeterminate = false;
+          if (node.children && node.children.length > 0) {
+            applySelection(node.children, false);
+          }
+          allChecked = false;
+          continue;
+        }
+
+        const isDirectMatch =
+          inheritedMatch || targetNames.has(node.name.trim().toLowerCase());
         if (node.children && node.children.length > 0) {
-          const childResult = applySelection(node.children);
-          node.checked = isDirectMatch || childResult.allChecked;
+          const childResult = applySelection(node.children, isDirectMatch);
+          node.checked = childResult.allChecked;
           node.indeterminate = !node.checked && childResult.anySelected;
           node.open = childResult.anySelected || isDirectMatch;
         } else {

@@ -46,7 +46,7 @@ namespace Dorc.Core
                         Name = c.ComponentName,
                         Id = c.ComponentId ?? 0,
                         NumOfChildren = c.Children.Count,
-                        IsEnabled = true
+                        IsEnabled = c.IsEnabled
                     });
             }
             catch (Exception ex)
@@ -72,7 +72,7 @@ namespace Dorc.Core
                         Name = c.ComponentName,
                         Id = c.ComponentId ?? 0,
                         NumOfChildren = c.Children.Count,
-                        IsEnabled = true,
+                        IsEnabled = c.IsEnabled,
                         ParentId = c.ParentId
                     });
             }

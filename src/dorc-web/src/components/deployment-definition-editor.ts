@@ -6,6 +6,7 @@ import '@vaadin/text-field';
 import './hegs-json-viewer';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
+import { live } from 'lit/directives/live.js';
 import { ref } from 'lit/directives/ref.js';
 import type { HegsJsonViewer } from './hegs-json-viewer';
 import {
@@ -164,12 +165,17 @@ export class DeploymentDefinitionEditor extends LitElement {
     helper = '',
     locked = false
   ) {
+    const update = (event: Event) =>
+      this.change({
+        [key]: (event.currentTarget as HTMLInputElement).value
+      });
     return html`<vaadin-text-field
       .label=${label}
-      .value=${this.component?.[key] ?? ''}
+      .value=${live(this.component?.[key] ?? '')}
       .readonly=${this.readonly || locked}
       .helperText=${helper}
-      @change=${(event: Event) => this.change({ [key]: (event.currentTarget as HTMLInputElement).value })}
+      @input=${update}
+      @change=${update}
     ></vaadin-text-field>`;
   }
 
@@ -184,7 +190,10 @@ export class DeploymentDefinitionEditor extends LitElement {
     const raw = component.ScriptPath ?? '';
     const helper =
       'Existing paths and JSON argument definitions are preserved. Use secure property references for secrets.';
-    if (!parseScriptPathValue(raw).isJsonPath) {
+    if (
+      !parseScriptPathValue(raw).isJsonPath &&
+      this.shadowRoot?.activeElement?.tagName !== 'VAADIN-TEXT-AREA'
+    ) {
       return this.text('Script path or JSON path', 'ScriptPath', helper);
     }
     let parsed: unknown = raw;
@@ -193,17 +202,19 @@ export class DeploymentDefinitionEditor extends LitElement {
     } catch {
       /* preview the raw text */
     }
+    const update = (event: Event) =>
+      this.change({
+        ScriptPath: (event.currentTarget as HTMLTextAreaElement).value
+      });
     return html`<vaadin-text-area
         label="Script path or JSON path"
-        .value=${raw}
+        .value=${live(raw)}
         .readonly=${this.readonly}
         .helperText=${helper}
         min-rows="2"
         max-rows="8"
-        @change=${(event: Event) =>
-          this.change({
-            ScriptPath: (event.currentTarget as HTMLTextAreaElement).value
-          })}
+        @input=${update}
+        @change=${update}
       ></vaadin-text-area>
       <span class="json-preview-label">Parsed JSON path</span>
       <hegs-json-viewer
@@ -294,9 +305,21 @@ export class DeploymentDefinitionEditor extends LitElement {
           .items=${templateItems}
           item-label-path="label"
           item-value-path="value"
-          .value=${selectedTemplateValue}
+          .value=${live(selectedTemplateValue)}
           .disabled=${this.readonly}
           helper-text="Choose a reusable 00 Generic PowerShell script to configure its GenericArguments, or leave as Custom project script path."
+          @value-changed=${(event: CustomEvent<{ value: string }>) => {
+            const value =
+              event.detail?.value ??
+              (event.currentTarget as HTMLInputElement).value;
+            if (value && value !== selectedTemplateValue) {
+              this.selectGenericTemplate(value);
+            }
+          }}
+          @input=${(event: Event) =>
+            this.selectGenericTemplate(
+              (event.currentTarget as HTMLInputElement).value
+            )}
           @change=${(event: Event) =>
             this.selectGenericTemplate(
               (event.currentTarget as HTMLInputElement).value
@@ -339,40 +362,51 @@ export class DeploymentDefinitionEditor extends LitElement {
                                   a.key.toLowerCase() ===
                                   param.name.toLowerCase()
                               )?.value ?? '';
+                            const updateParam = (event: Event) =>
+                              this.setGenericArgument(
+                                template.scriptPath,
+                                parsed.arguments,
+                                param.name,
+                                (event.currentTarget as HTMLInputElement).value,
+                                parsed.isJsonPath
+                              );
                             return param.options
                               ? html`<vaadin-combo-box
                                   .label=${param.label}
                                   .items=${param.options}
-                                  .value=${currentVal}
+                                  .value=${live(currentVal)}
                                   .readonly=${this.readonly}
                                   .helperText=${param.helperText ?? ''}
                                   ?required=${Boolean(param.required)}
-                                  @change=${(event: Event) =>
-                                    this.setGenericArgument(
-                                      template.scriptPath,
-                                      parsed.arguments,
-                                      param.name,
+                                  @value-changed=${(
+                                    event: CustomEvent<{ value: string }>
+                                  ) => {
+                                    const nextVal =
+                                      event.detail?.value ??
                                       (event.currentTarget as HTMLInputElement)
-                                        .value,
-                                      parsed.isJsonPath
-                                    )}
+                                        .value;
+                                    if (nextVal !== currentVal) {
+                                      this.setGenericArgument(
+                                        template.scriptPath,
+                                        parsed.arguments,
+                                        param.name,
+                                        nextVal,
+                                        parsed.isJsonPath
+                                      );
+                                    }
+                                  }}
+                                  @input=${updateParam}
+                                  @change=${updateParam}
                                 ></vaadin-combo-box>`
                               : html`<vaadin-text-field
                                   .label=${param.label}
                                   .placeholder=${param.placeholder ?? ''}
-                                  .value=${currentVal}
+                                  .value=${live(currentVal)}
                                   .readonly=${this.readonly}
                                   .helperText=${param.helperText ?? ''}
                                   ?required=${Boolean(param.required)}
-                                  @change=${(event: Event) =>
-                                    this.setGenericArgument(
-                                      template.scriptPath,
-                                      parsed.arguments,
-                                      param.name,
-                                      (event.currentTarget as HTMLInputElement)
-                                        .value,
-                                      parsed.isJsonPath
-                                    )}
+                                  @input=${updateParam}
+                                  @change=${updateParam}
                                 ></vaadin-text-field>`;
                           })}
                         </div>
@@ -381,44 +415,48 @@ export class DeploymentDefinitionEditor extends LitElement {
                 }
                 ${extraArgs.map((arg, extraIdx) => {
                   const rawIndex = parsed.arguments.indexOf(arg);
+                  const updateKey = (event: Event) => {
+                    const nextArgs = [...parsed.arguments];
+                    nextArgs[rawIndex] = {
+                      key: (event.currentTarget as HTMLInputElement).value,
+                      value: arg.value
+                    };
+                    this.change({
+                      ScriptPath: serializeScriptPathValue(
+                        template?.scriptPath ?? parsed.scriptPath,
+                        nextArgs,
+                        true
+                      )
+                    });
+                  };
+                  const updateValue = (event: Event) => {
+                    const nextArgs = [...parsed.arguments];
+                    nextArgs[rawIndex] = {
+                      key: arg.key,
+                      value: (event.currentTarget as HTMLInputElement).value
+                    };
+                    this.change({
+                      ScriptPath: serializeScriptPathValue(
+                        template?.scriptPath ?? parsed.scriptPath,
+                        nextArgs,
+                        true
+                      )
+                    });
+                  };
                   return html`<div class="custom-arg-row">
                     <vaadin-text-field
                       label="Additional argument name"
-                      .value=${arg.key}
+                      .value=${live(arg.key)}
                       .readonly=${this.readonly}
-                      @change=${(event: Event) => {
-                        const nextArgs = [...parsed.arguments];
-                        nextArgs[rawIndex] = {
-                          key: (event.currentTarget as HTMLInputElement).value,
-                          value: arg.value
-                        };
-                        this.change({
-                          ScriptPath: serializeScriptPathValue(
-                            template?.scriptPath ?? parsed.scriptPath,
-                            nextArgs,
-                            true
-                          )
-                        });
-                      }}
+                      @input=${updateKey}
+                      @change=${updateKey}
                     ></vaadin-text-field>
                     <vaadin-text-field
                       label="Argument value"
-                      .value=${arg.value}
+                      .value=${live(arg.value)}
                       .readonly=${this.readonly}
-                      @change=${(event: Event) => {
-                        const nextArgs = [...parsed.arguments];
-                        nextArgs[rawIndex] = {
-                          key: arg.key,
-                          value: (event.currentTarget as HTMLInputElement).value
-                        };
-                        this.change({
-                          ScriptPath: serializeScriptPathValue(
-                            template?.scriptPath ?? parsed.scriptPath,
-                            nextArgs,
-                            true
-                          )
-                        });
-                      }}
+                      @input=${updateValue}
+                      @change=${updateValue}
                     ></vaadin-text-field>
                     <vaadin-button
                       theme="tertiary"
@@ -474,9 +512,30 @@ export class DeploymentDefinitionEditor extends LitElement {
         <vaadin-combo-box
           label="Execution type"
           .items=${Object.values(ComponentType)}
-          .value=${component.ComponentType ?? ComponentType.PowerShell}
+          .value=${live(component.ComponentType ?? ComponentType.PowerShell)}
           .disabled=${this.readonly || Boolean(component.ComponentId)}
           helper-text="An existing execution identity is not converted to another type here."
+          @value-changed=${(event: CustomEvent<{ value: string }>) => {
+            const value =
+              event.detail?.value ??
+              (event.currentTarget as HTMLInputElement).value;
+            if (
+              (value === ComponentType.PowerShell ||
+                value === ComponentType.Terraform) &&
+              value !== (component.ComponentType ?? ComponentType.PowerShell)
+            ) {
+              this.change({ ComponentType: value });
+            }
+          }}
+          @input=${(event: Event) => {
+            const value = (event.currentTarget as HTMLInputElement).value;
+            if (
+              value === ComponentType.PowerShell ||
+              value === ComponentType.Terraform
+            ) {
+              this.change({ ComponentType: value });
+            }
+          }}
           @change=${(event: Event) => {
             const value = (event.currentTarget as HTMLInputElement).value;
             if (
@@ -493,8 +552,27 @@ export class DeploymentDefinitionEditor extends LitElement {
                 <vaadin-combo-box
                   label="Terraform source"
                   .items=${Object.values(TerraformSourceType).filter(source => catalog || source !== TerraformSourceType.Catalog)}
-                  .value=${sourceType}
+                  .value=${live(sourceType)}
                   .disabled=${this.readonly || catalog}
+                  @value-changed=${(event: CustomEvent<{ value: string }>) => {
+                    const value =
+                      event.detail?.value ??
+                      (event.currentTarget as HTMLInputElement).value;
+                    const source = Object.values(TerraformSourceType).find(
+                      item => item === value
+                    );
+                    if (source && source !== sourceType) {
+                      this.change({ TerraformSourceType: source });
+                    }
+                  }}
+                  @input=${(event: Event) => {
+                    const value = (event.currentTarget as HTMLInputElement)
+                      .value;
+                    const source = Object.values(TerraformSourceType).find(
+                      item => item === value
+                    );
+                    if (source) this.change({ TerraformSourceType: source });
+                  }}
                   @change=${(event: Event) => {
                     const value = (event.currentTarget as HTMLInputElement)
                       .value;
@@ -510,9 +588,24 @@ export class DeploymentDefinitionEditor extends LitElement {
                 <vaadin-combo-box
                   label="PowerShell version"
                   .items=${this.powerShellVersions}
-                  .value=${component.PSVersion ?? ''}
+                  .value=${live(component.PSVersion ?? '')}
                   .disabled=${this.readonly}
-                  @change=${(event: Event) => this.change({ PSVersion: (event.currentTarget as HTMLInputElement).value })}
+                  @value-changed=${(event: CustomEvent<{ value: string }>) => {
+                    const value =
+                      event.detail?.value ??
+                      (event.currentTarget as HTMLInputElement).value;
+                    if (value && value !== (component.PSVersion ?? '')) {
+                      this.change({ PSVersion: value });
+                    }
+                  }}
+                  @input=${(event: Event) =>
+                    this.change({
+                      PSVersion: (event.currentTarget as HTMLInputElement).value
+                    })}
+                  @change=${(event: Event) =>
+                    this.change({
+                      PSVersion: (event.currentTarget as HTMLInputElement).value
+                    })}
                 ></vaadin-combo-box>
                 ${this.renderPowerShellGenericSection(component)}
               `

@@ -1307,21 +1307,23 @@ export class PageProjectRefData extends PageElement {
       | 'ApplicationCode',
     helperText = ''
   ) {
+    const update = (event: Event) => {
+      if (!this.editable || !this.document?.Project) return;
+      this.setDocument({
+        ...this.document,
+        Project: {
+          ...this.document.Project,
+          [field]: (event.currentTarget as HTMLInputElement).value
+        }
+      });
+    };
     return html`<vaadin-text-field
       .label=${label}
-      .value=${this.document?.Project?.[field] ?? ''}
+      .value=${live(this.document?.Project?.[field] ?? '')}
       .readonly=${!this.editable}
       .helperText=${helperText}
-      @change=${(event: Event) => {
-        if (!this.editable || !this.document?.Project) return;
-        this.setDocument({
-          ...this.document,
-          Project: {
-            ...this.document.Project,
-            [field]: (event.currentTarget as HTMLInputElement).value
-          }
-        });
-      }}
+      @input=${update}
+      @change=${update}
     ></vaadin-text-field>`;
   }
 
@@ -1377,22 +1379,24 @@ export class PageProjectRefData extends PageElement {
       'StorageAccount' | 'ContainerName' | 'SubscriptionId' | 'ResourceGroup'
   ) {
     const backends = this.document?.Project?.TerraformStateBackends ?? [];
+    const update = (event: Event) =>
+      this.setBackends(
+        backends.map((backend, row) =>
+          row === index
+            ? {
+                ...backend,
+                [field]: (event.currentTarget as HTMLInputElement).value
+              }
+            : backend
+        )
+      );
     return html`<vaadin-text-field
       .label=${label}
       .value=${live(backends[index]?.[field] ?? '')}
       .disabled=${!this.editable}
       ?required=${field !== 'ResourceGroup'}
-      @change=${(event: Event) =>
-        this.setBackends(
-          backends.map((backend, row) =>
-            row === index
-              ? {
-                  ...backend,
-                  [field]: (event.currentTarget as HTMLInputElement).value
-                }
-              : backend
-          )
-        )}
+      @input=${update}
+      @change=${update}
     ></vaadin-text-field>`;
   }
 
@@ -1442,8 +1446,47 @@ export class PageProjectRefData extends PageElement {
         <vaadin-combo-box
           label="Project source control"
           .items=${Object.values(SourceControlType)}
-          .value=${project?.SourceControlType ?? SourceControlType.AzureDevOps}
+          .value=${live(
+            project?.SourceControlType ?? SourceControlType.AzureDevOps
+          )}
           .disabled=${!this.editable}
+          @value-changed=${(event: CustomEvent<{ value: string }>) => {
+            const current =
+              project?.SourceControlType ?? SourceControlType.AzureDevOps;
+            const value =
+              event.detail?.value ??
+              (event.currentTarget as HTMLInputElement).value;
+            const source = Object.values(SourceControlType).find(
+              item => item === value
+            );
+            if (
+              source &&
+              source !== current &&
+              this.document?.Project &&
+              this.editable
+            ) {
+              this.setDocument({
+                ...this.document,
+                Project: {
+                  ...this.document.Project,
+                  SourceControlType: source
+                }
+              });
+            }
+          }}
+          @input=${(event: Event) => {
+            const source = Object.values(SourceControlType).find(
+              value => value === (event.currentTarget as HTMLInputElement).value
+            );
+            if (source && this.document?.Project && this.editable)
+              this.setDocument({
+                ...this.document,
+                Project: {
+                  ...this.document.Project,
+                  SourceControlType: source
+                }
+              });
+          }}
           @change=${(event: Event) => {
             const source = Object.values(SourceControlType).find(
               value => value === (event.currentTarget as HTMLInputElement).value
@@ -1515,8 +1558,52 @@ export class PageProjectRefData extends PageElement {
                 .items=${scopes}
                 item-label-path="label"
                 item-value-path="value"
-                .value=${backend.EnvironmentId == null ? 'default' : String(backend.EnvironmentId)}
+                .value=${live(
+                  backend.EnvironmentId == null
+                    ? 'default'
+                    : String(backend.EnvironmentId)
+                )}
                 .disabled=${!this.editable}
+                @value-changed=${(event: CustomEvent<{ value: string }>) => {
+                  const current =
+                    backend.EnvironmentId == null
+                      ? 'default'
+                      : String(backend.EnvironmentId);
+                  const value =
+                    event.detail?.value ??
+                    (event.currentTarget as HTMLInputElement).value;
+                  if (
+                    value !== current &&
+                    scopes.some(scope => scope.value === value)
+                  ) {
+                    this.setBackends(
+                      backends.map((item, row) =>
+                        row === index
+                          ? {
+                              ...item,
+                              EnvironmentId:
+                                value === 'default' ? null : Number(value)
+                            }
+                          : item
+                      )
+                    );
+                  }
+                }}
+                @input=${(event: Event) => {
+                  const value = (event.currentTarget as HTMLInputElement).value;
+                  if (scopes.some(scope => scope.value === value))
+                    this.setBackends(
+                      backends.map((item, row) =>
+                        row === index
+                          ? {
+                              ...item,
+                              EnvironmentId:
+                                value === 'default' ? null : Number(value)
+                            }
+                          : item
+                      )
+                    );
+                }}
                 @change=${(event: Event) => {
                   const value = (event.currentTarget as HTMLInputElement).value;
                   if (scopes.some(scope => scope.value === value))
@@ -2000,9 +2087,11 @@ export class PageProjectRefData extends PageElement {
           <h1>${project?.ProjectName ?? 'Project'} reference data</h1>
           <span class="dorc-sha-meta">
             <span>Revision:</span>
-            ${this.document?.Revision
-              ? renderShaBadge(this.document.Revision)
-              : html`<span>Not loaded</span>`}
+            ${
+              this.document?.Revision
+                ? renderShaBadge(this.document.Revision)
+                : html`<span>Not loaded</span>`
+            }
           </span>
         </div>
         <div class="actions">
@@ -2184,7 +2273,8 @@ export class PageProjectRefData extends PageElement {
                       selected.ComponentId && !this.dirty
                         ? html`
                             ${
-                              this.document?.CanDeploy
+                              this.document?.CanDeploy &&
+                              selected.IsEnabled !== false
                                 ? html`<a
                                     href="/deploy?projectId=${this.projectId}&amp;componentId=${selected.ComponentId}"
                                     >Deploy this component</a

@@ -60,6 +60,33 @@ export class PageDeploy extends PageElement {
         height: 100%;
       }
 
+      .deploy-selector-row {
+        display: flex;
+        align-items: center;
+        gap: 24px;
+        flex-wrap: wrap;
+        padding-left: var(--lumo-space-s);
+      }
+
+      .deploy-selector-controls {
+        display: flex;
+        flex-direction: column;
+        gap: var(--lumo-space-xs);
+        flex: 1 1 360px;
+        max-width: 600px;
+      }
+
+      .cover {
+        height: 180px;
+        width: auto;
+        object-fit: contain;
+        flex-shrink: 0;
+      }
+
+      .cover[hidden] {
+        display: none;
+      }
+
       .small-loader {
         border: 2px solid #f3f3f3; /* Light grey */
         border-top: 2px solid #3498db; /* Blue */
@@ -123,50 +150,59 @@ export class PageDeploy extends PageElement {
     return html`
       <div class="scroller">
         ${this.selectionError ? html`<p role="alert">${this.selectionError}</p>` : ''}
-        <div
-          style="display: flex; flex-direction: column; gap: var(--lumo-space-xs); width: 100%; max-width: 600px; padding-left: var(--lumo-space-s);"
-        >
+        <div class="deploy-selector-row">
           <div
-            style="display: flex; align-items: center; gap: var(--lumo-space-s);"
+            class="deploy-selector-controls"
+            style="display: flex; flex-direction: column; gap: var(--lumo-space-xs); flex: 1 1 360px; max-width: 600px; margin-left: 10px;"
           >
-            <vaadin-combo-box
-              style="flex: 1;"
-              @change="${this._projectValueChanged}"
-              .items="${this.projects}"
-              .selectedItem="${this.project}"
-              ${comboBoxRenderer(this._projectsRenderer, [])}
-              placeholder="Select Project"
-              label="Project"
-              item-label-path="ProjectName"
-              item-value-path="ProjectId"
-              clear-button-visible
-            ></vaadin-combo-box>
-            ${
-              this.projectsLoading
-                ? html` <div class="small-loader"></div> `
-                : html``
-            }
+            <div
+              style="display: flex; align-items: center; gap: var(--lumo-space-s);"
+            >
+              <vaadin-combo-box
+                style="flex: 1;"
+                @change="${this._projectValueChanged}"
+                .items="${this.projects}"
+                .selectedItem="${this.project}"
+                ${comboBoxRenderer(this._projectsRenderer, [])}
+                placeholder="Select Project"
+                label="Project"
+                item-label-path="ProjectName"
+                item-value-path="ProjectId"
+                clear-button-visible
+              ></vaadin-combo-box>
+              ${
+                this.projectsLoading
+                  ? html` <div class="small-loader"></div> `
+                  : html``
+              }
+            </div>
+            <div
+              style="display: flex; align-items: center; gap: var(--lumo-space-s);"
+            >
+              <vaadin-combo-box
+                id="environments"
+                style="flex: 1;"
+                @value-changed="${this._environmentValueChanged}"
+                .items="${this.environments}"
+                placeholder="Select Environment"
+                label="Environment"
+                clear-button-visible
+                item-label-path="EnvironmentName"
+                item-value-path="EnvironmentId"
+              ></vaadin-combo-box>
+              ${
+                this.envsLoading
+                  ? html` <div class="small-loader"></div> `
+                  : html``
+              }
+            </div>
           </div>
-          <div
-            style="display: flex; align-items: center; gap: var(--lumo-space-s);"
-          >
-            <vaadin-combo-box
-              id="environments"
-              style="flex: 1;"
-              @value-changed="${this._environmentValueChanged}"
-              .items="${this.environments}"
-              placeholder="Select Environment"
-              label="Environment"
-              clear-button-visible
-              item-label-path="EnvironmentName"
-              item-value-path="EnvironmentId"
-            ></vaadin-combo-box>
-            ${
-              this.envsLoading
-                ? html` <div class="small-loader"></div> `
-                : html``
-            }
-          </div>
+          <img
+            class="cover"
+            src="/modern-dorc-deploy.webp"
+            alt="Wait to Deploy"
+            ?hidden="${Boolean(this.selectedEnvironmentName)}"
+          />
         </div>
         <deploy-env
           id="deployEnv"
@@ -174,21 +210,6 @@ export class PageDeploy extends PageElement {
           .project="${this.project}"
           .envName="${this.selectedEnvironmentName}"
         ></deploy-env>
-        ${
-          !this.selectedEnvironmentName
-            ? html`
-                <div
-                  style="display: flex; flex-direction: column; align-items: center; max-width: 600px; padding: var(--lumo-space-m); opacity: 0.9;"
-                >
-                  <img
-                    src="/modern-dorc-deploy.webp"
-                    alt="Select a project and environment to deploy"
-                    style="height: 200px; width: auto;"
-                  />
-                </div>
-              `
-            : html``
-        }
         <div></div>
       </div>
     `;

@@ -88,6 +88,29 @@ export class DorcNavbar extends LitElement {
         padding-bottom: 0px;
       }
 
+      vaadin-tab[data-section-label] {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      vaadin-tab[data-section-label]::before {
+        content: attr(data-section-label);
+        display: block;
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(
+          --dorc-text-secondary-strong,
+          var(--lumo-secondary-text-color)
+        );
+        opacity: 0.75;
+        padding: 6px 0 2px;
+        pointer-events: none;
+        user-select: none;
+        line-height: 1.2;
+      }
+
       vaadin-tab.nav-section-start {
         margin-top: var(--lumo-space-xs);
         border-top: 1px solid var(--dorc-border-color);
@@ -244,7 +267,7 @@ export class DorcNavbar extends LitElement {
         id="tabs"
         style="flex: 1; min-height: 0;"
       >
-        <vaadin-tab>
+        <vaadin-tab data-section-label="Workspaces & Deployments">
           <a href="${urlForName('deploy')}" @click="${this.openDeploy}">
             <vaadin-icon
               icon="vaadin:expand-square"
@@ -281,6 +304,20 @@ export class DorcNavbar extends LitElement {
           project =>
             html`<vaadin-tab
               ><project-envs-tab .project="${project}"></project-envs-tab
+            ></vaadin-tab>`
+        )}
+        <vaadin-tab>
+          <a href="${urlForName('environments')}">
+            <vaadin-icon icon="vaadin:cubes" theme="small"></vaadin-icon>
+            Environments
+          </a>
+        </vaadin-tab>
+        ${repeat(
+          this.shortcuts.environments,
+          envKey,
+          env =>
+            html`<vaadin-tab
+              ><env-detail-tab .env="${env}"></env-detail-tab
             ></vaadin-tab>`
         )}
         <vaadin-tab>
@@ -321,21 +358,10 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
 
-        <vaadin-tab class="nav-section-start">
-          <a href="${urlForName('environments')}">
-            <vaadin-icon icon="vaadin:cubes" theme="small"></vaadin-icon>
-            Environments
-          </a>
-        </vaadin-tab>
-        ${repeat(
-          this.shortcuts.environments,
-          envKey,
-          env =>
-            html`<vaadin-tab
-              ><env-detail-tab .env="${env}"></env-detail-tab
-            ></vaadin-tab>`
-        )}
-        <vaadin-tab>
+        <vaadin-tab
+          class="nav-section-start"
+          data-section-label="Infrastructure"
+        >
           <a href="${urlForName('servers')}">
             <vaadin-icon icon="vaadin:server" theme="small"></vaadin-icon>
             Servers
@@ -370,7 +396,10 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
 
-        <vaadin-tab class="nav-section-start">
+        <vaadin-tab
+          class="nav-section-start"
+          data-section-label="Administration"
+        >
           <a href="${urlForName('users')}">
             <vaadin-icon icon="vaadin:users" theme="small"></vaadin-icon>
             Users
@@ -723,7 +752,9 @@ export class DorcNavbar extends LitElement {
   }
 
   private getIndexOfPath(tabs: Tabs, path: string) {
-    const tabsArray = [].slice.call(tabs.children) as Tab[];
+    const tabsArray = Array.from(tabs.children).filter(
+      (child): child is Tab => child.tagName.toLowerCase() === 'vaadin-tab'
+    );
     const cleanPath = path.split(/[?#]/)[0];
 
     let i;

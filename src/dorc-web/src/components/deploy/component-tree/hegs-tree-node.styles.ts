@@ -67,9 +67,40 @@ export const addHegsTreeNodeStyles = css`
     color: var(--dorc-text-secondary);
     font-family: var(--lumo-font-family);
     font-size: var(--lumo-font-size-m);
+    cursor: pointer;
   }
-  input[type='checkbox']:hover {
+  input[type='checkbox']:hover:not(:disabled) {
     box-shadow: 0px 0px 10px var(--dorc-text-secondary);
+  }
+  .node-row.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  input[type='checkbox']:disabled {
+    cursor: not-allowed;
+  }
+  input[type='checkbox']:disabled + label,
+  label.disabled-label {
+    cursor: not-allowed;
+  }
+  label.disabled-label .component-name {
+    text-decoration: line-through;
+    color: var(--dorc-text-secondary);
+  }
+  .badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    vertical-align: middle;
+  }
+  .badge-off {
+    background: var(--dorc-bg-secondary, rgba(128, 128, 128, 0.2));
+    border: 1px solid var(--dorc-border-color, rgba(128, 128, 128, 0.35));
+    color: var(--dorc-text-secondary-strong, var(--dorc-text-secondary));
   }
   ul {
     margin: 0;

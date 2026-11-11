@@ -226,8 +226,8 @@ namespace Dorc.Core.Tests
         {
             _projectsPds.GetComponentsForProject(1).Returns(new List<ComponentApiModel>
             {
-                new() { ComponentId = 10, ComponentName = "CompA", ParentId = 0, ScriptPath = "s.ps1", Children = new List<ComponentApiModel>() },
-                new() { ComponentId = 20, ComponentName = "CompB", ParentId = 0, ScriptPath = "s2.ps1", Children = new List<ComponentApiModel>() }
+                new() { ComponentId = 10, ComponentName = "CompA", ParentId = 0, ScriptPath = "s.ps1", IsEnabled = true, Children = new List<ComponentApiModel>() },
+                new() { ComponentId = 20, ComponentName = "CompB", ParentId = 0, ScriptPath = "s2.ps1", IsEnabled = false, Children = new List<ComponentApiModel>() }
             });
 
             var sut = CreateSut();
@@ -235,7 +235,29 @@ namespace Dorc.Core.Tests
 
             Assert.AreEqual(2, result.Count);
             Assert.AreEqual("CompA", result[0].Name);
+            Assert.IsTrue(result[0].IsEnabled);
             Assert.AreEqual("CompB", result[1].Name);
+            Assert.IsFalse(result[1].IsEnabled);
+        }
+
+        [TestMethod]
+        public void GetComponents_WithParentId_PreservesIsEnabled()
+        {
+            _projectsPds.GetComponentsForProject(1).Returns(new List<ComponentApiModel>
+            {
+                new() { ComponentId = 10, ComponentName = "Parent", ParentId = 0, IsEnabled = true, Children = new List<ComponentApiModel>() },
+                new() { ComponentId = 11, ComponentName = "EnabledChild", ParentId = 10, IsEnabled = true, Children = new List<ComponentApiModel>() },
+                new() { ComponentId = 12, ComponentName = "DisabledChild", ParentId = 10, IsEnabled = false, Children = new List<ComponentApiModel>() }
+            });
+
+            var sut = CreateSut();
+            var result = sut.GetComponents(1, 10).ToList();
+
+            Assert.AreEqual(2, result.Count);
+            Assert.AreEqual("DisabledChild", result[0].Name);
+            Assert.IsFalse(result[0].IsEnabled);
+            Assert.AreEqual("EnabledChild", result[1].Name);
+            Assert.IsTrue(result[1].IsEnabled);
         }
 
         // --- GetBundleComponentsAsync ---

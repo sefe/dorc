@@ -95,13 +95,16 @@ export class HegsTree extends LitElement {
       '[id=hegs-tree-node]'
     ) as NodeListOf<HegsTreeNode>;
     treeRoot?.forEach(rootElem => {
-      if (rootElem.checked) {
+      if (rootElem.data?.disabled) {
+        return;
+      }
+      if (rootElem.checked && !rootElem.hasDisabledDescendants()) {
         output.push(rootElem);
         console.log(`Adding component to deploy ${rootElem.data.name}`);
-      } else if (rootElem.indeterminate) {
+      } else if (rootElem.checked || rootElem.indeterminate) {
         const descendants = rootElem.getCheckedComponents(); // this will be a flat list
         descendants.forEach(descendant => {
-          if (descendant.checked) {
+          if (descendant.checked && !descendant.data?.disabled) {
             output.push(descendant);
             console.log(`Adding component to deploy ${descendant.data.name}`);
           }

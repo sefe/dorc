@@ -85,12 +85,73 @@ export class HegsTreeNode extends LitElement {
     super.updated(changed);
     if (changed.has('data')) {
       this.open = this.data.open;
-      this.checked = this.data.checked;
-      this.indeterminate = this.data.indeterminate;
+      this.checked = Boolean(this.data.checked && !this.isCheckboxDisabled());
+      this.indeterminate = Boolean(
+        this.data.indeterminate && !this.isCheckboxDisabled()
+      );
     }
   }
 
+  public hasDisabledDescendants(
+    node: TreeNode | undefined = this.data
+  ): boolean {
+    if (!node?.children || node.children.length === 0) {
+      return false;
+    }
+    return node.children.some(
+      child => Boolean(child.disabled) || this.hasDisabledDescendants(child)
+    );
+  }
+
+  public hasEnabledDescendants(
+    node: TreeNode | undefined = this.data
+  ): boolean {
+    if (!node?.children || node.children.length === 0) {
+      return false;
+    }
+    return node.children.some(child => {
+      if (child.disabled) {
+        return false;
+      }
+      if (child.children && child.children.length > 0) {
+        return this.hasEnabledDescendants(child);
+      }
+      return true;
+    });
+  }
+
+  public isCheckboxDisabled(): boolean {
+    if (this.data?.disabled) {
+      return true;
+    }
+    if (this.data?.children && this.data.children.length > 0) {
+      return !this.hasEnabledDescendants(this.data);
+    }
+    return false;
+  }
+
+  private areAllEnabledDescendantsChecked(
+    node: TreeNode | undefined = this.data
+  ): boolean {
+    if (!node?.children || node.children.length === 0) {
+      return Boolean(node?.checked && !node?.disabled);
+    }
+    let sawEnabledLeaf = false;
+    const check = (current: TreeNode): boolean => {
+      if (current.disabled) {
+        return true;
+      }
+      if (current.children && current.children.length > 0) {
+        return current.children.every(child => check(child));
+      }
+      sawEnabledLeaf = true;
+      return Boolean(current.checked);
+    };
+    return check(node) && sawEnabledLeaf;
+  }
+
   ResetCheckedStates() {
+    this.updateNodeChildrenDataChecked(this.data, false);
     const elems = this.shadowRoot?.querySelectorAll('[id=hegs-tree-node]');
     elems?.forEach(elem => {
       const node = elem as HegsTreeNode;
@@ -112,19 +173,43 @@ export class HegsTreeNode extends LitElement {
     const elems = this.shadowRoot?.querySelectorAll(
       '[id=hegs-tree-node]'
     ) as NodeListOf<HegsTreeNode>;
-    elems?.forEach(elem => {
-      if (elem.checked) {
-        output.push(elem);
-      } else if (elem.indeterminate) {
-        const value = elem.getCheckedComponents();
-        value.forEach(checked => {
-          if (checked.checked) {
-            output.push(checked);
-          }
-        });
-      }
-    });
+    if (elems && elems.length > 0) {
+      elems.forEach(elem => {
+        if (elem.data?.disabled) {
+          return;
+        }
+        if (elem.checked && !elem.hasDisabledDescendants()) {
+          output.push(elem);
+        } else if (elem.checked || elem.indeterminate) {
+          const value = elem.getCheckedComponents();
+          value.forEach(checked => {
+            if (checked.checked && !checked.data?.disabled) {
+              output.push(checked);
+            }
+          });
+        }
+      });
+      return output;
+    }
+
+    this.collectCheckedFromData(this.data?.children ?? [], output);
     return output;
+  }
+
+  private collectCheckedFromData(nodes: TreeNode[], output: HegsTreeNode[]) {
+    for (const child of nodes) {
+      if (child.disabled) {
+        continue;
+      }
+      if (child.checked && !this.hasDisabledDescendants(child)) {
+        const node = new HegsTreeNode();
+        node.data = child;
+        node.checked = true;
+        output.push(node);
+      } else if (child.checked || child.indeterminate) {
+        this.collectCheckedFromData(child.children ?? [], output);
+      }
+    }
   }
 
   /**
@@ -162,16 +247,34 @@ export class HegsTreeNode extends LitElement {
     );
   }
 
-  selectComponentForDeployment() {
+  selectComponentForDeployment(e?: Event) {
+    if (this.isCheckboxDisabled()) {
+      e?.preventDefault();
+      this.setIndeterminateState(false);
+      this.setCheckedState(false);
+      return;
+    }
+
     const label = this.deploymentInput?.nextElementSibling as HTMLLabelElement;
+    const hasChildren = Boolean(
+      this.data?.children && this.data.children.length > 0
+    );
+    const targetChecked = hasChildren
+      ? !this.areAllEnabledDescendantsChecked(this.data)
+      : (this.deploymentInput?.checked ?? !this.checked);
+
+    if (this.deploymentInput) {
+      this.deploymentInput.checked = targetChecked;
+    }
 
     const myEvent = new CustomEvent('tree-node-changed', {
       detail: {
         message: 'tree-node-changed fired',
-        changed: label.textContent,
-        to: this.deploymentInput?.checked
+        changed: this.data?.name ?? label?.textContent,
+        changedId: this.data?.id,
+        to: targetChecked
       },
-      bubbles: false,
+      bubbles: true,
       composed: true
     });
     this.dispatchEvent(myEvent);
@@ -240,110 +343,150 @@ export class HegsTreeNode extends LitElement {
   }
 
   public getChecked(): boolean {
-    return this.deploymentInput?.checked ?? false;
+    if (this.isCheckboxDisabled()) {
+      return false;
+    }
+    return this.deploymentInput?.checked ?? this._checked;
   }
 
   public getIndeterminate(): boolean {
-    return this.deploymentInput?.indeterminate ?? false;
+    if (this.isCheckboxDisabled()) {
+      return false;
+    }
+    return this.deploymentInput?.indeterminate ?? this._indeterminate;
   }
 
   public setCheckedState(value: boolean) {
+    const nextValue = this.isCheckboxDisabled() ? false : value;
     if (this.deploymentInput) {
-      this.deploymentInput.checked = value;
-      this._checked = value;
-      this.data.checked = value;
+      this.deploymentInput.checked = nextValue;
+    }
+    this._checked = nextValue;
+    if (this.data) {
+      this.data.checked = nextValue;
+    }
+    if (this.isCheckboxDisabled()) {
+      this.setIndeterminateState(false);
     }
   }
 
   public setIndeterminateState(value: boolean) {
+    const nextValue = this.isCheckboxDisabled() ? false : value;
     if (this.deploymentInput) {
-      this.deploymentInput.indeterminate = value;
-      this._indeterminate = value;
-      this.data.indeterminate = value;
+      this.deploymentInput.indeterminate = nextValue;
+    }
+    this._indeterminate = nextValue;
+    if (this.data) {
+      this.data.indeterminate = nextValue;
+    }
+  }
+
+  public syncStateFromData() {
+    if (this.isCheckboxDisabled()) {
+      this.setIndeterminateState(false);
+      this.setCheckedState(false);
+      return;
+    }
+    if (this.data?.children && this.data.children.length > 0) {
+      const allChildrenChecked = this.data.children.every(
+        child => !child.disabled && child.checked && !child.indeterminate
+      );
+      const someChildrenSelected = this.data.children.some(
+        child => !child.disabled && (child.checked || child.indeterminate)
+      );
+      this.setIndeterminateState(!allChildrenChecked && someChildrenSelected);
+      this.setCheckedState(allChildrenChecked);
+    } else {
+      this.setIndeterminateState(Boolean(this.data?.indeterminate));
+      this.setCheckedState(Boolean(this.data?.checked));
     }
   }
 
   private updateParent(event: CustomEvent) {
-    let allChildrenChecked = false;
-    let someChildrenChecked = false;
-    let noChildrenChecked = false;
-    let allChildrenIndeterminate = false;
-    let someChildrenIndeterminate = false;
-    let noChildrenIndeterminate = false;
-    const elems = this.shadowRoot?.querySelectorAll('[id=hegs-tree-node]');
-    if (elems !== undefined && elems?.length > 0) {
-      allChildrenChecked = true;
-      allChildrenIndeterminate = true;
-      elems?.forEach(elem => {
-        const node = elem as HegsTreeNode;
-        const checked = node.getChecked();
-        const indeterminate = node.getIndeterminate();
+    const isSelf =
+      event.detail?.changedId !== undefined &&
+      this.data?.id !== undefined &&
+      this.data.id !== -1
+        ? event.detail.changedId === this.data.id
+        : event.detail?.changed === this.data?.name;
 
-        allChildrenChecked = allChildrenChecked && checked;
-        someChildrenChecked = someChildrenChecked || checked;
-
-        allChildrenIndeterminate = allChildrenIndeterminate && indeterminate;
-        someChildrenIndeterminate = someChildrenIndeterminate || indeterminate;
-      });
-      noChildrenChecked = !allChildrenChecked;
-      noChildrenIndeterminate = !allChildrenIndeterminate;
+    if (isSelf) {
+      this.updateChildren(Boolean(event.detail?.to));
+      if (this.data?.children && this.data.children.length > 0) {
+        this.syncStateFromData();
+      } else {
+        this.setIndeterminateState(false);
+        this.setCheckedState(Boolean(event.detail?.to));
+      }
+      return;
     }
 
-    if (this.deploymentInput) {
-      this.data.checked = event.detail.to;
-      if (event.detail.changed !== this.data.name) {
-        // inside a parent
-        // Need to all of these properties need to be set manually as the events bubble up
-        // and if we use the bound properties then we get downward propagation also
-        if (allChildrenChecked) {
-          this.deploymentInput.indeterminate = false;
-          this.data.indeterminate = false;
-          this._indeterminate = false;
+    const elems = this.shadowRoot?.querySelectorAll('[id=hegs-tree-node]');
+    if (elems !== undefined && elems.length > 0) {
+      let allChildrenChecked = true;
+      let someChildrenSelected = false;
+      elems.forEach(elem => {
+        const node = elem as HegsTreeNode;
+        const checked = !node.isCheckboxDisabled() && node.getChecked();
+        const indeterminate =
+          !node.isCheckboxDisabled() && node.getIndeterminate();
 
-          this.deploymentInput.checked = true;
-          this._checked = true;
-        } else if (someChildrenChecked || someChildrenIndeterminate) {
-          this.deploymentInput.indeterminate = true;
-          this.data.indeterminate = true;
-          this._indeterminate = true;
-
-          this.deploymentInput.checked = false;
-          this._checked = false;
-        } else if (noChildrenChecked || noChildrenIndeterminate) {
-          this.deploymentInput.indeterminate = false;
-          this.data.indeterminate = false;
-          this._indeterminate = false;
-
-          this.deploymentInput.checked = false;
-          this._checked = false;
-        }
-      } else {
-        this.updateChildren(event.detail.to);
-        this.setIndeterminateState(false);
-        this.setCheckedState(event.detail.to);
-      }
+        allChildrenChecked = allChildrenChecked && checked && !indeterminate;
+        someChildrenSelected = someChildrenSelected || checked || indeterminate;
+      });
+      this.setIndeterminateState(!allChildrenChecked && someChildrenSelected);
+      this.setCheckedState(allChildrenChecked);
+    } else {
+      this.syncStateFromData();
     }
   }
 
   private updateChildren(newState: boolean) {
+    const targetState = this.isCheckboxDisabled() ? false : newState;
     this.data.children.forEach(child =>
-      this.updateNodeChildrenDataChecked(child, newState)
+      this.updateNodeChildrenDataChecked(child, targetState)
     );
     const elems = this.shadowRoot?.querySelectorAll('[id=hegs-tree-node]');
     if (elems !== undefined && elems?.length > 0) {
       elems?.forEach(elem => {
         const node = elem as HegsTreeNode;
-        node.updateChildren(newState);
-        node.setIndeterminateState(false);
-        node.setCheckedState(newState);
+        if (node.isCheckboxDisabled()) {
+          node.updateChildren(false);
+          node.setIndeterminateState(false);
+          node.setCheckedState(false);
+        } else {
+          node.updateChildren(targetState);
+          node.syncStateFromData();
+        }
       });
     }
   }
 
   private updateNodeChildrenDataChecked(node: TreeNode, newState: boolean) {
-    node.checked = newState;
-    node.children.forEach(child =>
-      this.updateNodeChildrenDataChecked(child, newState)
-    );
+    if (node.disabled) {
+      node.checked = false;
+      node.indeterminate = false;
+      node.children?.forEach(child =>
+        this.updateNodeChildrenDataChecked(child, false)
+      );
+      return;
+    }
+
+    if (node.children && node.children.length > 0) {
+      node.children.forEach(child =>
+        this.updateNodeChildrenDataChecked(child, newState)
+      );
+      const allChildrenChecked = node.children.every(
+        child => !child.disabled && child.checked && !child.indeterminate
+      );
+      const someChildrenSelected = node.children.some(
+        child => !child.disabled && (child.checked || child.indeterminate)
+      );
+      node.checked = allChildrenChecked;
+      node.indeterminate = !allChildrenChecked && someChildrenSelected;
+    } else {
+      node.checked = newState;
+      node.indeterminate = false;
+    }
   }
 }
