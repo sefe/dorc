@@ -24,20 +24,20 @@ BEGIN
                 SELECT 1
                 FROM deploy.AccessControl acDeny
                 INNER JOIN STRING_SPLIT(@sidList, ';') denySids ON (denySids.value = acDeny.Sid OR denySids.value = acDeny.Pid)
-                WHERE acDeny.ObjectId = e1.ObjectId AND acDeny.Deny != 0
+                WHERE acDeny.ObjectId = e1.ObjectId AND acDeny.[Deny] != 0
             )) OR EXISTS (
                 SELECT e.Id
                 FROM deploy.environment e
                 INNER JOIN deploy.AccessControl ac ON ac.ObjectId = e.ObjectId
                 INNER JOIN STRING_SPLIT(@sidList, ';') sids ON (sids.value = ac.Sid OR sids.value = ac.Pid)
                 WHERE e.Name = e1.Name
-                  AND (ac.Allow & 4) != 0
-                  AND ac.Deny = 0
+                  AND (ac.[Allow] & 4) != 0
+                  AND ac.[Deny] = 0
                   AND NOT EXISTS (
                       SELECT 1
                       FROM deploy.AccessControl acDeny
                       INNER JOIN STRING_SPLIT(@sidList, ';') denySids ON (denySids.value = acDeny.Sid OR denySids.value = acDeny.Pid)
-                      WHERE acDeny.ObjectId = e.ObjectId AND acDeny.Deny != 0
+                      WHERE acDeny.ObjectId = e.ObjectId AND acDeny.[Deny] != 0
                   )
             ) THEN 1
             ELSE 0
@@ -51,13 +51,13 @@ BEGIN
                 INNER JOIN deploy.AccessControl ac ON ac.ObjectId = e.ObjectId
                 INNER JOIN STRING_SPLIT(@sidList, ';') sids ON (sids.value = ac.Sid OR sids.value = ac.Pid)
                 WHERE e.Name = e1.Name
-                  AND ((ac.Allow & 1) != 0 OR (ac.Allow & 4) != 0)
-                  AND ac.Deny = 0
+                  AND ((ac.[Allow] & 1) != 0 OR (ac.[Allow] & 4) != 0)
+                  AND ac.[Deny] = 0
                   AND NOT EXISTS (
                       SELECT 1
                       FROM deploy.AccessControl acDeny
                       INNER JOIN STRING_SPLIT(@sidList, ';') denySids ON (denySids.value = acDeny.Sid OR denySids.value = acDeny.Pid)
-                      WHERE acDeny.ObjectId = e.ObjectId AND acDeny.Deny != 0
+                      WHERE acDeny.ObjectId = e.ObjectId AND acDeny.[Deny] != 0
                   )
             ) THEN 1
             ELSE 0

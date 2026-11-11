@@ -21,20 +21,20 @@ BEGIN
 
 	SELECT e.Id,  
 		e.Name COLLATE DATABASE_DEFAULT AS Name,  
-		CASE WHEN (ac.Allow & @ACL_OWNER) != 0 THEN 1 ELSE 0 END AS IsOwner  
+		CASE WHEN (ac.[Allow] & @ACL_OWNER) != 0 THEN 1 ELSE 0 END AS IsOwner  
 	INTO #PermittedEnvs  
 	FROM deploy.environment e  
 		INNER JOIN deploy.AccessControl ac ON ac.ObjectId = e.ObjectId  
 		INNER JOIN #TempSids sids ON (sids.value = ac.Sid COLLATE DATABASE_DEFAULT  
 									OR sids.value = ac.Pid COLLATE DATABASE_DEFAULT)  
-	WHERE ((ac.Allow & @ACL_WRITE) != 0 OR (ac.Allow & @ACL_OWNER) != 0)
-	  AND ac.Deny = 0
+	WHERE ((ac.[Allow] & @ACL_WRITE) != 0 OR (ac.[Allow] & @ACL_OWNER) != 0)
+	  AND ac.[Deny] = 0
 	  AND NOT EXISTS (
 		  SELECT 1
 		  FROM deploy.AccessControl acDeny
 		  INNER JOIN #TempSids denySids ON (denySids.value = acDeny.Sid COLLATE DATABASE_DEFAULT
 		                                 OR denySids.value = acDeny.Pid COLLATE DATABASE_DEFAULT)
-		  WHERE acDeny.ObjectId = e.ObjectId AND acDeny.Deny != 0
+		  WHERE acDeny.ObjectId = e.ObjectId AND acDeny.[Deny] != 0
 	  );
 
     -- CTE to traverse the environment hierarchy and calculate distances (only when @env is provided)
@@ -121,7 +121,7 @@ BEGIN
 				     FROM deploy.AccessControl acDeny
 				     INNER JOIN #TempSids denySids ON (denySids.value = acDeny.Sid COLLATE DATABASE_DEFAULT
 				                                    OR denySids.value = acDeny.Pid COLLATE DATABASE_DEFAULT)
-				     WHERE acDeny.ObjectId = e1.ObjectId AND acDeny.Deny != 0
+				     WHERE acDeny.ObjectId = e1.ObjectId AND acDeny.[Deny] != 0
 			     )) OR 
 				 EXISTS (
 					 SELECT 1 FROM #PermittedEnvs pe 
