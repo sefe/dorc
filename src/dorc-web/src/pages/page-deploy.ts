@@ -44,8 +44,21 @@ export class PageDeploy extends PageElement {
   @property({ type: Boolean }) envsLoading = false;
   @property({ type: String }) selectionError = '';
   @property({ type: Boolean }) isAdmin = false;
+  @property({ type: Boolean }) themeSwitcherVisible = false;
 
   @state() private mascotTheme: MascotTheme = getDeployMascotThemeOverride();
+
+  private readonly boundKeyDown = (e: KeyboardEvent) => {
+    if (
+      this.isAdmin &&
+      e.ctrlKey &&
+      e.shiftKey &&
+      e.key.toLowerCase() === 'm'
+    ) {
+      e.preventDefault();
+      this.themeSwitcherVisible = !this.themeSwitcherVisible;
+    }
+  };
 
   @property({ type: String }) selectedEnvironmentName = '';
   @property({ type: String }) selectedProjectId =
@@ -183,6 +196,16 @@ export class PageDeploy extends PageElement {
     );
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener('keydown', this.boundKeyDown);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener('keydown', this.boundKeyDown);
+    super.disconnectedCallback();
+  }
+
   private loadUserRoles() {
     const gc = GlobalCache.getInstance();
     if (gc.userRoles === undefined) {
@@ -278,7 +301,7 @@ export class PageDeploy extends PageElement {
             alt="Wait to Deploy"
           />
           ${
-            this.isAdmin
+            this.isAdmin && this.themeSwitcherVisible
               ? html`
                   <div
                     class="mascot-theme-switcher"

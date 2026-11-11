@@ -81,13 +81,36 @@ describe('PageDeploy responsive layout', () => {
     expect(getComputedStyle(pane!).alignItems).to.equal('center');
   });
 
-  it('shows an in-place mascot theme switcher only for Admin users and switches the image in place', async () => {
+  it('keeps the mascot theme switcher hidden by default and reveals it for Admin users via the Ctrl+Shift+M Easter egg', async () => {
     const el = await fixture<PageDeploy>(html` <page-deploy></page-deploy> `);
     el.isAdmin = false;
+    await el.updateComplete;
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'M',
+        ctrlKey: true,
+        shiftKey: true,
+        bubbles: true
+      })
+    );
     await el.updateComplete;
     expect(el.shadowRoot!.querySelector('.mascot-theme-switcher')).to.be.null;
 
     el.isAdmin = true;
+    await el.updateComplete;
+    expect(
+      el.shadowRoot!.querySelector('.mascot-theme-switcher'),
+      'Switcher should stay hidden for Admins until the Easter egg is triggered'
+    ).to.be.null;
+
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'M',
+        ctrlKey: true,
+        shiftKey: true,
+        bubbles: true
+      })
+    );
     await el.updateComplete;
 
     const switcher = el.shadowRoot!.querySelector('.mascot-theme-switcher');
@@ -113,5 +136,17 @@ describe('PageDeploy responsive layout', () => {
     const autoBtn = buttons.find(b => b.textContent?.trim() === 'Auto');
     autoBtn!.click();
     await el.updateComplete;
+
+    // Pressing Ctrl+Shift+M again hides the switcher
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'm',
+        ctrlKey: true,
+        shiftKey: true,
+        bubbles: true
+      })
+    );
+    await el.updateComplete;
+    expect(el.shadowRoot!.querySelector('.mascot-theme-switcher')).to.be.null;
   });
 });
