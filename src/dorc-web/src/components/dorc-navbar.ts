@@ -88,15 +88,8 @@ export class DorcNavbar extends LitElement {
         padding-bottom: 0px;
       }
 
-      vaadin-tab[data-section-label] {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      vaadin-tab[data-section-label]::before {
-        content: attr(data-section-label);
-        display: block;
-        font-size: 0.65rem;
+      .nav-section-header {
+        font-size: 0.68rem;
         font-weight: 600;
         text-transform: uppercase;
         letter-spacing: 0.06em;
@@ -105,16 +98,17 @@ export class DorcNavbar extends LitElement {
           var(--lumo-secondary-text-color)
         );
         opacity: 0.75;
-        padding: 6px 0 2px;
+        padding: 6px 1rem 4px;
+        line-height: 1.2;
         pointer-events: none;
         user-select: none;
-        line-height: 1.2;
+        flex-shrink: 0;
       }
 
-      vaadin-tab.nav-section-start {
+      .nav-section-header--divided {
         margin-top: var(--lumo-space-xs);
+        padding-top: 10px;
         border-top: 1px solid var(--dorc-border-color);
-        padding-top: 2px;
       }
 
       /* Audit sub-items: was margin-left: 20px; width: 210px, which clipped below
@@ -267,7 +261,10 @@ export class DorcNavbar extends LitElement {
         id="tabs"
         style="flex: 1; min-height: 0;"
       >
-        <vaadin-tab data-section-label="Workspaces &amp; Deployments">
+        <div class="nav-section-header" role="presentation">
+          Workspaces &amp; Deployments
+        </div>
+        <vaadin-tab>
           <a href="${urlForName('deploy')}" @click="${this.openDeploy}">
             <vaadin-icon
               icon="vaadin:expand-square"
@@ -358,10 +355,13 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
 
-        <vaadin-tab
-          class="nav-section-start"
-          data-section-label="Infrastructure"
+        <div
+          class="nav-section-header nav-section-header--divided"
+          role="presentation"
         >
+          Infrastructure
+        </div>
+        <vaadin-tab>
           <a href="${urlForName('servers')}">
             <vaadin-icon icon="vaadin:server" theme="small"></vaadin-icon>
             Servers
@@ -396,10 +396,13 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
 
-        <vaadin-tab
-          class="nav-section-start"
-          data-section-label="Administration"
+        <div
+          class="nav-section-header nav-section-header--divided"
+          role="presentation"
         >
+          Administration
+        </div>
+        <vaadin-tab>
           <a href="${urlForName('users')}">
             <vaadin-icon icon="vaadin:users" theme="small"></vaadin-icon>
             Users

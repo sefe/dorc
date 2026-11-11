@@ -179,6 +179,23 @@ describe('Drawer shortcut highlighting across environment sub-tabs', () => {
       .to.exist;
     expect(scriptsItem, 'Scripts should be indented under Definitions').to
       .exist;
+
+    const sectionHeaders = Array.from(
+      tabs!.querySelectorAll('.nav-section-header')
+    );
+    expect(sectionHeaders.map(h => h.textContent?.trim())).to.deep.equal([
+      'Workspaces & Deployments',
+      'Infrastructure',
+      'Administration'
+    ]);
+
+    const firstHeaderRect = sectionHeaders[0].getBoundingClientRect();
+    const deployTab = tabs!.querySelector('vaadin-tab')!;
+    const deployTabRect = deployTab.getBoundingClientRect();
+    expect(
+      firstHeaderRect.bottom,
+      'Section header must sit above Deploy tab without overlapping'
+    ).to.be.at.most(deployTabRect.top + 1);
   });
 
   it('auto-expands the Audit menu when navigating directly to an audit route', async () => {

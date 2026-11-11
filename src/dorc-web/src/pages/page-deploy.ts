@@ -56,35 +56,42 @@ export class PageDeploy extends PageElement {
       }
 
       .scroller {
+        position: relative;
         overflow-y: auto;
         height: 100%;
-      }
-
-      .deploy-selector-row {
-        display: flex;
-        align-items: center;
-        gap: 24px;
-        flex-wrap: wrap;
-        padding-left: var(--lumo-space-s);
       }
 
       .deploy-selector-controls {
         display: flex;
         flex-direction: column;
         gap: var(--lumo-space-xs);
-        flex: 1 1 360px;
         max-width: 600px;
+        margin-left: 10px;
+      }
+
+      .deploy-mascot-pane {
+        position: absolute;
+        top: 0;
+        left: 620px;
+        right: 0;
+        height: 360px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none;
       }
 
       .cover {
-        height: 180px;
+        height: 220px;
         width: auto;
         object-fit: contain;
         flex-shrink: 0;
       }
 
-      .cover[hidden] {
-        display: none;
+      @media (max-width: 900px) {
+        .deploy-mascot-pane {
+          display: none;
+        }
       }
 
       .small-loader {
@@ -150,58 +157,57 @@ export class PageDeploy extends PageElement {
     return html`
       <div class="scroller">
         ${this.selectionError ? html`<p role="alert">${this.selectionError}</p>` : ''}
-        <div class="deploy-selector-row">
+        <div
+          class="deploy-selector-controls"
+          style="display: flex; flex-direction: column; gap: var(--lumo-space-xs); max-width: 600px; margin-left: 10px;"
+        >
           <div
-            class="deploy-selector-controls"
-            style="display: flex; flex-direction: column; gap: var(--lumo-space-xs); flex: 1 1 360px; max-width: 600px; margin-left: 10px;"
+            style="display: flex; align-items: center; gap: var(--lumo-space-s);"
           >
-            <div
-              style="display: flex; align-items: center; gap: var(--lumo-space-s);"
-            >
-              <vaadin-combo-box
-                style="flex: 1;"
-                @change="${this._projectValueChanged}"
-                .items="${this.projects}"
-                .selectedItem="${this.project}"
-                ${comboBoxRenderer(this._projectsRenderer, [])}
-                placeholder="Select Project"
-                label="Project"
-                item-label-path="ProjectName"
-                item-value-path="ProjectId"
-                clear-button-visible
-              ></vaadin-combo-box>
-              ${
-                this.projectsLoading
-                  ? html` <div class="small-loader"></div> `
-                  : html``
-              }
-            </div>
-            <div
-              style="display: flex; align-items: center; gap: var(--lumo-space-s);"
-            >
-              <vaadin-combo-box
-                id="environments"
-                style="flex: 1;"
-                @value-changed="${this._environmentValueChanged}"
-                .items="${this.environments}"
-                placeholder="Select Environment"
-                label="Environment"
-                clear-button-visible
-                item-label-path="EnvironmentName"
-                item-value-path="EnvironmentId"
-              ></vaadin-combo-box>
-              ${
-                this.envsLoading
-                  ? html` <div class="small-loader"></div> `
-                  : html``
-              }
-            </div>
+            <vaadin-combo-box
+              style="flex: 1;"
+              @change="${this._projectValueChanged}"
+              .items="${this.projects}"
+              .selectedItem="${this.project}"
+              ${comboBoxRenderer(this._projectsRenderer, [])}
+              placeholder="Select Project"
+              label="Project"
+              item-label-path="ProjectName"
+              item-value-path="ProjectId"
+              clear-button-visible
+            ></vaadin-combo-box>
+            ${
+              this.projectsLoading
+                ? html` <div class="small-loader"></div> `
+                : html``
+            }
           </div>
+          <div
+            style="display: flex; align-items: center; gap: var(--lumo-space-s);"
+          >
+            <vaadin-combo-box
+              id="environments"
+              style="flex: 1;"
+              @value-changed="${this._environmentValueChanged}"
+              .items="${this.environments}"
+              placeholder="Select Environment"
+              label="Environment"
+              clear-button-visible
+              item-label-path="EnvironmentName"
+              item-value-path="EnvironmentId"
+            ></vaadin-combo-box>
+            ${
+              this.envsLoading
+                ? html` <div class="small-loader"></div> `
+                : html``
+            }
+          </div>
+        </div>
+        <div class="deploy-mascot-pane">
           <img
             class="cover"
             src="/modern-dorc-deploy.webp"
             alt="Wait to Deploy"
-            ?hidden="${Boolean(this.selectedEnvironmentName)}"
           />
         </div>
         <deploy-env
