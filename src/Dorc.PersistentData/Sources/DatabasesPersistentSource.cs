@@ -133,11 +133,12 @@ namespace Dorc.PersistentData.Sources
                 // in memory would compare Ordinal, and this overload would then
                 // disagree with the DatabaseTagMatch-based one on whether 'endur'
                 // finds a database tagged 'Endur'.
-                var dbDetails = context.Databases
+                var matches = context.Databases
                     .Include(d => d.TagLinks)
                     .Where(d => d.Environments.Any(e => e.Name == envName))
                     .Where(DatabaseTagMatch.HasTag(tag))
-                    .SingleOrDefault();
+                    .ToList();
+                var dbDetails = RequireAtMostOneDatabaseByTag(matches, envName, tag);
                 return dbDetails != null ? MapToDatabaseApiModel(dbDetails) : null;
             }
         }
@@ -196,14 +197,31 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var endurDb = context.Databases
+                var matches = context.Databases
                     .Include(d => d.Environments)
                     .Include(d => d.TagLinks)
                     .Include(d => d.Group)
                     .Where(DatabaseTagMatch.HasTag(tag))
-                    .SingleOrDefault(d => d.Environments.FirstOrDefault().Name == environment.EnvironmentName);
+                    .Where(d => d.Environments.Any(e => e.Name == environment.EnvironmentName))
+                    .ToList();
+                var endurDb = RequireAtMostOneDatabaseByTag(matches, environment.EnvironmentName, tag);
                 return endurDb != null ? MapToDatabaseApiModel(endurDb) : null;
             }
+        }
+
+        private static Database? RequireAtMostOneDatabaseByTag(IReadOnlyList<Database> matches, string envName, string tag)
+        {
+            if (matches.Count == 0)
+                return null;
+            if (matches.Count == 1)
+                return matches[0];
+
+            var conflicting = string.Join(", ", matches.Select(d =>
+                string.IsNullOrWhiteSpace(d.ServerName)
+                    ? $"'{d.Name}'"
+                    : $"'{d.Name}' on '{d.ServerName}'"));
+            throw new InvalidOperationException(
+                $"Environment '{envName}' has multiple databases tagged '{tag}' ({conflicting}). Ensure at most one database on the environment carries the '{tag}' tag.");
         }
 
         public IEnumerable<DatabaseApiModel> GetDatabasesForEnvId(int environmentId)

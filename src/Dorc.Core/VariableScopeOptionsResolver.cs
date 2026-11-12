@@ -109,8 +109,11 @@ namespace Dorc.Core
             variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentShortName, environmentShortName);
 
             var databaseApiModels = databasesForEnvId as DatabaseApiModel[] ?? databasesForEnvId.ToArray();
-            var reportingDatabase =
-                databaseApiModels.SingleOrDefault(d => TagString.HasTag(d.Tags, "Endur Reporting"));
+            var reportingDatabase = GetSingleDatabaseByTag(
+                databaseApiModels,
+                environment.EnvironmentName,
+                "Endur Reporting",
+                "'ReportingDatabaseName', 'ReportingDatabaseServer', and 'SsisPackageServer'");
             if (reportingDatabase != null)
             {
                 variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.ReportingDatabaseName, reportingDatabase.Name);
@@ -118,8 +121,11 @@ namespace Dorc.Core
                 variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.SsisPackageServer, reportingDatabase.ServerName);
             }
 
-            var externalDatabase =
-                databaseApiModels.SingleOrDefault(d => TagString.HasTag(d.Tags, "Endur External"));
+            var externalDatabase = GetSingleDatabaseByTag(
+                databaseApiModels,
+                environment.EnvironmentName,
+                "Endur External",
+                "'ExternalDatabaseName' and 'ExternalDatabaseServer'");
             if (externalDatabase != null)
             {
                 variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.ExternalDatabaseName, externalDatabase.Name);
@@ -244,6 +250,26 @@ namespace Dorc.Core
                 AddPropertiesForNamesByTag(variableResolver, PropertyValueScopeOptionsFixed.ApiRegistrationNames,
                     apiRegistrations.Select(a => (a.Name, (IEnumerable<string>)TagString.Split(a.Tags))));
             }
+        }
+
+        private static DatabaseApiModel? GetSingleDatabaseByTag(
+            IReadOnlyList<DatabaseApiModel> databases,
+            string environmentName,
+            string tag,
+            string resolvedVariablesDescription)
+        {
+            var matches = databases.Where(d => TagString.HasTag(d.Tags, tag)).ToList();
+            if (matches.Count == 0)
+                return null;
+            if (matches.Count == 1)
+                return matches[0];
+
+            var conflicting = string.Join(", ", matches.Select(d =>
+                string.IsNullOrWhiteSpace(d.ServerName)
+                    ? $"'{d.Name}'"
+                    : $"'{d.Name}' on '{d.ServerName}'"));
+            throw new InvalidOperationException(
+                $"Environment '{environmentName}' has multiple databases tagged '{tag}' ({conflicting}), so {resolvedVariablesDescription} cannot be resolved. Ensure at most one database on the environment carries the '{tag}' tag.");
         }
 
         private VariableValueDbPerm GetDbPermission(DatabaseApiModel databaseApiModel)

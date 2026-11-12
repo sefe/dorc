@@ -141,6 +141,31 @@ export class RequestStatusCard extends LitElement {
       .requested-titles {
         width: 100px;
       }
+
+      .request-error-banner {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 8px;
+        padding: 8px 12px;
+        border-radius: 4px;
+        border: 1px solid var(--dorc-error-color);
+        border-left-width: 4px;
+        background: var(--lumo-error-color-10pct, rgba(231, 76, 60, 0.08));
+        color: var(--dorc-text-primary);
+        font-size: var(--lumo-font-size-s);
+        line-height: 1.4;
+      }
+
+      .request-error-banner__message {
+        flex: 1 1 auto;
+        word-break: break-word;
+      }
+
+      .request-error-banner__action {
+        flex-shrink: 0;
+      }
     `;
   }
 
@@ -391,6 +416,25 @@ export class RequestStatusCard extends LitElement {
                 : html``
             }
           </table>
+          ${
+            this.hasRequestLog()
+              ? html`
+                  <div class="request-error-banner" role="alert">
+                    <div class="request-error-banner__message">
+                      <strong>Request Error:</strong>
+                      ${this.getRequestLogSummary()}
+                    </div>
+                    <vaadin-button
+                      class="request-error-banner__action"
+                      theme="small tertiary error"
+                      @click="${this.viewLog}"
+                    >
+                      View Full Log
+                    </vaadin-button>
+                  </div>
+                `
+              : html``
+          }
         </div>
       </div>
     `;
@@ -525,6 +569,27 @@ export class RequestStatusCard extends LitElement {
         composed: true
       })
     );
+  }
+
+  private hasRequestLog(): boolean {
+    const log = this.deployRequest?.Log?.trim();
+    return Boolean(log && log !== '0');
+  }
+
+  private getRequestLogSummary(): string {
+    const rawLog = this.deployRequest?.Log?.trim() ?? '';
+    if (!rawLog) {
+      return '';
+    }
+    const firstLine =
+      rawLog
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .find(line => line.length > 0) ?? rawLog;
+
+    return firstLine
+      .replace(/^Deployment execution failure\.\s*Exception:\s*/i, '')
+      .replace(/^Deployment execution failure:\s*/i, '');
   }
 
   private viewLog() {

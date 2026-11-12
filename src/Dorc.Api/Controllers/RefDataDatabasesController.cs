@@ -107,10 +107,17 @@ namespace Dorc.Api.Controllers
 
             // Trim at the boundary so the EF delimiter pattern and the in-memory
             // tokenizer see the same needle (S-001..S-003 gate F-3).
-            var database = _databasesPersistentSource.GetDatabaseByTag(envName, tag.Trim());
-            if (database == null)
-                return NotFound($"No database tagged '{tag}' found for environment '{envName}'.");
-            return Ok(database);
+            try
+            {
+                var database = _databasesPersistentSource.GetDatabaseByTag(envName, tag.Trim());
+                if (database == null)
+                    return NotFound($"No database tagged '{tag}' found for environment '{envName}'.");
+                return Ok(database);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         /// <summary>

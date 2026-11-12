@@ -371,19 +371,10 @@ namespace Dorc.Monitor.RequestProcessors
                     {
                         var criticalLogBuilder = new StringBuilder();
 
-                        logger.LogError($"Deployment execution failure. Exception: {ex}");
-                        criticalLogBuilder.AppendLine($"Deployment execution failure. Exception: {ex}");
-
-                        var log = new StringBuilder();
-                        while (ex != null)
-                        {
-                            log.AppendLine(ex.GetType().ToString());
-                            log.AppendLine(ex.Message);
-                            log.AppendLine(ex.StackTrace);
-                            ex = ex.InnerException;
-                        }
-                        logger.LogError(log.ToString());
-                        criticalLogBuilder.AppendLine(log.ToString());
+                        logger.LogError(ex, "Deployment execution failure: {ErrorMessage}", ex.Message);
+                        criticalLogBuilder.AppendLine($"Deployment execution failure: {ex.Message}");
+                        criticalLogBuilder.AppendLine();
+                        criticalLogBuilder.AppendLine(ex.ToString());
 
                         CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Errored);
 
@@ -412,8 +403,10 @@ namespace Dorc.Monitor.RequestProcessors
                 {
                     var criticalLogBuilder = new StringBuilder();
 
-                    logger.LogError($"Failed while starting runner: {e}");
-                    criticalLogBuilder.AppendLine($"Failed while starting runner: {e}");
+                    logger.LogError(e, "Failed while starting runner: {ErrorMessage}", e.Message);
+                    criticalLogBuilder.AppendLine($"Failed while starting runner: {e.Message}");
+                    criticalLogBuilder.AppendLine();
+                    criticalLogBuilder.AppendLine(e.ToString());
 
                     CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Errored);
 
