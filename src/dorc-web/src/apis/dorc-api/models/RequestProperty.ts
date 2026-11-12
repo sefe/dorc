@@ -26,4 +26,9 @@ export interface RequestProperty {
      * @memberof RequestProperty
      */
     PropertyValue?: string | null;
+    /**
+     * @type {boolean}
+     * @memberof RequestProperty
+     */
+    IsSensitive?: boolean;
 }

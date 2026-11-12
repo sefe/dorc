@@ -235,20 +235,119 @@ export class PageMonitorRequests
         .id-btn {
           font-size: 14px;
           font-family: monospace;
-          background-color: var(--dorc-chip-bg);
-          color: var(--dorc-chip-text);
-          display: inline-block;
-          padding: 3px;
-          margin: 3px;
+          background: color-mix(
+            in srgb,
+            var(--dorc-link-color, #58a6ff) 10%,
+            transparent
+          );
+          color: var(--dorc-link-color, #58a6ff);
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          height: 24px;
+          padding: 0 8px;
+          margin: 2px 0;
           text-decoration: none;
-          border-radius: 3px;
-          border: 0;
+          border-radius: 5px;
+          border: 1px solid
+            color-mix(in srgb, var(--dorc-link-color, #58a6ff) 28%, transparent);
           cursor: pointer;
+          transition:
+            background-color 0.15s ease,
+            border-color 0.15s ease;
         }
 
         .id-btn:hover {
-          background-color: var(--dorc-badge-bg);
-          color: var(--dorc-badge-text);
+          background: color-mix(
+            in srgb,
+            var(--dorc-link-color, #58a6ff) 18%,
+            transparent
+          );
+          border-color: color-mix(
+            in srgb,
+            var(--dorc-link-color, #58a6ff) 48%,
+            transparent
+          );
+        }
+
+        .details-primary {
+          color: var(--lumo-body-text-color);
+        }
+
+        .details-secondary {
+          font-size: var(--lumo-font-size-s);
+          color: var(--lumo-secondary-text-color);
+        }
+
+        .timings-stack {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          line-height: var(--lumo-line-height-s);
+          font-size: var(--lumo-font-size-s);
+          color: var(--lumo-secondary-text-color);
+        }
+
+        .timings-row {
+          display: flex;
+          align-items: baseline;
+          gap: 6px;
+        }
+
+        .timings-label {
+          color: var(--dorc-text-secondary);
+          min-width: 52px;
+        }
+
+        .cell-secondary {
+          font-size: var(--lumo-font-size-s);
+          color: var(--lumo-secondary-text-color);
+        }
+
+        .status-cell {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: var(--lumo-space-s);
+          width: 100%;
+          min-width: 245px;
+        }
+
+        .status-text {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 85px;
+          flex-shrink: 0;
+        }
+
+        .status-text::before {
+          content: '';
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: currentColor;
+          flex-shrink: 0;
+        }
+
+        .status-text.status-ok {
+          color: var(--dorc-success-text, #3fb950);
+        }
+
+        .status-text.status-active {
+          color: var(--dorc-link-color, #58a6ff);
+        }
+
+        .status-text.status-warn {
+          color: var(--dorc-warning-text, #d29922);
+        }
+
+        .status-text.status-err {
+          color: var(--dorc-error-color, #f85149);
+        }
+
+        .status-text.status-muted {
+          color: var(--dorc-text-secondary, #8b949e);
         }
 
         .cover {
@@ -268,6 +367,14 @@ export class PageMonitorRequests
         ?hidden="${!this.isLoading && !this.isSearching}"
       ></dorc-spinner>
 
+      <connection-status-indicator
+        .state="${this.hubConnectionState}"
+        .autoRefresh="${this.autoRefresh}"
+        @toggle-auto-refresh="${() => {
+          void this.toggleAutoRefresh();
+        }}"
+      ></connection-status-indicator>
+
       <vaadin-grid
         id="grid"
         column-reordering-allowed
@@ -281,10 +388,7 @@ export class PageMonitorRequests
           path="Id"
           resizable
           auto-width
-          ${columnHeaderRenderer(this.idHeaderRenderer, [
-            this.hubConnectionState,
-            this.autoRefresh
-          ])}
+          ${columnHeaderRenderer(this.idHeaderRenderer, [])}
           ${columnBodyRenderer(this.idRenderer, [])}
         ></vaadin-grid-column>
         <vaadin-grid-column
@@ -315,14 +419,9 @@ export class PageMonitorRequests
           path="Status"
           header="Status"
           ${columnHeaderRenderer(this.statusHeaderRenderer, [])}
+          ${columnBodyRenderer(this.statusRenderer, [])}
           resizable
           auto-width
-        >
-        </vaadin-grid-column>
-        <vaadin-grid-column
-          ${columnBodyRenderer(this._requestControlsRenderer, [])}
-          resizable
-          width="160px"
         >
         </vaadin-grid-column>
         <vaadin-grid-column
@@ -339,7 +438,7 @@ export class PageMonitorRequests
         class="cover"
         style="z-index: 2; height: 400px"
         ?hidden="${!this.noResults}"
-        src="/hegsie_white_background_cartoon_geek_code_simple_icon_searching_12343b57-9c4e-45c6-b2f3-7765e8596718.png"
+        src="/modern-dorc-searching.webp"
         alt="No Results Found"
       />
     `;
@@ -545,6 +644,9 @@ export class PageMonitorRequests
 
   private monitorRequestsLoaded() {
     this.isLoading = false;
+    requestAnimationFrame(() => {
+      this.grid?.recalculateColumnWidths();
+    });
   }
 
   updateGrid() {
@@ -595,12 +697,7 @@ export class PageMonitorRequests
     return html`
       <vaadin-vertical-layout>
         ${elements?.map(
-          element =>
-            html`<div
-              style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-            >
-              ${element}
-            </div>`
+          element => html`<div class="cell-secondary">${element}</div>`
         )}
       </vaadin-vertical-layout>
     `;
@@ -608,11 +705,7 @@ export class PageMonitorRequests
 
   private usernameRenderer(item: DeploymentRequestApiModel) {
     const request = item as DeploymentRequestApiModel;
-    return html` <div
-      style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-    >
-      ${request.UserName}
-    </div>`;
+    return html`<div class="cell-secondary">${request.UserName}</div>`;
   }
 
   private detailsRenderer = (item: DeploymentRequestApiModel) => {
@@ -620,12 +713,10 @@ export class PageMonitorRequests
     return html`
       <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
         <vaadin-vertical-layout>
-          <div>${request.Project} - ${request.EnvironmentName}</div>
-          <div
-            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-          >
-            ${request.BuildNumber}
+          <div class="details-primary">
+            ${request.Project} - ${request.EnvironmentName}
           </div>
+          <div class="details-secondary">${request.BuildNumber}</div>
         </vaadin-vertical-layout>
       </vaadin-horizontal-layout>
     `;
@@ -660,21 +751,28 @@ export class PageMonitorRequests
       );
     }
 
+    const started = `${sDate} ${sTime}`.trim();
+    const finished = `${cDate} ${cTime}`.trim();
+
     return html`
-      <vaadin-horizontal-layout style="align-items: center;" theme="spacing">
-        <vaadin-vertical-layout style="line-height: var(--lumo-line-height-s);">
-          <div
-            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-          >
-            ${`${sDate} ${sTime}`}
-          </div>
-          <div
-            style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-          >
-            ${`${cDate} ${cTime}`}
-          </div>
-        </vaadin-vertical-layout>
-      </vaadin-horizontal-layout>
+      <div class="timings-stack">
+        ${
+          started
+            ? html`<div class="timings-row">
+                <span class="timings-label">Started</span>
+                <span>${started}</span>
+              </div>`
+            : html`<div class="timings-row"></div>`
+        }
+        ${
+          finished
+            ? html`<div class="timings-row">
+                <span class="timings-label">Finished</span>
+                <span>${finished}</span>
+              </div>`
+            : html`<div class="timings-row"></div>`
+        }
+      </div>
     `;
   };
 
@@ -695,8 +793,50 @@ export class PageMonitorRequests
           );
         }}"
       >
-        ${request.Id}
+        <span>${request.Id}</span>
+        <svg
+          width="11"
+          height="11"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          aria-hidden="true"
+        >
+          <path d="M6 3h7v7M13 3L6 10" />
+        </svg>
       </button>
+    `;
+  };
+
+  private statusToneClass(status: string | null | undefined): string {
+    switch (status) {
+      case 'Completed':
+      case 'Complete':
+        return 'status-ok';
+      case 'Running':
+      case 'Requesting':
+      case 'Restarting':
+        return 'status-active';
+      case 'Pending':
+      case 'Paused':
+        return 'status-warn';
+      case 'Failed':
+      case 'Errored':
+        return 'status-err';
+      default:
+        return 'status-muted';
+    }
+  }
+
+  private statusRenderer = (item: DeploymentRequestApiModel) => {
+    return html`
+      <div class="status-cell">
+        <span class="status-text ${this.statusToneClass(item.Status)}"
+          >${item.Status}</span
+        >
+        ${this._requestControlsRenderer(item)}
+      </div>
     `;
   };
 
@@ -726,44 +866,6 @@ export class PageMonitorRequests
       style="align-items:center; gap:2px;"
       theme="spacing-xs"
     >
-      <connection-status-indicator
-        mode="toggle"
-        .state="${this.hubConnectionState}"
-        .autoRefresh="${this.autoRefresh}"
-        @toggle-auto-refresh="${() => {
-          void this.toggleAutoRefresh();
-        }}"
-      ></connection-status-indicator>
-
-      ${
-        !this.autoRefresh
-          ? html`
-              <vaadin-button
-                theme="icon small"
-                style="padding:0;margin:0"
-                aria-label="Manual refresh"
-                @click="${() => {
-                  const event = new CustomEvent('refresh-requests', {
-                    detail: {},
-                    bubbles: true,
-                    composed: true
-                  });
-                  this.dispatchEvent(event);
-                }}"
-              >
-                <vaadin-tooltip
-                  slot="tooltip"
-                  text="Manual refresh"
-                ></vaadin-tooltip>
-                <vaadin-icon
-                  icon="icons:refresh"
-                  style="color: var(--dorc-link-color)"
-                ></vaadin-icon>
-              </vaadin-button>
-            `
-          : null
-      }
-
       <vaadin-grid-sorter
         path="Id"
         direction="desc"
@@ -774,7 +876,7 @@ export class PageMonitorRequests
         placeholder="Id"
         clear-button-visible
         focus-target
-        style="width: 100px"
+        style="width: 75px"
         theme="small"
         @input="${(e: InputEvent) => {
           const textField = e.target as any;

@@ -208,7 +208,19 @@ export class VariableValueControls extends LitElement {
     this.editing = editing;
   }
 
+  private resetSecureFieldIfNeeded() {
+    if (!this.value?.Property?.Secure) return;
+    this.value.Value = '';
+    const textField = this.shadowRoot?.querySelector(
+      `#propValue${this.value?.Id}`
+    ) as unknown as TextField | null;
+    if (textField) {
+      textField.value = 'Ex@mplePassw0rd';
+    }
+  }
+
   _cancelClick() {
+    this.resetSecureFieldIfNeeded();
     this.dispatchEvent(
       new CustomEvent('editing-cancelled', {
         detail: { id: this.value?.Id },
@@ -238,6 +250,7 @@ export class VariableValueControls extends LitElement {
             return;
           }
 
+          this.resetSecureFieldIfNeeded();
           this.dispatchEvent(
             new CustomEvent('variable-value-updated', {
               detail: { data: responses },

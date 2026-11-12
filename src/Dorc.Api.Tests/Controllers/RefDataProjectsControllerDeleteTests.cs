@@ -20,6 +20,7 @@ namespace Dorc.Api.Tests.Controllers
         private IRolePrivilegesChecker _rolePrivilegesChecker;
         private ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private IClaimsPrincipalReader _claimsPrincipalReader;
+        private IDeploymentDefinitions _definitions;
         private RefDataProjectsController _controller;
         private ClaimsPrincipal _user;
 
@@ -32,6 +33,7 @@ namespace Dorc.Api.Tests.Controllers
             _rolePrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
             _securityPrivilegesChecker = Substitute.For<ISecurityPrivilegesChecker>();
             _claimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+            _definitions = Substitute.For<IDeploymentDefinitions>();
 
             _controller = new RefDataProjectsController(
                 _projectsPersistentSource,
@@ -39,7 +41,7 @@ namespace Dorc.Api.Tests.Controllers
                 _activeDirectorySearcher,
                 _rolePrivilegesChecker,
                 _securityPrivilegesChecker,
-                _claimsPrincipalReader)
+                _claimsPrincipalReader, _definitions)
             {
                 ControllerContext = new ControllerContext()
                 {
@@ -65,13 +67,13 @@ namespace Dorc.Api.Tests.Controllers
             _securityPrivilegesChecker.CanModifyProject(_user, project.ProjectName).Returns(true);
 
             // Act
-            var result = _controller.Delete(projectId);
+            var result = _controller.Delete(projectId, "expected");
 
             // Assert
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(200, objectResult.StatusCode);
-            _projectsPersistentSource.Received(1).DeleteProject(projectId);
+            _definitions.Received(1).DeleteProject(projectId, "expected", Arg.Any<string>(), Arg.Any<Func<int, bool>>());
         }
 
         [TestMethod]
@@ -87,13 +89,13 @@ namespace Dorc.Api.Tests.Controllers
             _projectsPersistentSource.GetProject(projectId).Returns(project);
 
             // Act
-            var result = _controller.Delete(projectId);
+            var result = _controller.Delete(projectId, "expected");
 
             // Assert
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(200, objectResult.StatusCode);
-            _projectsPersistentSource.Received(1).DeleteProject(projectId);
+            _definitions.Received(1).DeleteProject(projectId, "expected", Arg.Any<string>(), Arg.Any<Func<int, bool>>());
         }
 
         [TestMethod]

@@ -46,7 +46,6 @@ export interface DiscoverDaemonsResult {
      */
     Success?: boolean;
     /**
-     * List of discovered daemon statuses to display in UI
      * @type {Array<DaemonStatusApiModel>}
      * @memberof DiscoverDaemonsResult
      */

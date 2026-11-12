@@ -208,9 +208,18 @@ namespace Dorc.PersistentData.Sources
                     // every server-side lookup is case-insensitive. Three different
                     // answers to "does this database carry the Endur tag?" is one too
                     // many for something that picks a config file.
-                    var database = env.Databases.SingleOrDefault(
-                        d => d.TagLinks.Any(t => TagString.Comparer.Equals(t.Tag, "Endur")));
-                    if (database == null) return null;
+                    var matchingDatabases = env.Databases
+                        .Where(d => d.TagLinks.Any(t => TagString.Comparer.Equals(t.Tag, "Endur")))
+                        .ToList();
+                    if (matchingDatabases.Count == 0) return null;
+                    if (matchingDatabases.Count > 1)
+                    {
+                        var conflicting = string.Join(", ", matchingDatabases.Select(FormatDatabaseIdentifier));
+                        throw new InvalidOperationException(
+                            $"Environment '{environment.EnvironmentName}' has multiple databases tagged 'Endur' ({conflicting}), so 'EndurConfigurationFile' cannot be resolved. Ensure at most one database on the environment carries the 'Endur' tag.");
+                    }
+
+                    var database = matchingDatabases[0];
 
                     var shortName = GetEnvironmentShortNameFromDatabaseName(database.Name);
                     var cfgFilename = $"ENDUR_{shortName}.cfg";
@@ -220,6 +229,13 @@ namespace Dorc.PersistentData.Sources
             }
 
             return string.Empty;
+        }
+
+        private static string FormatDatabaseIdentifier(Database database)
+        {
+            return string.IsNullOrWhiteSpace(database.ServerName)
+                ? $"'{database.Name}'"
+                : $"'{database.Name}' on '{database.ServerName}'";
         }
 
         private static string GetEnvironmentShortNameFromDatabaseName(string databaseName)

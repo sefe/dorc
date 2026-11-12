@@ -246,6 +246,21 @@
                 }
               }
             }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -267,6 +282,225 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AnalyticsDeploymentSummaryApiModel"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/AnalyticsEnvironmentUsage": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsEnvironmentUsageApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsEnvironmentUsageApiModel"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/AnalyticsUserActivity": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsUserActivityApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsUserActivityApiModel"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/AnalyticsTimePattern": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsTimePatternApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsTimePatternApiModel"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/AnalyticsComponentUsage": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsComponentUsageApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AnalyticsComponentUsageApiModel"
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/AnalyticsDuration": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsDurationApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsDurationApiModel"
                 }
               }
             }
@@ -514,225 +748,6 @@
         }
       }
     },
-    "/AnalyticsEnvironmentUsage": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnalyticsEnvironmentUsageApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnalyticsEnvironmentUsageApiModel"
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/AnalyticsUserActivity": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnalyticsUserActivityApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnalyticsUserActivityApiModel"
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/AnalyticsTimePattern": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnalyticsTimePatternApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnalyticsTimePatternApiModel"
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/AnalyticsComponentUsage": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnalyticsComponentUsageApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/AnalyticsComponentUsageApiModel"
-                  }
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/AnalyticsDuration": {
-      "get": {
-        "tags": [
-          "Analytics"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnalyticsDurationApiModel"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AnalyticsDurationApiModel"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal Server Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/ApiConfig": {
       "get": {
         "tags": [
@@ -750,6 +765,77 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiConfigModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ApiRegistrationAudit": {
+      "put": {
+        "tags": [
+          "ApiRegistrationAudit"
+        ],
+        "parameters": [
+          {
+            "name": "apiRegistrationId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetComponentAuditListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetComponentAuditListResponseDto"
                 }
               }
             }
@@ -940,27 +1026,18 @@
         }
       }
     },
-    "/DaemonObservation": {
-      "get": {
+    "/CloudResourceAudit": {
+      "put": {
         "tags": [
-          "DaemonObservation"
+          "CloudResourceAudit"
         ],
         "parameters": [
           {
-            "name": "daemonId",
+            "name": "cloudResourceId",
             "in": "query",
             "schema": {
               "type": "integer",
               "format": "int32"
-            }
-          },
-          {
-            "name": "serverId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "nullable": true
             }
           },
           {
@@ -982,18 +1059,202 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetDaemonObservationListResponseDto"
+                  "$ref": "#/components/schemas/GetComponentAuditListResponseDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetDaemonObservationListResponseDto"
+                  "$ref": "#/components/schemas/GetComponentAuditListResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ConfigValues": {
+      "get": {
+        "tags": [
+          "ConfigValues"
+        ],
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/ContainerAudit": {
+      "put": {
+        "tags": [
+          "ContainerAudit"
+        ],
+        "parameters": [
+          {
+            "name": "containerId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetComponentAuditListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetComponentAuditListResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/CopyEnvBuild": {
+      "post": {
+        "tags": [
+          "CopyEnvBuild"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyEnvBuildDto"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyEnvBuildDto"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CopyEnvBuildDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopyEnvBuildResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CopyEnvBuildResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -1072,93 +1333,59 @@
         }
       }
     },
-    "/ConfigValues": {
+    "/DaemonObservation": {
       "get": {
         "tags": [
-          "ConfigValues"
+          "DaemonObservation"
         ],
         "parameters": [
           {
-            "name": "name",
+            "name": "daemonId",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "serverId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
             }
           }
         ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      }
-    },
-    "/CopyEnvBuild": {
-      "post": {
-        "tags": [
-          "CopyEnvBuild"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CopyEnvBuildDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/CopyEnvBuildDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/CopyEnvBuildDto"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CopyEnvBuildResponseDto"
+                  "$ref": "#/components/schemas/GetDaemonObservationListResponseDto"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CopyEnvBuildResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
+                  "$ref": "#/components/schemas/GetDaemonObservationListResponseDto"
                 }
               }
             }
@@ -1262,12 +1489,51 @@
         }
       }
     },
+    "/DaemonStatus/{envName}": {
+      "get": {
+        "tags": [
+          "DaemonStatus"
+        ],
+        "parameters": [
+          {
+            "name": "envName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DaemonStatusApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DaemonStatusApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/DaemonStatus/discover/{envName}": {
       "get": {
         "tags": [
           "DaemonStatus"
         ],
-        "summary": "Discover all daemons on environment servers and automatically create daemon-server mappings",
         "parameters": [
           {
             "name": "envName",
@@ -1342,18 +1608,120 @@
         }
       }
     },
-    "/DaemonStatus/{envName}": {
-      "get": {
+    "/DatabaseAudit": {
+      "put": {
         "tags": [
-          "DaemonStatus"
+          "DatabaseAudit"
         ],
         "parameters": [
           {
-            "name": "envName",
-            "in": "path",
-            "required": true,
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDatabaseAuditListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDatabaseAuditListResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/DeploymentDefinitions": {
+      "get": {
+        "tags": [
+          "DeploymentDefinitions"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "componentType",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/ComponentType"
+            }
+          },
+          {
+            "name": "sourceType",
+            "in": "query",
+            "schema": {
+              "$ref": "#/components/schemas/TerraformSourceType"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
             }
           }
         ],
@@ -1363,18 +1731,72 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DaemonStatusApiModel"
-                  }
+                  "$ref": "#/components/schemas/GetDeploymentDefinitionsResponse"
                 }
               },
               "text/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/DaemonStatusApiModel"
-                  }
+                  "$ref": "#/components/schemas/GetDeploymentDefinitionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/DeploymentDefinitions/history": {
+      "get": {
+        "tags": [
+          "DeploymentDefinitions"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "componentId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDeploymentDefinitionHistoryResponse"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetDeploymentDefinitionHistoryResponse"
                 }
               }
             }
@@ -2159,6 +2581,122 @@
         }
       }
     },
+    "/Properties/import": {
+      "post": {
+        "tags": [
+          "Properties"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PropertyImportCsvDto"
+                }
+              }
+            },
+            "text/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PropertyImportCsvDto"
+                }
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PropertyImportCsvDto"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Response"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Response"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/Properties/import": {
+      "post": {
+        "tags": [
+          "Properties"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PropertyImportCsvDto"
+                }
+              }
+            },
+            "text/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PropertyImportCsvDto"
+                }
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/PropertyImportCsvDto"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Response"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Response"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/PropertyValues/ScopeOptions": {
       "get": {
         "tags": [
@@ -2665,6 +3203,48 @@
         }
       }
     },
+    "/PropertyValues/non-secure-export": {
+      "get": {
+        "tags": [
+          "PropertyValues"
+        ],
+        "parameters": [
+          {
+            "name": "environmentName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/api/PropertyValues/non-secure-export": {
+      "get": {
+        "tags": [
+          "PropertyValues"
+        ],
+        "parameters": [
+          {
+            "name": "environmentName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
     "/PropertyValuesAudit": {
       "put": {
         "tags": [
@@ -2766,6 +3346,21 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -2824,6 +3419,36 @@
                 }
               }
             }
+          },
+          "428": {
+            "description": "Precondition Required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },
@@ -2862,6 +3487,670 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RefDataApiModel"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataApiRegistrations": {
+      "get": {
+        "tags": [
+          "RefDataApiRegistrations"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApiRegistrationApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApiRegistrationApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "RefDataApiRegistrations"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiRegistrationApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiRegistrationApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiRegistrationApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRegistrationApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRegistrationApiModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataApiRegistrations/ById/{id}": {
+      "get": {
+        "tags": [
+          "RefDataApiRegistrations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRegistrationApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRegistrationApiModel"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataApiRegistrations/ByEnvId/{envId}": {
+      "get": {
+        "tags": [
+          "RefDataApiRegistrations"
+        ],
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApiRegistrationApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApiRegistrationApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataApiRegistrations/Capabilities/{envId}": {
+      "get": {
+        "tags": [
+          "RefDataApiRegistrations"
+        ],
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedResourceCapabilities"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedResourceCapabilities"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataApiRegistrations/{id}": {
+      "put": {
+        "tags": [
+          "RefDataApiRegistrations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiRegistrationApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiRegistrationApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ApiRegistrationApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRegistrationApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRegistrationApiModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "RefDataApiRegistrations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataApiRegistrations/{id}/tags": {
+      "put": {
+        "tags": [
+          "RefDataApiRegistrations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceTagsUpdate"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceTagsUpdate"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceTagsUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRegistrationApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiRegistrationApiModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataApiRegistrations/{id}/environments/{envId}": {
+      "put": {
+        "tags": [
+          "RefDataApiRegistrations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "RefDataApiRegistrations"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -2927,6 +4216,670 @@
         "responses": {
           "200": {
             "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataCloudResources": {
+      "get": {
+        "tags": [
+          "RefDataCloudResources"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CloudResourceApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CloudResourceApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "RefDataCloudResources"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloudResourceApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloudResourceApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloudResourceApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudResourceApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudResourceApiModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataCloudResources/ById/{id}": {
+      "get": {
+        "tags": [
+          "RefDataCloudResources"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudResourceApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudResourceApiModel"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataCloudResources/ByEnvId/{envId}": {
+      "get": {
+        "tags": [
+          "RefDataCloudResources"
+        ],
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CloudResourceApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CloudResourceApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataCloudResources/Capabilities/{envId}": {
+      "get": {
+        "tags": [
+          "RefDataCloudResources"
+        ],
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedResourceCapabilities"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedResourceCapabilities"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataCloudResources/{id}": {
+      "put": {
+        "tags": [
+          "RefDataCloudResources"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloudResourceApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloudResourceApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CloudResourceApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudResourceApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudResourceApiModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "RefDataCloudResources"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataCloudResources/{id}/tags": {
+      "put": {
+        "tags": [
+          "RefDataCloudResources"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceTagsUpdate"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceTagsUpdate"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceTagsUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudResourceApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CloudResourceApiModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataCloudResources/{id}/environments/{envId}": {
+      "put": {
+        "tags": [
+          "RefDataCloudResources"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "RefDataCloudResources"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
             "content": {
               "application/json": {
                 "schema": {
@@ -3133,6 +5086,670 @@
         }
       }
     },
+    "/RefDataContainers": {
+      "get": {
+        "tags": [
+          "RefDataContainers"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContainerApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContainerApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "RefDataContainers"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContainerApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContainerApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContainerApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerApiModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataContainers/ById/{id}": {
+      "get": {
+        "tags": [
+          "RefDataContainers"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerApiModel"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataContainers/ByEnvId/{envId}": {
+      "get": {
+        "tags": [
+          "RefDataContainers"
+        ],
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContainerApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ContainerApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataContainers/Capabilities/{envId}": {
+      "get": {
+        "tags": [
+          "RefDataContainers"
+        ],
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedResourceCapabilities"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SharedResourceCapabilities"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataContainers/{id}": {
+      "put": {
+        "tags": [
+          "RefDataContainers"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContainerApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContainerApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ContainerApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerApiModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "RefDataContainers"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataContainers/{id}/tags": {
+      "put": {
+        "tags": [
+          "RefDataContainers"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceTagsUpdate"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceTagsUpdate"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResourceTagsUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContainerApiModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataContainers/{id}/environments/{envId}": {
+      "put": {
+        "tags": [
+          "RefDataContainers"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "RefDataContainers"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/RefDataDaemons": {
       "get": {
         "tags": [
@@ -3200,6 +5817,36 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },
@@ -3251,6 +5898,66 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },
@@ -3272,8 +5979,35 @@
           "200": {
             "description": "OK"
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -3565,6 +6299,47 @@
         }
       }
     },
+    "/RefDataDatabases/ByEnvId/{envId}": {
+      "get": {
+        "tags": [
+          "RefDataDatabases"
+        ],
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DatabaseApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DatabaseApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/RefDataDatabases/ByTag": {
       "get": {
         "tags": [
@@ -3598,6 +6373,21 @@
               "text/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DatabaseApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -3713,6 +6503,99 @@
         }
       }
     },
+    "/RefDataDatabases/RelatedResources": {
+      "get": {
+        "tags": [
+          "RefDataDatabases"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "server",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseRelatedResourcesApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseRelatedResourcesApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/RefDataDatabaseUsers": {
       "get": {
         "tags": [
@@ -3808,6 +6691,21 @@
                   "items": {
                     "$ref": "#/components/schemas/UserDbPermissionApiModel"
                   }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
                 }
               }
             }
@@ -3936,6 +6834,36 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },
@@ -3978,8 +6906,38 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/json": {
                 "schema": {
@@ -5356,6 +8314,13 @@
               "type": "integer",
               "format": "int32"
             }
+          },
+          {
+            "name": "expectedRevision",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -5659,6 +8624,36 @@
                 }
               }
             }
+          },
+          "428": {
+            "description": "Precondition Required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       }
@@ -5848,6 +8843,47 @@
               "text/json": {
                 "schema": {
                   "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/RefDataServers/ByEnvId/{envId}": {
+      "get": {
+        "tags": [
+          "RefDataServers"
+        ],
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServerApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServerApiModel"
+                  }
                 }
               }
             }
@@ -6048,7 +9084,6 @@
           {
             "name": "confirmed",
             "in": "query",
-            "description": "Set to true to confirm deletion despite linked daemons",
             "schema": {
               "type": "boolean",
               "default": false
@@ -6979,6 +10014,63 @@
         }
       }
     },
+    "/Request/BundleComponents": {
+      "get": {
+        "tags": [
+          "Request"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "buildDefinitionName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "buildUrl",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          }
+        }
+      }
+    },
     "/Request/restart": {
       "post": {
         "tags": [
@@ -7733,6 +10825,69 @@
         }
       }
     },
+    "/ServerAudit": {
+      "put": {
+        "tags": [
+          "ServerAudit"
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "default": 50
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PagedDataOperators"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetServerAuditListResponseDto"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetServerAuditListResponseDto"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ServerDaemons/{serverId}": {
       "get": {
         "tags": [
@@ -7854,8 +11009,35 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Not Found"
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
           }
         }
       },
@@ -7897,8 +11079,530 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Terraform/templates": {
+      "get": {
+        "tags": [
+          "Terraform"
+        ],
+        "operationId": "TerraformTemplatesGet",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TerraformTemplateManifest"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TerraformTemplateManifest"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/Terraform/templates/{name}": {
+      "get": {
+        "tags": [
+          "Terraform"
+        ],
+        "operationId": "TerraformTemplateLatestGet",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformTemplateManifest"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformTemplateManifest"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/Terraform/templates/{name}/{version}": {
+      "get": {
+        "tags": [
+          "Terraform"
+        ],
+        "operationId": "TerraformTemplateVersionGet",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformTemplateManifest"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformTemplateManifest"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/Terraform/templates/{name}/{version}/resolution": {
+      "get": {
+        "tags": [
+          "Terraform"
+        ],
+        "operationId": "TerraformTemplateResolutionGet",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "environmentName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "componentId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformTemplateResolutionApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformTemplateResolutionApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/Terraform/templates/{name}/{version}/configuration": {
+      "put": {
+        "tags": [
+          "Terraform"
+        ],
+        "operationId": "TerraformTemplateConfigurationPut",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "componentId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "environmentName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveCatalogEnvironmentInputsApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveCatalogEnvironmentInputsApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/SaveCatalogEnvironmentInputsApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogEnvironmentInputsApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogEnvironmentInputsApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/Terraform/components/{componentId}/upgrade/{name}/{version}": {
+      "get": {
+        "tags": [
+          "Terraform"
+        ],
+        "operationId": "TerraformUpgradePreviewGet",
+        "parameters": [
+          {
+            "name": "componentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogUpgradePreviewApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CatalogUpgradePreviewApiModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Terraform"
+        ],
+        "operationId": "TerraformUpgradePost",
+        "parameters": [
+          {
+            "name": "componentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "projectId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogUpgradeRequestApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogUpgradeRequestApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/CatalogUpgradeRequestApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/Terraform/templates/{name}/{version}/instantiate": {
+      "post": {
+        "tags": [
+          "Terraform"
+        ],
+        "operationId": "TerraformTemplateInstantiatePost",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerraformTemplateInstantiateRequestApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerraformTemplateInstantiateRequestApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/TerraformTemplateInstantiateRequestApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformTemplateInstantiateResponseApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformTemplateInstantiateResponseApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict"
           }
         }
       }
@@ -7935,6 +11639,9 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "404": {
             "description": "Not Found"
           }
@@ -7955,14 +11662,27 @@
               "type": "integer",
               "format": "int32"
             }
+          },
+          {
+            "name": "planContentSha256",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
           "200": {
             "description": "OK"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "404": {
             "description": "Not Found"
+          },
+          "409": {
+            "description": "Conflict"
           }
         }
       }
@@ -7987,68 +11707,116 @@
           "200": {
             "description": "OK"
           },
+          "403": {
+            "description": "Forbidden"
+          },
           "404": {
             "description": "Not Found"
           }
         }
       }
     },
-    "/DatabaseAudit": {
-      "put": {
+    "/Terraform/plan/{deploymentResultId}/recover": {
+      "post": {
         "tags": [
-          "DatabaseAudit"
+          "Terraform"
         ],
+        "operationId": "TerraformRecoverPost",
         "parameters": [
           {
-            "name": "page",
-            "in": "query",
+            "name": "deploymentResultId",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "integer",
-              "format": "int32",
-              "default": 1
+              "format": "int32"
             }
           },
           {
-            "name": "limit",
+            "name": "expectedRevision",
             "in": "query",
             "schema": {
               "type": "integer",
-              "format": "int32",
-              "default": 50
+              "format": "int64"
+            }
+          },
+          {
+            "name": "recoverInventory",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          {
+            "name": "recoverArchive",
+            "in": "query",
+            "schema": {
+              "type": "boolean",
+              "default": true
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "OK",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetDatabaseAuditListResponseDto"
+                  "$ref": "#/components/schemas/TerraformDeploymentOutcomeApiModel"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetDatabaseAuditListResponseDto"
+                  "$ref": "#/components/schemas/TerraformDeploymentOutcomeApiModel"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/Terraform/plan/{deploymentResultId}/inventory": {
+      "get": {
+        "tags": [
+          "Terraform"
+        ],
+        "operationId": "TerraformInventoryGet",
+        "parameters": [
+          {
+            "name": "deploymentResultId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TerraformInventoryProvenanceApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/TerraformInventoryProvenanceApiModel"
+                  }
                 }
               }
             }
@@ -8056,28 +11824,112 @@
         }
       }
     },
-    "/ServerAudit": {
-      "put": {
+    "/Terraform/plan/{deploymentResultId}/inventory/{cloudResourceId}/review": {
+      "post": {
         "tags": [
-          "ServerAudit"
+          "Terraform"
         ],
+        "operationId": "TerraformInventoryReviewPost",
         "parameters": [
           {
-            "name": "page",
-            "in": "query",
+            "name": "deploymentResultId",
+            "in": "path",
+            "required": true,
             "schema": {
               "type": "integer",
-              "format": "int32",
-              "default": 1
+              "format": "int32"
             }
           },
           {
-            "name": "limit",
+            "name": "cloudResourceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "expectedRevision",
             "in": "query",
             "schema": {
               "type": "integer",
-              "format": "int32",
-              "default": 50
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "409": {
+            "description": "Conflict"
+          }
+        }
+      }
+    },
+    "/Projects/{projectId}/terraform-state-backend-cutovers/preview": {
+      "get": {
+        "tags": [
+          "TerraformBackendCutovers"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "environmentId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformBackendCutoverPreviewApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TerraformBackendCutoverPreviewApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          }
+        }
+      }
+    },
+    "/Projects/{projectId}/terraform-state-backend-cutovers": {
+      "post": {
+        "tags": [
+          "TerraformBackendCutovers"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
             }
           }
         ],
@@ -8085,17 +11937,17 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
+                "$ref": "#/components/schemas/TerraformBackendCutoverApiModel"
               }
             },
             "text/json": {
               "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
+                "$ref": "#/components/schemas/TerraformBackendCutoverApiModel"
               }
             },
             "application/*+json": {
               "schema": {
-                "$ref": "#/components/schemas/PagedDataOperators"
+                "$ref": "#/components/schemas/TerraformBackendCutoverApiModel"
               }
             }
           }
@@ -8106,15 +11958,27 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetServerAuditListResponseDto"
+                  "$ref": "#/components/schemas/RefDataApiModel"
                 }
               },
               "text/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/GetServerAuditListResponseDto"
+                  "$ref": "#/components/schemas/RefDataApiModel"
                 }
               }
             }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "409": {
+            "description": "Conflict"
+          },
+          "428": {
+            "description": "Precondition Required"
           }
         }
       }
@@ -8202,6 +12066,28 @@
         ],
         "type": "string"
       },
+      "AnalyticsComponentReliabilityApiModel": {
+        "type": "object",
+        "properties": {
+          "ComponentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "AttemptCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "FailedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "RetryAttemptCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
       "AnalyticsComponentUsageApiModel": {
         "type": "object",
         "properties": {
@@ -8212,6 +12098,47 @@
           "CountOfDeployments": {
             "type": "integer",
             "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsDeploymentSummaryApiModel": {
+        "type": "object",
+        "properties": {
+          "TotalDeployments": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalDeploymentsThisYear": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalFailedDeploymentsThisYear": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "PercentFailedThisYear": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "AverageDeploymentsPerDay": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "BusiestDeploymentCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "PercentTop3Projects": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TopProjectsThisYear": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AnalyticsProjectDeploymentApiModel"
+            },
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8279,43 +12206,51 @@
         },
         "additionalProperties": false
       },
-      "AnalyticsDeploymentSummaryApiModel": {
+      "AnalyticsEnvironmentUsageApiModel": {
         "type": "object",
         "properties": {
-          "TotalDeployments": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "TotalDeploymentsThisYear": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "TotalFailedDeploymentsThisYear": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "PercentFailedThisYear": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "AverageDeploymentsPerDay": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "BusiestDeploymentCount": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "PercentTop3Projects": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "TopProjectsThisYear": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/AnalyticsProjectDeploymentApiModel"
-            },
+          "EnvironmentName": {
+            "type": "string",
             "nullable": true
+          },
+          "CountOfDeployments": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Failed": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "LastSuccessfulDeployment": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "AnalyticsEnvironmentWaitApiModel": {
+        "type": "object",
+        "properties": {
+          "EnvironmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "AvgWaitMinutes": {
+            "type": "number",
+            "format": "double"
+          },
+          "MedianWaitMinutes": {
+            "type": "number",
+            "format": "double"
+          },
+          "P90WaitMinutes": {
+            "type": "number",
+            "format": "double"
+          },
+          "SampleCount": {
+            "type": "integer",
+            "format": "int32"
           }
         },
         "additionalProperties": false
@@ -8349,26 +12284,14 @@
         },
         "additionalProperties": false
       },
-      "AnalyticsEnvironmentWaitApiModel": {
+      "AnalyticsProjectDeploymentApiModel": {
         "type": "object",
         "properties": {
-          "EnvironmentName": {
+          "ProjectName": {
             "type": "string",
             "nullable": true
           },
-          "AvgWaitMinutes": {
-            "type": "number",
-            "format": "double"
-          },
-          "MedianWaitMinutes": {
-            "type": "number",
-            "format": "double"
-          },
-          "P90WaitMinutes": {
-            "type": "number",
-            "format": "double"
-          },
-          "SampleCount": {
+          "CountOfDeployments": {
             "type": "integer",
             "format": "int32"
           }
@@ -8397,28 +12320,6 @@
         },
         "additionalProperties": false
       },
-      "AnalyticsComponentReliabilityApiModel": {
-        "type": "object",
-        "properties": {
-          "ComponentName": {
-            "type": "string",
-            "nullable": true
-          },
-          "AttemptCount": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "FailedCount": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "RetryAttemptCount": {
-            "type": "integer",
-            "format": "int32"
-          }
-        },
-        "additionalProperties": false
-      },
       "AnalyticsRecoveryTimeApiModel": {
         "type": "object",
         "properties": {
@@ -8437,43 +12338,6 @@
           "SampleCount": {
             "type": "integer",
             "format": "int32"
-          }
-        },
-        "additionalProperties": false
-      },
-      "AnalyticsProjectDeploymentApiModel": {
-        "type": "object",
-        "properties": {
-          "ProjectName": {
-            "type": "string",
-            "nullable": true
-          },
-          "CountOfDeployments": {
-            "type": "integer",
-            "format": "int32"
-          }
-        },
-        "additionalProperties": false
-      },
-      "AnalyticsEnvironmentUsageApiModel": {
-        "type": "object",
-        "properties": {
-          "EnvironmentName": {
-            "type": "string",
-            "nullable": true
-          },
-          "CountOfDeployments": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "Failed": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "LastSuccessfulDeployment": {
-            "type": "string",
-            "format": "date-time",
-            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8588,6 +12452,53 @@
         },
         "additionalProperties": false
       },
+      "ApiRegistrationApiModel": {
+        "type": "object",
+        "properties": {
+          "EnvironmentNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "UserEditable": {
+            "type": "boolean"
+          },
+          "Id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Name": {
+            "type": "string",
+            "nullable": true
+          },
+          "BaseUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "Version": {
+            "type": "string",
+            "nullable": true
+          },
+          "HealthCheckUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "Tags": {
+            "type": "string",
+            "nullable": true
+          },
+          "Revision": {
+            "type": "string",
+            "nullable": true
+          },
+          "CanEditDefinition": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "BundledRequestType": {
         "enum": [
           "JobRequest",
@@ -8630,6 +12541,115 @@
         },
         "additionalProperties": false
       },
+      "CatalogEnvironmentInputsApiModel": {
+        "required": [
+          "ParameterNames"
+        ],
+        "type": "object",
+        "properties": {
+          "Revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ParameterNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "CatalogUpgradePreviewApiModel": {
+        "required": [
+          "ConfigurationRevisions",
+          "CurrentVersion",
+          "Environments",
+          "InputChanges",
+          "TargetVersion"
+        ],
+        "type": "object",
+        "properties": {
+          "ComponentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "CurrentVersion": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "TargetVersion": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Environments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentApiModel"
+            }
+          },
+          "InputChanges": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ConfigurationRevisions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "RequiresExistingServiceOwnership": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CatalogUpgradeRequestApiModel": {
+        "required": [
+          "ConfigurationRevisions",
+          "EnvironmentIds",
+          "ExpectedVersion"
+        ],
+        "type": "object",
+        "properties": {
+          "ExpectedRevision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ExpectedVersion": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "EnvironmentIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          "ConfigurationRevisions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          "ConfirmImpact": {
+            "type": "boolean"
+          },
+          "PreserveExistingServiceOwnership": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
       "CloneEnvironmentRequest": {
         "type": "object",
         "properties": {
@@ -8653,7 +12673,67 @@
           "CopyProjectMappings": {
             "type": "boolean"
           },
+          "CopyContainerMappings": {
+            "type": "boolean"
+          },
+          "CopyCloudResourceMappings": {
+            "type": "boolean"
+          },
+          "CopyApiRegistrationMappings": {
+            "type": "boolean"
+          },
           "CopyAccessControls": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "CloudResourceApiModel": {
+        "type": "object",
+        "properties": {
+          "EnvironmentNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "UserEditable": {
+            "type": "boolean"
+          },
+          "Id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Name": {
+            "type": "string",
+            "nullable": true
+          },
+          "Provider": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResourceType": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResourceIdentifier": {
+            "type": "string",
+            "nullable": true
+          },
+          "Subscription": {
+            "type": "string",
+            "nullable": true
+          },
+          "Tags": {
+            "type": "string",
+            "nullable": true
+          },
+          "Revision": {
+            "type": "string",
+            "nullable": true
+          },
+          "CanEditDefinition": {
             "type": "boolean"
           }
         },
@@ -8662,6 +12742,13 @@
       "ComponentApiModel": {
         "type": "object",
         "properties": {
+          "Children": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ComponentApiModel"
+            },
+            "nullable": true
+          },
           "ComponentId": {
             "type": "integer",
             "format": "int32",
@@ -8705,6 +12792,14 @@
           "TerraformSubPath": {
             "type": "string",
             "nullable": true
+          },
+          "TerraformTemplateName": {
+            "type": "string",
+            "nullable": true
+          },
+          "TerraformTemplateVersion": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -8720,6 +12815,49 @@
             "items": {
               "$ref": "#/components/schemas/ComponentApiModel"
             },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ComponentAuditApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ComponentId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "ComponentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "RefDataAuditActionId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Action": {
+            "type": "string",
+            "nullable": true
+          },
+          "Username": {
+            "type": "string",
+            "nullable": true
+          },
+          "Date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "FromValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "ToValue": {
+            "type": "string",
             "nullable": true
           }
         },
@@ -8753,6 +12891,53 @@
           "IsForProd": {
             "type": "boolean",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ContainerApiModel": {
+        "type": "object",
+        "properties": {
+          "EnvironmentNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "UserEditable": {
+            "type": "boolean"
+          },
+          "Id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Name": {
+            "type": "string",
+            "nullable": true
+          },
+          "Image": {
+            "type": "string",
+            "nullable": true
+          },
+          "Registry": {
+            "type": "string",
+            "nullable": true
+          },
+          "HostServerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Tags": {
+            "type": "string",
+            "nullable": true
+          },
+          "Revision": {
+            "type": "string",
+            "nullable": true
+          },
+          "CanEditDefinition": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -8839,40 +13024,6 @@
         },
         "additionalProperties": false
       },
-      "DaemonObservationApiModel": {
-        "type": "object",
-        "properties": {
-          "Id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "ServerId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "ServerName": {
-            "type": "string",
-            "nullable": true
-          },
-          "DaemonId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "ObservedAt": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "ObservedStatus": {
-            "type": "string",
-            "nullable": true
-          },
-          "ErrorMessage": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
       "DaemonAuditApiModel": {
         "type": "object",
         "properties": {
@@ -8916,6 +13067,66 @@
         },
         "additionalProperties": false
       },
+      "DaemonObservationApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ServerId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ServerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "DaemonId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ObservedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ObservedStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "ErrorMessage": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DaemonStatusApiModel": {
+        "type": "object",
+        "properties": {
+          "ServerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "DaemonName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Status": {
+            "type": "string",
+            "nullable": true
+          },
+          "EnvName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ErrorMessage": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "DatabaseApiModel": {
         "type": "object",
         "properties": {
@@ -8936,14 +13147,17 @@
           "Tags": {
             "type": "array",
             "items": {
-              "type": "string",
-              "maxLength": 400
+              "maxLength": 400,
+              "type": "string"
             },
             "nullable": true
           },
           "ServerName": {
             "type": "string",
             "nullable": true
+          },
+          "DatabaseType": {
+            "$ref": "#/components/schemas/DatabaseType"
           },
           "AdGroup": {
             "type": "string",
@@ -8972,6 +13186,90 @@
           }
         },
         "additionalProperties": false
+      },
+      "DatabaseAuditApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "DatabaseId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "DatabaseName": {
+            "type": "string",
+            "nullable": true
+          },
+          "RefDataAuditActionId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Action": {
+            "type": "string",
+            "nullable": true
+          },
+          "Username": {
+            "type": "string",
+            "nullable": true
+          },
+          "Date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "FromValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "ToValue": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseRelatedResourcesApiModel": {
+        "type": "object",
+        "properties": {
+          "DatabaseId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DatabaseName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ServerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Environments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentShortApiModel"
+            },
+            "nullable": true
+          },
+          "Servers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServerApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseType": {
+        "enum": [
+          "SqlServer",
+          "CosmosDb",
+          "ClickHouse",
+          "PostgreSql"
+        ],
+        "type": "string"
       },
       "DeployArtefactDto": {
         "type": "object",
@@ -9014,6 +13312,110 @@
           },
           "IsEnabled": {
             "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeploymentDefinitionApiModel": {
+        "type": "object",
+        "properties": {
+          "Component": {
+            "$ref": "#/components/schemas/ComponentApiModel"
+          },
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ProjectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Revision": {
+            "type": "string",
+            "nullable": true
+          },
+          "CanEdit": {
+            "type": "boolean"
+          },
+          "CanDeploy": {
+            "type": "boolean"
+          },
+          "SourceSummary": {
+            "type": "string",
+            "nullable": true
+          },
+          "ScriptId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DeploymentDefinitionHistoryApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "string",
+            "nullable": true
+          },
+          "EventType": {
+            "type": "string",
+            "nullable": true
+          },
+          "OccurredAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "Actor": {
+            "type": "string",
+            "nullable": true
+          },
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ComponentId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "ComponentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Summary": {
+            "type": "string",
+            "nullable": true
+          },
+          "RequestId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "DeploymentResultId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "DefinitionRevision": {
+            "type": "string",
+            "nullable": true
+          },
+          "BeforeJson": {
+            "type": "string",
+            "nullable": true
+          },
+          "AfterJson": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsLegacy": {
+            "type": "boolean"
+          },
+          "SourceSummary": {
+            "type": "string",
+            "nullable": true
           }
         },
         "additionalProperties": false
@@ -9160,6 +13562,19 @@
       "DeploymentResultApiModel": {
         "type": "object",
         "properties": {
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "DefinitionRevision": {
+            "type": "string",
+            "nullable": true
+          },
+          "SourceRevisionLabel": {
+            "type": "string",
+            "nullable": true
+          },
           "Id": {
             "type": "integer",
             "format": "int32"
@@ -9193,6 +13608,9 @@
             "type": "string",
             "format": "date-time",
             "nullable": true
+          },
+          "IsTerraform": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -9200,6 +13618,23 @@
       "DeploymentResultAttemptApiModel": {
         "type": "object",
         "properties": {
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "IsTerraform": {
+            "type": "boolean",
+            "nullable": true
+          },
+          "DefinitionRevision": {
+            "type": "string",
+            "nullable": true
+          },
+          "SourceRevisionLabel": {
+            "type": "string",
+            "nullable": true
+          },
           "Id": {
             "type": "integer",
             "format": "int32"
@@ -9238,6 +13673,9 @@
           "Log": {
             "type": "string",
             "nullable": true
+          },
+          "HasTerraformPlan": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -9272,7 +13710,6 @@
             "items": {
               "$ref": "#/components/schemas/DaemonStatusApiModel"
             },
-            "description": "List of discovered daemon statuses to display in UI",
             "nullable": true
           }
         },
@@ -9430,6 +13867,24 @@
       "EnvironmentContentBuildsApiModel": {
         "type": "object",
         "properties": {
+          "ComponentId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "DefinitionRevision": {
+            "type": "string",
+            "nullable": true
+          },
+          "SourceRevisionLabel": {
+            "type": "string",
+            "nullable": true
+          },
           "ComponentName": {
             "type": "string",
             "nullable": true
@@ -9572,6 +14027,20 @@
         },
         "additionalProperties": false
       },
+      "EnvironmentShortApiModel": {
+        "type": "object",
+        "properties": {
+          "EnvironmentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "EnvironmentName": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "FlatPropertyValueApiModel": {
         "type": "object",
         "properties": {
@@ -9618,7 +14087,7 @@
         },
         "additionalProperties": false
       },
-      "GetDatabaseApiModelListResponseDto": {
+      "GetComponentAuditListResponseDto": {
         "type": "object",
         "properties": {
           "CurrentPage": {
@@ -9636,14 +14105,14 @@
           "Items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/DatabaseApiModel"
+              "$ref": "#/components/schemas/ComponentAuditApiModel"
             },
             "nullable": true
           }
         },
         "additionalProperties": false
       },
-      "GetPropertyValuesAuditListResponseDto": {
+      "GetDaemonAuditListResponseDto": {
         "type": "object",
         "properties": {
           "CurrentPage": {
@@ -9661,7 +14130,7 @@
           "Items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/PropertyValueAuditApiModel"
+              "$ref": "#/components/schemas/DaemonAuditApiModel"
             },
             "nullable": true
           }
@@ -9693,7 +14162,7 @@
         },
         "additionalProperties": false
       },
-      "GetDaemonAuditListResponseDto": {
+      "GetDatabaseApiModelListResponseDto": {
         "type": "object",
         "properties": {
           "CurrentPage": {
@@ -9711,7 +14180,99 @@
           "Items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/DaemonAuditApiModel"
+              "$ref": "#/components/schemas/DatabaseApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetDatabaseAuditListResponseDto": {
+        "type": "object",
+        "properties": {
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseAuditApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetDeploymentDefinitionHistoryResponse": {
+        "type": "object",
+        "properties": {
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentDefinitionHistoryApiModel"
+            },
+            "nullable": true
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetDeploymentDefinitionsResponse": {
+        "type": "object",
+        "properties": {
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentDefinitionApiModel"
+            },
+            "nullable": true
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "GetPropertyValuesAuditListResponseDto": {
+        "type": "object",
+        "properties": {
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PropertyValueAuditApiModel"
             },
             "nullable": true
           }
@@ -9868,6 +14429,31 @@
         },
         "additionalProperties": false
       },
+      "GetServerAuditListResponseDto": {
+        "type": "object",
+        "properties": {
+          "CurrentPage": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalItems": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TotalPages": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServerAuditApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
       "GroupApiModel": {
         "type": "object",
         "properties": {
@@ -10004,6 +14590,10 @@
       "ProjectApiModel": {
         "type": "object",
         "properties": {
+          "Revision": {
+            "type": "string",
+            "nullable": true
+          },
           "ProjectId": {
             "type": "integer",
             "format": "int32"
@@ -10032,7 +14622,22 @@
             "type": "string",
             "nullable": true
           },
+          "TerraformStateBackends": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TerraformStateBackendApiModel"
+            },
+            "nullable": true
+          },
           "LeanIXUrl": {
+            "type": "string",
+            "nullable": true
+          },
+          "BusinessVertical": {
+            "type": "string",
+            "nullable": true
+          },
+          "ApplicationCode": {
             "type": "string",
             "nullable": true
           },
@@ -10044,14 +14649,6 @@
           }
         },
         "additionalProperties": false
-      },
-      "SourceControlType": {
-        "enum": [
-          "AzureDevOps",
-          "GitHub",
-          "FileShare"
-        ],
-        "type": "string"
       },
       "Property": {
         "type": "object",
@@ -10122,6 +14719,27 @@
             "format": "int32"
           },
           "Description": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PropertyImportCsvDto": {
+        "type": "object",
+        "properties": {
+          "PropertyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Value": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsSecure": {
+            "type": "boolean"
+          },
+          "Environment": {
             "type": "string",
             "nullable": true
           }
@@ -10285,6 +14903,16 @@
       "RefDataApiModel": {
         "type": "object",
         "properties": {
+          "Revision": {
+            "type": "string",
+            "nullable": true
+          },
+          "CanEdit": {
+            "type": "boolean"
+          },
+          "CanDeploy": {
+            "type": "boolean"
+          },
           "Project": {
             "$ref": "#/components/schemas/ProjectApiModel"
           },
@@ -10402,6 +15030,9 @@
           "PropertyValue": {
             "type": "string",
             "nullable": true
+          },
+          "IsSensitive": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -10414,6 +15045,20 @@
             "format": "int32"
           },
           "Status": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ResourceTagsUpdate": {
+        "type": "object",
+        "properties": {
+          "ExpectedTags": {
+            "type": "string",
+            "nullable": true
+          },
+          "Tags": {
             "type": "string",
             "nullable": true
           }
@@ -10433,9 +15078,47 @@
         },
         "additionalProperties": false
       },
+      "SaveCatalogEnvironmentInputsApiModel": {
+        "required": [
+          "Inputs"
+        ],
+        "type": "object",
+        "properties": {
+          "ExpectedRevision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Inputs": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "nullable": true
+            }
+          }
+        },
+        "additionalProperties": false
+      },
       "ScriptApiModel": {
         "type": "object",
         "properties": {
+          "Revision": {
+            "type": "string",
+            "nullable": true
+          },
+          "AffectedProjectIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "ConfirmImpact": {
+            "type": "boolean"
+          },
+          "CanEdit": {
+            "type": "boolean"
+          },
           "Id": {
             "type": "integer",
             "format": "int32"
@@ -10546,9 +15229,52 @@
           "Tags": {
             "type": "array",
             "items": {
-              "type": "string",
-              "maxLength": 400
+              "maxLength": 400,
+              "type": "string"
             },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ServerAuditApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ServerId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "ServerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "RefDataAuditActionId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Action": {
+            "type": "string",
+            "nullable": true
+          },
+          "Username": {
+            "type": "string",
+            "nullable": true
+          },
+          "Date": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "FromValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "ToValue": {
+            "type": "string",
             "nullable": true
           }
         },
@@ -10568,31 +15294,25 @@
         },
         "additionalProperties": false
       },
-      "DaemonStatusApiModel": {
+      "SharedResourceCapabilities": {
         "type": "object",
         "properties": {
-          "ServerName": {
-            "type": "string",
-            "nullable": true
+          "CanCreateDefinition": {
+            "type": "boolean"
           },
-          "DaemonName": {
-            "type": "string",
-            "nullable": true
-          },
-          "Status": {
-            "type": "string",
-            "nullable": true
-          },
-          "EnvName": {
-            "type": "string",
-            "nullable": true
-          },
-          "ErrorMessage": {
-            "type": "string",
-            "nullable": true
+          "CanManageMembership": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
+      },
+      "SourceControlType": {
+        "enum": [
+          "AzureDevOps",
+          "GitHub",
+          "FileShare"
+        ],
+        "type": "string"
       },
       "SqlPortApiModel": {
         "type": "object",
@@ -10608,7 +15328,409 @@
         },
         "additionalProperties": false
       },
+      "TerraformBackendCutoverApiModel": {
+        "type": "object",
+        "properties": {
+          "Revision": {
+            "type": "string",
+            "nullable": true
+          },
+          "EnvironmentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ExpectedBackend": {
+            "$ref": "#/components/schemas/TerraformStateBackendApiModel"
+          },
+          "Backend": {
+            "$ref": "#/components/schemas/TerraformStateBackendApiModel"
+          },
+          "ConfirmBothContainersEmpty": {
+            "type": "boolean"
+          },
+          "VerificationSha256": {
+            "type": "string",
+            "nullable": true
+          },
+          "LegacyRetirement": {
+            "$ref": "#/components/schemas/TerraformLegacyRequestRetirementApiModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformBackendCutoverPreviewApiModel": {
+        "type": "object",
+        "properties": {
+          "Revision": {
+            "type": "string",
+            "nullable": true
+          },
+          "EnvironmentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "EnvironmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "CurrentBackend": {
+            "$ref": "#/components/schemas/TerraformStateBackendApiModel"
+          },
+          "LegacyRequests": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TerraformLegacyRequestApiModel"
+            },
+            "nullable": true
+          },
+          "PinnedRequestCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformDeploymentOutcomeApiModel": {
+        "required": [
+          "ApplyOutcome",
+          "ArchiveOutcome",
+          "InventoryOutcome",
+          "InventoryWarnings"
+        ],
+        "type": "object",
+        "properties": {
+          "DeploymentResultId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "ApplyOutcome": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "InventoryOutcome": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "ArchiveOutcome": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "RegisteredCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "FailedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "AppliedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "InventoryRecoveryAvailable": {
+            "type": "boolean"
+          },
+          "InventoryWarnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformDeploymentReceiptApiModel": {
+        "type": "object",
+        "properties": {
+          "DeploymentRequestId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "DefinitionRevision": {
+            "type": "string",
+            "nullable": true
+          },
+          "SourceType": {
+            "type": "string",
+            "nullable": true
+          },
+          "RequestedSource": {
+            "type": "string",
+            "nullable": true
+          },
+          "RequestedRef": {
+            "type": "string",
+            "nullable": true
+          },
+          "SourceSubPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "BuildIdentity": {
+            "type": "string",
+            "nullable": true
+          },
+          "ComponentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "EnvironmentId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "WorkloadTarget": {
+            "type": "string",
+            "nullable": true
+          },
+          "ProjectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "EnvironmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ComponentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "TemplateName": {
+            "type": "string",
+            "nullable": true
+          },
+          "TemplateVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "GitCommitSha": {
+            "type": "string",
+            "nullable": true
+          },
+          "StateStorageAccount": {
+            "type": "string",
+            "nullable": true
+          },
+          "StateContainerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "StateKey": {
+            "type": "string",
+            "nullable": true
+          },
+          "PlannedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformInventoryProvenanceApiModel": {
+        "required": [
+          "ReconciliationState",
+          "ResourceIdentifier"
+        ],
+        "type": "object",
+        "properties": {
+          "ComponentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "EnvironmentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "CloudResourceId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "DatabaseId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "FirstSeenResultId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "LastSeenResultId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "LastSeenAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ResourceIdentifier": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "ReconciliationState": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Revision": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformLegacyRequestApiModel": {
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Status": {
+            "type": "string",
+            "nullable": true
+          },
+          "UserName": {
+            "type": "string",
+            "nullable": true
+          },
+          "RequestedTime": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "Components": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformLegacyRequestRetirementApiModel": {
+        "type": "object",
+        "properties": {
+          "RequestIds": {
+            "type": "array",
+            "items": {
+              "type": "integer",
+              "format": "int32"
+            },
+            "nullable": true
+          },
+          "StateDisposition": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformParameterConflict": {
+        "required": [
+          "Message",
+          "Parameter",
+          "Value",
+          "WhenParameter",
+          "WhenValue"
+        ],
+        "type": "object",
+        "properties": {
+          "Parameter": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Value": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "WhenParameter": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "WhenValue": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Message": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformParameterResolutionApiModel": {
+        "required": [
+          "Name",
+          "Required",
+          "Sensitive",
+          "Status"
+        ],
+        "type": "object",
+        "properties": {
+          "Name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Required": {
+            "type": "boolean"
+          },
+          "Sensitive": {
+            "type": "boolean"
+          },
+          "Status": {
+            "$ref": "#/components/schemas/TerraformParameterResolutionStatus"
+          },
+          "SuggestedValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "SuggestionReason": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformParameterResolutionStatus": {
+        "enum": [
+          "Environment",
+          "Default",
+          "Missing",
+          "Unset",
+          "SavedConfiguration",
+          "Suggested"
+        ],
+        "type": "string"
+      },
+      "TerraformParameterType": {
+        "enum": [
+          "String",
+          "Number",
+          "Bool",
+          "List",
+          "Map",
+          "Object"
+        ],
+        "type": "string"
+      },
       "TerraformPlanApiModel": {
+        "required": [
+          "PlanContentSha256"
+        ],
         "type": "object",
         "properties": {
           "DeploymentResultId": {
@@ -10619,16 +15741,79 @@
             "type": "string",
             "nullable": true
           },
-          "BlobUrl": {
-            "type": "string",
-            "nullable": true
-          },
           "CreatedAt": {
             "type": "string",
-            "format": "date-time"
+            "format": "date-time",
+            "nullable": true
           },
           "Status": {
             "type": "string",
+            "nullable": true
+          },
+          "PlanContentSha256": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Receipt": {
+            "$ref": "#/components/schemas/TerraformDeploymentReceiptApiModel"
+          },
+          "ApprovedBy": {
+            "type": "string",
+            "nullable": true
+          },
+          "ApprovedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "IsHistorical": {
+            "type": "boolean"
+          },
+          "Outcome": {
+            "$ref": "#/components/schemas/TerraformDeploymentOutcomeApiModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformReadinessApiModel": {
+        "type": "object",
+        "properties": {
+          "AzureCredentialMode": {
+            "type": "string",
+            "nullable": true
+          },
+          "AzureTargetSource": {
+            "type": "string",
+            "nullable": true
+          },
+          "WorkloadTarget": {
+            "type": "string",
+            "nullable": true
+          },
+          "AivenCredentialMode": {
+            "type": "string",
+            "nullable": true
+          },
+          "BackendStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "AccessStatus": {
+            "type": "string",
+            "nullable": true
+          },
+          "Warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "InvalidInputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
             "nullable": true
           }
         },
@@ -10639,9 +15824,320 @@
           "SharedFolder",
           "Git",
           "AzureArtifact",
-          "GitHubArtifact"
+          "GitHubArtifact",
+          "Catalog"
         ],
         "type": "string"
+      },
+      "TerraformStateBackendApiModel": {
+        "type": "object",
+        "properties": {
+          "EnvironmentId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "StorageAccount": {
+            "type": "string",
+            "nullable": true
+          },
+          "ContainerName": {
+            "type": "string",
+            "nullable": true
+          },
+          "SubscriptionId": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResourceGroup": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformTemplateInstantiateRequestApiModel": {
+        "type": "object",
+        "properties": {
+          "SubmissionKey": {
+            "type": "string",
+            "format": "uuid",
+            "nullable": true
+          },
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ComponentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ParentComponentId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "EnvironmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Parameters": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "nullable": true
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformTemplateInstantiateResponseApiModel": {
+        "type": "object",
+        "properties": {
+          "component": {
+            "$ref": "#/components/schemas/ComponentApiModel"
+          },
+          "requestId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "requestStatus": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformTemplateManifest": {
+        "required": [
+          "Deprecated",
+          "Name",
+          "Outputs",
+          "Parameters",
+          "RequiredProviders",
+          "RequiredTerraformVersion",
+          "Source",
+          "Tags",
+          "Version"
+        ],
+        "type": "object",
+        "properties": {
+          "Name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Version": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Source": {
+            "$ref": "#/components/schemas/TerraformTemplateSource"
+          },
+          "Parameters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TerraformTemplateParameter"
+            }
+          },
+          "Outputs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TerraformTemplateOutput"
+            }
+          },
+          "Description": {
+            "type": "string",
+            "nullable": true
+          },
+          "Tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Category": {
+            "type": "string",
+            "nullable": true
+          },
+          "RequiredProviders": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "RequiredTerraformVersion": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Owner": {
+            "type": "string",
+            "nullable": true
+          },
+          "Deprecated": {
+            "type": "boolean"
+          },
+          "DeprecationReason": {
+            "type": "string",
+            "nullable": true
+          },
+          "ParameterConflicts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TerraformParameterConflict"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformTemplateOutput": {
+        "required": [
+          "Name",
+          "Sensitive",
+          "Type"
+        ],
+        "type": "object",
+        "properties": {
+          "Name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Type": {
+            "$ref": "#/components/schemas/TerraformParameterType"
+          },
+          "Description": {
+            "type": "string",
+            "nullable": true
+          },
+          "Sensitive": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformTemplateParameter": {
+        "required": [
+          "Name",
+          "Required",
+          "Sensitive",
+          "Type"
+        ],
+        "type": "object",
+        "properties": {
+          "Name": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Type": {
+            "$ref": "#/components/schemas/TerraformParameterType"
+          },
+          "Required": {
+            "type": "boolean"
+          },
+          "Description": {
+            "type": "string",
+            "nullable": true
+          },
+          "Default": {
+            "type": "string",
+            "nullable": true
+          },
+          "AllowedValues": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "Pattern": {
+            "type": "string",
+            "nullable": true
+          },
+          "Min": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "Max": {
+            "type": "number",
+            "format": "double",
+            "nullable": true
+          },
+          "Sensitive": {
+            "type": "boolean"
+          },
+          "Integer": {
+            "type": "boolean"
+          },
+          "Suggest": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformTemplateResolutionApiModel": {
+        "required": [
+          "EnvironmentName",
+          "Parameters",
+          "ProjectName"
+        ],
+        "type": "object",
+        "properties": {
+          "ProjectName": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "EnvironmentName": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Parameters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TerraformParameterResolutionApiModel"
+            }
+          },
+          "Readiness": {
+            "$ref": "#/components/schemas/TerraformReadinessApiModel"
+          },
+          "SavedConfiguration": {
+            "$ref": "#/components/schemas/CatalogEnvironmentInputsApiModel"
+          }
+        },
+        "additionalProperties": false
+      },
+      "TerraformTemplateSource": {
+        "required": [
+          "Kind",
+          "Locator",
+          "Ref"
+        ],
+        "type": "object",
+        "properties": {
+          "Kind": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Locator": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "Ref": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "SubPath": {
+            "type": "string",
+            "nullable": true
+          },
+          "CommitSha": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
       },
       "UpdateEnvironmentHistoryRequest": {
         "type": "object",
@@ -10813,142 +16309,6 @@
             "nullable": true
           },
           "FullLogonName": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "DatabaseAuditApiModel": {
-        "type": "object",
-        "properties": {
-          "Id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "DatabaseId": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true
-          },
-          "DatabaseName": {
-            "type": "string",
-            "nullable": true
-          },
-          "RefDataAuditActionId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "Action": {
-            "type": "string",
-            "nullable": true
-          },
-          "Username": {
-            "type": "string",
-            "nullable": true
-          },
-          "Date": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "FromValue": {
-            "type": "string",
-            "nullable": true
-          },
-          "ToValue": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "GetDatabaseAuditListResponseDto": {
-        "type": "object",
-        "properties": {
-          "CurrentPage": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "TotalItems": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "TotalPages": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "Items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/DatabaseAuditApiModel"
-            },
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "GetServerAuditListResponseDto": {
-        "type": "object",
-        "properties": {
-          "CurrentPage": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "TotalItems": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "TotalPages": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "Items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ServerAuditApiModel"
-            },
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "ServerAuditApiModel": {
-        "type": "object",
-        "properties": {
-          "Id": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "ServerId": {
-            "type": "integer",
-            "format": "int32",
-            "nullable": true
-          },
-          "ServerName": {
-            "type": "string",
-            "nullable": true
-          },
-          "RefDataAuditActionId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "Action": {
-            "type": "string",
-            "nullable": true
-          },
-          "Username": {
-            "type": "string",
-            "nullable": true
-          },
-          "Date": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "FromValue": {
-            "type": "string",
-            "nullable": true
-          },
-          "ToValue": {
             "type": "string",
             "nullable": true
           }

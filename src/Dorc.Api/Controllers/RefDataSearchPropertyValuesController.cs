@@ -38,12 +38,16 @@ namespace Dorc.Api.Controllers
                 page, operators, User);
 
             var isAdmin = _rolePrivilegesChecker.IsAdmin(User);
-            if (!isAdmin)
+            var isPowerUser = _rolePrivilegesChecker.IsPowerUser(User);
+            if (!isAdmin && !isPowerUser)
                 return StatusCode(StatusCodes.Status200OK, getScopedPropertyValuesResponseDto);
 
             foreach (var prop in getScopedPropertyValuesResponseDto.Items)
             {
-                prop.UserEditable = true;
+                if (isAdmin || string.IsNullOrEmpty(prop.PropertyValueScope))
+                {
+                    prop.UserEditable = true;
+                }
             }
 
             return StatusCode(StatusCodes.Status200OK, getScopedPropertyValuesResponseDto);

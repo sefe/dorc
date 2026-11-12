@@ -115,6 +115,20 @@ describe('request control row snapshots', () => {
     expect(confirmPromptSpy.mock.calls[1][0]).to.contain('restart');
     expect(confirmPromptSpy.mock.calls[0][0]).to.not.contain(' ?');
     expect(confirmPromptSpy.mock.calls[1][0]).to.not.contain(' ?');
+    const restartOptions = (
+      confirmPromptSpy.mock.calls[1] as unknown[]
+    )[1] as Record<string, string>;
+    expect(restartOptions.header).to.equal('Restart deployment');
+    expect(restartOptions.confirmText).to.equal('OK');
+    expect(restartOptions.warningTitle).to.equal(
+      "Warning: restart doesn't use latest version of component(s)"
+    );
+    expect(restartOptions.warningMessage).to.equal(
+      "This restarts the deploy exactly as it was when first created, ignoring any recent changes to project's components."
+    );
+    expect(restartOptions.warningActionHint).to.equal(
+      'To deploy recent updates create a new deployment job instead.'
+    );
 
     for (const button of el.shadowRoot?.querySelectorAll(
       'vaadin-button[theme~="icon"]'

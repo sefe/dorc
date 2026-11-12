@@ -1,8 +1,8 @@
 import { comboBoxRenderer } from '@vaadin/combo-box/lit';
 import '@vaadin/combo-box';
 import { ComboBox } from '@vaadin/combo-box';
-import { css } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { css, nothing } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { DeployEnv } from '../components/deploy/deploy-env';
 import '../components/deploy/deploy-env';
@@ -16,8 +16,17 @@ import {
   RefDataProjectsApi
 } from '../apis/dorc-api';
 import type { ProjectApiModel } from '../apis/dorc-api';
+import GlobalCache from '../global-cache';
 import { PageElement } from '../helpers/page-element';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
+import {
+  DEPLOY_MASCOT_THEMES,
+  getDeployMascotIconPath,
+  getDeployMascotThemeOverride,
+  MascotTheme,
+  setDeployMascotThemeOverride
+} from '../helpers/mascot-icon';
 
 @customElement('page-deploy')
 export class PageDeploy extends PageElement {
@@ -25,7 +34,7 @@ export class PageDeploy extends PageElement {
 
   @property({ type: Array }) buildDefinitions: DeployArtefactDto[] = [];
 
-  @property({ type: Object }) project!: ProjectApiModel;
+  @property({ type: Object }) project: ProjectApiModel | undefined;
 
   @property({ type: Array }) environments:
     Array<EnvironmentApiModel> | undefined = [];
@@ -33,8 +42,32 @@ export class PageDeploy extends PageElement {
   @property({ type: Boolean }) projectsLoading = true;
 
   @property({ type: Boolean }) envsLoading = false;
+  @property({ type: String }) selectionError = '';
+  @property({ type: Boolean }) isAdmin = false;
+  @property({ type: Boolean }) themeSwitcherVisible = false;
+
+  @state() private mascotTheme: MascotTheme = getDeployMascotThemeOverride();
+
+  private readonly boundKeyDown = (e: KeyboardEvent) => {
+    if (
+      this.isAdmin &&
+      e.ctrlKey &&
+      e.shiftKey &&
+      e.key.toLowerCase() === 'm'
+    ) {
+      e.preventDefault();
+      this.themeSwitcherVisible = !this.themeSwitcherVisible;
+    }
+  };
 
   @property({ type: String }) selectedEnvironmentName = '';
+  @property({ type: String }) selectedProjectId =
+    new URLSearchParams(window.location.search).get('projectId') ?? '';
+  private readonly initialProjectId = Number(this.selectedProjectId);
+  private readonly initialComponentId = Number(
+    new URLSearchParams(window.location.search).get('componentId')
+  );
+  private initialSelectionApplied = false;
 
   private environment: EnvironmentApiModel | undefined;
 
@@ -47,8 +80,79 @@ export class PageDeploy extends PageElement {
       }
 
       .scroller {
+        position: relative;
         overflow-y: auto;
         height: 100%;
+      }
+
+      .deploy-selector-controls {
+        display: flex;
+        flex-direction: column;
+        gap: var(--lumo-space-xs);
+        max-width: 600px;
+        margin-left: 10px;
+      }
+
+      .deploy-mascot-pane {
+        position: absolute;
+        top: 0;
+        left: 620px;
+        right: 0;
+        height: 360px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: var(--lumo-space-xs);
+        pointer-events: none;
+      }
+
+      .cover {
+        height: 220px;
+        width: auto;
+        object-fit: contain;
+        flex-shrink: 0;
+      }
+
+      .mascot-theme-switcher {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        padding: 2px 4px;
+        border-radius: 999px;
+        background: var(--lumo-contrast-5pct);
+        border: 1px solid var(--lumo-contrast-10pct);
+        pointer-events: auto;
+      }
+
+      .mascot-theme-btn {
+        appearance: none;
+        border: none;
+        background: transparent;
+        color: var(--lumo-secondary-text-color);
+        font-family: inherit;
+        font-size: var(--lumo-font-size-xxs);
+        font-weight: 500;
+        padding: 2px 8px;
+        border-radius: 999px;
+        cursor: pointer;
+        line-height: 1.4;
+      }
+
+      .mascot-theme-btn:hover {
+        color: var(--lumo-body-text-color);
+        background: var(--lumo-contrast-10pct);
+      }
+
+      .mascot-theme-btn[aria-pressed='true'] {
+        background: var(--lumo-primary-color);
+        color: var(--lumo-primary-contrast-color);
+      }
+
+      @media (max-width: 900px) {
+        .deploy-mascot-pane {
+          display: none;
+        }
       }
 
       .small-loader {
@@ -74,15 +178,50 @@ export class PageDeploy extends PageElement {
   constructor() {
     super();
 
+    this.loadUserRoles();
+
     const api = new RefDataProjectsApi(dorcApiConfiguration);
     api.refDataProjectsGet().subscribe(
       (data: ProjectApiModel[]) => {
         this.setProjects(data);
       },
 
-      (err: any) => console.error(err),
+      error => {
+        this.projectsLoading = false;
+        this.selectionError =
+          retrieveErrorMessage(error) ||
+          'Could not load deployment projects. Reload to try again.';
+      },
       () => console.log('done loading projects')
     );
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    window.addEventListener('keydown', this.boundKeyDown);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener('keydown', this.boundKeyDown);
+    super.disconnectedCallback();
+  }
+
+  private loadUserRoles() {
+    const gc = GlobalCache.getInstance();
+    if (gc.userRoles === undefined) {
+      gc.allRolesResp?.subscribe({
+        next: (userRoles: string[]) => {
+          this.isAdmin = userRoles.includes('Admin');
+        }
+      });
+    } else {
+      this.isAdmin = gc.userRoles.includes('Admin');
+    }
+  }
+
+  private selectMascotTheme(theme: MascotTheme) {
+    this.mascotTheme = theme;
+    setDeployMascotThemeOverride(theme);
   }
 
   sortProjects(a: ProjectApiModel, b: ProjectApiModel): number {
@@ -99,21 +238,28 @@ export class PageDeploy extends PageElement {
     const sortedProjects = projects.sort(this.sortProjects);
     this.projects = sortedProjects;
     this.projectsLoading = false;
+    if (this.initialProjectId && !this.initialSelectionApplied) {
+      this.initialSelectionApplied = true;
+      this.selectProject(this.initialProjectId);
+    }
   }
 
   render() {
     return html`
       <div class="scroller">
+        ${this.selectionError ? html`<p role="alert">${this.selectionError}</p>` : ''}
         <div
-          style="display: flex; flex-direction: column; gap: var(--lumo-space-xs); width: 100%; max-width: 600px; padding-left: var(--lumo-space-s);"
+          class="deploy-selector-controls"
+          style="display: flex; flex-direction: column; gap: var(--lumo-space-xs); max-width: 600px; margin-left: 10px;"
         >
           <div
             style="display: flex; align-items: center; gap: var(--lumo-space-s);"
           >
             <vaadin-combo-box
               style="flex: 1;"
-              @value-changed="${this._projectValueChanged}"
+              @change="${this._projectValueChanged}"
               .items="${this.projects}"
+              .selectedItem="${this.project}"
               ${comboBoxRenderer(this._projectsRenderer, [])}
               placeholder="Select Project"
               label="Project"
@@ -148,8 +294,42 @@ export class PageDeploy extends PageElement {
             }
           </div>
         </div>
+        <div class="deploy-mascot-pane">
+          <img
+            class="cover"
+            src="${getDeployMascotIconPath(new Date(), this.mascotTheme)}"
+            alt="Wait to Deploy"
+          />
+          ${
+            this.isAdmin && this.themeSwitcherVisible
+              ? html`
+                  <div
+                    class="mascot-theme-switcher"
+                    role="group"
+                    aria-label="Mascot theme preview"
+                  >
+                    ${DEPLOY_MASCOT_THEMES.map(
+                      theme => html`
+                        <button
+                          type="button"
+                          class="mascot-theme-btn"
+                          aria-pressed="${
+                            this.mascotTheme === theme.id ? 'true' : 'false'
+                          }"
+                          @click="${() => this.selectMascotTheme(theme.id)}"
+                        >
+                          ${theme.label}
+                        </button>
+                      `
+                    )}
+                  </div>
+                `
+              : nothing
+          }
+        </div>
         <deploy-env
           id="deployEnv"
+          .preselectedComponentId="${this.project?.ProjectId === this.initialProjectId ? this.initialComponentId : 0}"
           .project="${this.project}"
           .envName="${this.selectedEnvironmentName}"
         ></deploy-env>
@@ -163,15 +343,27 @@ export class PageDeploy extends PageElement {
   }
 
   _projectValueChanged(data: any) {
-    const projectId = data.target.value as number;
+    if (this.projectsLoading) return;
+    this.selectProject(Number(data.target.value));
+  }
+
+  private selectProject(projectId: number) {
+    this.selectedProjectId = projectId ? String(projectId) : '';
     const proj = this.projects?.find(value => value.ProjectId === projectId);
-    if (proj) this.project = proj;
+    if (proj === this.project) return;
+    this.project = proj;
 
     this.clearComboboxSelectedItem('environments');
+    this.environments = [];
+    this.selectedEnvironmentName = '';
+    this.selectionError = '';
 
     if (this.project !== undefined) {
+      const project = this.project;
       this.envsLoading = true;
-      const api = new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration);
+      const api = new RefDataProjectEnvironmentMappingsApi(
+        dorcApiConfiguration
+      );
       api
         .refDataProjectEnvironmentMappingsGet({
           project: this.project?.ProjectName ?? '',
@@ -181,20 +373,27 @@ export class PageDeploy extends PageElement {
           next: (
             templateApiModelEnvironmentApiModel: EnvironmentApiModelTemplateApiModel
           ) => {
+            if (this.project !== project) return;
             this.setEnvironments(templateApiModelEnvironmentApiModel);
           },
           error: (err: any) => {
-            console.error(err);
+            if (this.project !== project) return;
+            this.envsLoading = false;
+            this.selectionError =
+              retrieveErrorMessage(err) ||
+              'Could not load deployable environments.';
           },
           complete: () => {
             console.log('done loading environments');
           }
         });
+    } else {
+      this.envsLoading = false;
     }
   }
 
   _environmentValueChanged(data: any) {
-    const envId = data.target.value as number;
+    const envId = Number(data.target.value);
     this.environment = this.environments?.find(
       value => value.EnvironmentId === envId
     );

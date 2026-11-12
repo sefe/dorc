@@ -45,6 +45,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v7
+      with:
+        persist-credentials: false
 
     - name: Setup Node.js
       uses: actions/setup-node@v7
@@ -131,6 +133,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v7
+      with:
+        persist-credentials: false
 
     # actions/setup-dotnet is deliberately absent: the windows-latest image
     # already ships the .NET SDK, and installing a second copy cost ~38s of
@@ -179,13 +183,14 @@ jobs:
         java-version: '17'
 
     # Two clients are generated code: the TypeScript dorc-api client under
-    # src/dorc-web/src/apis, and the C# Org.OpenAPITools client under
-    # src/Dorc.AzureDevOps that Dorc.Core, the Monitor and the
+    # src/dorc-web/src/apis (whose swagger.json is exported directly from
+    # src/Dorc.Api via `npm run dorc-swagger-gen`), and the C# Org.OpenAPITools
+    # client under src/Dorc.AzureDevOps that Dorc.Core, the Monitor and the
     # TerraformRunner consume for build numbers and artifact locations.
     # Each pins its generator version in its own openapitools.json.
     # Regenerating here — before the web and solution builds — means every
-    # release is built from clients the generator actually produced, never
-    # from hand-drifted files.
+    # release is built from a swagger.json and clients the C# API and generator
+    # actually produced, never from hand-drifted files.
     #
     # Generation reads only committed specs, so this step is hermetic: it
     # fetches nothing, and the same commit always produces the same clients.

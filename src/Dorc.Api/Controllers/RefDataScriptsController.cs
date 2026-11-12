@@ -1,6 +1,8 @@
 ﻿using Dorc.ApiModel;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
+using Dorc.PersistentData.Sources;
+using Dorc.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -14,11 +16,18 @@ namespace Dorc.Api.Controllers
     {
         private readonly IScriptsPersistentSource _scriptsPersistentSource;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
+        private readonly IDeploymentDefinitions _definitions;
+        private readonly ISecurityPrivilegesChecker _security;
+        private readonly IClaimsPrincipalReader _claims;
 
-        public RefDataScriptsController(IScriptsPersistentSource scriptsPersistentSource, IRolePrivilegesChecker rolePrivilegesChecker)
+        public RefDataScriptsController(IScriptsPersistentSource scriptsPersistentSource, IRolePrivilegesChecker rolePrivilegesChecker,
+            IDeploymentDefinitions definitions = null, ISecurityPrivilegesChecker security = null, IClaimsPrincipalReader claims = null)
         {
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _scriptsPersistentSource = scriptsPersistentSource;
+            _definitions = definitions;
+            _security = security;
+            _claims = claims;
         }
 
         /// <summary>
@@ -34,6 +43,9 @@ namespace Dorc.Api.Controllers
         {
             var getScriptsListResponseDto = _scriptsPersistentSource.GetScriptsByPage(limit,
                 page, operators);
+            foreach (var script in getScriptsListResponseDto.Items)
+                script.CanEdit = (_rolePrivilegesChecker.IsPowerUser(User) || _rolePrivilegesChecker.IsAdmin(User))
+                    && (script.AffectedProjectIds ?? []).All(id => _security.CanModifyProject(User, id));
 
             return StatusCode(StatusCodes.Status200OK, getScriptsListResponseDto);
         }
@@ -45,6 +57,8 @@ namespace Dorc.Api.Controllers
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(bool))]
         [HttpPut("edit")]
+        [SwaggerResponse(428, Type = typeof(string))]
+        [SwaggerResponse(409, Type = typeof(string))]
         public IActionResult Put(ScriptApiModel script)
         {
             if (!_rolePrivilegesChecker.IsPowerUser(User) && !_rolePrivilegesChecker.IsAdmin(User))
@@ -53,9 +67,15 @@ namespace Dorc.Api.Controllers
 
             var scriptApiModel = _scriptsPersistentSource.GetScript(script.Id);
 
-            return scriptApiModel == null
-                ? StatusCode(StatusCodes.Status400BadRequest, "Script must already exist in DOrc!")
-                : StatusCode(StatusCodes.Status200OK, _scriptsPersistentSource.UpdateScript(script, User));
+            if (scriptApiModel == null) return BadRequest("Script must already exist in DOrc!");
+            try
+            {
+                return Ok(_definitions.EditScript(script, _claims.GetUserFullDomainName(User),
+                    id => _security.CanModifyProject(User, id)));
+            }
+            catch (DefinitionPreconditionException e) { return StatusCode(e.StatusCode, e.Message); }
+            catch (UnauthorizedAccessException) { return Forbid(); }
+            catch (ArgumentException e) { return BadRequest(e.Message); }
         }
     }
 }

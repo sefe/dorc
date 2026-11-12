@@ -17,6 +17,7 @@ import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
 import type { OperationOpts, HttpHeaders } from '../runtime';
 import type {
     PropertyApiModel,
+    PropertyImportCsvDto,
     Response,
 } from '../models';
 
@@ -26,6 +27,10 @@ export interface ApiPropertiesDeleteRequest {
 
 export interface ApiPropertiesIdidGetRequest {
     id: string;
+}
+
+export interface ApiPropertiesImportPostRequest {
+    propertyImportCsvDto?: Array<PropertyImportCsvDto>;
 }
 
 export interface ApiPropertiesPostRequest {
@@ -42,6 +47,10 @@ export interface PropertiesDeleteRequest {
 
 export interface PropertiesIdidGetRequest {
     id: string;
+}
+
+export interface PropertiesImportPostRequest {
+    propertyImportCsvDto?: Array<PropertyImportCsvDto>;
 }
 
 export interface PropertiesPostRequest {
@@ -125,6 +134,31 @@ export class PropertiesApi extends BaseAPI {
             url: '/api/Properties/id={id}'.replace('{id}', encodeURI(id)),
             method: 'GET',
             headers,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    apiPropertiesImportPost({ propertyImportCsvDto }: ApiPropertiesImportPostRequest): Observable<Array<Response>>
+    apiPropertiesImportPost({ propertyImportCsvDto }: ApiPropertiesImportPostRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<Response>>>
+    apiPropertiesImportPost({ propertyImportCsvDto }: ApiPropertiesImportPostRequest, opts?: OperationOpts): Observable<Array<Response> | AjaxResponse<Array<Response>>> {
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<Array<Response>>({
+            url: '/api/Properties/import',
+            method: 'POST',
+            headers,
+            body: propertyImportCsvDto,
         }, opts?.responseOpts);
     };
 
@@ -246,6 +280,31 @@ export class PropertiesApi extends BaseAPI {
             url: '/Properties/id={id}'.replace('{id}', encodeURI(id)),
             method: 'GET',
             headers,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    propertiesImportPost({ propertyImportCsvDto }: PropertiesImportPostRequest): Observable<Array<Response>>
+    propertiesImportPost({ propertyImportCsvDto }: PropertiesImportPostRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<Response>>>
+    propertiesImportPost({ propertyImportCsvDto }: PropertiesImportPostRequest, opts?: OperationOpts): Observable<Array<Response> | AjaxResponse<Array<Response>>> {
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<Array<Response>>({
+            url: '/Properties/import',
+            method: 'POST',
+            headers,
+            body: propertyImportCsvDto,
         }, opts?.responseOpts);
     };
 

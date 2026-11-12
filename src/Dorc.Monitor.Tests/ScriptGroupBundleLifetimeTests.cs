@@ -56,7 +56,8 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<ILogger<ScriptDispatcher>>(),
                 _pipeServer,
                 _configurationSettings,
-                Substitute.For<IRequestsPersistentSource>());
+                Substitute.For<IRequestsPersistentSource>(),
+                Substitute.For<IPowerShellEvidenceCapture>());
 
         /// <summary>
         /// Dispatch is driven to the point where the Runner's security context is built and no

@@ -14,6 +14,11 @@ namespace Dorc.ApiModel
         public string[] Tags { set; get; } = System.Array.Empty<string>();
 
         public string ServerName { set; get; }
+        /// <summary>
+        /// Omitted or null defaults to SQL Server on create and preserves the
+        /// stored engine on update. Responses always include the stored engine.
+        /// </summary>
+        public DatabaseType? DatabaseType { set; get; }
         public string AdGroup { set; get; }
         public int Id { set; get; }
         public string ArrayName { set; get; }

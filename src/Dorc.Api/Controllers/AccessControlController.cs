@@ -19,6 +19,7 @@ namespace Dorc.Api.Controllers
     public sealed class AccessControlController : ControllerBase
     {
         private const int AC_ALLOW_READ_SECRETS = 2;
+        private const int AC_ALLOW_OWNER = 4;
 
         private readonly IAccessControlPersistentSource _accessControlPersistentSource;
         private readonly IActiveDirectorySearcher _adSearcher;
@@ -63,10 +64,7 @@ namespace Dorc.Api.Controllers
                                  accessControlType == AccessControlType.Project &&
                                   _securityPrivilegesChecker.IsProjectOwnerOrAdmin(User, accessControlName);
 
-            output.UserCanReadSecrets = accessControlType == AccessControlType.Environment &&
-                                        _securityPrivilegesChecker.CanReadSecrets(User, accessControlName) ||
-                                        accessControlType == AccessControlType.Project &&
-                                        _securityPrivilegesChecker.IsProjectOwnerOrAdmin(User, accessControlName);
+            output.UserCanReadSecrets = accessControlType == AccessControlType.Environment && output.UserIsOwner;
 
             return StatusCode(StatusCodes.Status200OK, output);
         }
@@ -129,66 +127,140 @@ namespace Dorc.Api.Controllers
                 }
                 accessControl.ObjectId = authorizedObject.ObjectId;
 
-                // Prevent users without read-secrets privilege from granting it
-                var requestingUserCanReadSecrets = accessControl.Type == AccessControlType.Environment
-                    ? _securityPrivilegesChecker.CanReadSecrets(User, accessControl.Name)
+                var requestingUserIsOwner = accessControl.Type == AccessControlType.Environment
+                    ? _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, accessControl.Name)
                     : _securityPrivilegesChecker.IsProjectOwnerOrAdmin(User, accessControl.Name);
 
-                if (!requestingUserCanReadSecrets)
+                // Only an Environment Owner or Admin can grant or revoke ReadSecrets
+                var requestingUserCanReadSecrets = accessControl.Type == AccessControlType.Environment &&
+                                                   requestingUserIsOwner;
+
+                if (accessControl.Privileges == null)
                 {
-                    var existingPrivileges = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId)
-                        .ToDictionary(p => p.Id);
+                    return StatusCode(StatusCodes.Status400BadRequest,
+                        "Privileges list is required.");
+                }
 
-                    foreach (var privilege in accessControl.Privileges)
+                var existingAccessControls = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId).ToList();
+                var existingPrivileges = existingAccessControls.ToDictionary(p => p.Id);
+
+                // Validate all incoming privilege entries:
+                // 1. Reject negative IDs, duplicate positive IDs, or IDs that do not belong to this object (prevents cross-object ACL IDOR)
+                // 2. Reject in-place Sid/Pid mutations on existing ACL rows (prevents principal-swap escalation)
+                var seenPositiveIds = new HashSet<int>();
+                foreach (var privilege in accessControl.Privileges)
+                {
+                    if (privilege.Id < 0)
                     {
-                        var hasReadSecrets = (privilege.Allow & AC_ALLOW_READ_SECRETS) != 0;
-                        var hadReadSecretsBefore = existingPrivileges.TryGetValue(privilege.Id, out var existing)
-                            && (existing.Allow & AC_ALLOW_READ_SECRETS) != 0;
+                        return StatusCode(StatusCodes.Status400BadRequest,
+                            "Invalid access control entry ID.");
+                    }
 
-                        if (hasReadSecrets && !hadReadSecretsBefore)
+                    if (privilege.Id > 0)
+                    {
+                        if (!seenPositiveIds.Add(privilege.Id))
                         {
-                            return StatusCode(StatusCodes.Status403Forbidden,
-                                "You do not have permission to grant Read Secrets access.");
+                            return StatusCode(StatusCodes.Status400BadRequest,
+                                $"Duplicate access control entry ID {privilege.Id} in request.");
+                        }
+
+                        if (!existingPrivileges.TryGetValue(privilege.Id, out var existingEntry))
+                        {
+                            return StatusCode(StatusCodes.Status400BadRequest,
+                                $"Access control entry ID {privilege.Id} does not belong to '{accessControl.Name}'.");
+                        }
+
+                        var existingSid = existingEntry.Sid ?? string.Empty;
+                        var incomingSid = privilege.Sid ?? string.Empty;
+                        var existingPid = existingEntry.Pid ?? string.Empty;
+                        var incomingPid = privilege.Pid ?? string.Empty;
+
+                        if (!string.Equals(existingSid, incomingSid, StringComparison.OrdinalIgnoreCase) ||
+                            !string.Equals(existingPid, incomingPid, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return StatusCode(StatusCodes.Status400BadRequest,
+                                "Changing the principal (Sid/Pid) of an existing access control entry is not allowed.");
                         }
                     }
                 }
 
-                // For environments, ensure at least one owner remains
-                if (accessControl.Type == AccessControlType.Environment)
-                {
-                    var currentOwners = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId)
-                        .Where(p => (p.Allow & 4) != 0) // Check for Owner flag (4)
-                        .ToList();
-                    
-                    var newOwners = accessControl.Privileges
-                        .Where(p => (p.Allow & 4) != 0)
-                        .ToList();
+                var newIds = accessControl.Privileges.Where(p => p.Id > 0).Select(p => p.Id).ToHashSet();
+                var deletedEntries = existingAccessControls.Where(e => !newIds.Contains(e.Id)).ToList();
 
-                    // If we're removing all owners, prevent the update
-                    if (currentOwners.Any() && !newOwners.Any())
+                // Only an Owner or Admin can add, modify, or remove Deny bits
+                if (!requestingUserIsOwner)
+                {
+                    foreach (var privilege in accessControl.Privileges)
                     {
-                        return StatusCode(StatusCodes.Status400BadRequest,
-                            "Cannot remove all owners from an environment. At least one owner must remain.");
+                        var previousDeny = privilege.Id > 0 ? existingPrivileges[privilege.Id].Deny : 0;
+                        if (privilege.Deny != previousDeny)
+                        {
+                            return StatusCode(StatusCodes.Status403Forbidden,
+                                "Only an Owner or Admin can grant or modify Deny access controls.");
+                        }
                     }
 
-                    // Enforce maximum of 2 owners
-                    if (newOwners.Count > 2)
+                    if (deletedEntries.Any(e => e.Deny != 0))
                     {
-                        return StatusCode(StatusCodes.Status400BadRequest,
-                            "An environment cannot have more than 2 owners.");
+                        return StatusCode(StatusCodes.Status403Forbidden,
+                            "Only an Owner or Admin can remove Deny access controls.");
                     }
                 }
 
-                var existingIds = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId).Select(p => p.Id)
-                    .ToArray();
-                var newIds = accessControl.Privileges.Select(p => p.Id).ToArray();
-                
-                foreach (var existingId in existingIds)
+                if (!requestingUserCanReadSecrets)
                 {
-                    if (!newIds.Contains(existingId))
+                    foreach (var privilege in accessControl.Privileges)
                     {
-                        _accessControlPersistentSource.DeleteAccessControl(existingId, accessControl.ObjectId, User);
+                        var existing = privilege.Id > 0 ? existingPrivileges[privilege.Id] : null;
+                        var hasReadSecrets = (privilege.Allow & AC_ALLOW_READ_SECRETS) != 0;
+                        var hadReadSecretsBefore = existing != null && (existing.Allow & AC_ALLOW_READ_SECRETS) != 0;
+
+                        if (accessControl.Type == AccessControlType.Environment && hasReadSecrets != hadReadSecretsBefore ||
+                            accessControl.Type == AccessControlType.Project && hasReadSecrets && !hadReadSecretsBefore)
+                        {
+                            return StatusCode(StatusCodes.Status403Forbidden,
+                                "You do not have permission to grant or revoke Read Secrets access.");
+                        }
                     }
+
+                    if (accessControl.Type == AccessControlType.Environment &&
+                        deletedEntries.Any(e => (e.Allow & AC_ALLOW_READ_SECRETS) != 0))
+                    {
+                        return StatusCode(StatusCodes.Status403Forbidden,
+                            "You do not have permission to revoke Read Secrets access.");
+                    }
+                }
+
+                var currentOwners = existingAccessControls
+                    .Where(p => (p.Allow & AC_ALLOW_OWNER) != 0)
+                    .ToList();
+                var newOwners = accessControl.Privileges
+                    .Where(p => (p.Allow & AC_ALLOW_OWNER) != 0)
+                    .ToList();
+
+                // For environments, ensure at least one owner remains
+                if (accessControl.Type == AccessControlType.Environment && currentOwners.Any() && !newOwners.Any())
+                {
+                    return StatusCode(StatusCodes.Status400BadRequest,
+                        "Cannot remove all owners from an environment. At least one owner must remain.");
+                }
+
+                // Only an existing Owner or Admin may grant or revoke Owner access
+                if (!requestingUserIsOwner)
+                {
+                    var currentOwnerIds = currentOwners.Select(o => o.Id).OrderBy(id => id).ToList();
+                    var newOwnerIds = newOwners.Select(o => o.Id).OrderBy(id => id).ToList();
+                    var hasNewUnpersistedOwner = newOwners.Any(o => o.Id <= 0);
+                    if (hasNewUnpersistedOwner || !currentOwnerIds.SequenceEqual(newOwnerIds))
+                    {
+                        return StatusCode(StatusCodes.Status403Forbidden,
+                            "Only an Owner or Admin can grant or revoke Owner access.");
+                    }
+                }
+
+                foreach (var deletedEntry in deletedEntries)
+                {
+                    _accessControlPersistentSource.DeleteAccessControl(deletedEntry.Id, accessControl.ObjectId, User);
                 }
 
                 foreach (var accessControlPrivilege in accessControl.Privileges)

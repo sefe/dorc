@@ -17,6 +17,26 @@
  */
 export interface ScriptApiModel {
     /**
+     * @type {string}
+     * @memberof ScriptApiModel
+     */
+    Revision?: string | null;
+    /**
+     * @type {Array<number>}
+     * @memberof ScriptApiModel
+     */
+    AffectedProjectIds?: Array<number> | null;
+    /**
+     * @type {boolean}
+     * @memberof ScriptApiModel
+     */
+    ConfirmImpact?: boolean;
+    /**
+     * @type {boolean}
+     * @memberof ScriptApiModel
+     */
+    CanEdit?: boolean;
+    /**
      * @type {number}
      * @memberof ScriptApiModel
      */

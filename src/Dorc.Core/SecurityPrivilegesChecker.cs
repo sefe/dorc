@@ -35,7 +35,9 @@ namespace Dorc.Core
 
         public bool CanModifyPropertyValue(ClaimsPrincipal user, string environmentName)
         {
-            return CanModifyEnvironment(user, environmentName);
+            return string.IsNullOrEmpty(environmentName)
+                ? CanModifyProperty(user)
+                : CanModifyEnvironment(user, environmentName);
         }
 
         public bool IsEnvironmentOwnerOrAdmin(ClaimsPrincipal user, string environmentName)
@@ -54,23 +56,26 @@ namespace Dorc.Core
         public bool CanReadSecrets(ClaimsPrincipal user, string environmentName)
         {
             var env = _environmentsPersistentSource.GetSecurityObject(environmentName);
-            return env != null && _securityObjectFilter.HasPrivilege(env, user, AccessLevel.ReadSecrets | AccessLevel.Owner);
+            return env != null && _securityObjectFilter.HasPrivilege(env, user, AccessLevel.ReadSecrets);
         }
 
         public bool CanModifyProject(ClaimsPrincipal user, string projectName)
         {
+            if (string.IsNullOrEmpty(projectName))
+                return CanModifyProperty(user);
+
             var project = _projectsPersistentSource.GetSecurityObject(projectName);
             if (project == null) throw new ApplicationException($"Unable to locate an project called {projectName}");
-            return string.IsNullOrEmpty(projectName)
-                ? CanModifyProperty(user)
-                : _securityObjectFilter.HasPrivilege(project, user, AccessLevel.Write);
+            return _rolePrivilegesChecker.IsAdmin(user) ||
+                   _securityObjectFilter.HasPrivilege(project, user, AccessLevel.Write | AccessLevel.Owner);
         }
 
         public bool CanModifyProject(ClaimsPrincipal user, int projectId)
         {
             var project = _projectsPersistentSource.GetSecurityObject(projectId);
             if (project == null) throw new ApplicationException($"Unable to locate an project with ID {projectId}");
-            return _securityObjectFilter.HasPrivilege(project, user, AccessLevel.Write);
+            return _rolePrivilegesChecker.IsAdmin(user) ||
+                   _securityObjectFilter.HasPrivilege(project, user, AccessLevel.Write | AccessLevel.Owner);
         }
 
         public bool CanModifyEnvironment(ClaimsPrincipal user, string envName)
@@ -81,8 +86,11 @@ namespace Dorc.Core
                 return _rolePrivilegesChecker.IsAdmin(user);
             }
 
+            if (_rolePrivilegesChecker.IsAdmin(user))
+                return true;
+
             var isEnvironmentOwner = _environmentsPersistentSource.IsEnvironmentOwner(envName, user);
-            var canModify = _securityObjectFilter.HasPrivilege(env, user, AccessLevel.Write);
+            var canModify = _securityObjectFilter.HasPrivilege(env, user, AccessLevel.Write | AccessLevel.Owner);
             return canModify || isEnvironmentOwner;
         }
     }

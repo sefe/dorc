@@ -70,8 +70,6 @@ export class AddEditAccessControl extends LitElement {
   @state()
   private loading = true;
 
-  private _ownerLimitNotified = false;
-
   static get styles() {
     return css`
       vaadin-dialog::part(overlay) {
@@ -229,16 +227,23 @@ export class AddEditAccessControl extends LitElement {
 
   _boundACButtonsRenderer(item: AccessControlApiModel) {
     const accessControl = item as AccessControlApiModel;
+    const allow = item.Allow ?? 0;
+    const isOwnerRow = (allow & AC_ALLOW_OWNER) > 0;
+    const isReadSecretsRow = (allow & AC_ALLOW_READ_SECRETS) > 0;
 
     return html`<access-control-controls
       .accessControl="${accessControl}"
-      .disabled="${!this.UserEditable || item.Allow === AC_ALLOW_OWNER}"
+      .disabled="${
+        !this.UserEditable ||
+        (isOwnerRow && !this.UserIsOwner) ||
+        (isReadSecretsRow && !this.UserCanReadSecrets)
+      }"
       @access-control-removed="${(e: CustomEvent) => {
-          // The row comes from the event, not from this closure: the closure is
-          // replaced whenever the cell re-renders, which can happen while the
-          // confirmation dialog is open.
-          this.removeAccessControl(e.detail.accessControl);
-        }}"
+        // The row comes from the event, not from this closure: the closure is
+        // replaced whenever the cell re-renders, which can happen while the
+        // confirmation dialog is open.
+        this.removeAccessControl(e.detail.accessControl);
+      }}"
     ></access-control-controls>`;
   }
 
@@ -471,51 +476,15 @@ export class AddEditAccessControl extends LitElement {
 
   acCanOwner(item: AccessControlApiModel) {
     return html`<vaadin-checkbox
-      ?disabled="${!this.UserIsOwner}"
+      ?disabled="${!this.UserEditable || !this.UserIsOwner}"
       .checked="${live(((item.Allow ?? 0) & AC_ALLOW_OWNER) > 0)}"
       @change="${(e: Event) =>
-        this.toggleOwner(
-          e.currentTarget as Checkbox,
+        this.togglePrivilege(
           item,
+          AC_ALLOW_OWNER,
           (e.currentTarget as Checkbox).checked
         )}"
     ></vaadin-checkbox>`;
-  }
-
-  /** Owner is capped at two per environment, so it cannot use togglePrivilege. */
-  private toggleOwner(
-    checkbox: Checkbox,
-    item: AccessControlApiModel,
-    checked: boolean
-  ) {
-    if (item.Allow === undefined) return;
-    const isOwner = (item.Allow & AC_ALLOW_OWNER) > 0;
-
-    if (checked && !isOwner) {
-      const ownerCount =
-        this.Privileges?.filter(p => ((p.Allow ?? 0) & AC_ALLOW_OWNER) > 0)
-          .length ?? 0;
-      if (ownerCount >= 2) {
-        checkbox.checked = false;
-        if (!this._ownerLimitNotified) {
-          this._ownerLimitNotified = true;
-          Promise.resolve().then(() => {
-            this._ownerLimitNotified = false;
-          });
-          Notification.show('Maximum of 2 owners allowed per environment', {
-            theme: 'warning',
-            position: 'bottom-start',
-            duration: 3000
-          });
-        }
-        return;
-      }
-      item.Allow |= AC_ALLOW_OWNER;
-    }
-
-    if (!checked && isOwner) {
-      item.Allow ^= AC_ALLOW_OWNER;
-    }
   }
 
   setTextField(id: string, value: string) {
@@ -562,26 +531,25 @@ export class AddEditAccessControl extends LitElement {
       <tr>
         <td>
           ${
-                this.UserEditable
-                  ? html`
-                      <vaadin-icon
-                        icon="vaadin:unlock"
-                        role="img"
-                        aria-label="Editable"
-                        title="Editable"
-                        style="color: var(--dorc-link-color)"
-                      ></vaadin-icon>
-                    `
-                  : html`
-                      <vaadin-icon
-                        icon="vaadin:lock"
-                        role="img"
-                        aria-label="Read-only"
-                        title="Read-only"
-                        style="color: var(--dorc-link-color)"
-                      ></vaadin-icon>
-                    `
-              }
+            this.UserEditable
+              ? html`
+                  <vaadin-icon
+                    icon="vaadin:unlock"
+                    role="img"
+                    aria-label="Editable"
+                    title="Editable"
+                    style="color: var(--dorc-link-color)"
+                  ></vaadin-icon>
+                `
+              : html`
+                  <img
+                    src="/modern-dorc-access-denied.webp"
+                    alt="Read-only"
+                    title="Read-only"
+                    style="height: 64px; width: auto; vertical-align: middle;"
+                  />
+                `
+          }
         </td>
         <td>
           <h2>${this.secureName}</h2>
@@ -614,10 +582,10 @@ export class AddEditAccessControl extends LitElement {
             </td>
             <td style="display: table-cell; vertical-align: center;">
               ${
-                    this.searchingUsers
-                      ? html` <div class="small-loader"></div> `
-                      : html``
-                  }
+                this.searchingUsers
+                  ? html` <div class="small-loader"></div> `
+                  : html``
+              }
             </td>
           </tr>
           <tr>
@@ -670,7 +638,10 @@ export class AddEditAccessControl extends LitElement {
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="Owner"
-          ${columnBodyRenderer(this.acCanOwner, [this.UserIsOwner])}
+          ${columnBodyRenderer(this.acCanOwner, [
+            this.UserEditable,
+            this.UserIsOwner
+          ])}
           flex="1"
           resizable
           auto-width
@@ -678,8 +649,10 @@ export class AddEditAccessControl extends LitElement {
         <vaadin-grid-column
           header="Actions"
           ${columnBodyRenderer(this._boundACButtonsRenderer, [
-                this.UserEditable
-              ])}
+            this.UserEditable,
+            this.UserIsOwner,
+            this.UserCanReadSecrets
+          ])}
           flex="1"
           resizable
           auto-width
@@ -701,13 +674,13 @@ export class AddEditAccessControl extends LitElement {
         >
         <span class="save-progress" aria-live="polite">
           ${
-                this.savingAccessControls
-                  ? html`<span
-                      class="small-loader"
-                      aria-label="Saving access controls"
-                    ></span>`
-                  : html``
-              }
+            this.savingAccessControls
+              ? html`<span
+                  class="small-loader"
+                  aria-label="Saving access controls"
+                ></span>`
+              : html``
+          }
         </span>
       </div>
       <vaadin-button id="close-access-controls" @click="${this.close}"

@@ -27,6 +27,7 @@ namespace Dorc.Monitor
         private readonly IScriptGroupPipeServer scriptGroupPipeServer;
         private readonly IConfigurationSettings configurationSettingsEngine;
         private readonly IRequestsPersistentSource requestsPersistentSource;
+        private readonly IPowerShellEvidenceCapture evidenceCapture;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -38,7 +39,8 @@ namespace Dorc.Monitor
             ILogger<ScriptDispatcher> logger,
             IScriptGroupPipeServer scriptGroupPipeServer,
             IConfigurationSettings configurationSettingsEngine,
-            IRequestsPersistentSource requestsPersistentSource)
+            IRequestsPersistentSource requestsPersistentSource,
+            IPowerShellEvidenceCapture evidenceCapture = null)
         {
             this.processesPersistentSource = processesPersistentSource;
             this._configValuesPersistentSource = configValuesPersistentSource;
@@ -46,6 +48,7 @@ namespace Dorc.Monitor
             this.scriptGroupPipeServer = scriptGroupPipeServer;
             this.configurationSettingsEngine = configurationSettingsEngine;
             this.requestsPersistentSource = requestsPersistentSource;
+            this.evidenceCapture = evidenceCapture ?? new PowerShellEvidenceCapture();
         }
 
         public bool Dispatch(string scriptsLocation,
@@ -82,6 +85,7 @@ namespace Dorc.Monitor
                 properties,
                 deploymentRequestId);
 
+            var ordinalOffset = 0;
             foreach (ScriptGroup scriptGroup in scriptGroups)
             {
                 var domainName = configurationSettingsEngine.GetConfigurationDomainNameIntra();
@@ -96,7 +100,12 @@ namespace Dorc.Monitor
                     // process security context below rather than assumed to be the Monitor's
                     // own identity.
                     var readerIdentity = new ScriptGroupReaderIdentity(domainName, processAccountName);
+                    scriptGroup.SourceBuildIdentity = requestsPersistentSource.GetRequest(requestId)?.BuildNumber;
+                    evidenceCapture.Prepare(scriptGroup, script.Revision, requestId,
+                        ordinalOffset, readerIdentity.QualifiedAccountName);
+                    ordinalOffset += scriptGroup.ScriptProperties.Count;
 
+                    Exception? dispatchFailure = null;
                     try
                     {
                         Task scriptGroupPipeTask = scriptGroupPipeServer.Start(
@@ -237,6 +246,11 @@ namespace Dorc.Monitor
                             }
                         }
                     }
+                    catch (Exception e)
+                    {
+                        dispatchFailure = e;
+                        throw;
+                    }
                     finally
                     {
                         // The bundle carries the resolved deployment properties, secrets
@@ -244,11 +258,33 @@ namespace Dorc.Monitor
                         // is withdrawn as soon as that process is gone - on the failure and
                         // cancellation paths as much as the successful one.
                         scriptGroupPipeServer.Expire(startedScriptGroupPipeName);
+                        // Evidence was allocated before the Runner was launched, so it is
+                        // ingested here even when the launch itself failed; otherwise the
+                        // restricted directory leaks and the failure leaves no evidence rows.
+                        isScriptExecutionSuccessful &= IngestEvidence(scriptGroup, dispatchFailure);
                     }
                 }
             }
 
             return isScriptExecutionSuccessful;
+        }
+
+        // An evidence persistence failure must surface when the dispatch itself
+        // succeeded, but it must not replace the original failure (notably an
+        // OperationCanceledException) when the dispatch had already failed.
+        private bool IngestEvidence(ScriptGroup scriptGroup, Exception? dispatchFailure)
+        {
+            try
+            {
+                return evidenceCapture.Ingest(scriptGroup, requestsPersistentSource);
+            }
+            catch (Exception e) when (dispatchFailure != null)
+            {
+                logger.LogError(e,
+                    "PowerShell evidence for result ID '{ResultId}' could not be persisted after the dispatch failed; the restricted evidence directory '{Directory}' is retained.",
+                    scriptGroup.DeployResultId, scriptGroup.PowerShellEvidenceDirectory);
+                return false;
+            }
         }
 
         private IList<ScriptGroup> GetScriptsGroupedByPowerShellVersion(
@@ -283,7 +319,7 @@ namespace Dorc.Monitor
                 previousScriptGroup.ScriptProperties.Add(new ScriptProperties()
                 {
                     ScriptPath = ExtractPath(scriptsLocation, scriptApiModel),
-                    Properties = ExtractProperties(scriptApiModel)
+                    Properties = ExtractProperties(scriptApiModel, properties)
                 });
             }
 
@@ -346,7 +382,7 @@ namespace Dorc.Monitor
                 return Path.Combine(scriptsLocation, scriptApiModel.Path);
             }
 
-            logger.LogInformation($"Found a JSON Path with {scriptApiModel.Path}.");
+            logger.LogInformation("Found a JSON script path.");
 
             var deserializeObject = JsonSerializer.Deserialize<JSONPath>(scriptApiModel.Path);
 
@@ -358,7 +394,8 @@ namespace Dorc.Monitor
             return Path.Combine(scriptsLocation, deserializeObject.ScriptPath);
         }
 
-        private IDictionary<string, VariableValue> ExtractProperties(ScriptApiModel scriptApiModel)
+        private IDictionary<string, VariableValue> ExtractProperties(ScriptApiModel scriptApiModel,
+            IDictionary<string, VariableValue> commonProperties)
         {
             var properties = new Dictionary<string, VariableValue>();
             if (!scriptApiModel.IsPathJSON)
@@ -376,6 +413,15 @@ namespace Dorc.Monitor
             foreach (var deserializeObjectParam in deserializeObject.GenericArguments)
             {
                 var first = deserializeObjectParam.Values.First();
+                var text = first?.ToString();
+                if (text != null && System.Text.RegularExpressions.Regex.IsMatch(text, @"^\$\{[A-Za-z0-9_.-]+\}$"))
+                {
+                    var propertyName = text.Substring(2, text.Length - 3);
+                    if (!commonProperties.TryGetValue(propertyName, out var resolved))
+                        throw new InvalidOperationException("A referenced script property is unavailable.");
+                    properties.TryAdd(deserializeObjectParam.Keys.First(), resolved);
+                    continue;
+                }
                 properties.TryAdd(deserializeObjectParam.Keys.First(), new VariableValue { Value = first, Type = first.GetType() });
             }
 

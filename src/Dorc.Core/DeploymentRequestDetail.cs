@@ -46,6 +46,12 @@
         public string Name { get; set; } = String.Empty;
         public string Value { get; set; } = String.Empty;
 
+        // Additive: absent in RequestDetails XML persisted before this flag
+        // existed, which XmlSerializer reads as false. When true, API read
+        // surfaces redact Value before emission (the stored value stays
+        // cleartext - the runner needs it to feed terraform).
+        public bool IsSensitive { get; set; }
+
         public object Clone()
         {
             return MemberwiseClone();
@@ -54,6 +60,7 @@
     [Serializable]
     public class BuildBundle
     {
+        [System.Text.Json.Serialization.JsonPropertyName("items")]
         public IEnumerable<BuildItem> Items { set; get; } = new List<BuildItem>();
     }
     [Serializable]

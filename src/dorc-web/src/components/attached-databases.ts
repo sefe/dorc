@@ -20,6 +20,7 @@ import { DatabaseApiModel } from '../apis/dorc-api';
 import { EditDatabasePermissions } from './edit-database-permissions';
 import { ViewDatabasePermissions } from './view-database-permissions';
 import { map } from 'lit/directives/map.js';
+import { renderDatabaseType } from '../helpers/database-type';
 
 @customElement('attached-databases')
 export class AttachedDatabases extends ResponsiveMixin(LitElement) {
@@ -45,6 +46,14 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
 
   static get styles() {
     return css`
+      :host {
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+        min-height: 0;
+        height: 100%;
+      }
+
       .center {
         margin: 10px 20px 10px;
         width: 50%;
@@ -65,6 +74,8 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
       vaadin-grid#grid {
         overflow: hidden;
         width: calc(100% - 4px);
+        flex: 1;
+        min-height: 0;
         --divider-color: var(--dorc-border-color);
       }
 
@@ -102,7 +113,6 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         id="grid"
         .items=${this.databases}
         theme="compact row-stripes no-row-borders no-border"
-        all-rows-visible
       >
         <vaadin-grid-column
           path="ServerName"
@@ -113,6 +123,13 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
           path="Name"
           header="Database"
           resizable
+        ></vaadin-grid-column>
+        <vaadin-grid-column
+          ${columnBodyRenderer(this.databaseTypeRenderer, [])}
+          header="Type"
+          width="64px"
+          flex-grow="0"
+          text-align="center"
         ></vaadin-grid-column>
         <vaadin-grid-column
           ${columnBodyRenderer(this.tagsRenderer, [])}
@@ -210,6 +227,8 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
       )}
     `;
   };
+
+  private databaseTypeRenderer = renderDatabaseType;
 
   private databaseControlsRenderer = (db: DatabaseApiModel) => html`
     <database-env-controls

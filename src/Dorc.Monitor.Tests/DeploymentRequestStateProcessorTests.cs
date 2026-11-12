@@ -39,6 +39,7 @@ namespace Dorc.Monitor.Tests
             mockDistributedLockService = Substitute.For<IDistributedLockService>();
             mockNotificationSink = Substitute.For<IDeploymentNotificationSink>();
             mockLoggerFactory = Substitute.For<ILoggerFactory>();
+            mockLoggerFactory.CreateLogger(Arg.Any<string>()).Returns(Substitute.For<ILogger>());
 
             mockEventPublisher.PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>())
                 .Returns(Task.CompletedTask);

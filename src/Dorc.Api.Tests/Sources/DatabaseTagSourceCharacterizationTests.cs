@@ -52,6 +52,74 @@ namespace Dorc.Api.Tests.Sources
         }
 
         [TestMethod]
+        public void UpdateDatabase_OmittedOrNullType_PreservesStoredEngine()
+        {
+            foreach (var payload in new[]
+            {
+                """{"Id":1,"Name":"analytics","ServerName":"project/service"}""",
+                """{"Id":1,"Name":"analytics","ServerName":"project/service","DatabaseType":null}"""
+            })
+            {
+                var existing = new Database
+                {
+                    Id = 1, Name = "analytics", ServerName = "project/service",
+                    DatabaseType = DatabaseType.ClickHouse
+                };
+                var context = ContextWithEnvironmentDatabases(existing);
+                var groups = DbContextMock.GetQueryableMockDbSet(new List<AdGroup>());
+                context.AdGroups.Returns(groups);
+                var input = System.Text.Json.JsonSerializer.Deserialize<DatabaseApiModel>(payload)!;
+
+                var result = DatabasesSource(context).UpdateDatabase(1, input, new System.Security.Claims.ClaimsPrincipal());
+
+                Assert.AreEqual(DatabaseType.ClickHouse, existing.DatabaseType);
+                Assert.AreEqual(DatabaseType.ClickHouse, result!.DatabaseType);
+                context.Received(1).SaveChanges();
+            }
+        }
+
+        [TestMethod]
+        public void UpdateDatabase_ExplicitSqlServer_ReplacesStoredEngine()
+        {
+            var existing = new Database
+            {
+                Id = 1, Name = "analytics", ServerName = "project/service",
+                DatabaseType = DatabaseType.ClickHouse
+            };
+            var context = ContextWithEnvironmentDatabases(existing);
+            var groups = DbContextMock.GetQueryableMockDbSet(new List<AdGroup>());
+            context.AdGroups.Returns(groups);
+
+            DatabasesSource(context).UpdateDatabase(1, new DatabaseApiModel
+            {
+                Id = 1, Name = existing.Name, ServerName = existing.ServerName,
+                DatabaseType = DatabaseType.SqlServer
+            }, new System.Security.Claims.ClaimsPrincipal());
+
+            Assert.AreEqual(DatabaseType.SqlServer, existing.DatabaseType);
+        }
+
+        [TestMethod]
+        public void AddDatabase_DefaultsToSqlServer_AndPersistsExplicitEngine()
+        {
+            foreach (var engine in new DatabaseType?[] { null, DatabaseType.CosmosDb })
+            {
+                var context = ContextWithEnvironmentDatabases();
+                var added = new List<Database>();
+                context.Databases.When(d => d.Add(Arg.Any<Database>())).Do(ci => added.Add(ci.Arg<Database>()));
+                var groups = DbContextMock.GetQueryableMockDbSet(new List<AdGroup>());
+                context.AdGroups.Returns(groups);
+
+                DatabasesSource(context).AddDatabase(new DatabaseApiModel
+                {
+                    Name = "db", ServerName = "server", DatabaseType = engine
+                });
+
+                Assert.AreEqual(engine ?? DatabaseType.SqlServer, added.Single().DatabaseType);
+            }
+        }
+
+        [TestMethod]
         public void GetDatabaseByTag_EnvironmentOverload_UsesTagMembership()
         {
             var context = ContextWithEnvironmentDatabases(
@@ -82,15 +150,25 @@ namespace Dorc.Api.Tests.Sources
         [TestMethod]
         public void GetDatabaseByTag_BothOverloads_ThrowOnSharedTag()
         {
-            // Kept behaviour — tag membership must NOT flip these.
+            // Kept behaviour — tag membership must NOT flip these, and the error
+            // message must identify the environment, duplicate tag, and databases.
             var context = ContextWithEnvironmentDatabases(
                 new Database { Id = 1, Name = "A", TagLinks = DbTags("Endur"), ServerName = "s1" },
-                new Database { Id = 2, Name = "B", TagLinks = DbTags("Endur"), ServerName = "s2" });
+                new Database { Id = 2, Name = "B", TagLinks = DbTags("Endur"), ServerName = null });
             var source = DatabasesSource(context);
             var env = new EnvironmentApiModel { EnvironmentId = 42, EnvironmentName = "Endur DV 10" };
 
-            Assert.Throws<InvalidOperationException>(() => source.GetDatabaseByTag(env, "Endur"));
-            Assert.Throws<InvalidOperationException>(() => source.GetDatabaseByTag("Endur DV 10", "Endur"));
+            var envEx = Assert.Throws<InvalidOperationException>(() => source.GetDatabaseByTag(env, "Endur"));
+            StringAssert.Contains(envEx.Message, "Endur DV 10");
+            StringAssert.Contains(envEx.Message, "'Endur'");
+            StringAssert.Contains(envEx.Message, "'A' on 's1'");
+            StringAssert.Contains(envEx.Message, "'B'");
+
+            var nameEx = Assert.Throws<InvalidOperationException>(() => source.GetDatabaseByTag("Endur DV 10", "Endur"));
+            StringAssert.Contains(nameEx.Message, "Endur DV 10");
+            StringAssert.Contains(nameEx.Message, "'Endur'");
+            StringAssert.Contains(nameEx.Message, "'A' on 's1'");
+            StringAssert.Contains(nameEx.Message, "'B'");
         }
 
         // ---- Site 2: Endur users join ----
@@ -242,12 +320,18 @@ namespace Dorc.Api.Tests.Sources
             StringAssert.Contains(hit, "ENDUR_END_DV10.cfg");
 
             // Collision-throw fixture: two databases carrying
-            // the Endur tag still throw.
-            Assert.Throws<InvalidOperationException>(() =>
+            // the Endur tag still throw with an actionable message naming the environment,
+            // tag, conflicting databases, and EndurConfigurationFile.
+            var ex = Assert.Throws<InvalidOperationException>(() =>
                 PropertiesSourceFor(
-                        new Database { Id = 1, Name = "A_DB", TagLinks = DbTags("Endur", "Ops") },
-                        new Database { Id = 2, Name = "B_DB", TagLinks = DbTags("Endur") })
+                        new Database { Id = 1, Name = "A_DB", ServerName = "srv1", TagLinks = DbTags("Endur", "Ops") },
+                        new Database { Id = 2, Name = "B_DB", ServerName = null, TagLinks = DbTags("Endur") })
                     .GetConfigurationFilePath(environment));
+            StringAssert.Contains(ex.Message, "Endur DV 10");
+            StringAssert.Contains(ex.Message, "'Endur'");
+            StringAssert.Contains(ex.Message, "'A_DB' on 'srv1'");
+            StringAssert.Contains(ex.Message, "'B_DB'");
+            StringAssert.Contains(ex.Message, "EndurConfigurationFile");
         }
 
         [TestMethod]

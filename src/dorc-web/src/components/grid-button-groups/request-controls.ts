@@ -37,31 +37,36 @@ export class RequestControls extends LitElement {
         display: inline-flex;
         align-items: center;
         flex-wrap: nowrap;
-        gap: var(--lumo-space-xs);
+      }
+      .controls-group {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        height: 32px;
       }
       vaadin-button {
-        padding: 0px;
-        margin: 0px;
+        padding: 0;
+        margin: 0;
+        min-width: 28px;
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        background: color-mix(in srgb, currentColor 8%, transparent);
+        border: 1px solid color-mix(in srgb, currentColor 18%, transparent);
+        transition:
+          background-color 0.15s ease,
+          border-color 0.15s ease,
+          opacity 0.15s ease;
       }
-      .table-button {
-        width: 36px;
-        height: 100%;
-      }
-      vaadin-grid#grid {
-        overflow: hidden;
-      }
-      vaadin-text-field {
-        padding: 0px;
-        margin: 0px;
-      }
-      vaadin-grid-cell-content {
-        padding-top: 0px;
-        padding-bottom: 0px;
-        margin: 0px;
+      vaadin-button:hover:not([disabled]) {
+        background: color-mix(in srgb, currentColor 16%, transparent);
+        border-color: color-mix(in srgb, currentColor 32%, transparent);
       }
       vaadin-button:disabled,
       vaadin-button[disabled] {
-        background-color: var(--dorc-border-color);
+        opacity: 0.28;
+        background: transparent;
+        border-color: transparent;
       }
     `;
   }
@@ -88,84 +93,71 @@ export class RequestControls extends LitElement {
         : 'var(--dorc-text-secondary)'
     };
     return html`
-      <table style="height: 36px">
-        <tr>
-          <td class="table-button">
-            <vaadin-button
-              aria-label="Cancel Request"
-              theme="icon small"
-              @click="${this.cancel}"
-              ?disabled="${!this.cancelable}"
-            >
-              <vaadin-tooltip
-                slot="tooltip"
-                text="Cancel Request"
-              ></vaadin-tooltip>
-              <vaadin-icon
-                icon="av:stop"
-                style=${styleMap(cancelStyles)}
-              ></vaadin-icon>
-            </vaadin-button>
-          </td>
-          <td class="table-button">
-            <vaadin-button
-              aria-label="Restart Request"
-              theme="icon small"
-              @click="${this.restart}"
-              ?disabled="${!this.canRestart}"
-            >
-              <vaadin-tooltip
-                slot="tooltip"
-                text="Restart Request"
-              ></vaadin-tooltip>
-              <vaadin-icon
-                icon="av:repeat"
-                style=${styleMap(restartStyles)}
-              ></vaadin-icon>
-            </vaadin-button>
-          </td>
-          ${
-            appConfig.pauseDeploymentEnabled
-              ? html`
-                  <td class="table-button">
-                    <vaadin-button
-                      aria-label="Pause Request"
-                      theme="icon small"
-                      @click="${this.pause}"
-                      ?disabled="${!this.canPause}"
-                    >
-                      <vaadin-tooltip
-                        slot="tooltip"
-                        text="Pause Request"
-                      ></vaadin-tooltip>
-                      <vaadin-icon
-                        icon="av:pause"
-                        style=${styleMap(pauseStyles)}
-                      ></vaadin-icon>
-                    </vaadin-button>
-                  </td>
-                  <td class="table-button">
-                    <vaadin-button
-                      aria-label="Resume Request"
-                      theme="icon small"
-                      @click="${this.resume}"
-                      ?disabled="${!this.canResume}"
-                    >
-                      <vaadin-tooltip
-                        slot="tooltip"
-                        text="Resume Request"
-                      ></vaadin-tooltip>
-                      <vaadin-icon
-                        icon="av:play-arrow"
-                        style=${styleMap(resumeStyles)}
-                      ></vaadin-icon>
-                    </vaadin-button>
-                  </td>
-                `
-              : html``
-          }
-        </tr>
-      </table>
+      <div class="controls-group">
+        <vaadin-button
+          aria-label="Cancel Request"
+          theme="icon small"
+          @click="${this.cancel}"
+          ?disabled="${!this.cancelable}"
+        >
+          <vaadin-tooltip slot="tooltip" text="Cancel Request"></vaadin-tooltip>
+          <vaadin-icon
+            icon="av:stop"
+            style=${styleMap(cancelStyles)}
+          ></vaadin-icon>
+        </vaadin-button>
+        <vaadin-button
+          aria-label="Restart Request"
+          theme="icon small"
+          @click="${this.restart}"
+          ?disabled="${!this.canRestart}"
+        >
+          <vaadin-tooltip
+            slot="tooltip"
+            text="Restart Request"
+          ></vaadin-tooltip>
+          <vaadin-icon
+            icon="av:repeat"
+            style=${styleMap(restartStyles)}
+          ></vaadin-icon>
+        </vaadin-button>
+        ${
+          appConfig.pauseDeploymentEnabled
+            ? html`
+                <vaadin-button
+                  aria-label="Pause Request"
+                  theme="icon small"
+                  @click="${this.pause}"
+                  ?disabled="${!this.canPause}"
+                >
+                  <vaadin-tooltip
+                    slot="tooltip"
+                    text="Pause Request"
+                  ></vaadin-tooltip>
+                  <vaadin-icon
+                    icon="av:pause"
+                    style=${styleMap(pauseStyles)}
+                  ></vaadin-icon>
+                </vaadin-button>
+                <vaadin-button
+                  aria-label="Resume Request"
+                  theme="icon small"
+                  @click="${this.resume}"
+                  ?disabled="${!this.canResume}"
+                >
+                  <vaadin-tooltip
+                    slot="tooltip"
+                    text="Resume Request"
+                  ></vaadin-tooltip>
+                  <vaadin-icon
+                    icon="av:play-arrow"
+                    style=${styleMap(resumeStyles)}
+                  ></vaadin-icon>
+                </vaadin-button>
+              `
+            : html``
+        }
+      </div>
     `;
   }
 
@@ -175,7 +167,18 @@ export class RequestControls extends LitElement {
     // next row's by the time the user answers.
     const requestId = this.requestId;
     const answer = await confirmPrompt(
-      `Are you sure you want to restart the job with ID ${requestId}?`
+      `Are you sure you want to restart the job with ID ${requestId}?`,
+      {
+        header: 'Restart deployment',
+        confirmText: 'OK',
+        confirmTheme: 'primary error',
+        warningTitle:
+          "Warning: restart doesn't use latest version of component(s)",
+        warningMessage:
+          "This restarts the deploy exactly as it was when first created, ignoring any recent changes to project's components.",
+        warningActionHint:
+          'To deploy recent updates create a new deployment job instead.'
+      }
     );
 
     if (answer) {

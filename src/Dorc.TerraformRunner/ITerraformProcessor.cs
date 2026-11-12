@@ -7,12 +7,16 @@ namespace Dorc.TerraformRunner
             int requestId,
             string resultFilePath,
             string planContentFilePath,
+            string? lockFilePath,
             CancellationToken cancellationToken);
 
         Task<bool> ExecuteConfirmedPlanAsync(
             string pipeName,
             int requestId,
             string planFile,
+            string? lockFilePath,
+            string? appliedResourcesFilePath,
+            string? sourceArchiveFilePath,
             CancellationToken cancellationToken);
     }
 }

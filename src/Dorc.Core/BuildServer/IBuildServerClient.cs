@@ -31,5 +31,12 @@ namespace Dorc.Core.BuildServer
         /// </summary>
         Task<BuildServerBuildInfo?> ValidateBuildAsync(string serverUrl, string projectPaths, string buildRegex,
             string? buildText, string? buildNum, string? vstsUrl, bool pinnedOnly);
+
+        /// <summary>
+        /// Attempts to read a text file (such as <c>bundle.json</c>) from a build artifact drop location.
+        /// Supports local/UNC file share drop directories as well as HTTP(S) zip container artifact URLs.
+        /// Returns <c>null</c> if the file is not present in the artifact.
+        /// </summary>
+        Task<string?> TryReadArtifactFileTextAsync(string artifactDownloadUrl, string fileName);
     }
 }

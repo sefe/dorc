@@ -22,6 +22,11 @@ import type {
  */
 export interface ComponentApiModel {
     /**
+     * @type {Array<ComponentApiModel>}
+     * @memberof ComponentApiModel
+     */
+    Children?: Array<ComponentApiModel> | null;
+    /**
      * @type {number}
      * @memberof ComponentApiModel
      */
@@ -81,6 +86,16 @@ export interface ComponentApiModel {
      * @memberof ComponentApiModel
      */
     TerraformSubPath?: string | null;
+    /**
+     * @type {string}
+     * @memberof ComponentApiModel
+     */
+    TerraformTemplateName?: string | null;
+    /**
+     * @type {string}
+     * @memberof ComponentApiModel
+     */
+    TerraformTemplateVersion?: string | null;
 }
 
 

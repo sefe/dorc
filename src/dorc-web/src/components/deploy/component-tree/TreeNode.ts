@@ -9,4 +9,7 @@ export class TreeNode {
   parentId!: number | undefined;
   checked!: boolean;
   indeterminate!: boolean;
+  path?: string;
+  subtitle?: string;
+  disabled?: boolean;
 }

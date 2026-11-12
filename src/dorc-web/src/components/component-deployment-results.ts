@@ -17,6 +17,10 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import { Notification } from '@vaadin/notification';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import {
+  renderCompactSourceEvidence,
+  shaBadgeStyles
+} from './dorc-sha-badge';
 
 @customElement('component-deployment-results')
 export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
@@ -79,6 +83,7 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
 
   static get styles() {
     return css`
+      ${shaBadgeStyles}
       :host {
         display: block;
         min-width: 0;
@@ -89,12 +94,14 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
         overflow: auto;
         width: calc(100% - 4px);
         flex: 1;
-        min-height: 150px;
         --divider-color: var(--dorc-border-color);
       }
+      vaadin-grid#grid::part(last-row) {
+        padding-bottom: 18px;
+      }
       vaadin-grid-cell-content {
-        padding-top: 0px;
-        padding-bottom: 0px;
+        padding-top: 4px;
+        padding-bottom: 4px;
         margin: 0px;
       }
 
@@ -215,6 +222,22 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
 
   componentNameRenderer(item: DeploymentResultApiModel) {
     const result = item as DeploymentResultApiModel;
+    if (result.ProjectId && result.ComponentId)
+      return html`
+        <div>
+          <a
+            href="/project-ref-data/${result.ProjectId}?componentId=${result.ComponentId}&amp;tab=history"
+            >${result.ComponentName}</a
+          >
+        </div>
+        <div>
+          ${renderCompactSourceEvidence(
+            result.SourceRevisionLabel,
+            result.DefinitionRevision
+          )}
+        </div>
+      `;
+    if (result.IsTerraform) return html`${result.ComponentName}`;
     return html`
       <a href="scripts?search-name=${result.ComponentName}" target="_blank"
         >${result.ComponentName}</a
@@ -415,7 +438,9 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
     const result = item as DeploymentResultApiModel;
     const status = result.Status || '';
     const isTerraformStatus =
-      status === 'WaitingConfirmation' || status === 'Confirmed';
+      result.IsTerraform ||
+      status === 'WaitingConfirmation' ||
+      status === 'Confirmed';
 
     if (!isTerraformStatus) {
       return html`<span>-</span>`;
@@ -426,7 +451,8 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
         <vaadin-button
           class="terraform-button"
           @click="${() => this.openTerraformPlan(result.Id!)}"
-          title="View Terraform Plan"
+          title="View retained Terraform plan and receipt"
+          aria-label="View retained Terraform plan and receipt"
         >
           <vaadin-icon icon="vaadin:file-text"></vaadin-icon>
         </vaadin-button>

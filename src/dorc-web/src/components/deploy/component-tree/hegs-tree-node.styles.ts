@@ -67,9 +67,40 @@ export const addHegsTreeNodeStyles = css`
     color: var(--dorc-text-secondary);
     font-family: var(--lumo-font-family);
     font-size: var(--lumo-font-size-m);
+    cursor: pointer;
   }
-  input[type='checkbox']:hover {
+  input[type='checkbox']:hover:not(:disabled) {
     box-shadow: 0px 0px 10px var(--dorc-text-secondary);
+  }
+  .node-row.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  input[type='checkbox']:disabled {
+    cursor: not-allowed;
+  }
+  input[type='checkbox']:disabled + label,
+  label.disabled-label {
+    cursor: not-allowed;
+  }
+  label.disabled-label .component-name {
+    text-decoration: line-through;
+    color: var(--dorc-text-secondary);
+  }
+  .badge {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.4;
+    vertical-align: middle;
+  }
+  .badge-off {
+    background: var(--dorc-bg-secondary, rgba(128, 128, 128, 0.2));
+    border: 1px solid var(--dorc-border-color, rgba(128, 128, 128, 0.35));
+    color: var(--dorc-text-secondary-strong, var(--dorc-text-secondary));
   }
   ul {
     margin: 0;
@@ -77,6 +108,115 @@ export const addHegsTreeNodeStyles = css`
   }
   li {
     list-style-type: none;
+  }
+  .node-container.selectable-container {
+    white-space: normal;
+  }
+  .node-row.selectable-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 1px 2px;
+  }
+  .node-row.selectable-row .node-preicon {
+    flex-shrink: 0;
+    width: 18px;
+    height: 24px;
+    padding-left: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 2px;
+    border-radius: var(--lumo-border-radius-s);
+    color: var(--dorc-text-secondary-strong, var(--dorc-text-secondary));
+  }
+  .node-row.selectable-row .node-preicon.collapsed:hover,
+  .node-row.selectable-row .node-preicon.expanded:hover {
+    background: var(--dorc-bg-secondary);
+    color: var(--dorc-text-primary);
+  }
+  .node-select-btn {
+    font: inherit;
+    color: var(--dorc-text-primary);
+    background: transparent;
+    border: 0;
+    border-radius: var(--lumo-border-radius-s);
+    padding: var(--lumo-space-xs) var(--lumo-space-s);
+    flex: 1;
+    min-width: 0;
+    text-align: start;
+    overflow-wrap: anywhere;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+  .node-select-btn:hover {
+    background: var(--dorc-bg-secondary);
+  }
+  .node-select-btn[aria-pressed='true'] {
+    background: var(--dorc-chip-bg);
+    color: var(--dorc-chip-text);
+  }
+  .node-select-btn:focus-visible {
+    outline: 2px solid var(--dorc-icon-interactive);
+    outline-offset: -2px;
+  }
+  .node-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    color: inherit;
+    font-size: var(--lumo-font-size-s);
+    font-weight: 500;
+  }
+  .node-title {
+    color: inherit;
+    font-size: inherit;
+  }
+  .node-badge {
+    display: inline-block;
+    padding: 0 5px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    background: var(--dorc-bg-secondary);
+    color: var(--dorc-text-secondary-strong, var(--dorc-text-secondary));
+  }
+  .node-subtitle {
+    display: block;
+    font-size: var(--lumo-font-size-xs);
+    color: var(--dorc-text-secondary-strong, var(--dorc-text-secondary));
+  }
+  ul.selectable-children {
+    margin-inline-start: 9px;
+    padding-left: 14px;
+  }
+  li.selectable-child {
+    position: relative;
+  }
+  li.selectable-child::before {
+    content: '';
+    position: absolute;
+    inset-inline-start: -14px;
+    top: 0;
+    bottom: 0;
+    border-inline-start: 1.5px solid var(--dorc-text-secondary);
+    opacity: 0.55;
+  }
+  li.selectable-child:last-child::before {
+    bottom: auto;
+    height: 16px;
+  }
+  li.selectable-child::after {
+    content: '';
+    position: absolute;
+    inset-inline-start: -14px;
+    top: 16px;
+    width: 12px;
+    border-top: 1.5px solid var(--dorc-text-secondary);
+    opacity: 0.55;
   }
   [hidden] {
     display: none;
