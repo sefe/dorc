@@ -23,7 +23,7 @@ namespace Dorc.PersistentData
 
         public bool HasPrivilege<T>(T securityObject, IPrincipal user, AccessLevel accessLevel) where T : SecurityObject
         {
-            if (user.IsInRole("Admin") && (accessLevel & AccessLevel.ReadSecrets) == 0)
+            if (user.IsInRole("Admin"))
             {
                 return true;
             }
