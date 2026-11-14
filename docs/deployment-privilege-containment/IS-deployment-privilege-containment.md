@@ -50,7 +50,7 @@ Four rules determine the order below. They are stated up front because several a
 | S-019 | Introduce config-value visibility classification | SD-3b, W-4 | **Server side DONE**; web UI outstanding, see the step |
 | S-020 | Introduce the credential provider abstraction | SD-4 | **DONE** |
 | S-021 | Bind execution identity to the environment | SD-4, W-6, W-15, SC-07, W-8a | **DONE** — opt-in per environment; W-8a closed here |
-| S-022 | Record attribution reached and not reached | SD-8, W-9 | S-021 |
+| S-022 | Record attribution reached and not reached | SD-8, W-9 | **DONE** — `S-022-attribution-reached-and-not-reached.md` |
 | S-023 | Replace the expression compiler with a fixed grammar | SD-1b, W-1 | **DONE** |
 
 **Independently shippable today, in any order:** S-001, S-003, S-004, S-005, S-006, S-007, S-008, S-009, S-010, S-011. Ten steps, covering every accepted rank-1 and rank-2 remediation and the write-path half of every rank-3 weakness. Nothing in that set waits on an unknown.
@@ -497,6 +497,14 @@ During expiry and stale-sweep cleanup, Monitor strips non-privileged ACEs on ver
 **Dependencies.** S-021.
 
 **Verification intent.** Not applicable — this step is deliberately exempt from a testable criterion, as stated in the HLPS.
+
+**Delivered as `S-022-attribution-reached-and-not-reached.md`.** Three things in it are worth carrying back here.
+
+**Attribution is a property of migration state and account exclusivity, not of the release.** Shipping S-021 changed the attribution of nothing: every environment's identity reference is null, and a null reference resolves the tier default exactly as before. What changes attribution is an operator binding an `ExecutionIdentity` on an environment *and* provisioning a dedicated underlying OS account on its target servers. The `bound / (bound + fallback)` ratio (`RequestExecutionIdentityAdoption`) measures **binding adoption**, not unconditional attribution: a single environment configured with an exclusive underlying OS account (not shared with other named references or legacy fallback accounts) already gains environment-level OS attribution even while other environments remain on `fallback`, whereas 100% binding adoption still requires underlying OS account exclusivity per environment (or bounded sensitivity-tier group) to achieve environment- or group-level OS attribution.
+
+**Request-level attribution still depends on the post-incident join across retained records.** DOrc's retained side of the seam holds the request and raiser, environment, project, component, deployment result timestamps and logs, persisted execution receipts (`PowerShellExecutionReceipt` and `TerraformDeploymentReceipt` / `TerraformDeploymentOutcome`), Monitor service logs, and Runner log path; by contrast, Monitor's live `AssociateProcessWithRequest` PID-to-request mapping (`DeploymentRequestProcesses`) is **transient** — removed via `RemoveProcess` in `finally` when the Runner exits and not persisted on execution receipts. Post-incident correlation therefore relies on retained DOrc execution receipts and logs together with available target and Monitor OS audit trails (`4624`/`4688`), joining on `(account, source host, time window)`. That join identifies a deployment uniquely only when one deployment under that OS account was in flight from that Monitor host in that window; because DOrc runs deployments concurrently, that condition often fails when environments share a tier account and usually holds only where an environment's resolved OS account is exclusive to it.
+
+**Per-user attribution is not narrowed at all and is not proposed.** The requesting user never reaches the target server in any form. Carrying it there would require the user to hold rights on the target servers, which inverts the reason DOrc exists — people deploy precisely because they do not hold those rights. The document records the three routes to finer attribution and why each is out of scope, so the decision is visible rather than re-derived later under time pressure.
 
 ---
 
