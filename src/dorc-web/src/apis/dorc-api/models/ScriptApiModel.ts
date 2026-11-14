@@ -77,6 +77,11 @@ export interface ScriptApiModel {
      */
     PowerShellVersionNumber?: string | null;
     /**
+     * @type {string}
+     * @memberof ScriptApiModel
+     */
+    ContentHash?: string | null;
+    /**
      * @type {Array<string>}
      * @memberof ScriptApiModel
      */
