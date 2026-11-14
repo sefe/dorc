@@ -1465,5 +1465,26 @@ namespace Dorc.Core.Tests
             secrets.DidNotReceive().GetPrincipalIdentifierByItemId("tier-prod-user", Arg.Any<string>());
             secrets.DidNotReceiveWithAnyArgs().GetSecretByItemId(default!, default!);
         }
+
+        [TestMethod]
+        [DataRow("svc-trading", "CORP", @"CORP\svc-trading")]
+        [DataRow("  svc-trading  ", "  CORP  ", @"CORP\svc-trading")]
+        [DataRow(@"OTHER\svc-payments", "CORP", @"OTHER\svc-payments")]
+        [DataRow("svc-payments@corp.example", "CORP", "svc-payments@corp.example")]
+        [DataRow("svc-trading", "", "svc-trading")]
+        [DataRow("svc-trading", null, "svc-trading")]
+        public void NamedIdentityCredentialQualifiesBareUserNameAndPreservesExplicitDomain(
+            string configuredUserName,
+            string? domain,
+            string expectedQualifiedAccountName)
+        {
+            _configValues.GetConfigValue("DORC_Deploy_payments-env_Username").Returns(configuredUserName);
+            _configValues.GetConfigValue("DORC_Deploy_payments-env_Password").Returns("payments-secret");
+
+            var credential = _source.Resolve(DeploymentTier.Production, "payments-env");
+
+            Assert.IsNotNull(credential);
+            Assert.AreEqual(expectedQualifiedAccountName, credential.QualifiedAccountName(domain));
+        }
     }
 }

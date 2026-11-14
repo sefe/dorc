@@ -16,11 +16,27 @@ using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Security;
 using System.Text;
 using Dorc.Kafka.Events.Publisher;
 
 namespace Dorc.Monitor
 {
+    internal sealed record TerraformRunnerInvocation(
+        int RequestId,
+        int DeploymentResultId,
+        string QualifiedAccountName,
+        string ScriptGroupPipeName,
+        string PlanDirectory,
+        string PlanFilePath,
+        string PlanContentFilePath,
+        string PlanSourceArchiveFilePath,
+        string LockFilePath,
+        string AppliedResourcesFilePath,
+        string SourceArchiveFilePath,
+        string CancelFilePath,
+        TerraformRunnerOperations Operation);
+
     public class TerraformDispatcher : ITerraformDispatcher
     {
         private readonly ILogger logger;
@@ -37,6 +53,8 @@ namespace Dorc.Monitor
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IScriptScopeConfigValues _scriptScopeConfigValues;
         private readonly IDeploymentCredentialSource _credentialSource;
+        private readonly string _planStorageRoot;
+        private readonly Func<TerraformRunnerInvocation, CancellationToken, uint>? _executeRunner;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -58,6 +76,49 @@ namespace Dorc.Monitor
             IScriptScopeConfigValues scriptScopeConfigValues,
             IDeploymentCredentialSource credentialSource,
             ISourceHostAllowList sourceHostAllowList)
+            : this(
+                logger,
+                requestsPersistentSource,
+                configValuesPersistentSource,
+                configurationSettingsEngine,
+                processesPersistentSource,
+                scriptGroupPipeServer,
+                azureStorageAccountWorker,
+                projectsPersistentSource,
+                gitHubHostValidator,
+                cloudResourcesPersistentSource,
+                cloudResourceAuditPersistentSource,
+                environmentsPersistentSource,
+                databasesPersistentSource,
+                propertiesPersistentSource,
+                scriptScopeConfigValues,
+                credentialSource,
+                sourceHostAllowList,
+                Path.Join(DorcProgramData.Root, TerraformPlanStore.DirectoryName),
+                executeRunner: null)
+        {
+        }
+
+        internal TerraformDispatcher(
+            ILogger<TerraformDispatcher> logger,
+            IRequestsPersistentSource requestsPersistentSource,
+            IConfigValuesPersistentSource configValuesPersistentSource,
+            IConfigurationSettings configurationSettingsEngine,
+            IDeploymentRequestProcessesPersistentSource processesPersistentSource,
+            IScriptGroupPipeServer scriptGroupPipeServer,
+            IAzureStorageAccountWorker azureStorageAccountWorker,
+            IProjectsPersistentSource projectsPersistentSource,
+            IGitHubHostValidator gitHubHostValidator,
+            ICloudResourcesPersistentSource cloudResourcesPersistentSource,
+            ICloudResourceAuditPersistentSource cloudResourceAuditPersistentSource,
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            IDatabasesPersistentSource databasesPersistentSource,
+            IPropertiesPersistentSource propertiesPersistentSource,
+            IScriptScopeConfigValues scriptScopeConfigValues,
+            IDeploymentCredentialSource credentialSource,
+            ISourceHostAllowList sourceHostAllowList,
+            string planStorageRoot,
+            Func<TerraformRunnerInvocation, CancellationToken, uint>? executeRunner = null)
         {
             this.logger = logger;
             this._requestsPersistentSource = requestsPersistentSource;
@@ -71,6 +132,8 @@ namespace Dorc.Monitor
             _environmentsPersistentSource = environmentsPersistentSource;
             this._scriptScopeConfigValues = scriptScopeConfigValues;
             this._credentialSource = credentialSource;
+            _planStorageRoot = planStorageRoot;
+            _executeRunner = executeRunner;
             this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine, gitHubHostValidator, sourceHostAllowList);
             this._cloudResourceRegistrar = new TerraformCloudResourceRegistrar(
                 logger,
@@ -191,6 +254,7 @@ namespace Dorc.Monitor
             ConfigurePlatformState(scriptGroup, project, component.ComponentName, environmentName);
 
             var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
+            var qualifiedAccountName = credential.QualifiedAccountName(domainName);
             var contextBuilder = new ProcessSecurityContextBuilder(logger)
             {
                 UserName = processAccountName,
@@ -198,14 +262,14 @@ namespace Dorc.Monitor
             };
 
             using (var pipeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
-            using (var securityContext = contextBuilder.Build(credential.Password))
+            using (var securityContext = _executeRunner is null ? contextBuilder.Build(credential.Password) : null)
             {
                 var startedScriptGroupPipeName = $"DOrcMonitor-{HostInstanceId.Value}-{requestId}";
-                // The script group is made available to the account the Runner will be started
-                // as, taken from the same credential resolution that built the process security
-                // context rather than assumed to be the Monitor's own identity.
+                // The script group and per-result plan directory are made available to the
+                // environment-resolved execution identity the Runner executes as, rather than
+                // assumed to be the Monitor's own identity or a shared folder across the host.
                 var readerIdentity = new ScriptGroupReaderIdentity(domainName, processAccountName);
-                var stagedFiles = new List<string>();
+                TerraformPlanStore? planStore = null;
 
                 try
                 {
@@ -217,57 +281,49 @@ namespace Dorc.Monitor
                     logger.LogInformation("Server named pipe {PipeName} has started.", startedScriptGroupPipeName);
 
                     var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                    .GetSection("AppSettings")["RunnerLogPath"]!;
+                    .GetSection("AppSettings")["RunnerLogPath"] ?? string.Empty;
                     var runnerLogPath = runnerLogPathSetting + $"\\{startedScriptGroupPipeName}.txt";
                     var uncLogPath = runnerLogPath.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
 
                     _requestsPersistentSource.UpdateUncLogPath(requestId, uncLogPath);
 
-                    // The plan and its human-readable rendering carry the variable values the
-                    // configuration was rendered with. They are staged in a per-result directory
-                    // that admits the Monitor, SYSTEM, Administrators and the account the Runner
-                    // will write them as - and nobody else on the host.
-                    var planStorageDir = TerraformPlanStorage.EnsureRestricted(
-                        DorcProgramData.Root,
-                        deploymentResult.Id,
-                        readerIdentity,
-                        logger);
+                    // Allocate a fresh per-dispatch directory (<root>\{resultId}-{nonce}) confined
+                    // initially to Monitor, SYSTEM, and Administrators only.
+                    planStore = TerraformPlanStore.Reserve(
+                        logger,
+                        _planStorageRoot,
+                        deploymentResult.Id);
+
                     var terraformPlanFileName = deploymentResult.Id.CreateTerraformPlanBlobName();
-                    var terraformPlanFilePath = Path.Join(planStorageDir, terraformPlanFileName);
-                    var planSourceArchiveFilePath = terraformPlanFilePath + ".source.zip";
+                    var terraformPlanFilePath = planStore.PathOf(terraformPlanFileName);
+                    var planSourceArchiveFileName = terraformPlanFileName + ".source.zip";
+                    var planSourceArchiveFilePath = planStore.PathOf(planSourceArchiveFileName);
                     var terraformPlanContentFileName = deploymentResult.Id.CreateTerraformPlanContentBlobName();
-                    var terraformPlanContentFilePath = Path.Join(planStorageDir, terraformPlanContentFileName);
-                    // persist .terraform.lock.hcl across plan+apply so
-                    // both phases resolve identical provider versions. It is
-                    // staged in the same restricted directory as the plan.
+                    var terraformPlanContentFilePath = planStore.PathOf(terraformPlanContentFileName);
+                    // Persist .terraform.lock.hcl alongside the plan for diagnostics; apply
+                    // restores the authoritative lockfile from .tfplan.source.zip.
                     var terraformLockFileName = $"{deploymentResult.Id}.terraform.lock.hcl";
-                    var terraformLockFilePath = Path.Join(planStorageDir, terraformLockFileName);
-                    // Written by the runner after a successful apply; read back
-                    // below to register the applied resources on the environment.
+                    var terraformLockFilePath = planStore.PathOf(terraformLockFileName);
+                    // Written by the runner after a successful apply; read back below to
+                    // register the applied resources on the environment and upload recovery state.
+                    var appliedResourcesFileName = $"{deploymentResult.Id}.applied-resources.json";
                     var appliedResourcesFilePath = terreformOperation == TerraformRunnerOperations.ApplyPlan
-                        ? Path.Join(planStorageDir, $"{deploymentResult.Id}.applied-resources.json")
+                        ? planStore.PathOf(appliedResourcesFileName)
                         : string.Empty;
-                    // Written by the runner after a successful apply: the exact
-                    // terraform configuration deployed (without tfvars) plus a
-                    // provenance record (module ref + resolved commit SHA).
-                    // Uploaded below to the same blob container as the plan.
+                    // Written by the runner after a successful apply: the exact terraform
+                    // configuration deployed (without tfvars) plus a provenance record.
                     var sourceArchiveFileName = $"{deploymentResult.Id}.terraform-source.zip";
                     var sourceArchiveFilePath = terreformOperation == TerraformRunnerOperations.ApplyPlan
-                        ? Path.Join(planStorageDir, sourceArchiveFileName)
+                        ? planStore.PathOf(sourceArchiveFileName)
                         : string.Empty;
-
-                    stagedFiles.AddRange(new[]
-                    {
-                        terraformPlanFilePath, terraformPlanContentFilePath, terraformLockFilePath,
-                        planSourceArchiveFilePath, appliedResourcesFilePath, sourceArchiveFilePath,
-                        terraformPlanFilePath + ".cancel"
-                    });
-                    // Never let an earlier failed dispatch supply stale artifacts.
-                    foreach (var file in stagedFiles) TryDeleteFile(file);
+                    var cancelSignalFileName = terraformPlanFileName + ".cancel";
+                    var cancelSignalFilePath = planStore.PathOf(cancelSignalFileName);
 
                     Dorc.PersistentData.Model.TerraformDeploymentOutcome? postApplyOutcome = null;
                     if (terreformOperation == TerraformRunnerOperations.ApplyPlan)
                     {
+                        // Download and verify approved plan inputs while planStore.Directory is
+                        // still restricted to Monitor, SYSTEM, and Administrators only.
                         _azureStorageAccountWorker.DownloadFileFromBlobs(terraformPlanFileName, terraformPlanFilePath);
                         // Required: an approved plan may never be paired with a
                         // fresh checkout of a mutable ref. Older plans must be recreated.
@@ -284,59 +340,103 @@ namespace Dorc.Monitor
                         // lock; never replace it with a separately downloaded file.
                     }
 
-                    var processStarter = new TerraformRunnerProcessStarter(logger)
-                    {
-                        RunnerExecutableFullName = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["TerraformDeploymentRunnerPath"],
-                        ScriptGroupPipeName = startedScriptGroupPipeName,
-                        RunnerLogPath = runnerLogPath,
-                        PlanFilePath = terraformPlanFilePath,
-                        PlanContentFilePath = terraformPlanContentFilePath,
-                        LockFilePath = terraformLockFilePath,
-                        AppliedResourcesFilePath = appliedResourcesFilePath,
-                        SourceArchiveFilePath = sourceArchiveFilePath,
-                        TerraformRunnerOperation = terreformOperation
-                    };
                     try
                     {
-                        Interop.Kernel32.STARTUPINFO startupInfo = new ProcessStartupInfoBuilder(logger).Build();
                         logger.LogInformation("Starting Runner process.");
-
                         cancellationToken.ThrowIfCancellationRequested();
 
-                        var process = processStarter.Start(startupInfo, securityContext);
+                        uint resultCode;
                         try
                         {
-                            _processesPersistentSource.AssociateProcessWithRequest((int)process.Id, requestId);
+                            planStore.AdmitRunner(qualifiedAccountName);
 
-                            logger.LogDebug("Waiting for process to exit.");
-                            var resultCode = process.WaitForExit(cancellationToken,
-                                () => File.WriteAllText(terraformPlanFilePath + ".cancel", string.Empty));
-                            logger.LogInformation("Runner finished for request {RequestId} with result code {ResultCode}.", requestId, resultCode);
-
-                            if (postApplyOutcome != null)
+                            if (_executeRunner is not null)
                             {
-                                postApplyOutcome.ApplyOutcome = resultCode == 0 ? "Succeeded" : "FailedOrUnknown";
-                                postApplyOutcome.AppliedAt = resultCode == 0 ? DateTimeOffset.UtcNow : null;
-                                _requestsPersistentSource.SaveTerraformDeploymentOutcome(postApplyOutcome);
+                                try
+                                {
+                                    var invocation = new TerraformRunnerInvocation(
+                                        requestId,
+                                        deploymentResult.Id,
+                                        qualifiedAccountName,
+                                        startedScriptGroupPipeName,
+                                        planStore.Directory,
+                                        terraformPlanFilePath,
+                                        terraformPlanContentFilePath,
+                                        planSourceArchiveFilePath,
+                                        terraformLockFilePath,
+                                        appliedResourcesFilePath,
+                                        sourceArchiveFilePath,
+                                        cancelSignalFilePath,
+                                        terreformOperation);
+                                    resultCode = _executeRunner(invocation, cancellationToken);
+                                }
+                                finally
+                                {
+                                    pipeCancellationTokenSource.Cancel();
+                                }
                             }
-                            cancellationToken.ThrowIfCancellationRequested();
+                            else
+                            {
+                                var processStarter = new TerraformRunnerProcessStarter(logger)
+                                {
+                                    RunnerExecutableFullName = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["TerraformDeploymentRunnerPath"],
+                                    ScriptGroupPipeName = startedScriptGroupPipeName,
+                                    RunnerLogPath = runnerLogPath,
+                                    PlanFilePath = terraformPlanFilePath,
+                                    PlanContentFilePath = terraformPlanContentFilePath,
+                                    LockFilePath = terraformLockFilePath,
+                                    AppliedResourcesFilePath = appliedResourcesFilePath,
+                                    SourceArchiveFilePath = sourceArchiveFilePath,
+                                    TerraformRunnerOperation = terreformOperation
+                                };
+                                Interop.Kernel32.STARTUPINFO startupInfo = new ProcessStartupInfoBuilder(logger).Build();
+                                var process = processStarter.Start(startupInfo, securityContext!);
+                                try
+                                {
+                                    _processesPersistentSource.AssociateProcessWithRequest((int)process.Id, requestId);
 
-                            if (resultCode == RunnerProcess.RunnerProcess.ProcessTerminatedExitCode)
-                            {
-                                logger.LogInformation("The Runner process is terminated.");
-                                throw new OperationCanceledException("The Runner process is terminated.");
-                            }
-                            else if (resultCode != 0)
-                            {
-                                isScriptExecutionSuccessful = false;
-                                logger.LogError("Terraform Runner failed with exit code {ExitCode}.", resultCode);
+                                    logger.LogDebug("Waiting for process to exit.");
+                                    resultCode = process.WaitForExit(cancellationToken,
+                                        () => planStore.WriteCancelSignal(cancelSignalFileName));
+                                }
+                                finally
+                                {
+                                    pipeCancellationTokenSource.Cancel();
+                                    try { _processesPersistentSource.RemoveProcess((int)process.Id); }
+                                    finally { process.Dispose(); }
+                                }
                             }
                         }
                         finally
                         {
                             pipeCancellationTokenSource.Cancel();
-                            try { _processesPersistentSource.RemoveProcess((int)process.Id); }
-                            finally { process.Dispose(); }
+                            planStore.RevokeRunner();
+                        }
+
+                        logger.LogInformation("Runner finished for request {RequestId} with result code {ResultCode}.", requestId, resultCode);
+
+                        if (postApplyOutcome != null)
+                        {
+                            postApplyOutcome.ApplyOutcome = resultCode == 0 ? "Succeeded" : "FailedOrUnknown";
+                            postApplyOutcome.AppliedAt = resultCode == 0 ? DateTimeOffset.UtcNow : null;
+                            _requestsPersistentSource.SaveTerraformDeploymentOutcome(postApplyOutcome);
+                        }
+                        cancellationToken.ThrowIfCancellationRequested();
+
+                        if (resultCode == RunnerProcess.RunnerProcess.ProcessTerminatedExitCode)
+                        {
+                            logger.LogInformation("The Runner process is terminated.");
+                            throw new OperationCanceledException("The Runner process is terminated.");
+                        }
+                        else if (resultCode != 0)
+                        {
+                            // Failed or cancelled plan/apply executions skip planStore.Expire()
+                            // below: Runner access was already revoked in finally above, and the
+                            // confined Monitor-only per-dispatch directory (including downloaded
+                            // apply inputs and any partial recovery outputs) stays on disk until
+                            // TerraformPlanStore's 7-day orphan sweep removes it.
+                            isScriptExecutionSuccessful = false;
+                            logger.LogError("Terraform Runner failed with exit code {ExitCode}.", resultCode);
                         }
                     }
                     catch (Exception e)
@@ -351,11 +451,19 @@ namespace Dorc.Monitor
                     switch (terreformOperation)
                     {
                         case TerraformRunnerOperations.CreatePlan:
-                            // save Terraform binary plan file to Azure Storage Account
-                            _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanFilePath);
-                            // save Terraform human-readable plan file to Azure Storage Account
-                            _azureStorageAccountWorker.SaveFileToBlobs(terraformPlanContentFilePath);
-                            TerraformPlanSourceArtifacts.Upload(_azureStorageAccountWorker, terraformPlanFilePath);
+                            // Stage every Runner-written artefact once via handle-pinned,
+                            // reparse-free I/O into a Monitor-only directory before blob upload
+                            // and receipt provenance/digest verification.
+                            var stagedPlanFilePath = planStore.StageVerifiedArtefact(terraformPlanFileName);
+                            var stagedPlanContentFilePath = planStore.StageVerifiedArtefact(terraformPlanContentFileName);
+                            var stagedPlanSourceArchiveFilePath = planStore.StageVerifiedArtefact(planSourceArchiveFileName);
+                            var hasStagedLockFile = planStore.TryStageVerifiedArtefact(
+                                terraformLockFileName,
+                                out var stagedLockFilePath);
+
+                            _azureStorageAccountWorker.SaveFileToBlobs(stagedPlanFilePath);
+                            _azureStorageAccountWorker.SaveFileToBlobs(stagedPlanContentFilePath);
+                            TerraformPlanSourceArtifacts.Upload(_azureStorageAccountWorker, stagedPlanFilePath);
                             var receipt = new Dorc.PersistentData.Model.TerraformDeploymentReceipt
                             {
                                 DeploymentResultId = deploymentResult.Id,
@@ -376,85 +484,115 @@ namespace Dorc.Monitor
                                 EnvironmentName = environmentName,
                                 ComponentName = component.ComponentName
                             };
-                            TerraformReceiptCapture.ReadPlannedSource(receipt,
-                                planSourceArchiveFilePath, terraformPlanContentFilePath, terraformPlanFilePath);
+                            TerraformReceiptCapture.ReadPlannedSource(
+                                receipt,
+                                stagedPlanSourceArchiveFilePath,
+                                stagedPlanContentFilePath,
+                                stagedPlanFilePath);
                             _requestsPersistentSource.SaveTerraformDeploymentReceipt(receipt);
-                            // save .terraform.lock.hcl alongside the plan so
-                            // the apply phase resolves identical provider versions.
-                            // Lock file is only present when terraform init wrote
-                            // it (i.e. for projects with required_providers). The
-                            // runner skips persistence cleanly when missing.
-                            if (File.Exists(terraformLockFilePath))
+                            if (hasStagedLockFile)
                             {
-                                _azureStorageAccountWorker.SaveFileToBlobs(terraformLockFilePath);
+                                _azureStorageAccountWorker.SaveFileToBlobs(stagedLockFilePath!);
                             }
 
-                            // Update status to WaitingConfirmation
+                            // Update status to WaitingConfirmation before expiring local state,
+                            // so a cancellation or persistence error retains local recovery files.
                             cancellationToken.ThrowIfCancellationRequested();
                             _requestsPersistentSource.UpdateResultStatus(
                                 deploymentResult,
                                 DeploymentResultStatus.WaitingConfirmation);
 
+                            // Binary plan, rendered plan, planned-source archive, receipt, and
+                            // lockfile have all been durably uploaded/persisted. Withdraw the
+                            // local dispatch directory now; any earlier failure retains it for
+                            // operator recovery up to the 7-day stale sweep.
+                            planStore.Expire();
+
                             logger.LogInformation("Terraform plan created for component {Component}. Waiting for confirmation.", component.ComponentName);
                             break;
 
                         case TerraformRunnerOperations.ApplyPlan:
-                            // Surface what the apply created on the environment's
-                            // Cloud tab. Best-effort: the infrastructure change
-                            // has already happened, so registration problems are
-                            // logged, never failed.
-                            var registration = _cloudResourceRegistrar.RegisterAppliedResources(
-                                appliedResourcesFilePath,
-                                environmentName,
-                                request?.UserName ?? string.Empty,
-                                deploymentResult.Id);
-                            postApplyOutcome!.InventoryOutcome = registration.Status;
-                            postApplyOutcome.RegisteredCount = registration.RegisteredCount;
-                            postApplyOutcome.FailedCount = registration.FailedCount;
-                            postApplyOutcome.InventoryWarningsJson = System.Text.Json.JsonSerializer.Serialize(registration.Warnings);
+                            // Stage post-apply sidecars once via handle-pinned, reparse-free I/O
+                            // into a Monitor-only directory before registration, upload, or hashing.
+                            TerraformRegistrationOutcome registration;
+                            string? stagedAppliedResourcesPath = null;
+                            var inventoryStageFailed = false;
                             try
                             {
-                                if (File.Exists(appliedResourcesFilePath))
+                                if (planStore.TryStageVerifiedArtefact(appliedResourcesFileName, out stagedAppliedResourcesPath))
                                 {
-                                    _azureStorageAccountWorker.SaveFileToBlobs(appliedResourcesFilePath);
-                                    using var inventoryStream = File.OpenRead(appliedResourcesFilePath);
-                                    postApplyOutcome.InventoryArtifactSha256 = Convert.ToHexString(
-                                        System.Security.Cryptography.SHA256.HashData(inventoryStream));
+                                    registration = _cloudResourceRegistrar.RegisterAppliedResources(
+                                        stagedAppliedResourcesPath,
+                                        environmentName,
+                                        request?.UserName ?? string.Empty,
+                                        deploymentResult.Id);
                                 }
-                                var appliedReceipt = _requestsPersistentSource.GetTerraformDeploymentReceipt(deploymentResult.Id);
-                                if (appliedReceipt != null && registration.EnvironmentId > 0)
-                                    _requestsPersistentSource.RecordTerraformInventory(appliedReceipt.ComponentId, registration.EnvironmentId,
-                                        deploymentResult.Id, postApplyOutcome.AppliedAt!.Value, registration.Observed,
-                                        registration.Status == "Succeeded");
+                                else
+                                {
+                                    registration = new TerraformRegistrationOutcome();
+                                }
                             }
                             catch (Exception ex)
                             {
-                                postApplyOutcome.InventoryOutcome = "RecoveryOrProvenanceFailed";
-                                logger.LogWarning(ex, "Terraform succeeded but inventory recovery material or provenance could not be retained.");
+                                inventoryStageFailed = true;
+                                registration = new TerraformRegistrationOutcome { Status = "Failed", FailedCount = 1 };
+                                logger.LogWarning(ex, "Could not stage verified Terraform inventory snapshot.");
                             }
-                            TryDeleteFile(appliedResourcesFilePath);
+
+                            postApplyOutcome!.InventoryOutcome = inventoryStageFailed
+                                ? "RecoveryOrProvenanceFailed"
+                                : registration.Status;
+                            postApplyOutcome.RegisteredCount = registration.RegisteredCount;
+                            postApplyOutcome.FailedCount = registration.FailedCount;
+                            postApplyOutcome.InventoryWarningsJson = System.Text.Json.JsonSerializer.Serialize(registration.Warnings);
+                            if (!inventoryStageFailed)
+                            {
+                                try
+                                {
+                                    if (stagedAppliedResourcesPath is not null)
+                                    {
+                                        _azureStorageAccountWorker.SaveFileToBlobs(stagedAppliedResourcesPath);
+                                        using var inventoryStream = File.OpenRead(stagedAppliedResourcesPath);
+                                        postApplyOutcome.InventoryArtifactSha256 = Convert.ToHexString(
+                                            System.Security.Cryptography.SHA256.HashData(inventoryStream));
+                                    }
+                                    var appliedReceipt = _requestsPersistentSource.GetTerraformDeploymentReceipt(deploymentResult.Id);
+                                    if (appliedReceipt != null && registration.EnvironmentId > 0)
+                                        _requestsPersistentSource.RecordTerraformInventory(appliedReceipt.ComponentId, registration.EnvironmentId,
+                                            deploymentResult.Id, postApplyOutcome.AppliedAt!.Value, registration.Observed,
+                                            registration.Status == "Succeeded");
+                                }
+                                catch (Exception ex)
+                                {
+                                    postApplyOutcome.InventoryOutcome = "RecoveryOrProvenanceFailed";
+                                    logger.LogWarning(ex, "Terraform succeeded but inventory recovery material or provenance could not be retained.");
+                                }
+                            }
 
                             // Persist the deployed-source archive next to the
                             // plan artefacts. Best-effort like the resource
                             // registration: the runner only writes the archive
                             // when archival itself succeeded, and a missing
                             // file must not fail a completed deployment.
-                            if (File.Exists(sourceArchiveFilePath))
+                            try
                             {
-                                try
+                                if (planStore.TryStageVerifiedArtefact(sourceArchiveFileName, out var stagedSourceArchivePath))
                                 {
-                                    _azureStorageAccountWorker.SaveFileToBlobs(sourceArchiveFilePath);
+                                    _azureStorageAccountWorker.SaveFileToBlobs(stagedSourceArchivePath);
                                     postApplyOutcome.ArchiveOutcome = "Succeeded";
                                     logger.LogInformation("Deployed Terraform source archived to blob {ArtifactName}.", sourceArchiveFileName);
                                 }
-                                catch (Exception ex)
+                                else
                                 {
-                                    postApplyOutcome.ArchiveOutcome = "Failed";
-                                    logger.LogWarning(ex, "Could not upload deployed Terraform source archive {ArtifactName}; the deployment itself succeeded.", sourceArchiveFileName);
+                                    postApplyOutcome.ArchiveOutcome = "Unavailable";
                                 }
                             }
-                            else postApplyOutcome.ArchiveOutcome = "Unavailable";
-                            TryDeleteFile(sourceArchiveFilePath);
+                            catch (Exception ex)
+                            {
+                                postApplyOutcome.ArchiveOutcome = "Failed";
+                                logger.LogWarning(ex, "Could not upload deployed Terraform source archive {ArtifactName}; the deployment itself succeeded.", sourceArchiveFileName);
+                            }
+
                             _requestsPersistentSource.SaveTerraformDeploymentOutcome(postApplyOutcome);
 
                             cancellationToken.ThrowIfCancellationRequested();
@@ -462,36 +600,45 @@ namespace Dorc.Monitor
                                 deploymentResult,
                                 DeploymentResultStatus.Complete);
 
+                            // Confirmed plan-only completion expires immediately above, and a
+                            // clean apply expires immediately here once resource registration,
+                            // inventory upload, deployed-source archive upload, and outcome
+                            // persistence all succeed without full or partial failure. By contrast,
+                            // a failed or cancelled apply (or a post-apply registration/provenance/
+                            // archive failure) skips Expire(), retaining the confined Monitor-only
+                            // dispatch directory for operator retry/recovery until the 7-day
+                            // orphan sweep expires it.
+                            var retainLocalRecoveryArtefacts =
+                                registration.Status == "Failed"
+                                || registration.Status == "PartialFailure"
+                                || postApplyOutcome.InventoryOutcome == "RecoveryOrProvenanceFailed"
+                                || postApplyOutcome.ArchiveOutcome == "Failed";
+                            if (!retainLocalRecoveryArtefacts)
+                            {
+                                planStore.Expire();
+                            }
+
                             logger.LogInformation("Terraform plan applied for component {Component}. Completed.", component.ComponentName);
                             break;
                     }
                 }
                 finally
                 {
+                    // Dispose releases pinned NTFS handles, removes any temporary Monitor-only
+                    // _staging-* directory, and drops in-process sweep leases without deleting
+                    // a retained dispatch directory when Expire() was skipped for recovery.
+                    planStore?.Dispose();
+
                     // The bundle carries the resolved deployment properties, secrets
                     // included. It is needed for the span of one Runner process, so it is
                     // withdrawn as soon as that process is gone - on the failure and
                     // cancellation paths as much as the successful one.
                     _scriptGroupPipeServer.Expire(startedScriptGroupPipeName);
-                    foreach (var file in stagedFiles) TryDeleteFile(file);
                 }
 
             }
 
             return isScriptExecutionSuccessful;
-        }
-
-        private void TryDeleteFile(string path)
-        {
-            if (string.IsNullOrWhiteSpace(path)) return;
-            try
-            {
-                if (File.Exists(path)) File.Delete(path);
-            }
-            catch (Exception ex)
-            {
-                logger.LogWarning(ex, "Could not delete staged Terraform file {ArtifactPath}.", path);
-            }
         }
 
         /// <summary>

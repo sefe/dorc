@@ -278,8 +278,22 @@ namespace Dorc.TerraformRunner.CodeSources
             var contentType = response.Content.Headers.ContentType?.MediaType;
             if (contentType == "application/zip" || downloadUrl.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             {
-                var stagingRoot = _stagingDirectory ?? DorcProgramData.Root;
-                Directory.CreateDirectory(stagingRoot);
+                string? ephemeralStagingDirectory = null;
+                string stagingRoot;
+                if (_stagingDirectory is not null)
+                {
+                    stagingRoot = _stagingDirectory;
+                    Directory.CreateDirectory(stagingRoot);
+                }
+                else
+                {
+                    ephemeralStagingDirectory = Path.Join(
+                        DorcProgramData.Root,
+                        $"terraform-artifact-{Guid.NewGuid():N}");
+                    RestrictedWorkingDirectory.Create(ephemeralStagingDirectory);
+                    stagingRoot = ephemeralStagingDirectory;
+                }
+
                 var tempZipFile = Path.Join(stagingRoot, $"artifact-{Guid.NewGuid()}.zip");
                 try
                 {
@@ -297,6 +311,11 @@ namespace Dorc.TerraformRunner.CodeSources
                     if (File.Exists(tempZipFile))
                     {
                         File.Delete(tempZipFile);
+                    }
+
+                    if (ephemeralStagingDirectory is not null)
+                    {
+                        ResilientDirectoryDeletion.Delete(ephemeralStagingDirectory);
                     }
                 }
             }
