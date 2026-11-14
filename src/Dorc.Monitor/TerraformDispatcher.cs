@@ -102,9 +102,27 @@ namespace Dorc.Monitor
             // projects and component names are not globally unique, so
             // (project, environment, component) is the smallest collision-free
             // key - see docs/Terraform/STATE-MODEL.md.
+            // Resolve frozen submitted component and project snapshots before execution.
+            component = ResolveSubmittedComponent(requestId, component);
+            var project = component.ComponentId.HasValue
+                ? _requestsPersistentSource.GetSubmittedProject(requestId, component.ComponentId.Value)
+                : null;
+
             var request = _requestsPersistentSource.GetRequest(requestId);
             var projectName = request?.Project ?? string.Empty;
             properties = ApplyCatalogInputs(component, properties, requestId, request);
+
+            if (component.TerraformSourceType == TerraformSourceType.SharedFolder)
+            {
+                var configuredScriptRoot = _configValuesPersistentSource.GetConfigValue(
+                    PropertyValueScopeOptionsFixed.ScriptRoot,
+                    string.Empty);
+                if (!_sourceConfigurator.VerifySharedFolderConfinement(component, project, properties, configuredScriptRoot))
+                {
+                    isScriptExecutionSuccessful = false;
+                    return isScriptExecutionSuccessful;
+                }
+            }
 
             // serialise plan/apply per (project, environment, component)
             // within this monitor instance. Acquired once around the whole
@@ -140,17 +158,14 @@ namespace Dorc.Monitor
                 return isScriptExecutionSuccessful;
             }
 
-            // Project information for Terraform source configuration (the
-            // request itself was loaded before the concurrency guard).
-            var project = _requestsPersistentSource.GetSubmittedProject(requestId, component.ComponentId!.Value);
-
-            var scriptGroup = GetScriptGroup(
+            var scriptGroup = BuildScriptGroup(
                 component.ScriptPath,
                 properties,
                 deploymentResult.Id,
                 component,
                 request,
-                project);
+                project,
+                sharedFolderConfinementAlreadyChecked: true);
             scriptGroup.DefinitionRequestId = requestId;
             scriptGroup.DefinitionRevision = _requestsPersistentSource.GetRequestDefinitions(requestId)
                 .Single(d => d.ComponentId == component.ComponentId).DefinitionRevision;
@@ -519,6 +534,34 @@ namespace Dorc.Monitor
                 : properties;
         }
 
+        private ComponentApiModel ResolveSubmittedComponent(int requestId, ComponentApiModel fallback)
+        {
+            if (!fallback.ComponentId.HasValue)
+            {
+                return fallback;
+            }
+
+            var submitted = _requestsPersistentSource.GetSubmittedComponents(requestId);
+            var matched = submitted?.FirstOrDefault(c => c.ComponentId == fallback.ComponentId);
+            if (matched != null)
+            {
+                return matched;
+            }
+
+            var definitionRow = _requestsPersistentSource.GetRequestDefinitions(requestId)
+                ?.FirstOrDefault(d => d.ComponentId == fallback.ComponentId);
+            if (!string.IsNullOrWhiteSpace(definitionRow?.DefinitionJson))
+            {
+                var deserialized = System.Text.Json.JsonSerializer.Deserialize<ComponentApiModel>(definitionRow.DefinitionJson);
+                if (deserialized != null)
+                {
+                    return deserialized;
+                }
+            }
+
+            return fallback;
+        }
+
         internal ScriptGroup GetScriptGroup(
             string scriptsLocation,
             IDictionary<string, VariableValue> properties,
@@ -526,6 +569,23 @@ namespace Dorc.Monitor
             ComponentApiModel component,
             DeploymentRequestApiModel request,
             ProjectApiModel? project)
+            => BuildScriptGroup(
+                scriptsLocation,
+                properties,
+                deploymentResultId,
+                component,
+                request,
+                project,
+                sharedFolderConfinementAlreadyChecked: false);
+
+        private ScriptGroup BuildScriptGroup(
+            string scriptsLocation,
+            IDictionary<string, VariableValue> properties,
+            int deploymentResultId,
+            ComponentApiModel component,
+            DeploymentRequestApiModel request,
+            ProjectApiModel? project,
+            bool sharedFolderConfinementAlreadyChecked)
         {
             var commonProperties = WithheldKeysRemoved(properties);
             var scriptGroup = new ScriptGroup()
@@ -544,7 +604,17 @@ namespace Dorc.Monitor
             };
 
             // Use the configurator to set Terraform-specific fields based on source type
-            _sourceConfigurator.ConfigureScriptGroup(scriptGroup, component, request, project, commonProperties);
+            var configuredScriptRoot = _configValuesPersistentSource.GetConfigValue(
+                PropertyValueScopeOptionsFixed.ScriptRoot,
+                string.Empty);
+            _sourceConfigurator.ConfigureScriptGroup(
+                scriptGroup,
+                component,
+                request,
+                project,
+                commonProperties,
+                sharedFolderConfinementAlreadyChecked,
+                configuredScriptRoot);
             scriptGroup.SensitivePropertyNames = scriptGroup.SensitivePropertyNames
                 .Concat(_propertiesPersistentSource.GetAllProperties().Where(p => p.Secure).Select(p => p.Name))
                 .Concat(_configValuesPersistentSource.GetAllConfigValues(false).Where(c => c.Secure).Select(c => c.Key))

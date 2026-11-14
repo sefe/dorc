@@ -217,7 +217,8 @@ builder.Services.AddHttpClient("GitHubActions", client =>
     .AddHttpMessageHandler<GitHubRetryHandler>();
 builder.Services.AddTransient<IGitHubArtifactDownloader, GitHubArtifactDownloader>();
 
-builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();
+builder.Services.AddTransient<IConfigurationSettings>(
+    sp => new ConfigurationSettings(sp.GetService<IConfiguration>() ?? configurationRoot));
 
 //Notification Setup. Bound from builder.Configuration (not configurationRoot) so that
 //env-var / secret-store overrides work — see the IMPORTANT note above.
