@@ -35,12 +35,12 @@ namespace Dorc.ApiModel
         private readonly string evidencePath;
         private readonly PowerShellEvidence evidence;
         public string Text { get; private set; }
+        public string ContentHash { get; private set; }
         public string TextSha256 { get { return evidence.TextSha256; } }
 
         public static string Fingerprint(string text)
         {
-            using (var sha = SHA256.Create())
-                return BitConverter.ToString(sha.ComputeHash(Encoding.UTF8.GetBytes(text))).Replace("-", "");
+            return ScriptContentHash.ComputeFromScriptText(text).ToUpperInvariant();
         }
 
         public PowerShellInput(string scriptPath, string evidenceDirectory, int requestId,
@@ -58,8 +58,10 @@ namespace Dorc.ApiModel
                 evidence.ScriptOrdinal != ordinal || evidence.Phase != "Allocated" ||
                 !string.Equals(evidence.SourcePath, scriptPath, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("The evidence identity does not match this invocation.");
-            Text = File.ReadAllText(scriptPath);
-            evidence.TextSha256 = Fingerprint(Text);
+            var readAndHash = ScriptContentHash.ReadAndHash(scriptPath);
+            Text = readAndHash.ScriptText;
+            ContentHash = readAndHash.Hash;
+            evidence.TextSha256 = ContentHash.ToUpperInvariant();
             evidence.RequestedRuntime = requestedRuntime;
             evidence.RuntimeVersion = actualRuntime;
             evidence.PreparedAt = DateTimeOffset.UtcNow;

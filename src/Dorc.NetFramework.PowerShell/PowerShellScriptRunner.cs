@@ -4,11 +4,10 @@ using System.IO;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 using System.Management.Automation.Runspaces;
+using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Runner.Logger;
-using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
-using Dorc.ApiModel;
 
 namespace Dorc.NetFramework.PowerShell
 {
@@ -30,10 +29,11 @@ namespace Dorc.NetFramework.PowerShell
         }
 
         public void Run(string scriptsLocation,
-            IEnumerable<(string, IDictionary<string, VariableValue>)> scripts,
-            IDictionary<string, VariableValue> commonProperties)
+            IEnumerable<(string, IDictionary<string, VariableValue>, string)> scripts,
+            IDictionary<string, VariableValue> commonProperties,
+            ScriptContentVerificationMode contentVerification = ScriptContentVerificationMode.Enforce)
         {
-            foreach ((string, IDictionary<string, VariableValue>) script in scripts)
+            foreach ((string, IDictionary<string, VariableValue>, string) script in scripts)
             {
                 string scriptName = script.Item1;
                 logger.FileLogger.LogInformation("\tStarting execution of script '" + scriptName + "'.");
@@ -42,12 +42,42 @@ namespace Dorc.NetFramework.PowerShell
                 IDictionary<string, VariableValue> combinedProperties = this.CombineProperties(scriptProperties, commonProperties);
                 try
                 {
-
                     var host = new CustomHost();
                     using (var runspace = RunspaceFactory.CreateRunspace(host, InitialSessionState.CreateDefault()))
                     {
                         runspace.InitialSessionState.AuthorizationManager = new AuthorizationManager("Microsoft.PowerShell");
                         runspace.Open();
+
+                        // Read once via PowerShellInput (ScriptContentHash.ReadAndHash). The exact
+                        // decoded script text that is hashed into the execution receipt and checked
+                        // by ScriptContentGate is passed directly to AddScript without re-reading
+                        // the network-share file.
+                        var input = new PowerShellInput(
+                            scriptName,
+                            evidenceContract?.PowerShellEvidenceDirectory,
+                            evidenceContract?.DefinitionRequestId ?? 0,
+                            deploymentResultId,
+                            evidenceContract?.DefinitionRevision,
+                            ordinal++,
+                            evidenceContract?.PowerShellVersionNumber,
+                            runspace.Version.ToString());
+
+                        var decision = ScriptContentGate.Evaluate(
+                            contentVerification,
+                            script.Item3,
+                            input.ContentHash);
+
+                        if (!decision.MayExecute)
+                        {
+                            var refusalMessage = "Refusing to execute '" + scriptName + "'. " + decision.Explanation;
+                            logger.Error(refusalMessage);
+                            throw new ScriptContentVerificationException(refusalMessage);
+                        }
+
+                        if (decision.Verdict != ScriptContentVerdict.Matched)
+                        {
+                            logger.Warning(decision.Explanation + " Script: '" + scriptName + "'.");
+                        }
 
                         this.AddProperties(runspace, combinedProperties);
 
@@ -64,10 +94,6 @@ namespace Dorc.NetFramework.PowerShell
                                 powerShell.AddCommand("Set-Location").AddParameter("Path", scriptsLocation);
                             }
 
-                            var input = new PowerShellInput(scriptName, evidenceContract?.PowerShellEvidenceDirectory,
-                                evidenceContract?.DefinitionRequestId ?? 0, deploymentResultId,
-                                evidenceContract?.DefinitionRevision, ordinal++, evidenceContract?.PowerShellVersionNumber,
-                                runspace.Version.ToString());
                             powerShell.AddScript(input.Text);
                             powerShell.InvocationStateChanged += (_, state) =>
                             {
@@ -129,10 +155,18 @@ namespace Dorc.NetFramework.PowerShell
                     }
 
                 }
+                catch (ScriptContentVerificationException)
+                {
+                    throw;
+                }
                 catch (Exception e)
                 {
                     logger.FileLogger.LogError(e, $"Exception occured in the powershell execution of script {scriptName}");
                     throw;
+                }
+                finally
+                {
+                    logger.FlushLogMessages();
                 }
                 logger.FileLogger.LogInformation($" Execution of the powershell Script {scriptName} was successful");
             }

@@ -55,4 +55,50 @@ public class PowerShellInputTests
         }
         finally { Directory.Delete(directory, true); }
     }
+
+    [TestMethod]
+    public void SupportsDoubleDotFileNamesAndRejectsParentTraversalSegmentsInPowerShellInput()
+    {
+        var directory = Path.Combine(AppContext.BaseDirectory, "definition-evidence-tests", Guid.NewGuid().ToString("N"));
+        var subDirectory = Path.Combine(directory, "sub");
+        Directory.CreateDirectory(subDirectory);
+        try
+        {
+            const string doubleDotBody = "Write-Output 'double-dot'";
+            var doubleDotPath = Path.Combine(directory, "Deploy..ps1");
+            File.WriteAllText(doubleDotPath, doubleDotBody, new UTF8Encoding(true));
+
+            const string traversalBody = "Write-Output 'parent-segment'";
+            File.WriteAllText(Path.Combine(directory, "Deploy.ps1"), traversalBody, new UTF8Encoding(true));
+            var traversalPath = subDirectory + Path.DirectorySeparatorChar + ".." + Path.DirectorySeparatorChar + "Deploy.ps1";
+
+            File.WriteAllText(Path.Combine(directory, "0.json"), JsonSerializer.Serialize(new PowerShellEvidence
+            {
+                RequestId = 11,
+                ResultId = 22,
+                ScriptOrdinal = 0,
+                DefinitionRevision = "rev-dot",
+                Phase = "Allocated",
+                SourcePath = doubleDotPath
+            }));
+            File.WriteAllText(Path.Combine(directory, "1.json"), JsonSerializer.Serialize(new PowerShellEvidence
+            {
+                RequestId = 11,
+                ResultId = 22,
+                ScriptOrdinal = 1,
+                DefinitionRevision = "rev-dot",
+                Phase = "Allocated",
+                SourcePath = traversalPath
+            }));
+
+            var doubleDotInput = new PowerShellInput(doubleDotPath, directory, 11, 22, "rev-dot", 0, "7", "7.4");
+            Assert.AreEqual(doubleDotBody, doubleDotInput.Text);
+            Assert.AreEqual(ScriptContentHash.ComputeFromScriptText(doubleDotBody), doubleDotInput.ContentHash);
+            Assert.AreEqual(PowerShellInput.Fingerprint(doubleDotBody), doubleDotInput.TextSha256);
+
+            Assert.Throws<ArgumentException>(() =>
+                new PowerShellInput(traversalPath, directory, 11, 22, "rev-dot", 1, "7", "7.4"));
+        }
+        finally { Directory.Delete(directory, true); }
+    }
 }
