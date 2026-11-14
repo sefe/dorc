@@ -5,6 +5,7 @@ using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor.Notifications;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -28,6 +29,7 @@ namespace Dorc.Monitor.RequestProcessors
         private readonly ILoggerFactory _loggerFactory;
         private readonly IDeploymentNotificationSink _notificationSink;
         private readonly IGitHubArtifactDownloader _gitHubArtifactDownloader;
+        private readonly ISourceHostAllowList _sourceHosts;
 
         public PendingRequestProcessor(
             ILoggerFactory loggerFactory,
@@ -41,12 +43,14 @@ namespace Dorc.Monitor.RequestProcessors
             IPropertyEvaluator propertyEvaluator,
             IDeploymentEventsPublisher eventPublisher,
             IDeploymentNotificationSink notificationSink,
-            IGitHubArtifactDownloader gitHubArtifactDownloader)
+            IGitHubArtifactDownloader gitHubArtifactDownloader,
+            ISourceHostAllowList sourceHosts)
         {
             _loggerFactory = loggerFactory;
             _propertyEvaluator = propertyEvaluator;
             _configValuesPersistentSource = configValuesPersistentSource;
             _gitHubArtifactDownloader = gitHubArtifactDownloader;
+            _sourceHosts = sourceHosts;
             this.logger = _loggerFactory.CreateLogger<PendingRequestProcessor>();
 
             this.componentProcessor = componentProcessor;
@@ -607,11 +611,7 @@ namespace Dorc.Monitor.RequestProcessors
 
         private string SetUpDropFolderAsProperty(string dropFolder)
         {
-            if (dropFolder.StartsWith("file"))
-            {
-                dropFolder = new Uri(dropFolder).LocalPath;
-            }
-            else if (_gitHubArtifactDownloader.IsGitHubArtifactUrl(dropFolder))
+            if (_gitHubArtifactDownloader.IsGitHubArtifactUrl(dropFolder))
             {
                 // GitHub Actions artifact URLs are HTTPS endpoints that must be
                 // downloaded and extracted to a local path before PowerShell scripts
@@ -620,8 +620,48 @@ namespace Dorc.Monitor.RequestProcessors
                 logger.LogInformation("Resolved GitHub artifact to local path: {Path}", localPath);
                 dropFolder = localPath;
             }
+            else if (!string.IsNullOrWhiteSpace(dropFolder)
+                && !dropFolder.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                RequirePermittedRemoteDropFolder(dropFolder);
+                if (dropFolder.StartsWith("file", StringComparison.OrdinalIgnoreCase))
+                {
+                    dropFolder = new Uri(SourceHost.NormalizeExtendedUnc(dropFolder)).LocalPath;
+                }
+                else
+                {
+                    dropFolder = SourceHost.NormalizeExtendedUnc(dropFolder);
+                }
+            }
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.DropFolder, dropFolder);
             return dropFolder;
+        }
+
+        private void RequirePermittedRemoteDropFolder(string dropFolder)
+        {
+            if (!SourceHost.IsRemoteOrUnc(dropFolder))
+            {
+                return;
+            }
+
+            if (!SourceHost.TryExtractRemoteHost(dropFolder, out _))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to publish remote DropFolder '{dropFolder}' to runner: remote or UNC authority could not be verified.");
+            }
+
+            if (_sourceHosts.IsArtefactSourceUnconfigured)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to publish remote DropFolder '{dropFolder}' to runner because no artefact host allow-list is configured ('{SourceHostAllowList.ArtefactHostsSetting}').");
+            }
+
+            var decision = _sourceHosts.CheckArtefactSource(dropFolder);
+            if (decision == null || !decision.Allowed)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to publish remote DropFolder '{dropFolder}' to runner, because {decision?.Reason ?? "host is not permitted"}");
+            }
         }
 
         private void SetUpEnvironmentNameAsProperty(string environmentName)

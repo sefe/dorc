@@ -1,6 +1,7 @@
 using System.IO.Compression;
 using System.Net.Http.Headers;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -17,6 +18,7 @@ namespace Dorc.Core.BuildServer
         private readonly ILogger<GitHubArtifactDownloader> _logger;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IGitHubHostValidator _hostValidator;
+        private readonly ISourceHostAllowList _sourceHosts;
         private readonly string _gitHubToken;
         private readonly string _downloadFolder;
 
@@ -24,11 +26,13 @@ namespace Dorc.Core.BuildServer
             ILogger<GitHubArtifactDownloader> logger,
             IHttpClientFactory httpClientFactory,
             IGitHubHostValidator hostValidator,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ISourceHostAllowList sourceHosts)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
             _hostValidator = hostValidator;
+            _sourceHosts = sourceHosts ?? throw new ArgumentNullException(nameof(sourceHosts));
             var appSettings = configuration.GetSection("AppSettings");
             _gitHubToken = appSettings["GitHubToken"] ?? string.Empty;
             _downloadFolder = appSettings["GitHubArtifactDownloadFolder"] ?? string.Empty;
@@ -78,15 +82,15 @@ namespace Dorc.Core.BuildServer
                     nameof(artifactUrl));
             }
             _hostValidator.ValidateHost(parsedUrl.Host);
+            RequirePermittedGitHubArtefactHost(artifactUrl);
 
             _logger.LogInformation("Downloading GitHub Actions artifact from: {Url}", artifactUrl);
 
             using var client = _httpClientFactory.CreateClient("GitHubActions");
-            if (!string.IsNullOrEmpty(_gitHubToken))
-            {
-                client.DefaultRequestHeaders.Authorization =
-                    new AuthenticationHeaderValue("Bearer", _gitHubToken);
-            }
+            client.DefaultRequestHeaders.Authorization = null;
+            var authorization = !string.IsNullOrEmpty(_gitHubToken)
+                ? new AuthenticationHeaderValue("Bearer", _gitHubToken)
+                : null;
 
             var baseDir = !string.IsNullOrEmpty(_downloadFolder)
                 ? _downloadFolder
@@ -98,7 +102,7 @@ namespace Dorc.Core.BuildServer
             {
                 var zipPath = Path.Join(tempDir, "artifact.zip");
 
-                using (var response = client.GetAsync(artifactUrl).GetAwaiter().GetResult())
+                using (var response = Security.OriginBoundHttpSender.GetAsync(client, parsedUrl, authorization).GetAwaiter().GetResult())
                 {
                     response.EnsureSuccessStatusCode();
                     using var stream = response.Content.ReadAsStreamAsync().GetAwaiter().GetResult();
@@ -173,6 +177,22 @@ namespace Dorc.Core.BuildServer
                         $"GitHub artifact download exceeded the {maxBytes:N0} byte limit; aborting to prevent disk exhaustion.");
                 }
                 destination.Write(buffer, 0, read);
+            }
+        }
+
+        private void RequirePermittedGitHubArtefactHost(string url)
+        {
+            if (_sourceHosts.IsArtefactSourceUnconfigured)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present GitHub credentials because no artefact host allow-list is configured ('{SourceHostAllowList.ArtefactHostsSetting}').");
+            }
+
+            var decision = _sourceHosts.CheckArtefactSource(url);
+            if (decision == null || !decision.Allowed)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present GitHub credentials to '{url}', because {decision?.Reason ?? "host is not permitted"}");
             }
         }
 

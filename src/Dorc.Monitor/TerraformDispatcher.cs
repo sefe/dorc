@@ -11,6 +11,7 @@ using Dorc.Monitor.Terraform;
 using Dorc.Core.Terraform;
 using Dorc.Monitor.Security;
 using Dorc.Monitor.TerraformSourceConfig;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -55,7 +56,8 @@ namespace Dorc.Monitor
             ICloudResourceAuditPersistentSource cloudResourceAuditPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IDatabasesPersistentSource databasesPersistentSource,
-            IPropertiesPersistentSource propertiesPersistentSource)
+            IPropertiesPersistentSource propertiesPersistentSource,
+            ISourceHostAllowList sourceHostAllowList)
         {
             this.logger = logger;
             this._requestsPersistentSource = requestsPersistentSource;
@@ -67,7 +69,7 @@ namespace Dorc.Monitor
             this._azureStorageAccountWorker = azureStorageAccountWorker;
             this._projectsPersistentSource = projectsPersistentSource;
             _environmentsPersistentSource = environmentsPersistentSource;
-            this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine, gitHubHostValidator);
+            this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine, gitHubHostValidator, sourceHostAllowList);
             this._cloudResourceRegistrar = new TerraformCloudResourceRegistrar(
                 logger,
                 cloudResourcesPersistentSource,
