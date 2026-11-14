@@ -1,6 +1,8 @@
 import { css, LitElement } from 'lit';
+import { live } from 'lit/directives/live.js';
 import '@vaadin/text-field';
 import '@vaadin/checkbox';
+import { Checkbox } from '@vaadin/checkbox';
 import { TextField } from '@vaadin/text-field';
 import '@vaadin/button';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -29,6 +31,13 @@ export class AddConfigValue extends LitElement {
   @property({ type: Boolean }) isForProd: boolean = false;
 
   @property({ type: Boolean }) valid = false;
+
+  // Unticked by default, and only meaningful for a secure value: the server hides a new
+  // secure value from script scope unless its creator says otherwise, while a non-secure
+  // value is ordinary configuration and stays visible whatever this says. Defaulting the
+  // other way would make every newly-added credential readable by every deployment
+  // script the moment it was created.
+  @property({ type: Boolean }) private visibleToScripts = false;
 
   @property({ type: Object }) configValue: ConfigValueApiModel =
     this.getEmptyConfigValue();
@@ -90,15 +99,30 @@ export class AddConfigValue extends LitElement {
           <vaadin-checkbox
             id="secure"
             label="Is Secure"
+            .checked="${live(this.isSecure)}"
             @change="${(e: Event) => {
-              this.isSecure = (e.target as HTMLInputElement).checked;
+              this.isSecure = (e.currentTarget as Checkbox).checked;
+              if (!this.isSecure) {
+                this.visibleToScripts = false;
+              }
             }}"
           ></vaadin-checkbox>
           <vaadin-checkbox
             id="for-prod"
             label="Is For Prod"
+            .checked="${live(this.isForProd)}"
             @change="${(e: Event) => {
-              this.isForProd = (e.target as HTMLInputElement).checked;
+              this.isForProd = (e.currentTarget as Checkbox).checked;
+            }}"
+          ></vaadin-checkbox>
+          <vaadin-checkbox
+            id="visible-to-scripts"
+            label="Visible To Scripts"
+            title="Allow deployment scripts to read this secure value. Non-secure values are visible to scripts unless reserved; reserved DOrc operating credentials are always withheld from script scope regardless of this setting."
+            ?disabled="${!this.isSecure}"
+            .checked="${live(this.visibleToScripts)}"
+            @change="${(e: Event) => {
+              this.visibleToScripts = (e.currentTarget as Checkbox).checked;
             }}"
           ></vaadin-checkbox>
         </vaadin-vertical-layout>
@@ -136,6 +160,9 @@ export class AddConfigValue extends LitElement {
 
     this.configValue.Secure = this.isSecure;
     this.configValue.IsForProd = this.isForProd;
+    this.configValue.VisibleToScripts = this.isSecure
+      ? this.visibleToScripts
+      : false;
     this.configValue.Key = this.key;
     this.configValue.Value = this.value;
 
@@ -181,6 +208,11 @@ export class AddConfigValue extends LitElement {
     this.clearTextField('key');
     this.clearTextField('value');
 
+    this.key = '';
+    this.value = '';
+    this.isSecure = false;
+    this.isForProd = false;
+    this.visibleToScripts = false;
     this.configValue = this.getEmptyConfigValue();
     this.keyValid = false;
     this.valueValid = false;
@@ -194,7 +226,8 @@ export class AddConfigValue extends LitElement {
       Key: '',
       Value: '',
       Secure: false,
-      IsForProd: undefined
+      IsForProd: undefined,
+      VisibleToScripts: false
     };
   }
 }
