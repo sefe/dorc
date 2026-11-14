@@ -3,7 +3,9 @@ using Dorc.Api.Model;
 using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Extensions.Configuration;
 using NSubstitute;
 
 namespace Dorc.Api.Tests
@@ -30,6 +32,7 @@ namespace Dorc.Api.Tests
         private IDeployLibrary _deployLibrary = null!;
         private IRequestsPersistentSource _requestsPersistentSource = null!;
         private IProjectsPersistentSource _projectsPersistentSource = null!;
+        private ISourceHostAllowList _sourceHosts = null!;
 
         [TestInitialize]
         public void Setup()
@@ -40,6 +43,7 @@ namespace Dorc.Api.Tests
             _deployLibrary = Substitute.For<IDeployLibrary>();
             _requestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
             _projectsPersistentSource = Substitute.For<IProjectsPersistentSource>();
+            _sourceHosts = BuildAllowList("buildserver");
 
             _projectsPersistentSource.GetProject(ProjectName).Returns(new ProjectApiModel
             {
@@ -48,8 +52,19 @@ namespace Dorc.Api.Tests
             });
         }
 
-        private FileShareDeployableBuild NewBuild() =>
-            new(_fileSystemHelper, _deployLibrary, _requestsPersistentSource, _projectsPersistentSource);
+        private FileShareDeployableBuild NewBuild(ISourceHostAllowList? sourceHosts = null) =>
+            new(_fileSystemHelper, _deployLibrary, _requestsPersistentSource, _projectsPersistentSource, sourceHosts ?? _sourceHosts);
+
+        private static ISourceHostAllowList BuildAllowList(params string[] artefactHosts)
+        {
+            var entries = new Dictionary<string, string?>();
+            for (var i = 0; i < artefactHosts.Length; i++)
+            {
+                entries[$"{SourceHostAllowList.ArtefactHostsSetting}:{i}"] = artefactHosts[i];
+            }
+
+            return new SourceHostAllowList(new ConfigurationBuilder().AddInMemoryCollection(entries).Build());
+        }
 
         private static BuildDetails BuildAt(string url) =>
             new(new RequestDto
@@ -149,6 +164,68 @@ namespace Dorc.Api.Tests
         public void RejectsAMalformedUrl()
         {
             Assert.IsFalse(NewBuild().IsValid(BuildAt("|not a url|")));
+        }
+
+        [TestMethod]
+        public void RejectsUnrelatedShareBeforeCallingDirectoryExists()
+        {
+            var build = NewBuild();
+
+            Assert.IsFalse(build.IsValid(BuildAt("file://attacker.example/share/payload")));
+            _fileSystemHelper.DidNotReceiveWithAnyArgs().DirectoryExists(default!);
+        }
+
+        [TestMethod]
+        public void RejectsRemoteShareBeforeCallingDirectoryExistsWhenAllowListIsUnconfigured()
+        {
+            var build = NewBuild(BuildAllowList());
+
+            Assert.IsFalse(build.IsValid(BuildAt(ArtefactRoot + @"\1.2.3")));
+            StringAssert.Contains(build.ValidationResult, SourceHostAllowList.ArtefactHostsSetting);
+            _fileSystemHelper.DidNotReceiveWithAnyArgs().DirectoryExists(default!);
+        }
+
+        [TestMethod]
+        public void RejectsRemoteShareBeforeCallingDirectoryExistsWhenHostIsDisallowed()
+        {
+            var build = NewBuild(BuildAllowList("other-host.corp"));
+
+            Assert.IsFalse(build.IsValid(BuildAt(ArtefactRoot + @"\1.2.3")));
+            StringAssert.Contains(build.ValidationResult, "not permitted");
+            _fileSystemHelper.DidNotReceiveWithAnyArgs().DirectoryExists(default!);
+        }
+
+        [TestMethod]
+        [DataRow(@"\\buildserver@SSL@443\drops\TestProject\1.2.3")]
+        [DataRow(@"\\buildserver@80\drops\TestProject\1.2.3")]
+        [DataRow("file://buildserver@SSL@443/drops/TestProject/1.2.3")]
+        public void RejectsWebDavUncSyntaxBeforeCallingDirectoryExists(string webDavUrl)
+        {
+            var build = NewBuild();
+
+            Assert.IsFalse(build.IsValid(BuildAt(webDavUrl)));
+            _fileSystemHelper.DidNotReceiveWithAnyArgs().DirectoryExists(default!);
+        }
+
+        [TestMethod]
+        public void AcceptsExtendedLengthUncBuildWhenHostIsPermitted()
+        {
+            Assert.IsTrue(NewBuild().IsValid(BuildAt(@"\\?\UNC\buildserver\drops\TestProject\1.2.3")));
+            _fileSystemHelper.Received(1).DirectoryExists(@"\\buildserver\drops\TestProject\1.2.3");
+        }
+
+        [TestMethod]
+        public void AcceptsLocalDiskBuildWhenArtefactHostAllowListIsUnconfigured()
+        {
+            _projectsPersistentSource.GetProject(ProjectName).Returns(new ProjectApiModel
+            {
+                ProjectName = ProjectName,
+                ArtefactsUrl = @"C:\drops\TestProject"
+            });
+
+            var build = NewBuild(BuildAllowList());
+
+            Assert.IsTrue(build.IsValid(BuildAt(@"file:///C:/drops/TestProject/1.2.3")));
         }
     }
 }

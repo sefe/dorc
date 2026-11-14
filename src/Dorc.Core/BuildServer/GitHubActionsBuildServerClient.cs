@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.RegularExpressions;
 using Dorc.Core.BuildServer.GitHubApi;
 using Dorc.Core.Models;
+using Dorc.PersistentData.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
@@ -30,13 +31,19 @@ namespace Dorc.Core.BuildServer
         private readonly string _gitHubToken;
         private readonly IHttpClientFactory _httpClientFactory;
         private readonly IGitHubHostValidator _hostValidator;
+        private readonly ISourceHostAllowList _sourceHosts;
 
-        public GitHubActionsBuildServerClient(ILogger<GitHubActionsBuildServerClient> logger, IConfiguration configuration,
-            IHttpClientFactory httpClientFactory, IGitHubHostValidator hostValidator)
+        public GitHubActionsBuildServerClient(
+            ILogger<GitHubActionsBuildServerClient> logger,
+            IConfiguration configuration,
+            IHttpClientFactory httpClientFactory,
+            IGitHubHostValidator hostValidator,
+            ISourceHostAllowList sourceHosts)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
             _hostValidator = hostValidator;
+            _sourceHosts = sourceHosts ?? throw new ArgumentNullException(nameof(sourceHosts));
             var appSettings = configuration.GetSection("AppSettings");
             _gitHubToken = appSettings["GitHubToken"] ?? string.Empty;
 
@@ -49,7 +56,11 @@ namespace Dorc.Core.BuildServer
 
         public IEnumerable<DeployableArtefact> GetDefinitions(string serverUrl, string projectPaths, string buildRegex)
         {
+            RequirePermittedGitHubArtefactHost(serverUrl);
             var (owner, repo) = ParseOwnerRepo(serverUrl);
+            var apiBase = _hostValidator.GetApiBase(serverUrl);
+            RequirePermittedGitHubArtefactHost(apiBase);
+
             var workflowFiles = projectPaths.Split(new[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
             Regex regex;
             try
@@ -68,11 +79,11 @@ namespace Dorc.Core.BuildServer
 
             foreach (var workflowFile in workflowFiles)
             {
-                var url = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows/{Uri.EscapeDataString(workflowFile.Trim())}";
+                var url = $"{apiBase}/repos/{owner}/{repo}/actions/workflows/{Uri.EscapeDataString(workflowFile.Trim())}";
 
                 try
                 {
-                    using var response = client.GetAsync(url).ConfigureAwait(false).GetAwaiter().GetResult();
+                    using var response = SendGitHubGetAsync(client, url).ConfigureAwait(false).GetAwaiter().GetResult();
                     response.EnsureSuccessStatusCode();
                     var json = response.Content.ReadAsStringAsync().ConfigureAwait(false).GetAwaiter().GetResult();
                     var workflow = DeserializeResponse<GitHubWorkflow>(json);
@@ -101,7 +112,10 @@ namespace Dorc.Core.BuildServer
         public async Task<IEnumerable<DeployableArtefact>> GetBuildsAsync(string serverUrl, string projectPaths,
             string buildRegex, string definitionName, bool filterPinnedOnly)
         {
+            RequirePermittedGitHubArtefactHost(serverUrl);
             var (owner, repo) = ParseOwnerRepo(serverUrl);
+            var apiBase = _hostValidator.GetApiBase(serverUrl);
+            RequirePermittedGitHubArtefactHost(apiBase);
 
             using var client = CreateHttpClient();
 
@@ -114,7 +128,7 @@ namespace Dorc.Core.BuildServer
                 return Enumerable.Empty<DeployableArtefact>();
             }
 
-            var firstPage = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows/{workflowId}/runs?status=completed&per_page={PerPage}";
+            var firstPage = $"{apiBase}/repos/{owner}/{repo}/actions/workflows/{workflowId}/runs?status=completed&per_page={PerPage}";
             var allRuns = await ReadAllPagesAsync<GitHubWorkflowRunsResponse, GitHubWorkflowRun>(
                 client, firstPage, r => r.WorkflowRuns);
 
@@ -144,7 +158,10 @@ namespace Dorc.Core.BuildServer
         public async Task<string> GetBuildArtifactDownloadUrlAsync(string serverUrl, string projectPaths,
             string buildRegex, string definitionName, string buildUrl)
         {
+            RequirePermittedGitHubArtefactHost(serverUrl);
             var (owner, repo) = ParseOwnerRepo(serverUrl);
+            var apiBase = _hostValidator.GetApiBase(serverUrl);
+            RequirePermittedGitHubArtefactHost(apiBase);
 
             using var client = CreateHttpClient();
 
@@ -153,8 +170,8 @@ namespace Dorc.Core.BuildServer
             if (!long.TryParse(runId, out _))
                 throw new ArgumentException($"GitHub Actions run ID must be numeric, got '{runId}'");
 
-            var artifactsUrl = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/runs/{runId}/artifacts";
-            using var response = await client.GetAsync(artifactsUrl);
+            var artifactsUrl = $"{apiBase}/repos/{owner}/{repo}/actions/runs/{runId}/artifacts";
+            using var response = await SendGitHubGetAsync(client, artifactsUrl);
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync();
@@ -172,7 +189,10 @@ namespace Dorc.Core.BuildServer
         public async Task<BuildServerBuildInfo?> ValidateBuildAsync(string serverUrl, string projectPaths,
             string buildRegex, string? buildText, string? buildNum, string? vstsUrl, bool pinnedOnly)
         {
+            RequirePermittedGitHubArtefactHost(serverUrl);
             var (owner, repo) = ParseOwnerRepo(serverUrl);
+            var apiBase = _hostValidator.GetApiBase(serverUrl);
+            RequirePermittedGitHubArtefactHost(apiBase);
 
             using var client = CreateHttpClient();
 
@@ -201,8 +221,8 @@ namespace Dorc.Core.BuildServer
             if (!string.IsNullOrEmpty(cleanBuildNum) &&
                 cleanBuildNum.Equals("latest", StringComparison.OrdinalIgnoreCase))
             {
-                var latestUrl = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows/{workflowId}/runs?status=success&per_page=1";
-                using var latestResponse = await client.GetAsync(latestUrl);
+                var latestUrl = $"{apiBase}/repos/{owner}/{repo}/actions/workflows/{workflowId}/runs?status=success&per_page=1";
+                using var latestResponse = await SendGitHubGetAsync(client, latestUrl);
                 latestResponse.EnsureSuccessStatusCode();
                 var latestJson = await latestResponse.Content.ReadAsStringAsync();
                 var latestPage = DeserializeResponse<GitHubWorkflowRunsResponse>(latestJson);
@@ -216,7 +236,7 @@ namespace Dorc.Core.BuildServer
             // Match by run_number, falling back to display_title for backwards-compat with any
             // existing requests that stored the title. run_number is unique per workflow; title
             // is not (it defaults to the head-commit message and re-runs share it).
-            var firstPage = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/workflows/{workflowId}/runs?status=completed&per_page={PerPage}";
+            var firstPage = $"{apiBase}/repos/{owner}/{repo}/actions/workflows/{workflowId}/runs?status=completed&per_page={PerPage}";
             var trimmed = cleanBuildNum.Trim();
             var allRuns = await ReadAllPagesAsync<GitHubWorkflowRunsResponse, GitHubWorkflowRun>(
                 client, firstPage, r => r.WorkflowRuns,
@@ -263,7 +283,7 @@ namespace Dorc.Core.BuildServer
         private async Task<GitHubWorkflowRun?> GetRunByIdAsync(HttpClient client, string serverUrl, string owner, string repo, string runId)
         {
             var url = $"{_hostValidator.GetApiBase(serverUrl)}/repos/{owner}/{repo}/actions/runs/{runId}";
-            using var response = await client.GetAsync(url);
+            using var response = await SendGitHubGetAsync(client, url);
             if (!response.IsSuccessStatusCode)
                 return null;
 
@@ -316,7 +336,7 @@ namespace Dorc.Core.BuildServer
 
             for (var page = 0; page < MaxPages; page++)
             {
-                using var response = await client.GetAsync(url);
+                using var response = await SendGitHubGetAsync(client, url);
                 response.EnsureSuccessStatusCode();
                 var json = await response.Content.ReadAsStringAsync();
                 var parsed = DeserializeResponse<TResponse>(json);
@@ -339,10 +359,21 @@ namespace Dorc.Core.BuildServer
                 // The client attaches a bearer token to every request, so a Link header pointing
                 // anywhere off the allowed GitHub host(s) — whether from a hostile server or a
                 // future API change — would otherwise leak the token.
-                if (!Uri.TryCreate(next, UriKind.Absolute, out var nextUri))
-                    throw new ApplicationException(
-                        $"GitHub pagination 'next' link is not a valid absolute URL: '{next}'");
+                if (!Uri.TryCreate(next, UriKind.Absolute, out var nextUri) ||
+                    !Uri.TryCreate(firstPageUrl, UriKind.Absolute, out var firstPageUri) ||
+                    !string.Equals(nextUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(firstPageUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ||
+                    !string.IsNullOrEmpty(nextUri.UserInfo) ||
+                    !string.Equals(nextUri.Scheme, firstPageUri.Scheme, StringComparison.OrdinalIgnoreCase) ||
+                    !string.Equals(nextUri.DnsSafeHost, firstPageUri.DnsSafeHost, StringComparison.OrdinalIgnoreCase) ||
+                    nextUri.Port != firstPageUri.Port ||
+                    !ApiModel.SourceHost.HasSameOrigin(next, firstPageUrl))
+                {
+                    throw new InvalidOperationException(
+                        $"Refusing to present GitHub credentials to pagination 'next' link '{next}': origin '{ApiModel.SourceHost.OriginOf(next) ?? "<none>"}' does not match initial request origin '{ApiModel.SourceHost.OriginOf(firstPageUrl) ?? "<none>"}'.");
+                }
                 _hostValidator.ValidateHost(nextUri.Host);
+                RequirePermittedGitHubArtefactHost(next);
                 url = next;
             }
 
@@ -390,15 +421,38 @@ namespace Dorc.Core.BuildServer
         private HttpClient CreateHttpClient()
         {
             var client = _httpClientFactory.CreateClient("GitHubActions");
-            // Static headers (Accept, UserAgent, X-GitHub-Api-Version, Timeout) are configured
-            // at named client registration time. Authorization is set per-instance here since
-            // the token varies by configuration. Each CreateClient() call returns a new HttpClient
-            // instance (only the underlying handler is pooled), so this is thread-safe.
-            if (!string.IsNullOrEmpty(_gitHubToken))
-            {
-                client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _gitHubToken);
-            }
+            // Keep DefaultRequestHeaders.Authorization clear so per-request origin-bound sending
+            // controls exactly which origin receives the configured GitHub bearer token.
+            client.DefaultRequestHeaders.Authorization = null;
             return client;
+        }
+
+        private Task<HttpResponseMessage> SendGitHubGetAsync(
+            HttpClient client,
+            string url,
+            HttpCompletionOption completionOption = HttpCompletionOption.ResponseContentRead)
+        {
+            RequirePermittedGitHubArtefactHost(url);
+            var authorization = !string.IsNullOrEmpty(_gitHubToken)
+                ? new AuthenticationHeaderValue("Bearer", _gitHubToken)
+                : null;
+            return Security.OriginBoundHttpSender.GetAsync(client, new Uri(url), authorization, completionOption);
+        }
+
+        private void RequirePermittedGitHubArtefactHost(string url)
+        {
+            if (_sourceHosts.IsArtefactSourceUnconfigured)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present GitHub credentials because no artefact host allow-list is configured ('{SourceHostAllowList.ArtefactHostsSetting}').");
+            }
+
+            var decision = _sourceHosts.CheckArtefactSource(url);
+            if (decision == null || !decision.Allowed)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present GitHub credentials to '{url}', because {decision?.Reason ?? "host is not permitted"}");
+            }
         }
 
         private static (string owner, string repo) ParseOwnerRepo(string serverUrl)
@@ -418,7 +472,7 @@ namespace Dorc.Core.BuildServer
                 "Expected format: https://api.github.com/repos/{{owner}}/{{repo}}");
         }
 
-        public async Task<string?> TryReadArtifactFileTextAsync(string artifactDownloadUrl, string fileName)
+        public async Task<string?> TryReadArtifactFileTextAsync(string serverUrl, string artifactDownloadUrl, string fileName)
         {
             if (string.IsNullOrWhiteSpace(artifactDownloadUrl) || string.IsNullOrWhiteSpace(fileName))
                 return null;
@@ -428,15 +482,34 @@ namespace Dorc.Core.BuildServer
                 return null;
 
             if (!Uri.TryCreate(artifactDownloadUrl, UriKind.Absolute, out var downloadUri) ||
-                (downloadUri.Scheme != Uri.UriSchemeHttp && downloadUri.Scheme != Uri.UriSchemeHttps))
+                !string.Equals(downloadUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
             {
                 return null;
             }
 
+            if (string.IsNullOrWhiteSpace(serverUrl) || ApiModel.SourceHost.OriginOf(serverUrl) == null)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present GitHub credentials to '{artifactDownloadUrl}': configured server origin '{serverUrl ?? "<none>"}' is missing or invalid.");
+            }
+
+            RequirePermittedGitHubArtefactHost(serverUrl);
+            var apiBase = _hostValidator.GetApiBase(serverUrl);
+            RequirePermittedGitHubArtefactHost(apiBase);
+
             _hostValidator.ValidateHost(downloadUri.Host);
+            RequirePermittedGitHubArtefactHost(artifactDownloadUrl);
+            if (!ApiModel.SourceHost.HasSameOrigin(artifactDownloadUrl, apiBase))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present GitHub credentials to '{artifactDownloadUrl}': origin '{ApiModel.SourceHost.OriginOf(artifactDownloadUrl) ?? "<none>"}' does not match configured GitHub API origin '{ApiModel.SourceHost.OriginOf(apiBase) ?? "<none>"}'.");
+            }
 
             using var client = CreateHttpClient();
-            using var response = await client.GetAsync(downloadUri, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+            using var response = await SendGitHubGetAsync(
+                client,
+                artifactDownloadUrl,
+                HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogWarning("Failed to download GitHub Actions artifact (HTTP {StatusCode}).", (int)response.StatusCode);

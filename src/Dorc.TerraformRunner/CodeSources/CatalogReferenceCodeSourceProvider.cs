@@ -84,6 +84,10 @@ namespace Dorc.TerraformRunner.CodeSources
                 throw new InvalidOperationException(
                     $"Stock template '{manifest.Name}@{manifest.Version}' requires a full source commit_sha.");
 
+            // Enforce host confinement on the catalog manifest's underlying source locator
+            // before mutating TerraformGitRepoUrl or presenting any credential via GitCodeSourceProvider.
+            EnforceCatalogSourceHostConfinement(manifest.Source.Locator, scriptGroup);
+
             // Set the Git fields on the script group so GitCodeSourceProvider
             // sees an unambiguous Git clone target. The original Catalog mode
             // values are preserved on scriptGroup for downstream consumers.
@@ -115,6 +119,67 @@ namespace Dorc.TerraformRunner.CodeSources
             return string.IsNullOrEmpty(manifest.Source.SubPath)
                 ? $"stock-modules/{manifest.Name}"
                 : manifest.Source.SubPath!;
+        }
+
+        internal static void EnforceCatalogSourceHostConfinement(string locator, ScriptGroup scriptGroup)
+        {
+            if (!SourceHost.IsRemoteOrUnc(locator))
+            {
+                // Local disk repository (no remote/UNC authority): never forward credentials,
+                // even when AllowedTerraformSourceHosts is populated for remote templates.
+                scriptGroup.TerraformGitPat = string.Empty;
+                scriptGroup.AzureBearerToken = string.Empty;
+                return;
+            }
+
+            var allowedHosts = scriptGroup.AllowedTerraformSourceHosts;
+            if (allowedHosts == null || allowedHosts.Count == 0)
+            {
+                scriptGroup.TerraformGitPat = string.Empty;
+                scriptGroup.AzureBearerToken = string.Empty;
+                throw new InvalidOperationException(
+                    $"Refusing to provision remote catalog template from '{locator}' because no Terraform source host allow-list was provided.");
+            }
+
+            if (!SourceHost.TryExtractRemoteHost(locator, out var locatorHost) ||
+                !IsPermittedExactHost(locatorHost, allowedHosts))
+            {
+                scriptGroup.TerraformGitPat = string.Empty;
+                scriptGroup.AzureBearerToken = string.Empty;
+                throw new InvalidOperationException(
+                    $"Refusing to provision catalog template from '{locator}': host '{locatorHost ?? "<none>"}' is not in the configured Terraform source host allow-list.");
+            }
+
+            if (!Uri.TryCreate(locator, UriKind.Absolute, out var locatorUri) ||
+                !string.Equals(locatorUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            {
+                scriptGroup.TerraformGitPat = string.Empty;
+                scriptGroup.AzureBearerToken = string.Empty;
+                throw new InvalidOperationException(
+                    $"Refusing to present credentials to catalog template source '{locator}': HTTPS is required.");
+            }
+
+            var isAzureDevOps = SourceHost.Is(locator, "dev.azure.com")
+                || SourceHost.Is(locator, "visualstudio.com");
+            if (!isAzureDevOps)
+            {
+                scriptGroup.AzureBearerToken = string.Empty;
+            }
+        }
+
+        private static bool IsPermittedExactHost(string locatorHost, IList<string> allowedHosts)
+        {
+            for (var i = 0; i < allowedHosts.Count; i++)
+            {
+                var entry = allowedHosts[i]?.Trim();
+                if (!string.IsNullOrEmpty(entry) &&
+                    string.Equals(locatorHost, entry, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

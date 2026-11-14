@@ -1,4 +1,5 @@
 using System.Text;
+using Dorc.ApiModel;
 
 namespace Dorc.Core.Security
 {
@@ -38,6 +39,12 @@ namespace Dorc.Core.Security
             }
 
             var value = pathOrUri.Trim();
+            if (SourceHost.IsRemoteOrUnc(value) && !SourceHost.TryExtractRemoteHost(value, out _))
+            {
+                return null;
+            }
+
+            value = SourceHost.NormalizeExtendedUnc(value);
 
             // Configured roots are frequently recorded as file:// URIs while the values
             // compared against them are plain UNC or local paths. Reduce both to a path.

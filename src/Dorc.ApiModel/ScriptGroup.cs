@@ -70,6 +70,12 @@ namespace Dorc.ApiModel
         // matching the heuristic pattern.
         public IList<string> SensitivePropertyNames { get; set; } = new List<string>();
 
+        // Validated host allow-lists forwarded from the Monitor so runner-side
+        // code source providers (including Catalog manifest resolution) enforce
+        // host confinement before presenting any source credential.
+        public IList<string> AllowedTerraformSourceHosts { get; set; } = new List<string>();
+        public IList<string> AllowedArtefactHosts { get; set; } = new List<string>();
+
         public IDictionary<string, VariableValue> CommonProperties { get; set; }
         public IList<ScriptProperties> ScriptProperties { get; set; }
     }

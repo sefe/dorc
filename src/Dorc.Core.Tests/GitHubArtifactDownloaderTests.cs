@@ -1,4 +1,5 @@
 using Dorc.Core.BuildServer;
+using Dorc.PersistentData.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
@@ -15,6 +16,7 @@ namespace Dorc.Core.Tests
         private IHttpClientFactory _httpClientFactory = null!;
         private IGitHubHostValidator _hostValidator = null!;
         private IConfiguration _configuration = null!;
+        private ISourceHostAllowList _sourceHosts = null!;
         private readonly List<HttpClient> _trackedClients = new();
 
         [TestInitialize]
@@ -31,6 +33,8 @@ namespace Dorc.Core.Tests
             var appSettings = Substitute.For<IConfigurationSection>();
             appSettings[Arg.Any<string>()].Returns((string?)null);
             _configuration.GetSection("AppSettings").Returns(appSettings);
+
+            _sourceHosts = BuildAllowList("api.github.com", "github.mycorp.local");
         }
 
         [TestCleanup]
@@ -47,8 +51,19 @@ namespace Dorc.Core.Tests
             return client;
         }
 
-        private GitHubArtifactDownloader CreateSut() =>
-            new(_logger, _httpClientFactory, _hostValidator, _configuration);
+        private GitHubArtifactDownloader CreateSut(ISourceHostAllowList? sourceHosts = null) =>
+            new(_logger, _httpClientFactory, _hostValidator, _configuration, sourceHosts ?? _sourceHosts);
+
+        private static ISourceHostAllowList BuildAllowList(params string[] artefactHosts)
+        {
+            var entries = new Dictionary<string, string?>();
+            for (var i = 0; i < artefactHosts.Length; i++)
+            {
+                entries[$"{SourceHostAllowList.ArtefactHostsSetting}:{i}"] = artefactHosts[i];
+            }
+
+            return new SourceHostAllowList(new ConfigurationBuilder().AddInMemoryCollection(entries).Build());
+        }
 
         // -------- IsGitHubArtifactUrl --------
 
@@ -128,6 +143,32 @@ namespace Dorc.Core.Tests
 
             StringAssert.Contains(ex.Message, "absolute https");
             _hostValidator.DidNotReceiveWithAnyArgs().ValidateHost(default!);
+        }
+
+        [TestMethod]
+        public void DownloadAndExtract_FailsClosedBeforeHttpCallWhenArtefactAllowListUnconfigured()
+        {
+            _httpClientFactory.ClearReceivedCalls();
+            var sut = CreateSut(BuildAllowList());
+
+            var ex = Assert.ThrowsExactly<InvalidOperationException>(() =>
+                sut.DownloadAndExtract("https://api.github.com/repos/owner/repo/actions/artifacts/1/zip"));
+
+            StringAssert.Contains(ex.Message, SourceHostAllowList.ArtefactHostsSetting);
+            _httpClientFactory.DidNotReceiveWithAnyArgs().CreateClient(default!);
+        }
+
+        [TestMethod]
+        public void DownloadAndExtract_FailsClosedBeforeHttpCallWhenHostNotInArtefactAllowList()
+        {
+            _httpClientFactory.ClearReceivedCalls();
+            var sut = CreateSut(BuildAllowList("github.mycorp.local"));
+
+            var ex = Assert.ThrowsExactly<InvalidOperationException>(() =>
+                sut.DownloadAndExtract("https://api.github.com/repos/owner/repo/actions/artifacts/1/zip"));
+
+            StringAssert.Contains(ex.Message, "not permitted");
+            _httpClientFactory.DidNotReceiveWithAnyArgs().CreateClient(default!);
         }
 
         [TestMethod]

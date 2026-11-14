@@ -3,6 +3,7 @@ using Dorc.Api.Model;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Security;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using System.Security.Claims;
 
@@ -15,43 +16,95 @@ namespace Dorc.Api.Services
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IDeployLibrary _deployLibrary;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
+        private readonly ISourceHostAllowList _sourceHosts;
 
-        public FileShareDeployableBuild(IFileSystemHelper helper, IDeployLibrary deployLibrary,
-            IRequestsPersistentSource requestsPersistentSource, IProjectsPersistentSource projectsPersistentSource)
+        public FileShareDeployableBuild(
+            IFileSystemHelper helper,
+            IDeployLibrary deployLibrary,
+            IRequestsPersistentSource requestsPersistentSource,
+            IProjectsPersistentSource projectsPersistentSource,
+            ISourceHostAllowList sourceHosts)
         {
             _deployLibrary = deployLibrary;
             _requestsPersistentSource = requestsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
+            _sourceHosts = sourceHosts;
             _helper = helper;
         }
 
         public bool IsValid(BuildDetails dorcBuild)
         {
-            var buildTypeOk = dorcBuild.Type == BuildType.FileShareBuild;
+            if (dorcBuild.Type != BuildType.FileShareBuild)
+            {
+                _validationMessage = "File share build detected. But seems that folder doesn't exists or permissions denied";
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(dorcBuild.BuildUrl))
+            {
+                _validationMessage = "File share build detected. But seems that folder doesn't exists or permissions denied";
+                return false;
+            }
+
+            var isRemote = SourceHost.IsRemoteOrUnc(dorcBuild.BuildUrl);
+            if (isRemote && !SourceHost.TryExtractRemoteHost(dorcBuild.BuildUrl, out _))
+            {
+                _validationMessage =
+                    $"Refusing to validate remote build location '{dorcBuild.BuildUrl}': remote or UNC authority could not be verified.";
+                return false;
+            }
 
             // TryCreate with UriKind.Absolute, rather than IsWellFormedUriString with
             // RelativeOrAbsolute followed by an absolute-only constructor. The previous pair
             // disagreed: a relative string passed the check and then threw UriFormatException
             // out of validation, which surfaced as a 500 rather than as a refusal.
-            if (!Uri.TryCreate(dorcBuild.BuildUrl, UriKind.Absolute, out var uri))
+            var normalizedBuildUrl = SourceHost.NormalizeExtendedUnc(dorcBuild.BuildUrl);
+            if (!Uri.TryCreate(normalizedBuildUrl, UriKind.Absolute, out var uri))
             {
                 _validationMessage = "File share build detected. But seems that folder doesn't exists or permissions denied";
                 return false;
             }
 
-            if (!_helper.DirectoryExists(uri.LocalPath) || !buildTypeOk)
+            // Confine to the project's configured artefact roots and the operator's artefact
+            // host allow-list BEFORE calling DirectoryExists so an attacker-chosen file:// or
+            // UNC authority never triggers an outbound SMB/WebDAV NTLM/Kerberos handshake.
+            if (!IsWithinProjectArtefactRoots(dorcBuild))
+            {
+                return false;
+            }
+
+            if (isRemote && !IsPermittedRemoteArtefactHost(dorcBuild.BuildUrl))
+            {
+                return false;
+            }
+
+            if (!_helper.DirectoryExists(uri.LocalPath))
             {
                 _validationMessage = "File share build detected. But seems that folder doesn't exists or permissions denied";
                 return false;
             }
 
-            // The drop location is not merely data: it is published to deployment scripts as
-            // $DropFolder$, and DOrc's own RunDeployment.ps1 dot-sources DeploymentCommon.ps1
-            // from it. An unconfined drop location is therefore arbitrary code execution as
-            // the deployment account, available to anyone who can submit a request. The
-            // Azure DevOps build path already validates builds against the project's own
-            // definitions; this applies the equivalent confinement to the file-share path.
-            return IsWithinProjectArtefactRoots(dorcBuild);
+            return true;
+        }
+
+        private bool IsPermittedRemoteArtefactHost(string buildUrl)
+        {
+            if (_sourceHosts.IsArtefactSourceUnconfigured)
+            {
+                _validationMessage =
+                    $"Refusing to present default Windows credentials because no artefact host allow-list is configured ('{SourceHostAllowList.ArtefactHostsSetting}').";
+                return false;
+            }
+
+            var decision = _sourceHosts.CheckArtefactSource(buildUrl);
+            if (decision == null || !decision.Allowed)
+            {
+                _validationMessage =
+                    $"Refusing to present default Windows credentials to '{buildUrl}', because {decision?.Reason ?? "host is not permitted"}";
+                return false;
+            }
+
+            return true;
         }
 
         private bool IsWithinProjectArtefactRoots(BuildDetails dorcBuild)

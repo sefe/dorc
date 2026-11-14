@@ -38,7 +38,8 @@ namespace Dorc.Core.Tests
                 _requestsPersistentSource,
                 Substitute.For<Dorc.PersistentData.IClaimsPrincipalReader>(),
                 Substitute.For<Dorc.Core.Interfaces.IDeploymentEventsPublisher>(),
-                _buildServerClientFactory
+                _buildServerClientFactory,
+                Substitute.For<Dorc.PersistentData.Security.ISourceHostAllowList>()
             );
         }
 
@@ -372,7 +373,7 @@ namespace Dorc.Core.Tests
                 }
                 """;
 
-            adoClient.TryReadArtifactFileTextAsync(bundleZipUrl, "bundle.json").Returns(bundleJson);
+            adoClient.TryReadArtifactFileTextAsync(project.ArtefactsUrl, bundleZipUrl, "bundle.json").Returns(bundleJson);
 
             // Component 1: SampleApp.Database
             adoClient.ValidateBuildAsync(
@@ -491,7 +492,7 @@ namespace Dorc.Core.Tests
                     "MyAdoProject; SampleApp.Bundle", bundleVstfsUri)
                 .Returns(bundleZipUrl);
 
-            adoClient.TryReadArtifactFileTextAsync(bundleZipUrl, "bundle.json")
+            adoClient.TryReadArtifactFileTextAsync(project.ArtefactsUrl, bundleZipUrl, "bundle.json")
                 .Returns("""{"items":[{"Component":"010 - Database Deploy Dacpac","BuildDefinition":"SampleApp.Database","Build":"Purged_Build_1.0"}]}""");
 
             // Referenced component build returns null (purged/missing)
