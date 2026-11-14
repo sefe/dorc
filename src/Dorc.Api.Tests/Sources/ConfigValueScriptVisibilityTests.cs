@@ -265,5 +265,54 @@ namespace Dorc.Api.Tests.Sources
             Assert.IsTrue(_stored.Single().VisibleToScripts);
             Assert.IsTrue(updated.VisibleToScripts);
         }
+
+        [TestMethod]
+        [DataRow("DORC_Deploy_payments_Username")]
+        [DataRow("DORC_Deploy_payments_Password")]
+        [DataRow("DORC_ProdDeployPassword")]
+        public void DeploymentCredentialKeysCannotBeDuplicatedAcrossIsForProdOnAddOrUpdate(string key)
+        {
+            _stored.Add(new ConfigValue
+            {
+                Id = 21,
+                Key = key,
+                Value = "enc:first",
+                Secure = true,
+                IsForProd = true,
+                VisibleToScripts = false
+            });
+
+            Assert.ThrowsExactly<ArgumentException>(() => _source.Add(new ConfigValueApiModel
+            {
+                Key = key,
+                Value = "second",
+                Secure = true,
+                IsForProd = false
+            }));
+
+            _stored.Add(new ConfigValue
+            {
+                Id = 22,
+                Key = key,
+                Value = "enc:legacy-duplicate",
+                Secure = true,
+                IsForProd = false,
+                VisibleToScripts = false
+            });
+
+            var encryptor = Substitute.For<IPropertyEncryptor>();
+            encryptor.DecryptValue(Arg.Any<string>()).Returns("decrypted");
+            var contextFactory = Substitute.For<IDeploymentContextFactory>();
+            contextFactory.GetContext().Returns(_context);
+            var sourceWithDecrypt = new ConfigValuesPersistentSource(contextFactory, encryptor);
+
+            Assert.ThrowsExactly<ArgumentException>(() => sourceWithDecrypt.UpdateConfigValue(new ConfigValueApiModel
+            {
+                Id = 22,
+                Key = key,
+                Secure = true,
+                IsForProd = true
+            }));
+        }
     }
 }

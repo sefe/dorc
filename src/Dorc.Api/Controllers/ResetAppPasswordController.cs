@@ -40,8 +40,8 @@ namespace Dorc.Api.Controllers
             IClaimsPrincipalReader claimsPrincipalReader,
             IDeploymentCredentialSource credentialSource)
         {
-            _credentialSource = credentialSource;
             _environmentsPersistentSource = environmentsPersistentSource;
+            _credentialSource = credentialSource;
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _logger = logger;
             _configValuesPersistentSource = configValuesPersistentSource;
@@ -105,7 +105,10 @@ namespace Dorc.Api.Controllers
                         $"Target database is not mapped exclusively to non-production environment '{environment.EnvironmentName}'.");
                 }
 
-                return Ok(ResetSqlServerPasswordForUser(username, db.ServerName));
+                return Ok(ResetSqlServerPasswordForUser(
+                    username,
+                    db.ServerName,
+                    environment.ExecutionIdentityReference));
             }
             catch (Exception e)
             {
@@ -221,11 +224,16 @@ namespace Dorc.Api.Controllers
             return names;
         }
 
-        private ApiBoolResult ResetSqlServerPasswordForUser(string username, string serverName)
+        private ApiBoolResult ResetSqlServerPasswordForUser(
+            string username, string serverName, string? executionIdentityReference)
         {
             // Application SQL password resets are restricted strictly to non-production
-            // environments above; production environments are refused before reaching here.
-            using var credential = _credentialSource.Resolve(DeploymentTier.NonProduction);
+            // environments above; an environment naming its own execution identity resets
+            // passwords under that bound identity, while one naming none uses the non-production
+            // tier default as before.
+            using var credential = _credentialSource.Resolve(
+                DeploymentTier.NonProduction,
+                executionIdentityReference);
 
             var domainName = _configurationSettingsEngine.GetConfigurationDomainNameIntra();
 

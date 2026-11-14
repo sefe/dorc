@@ -59,6 +59,7 @@ export * from './EnvironmentContentApiModel';
 export * from './EnvironmentContentBuildsApiModel';
 export * from './EnvironmentContentWindowsServicesApiModel';
 export * from './EnvironmentDetailsApiModel';
+export * from './EnvironmentExecutionIdentityApiModel';
 export * from './EnvironmentHistoryApiModel';
 export * from './EnvironmentOwnerApiModel';
 export * from './EnvironmentShortApiModel';

@@ -69,11 +69,12 @@ namespace Dorc.Core.Tests
         /// whatever the host happens to be running as.
         /// </summary>
         [TestMethod]
-        public void RefusesRatherThanReturningAnIncompletePair()
+        public void RefusesRatherThanReturningAnIncompletePairAndDoesNotIncrementFallbackCount()
         {
             _configValues.GetConfigValue("DORC_ProdDeployPassword").Returns(string.Empty);
 
             Assert.IsNull(_source.Resolve(DeploymentTier.Production));
+            Assert.AreEqual((0, 0), _source.ResolutionCounts);
         }
 
         [TestMethod]
@@ -225,12 +226,21 @@ namespace Dorc.Core.Tests
     [TestClass]
     public class OnePasswordVaultCredentialResolutionTests
     {
+        private const string LoginUuid = "loginitem00000000000000001";
+        private const string SharedApiCredUuid = "sharedapicred0000000000001";
+        private const string UserApiCredUuid = "userapicred000000000000001";
+        private const string PassApiCredUuid = "passapicred000000000000001";
+        private const string TradingUserUuid = "tradinguser000000000000001";
+        private const string TradingPassUuid = "tradingpass000000000000001";
+        private const string DuplicatePassUuid = "tradingpass000000000000002";
+        private const string EscapedTitleUuid = "escapeditem000000000000001";
+
         [TestMethod]
         public void LoginItem_ReadsUsernameIntoUserNameAndPasswordIntoPassword_NeverLeakingPasswordIntoUserName()
         {
-            const string loginJson = """
+            const string loginJson = $$"""
                 {
-                  "id": "login-item-1",
+                  "id": "{{LoginUuid}}",
                   "category": "LOGIN",
                   "title": "DOrc Prod Deploy",
                   "fields": [
@@ -241,9 +251,9 @@ namespace Dorc.Core.Tests
                 """;
 
             using var harness = CreateVaultHarness(
-                new Dictionary<string, string> { ["login-item-1"] = loginJson },
-                userNameItemId: "login-item-1",
-                passwordItemId: "login-item-1");
+                new Dictionary<string, string> { [LoginUuid] = loginJson },
+                userNameItemId: LoginUuid,
+                passwordItemId: LoginUuid);
 
             using var credential = harness.Source.Resolve(DeploymentTier.Production);
 
@@ -251,19 +261,26 @@ namespace Dorc.Core.Tests
             Assert.AreEqual("svc_dorc_prod", credential.UserName);
             Assert.AreNotEqual("UltraSecret!Pass#99", credential.UserName);
             Assert.AreEqual("UltraSecret!Pass#99", ReadSecureString(credential.Password));
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    $"/v1/vaults/vault-1/items/{LoginUuid}",
+                    $"/v1/vaults/vault-1/items/{LoginUuid}"
+                },
+                harness.Handler.RequestedPathsAndQueries.ToArray());
         }
 
         [TestMethod]
-        [DataRow("""{"id":"login-1","category":"LOGIN","fields":[{"id":"password","value":"SecretOnly"}]}""")]
-        [DataRow("""{"id":"login-1","category":"LOGIN","fields":[{"id":"username","value":"Not Found"},{"id":"password","value":"SecretOnly"}]}""")]
-        [DataRow("""{"id":"login-1","category":"LOGIN","fields":[{"id":"username","value":"svc_dorc_prod"}]}""")]
-        [DataRow("""{"id":"login-1","category":"LOGIN","fields":[{"id":"username","value":"svc_dorc_prod"},{"id":"password","value":"Not Found"}]}""")]
+        [DataRow($$"""{"id":"{{LoginUuid}}","category":"LOGIN","fields":[{"id":"password","value":"SecretOnly"}]}""")]
+        [DataRow($$"""{"id":"{{LoginUuid}}","category":"LOGIN","fields":[{"id":"username","value":"Not Found"},{"id":"password","value":"SecretOnly"}]}""")]
+        [DataRow($$"""{"id":"{{LoginUuid}}","category":"LOGIN","fields":[{"id":"username","value":"svc_dorc_prod"}]}""")]
+        [DataRow($$"""{"id":"{{LoginUuid}}","category":"LOGIN","fields":[{"id":"username","value":"svc_dorc_prod"},{"id":"password","value":"Not Found"}]}""")]
         public void LoginItem_FailsClosedWhenUsernameOrPasswordFieldIsMissingOrSentinel(string itemJson)
         {
             using var harness = CreateVaultHarness(
-                new Dictionary<string, string> { ["login-1"] = itemJson },
-                userNameItemId: "login-1",
-                passwordItemId: "login-1");
+                new Dictionary<string, string> { [LoginUuid] = itemJson },
+                userNameItemId: LoginUuid,
+                passwordItemId: LoginUuid);
 
             Assert.IsNull(harness.Source.Resolve(DeploymentTier.Production));
         }
@@ -271,9 +288,9 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void SharedApiCredentialItemWithoutUsernameField_RefusesRatherThanPuttingCredentialInUserName()
         {
-            const string apiCredJson = """
+            const string apiCredJson = $$"""
                 {
-                  "id": "shared-api-cred",
+                  "id": "{{SharedApiCredUuid}}",
                   "category": "API_CREDENTIAL",
                   "fields": [
                     { "id": "username", "value": "" },
@@ -283,9 +300,9 @@ namespace Dorc.Core.Tests
                 """;
 
             using var harness = CreateVaultHarness(
-                new Dictionary<string, string> { ["shared-api-cred"] = apiCredJson },
-                userNameItemId: "shared-api-cred",
-                passwordItemId: "shared-api-cred");
+                new Dictionary<string, string> { [SharedApiCredUuid] = apiCredJson },
+                userNameItemId: SharedApiCredUuid,
+                passwordItemId: SharedApiCredUuid);
 
             Assert.IsNull(harness.Source.Resolve(DeploymentTier.Production));
         }
@@ -293,9 +310,9 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void SeparateApiCredentialItems_ResolvesDedicatedUsernameAndPasswordItems()
         {
-            const string userItemJson = """
+            const string userItemJson = $$"""
                 {
-                  "id": "user-api-cred",
+                  "id": "{{UserApiCredUuid}}",
                   "category": "API_CREDENTIAL",
                   "fields": [
                     { "id": "credential", "value": "svc_nonprod" },
@@ -303,9 +320,9 @@ namespace Dorc.Core.Tests
                   ]
                 }
                 """;
-            const string passItemJson = """
+            const string passItemJson = $$"""
                 {
-                  "id": "pass-api-cred",
+                  "id": "{{PassApiCredUuid}}",
                   "category": "API_CREDENTIAL",
                   "fields": [
                     { "id": "credential", "value": "NonProdSecret!42" }
@@ -316,11 +333,11 @@ namespace Dorc.Core.Tests
             using var harness = CreateVaultHarness(
                 new Dictionary<string, string>
                 {
-                    ["user-api-cred"] = userItemJson,
-                    ["pass-api-cred"] = passItemJson
+                    [UserApiCredUuid] = userItemJson,
+                    [PassApiCredUuid] = passItemJson
                 },
-                userNameItemId: "user-api-cred",
-                passwordItemId: "pass-api-cred");
+                userNameItemId: UserApiCredUuid,
+                passwordItemId: PassApiCredUuid);
 
             using var credential = harness.Source.Resolve(DeploymentTier.Production);
 
@@ -332,6 +349,8 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void ParseSecureSecretFromUtf8Json_HandlesFieldBeforeCategoryEscapesLabelFallbackAndLargePayloads()
         {
+            const string userOnlyUuid = "useronly000000000000000001";
+            const string escapedPassUuid = "escapedpass000000000000001";
             string largeNotes = new string('n', 8192);
             string json = $$"""
                 {
@@ -347,11 +366,11 @@ namespace Dorc.Core.Tests
             using var harness = CreateVaultHarness(
                 new Dictionary<string, string>
                 {
-                    ["user-only"] = """{"id":"user-only","category":"LOGIN","fields":[{"id":"username","value":"svc_escaped"}]}""",
-                    ["escaped-pass"] = json
+                    [userOnlyUuid] = $$"""{"id":"{{userOnlyUuid}}","category":"LOGIN","fields":[{"id":"username","value":"svc_escaped"}]}""",
+                    [escapedPassUuid] = json
                 },
-                userNameItemId: "user-only",
-                passwordItemId: "escaped-pass");
+                userNameItemId: userOnlyUuid,
+                passwordItemId: escapedPassUuid);
 
             using var credential = harness.Source.Resolve(DeploymentTier.Production);
 
@@ -402,6 +421,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public async Task StalledResponseBodyStream_CancelsWithinConfiguredHttpClientTimeout()
         {
+            const string stalledUuid = "stalleditemuuid00000000001";
             using var handler = new StalledBodyHttpMessageHandler();
             using var httpClient = new HttpClient(handler)
             {
@@ -411,10 +431,13 @@ namespace Dorc.Core.Tests
             var client = new OnePasswordClient(httpClient);
 
             await Assert.ThrowsExactlyAsync<TaskCanceledException>(() =>
-                client.GetSecureSecretAsync("vault-1", "stalled-item")).ConfigureAwait(false);
+                client.GetSecureSecretAsync("vault-1", stalledUuid)).ConfigureAwait(false);
 
             await Assert.ThrowsExactlyAsync<TaskCanceledException>(() =>
-                client.GetPrincipalIdentifierAsync("vault-1", "stalled-item", allowFallbackField: false)).ConfigureAwait(false);
+                client.GetPrincipalIdentifierAsync("vault-1", stalledUuid, allowFallbackField: false)).ConfigureAwait(false);
+
+            await Assert.ThrowsExactlyAsync<TaskCanceledException>(() =>
+                client.GetSecureSecretAsync("vault-1", "stalled-item-title")).ConfigureAwait(false);
 
             var configuration = Substitute.For<IConfigurationSettings>();
             configuration.GetOnePasswordVaultId().Returns("vault-1");
@@ -423,13 +446,160 @@ namespace Dorc.Core.Tests
                 client,
                 Substitute.For<ILogger<OnePasswordSecretsReader>>());
 
-            using SecureString timedOutSecret = reader.GetSecureSecret("stalled-item", "Production deployment verification");
+            using SecureString timedOutSecret = reader.GetSecureSecret(stalledUuid, "Production deployment verification");
             string timedOutPrincipal = reader.GetPrincipalIdentifierByItemId(
-                "stalled-item",
+                stalledUuid,
                 "Production deployment username");
 
             Assert.AreEqual(0, timedOutSecret.Length);
             Assert.AreEqual(string.Empty, timedOutPrincipal);
+        }
+
+        [TestMethod]
+        public void NamedIdentityByTitle_FiltersVaultItemsByExactTitleThenFetchesFullItemsByUuid()
+        {
+            const string userItemJson = $$"""
+                {
+                  "id": "{{TradingUserUuid}}",
+                  "category": "API_CREDENTIAL",
+                  "title": "trading-tier-username",
+                  "fields": [
+                    { "id": "credential", "value": "CORP\\svc-trading" }
+                  ]
+                }
+                """;
+            const string passItemJson = $$"""
+                {
+                  "id": "{{TradingPassUuid}}",
+                  "category": "API_CREDENTIAL",
+                  "title": "trading-tier-password",
+                  "fields": [
+                    { "id": "credential", "value": "TradingSecret!77" }
+                  ]
+                }
+                """;
+
+            using var harness = CreateVaultHarness(
+                new Dictionary<string, string>
+                {
+                    [TradingUserUuid] = userItemJson,
+                    [TradingPassUuid] = passItemJson
+                },
+                userNameItemId: string.Empty,
+                passwordItemId: string.Empty);
+
+            using var credential = harness.Source.Resolve(DeploymentTier.Production, "trading-tier");
+
+            Assert.IsNotNull(credential);
+            Assert.AreEqual(@"CORP\svc-trading", credential.UserName);
+            Assert.AreEqual("TradingSecret!77", ReadSecureString(credential.Password));
+            CollectionAssert.AreEqual(
+                new[]
+                {
+                    "/v1/vaults/vault-1/items?filter=title%20eq%20%22trading-tier-username%22",
+                    $"/v1/vaults/vault-1/items/{TradingUserUuid}",
+                    "/v1/vaults/vault-1/items?filter=title%20eq%20%22trading-tier-password%22",
+                    $"/v1/vaults/vault-1/items/{TradingPassUuid}"
+                },
+                harness.Handler.RequestedPathsAndQueries.ToArray());
+        }
+
+        [TestMethod]
+        public async Task TitleLookup_RefusesAmbiguousDuplicateTitlesFailClosed()
+        {
+            const string userItemJson = $$"""
+                {
+                  "id": "{{TradingUserUuid}}",
+                  "category": "API_CREDENTIAL",
+                  "title": "trading-tier-username",
+                  "fields": [
+                    { "id": "credential", "value": "CORP\\svc-trading" }
+                  ]
+                }
+                """;
+            const string firstPassJson = $$"""
+                {
+                  "id": "{{TradingPassUuid}}",
+                  "category": "API_CREDENTIAL",
+                  "title": "trading-tier-password",
+                  "fields": [
+                    { "id": "credential", "value": "FirstSecret" }
+                  ]
+                }
+                """;
+            const string duplicatePassJson = $$"""
+                {
+                  "id": "{{DuplicatePassUuid}}",
+                  "category": "API_CREDENTIAL",
+                  "title": "trading-tier-password",
+                  "fields": [
+                    { "id": "credential", "value": "SecondSecret" }
+                  ]
+                }
+                """;
+
+            var items = new Dictionary<string, string>
+            {
+                [TradingUserUuid] = userItemJson,
+                [TradingPassUuid] = firstPassJson,
+                [DuplicatePassUuid] = duplicatePassJson
+            };
+
+            using var handler = new CannedVaultHttpMessageHandler(items);
+            using var httpClient = new HttpClient(handler)
+            {
+                BaseAddress = new Uri("https://onepassword.corp.local")
+            };
+            var client = new OnePasswordClient(httpClient);
+
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                client.GetItemAsync("vault-1", "trading-tier-password"));
+
+            using var harness = CreateVaultHarness(items, string.Empty, string.Empty);
+            Assert.IsNull(harness.Source.Resolve(DeploymentTier.Production, "trading-tier"));
+        }
+
+        [TestMethod]
+        public async Task TitleLookup_EnforcesOrdinalTitleMatchAndEscapesSpecialCharacters()
+        {
+            const string caseMismatchPassJson = $$"""
+                {
+                  "id": "{{TradingPassUuid}}",
+                  "category": "API_CREDENTIAL",
+                  "title": "Trading-Tier-Password",
+                  "fields": [
+                    { "id": "credential", "value": "WrongCaseSecret" }
+                  ]
+                }
+                """;
+            const string escapedTitleJson = $$"""
+                {
+                  "id": "{{EscapedTitleUuid}}",
+                  "category": "API_CREDENTIAL",
+                  "title": "corp\\svc-\"quoted\"",
+                  "fields": [
+                    { "id": "credential", "value": "EscapedSecret!11" }
+                  ]
+                }
+                """;
+
+            using var handler = new CannedVaultHttpMessageHandler(new Dictionary<string, string>
+            {
+                [TradingPassUuid] = caseMismatchPassJson,
+                [EscapedTitleUuid] = escapedTitleJson
+            });
+            using var httpClient = new HttpClient(handler)
+            {
+                BaseAddress = new Uri("https://onepassword.corp.local")
+            };
+            var client = new OnePasswordClient(httpClient);
+
+            Assert.IsNull(await client.GetItemAsync("vault-1", "trading-tier-password"));
+            Assert.IsNull(await client.GetItemAsync("vault-1", "missing-item-title"));
+
+            var escapedItem = await client.GetItemAsync("vault-1", "corp\\svc-\"quoted\"");
+            Assert.IsNotNull(escapedItem);
+            Assert.AreEqual("EscapedSecret!11", escapedItem.GetFieldValue("credential"));
         }
 
         private static VaultTestHarness CreateVaultHarness(
@@ -495,6 +665,8 @@ namespace Dorc.Core.Tests
 
             public VaultDeploymentCredentialSource Source { get; }
 
+            public CannedVaultHttpMessageHandler Handler => _handler;
+
             public void Dispose()
             {
                 _httpClient.Dispose();
@@ -505,12 +677,16 @@ namespace Dorc.Core.Tests
         private sealed class CannedVaultHttpMessageHandler : HttpMessageHandler
         {
             private readonly IReadOnlyDictionary<string, string> _itemsById;
-            private readonly List<IDisposable> _disposables = new();
+            private readonly List<string> _requestedPathsAndQueries = new();
+            private readonly List<HttpResponseMessage> _createdResponses = new();
+            private readonly List<HttpContent> _createdContents = new();
 
             public CannedVaultHttpMessageHandler(IReadOnlyDictionary<string, string> itemsById)
             {
                 _itemsById = itemsById;
             }
+
+            public IReadOnlyList<string> RequestedPathsAndQueries => _requestedPathsAndQueries;
 
             protected override Task<HttpResponseMessage> SendAsync(
                 HttpRequestMessage request,
@@ -523,12 +699,19 @@ namespace Dorc.Core.Tests
             {
                 if (disposing)
                 {
-                    foreach (IDisposable disposable in _disposables)
+                    foreach (HttpResponseMessage response in _createdResponses)
                     {
-                        disposable.Dispose();
+                        response.Dispose();
                     }
 
-                    _disposables.Clear();
+                    _createdResponses.Clear();
+
+                    foreach (HttpContent content in _createdContents)
+                    {
+                        content.Dispose();
+                    }
+
+                    _createdContents.Clear();
                 }
 
                 base.Dispose(disposing);
@@ -537,23 +720,111 @@ namespace Dorc.Core.Tests
             private HttpResponseMessage CreateResponse(HttpRequestMessage request)
             {
                 string path = request.RequestUri?.AbsolutePath ?? string.Empty;
-                string itemId = path.Split('/', StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? string.Empty;
+                string query = request.RequestUri?.Query ?? string.Empty;
+                _requestedPathsAndQueries.Add(path + query);
 
-                if (_itemsById.TryGetValue(itemId, out string? json))
+                string[] segments = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+                if (segments.Length == 4
+                    && segments[0] == "v1"
+                    && segments[1] == "vaults"
+                    && segments[3] == "items"
+                    && query.StartsWith("?filter=", StringComparison.Ordinal))
                 {
-                    var content = Track(new StringContent(json, Encoding.UTF8, "application/json"));
-                    var okResponse = Track(new HttpResponseMessage(HttpStatusCode.OK));
-                    okResponse.Content = content;
-                    return okResponse;
+                    string filter = Uri.UnescapeDataString(query["?filter=".Length..]);
+                    const string prefix = "title eq \"";
+                    if (!filter.StartsWith(prefix, StringComparison.Ordinal)
+                        || !filter.EndsWith("\"", StringComparison.Ordinal))
+                    {
+                        return CreateTrackedResponse(HttpStatusCode.BadRequest);
+                    }
+
+                    string rawEscapedTitle = filter.Substring(
+                        prefix.Length,
+                        filter.Length - prefix.Length - 1);
+                    string requestedTitle = UnescapeFilterLiteral(rawEscapedTitle);
+
+                    var summaries = new List<object>();
+                    foreach (string itemJson in _itemsById.Values)
+                    {
+                        var parsed = System.Text.Json.JsonSerializer.Deserialize<OnePasswordItem>(itemJson);
+                        if (parsed != null
+                            && string.Equals(parsed.Title, requestedTitle, StringComparison.OrdinalIgnoreCase))
+                        {
+                            // 1Password Connect list endpoint returns item summaries without fields.
+                            summaries.Add(new
+                            {
+                                id = parsed.Id,
+                                title = parsed.Title,
+                                category = parsed.Category
+                            });
+                        }
+                    }
+
+                    string summariesJson = System.Text.Json.JsonSerializer.Serialize(summaries);
+                    return CreateTrackedResponse(HttpStatusCode.OK, summariesJson);
                 }
 
-                return Track(new HttpResponseMessage(HttpStatusCode.NotFound));
+                if (segments.Length == 5
+                    && segments[0] == "v1"
+                    && segments[1] == "vaults"
+                    && segments[3] == "items")
+                {
+                    string itemId = Uri.UnescapeDataString(segments[4]);
+                    bool isValidUuid = itemId.Length == 26
+                        && itemId.All(c => (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'));
+                    if (!isValidUuid)
+                    {
+                        return CreateTrackedResponse(HttpStatusCode.BadRequest);
+                    }
+
+                    if (_itemsById.TryGetValue(itemId, out string? json))
+                    {
+                        return CreateTrackedResponse(HttpStatusCode.OK, json);
+                    }
+
+                    return CreateTrackedResponse(HttpStatusCode.NotFound);
+                }
+
+                return CreateTrackedResponse(HttpStatusCode.NotFound);
             }
 
-            private T Track<T>(T resource) where T : IDisposable
+            private HttpResponseMessage CreateTrackedResponse(HttpStatusCode statusCode, string? json = null)
             {
-                _disposables.Add(resource);
-                return resource;
+                HttpContent? content = json is not null ? CreateTrackedContent(json) : null;
+                var response = new HttpResponseMessage(statusCode);
+                if (content is not null)
+                {
+                    response.Content = content;
+                }
+
+                _createdResponses.Add(response);
+                return response;
+            }
+
+            private StringContent CreateTrackedContent(string json)
+            {
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+                _createdContents.Add(content);
+                return content;
+            }
+
+            private static string UnescapeFilterLiteral(string escaped)
+            {
+                var sb = new StringBuilder(escaped.Length);
+                for (int i = 0; i < escaped.Length; i++)
+                {
+                    if (escaped[i] == '\\' && i + 1 < escaped.Length)
+                    {
+                        sb.Append(escaped[++i]);
+                    }
+                    else
+                    {
+                        sb.Append(escaped[i]);
+                    }
+                }
+
+                return sb.ToString();
             }
         }
 
@@ -759,7 +1030,7 @@ namespace Dorc.Core.Tests
 
             var credentialSource = Substitute.For<IDeploymentCredentialSource>();
             credentialSource.Description.Returns("test credential source");
-            credentialSource.Resolve(Arg.Any<DeploymentTier>()).Returns((DeploymentCredential?)null);
+            credentialSource.Resolve(Arg.Any<DeploymentTier>(), Arg.Any<string?>()).Returns((DeploymentCredential?)null);
 
             var probe = new DaemonStatusProbe(
                 configValues,
@@ -789,7 +1060,7 @@ namespace Dorc.Core.Tests
                 },
                 principal);
 
-            credentialSource.Received(4).Resolve(expectedTier);
+            credentialSource.Received(4).Resolve(expectedTier, null);
             configValues.DidNotReceiveWithAnyArgs().GetConfigValue(default!);
 
             Assert.AreEqual(1, statusList.Count);
@@ -801,6 +1072,68 @@ namespace Dorc.Core.Tests
             Assert.AreEqual(1, discoveryResult.Errors.Count);
             Assert.AreEqual(0, rawDiscoveryList.Count, "DiscoverAllDaemonsForEnvironment must not return unprobed candidate daemons when credential is null.");
             Assert.IsNull(stateChangeResult);
+        }
+
+        [TestMethod]
+        public void ProbeMethods_PassBoundExecutionIdentityReferenceAndFailClosedWhenUnresolvable()
+        {
+            var settings = Substitute.For<IConfigurationSettings>();
+            settings.GetConfigurationDomainNameIntra().Returns("CORP");
+
+            var env = new Dorc.ApiModel.EnvironmentApiModel
+            {
+                EnvironmentId = 17,
+                EnvironmentName = "PAYMENTS-PROD",
+                EnvironmentIsProd = true,
+                ExecutionIdentityReference = "payments-prod"
+            };
+
+            var environments = Substitute.For<IEnvironmentsPersistentSource>();
+            environments.GetEnvironment(17, null).Returns(env);
+            environments.GetEnvironment(env.EnvironmentName).Returns(env);
+            environments.GetEnvironment(env.EnvironmentName, Arg.Any<System.Security.Claims.ClaimsPrincipal>()).Returns(env);
+
+            var servers = Substitute.For<IServersPersistentSource>();
+            servers.GetServersForEnvId(17).Returns(new[]
+            {
+                new Dorc.ApiModel.ServerApiModel { ServerId = 3, Name = "127.0.0.1" }
+            });
+            var daemons = Substitute.For<IDaemonsPersistentSource>();
+            daemons.GetDaemonsForServer(3).Returns(new[]
+            {
+                new Dorc.ApiModel.DaemonApiModel { Id = 9, Name = "EventLog" }
+            });
+            daemons.GetDaemons().Returns(new[]
+            {
+                new Dorc.ApiModel.DaemonApiModel { Id = 9, Name = "EventLog" }
+            });
+
+            var credentialSource = Substitute.For<IDeploymentCredentialSource>();
+            credentialSource.Description.Returns("vault");
+            credentialSource.Resolve(DeploymentTier.Production, null)
+                .Returns(_ => DeploymentCredential.FromPlainText("svc-shared-prod", "shared-secret"));
+            credentialSource.Resolve(DeploymentTier.Production, "payments-prod")
+                .Returns((DeploymentCredential?)null);
+
+            var probe = new DaemonStatusProbe(
+                Substitute.For<IConfigValuesPersistentSource>(),
+                Substitute.For<ILogger<DaemonStatusProbe>>(),
+                environments,
+                servers,
+                daemons,
+                Substitute.For<IDaemonObservationPersistentSource>(),
+                settings,
+                Substitute.For<IDaemonAuditPersistentSource>(),
+                Substitute.For<IServersAuditPersistentSource>(),
+                Substitute.For<Dorc.PersistentData.IClaimsPrincipalReader>(),
+                credentialSource);
+
+            var statusList = probe.GetDaemonStatuses(17);
+
+            credentialSource.Received(1).Resolve(DeploymentTier.Production, "payments-prod");
+            credentialSource.DidNotReceive().Resolve(DeploymentTier.Production, null);
+            Assert.AreEqual(1, statusList.Count);
+            Assert.IsNull(statusList[0].Status);
         }
     }
 
@@ -886,6 +1219,251 @@ namespace Dorc.Core.Tests
             var reset = new SqlUserPasswordReset(Substitute.For<ILogger<SqlUserPasswordReset>>());
             var result = reset.ResetSqlUserPassword("sql01.corp.local", maliciousUsername);
             Assert.IsFalse(result.Result);
+        }
+    }
+
+    /// <summary>
+    /// Execution identity was a boolean — production or not — which is why one compromised
+    /// deployment reaches the whole estate. An environment may now name its own identity.
+    ///
+    /// The interesting property is a negative one: an environment that names nothing must
+    /// resolve exactly as it did before. That is what lets migration proceed environment by
+    /// environment instead of as a flag day, and it is why the keying and the fallback
+    /// accounting live in one shared place rather than once per implementation.
+    /// </summary>
+    [TestClass]
+    public class EnvironmentKeyedCredentialResolutionTests
+    {
+        private IConfigValuesPersistentSource _configValues = null!;
+        private ConfigValueDeploymentCredentialSource _source = null!;
+
+        [TestInitialize]
+        public void Setup()
+        {
+            _configValues = Substitute.For<IConfigValuesPersistentSource>();
+            _configValues.GetConfigValue("DORC_NonProdDeployUsername").Returns("svc-shared");
+            _configValues.GetConfigValue("DORC_NonProdDeployPassword").Returns("shared-secret");
+            _configValues.GetConfigValue("DORC_Deploy_trading-tier_Username").Returns("svc-trading");
+            _configValues.GetConfigValue("DORC_Deploy_trading-tier_Password").Returns("trading-secret");
+
+            _source = new ConfigValueDeploymentCredentialSource(
+                _configValues,
+                Substitute.For<ILogger<ConfigValueDeploymentCredentialSource>>());
+        }
+
+        [TestMethod]
+        public void AnEnvironmentNamingAnIdentityDeploysUnderIt()
+        {
+            using var credential = _source.Resolve(DeploymentTier.NonProduction, "trading-tier");
+
+            Assert.AreEqual("svc-trading", credential!.UserName);
+        }
+
+        /// <summary>
+        /// The property that makes this safe to ship.
+        /// </summary>
+        [TestMethod]
+        [DataRow(null)]
+        [DataRow("")]
+        [DataRow("   ")]
+        public void AnEnvironmentNamingNothingResolvesExactlyAsBefore(string? identityReference)
+        {
+            using var credential = _source.Resolve(DeploymentTier.NonProduction, identityReference);
+
+            Assert.AreEqual("svc-shared", credential!.UserName);
+        }
+
+        /// <summary>
+        /// Deliberately NOT a fallback. An environment bound to an identity was bound on
+        /// purpose; quietly running it under the shared account would undo the binding without
+        /// anyone noticing, and the whole point of binding is that one compromised deployment
+        /// does not reach the estate.
+        /// </summary>
+        [TestMethod]
+        public void AnUnresolvableIdentityRefusesRatherThanFallingBackToTheSharedAccount()
+        {
+            Assert.IsNull(_source.Resolve(DeploymentTier.NonProduction, "no-such-identity"));
+        }
+
+        [TestMethod]
+        public void WhitespaceOnlyNamedIdentityUsernameOrPasswordRefusesFailClosed()
+        {
+            _configValues.GetConfigValue("DORC_Deploy_blank-pass_Username").Returns("svc-blank");
+            _configValues.GetConfigValue("DORC_Deploy_blank-pass_Password").Returns("   ");
+            _configValues.GetConfigValue("DORC_Deploy_blank-user_Username").Returns("   ");
+            _configValues.GetConfigValue("DORC_Deploy_blank-user_Password").Returns("secret");
+
+            Assert.IsNull(_source.Resolve(DeploymentTier.NonProduction, "blank-pass"));
+            Assert.IsNull(_source.Resolve(DeploymentTier.NonProduction, "blank-user"));
+            Assert.AreEqual((0, 0), _source.ResolutionCounts);
+        }
+
+        [TestMethod]
+        [DataRow("../secret")]
+        [DataRow("payments\n")]
+        [DataRow("payments\r\n")]
+        [DataRow("pay\nments")]
+        [DataRow("\npayments")]
+        public void AnInvalidPersistedIdentityReferenceIsRefusedBeforeCredentialLookup(string invalidReference)
+        {
+            Assert.ThrowsExactly<ArgumentException>(() =>
+                Dorc.ApiModel.EnvironmentExecutionIdentityReference.Validate(invalidReference));
+
+            Assert.IsNull(_source.Resolve(DeploymentTier.NonProduction, invalidReference));
+
+            _configValues.DidNotReceive().GetConfigValue($"DORC_Deploy_{invalidReference}_Username");
+            _configValues.DidNotReceive().GetConfigValue($"DORC_Deploy_{invalidReference}_Password");
+            Assert.AreEqual((0, 0), _source.ResolutionCounts);
+        }
+
+        [TestMethod]
+        public void DuplicateConfigValueRowsAcrossIsForProdRefuseCleanlyWithoutThrowingOrLeakingSecrets()
+        {
+            const string superSecret = "SuperSecret!Pass#99";
+            var stored = new List<Dorc.PersistentData.Model.ConfigValue>
+            {
+                new() { Id = 1, Key = "DORC_Deploy_payments_Username", Value = "svc-payments-prod", IsForProd = true },
+                new() { Id = 2, Key = "DORC_Deploy_payments_Username", Value = "svc-payments-nonprod", IsForProd = false },
+                new() { Id = 3, Key = "DORC_Deploy_payments_Password", Value = "enc-1", Secure = true, IsForProd = true },
+                new() { Id = 4, Key = "DORC_Deploy_payments_Password", Value = "enc-2", Secure = true, IsForProd = false },
+                new() { Id = 5, Key = "DORC_ProdDeployUsername", Value = "svc-prod-1", IsForProd = true },
+                new() { Id = 6, Key = "DORC_ProdDeployUsername", Value = "svc-prod-2", IsForProd = false },
+                new() { Id = 7, Key = "DORC_ProdDeployPassword", Value = "enc-prod", Secure = true, IsForProd = true }
+            };
+
+            var queryable = stored.AsQueryable();
+            var dbSet = Substitute.For<Microsoft.EntityFrameworkCore.DbSet<Dorc.PersistentData.Model.ConfigValue>, IQueryable<Dorc.PersistentData.Model.ConfigValue>>();
+            ((IQueryable<Dorc.PersistentData.Model.ConfigValue>)dbSet).Provider.Returns(queryable.Provider);
+            ((IQueryable<Dorc.PersistentData.Model.ConfigValue>)dbSet).Expression.Returns(queryable.Expression);
+            ((IQueryable<Dorc.PersistentData.Model.ConfigValue>)dbSet).ElementType.Returns(queryable.ElementType);
+            ((IQueryable<Dorc.PersistentData.Model.ConfigValue>)dbSet).GetEnumerator().Returns(_ => queryable.GetEnumerator());
+
+            var context = Substitute.For<Dorc.PersistentData.Contexts.IDeploymentContext>();
+            context.ConfigValues.Returns(dbSet);
+            var contextFactory = Substitute.For<Dorc.PersistentData.Contexts.IDeploymentContextFactory>();
+            contextFactory.GetContext().Returns(context);
+
+            var encryptor = Substitute.For<Dorc.PersistentData.IPropertyEncryptor>();
+            encryptor.DecryptValue(Arg.Any<string>()).Returns(superSecret);
+
+            var persistentSource = new Dorc.PersistentData.Sources.ConfigValuesPersistentSource(contextFactory, encryptor);
+            var logger = Substitute.For<ILogger<ConfigValueDeploymentCredentialSource>>();
+            var source = new ConfigValueDeploymentCredentialSource(persistentSource, logger);
+
+            Assert.IsNull(source.Resolve(DeploymentTier.Production, "payments"));
+            Assert.IsNull(source.Resolve(DeploymentTier.NonProduction, "payments"));
+            Assert.IsNull(source.Resolve(DeploymentTier.Production, null));
+            Assert.AreEqual((0, 0), source.ResolutionCounts);
+            encryptor.DidNotReceive().DecryptValue("enc-1");
+            encryptor.DidNotReceive().DecryptValue("enc-2");
+
+            var formattedMessages = logger.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name == nameof(ILogger.Log))
+                .Select(call => call.GetArguments()[2]?.ToString() ?? string.Empty)
+                .ToList();
+            var loggedMessages = logger.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name == nameof(ILogger.Log))
+                .Select(call =>
+                    $"{call.GetArguments()[2]} {call.GetArguments()[3]}")
+                .ToList();
+            Assert.IsTrue(formattedMessages.Any(m => m.Contains("username entry", StringComparison.Ordinal)));
+            Assert.IsTrue(formattedMessages.Any(m => m.Contains("verification entry", StringComparison.Ordinal)));
+            Assert.IsFalse(formattedMessages.Any(m => m.Contains("DORC_Deploy_payments_Password", StringComparison.Ordinal)));
+            Assert.IsTrue(loggedMessages.Any(m => m.Contains("DORC_Deploy_payments_Username", StringComparison.Ordinal)));
+            Assert.IsTrue(loggedMessages.Any(m => m.Contains("DORC_Deploy_payments_Password", StringComparison.Ordinal)));
+            Assert.IsFalse(loggedMessages.Any(m => m.Contains(superSecret, StringComparison.Ordinal)));
+        }
+
+        /// <summary>
+        /// "We have started binding identities" is not the same claim as "the estate is bound".
+        /// Reported from the count rather than from a configuration flag, so it cannot be wrong.
+        /// </summary>
+        [TestMethod]
+        public void CountsBoundResolutionsSeparatelyFromFallbacks()
+        {
+            using var boundCredential = _source.Resolve(DeploymentTier.NonProduction, "trading-tier");
+            using var nullFallback = _source.Resolve(DeploymentTier.NonProduction, null);
+            using var whitespaceFallback = _source.Resolve(DeploymentTier.NonProduction, "   ");
+
+            var (bound, fallback) = _source.ResolutionCounts;
+
+            Assert.AreEqual(1, bound);
+            Assert.AreEqual(2, fallback);
+        }
+
+        /// <summary>
+        /// A refused identity is neither bound nor a fallback — counting it as either would
+        /// misreport migration progress in one direction or the other.
+        /// </summary>
+        [TestMethod]
+        public void ARefusedIdentityCountsAsNeither()
+        {
+            _source.Resolve(DeploymentTier.NonProduction, "no-such-identity");
+
+            Assert.AreEqual((0, 0), _source.ResolutionCounts);
+        }
+
+        [TestMethod]
+        public void VaultNamedIdentityReadsUsernameViaGetPrincipalIdentifierByItemIdNotGetSecretByItemId()
+        {
+            var secrets = Substitute.For<IConfigurationSecretsReader>();
+            secrets.GetPrincipalIdentifierByItemId("payments-prod-username", Arg.Any<string>())
+                .Returns("  CORP\\svc-payments  ");
+            secrets.GetSecureSecret("payments-prod-password", Arg.Any<string>())
+                .Returns(_ => DeploymentCredential.ToSecureString("vault-payments-secret"));
+
+            var vaultSource = new VaultDeploymentCredentialSource(
+                secrets,
+                Substitute.For<IConfigurationSettings>(),
+                Substitute.For<ILogger<VaultDeploymentCredentialSource>>());
+
+            using var credential = vaultSource.Resolve(DeploymentTier.Production, "payments-prod");
+
+            Assert.IsNotNull(credential);
+            Assert.AreEqual("CORP\\svc-payments", credential.UserName);
+            Assert.AreEqual((1, 0), vaultSource.ResolutionCounts);
+            secrets.Received(1).GetPrincipalIdentifierByItemId("payments-prod-username", Arg.Any<string>());
+            secrets.Received(1).GetSecureSecret("payments-prod-password", Arg.Any<string>());
+            secrets.DidNotReceiveWithAnyArgs().GetSecretByItemId(default!, default!);
+        }
+
+        [TestMethod]
+        [DataRow("Not Found", "vault-secret")]
+        [DataRow("   ", "vault-secret")]
+        [DataRow("", "vault-secret")]
+        [DataRow("svc-payments", "Not Found")]
+        [DataRow("svc-payments", "   ")]
+        [DataRow("svc-payments", "")]
+        public void VaultNamedIdentityFailsClosedAndDisposesPasswordWhenEitherItemIsMissingOrSentinel(
+            string returnedUserName,
+            string returnedPassword)
+        {
+            var secrets = Substitute.For<IConfigurationSecretsReader>();
+            var settings = Substitute.For<IConfigurationSettings>();
+            settings.GetDeploymentCredentialItemId(DeploymentTier.Production, false).Returns("tier-prod-user");
+            settings.GetDeploymentCredentialItemId(DeploymentTier.Production, true).Returns("tier-prod-pass");
+            secrets.GetPrincipalIdentifierByItemId("tier-prod-user", Arg.Any<string>()).Returns("svc-tier-default");
+            secrets.GetSecureSecret("tier-prod-pass", Arg.Any<string>())
+                .Returns(_ => DeploymentCredential.ToSecureString("tier-default-secret"));
+
+            var passwordSecret = DeploymentCredential.ToSecureString(returnedPassword);
+            secrets.GetPrincipalIdentifierByItemId("payments-prod-username", Arg.Any<string>())
+                .Returns(returnedUserName);
+            secrets.GetSecureSecret("payments-prod-password", Arg.Any<string>())
+                .Returns(passwordSecret);
+
+            var vaultSource = new VaultDeploymentCredentialSource(
+                secrets,
+                settings,
+                Substitute.For<ILogger<VaultDeploymentCredentialSource>>());
+
+            var resolved = vaultSource.Resolve(DeploymentTier.Production, "payments-prod");
+
+            Assert.IsNull(resolved, "Named identity must fail closed rather than falling back to tier default.");
+            Assert.AreEqual((0, 0), vaultSource.ResolutionCounts);
+            Assert.ThrowsExactly<ObjectDisposedException>(() => _ = passwordSecret.Length);
+            secrets.DidNotReceive().GetPrincipalIdentifierByItemId("tier-prod-user", Arg.Any<string>());
+            secrets.DidNotReceiveWithAnyArgs().GetSecretByItemId(default!, default!);
         }
     }
 }

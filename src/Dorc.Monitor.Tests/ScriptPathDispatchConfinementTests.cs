@@ -51,7 +51,11 @@ namespace Dorc.Monitor.Tests
         {
             var source = Substitute.For<IDeploymentCredentialSource>();
             source.Description.Returns("test");
+            // Both overloads: the dispatchers call the environment-keyed one, and NSubstitute
+            // treats them as separate members.
             source.Resolve(Arg.Any<DeploymentTier>())
+                .Returns(_ => DeploymentCredential.FromPlainText(userName, password));
+            source.Resolve(Arg.Any<DeploymentTier>(), Arg.Any<string?>())
                 .Returns(_ => DeploymentCredential.FromPlainText(userName, password));
             return source;
         }
@@ -110,6 +114,8 @@ namespace Dorc.Monitor.Tests
                     deploymentRequestId: 42,
                     isProduction: false,
                     environmentName: "SOME-ENV",
+                    executionIdentityReference: null,
+                    identityAdoption: new RequestExecutionIdentityAdoption(),
                     new StringBuilder(),
                     CancellationToken.None);
             }
@@ -334,6 +340,8 @@ namespace Dorc.Monitor.Tests
                     environmentId: 3,
                     isProductionEnvironment: false,
                     environmentName: "DEV",
+                    executionIdentityReference: null,
+                    identityAdoption: new RequestExecutionIdentityAdoption(),
                     scriptRoot: ScriptRoot,
                     commonProperties: new Dictionary<string, VariableValue>(),
                     CancellationToken.None);
@@ -462,6 +470,8 @@ namespace Dorc.Monitor.Tests
                     requestId: 88,
                     isProduction: false,
                     environmentName: "DEV",
+                    executionIdentityReference: null,
+                    identityAdoption: new RequestExecutionIdentityAdoption(),
                     new StringBuilder(),
                     TerraformRunnerOperations.CreatePlan,
                     CancellationToken.None);
