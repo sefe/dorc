@@ -256,7 +256,7 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
-        public void Clone_WhenPowerUserCopiesPropertyValuesWithoutReadSecrets_Returns403Forbidden()
+        public void Clone_WhenPowerUserCopiesPropertyValuesWithoutGrantOrReadSecrets_Returns403Forbidden()
         {
             // Arrange
             var request = new CloneEnvironmentRequest
@@ -271,6 +271,7 @@ namespace Dorc.Api.Tests.Controllers
                 .Returns(new EnvironmentApiModel { EnvironmentId = 2, EnvironmentName = "OtherTeamEnv", EnvironmentIsProd = false });
             _rolePrivilegesChecker.IsPowerUser(Arg.Any<ClaimsPrincipal>()).Returns(true);
             _rolePrivilegesChecker.IsAdmin(Arg.Any<ClaimsPrincipal>()).Returns(false);
+            _securityPrivilegesChecker.CanGrantReadSecrets(Arg.Any<ClaimsPrincipal>(), "OtherTeamEnv").Returns(false);
             _securityPrivilegesChecker.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), "OtherTeamEnv").Returns(false);
 
             // Act
@@ -279,8 +280,35 @@ namespace Dorc.Api.Tests.Controllers
             // Assert
             Assert.IsNotNull(result);
             Assert.AreEqual(StatusCodes.Status403Forbidden, result.StatusCode);
-            StringAssert.Contains(result.Value?.ToString(), "requires Read Secrets permission");
+            StringAssert.Contains(result.Value?.ToString(), "requires Owner, Admin, or Read Secrets permission");
             _environmentsPersistentSource.DidNotReceiveWithAnyArgs().CloneEnvironment(default!, default!);
+        }
+
+        [TestMethod]
+        public void Clone_WhenHumanOwnerCopiesPropertyValues_AllowsCloneViaCanGrantReadSecretsEvenWithoutCanReadSecrets()
+        {
+            var request = new CloneEnvironmentRequest
+            {
+                SourceEnvironmentId = 2,
+                NewEnvironmentName = "ClonedByHumanOwner",
+                CopyPropertyValues = true,
+                CopyServerMappings = false,
+                CopyDatabaseMappings = false
+            };
+            _environmentsPersistentSource.GetEnvironment(2, Arg.Any<ClaimsPrincipal>())
+                .Returns(new EnvironmentApiModel { EnvironmentId = 2, EnvironmentName = "OwnedEnv", EnvironmentIsProd = false });
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "OwnedEnv").Returns(true);
+            _securityPrivilegesChecker.CanGrantReadSecrets(Arg.Any<ClaimsPrincipal>(), "OwnedEnv").Returns(true);
+            _securityPrivilegesChecker.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), "OwnedEnv").Returns(false);
+            _environmentsPersistentSource.CloneEnvironment(request, _user)
+                .Returns(new EnvironmentApiModel { EnvironmentId = 22, EnvironmentName = "ClonedByHumanOwner" });
+
+            var actionResult = _controller.Clone(request);
+            Assert.IsInstanceOfType(actionResult, typeof(ObjectResult));
+            var result = (ObjectResult)actionResult;
+
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
+            _environmentsPersistentSource.Received(1).CloneEnvironment(request, _user);
         }
 
         [TestMethod]
@@ -345,7 +373,7 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
-        public void Put_WhenOwnerWithReadSecretsSetsParentId_DelegatesToSetParentForEnvironmentAndReturns200()
+        public void Put_WhenHumanOwnerOfSecureParentSetsParentId_AllowsViaCanGrantReadSecretsWithoutCanReadSecrets()
         {
             var request = new EnvironmentApiModel
             {
@@ -360,7 +388,8 @@ namespace Dorc.Api.Tests.Controllers
             _securityPrivilegesChecker.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), "ChildEnv").Returns(true);
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "ChildEnv").Returns(true);
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "ParentEnv").Returns(true);
-            _securityPrivilegesChecker.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), "ParentEnv").Returns(true);
+            _securityPrivilegesChecker.CanGrantReadSecrets(Arg.Any<ClaimsPrincipal>(), "ParentEnv").Returns(true);
+            _securityPrivilegesChecker.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), "ParentEnv").Returns(false);
             _environmentsPersistentSource.UpdateEnvironment(request, Arg.Any<ClaimsPrincipal>()).Returns(request);
 
             var result = _controller.Put(request) as ObjectResult;
@@ -438,15 +467,17 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual(StatusCodes.Status403Forbidden,
                 (_controller.Put(new EnvironmentApiModel { EnvironmentId = 10, EnvironmentName = "ChildEnv", ParentId = 40 }) as ObjectResult)?.StatusCode);
 
-            // 10. ParentId change when new parent is Secure and caller lacks CanReadSecrets -> 403
+            // 10. ParentId change when new parent is Secure and caller lacks both CanGrantReadSecrets and CanReadSecrets -> 403
             _environmentsPersistentSource.GetEnvironment(41, Arg.Any<ClaimsPrincipal>())
                 .Returns(new EnvironmentApiModel { EnvironmentId = 41, EnvironmentName = "SecureParent", EnvironmentSecure = true });
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "SecureParent").Returns(true);
+            _securityPrivilegesChecker.CanGrantReadSecrets(Arg.Any<ClaimsPrincipal>(), "SecureParent").Returns(false);
             _securityPrivilegesChecker.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), "SecureParent").Returns(false);
-            Assert.AreEqual(StatusCodes.Status403Forbidden,
-                (_controller.Put(new EnvironmentApiModel { EnvironmentId = 10, EnvironmentName = "ChildEnv", ParentId = 41 }) as ObjectResult)?.StatusCode);
+            var attachDeniedResult = _controller.Put(new EnvironmentApiModel { EnvironmentId = 10, EnvironmentName = "ChildEnv", ParentId = 41 }) as ObjectResult;
+            Assert.AreEqual(StatusCodes.Status403Forbidden, attachDeniedResult?.StatusCode);
+            StringAssert.Contains(attachDeniedResult?.Value?.ToString(), "requires Owner, Admin, or Read Secrets permission");
 
-            // 11. ParentId change when SetParentForEnvironment throws -> 400
+            // 11. ParentId change when SetParentForEnvironment throws -> 400 (exercising machine CanReadSecrets fallback)
             _securityPrivilegesChecker.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), "SecureParent").Returns(true);
             _environmentsPersistentSource.When(x => x.SetParentForEnvironment(41, 10, Arg.Any<IPrincipal>()))
                 .Do(_ => throw new ArgumentException("Hierarchy depth exceeded"));
@@ -594,12 +625,20 @@ namespace Dorc.Api.Tests.Controllers
             _rolePrivilegesChecker.IsAdmin(_user).Returns(false);
             Assert.IsFalse(detailsController.SetParentForEnvironment(21, 10).Result);
 
-            // 10. New parent is Secure and caller lacks CanReadSecrets -> false
+            // 10. New parent is Secure and caller lacks both CanGrantReadSecrets and CanReadSecrets -> false
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "NewParent").Returns(true);
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, "NewParent").Returns(false);
             _securityPrivilegesChecker.CanReadSecrets(_user, "NewParent").Returns(false);
-            Assert.IsFalse(detailsController.SetParentForEnvironment(20, 10).Result);
+            var deniedAttach = detailsController.SetParentForEnvironment(20, 10);
+            Assert.IsFalse(deniedAttach.Result);
+            StringAssert.Contains(deniedAttach.Message, "requires Owner, Admin, or Read Secrets permission");
 
-            // 11. Valid attach -> true
+            // 11a. Valid attach by human Owner/Admin (CanGrantReadSecrets == true, CanReadSecrets == false) -> true
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, "NewParent").Returns(true);
+            Assert.IsTrue(detailsController.SetParentForEnvironment(20, 10).Result);
+
+            // 11b. Valid attach by machine principal with explicit ReadSecrets (CanGrantReadSecrets == false, CanReadSecrets == true) -> true
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, "NewParent").Returns(false);
             _securityPrivilegesChecker.CanReadSecrets(_user, "NewParent").Returns(true);
             Assert.IsTrue(detailsController.SetParentForEnvironment(20, 10).Result);
 

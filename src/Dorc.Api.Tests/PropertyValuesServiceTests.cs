@@ -161,7 +161,19 @@ namespace Dorc.Api.Tests
                     }
                 });
 
-            Assert.Throws<NonEnoughRightsException>(() => testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(new GenericIdentity("test-user"), null)));
+            // A result set consisting entirely of secure values used to raise a rights
+            // exception while a partially-secure one redacted, so the same caller saw masked
+            // data or an error depending on what happened to be in the set. Redaction is now
+            // uniform - which matters far more once restricting the privilege to service
+            // principals makes this the path every human takes.
+            var redacted = testService
+                .GetPropertyValues(propertyName, environmentName,
+                    new GenericPrincipal(new GenericIdentity("test-user"), null))
+                .ToList();
+
+            Assert.AreEqual(1, redacted.Count);
+            Assert.AreEqual(string.Empty, redacted[0].Value);
+            Assert.AreEqual(propertyName, redacted[0].Property.Name);
         }
 
         [TestMethod]
@@ -1349,6 +1361,110 @@ namespace Dorc.Api.Tests
             }, user).Single();
             Assert.AreEqual("success", putWithRead.Status);
             Assert.AreEqual("updated-secret", ((PropertyValueDto)putWithRead.Item).Value);
+        }
+
+        [TestMethod]
+        public void PostAndPutPropertyValues_ErrorAndConflictResponses_RedactSecureValuesUnlessCanReadSecrets()
+        {
+            var mockedApiSecurityService = Substitute.For<ISecurityPrivilegesChecker>();
+            var mockedPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
+            var mockedEnvironmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
+            var mockedPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
+            var mockedAuditsPersistentSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
+            var mockedPrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
+            var mockedPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
+            var mockedLog = new MockedLog<PropertyValuesService>();
+            var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+
+            var user = new ClaimsPrincipal(new ClaimsIdentity("TestAuth"));
+            const string envName = "DevEnv";
+            const string secretProp = "SecretProp";
+            const string plainSecret = "PlainSecretLeakCandidate!";
+
+            mockedPropertiesPersistentSource.GetProperty(secretProp)
+                .Returns(new PropertyApiModel { Id = 1, Name = secretProp, Secure = true });
+            mockedApiSecurityService.CanReadSecrets(user, Arg.Any<string>()).Returns(false);
+
+            var testService = new PropertyValuesService(
+                mockedApiSecurityService,
+                mockedPropertyEncryptor,
+                mockedPropertiesPersistentSource,
+                mockedEnvironmentsPersistentSource,
+                mockedPropertyValuesPersistentSource,
+                mockedAuditsPersistentSource,
+                mockedPrivilegesChecker,
+                mockedLog,
+                mockedClaimsPrincipalReader);
+
+            PropertyValueDto MakeDto(bool secure = true, string env = envName) => new()
+            {
+                Property = new PropertyApiModel { Name = secretProp, Secure = secure },
+                PropertyValueFilter = env,
+                Value = plainSecret
+            };
+
+            // 1. POST: environment does not exist -> redacted
+            mockedEnvironmentsPersistentSource.GetEnvironment("MissingEnv", user).Returns((EnvironmentApiModel)null!);
+            var postMissingEnv = testService.PostPropertyValues(new[] { MakeDto(env: "MissingEnv") }, user).Single();
+            StringAssert.Contains(postMissingEnv.Status, "does not exist");
+            Assert.AreEqual(string.Empty, ((PropertyValueDto)postMissingEnv.Item).Value);
+
+            // 2. POST: lacking CanModifyPropertyValue -> redacted
+            mockedEnvironmentsPersistentSource.GetEnvironment(envName, user).Returns(new EnvironmentApiModel { EnvironmentName = envName });
+            mockedApiSecurityService.CanModifyPropertyValue(user, envName).Returns(false);
+            var postNoPerm = testService.PostPropertyValues(new[] { MakeDto() }, user).Single();
+            StringAssert.Contains(postNoPerm.Status, "permissions");
+            Assert.AreEqual(string.Empty, ((PropertyValueDto)postNoPerm.Item).Value);
+
+            // 3. POST: already exists -> redacted when CanReadSecrets is false, preserved when CanReadSecrets is true
+            mockedApiSecurityService.CanModifyPropertyValue(user, envName).Returns(true);
+            mockedPropertyValuesPersistentSource.GetPropertyValuesByName(secretProp).Returns(new[]
+            {
+                new PropertyValueDto
+                {
+                    Id = 77,
+                    Property = new PropertyApiModel { Id = 1, Name = secretProp, Secure = true },
+                    PropertyValueFilter = envName,
+                    PropertyValueFilterId = 5,
+                    Value = "ENC(existing)"
+                }
+            });
+
+            var postExistsNoRead = testService.PostPropertyValues(new[] { MakeDto() }, user).Single();
+            StringAssert.Contains(postExistsNoRead.Status, "already exists");
+            Assert.AreEqual(string.Empty, ((PropertyValueDto)postExistsNoRead.Item).Value);
+
+            mockedApiSecurityService.CanReadSecrets(user, envName).Returns(true);
+            var postExistsWithRead = testService.PostPropertyValues(new[] { MakeDto() }, user).Single();
+            StringAssert.Contains(postExistsWithRead.Status, "already exists");
+            Assert.AreEqual(plainSecret, ((PropertyValueDto)postExistsWithRead.Item).Value);
+            mockedApiSecurityService.CanReadSecrets(user, envName).Returns(false);
+
+            // 4. PUT: lacking CanModifyPropertyValue -> redacted
+            mockedApiSecurityService.CanModifyPropertyValue(user, envName).Returns(false);
+            var putNoPerm = testService.PutPropertyValues(new[] { MakeDto() }, user).Single();
+            StringAssert.Contains(putNoPerm.Status, "permissions");
+            Assert.AreEqual(string.Empty, ((PropertyValueDto)putNoPerm.Item).Value);
+
+            // 5. PUT: metadata mismatch (caller sends Secure=false against DB Secure=true) -> still redacted
+            mockedApiSecurityService.CanModifyPropertyValue(user, envName).Returns(true);
+            var putMismatch = testService.PutPropertyValues(new[] { MakeDto(secure: false) }, user).Single();
+            StringAssert.Contains(putMismatch.Status, "secure values don't match");
+            Assert.AreEqual(string.Empty, ((PropertyValueDto)putMismatch.Item).Value);
+
+            // 6. PUT: variable value does not exist -> redacted
+            mockedPropertyValuesPersistentSource.GetPropertyValuesByName(secretProp).Returns(Array.Empty<PropertyValueDto>());
+            var putNotFound = testService.PutPropertyValues(new[] { MakeDto() }, user).Single();
+            StringAssert.Contains(putNotFound.Status, "does not exist");
+            Assert.AreEqual(string.Empty, ((PropertyValueDto)putNotFound.Item).Value);
+
+            // 7. POST: unhandled exception from persistent source -> redacted
+            mockedPropertyValuesPersistentSource
+                .When(s => s.AddPropertyValue(Arg.Any<PropertyValueDto>()))
+                .Do(_ => throw new InvalidOperationException("simulated db failure"));
+            var postException = testService.PostPropertyValues(new[] { MakeDto() }, user).Single();
+            Assert.AreEqual("simulated db failure", postException.Status);
+            Assert.AreEqual(string.Empty, ((PropertyValueDto)postException.Item).Value);
         }
     }
 }

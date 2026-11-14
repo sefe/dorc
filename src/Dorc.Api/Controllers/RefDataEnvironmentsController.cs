@@ -208,9 +208,10 @@ namespace Dorc.Api.Controllers
                             "Only Admins can attach or detach Production environments in a hierarchy!");
 
                     if ((parentEnvironment.EnvironmentIsProd || parentEnvironment.EnvironmentSecure) &&
-                        !_securityPrivilegesChecker.CanReadSecrets(User, parentEnvironment.EnvironmentName))
+                        !(_securityPrivilegesChecker.CanGrantReadSecrets(User, parentEnvironment.EnvironmentName) ||
+                          _securityPrivilegesChecker.CanReadSecrets(User, parentEnvironment.EnvironmentName)))
                         return StatusCode(StatusCodes.Status403Forbidden,
-                            $"Attaching a child environment to parent '{parentEnvironment.EnvironmentName}' requires Read Secrets permission on the parent environment!");
+                            $"Attaching a child environment to parent '{parentEnvironment.EnvironmentName}' requires Owner, Admin, or Read Secrets permission on the parent environment!");
                 }
 
                 try
@@ -267,12 +268,13 @@ namespace Dorc.Api.Controllers
                         "Only Admins can copy infrastructure mappings (servers, databases, containers, cloud resources, or API registrations) from a Production environment.");
                 }
 
-                // Security Covenant 2: Copying scoped variable values requires explicit Read Secrets permission on the source environment
+                // Security Covenant 2: Copying scoped variable values requires Owner, Admin, or Read Secrets permission on the source environment
                 if (request.CopyPropertyValues &&
-                    !_securityPrivilegesChecker.CanReadSecrets(User, sourceEnv.EnvironmentName))
+                    !(_securityPrivilegesChecker.CanGrantReadSecrets(User, sourceEnv.EnvironmentName) ||
+                      _securityPrivilegesChecker.CanReadSecrets(User, sourceEnv.EnvironmentName)))
                 {
                     return StatusCode(StatusCodes.Status403Forbidden,
-                        $"Copying variable values from environment '{sourceEnv.EnvironmentName}' requires Read Secrets permission on the source environment.");
+                        $"Copying variable values from environment '{sourceEnv.EnvironmentName}' requires Owner, Admin, or Read Secrets permission on the source environment.");
                 }
 
                 var clonedEnv = environmentsPersistentSource.CloneEnvironment(request, User);

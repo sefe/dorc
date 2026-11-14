@@ -55,12 +55,20 @@ namespace Dorc.Api.Services
             result.AddRange(propValues);
             var canReadSecrets = _securityPrivilegesChecker.CanReadSecrets(user, environmentName);
 
-            if (!canReadSecrets && !String.IsNullOrEmpty(environmentName))
-            {
-                if (!String.IsNullOrEmpty(propertyName) && result.Any() && result.All(propertyValueDto => propertyValueDto.Property.Secure))
-                    throw new NonEnoughRightsException($"User {username} doesn't have \"ReadSecrets\" permission to read secured properties");
-            }
-
+            // Redaction is uniform, and both corrections here matter more than they did
+            // before: restricting the privilege to service principals turns this from the
+            // path a few callers take into the path every human takes.
+            //
+            // It previously raised a rights exception when EVERY value in the result was
+            // secure, so a partial result redacted while a wholly-secure one failed. For
+            // someone opening a property set that happens to contain only secure values,
+            // that surfaced as an error rather than as masked data.
+            //
+            // And it was conditioned on an environment being named, so an unscoped query
+            // redacted nothing - and because the decrypt branch is skipped too, the caller
+            // received the stored CIPHERTEXT rather than either the plaintext or a blank.
+            // Not a plaintext disclosure, but it hands encrypted material and value
+            // presence to a caller not entitled to the value at all.
             var canReadTargetSecrets = string.IsNullOrEmpty(environmentName) || canReadSecrets;
             foreach (var propertyValueDto in result.Where(propertyValueDto => propertyValueDto.Property.Secure))
             {
@@ -101,11 +109,10 @@ namespace Dorc.Api.Services
                 {
                     if (!_securityPrivilegesChecker.CanModifyPropertyValue(user, propertyValueDto.PropertyValueFilter))
                     {
-                        result.Add(new Response
-                        {
-                            Item = propertyValueDto,
-                            Status = "error: you don't have permissions to edit variable value(s) for this environment"
-                        });
+                        result.Add(CreatePropertyValueResponse(
+                            propertyValueDto,
+                            user,
+                            "error: you don't have permissions to edit variable value(s) for this environment"));
                         continue;
                     }
 
@@ -120,11 +127,11 @@ namespace Dorc.Api.Services
 
                     if (filteredPropertyValues?.Id == 0)
                     {
-                        result.Add(new Response
-                        {
-                            Item = propertyValueDto,
-                            Status = "error: variable value does not exist"
-                        });
+                        result.Add(CreatePropertyValueResponse(
+                            propertyValueDto,
+                            user,
+                            "error: variable value does not exist",
+                            existingValueSecure: filteredPropertyValues.Property?.Secure));
                         continue;
                     }
 
@@ -134,11 +141,11 @@ namespace Dorc.Api.Services
                             !_propertyValuesPersistentSource.Remove(
                                 filteredPropertyValues?.Id))
                         {
-                            result.Add(new Response
-                            {
-                                Item = propertyValueDto,
-                                Status = "error: deletion from the database failed"
-                            });
+                            result.Add(CreatePropertyValueResponse(
+                                propertyValueDto,
+                                user,
+                                "error: deletion from the database failed",
+                                existingValueSecure: filteredPropertyValues?.Property?.Secure));
                             continue;
                         }
                     }
@@ -146,11 +153,11 @@ namespace Dorc.Api.Services
                     {
                         if (!_propertyValuesPersistentSource.Remove(filteredPropertyValues?.Id))
                         {
-                            result.Add(new Response
-                            {
-                                Item = propertyValueDto,
-                                Status = "error: deletion from the database failed"
-                            });
+                            result.Add(CreatePropertyValueResponse(
+                                propertyValueDto,
+                                user,
+                                "error: deletion from the database failed",
+                                existingValueSecure: filteredPropertyValues?.Property?.Secure));
                             continue;
                         }
                     }
@@ -163,12 +170,17 @@ namespace Dorc.Api.Services
                             filteredPropertyValues.PropertyValueFilter, filteredPropertyValues.Value, string.Empty,
                             username, "Delete");
 
-                    result.Add(new Response { Item = propertyValueDto, Status = "success" });
+                    result.Add(CreatePropertyValueResponse(
+                        propertyValueDto,
+                        user,
+                        "success",
+                        persistedPropertySecure: propertyApiModel?.Secure,
+                        existingValueSecure: filteredPropertyValues?.Property?.Secure));
                 }
                 catch (Exception e)
                 {
-                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}");
-                    result.Add(new Response { Item = propertyValueDto, Status = e.Message });
+                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto?.Property?.Name} failed: {e.Message}");
+                    result.Add(CreatePropertyValueResponse(propertyValueDto, user, e.Message));
                 }
 
             return result;
@@ -185,21 +197,19 @@ namespace Dorc.Api.Services
                     if (!string.IsNullOrWhiteSpace(propertyValueDto.PropertyValueFilter) &&
                         _environmentsPersistentSource.GetEnvironment(propertyValueDto.PropertyValueFilter, user) == null)
                     {
-                        result.Add(new Response
-                        {
-                            Item = propertyValueDto,
-                            Status = $"error: environment '{propertyValueDto.PropertyValueFilter}' does not exist"
-                        });
+                        result.Add(CreatePropertyValueResponse(
+                            propertyValueDto,
+                            user,
+                            $"error: environment '{propertyValueDto.PropertyValueFilter}' does not exist"));
                         continue;
                     }
 
                     if (!_securityPrivilegesChecker.CanModifyPropertyValue(user, propertyValueDto.PropertyValueFilter))
                     {
-                        result.Add(new Response
-                        {
-                            Item = propertyValueDto,
-                            Status = $"error: you don't have permissions to edit variable value(s) for environment '{propertyValueDto.PropertyValueFilter}'"
-                        });
+                        result.Add(CreatePropertyValueResponse(
+                            propertyValueDto,
+                            user,
+                            $"error: you don't have permissions to edit variable value(s) for environment '{propertyValueDto.PropertyValueFilter}'"));
                         continue;
                     }
 
@@ -219,11 +229,11 @@ namespace Dorc.Api.Services
 
                     if (oldVariableValue?.Id != null)
                     {
-                        result.Add(new Response
-                        {
-                            Item = propertyValueDto,
-                            Status = "error: variable value for this environment already exists"
-                        });
+                        result.Add(CreatePropertyValueResponse(
+                            propertyValueDto,
+                            user,
+                            "error: variable value for this environment already exists",
+                            existingValueSecure: oldVariableValue.Property?.Secure));
                         continue;
                     }
 
@@ -236,17 +246,17 @@ namespace Dorc.Api.Services
                         newVariableValue.PropertyValueFilter, string.Empty, newVariableValue.Value,
                         username, "Insert");
 
-                    if (propertyApiModel.Secure && !_securityPrivilegesChecker.CanReadSecrets(user, propertyValueDto.PropertyValueFilter))
-                    {
-                        propertyValueDto.Value = string.Empty;
-                    }
-
-                    result.Add(new Response { Item = propertyValueDto, Status = "success" });
+                    result.Add(CreatePropertyValueResponse(
+                        propertyValueDto,
+                        user,
+                        "success",
+                        persistedPropertySecure: propertyApiModel?.Secure,
+                        existingValueSecure: newVariableValue?.Property?.Secure));
                 }
                 catch (Exception e)
                 {
-                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}");
-                    result.Add(new Response { Item = propertyValueDto, Status = e.Message });
+                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto?.Property?.Name} failed: {e.Message}");
+                    result.Add(CreatePropertyValueResponse(propertyValueDto, user, e.Message));
                 }
 
             return result;
@@ -262,11 +272,10 @@ namespace Dorc.Api.Services
                 {
                     if (!_securityPrivilegesChecker.CanModifyPropertyValue(user, propertyValueDto.PropertyValueFilter))
                     {
-                        result.Add(new Response
-                        {
-                            Item = propertyValueDto,
-                            Status = $"error: you don't have permissions to edit variable value(s) for environment '{propertyValueDto.PropertyValueFilter}'"
-                        });
+                        result.Add(CreatePropertyValueResponse(
+                            propertyValueDto,
+                            user,
+                            $"error: you don't have permissions to edit variable value(s) for environment '{propertyValueDto.PropertyValueFilter}'"));
                         continue;
                     }
 
@@ -286,21 +295,20 @@ namespace Dorc.Api.Services
 
                     if (dbPropertyValueModel?.Id == null)
                     {
-                        result.Add(new Response
-                        {
-                            Item = propertyValueDto,
-                            Status = "Error: variable value does not exist - please use Post to create it"
-                        });
+                        result.Add(CreatePropertyValueResponse(
+                            propertyValueDto,
+                            user,
+                            "Error: variable value does not exist - please use Post to create it"));
                         continue;
                     }
 
                     if (propertyValueDto.Property.Secure != dbPropertyValueModel.Property.Secure)
                     {
-                        result.Add(new Response
-                        {
-                            Item = propertyValueDto,
-                            Status = "Error: property metadata - secure values don't match, and cannot be edited via this API"
-                        });
+                        result.Add(CreatePropertyValueResponse(
+                            propertyValueDto,
+                            user,
+                            "Error: property metadata - secure values don't match, and cannot be edited via this API",
+                            existingValueSecure: dbPropertyValueModel.Property?.Secure));
                         continue;
                     }
 
@@ -319,20 +327,112 @@ namespace Dorc.Api.Services
                         dbPropertyValueModel.PropertyValueFilter, dbPropertyValueModel.Value, propertyValueToUpdate,
                         username, "Update");
 
-                    if (propertyApiModel.Secure && !_securityPrivilegesChecker.CanReadSecrets(user, propertyValueDto.PropertyValueFilter))
-                    {
-                        propertyValueDto.Value = string.Empty;
-                    }
-
-                    result.Add(new Response { Item = propertyValueDto, Status = "success" });
+                    result.Add(CreatePropertyValueResponse(
+                        propertyValueDto,
+                        user,
+                        "success",
+                        persistedPropertySecure: propertyApiModel?.Secure,
+                        existingValueSecure: dbPropertyValueModel.Property?.Secure));
                 }
                 catch (Exception e)
                 {
-                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto.Property.Name} failed: {e.Message}");
-                    result.Add(new Response { Item = propertyValueDto, Status = e.Message });
+                    _log.LogError(e, $"{System.Reflection.MethodBase.GetCurrentMethod().Name} with argument: {propertyValueDto?.Property?.Name} failed: {e.Message}");
+                    result.Add(CreatePropertyValueResponse(propertyValueDto, user, e.Message));
                 }
 
             return result;
+        }
+
+        private Response CreatePropertyValueResponse(
+            PropertyValueDto propertyValueDto,
+            ClaimsPrincipal user,
+            string status,
+            bool? persistedPropertySecure = null,
+            bool? existingValueSecure = null)
+        {
+            return new Response
+            {
+                Item = RedactPropertyValueIfRequired(propertyValueDto, user, persistedPropertySecure, existingValueSecure),
+                Status = status
+            };
+        }
+
+        private PropertyValueDto RedactPropertyValueIfRequired(
+            PropertyValueDto propertyValueDto,
+            ClaimsPrincipal user,
+            bool? persistedPropertySecure = null,
+            bool? existingValueSecure = null)
+        {
+            if (propertyValueDto == null)
+            {
+                return null!;
+            }
+
+            if (!IsSecurePropertyValue(propertyValueDto, persistedPropertySecure, existingValueSecure))
+            {
+                return propertyValueDto;
+            }
+
+            if (_securityPrivilegesChecker.CanReadSecrets(user, propertyValueDto.PropertyValueFilter))
+            {
+                return propertyValueDto;
+            }
+
+            return new PropertyValueDto
+            {
+                Id = propertyValueDto.Id,
+                Value = string.Empty,
+                Property = propertyValueDto.Property == null
+                    ? null
+                    : new PropertyApiModel
+                    {
+                        Id = propertyValueDto.Property.Id,
+                        Name = propertyValueDto.Property.Name,
+                        Secure = propertyValueDto.Property.Secure,
+                        IsArray = propertyValueDto.Property.IsArray
+                    },
+                PropertyValueFilter = propertyValueDto.PropertyValueFilter,
+                PropertyValueFilterId = propertyValueDto.PropertyValueFilterId,
+                Priority = propertyValueDto.Priority,
+                DefaultValue = propertyValueDto.DefaultValue,
+                UserEditable = propertyValueDto.UserEditable
+            };
+        }
+
+        private bool IsSecurePropertyValue(
+            PropertyValueDto propertyValueDto,
+            bool? persistedPropertySecure,
+            bool? existingValueSecure)
+        {
+            if (propertyValueDto.Property?.Secure == true ||
+                persistedPropertySecure == true ||
+                existingValueSecure == true)
+            {
+                return true;
+            }
+
+            if (persistedPropertySecure.HasValue)
+            {
+                return false;
+            }
+
+            var propertyName = propertyValueDto.Property?.Name;
+            if (string.IsNullOrWhiteSpace(propertyName))
+            {
+                return false;
+            }
+
+            try
+            {
+                return _propertiesPersistentSource.GetProperty(propertyName)?.Secure == true;
+            }
+            catch (Exception ex)
+            {
+                _log.LogWarning(ex,
+                    "Failed to resolve security metadata for property '{PropertyName}'; redacting value.",
+                    propertyName);
+                return true;
+            }
         }
     }
 }

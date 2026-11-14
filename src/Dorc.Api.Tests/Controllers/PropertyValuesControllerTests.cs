@@ -271,5 +271,90 @@ namespace Dorc.Api.Tests.Controllers
             propValuesSource.GetPropertyValuesByName("MySecret").Returns(new[] { new PropertyValueDto { Id = 1 } });
             Assert.AreEqual(StatusCodes.Status200OK, (controller.DeleteProperties(deleteNames) as ObjectResult)?.StatusCode);
         }
+
+        [TestMethod]
+        public void DownloadNonSecurePropertyValues_ExcludesSecurePropertiesAndReturnsNoContentWhenAllPropertiesAreSecure()
+        {
+            var propValuesSource = Substitute.For<IPropertyValuesPersistentSource>();
+            var propsSource = Substitute.For<IPropertiesPersistentSource>();
+            var propEncryptor = Substitute.For<Dorc.PersistentData.IPropertyEncryptor>();
+            var auditSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
+            var roleChecker = Substitute.For<Dorc.PersistentData.IRolePrivilegesChecker>();
+            var claimsReader = Substitute.For<Dorc.PersistentData.IClaimsPrincipalReader>();
+            var securityChecker = Substitute.For<ISecurityPrivilegesChecker>();
+            var envSource = Substitute.For<IEnvironmentsPersistentSource>();
+            var user = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "HumanOwner") }, "TestAuth"));
+
+            claimsReader.GetUserLogin(user).Returns("HumanOwner");
+            claimsReader.GetSidsForUser(user).Returns(new List<string> { "sid-owner" });
+            securityChecker.CanReadSecrets(user, Arg.Any<string>()).Returns(false);
+
+            var service = new Dorc.Api.Services.PropertyValuesService(
+                securityChecker,
+                propEncryptor,
+                propsSource,
+                envSource,
+                propValuesSource,
+                auditSource,
+                roleChecker,
+                Substitute.For<ILogger<Dorc.Api.Services.PropertyValuesService>>(),
+                claimsReader);
+
+            var controller = new PropertyValuesController(
+                service,
+                propValuesSource,
+                _variableResolver,
+                envSource,
+                _variableScopeOptionsResolver,
+                _directorySearcherFactory,
+                _logger)
+            {
+                ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
+            };
+
+            // Case 1: All-secure environment returns 204 NoContent (redacted uniformly, never 403)
+            propValuesSource.GetPropertyValuesForUser("AllSecretsEnv", null, "HumanOwner", "sid-owner").Returns(new[]
+            {
+                new PropertyValueDto
+                {
+                    Id = 1,
+                    Value = "ENC_SECRET",
+                    PropertyValueFilter = "AllSecretsEnv",
+                    Property = new PropertyApiModel { Name = "DbPassword", Secure = true }
+                }
+            });
+
+            var allSecureResult = controller.DownloadNonSecurePropertyValues("AllSecretsEnv");
+            Assert.IsInstanceOfType(allSecureResult, typeof(NoContentResult));
+
+            // Case 2: Mixed environment exports only non-secure property values and never decrypts secrets
+            propValuesSource.GetPropertyValuesForUser("MixedEnv", null, "HumanOwner", "sid-owner").Returns(new[]
+            {
+                new PropertyValueDto
+                {
+                    Id = 2,
+                    Value = "ENC_SECRET",
+                    PropertyValueFilter = "MixedEnv",
+                    Property = new PropertyApiModel { Name = "ApiKey", Secure = true }
+                },
+                new PropertyValueDto
+                {
+                    Id = 3,
+                    Value = "https://service.internal",
+                    PropertyValueFilter = "MixedEnv",
+                    Property = new PropertyApiModel { Name = "ApiEndpoint", Secure = false }
+                }
+            });
+
+            var mixedActionResult = controller.DownloadNonSecurePropertyValues("MixedEnv");
+            Assert.IsInstanceOfType(mixedActionResult, typeof(FileContentResult));
+            var mixedResult = (FileContentResult)mixedActionResult;
+            var csv = System.Text.Encoding.UTF8.GetString(mixedResult.FileContents);
+            StringAssert.Contains(csv, "ApiEndpoint");
+            StringAssert.Contains(csv, "https://service.internal");
+            Assert.IsFalse(csv.Contains("ApiKey", StringComparison.Ordinal));
+            Assert.IsFalse(csv.Contains("ENC_SECRET", StringComparison.Ordinal));
+            propEncryptor.DidNotReceive().DecryptValue(Arg.Any<string>());
+        }
     }
 }
