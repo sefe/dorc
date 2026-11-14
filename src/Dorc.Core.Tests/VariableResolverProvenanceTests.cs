@@ -134,6 +134,17 @@ namespace Dorc.Core.Tests
 
             Assert.AreEqual("ABC", _resolver.GetPropertyValue("b")!.Value);
         }
+
+        [TestMethod]
+        public void RequestSuppliedOrInfluencedUnsupportedExpression_SkipsGrammarEvaluation()
+        {
+            _resolver.SetRequestSuppliedPropertyValue("directRequest", "fn:\"abc\".Trim()");
+            _resolver.SetRequestSuppliedPropertyValue("quotedInput", "MY \"ENV\"");
+            _resolver.SetPropertyValue("curatedConsumer", "fn:\"$quotedInput$\".Replace(\" \",\"_\")");
+
+            Assert.AreEqual("fn:\"abc\".Trim()", _resolver.GetPropertyValue("directRequest")!.Value);
+            Assert.AreEqual("fn:\"MY \"ENV\"\".Replace(\" \",\"_\")", _resolver.GetPropertyValue("curatedConsumer")!.Value);
+        }
     }
 
     [TestClass]
@@ -260,6 +271,36 @@ namespace Dorc.Core.Tests
             // first's cache. Verified by the field being instance-scoped - asserted here as a
             // behavioural guard against it being made static again.
             Assert.AreNotSame(first, second);
+        }
+
+        [TestMethod]
+        public void RefusesUnsupportedExpressionsWithoutLoggingTheLiteral()
+        {
+            var recordedMessages = new List<string>();
+            var logger = Substitute.For<ILogger<PropertyExpressionEvaluator>>();
+            logger.WhenForAnyArgs(x => x.Log<object>(default, default, default!, default, default!))
+                .Do(call => recordedMessages.Add(call.Args()[2]?.ToString() ?? string.Empty));
+
+            var evaluator = new PropertyExpressionEvaluator(logger);
+
+            var error = Assert.ThrowsExactly<PropertyExpressionEvaluationException>(
+                () => evaluator.Evaluate("fn:\"s3cret-p4ssword\".Trim()"));
+
+            Assert.IsInstanceOfType<PropertyExpressionParseException>(error.InnerException);
+            Assert.IsFalse(error.Message.Contains("s3cret-p4ssword", StringComparison.Ordinal));
+            Assert.IsTrue(recordedMessages.Count > 0);
+            Assert.IsFalse(recordedMessages.Any(m => m.Contains("s3cret-p4ssword", StringComparison.Ordinal)));
+        }
+
+        [TestMethod]
+        [DataRow("fn:")]
+        [DataRow("fn:   ")]
+        public void RefusesEmptyAndWhitespaceOnlyExpressionBodies(string expression)
+        {
+            var error = Assert.ThrowsExactly<PropertyExpressionEvaluationException>(
+                () => NewEvaluator().Evaluate(expression));
+
+            Assert.IsInstanceOfType<PropertyExpressionParseException>(error.InnerException);
         }
     }
 }

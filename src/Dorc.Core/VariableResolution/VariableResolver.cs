@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Runtime.ExceptionServices;
+using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -65,9 +67,17 @@ namespace Dorc.Core.VariableResolution
 
         public IDictionary<string, VariableValue> LocalProperties()
         {
-            return localProperties.Keys.AsParallel()
-                .Where(x => !IsWithheld(x))
-                .ToDictionary(x => x, GetPropertyValue);
+            try
+            {
+                return localProperties.Keys.AsParallel()
+                    .Where(x => !IsWithheld(x))
+                    .ToDictionary(x => x, GetPropertyValue);
+            }
+            catch (AggregateException ex) when (ex.Flatten().InnerExceptions.OfType<PropertyExpressionEvaluationException>().FirstOrDefault() is { } evaluationException)
+            {
+                ExceptionDispatchInfo.Capture(evaluationException).Throw();
+                throw;
+            }
         }
 
         public IDictionary<string, VariableValue> LoadProperties()
@@ -85,13 +95,21 @@ namespace Dorc.Core.VariableResolution
                 }
             }
 
-            var dictionary = localProperties.Keys.AsParallel()
-                .Where(x => !IsWithheld(x))
-                .Select(x => new { Key = x, Value = GetPropertyValue(x) })
-                .Where(x => x.Value != null)
-                .ToDictionary(x => x.Key, x => x.Value!);
+            try
+            {
+                var dictionary = localProperties.Keys.AsParallel()
+                    .Where(x => !IsWithheld(x))
+                    .Select(x => new { Key = x, Value = GetPropertyValue(x) })
+                    .Where(x => x.Value != null)
+                    .ToDictionary(x => x.Key, x => x.Value!);
 
-            return dictionary;
+                return dictionary;
+            }
+            catch (AggregateException ex) when (ex.Flatten().InnerExceptions.OfType<PropertyExpressionEvaluationException>().FirstOrDefault() is { } evaluationException)
+            {
+                ExceptionDispatchInfo.Capture(evaluationException).Throw();
+                throw;
+            }
         }
 
         public VariableValue? GetPropertyValue(string property)
@@ -124,10 +142,10 @@ namespace Dorc.Core.VariableResolution
                     propertyValue = EvaluatePropertyValue(variableValue);
                 }
 
-                // Expression evaluation compiles and runs C#. It is applied only to values
-                // whose content is administrator-curated: a request-supplied value, or a
-                // curated value that interpolates one, would otherwise let anyone able to
-                // submit a deployment request execute code inside the Monitor process.
+                // Expression evaluation is applied only to values whose content is
+                // administrator-curated. The grammar can no longer run code, but a
+                // request-supplied value, or a curated value that interpolates one, is still
+                // input the requester chose, and it is kept out of the evaluator on principle.
                 if (_requestSuppliedProperties.IsInfluenced(property, RawValueOf))
                 {
                     return propertyValue;
@@ -135,6 +153,13 @@ namespace Dorc.Core.VariableResolution
 
                 var o = _expressionEvaluator.Evaluate(propertyValue.Value);
                 return new VariableValue { Value = o, Type = o.GetType() };
+            }
+            catch (PropertyExpressionEvaluationException)
+            {
+                _logger.LogError(
+                    "Failed to evaluate property expression for property '{Property}'.",
+                    LogText.SingleLine(property));
+                throw;
             }
             catch (Exception ex)
             {

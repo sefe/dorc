@@ -1,7 +1,9 @@
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.VariableResolution;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 
@@ -82,33 +84,76 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        public void LoadProperties_SkipsBadExpressionsAndLoadsGoodOnes()
+        public void GetPropertyValue_InvalidExpressionFailsResolution()
         {
-            // prop1: 'abc', prop2: 'fn:bad(' (bad expression), prop3: '$prop1$_xyz' (should be 'abc_xyz')
-            var prop1 = "prop1";
-            var prop2 = "prop2";
-            var prop3 = "prop3";
-            var value1 = new PropertyValueDto { Value = "abc" };
-            var value2 = new PropertyValueDto { Value = "fn:bad(" };
-            var value3 = new PropertyValueDto { Value = "$prop1$_xyz" };
-            var properties = new Dictionary<string, PropertyValueDto>
-            {
-                { prop1, value1 },
-                { prop2, value2 },
-                { prop3, value3 }
-            };
-            _propertyValuesPersistentSource.LoadAllPropertiesIntoCache().Returns(properties);
+            const string property = "invalidExpression";
+            _resolver.SetPropertyValue(
+                property,
+                new VariableValue { Value = "fn:bad(", Type = typeof(string) });
+            _propertyValuesPersistentSource.IsCachedPropertySecure(property).Returns(false);
+
+            Assert.ThrowsExactly<PropertyExpressionEvaluationException>(
+                () => _resolver.GetPropertyValue(property));
+        }
+
+        [TestMethod]
+        [DataRow("fn:")]
+        [DataRow("fn:   ")]
+        public void GetPropertyValue_EmptyOrWhitespaceExpressionBodyFailsResolution(string expression)
+        {
+            const string property = "emptyExpression";
+            _resolver.SetPropertyValue(
+                property,
+                new VariableValue { Value = expression, Type = typeof(string) });
+            _propertyValuesPersistentSource.IsCachedPropertySecure(property).Returns(false);
+
+            var error = Assert.ThrowsExactly<PropertyExpressionEvaluationException>(
+                () => _resolver.GetPropertyValue(property));
+
+            Assert.IsInstanceOfType<PropertyExpressionParseException>(error.InnerException);
+        }
+
+        [TestMethod]
+        public void GetPropertyValue_TransitiveInvalidCuratedExpressionFailsResolution()
+        {
+            _resolver.SetPropertyValue("upstream", "fn:\"abc\".Trim()");
+            _resolver.SetPropertyValue("downstream", "$upstream$_suffix");
             _propertyValuesPersistentSource.IsCachedPropertySecure(Arg.Any<string>()).Returns(false);
 
-            // Act
-            IDictionary<string, VariableValue> result = null;
-            result = _resolver.LoadProperties();
-            
-            Assert.IsNotNull(result, "LoadProperties should not throw, but return a dictionary");
-            Assert.IsTrue(result.ContainsKey(prop1), "prop1 should be loaded");
-            Assert.IsTrue(result.ContainsKey(prop3), "prop3 should be loaded");
-            Assert.IsFalse(result.ContainsKey(prop2), "Bad expression property should be skipped");
-            Assert.AreEqual("abc_xyz", result[prop3].Value);
+            Assert.ThrowsExactly<PropertyExpressionEvaluationException>(
+                () => _resolver.GetPropertyValue("downstream"));
+        }
+
+        [TestMethod]
+        public void WithheldProperty_RemainsWithheldWhileCuratedGrammarExpressionsEvaluate()
+        {
+            var scriptScope = new ScriptScopeConfigValues(new ConfigurationBuilder().Build());
+            var resolver = new VariableResolver(
+                _propertyValuesPersistentSource,
+                _loggerFactory,
+                new PropertyEvaluator(),
+                scriptScope);
+
+            _propertyValuesPersistentSource.LoadAllPropertiesIntoCache().Returns(
+                new Dictionary<string, PropertyValueDto>
+                {
+                    ["DORC_ProdDeployPassword"] = new() { Value = "fn:bad(" },
+                    ["EnvironmentSlug"] = new() { Value = "fn:\"$EnvironmentName$\".Replace(\" \",\"_\").ToLower()" },
+                    ["UnresolvedWithheldRef"] = new() { Value = "$DORC_ProdDeployPassword$" }
+                });
+            _propertyValuesPersistentSource.IsCachedPropertySecure(Arg.Any<string>()).Returns(false);
+
+            resolver.SetPropertyValue("EnvironmentName", "MY PROD ENV");
+            resolver.SetPropertyValue("DORC_WebDeployPassword", "top-secret");
+
+            var loaded = resolver.LoadProperties();
+
+            Assert.IsNull(resolver.GetPropertyValue("DORC_ProdDeployPassword"));
+            Assert.IsNull(resolver.GetPropertyValue("DORC_WebDeployPassword"));
+            Assert.IsFalse(loaded.ContainsKey("DORC_ProdDeployPassword"));
+            Assert.IsFalse(loaded.ContainsKey("DORC_WebDeployPassword"));
+            Assert.AreEqual("my_prod_env", loaded["EnvironmentSlug"].Value);
+            Assert.AreEqual("$DORC_ProdDeployPassword$", loaded["UnresolvedWithheldRef"].Value);
         }
     }
-} 
+}

@@ -37,9 +37,13 @@ namespace Dorc.Core.VariableResolution
                             }
                     }
             }
+            catch (PropertyExpressionEvaluationException)
+            {
+                throw;
+            }
             catch
             {
-                return new VariableValue { Value = value, Type = value.GetType() }; ;
+                return new VariableValue { Value = value, Type = value.GetType() };
             }
 
             if (list.Count == 1) return list[0];
