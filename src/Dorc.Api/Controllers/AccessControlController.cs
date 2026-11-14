@@ -64,7 +64,8 @@ namespace Dorc.Api.Controllers
                                  accessControlType == AccessControlType.Project &&
                                   _securityPrivilegesChecker.IsProjectOwnerOrAdmin(User, accessControlName);
 
-            output.UserCanReadSecrets = accessControlType == AccessControlType.Environment && output.UserIsOwner;
+            output.UserCanReadSecrets = accessControlType == AccessControlType.Environment &&
+                                        _securityPrivilegesChecker.CanGrantReadSecrets(User, accessControlName);
 
             return StatusCode(StatusCodes.Status200OK, output);
         }
@@ -131,9 +132,12 @@ namespace Dorc.Api.Controllers
                     ? _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, accessControl.Name)
                     : _securityPrivilegesChecker.IsProjectOwnerOrAdmin(User, accessControl.Name);
 
-                // Only an Environment Owner or Admin can grant or revoke ReadSecrets
+                // Prevent users without the read-secrets grant capability from administering it.
+                // This asks whether the caller may ADMINISTER the privilege (CanGrantReadSecrets),
+                // which is distinct from exercising it (CanReadSecrets - restricted to service
+                // principals); on projects, ReadSecrets may never be newly granted.
                 var requestingUserCanReadSecrets = accessControl.Type == AccessControlType.Environment &&
-                                                   requestingUserIsOwner;
+                                                   _securityPrivilegesChecker.CanGrantReadSecrets(User, accessControl.Name);
 
                 if (accessControl.Privileges == null)
                 {
@@ -144,9 +148,8 @@ namespace Dorc.Api.Controllers
                 var existingAccessControls = _accessControlPersistentSource.GetAccessControls(accessControl.ObjectId).ToList();
                 var existingPrivileges = existingAccessControls.ToDictionary(p => p.Id);
 
-                // Validate all incoming privilege entries:
-                // 1. Reject negative IDs, duplicate positive IDs, or IDs that do not belong to this object (prevents cross-object ACL IDOR)
-                // 2. Reject in-place Sid/Pid mutations on existing ACL rows (prevents principal-swap escalation)
+                // Validate structural ID integrity first (negative IDs, duplicate positive IDs,
+                // or IDs belonging to a different object).
                 var seenPositiveIds = new HashSet<int>();
                 foreach (var privilege in accessControl.Privileges)
                 {
@@ -164,28 +167,63 @@ namespace Dorc.Api.Controllers
                                 $"Duplicate access control entry ID {privilege.Id} in request.");
                         }
 
-                        if (!existingPrivileges.TryGetValue(privilege.Id, out var existingEntry))
+                        if (!existingPrivileges.ContainsKey(privilege.Id))
                         {
                             return StatusCode(StatusCodes.Status400BadRequest,
                                 $"Access control entry ID {privilege.Id} does not belong to '{accessControl.Name}'.");
-                        }
-
-                        var existingSid = existingEntry.Sid ?? string.Empty;
-                        var incomingSid = privilege.Sid ?? string.Empty;
-                        var existingPid = existingEntry.Pid ?? string.Empty;
-                        var incomingPid = privilege.Pid ?? string.Empty;
-
-                        if (!string.Equals(existingSid, incomingSid, StringComparison.OrdinalIgnoreCase) ||
-                            !string.Equals(existingPid, incomingPid, StringComparison.OrdinalIgnoreCase))
-                        {
-                            return StatusCode(StatusCodes.Status400BadRequest,
-                                "Changing the principal (Sid/Pid) of an existing access control entry is not allowed.");
                         }
                     }
                 }
 
                 var newIds = accessControl.Privileges.Where(p => p.Id > 0).Select(p => p.Id).ToHashSet();
                 var deletedEntries = existingAccessControls.Where(e => !newIds.Contains(e.Id)).ToList();
+
+                if (!requestingUserCanReadSecrets)
+                {
+                    foreach (var privilege in accessControl.Privileges)
+                    {
+                        var existing = privilege.Id > 0 ? existingPrivileges[privilege.Id] : null;
+                        var hasReadSecrets = (privilege.Allow & AC_ALLOW_READ_SECRETS) != 0;
+                        var hadReadSecretsBefore = existing != null && (existing.Allow & AC_ALLOW_READ_SECRETS) != 0;
+
+                        var changesReadSecretsPrincipal = accessControl.Type == AccessControlType.Environment &&
+                            hadReadSecretsBefore &&
+                            (!string.Equals(privilege.Pid ?? string.Empty, existing!.Pid ?? string.Empty, StringComparison.OrdinalIgnoreCase) ||
+                             !string.Equals(privilege.Sid ?? string.Empty, existing.Sid ?? string.Empty, StringComparison.OrdinalIgnoreCase) ||
+                             !string.Equals(privilege.Name, existing.Name, StringComparison.Ordinal));
+
+                        if (accessControl.Type == AccessControlType.Environment && (hasReadSecrets != hadReadSecretsBefore || changesReadSecretsPrincipal) ||
+                            accessControl.Type == AccessControlType.Project && hasReadSecrets && !hadReadSecretsBefore)
+                        {
+                            return StatusCode(StatusCodes.Status403Forbidden,
+                                "You do not have permission to grant or revoke Read Secrets access.");
+                        }
+                    }
+
+                    if (accessControl.Type == AccessControlType.Environment &&
+                        deletedEntries.Any(e => (e.Allow & AC_ALLOW_READ_SECRETS) != 0))
+                    {
+                        return StatusCode(StatusCodes.Status403Forbidden,
+                            "You do not have permission to revoke Read Secrets access.");
+                    }
+                }
+
+                // Reject in-place Sid/Pid mutations on any existing ACL row (even for authorized callers).
+                foreach (var privilege in accessControl.Privileges.Where(p => p.Id > 0))
+                {
+                    var existingEntry = existingPrivileges[privilege.Id];
+                    var existingSid = existingEntry.Sid ?? string.Empty;
+                    var incomingSid = privilege.Sid ?? string.Empty;
+                    var existingPid = existingEntry.Pid ?? string.Empty;
+                    var incomingPid = privilege.Pid ?? string.Empty;
+
+                    if (!string.Equals(existingSid, incomingSid, StringComparison.OrdinalIgnoreCase) ||
+                        !string.Equals(existingPid, incomingPid, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return StatusCode(StatusCodes.Status400BadRequest,
+                            "Changing the principal (Sid/Pid) of an existing access control entry is not allowed.");
+                    }
+                }
 
                 // Only an Owner or Admin can add, modify, or remove Deny bits
                 if (!requestingUserIsOwner)
@@ -204,30 +242,6 @@ namespace Dorc.Api.Controllers
                     {
                         return StatusCode(StatusCodes.Status403Forbidden,
                             "Only an Owner or Admin can remove Deny access controls.");
-                    }
-                }
-
-                if (!requestingUserCanReadSecrets)
-                {
-                    foreach (var privilege in accessControl.Privileges)
-                    {
-                        var existing = privilege.Id > 0 ? existingPrivileges[privilege.Id] : null;
-                        var hasReadSecrets = (privilege.Allow & AC_ALLOW_READ_SECRETS) != 0;
-                        var hadReadSecretsBefore = existing != null && (existing.Allow & AC_ALLOW_READ_SECRETS) != 0;
-
-                        if (accessControl.Type == AccessControlType.Environment && hasReadSecrets != hadReadSecretsBefore ||
-                            accessControl.Type == AccessControlType.Project && hasReadSecrets && !hadReadSecretsBefore)
-                        {
-                            return StatusCode(StatusCodes.Status403Forbidden,
-                                "You do not have permission to grant or revoke Read Secrets access.");
-                        }
-                    }
-
-                    if (accessControl.Type == AccessControlType.Environment &&
-                        deletedEntries.Any(e => (e.Allow & AC_ALLOW_READ_SECRETS) != 0))
-                    {
-                        return StatusCode(StatusCodes.Status403Forbidden,
-                            "You do not have permission to revoke Read Secrets access.");
                     }
                 }
 

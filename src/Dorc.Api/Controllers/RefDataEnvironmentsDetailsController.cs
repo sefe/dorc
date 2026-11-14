@@ -238,10 +238,11 @@ namespace Dorc.Api.Controllers
                 }
 
                 if ((parentEnvironment.EnvironmentIsProd || parentEnvironment.EnvironmentSecure) &&
-                    !securityService.CanReadSecrets(User, parentEnvironment.EnvironmentName))
+                    !(securityService.CanGrantReadSecrets(User, parentEnvironment.EnvironmentName) ||
+                      securityService.CanReadSecrets(User, parentEnvironment.EnvironmentName)))
                 {
                     return new ApiBoolResult
-                    { Result = false, Message = $"Attaching a child environment to parent '{parentEnvironment.EnvironmentName}' requires Read Secrets permission on the parent environment!" };
+                    { Result = false, Message = $"Attaching a child environment to parent '{parentEnvironment.EnvironmentName}' requires Owner, Admin, or Read Secrets permission on the parent environment!" };
                 }
             }
 
