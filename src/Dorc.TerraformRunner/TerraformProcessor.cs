@@ -233,8 +233,7 @@ namespace Dorc.TerraformRunner
         {
             var workingDir = Path.Join(
                 DorcProgramData.Root,
-                "terraform-workdir",
-                $"{requestId}-terraform-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}");
+                $"terraform-workdir-{requestId}-{DateTime.UtcNow:yyyy-MM-dd-HH-mm-ss}-{Guid.NewGuid():N}");
 
             RestrictedWorkingDirectory.Create(workingDir);
 

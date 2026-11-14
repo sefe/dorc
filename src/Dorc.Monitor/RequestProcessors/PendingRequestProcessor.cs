@@ -1,15 +1,20 @@
 ﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
+using Dorc.Core.Configuration;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor.Notifications;
+using Dorc.Monitor.Pipes;
+using Dorc.Monitor.Security;
 using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using System.Runtime.Versioning;
+using System.Security.Principal;
 using System.Text;
 
 namespace Dorc.Monitor.RequestProcessors
@@ -32,6 +37,8 @@ namespace Dorc.Monitor.RequestProcessors
         private readonly IGitHubArtifactDownloader _gitHubArtifactDownloader;
         private readonly ISourceHostAllowList _sourceHosts;
         private readonly IScriptScopeConfigValues _scriptScopeConfigValues;
+        private readonly IDeploymentCredentialSource _credentialSource;
+        private readonly IConfigurationSettings? _configurationSettings;
 
         public PendingRequestProcessor(
             ILoggerFactory loggerFactory,
@@ -47,7 +54,9 @@ namespace Dorc.Monitor.RequestProcessors
             IDeploymentNotificationSink notificationSink,
             IGitHubArtifactDownloader gitHubArtifactDownloader,
             ISourceHostAllowList sourceHosts,
-            IScriptScopeConfigValues scriptScopeConfigValues)
+            IScriptScopeConfigValues scriptScopeConfigValues,
+            IDeploymentCredentialSource? credentialSource = null,
+            IConfigurationSettings? configurationSettings = null)
         {
             _loggerFactory = loggerFactory;
             _propertyEvaluator = propertyEvaluator;
@@ -55,6 +64,11 @@ namespace Dorc.Monitor.RequestProcessors
             _gitHubArtifactDownloader = gitHubArtifactDownloader;
             _sourceHosts = sourceHosts;
             _scriptScopeConfigValues = scriptScopeConfigValues;
+            _credentialSource = credentialSource
+                ?? new ConfigValueDeploymentCredentialSource(
+                    configValuesPersistentSource,
+                    _loggerFactory.CreateLogger<ConfigValueDeploymentCredentialSource>());
+            _configurationSettings = configurationSettings;
             this.logger = _loggerFactory.CreateLogger<PendingRequestProcessor>();
 
             this.componentProcessor = componentProcessor;
@@ -120,7 +134,10 @@ namespace Dorc.Monitor.RequestProcessors
                             logger.LogInformation($"Environment '{environmentName}' is secure; not using default property values.");
                         }
 
-                        resolvedDropFolder = SetUpDropFolderAsProperty(requestDetail.BuildDetail.DropLocation);
+                        resolvedDropFolder = SetUpDropFolderAsProperty(
+                            requestDetail.BuildDetail.DropLocation,
+                            requestToExecute.Request.IsProd,
+                            environment.ExecutionIdentityReference);
 
                         SetUpDeploymentLogDirAsProperty();
 
@@ -689,7 +706,10 @@ namespace Dorc.Monitor.RequestProcessors
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.ScriptRoot, scriptRoot);
         }
 
-        private string SetUpDropFolderAsProperty(string dropFolder)
+        private string SetUpDropFolderAsProperty(
+            string dropFolder,
+            bool isProduction,
+            string? executionIdentityReference)
         {
             if (_gitHubArtifactDownloader.IsGitHubArtifactUrl(dropFolder))
             {
@@ -698,7 +718,21 @@ namespace Dorc.Monitor.RequestProcessors
                 // can use Join-Path on them.
                 var localPath = _gitHubArtifactDownloader.DownloadAndExtract(dropFolder);
                 logger.LogInformation("Resolved GitHub artifact to local path: {Path}", localPath);
-                dropFolder = localPath;
+                try
+                {
+                    if (OperatingSystem.IsWindows())
+                    {
+                        RestrictExtractedArtifactDrop(localPath, isProduction, executionIdentityReference);
+                    }
+
+                    _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.DropFolder, localPath);
+                    return localPath;
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    CleanupExtractedArtifactDropBestEffort(localPath);
+                    throw;
+                }
             }
             else if (!string.IsNullOrWhiteSpace(dropFolder)
                 && !dropFolder.StartsWith("http", StringComparison.OrdinalIgnoreCase))
@@ -715,6 +749,115 @@ namespace Dorc.Monitor.RequestProcessors
             }
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.DropFolder, dropFolder);
             return dropFolder;
+        }
+
+        private void CleanupExtractedArtifactDropBestEffort(string localPath)
+        {
+            if (string.IsNullOrWhiteSpace(localPath))
+            {
+                return;
+            }
+
+            try
+            {
+                _gitHubArtifactDownloader.Cleanup(localPath);
+            }
+            catch (Exception cleanupEx) when (cleanupEx is not OutOfMemoryException)
+            {
+                logger.LogWarning(
+                    cleanupEx,
+                    "Failed best-effort cleanup of extracted GitHub artifact drop '{Path}' after restriction failure.",
+                    localPath);
+            }
+        }
+
+        [SupportedOSPlatform("windows")]
+        private void RestrictExtractedArtifactDrop(
+            string localPath,
+            bool isProduction,
+            string? executionIdentityReference)
+        {
+            if (string.IsNullOrWhiteSpace(localPath)
+                || SourceHost.IsRemoteOrUnc(localPath)
+                || !Directory.Exists(localPath))
+            {
+                return;
+            }
+
+            var fullLocalPath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(localPath));
+            var programDataRootFull = Path.TrimEndingDirectorySeparator(Path.GetFullPath(DorcProgramData.Root));
+            if (fullLocalPath.StartsWith(programDataRootFull + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                RestrictedDirectory.EnsureProgramDataRoot(DorcProgramData.Root);
+                var parentDirectory = Path.GetDirectoryName(fullLocalPath);
+                if (!string.IsNullOrEmpty(parentDirectory)
+                    && !string.Equals(
+                        Path.TrimEndingDirectorySeparator(parentDirectory),
+                        programDataRootFull,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    RestrictedDirectory.Ensure(parentDirectory);
+                }
+            }
+
+            var readers = ResolveArtifactDropReaderIdentities(
+                fullLocalPath,
+                isProduction,
+                executionIdentityReference);
+            RestrictedDirectory.RestrictReadTree(fullLocalPath, readers);
+        }
+
+        [SupportedOSPlatform("windows")]
+        private IReadOnlyList<IdentityReference> ResolveArtifactDropReaderIdentities(
+            string localPath,
+            bool isProduction,
+            string? executionIdentityReference)
+        {
+            DeploymentCredential? credential = null;
+            try
+            {
+                try
+                {
+                    credential = _credentialSource.Resolve(
+                        isProduction ? DeploymentTier.Production : DeploymentTier.NonProduction,
+                        executionIdentityReference);
+                }
+                catch (Exception ex) when (ex is not OutOfMemoryException)
+                {
+                    logger.LogWarning(
+                        ex,
+                        "Deployment credential could not be resolved while restricting GitHub artifact drop '{ArtifactPath}'; restricting to Monitor/SYSTEM/Administrators only.",
+                        localPath);
+                    return [];
+                }
+
+                if (credential is null || string.IsNullOrWhiteSpace(credential.UserName))
+                {
+                    logger.LogWarning(
+                        "No deployment credential was resolved while restricting GitHub artifact drop '{ArtifactPath}'; restricting to Monitor/SYSTEM/Administrators only.",
+                        localPath);
+                    return [];
+                }
+
+                var domainName = _configurationSettings?.GetConfigurationDomainNameIntra() ?? string.Empty;
+                var readerIdentity = new ScriptGroupReaderIdentity(domainName, credential.UserName);
+                var resolution = readerIdentity.Resolve();
+                if (!resolution.IsResolved)
+                {
+                    logger.LogWarning(
+                        resolution.Cause,
+                        "{Refusal} GitHub artifact drop '{ArtifactPath}' has been restricted to Monitor/SYSTEM/Administrators without a runner grant.",
+                        resolution.Refusal,
+                        localPath);
+                    return [];
+                }
+
+                return [resolution.SecurityIdentifier!];
+            }
+            finally
+            {
+                credential?.Dispose();
+            }
         }
 
         private void RequirePermittedRemoteDropFolder(string dropFolder)

@@ -43,9 +43,10 @@ namespace Dorc.Monitor.Security
     /// The account a deployment's Runner is started as, seen from the Monitor: resolving it,
     /// and refusing the resolutions that would hand a deployment artefact to the host at large.
     ///
-    /// Every artefact the Monitor writes for a Runner - the script group bundle, the pipe and
-    /// the Terraform plan directory - admits this principal, so every one of them needs the
-    /// same resolution and the same refusals. This is the one place they are made.
+    /// Every artefact the Monitor writes for a Runner - the script group bundle, the pipe, the
+    /// extracted GitHub build drop, and the Terraform plan directory - admits this principal,
+    /// so every one of them needs the same resolution and the same refusals. This is the one
+    /// place they are made.
     /// </summary>
     internal static class DeploymentPrincipal
     {
@@ -65,7 +66,10 @@ namespace Dorc.Monitor.Security
         {
             try
             {
-                var sid = (SecurityIdentifier)new NTAccount(account).Translate(typeof(SecurityIdentifier));
+                var lookupAccount = account.StartsWith(@".\", StringComparison.Ordinal)
+                    ? $@"{Environment.MachineName}\{account[2..]}"
+                    : account;
+                var sid = (SecurityIdentifier)new NTAccount(lookupAccount).Translate(typeof(SecurityIdentifier));
 
                 if (IsTooBroadToHoldASecret(sid))
                 {
