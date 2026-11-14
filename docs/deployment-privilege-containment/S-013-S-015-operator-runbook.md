@@ -195,24 +195,36 @@ merely once per key name. For `DorcCliSecret`, `DeploymentServiceAccountPassword
 separate `ConfigValue` rows and must each be rotated, updated, verified, and recorded
 individually (if two `ConfigValue` rows share the same underlying directory/service account,
 pause and drain consumers across both populations in step 1 and update **every** corresponding
-`ConfigValue` row in step 3 before running verification).
+credential entry in step 4 before running verification).
 
 1. **Pause new deployment work and drain affected in-flight consumers** before rotating the
    account. Rotating while deployments are active can cause authentication failures (and directory
    account lockouts): in-flight requests retain script-facing secrets already captured by
    `PendingRequestProcessor.SetUpConfigValuesAsProperties`, and any request or component dispatch
-   starting between target rotation (step 2) and the DOrc `ConfigValue` update (step 3) receives
-   the old value. (The earlier drain in S-013 covers only the host restart, not each rotation.)
-   Keep ordinary deployment work paused until all corresponding `ConfigValue` rows for that
-   account are updated and the controlled verification deployment(s) in step 4 succeed.
-2. Rotate the target account password or client secret in the directory / identity store.
-3. Update every corresponding `ConfigValue` row (`IsForProd = 0`, `IsForProd = 1`, or the single
-   row for the four operator keys) through the DOrc UI or API so it is re-encrypted with the
-   current key. **Do not** write to `deploy.ConfigValue` directly — the value is encrypted at rest
-   and a direct write stores plaintext — and **do not** insert a second `IsForProd` row for any of
-   the four single-row operator keys (`ConfigValuesPersistentSource.GetConfigValue` queries by
-   `Key` with `SingleOrDefault`).
-4. Run the controlled verification deployment(s) for the rotated population before resuming
+   starting between target rotation (step 3) and the credential store update (step 4) receives the
+   old value. (The earlier drain in S-013 covers only the host restart, not each rotation.) Keep
+   ordinary deployment work paused until all corresponding credential entries for that account are
+   updated and the controlled verification deployment(s) in step 5 succeed.
+2. For `DORC_ProdDeployPassword` and `DORC_NonProdDeployPassword`, check
+   `AppSettings:DeploymentCredentialsFromVault` on the instance being rotated and record which
+   credential source is active before changing the account.
+3. Rotate the target account password or client secret in the directory / identity store.
+4. Update the active credential store:
+   - For `DORC_ProdDeployPassword` or `DORC_NonProdDeployPassword` when
+     `DeploymentCredentialsFromVault` is `true`, update the 1Password item named by
+     `ProdDeployPasswordItemId` or `NonProdDeployPasswordItemId`, then read it through the
+     configured Connect service to confirm the new value is available.
+   - Otherwise (and for all five remaining keys in this runbook), update every corresponding
+     `ConfigValue` row (`IsForProd = 0`, `IsForProd = 1`, or the single row for the four operator
+     keys) through the DOrc UI or API so it is re-encrypted with the current key.
+
+   **Do not** write to `deploy.ConfigValue` directly — the value is encrypted at rest and a direct
+   write stores plaintext — **do not** insert a second `IsForProd` row for any of the four
+   single-row operator keys (`ConfigValuesPersistentSource.GetConfigValue` queries by `Key` with
+   `SingleOrDefault`), and **do not** update a deployment password in `ConfigValue` when the vault
+   source is active (that changes an inactive copy and leaves deployments using the stale vault
+   value).
+5. Run the controlled verification deployment(s) for the rotated population before resuming
    ordinary deployment work or proceeding to the next population:
    - For a **single-row operator key** (`DORC_ProdDeployPassword`, `DORC_NonProdDeployPassword`,
      `DORC_WebDeployPassword`, `DorcApiAccessPassword`): deploy a component exercising that
@@ -223,7 +235,7 @@ pause and drain consumers across both populations in step 1 and update **every**
      matching class (`IsForProd = 0` → non-production; `IsForProd = 1` → production) and confirm
      success. If both `0` and `1` rows shared one underlying account and were updated together,
      verify **both** a consuming non-production deployment and a consuming production deployment.
-5. Resume ordinary deployment work for the verified population, record the completed
+6. Resume ordinary deployment work for the verified population, record the completed
    `(Key, IsForProd)` population in the execution table below, then repeat from step 1 for the
    next population.
 

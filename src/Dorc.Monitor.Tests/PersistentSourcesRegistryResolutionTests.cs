@@ -5,6 +5,7 @@ using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 
@@ -54,6 +55,37 @@ namespace Dorc.Monitor.Tests
             using var provider = collection.BuildServiceProvider();
 
             Assert.IsNotNull(provider.GetRequiredService<IVariableScopeOptionsResolver>());
+        }
+
+        [TestMethod]
+        [DataRow(null, typeof(Dorc.Core.Security.ConfigValueDeploymentCredentialSource))]
+        [DataRow("false", typeof(Dorc.Core.Security.ConfigValueDeploymentCredentialSource))]
+        [DataRow("true", typeof(Dorc.Core.Security.VaultDeploymentCredentialSource))]
+        public void PersistentSourcesRegistry_SelectsDeploymentCredentialSourceFromHostIConfiguration(
+            string? vaultFlag,
+            Type expectedImplementation)
+        {
+            var values = new Dictionary<string, string?>();
+            if (vaultFlag is not null)
+            {
+                values["AppSettings:DeploymentCredentialsFromVault"] = vaultFlag;
+            }
+
+            var hostConfiguration = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+                .AddInMemoryCollection(values)
+                .Build();
+
+            var collection = new ServiceCollection();
+            collection.AddSingleton<Microsoft.Extensions.Configuration.IConfiguration>(hostConfiguration);
+            collection.AddLogging();
+            collection.AddTransient(_ => Substitute.For<IDeploymentContextFactory>());
+            collection.AddTransient(_ => Substitute.For<IPropertyEncryptor>());
+            PersistentSourcesRegistry.Register(collection);
+
+            using var provider = collection.BuildServiceProvider();
+
+            var source = provider.GetRequiredService<Dorc.Core.Security.IDeploymentCredentialSource>();
+            Assert.IsInstanceOfType(source, expectedImplementation);
         }
     }
 }

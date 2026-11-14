@@ -1,8 +1,12 @@
+using Dorc.Core.Configuration;
+using Dorc.Core.Secrets;
+using Dorc.Core.Security;
 ﻿using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using Dorc.PersistentData.Security;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace Dorc.Monitor.Registry
 {
@@ -19,6 +23,25 @@ namespace Dorc.Monitor.Registry
                         .AddJsonFile("appsettings.json", optional: true)
                         .AddEnvironmentVariables()
                         .Build()));
+
+            // Prefer the host's IConfiguration when registered so environment-variable
+            // overrides for DeploymentCredentialsFromVault and item IDs behave identically
+            // in Dorc.Monitor and Dorc.Api.
+            collection.TryAddTransient<IConfigurationSettings>(sp =>
+                new ConfigurationSettings(
+                    sp.GetService<IConfiguration>()
+                    ?? sp.GetService<IConfigurationRoot>()
+                    ?? new ConfigurationBuilder()
+                        .AddJsonFile("appsettings.json", optional: true)
+                        .AddEnvironmentVariables()
+                        .Build()));
+            collection.TryAddSingleton<IConfigurationSecretsReader, OnePasswordSecretsReader>();
+            collection.TryAddTransient<ConfigValueDeploymentCredentialSource>();
+            collection.TryAddTransient<VaultDeploymentCredentialSource>();
+            collection.TryAddTransient<IDeploymentCredentialSource>(sp =>
+                sp.GetRequiredService<IConfigurationSettings>().GetDeploymentCredentialsFromVault()
+                    ? sp.GetRequiredService<VaultDeploymentCredentialSource>()
+                    : sp.GetRequiredService<ConfigValueDeploymentCredentialSource>());
 
             collection.AddTransient<IRequestsPersistentSource, RequestsPersistentSource>();
             collection.AddTransient<IDeploymentRequestProcessesPersistentSource, DeploymentRequestProcessesPersistentSource>();

@@ -4,6 +4,7 @@ using Dorc.Core;
 using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
+using Dorc.Core.Security;
 using Dorc.Monitor;
 using Dorc.Monitor.Pipes;
 using Dorc.PersistentData.Model;
@@ -43,16 +44,31 @@ namespace Dorc.Monitor.Tests
         private IConfigurationSettings _configurationSettings = null!;
         private IScriptScopeConfigValues _scriptScopeConfigValues = null!;
 
+        private readonly IDeploymentCredentialSource _credentialSource = TierAwareCredentialSource();
+
+        /// <summary>
+        /// Tier selection now lives in the credential source, not the dispatcher — so this
+        /// returns a different account per tier, and the assertions below verify the dispatcher
+        /// asks for the RIGHT tier rather than that it knows which config key to read. The key
+        /// mapping is tested where it moved to.
+        /// </summary>
+        private static IDeploymentCredentialSource TierAwareCredentialSource()
+        {
+            var source = Substitute.For<IDeploymentCredentialSource>();
+            source.Description.Returns("test");
+            source.Resolve(DeploymentTier.Production)
+                .Returns(_ => DeploymentCredential.FromPlainText(ProdAccount, "prod-password"));
+            source.Resolve(DeploymentTier.NonProduction)
+                .Returns(_ => DeploymentCredential.FromPlainText(NonProdAccount, "nonprod-password"));
+            return source;
+        }
+
         [TestInitialize]
         public void Setup()
         {
             _pipeServer = Substitute.For<IScriptGroupPipeServer>();
 
             _configValues = Substitute.For<IConfigValuesPersistentSource>();
-            _configValues.GetConfigValue("DORC_ProdDeployUsername").Returns(ProdAccount);
-            _configValues.GetConfigValue("DORC_ProdDeployPassword").Returns("prod-password");
-            _configValues.GetConfigValue("DORC_NonProdDeployUsername").Returns(NonProdAccount);
-            _configValues.GetConfigValue("DORC_NonProdDeployPassword").Returns("nonprod-password");
 
             _configurationSettings = Substitute.For<IConfigurationSettings>();
             _scriptScopeConfigValues = Substitute.For<IScriptScopeConfigValues>();
@@ -68,6 +84,7 @@ namespace Dorc.Monitor.Tests
                 _configurationSettings,
                 Substitute.For<IRequestsPersistentSource>(),
                 _scriptScopeConfigValues,
+                _credentialSource,
                 Substitute.For<IPowerShellEvidenceCapture>());
 
         /// <summary>
@@ -160,6 +177,142 @@ namespace Dorc.Monitor.Tests
             Assert.IsNotNull(published);
             _pipeServer.Received(1).Expire(published);
         }
+
+        [TestMethod]
+        [DataRow(true, $@"{Domain}\{ProdAccount}", DeploymentTier.Production)]
+        [DataRow(false, $@"{Domain}\{NonProdAccount}", DeploymentTier.NonProduction)]
+        public void PowerShellEvidenceCaptureReceivesQualifiedAccountFromCredentialSource(
+            bool isProduction,
+            string expectedQualifiedAccount,
+            DeploymentTier expectedTier)
+        {
+            var evidenceCapture = Substitute.For<IPowerShellEvidenceCapture>();
+            var dispatcher = new ScriptDispatcher(
+                Substitute.For<IDeploymentRequestProcessesPersistentSource>(),
+                _configValues,
+                Substitute.For<ILogger<ScriptDispatcher>>(),
+                _pipeServer,
+                _configurationSettings,
+                Substitute.For<IRequestsPersistentSource>(),
+                _scriptScopeConfigValues,
+                _credentialSource,
+                evidenceCapture);
+
+            DispatchExpectingFailure(dispatcher, isProduction);
+
+            _credentialSource.Received(1).Resolve(expectedTier);
+            _configValues.DidNotReceiveWithAnyArgs().GetConfigValue(default!);
+            evidenceCapture.Received(1).Prepare(
+                Arg.Any<ScriptGroup>(),
+                Arg.Any<string?>(),
+                42,
+                0,
+                expectedQualifiedAccount);
+        }
+
+        [TestMethod]
+        public void ScriptDispatcherFailsClosedBeforeEvidenceCaptureOrPipeWhenCredentialUnavailable()
+        {
+            var emptyCredentialSource = Substitute.For<IDeploymentCredentialSource>();
+            emptyCredentialSource.Description.Returns("vault");
+            emptyCredentialSource.Resolve(Arg.Any<DeploymentTier>()).Returns((DeploymentCredential?)null);
+
+            var evidenceCapture = Substitute.For<IPowerShellEvidenceCapture>();
+            var dispatcher = new ScriptDispatcher(
+                Substitute.For<IDeploymentRequestProcessesPersistentSource>(),
+                _configValues,
+                Substitute.For<ILogger<ScriptDispatcher>>(),
+                _pipeServer,
+                _configurationSettings,
+                Substitute.For<IRequestsPersistentSource>(),
+                _scriptScopeConfigValues,
+                emptyCredentialSource,
+                evidenceCapture);
+
+            var succeeded = dispatcher.Dispatch(
+                @"\\host\share\Scripts",
+                new ScriptApiModel { Path = "Deploy.ps1", PowerShellVersionNumber = "7.4" },
+                new Dictionary<string, VariableValue>(),
+                requestId: 42,
+                deploymentRequestId: 42,
+                isProduction: true,
+                environmentName: "PROD-ENV",
+                new StringBuilder(),
+                CancellationToken.None);
+
+            Assert.IsFalse(succeeded);
+            emptyCredentialSource.Received(1).Resolve(DeploymentTier.Production);
+            evidenceCapture.DidNotReceiveWithAnyArgs().Prepare(default!, default, default, default, default!);
+            _pipeServer.DidNotReceiveWithAnyArgs().Start(default!, default!, default!, default);
+            _configValues.DidNotReceiveWithAnyArgs().GetConfigValue(default!);
+        }
+
+        [TestMethod]
+        [DataRow(true, DeploymentTier.Production)]
+        [DataRow(false, DeploymentTier.NonProduction)]
+        public void TerraformDispatcherFailsClosedBeforePipeWhenCredentialUnavailable(
+            bool isProduction,
+            DeploymentTier expectedTier)
+        {
+            var emptyCredentialSource = Substitute.For<IDeploymentCredentialSource>();
+            emptyCredentialSource.Description.Returns("vault");
+            emptyCredentialSource.Resolve(Arg.Any<DeploymentTier>()).Returns((DeploymentCredential?)null);
+
+            var requests = Substitute.For<IRequestsPersistentSource>();
+            requests.GetRequest(55).Returns(new DeploymentRequestApiModel
+            {
+                Id = 55,
+                Project = "Infra",
+                EnvironmentName = "ENV-TF"
+            });
+
+            var allowList = Substitute.For<ISourceHostAllowList>();
+            allowList.CheckTerraformSource(Arg.Any<string>()).Returns(PolicyDecision.Allow());
+
+            var dispatcher = new TerraformDispatcher(
+                NullLogger<TerraformDispatcher>.Instance,
+                requests,
+                _configValues,
+                _configurationSettings,
+                Substitute.For<IDeploymentRequestProcessesPersistentSource>(),
+                _pipeServer,
+                Substitute.For<IAzureStorageAccountWorker>(),
+                Substitute.For<IProjectsPersistentSource>(),
+                Substitute.For<IGitHubHostValidator>(),
+                Substitute.For<ICloudResourcesPersistentSource>(),
+                Substitute.For<ICloudResourceAuditPersistentSource>(),
+                Substitute.For<IEnvironmentsPersistentSource>(),
+                Substitute.For<IDatabasesPersistentSource>(),
+                Substitute.For<IPropertiesPersistentSource>(),
+                _scriptScopeConfigValues,
+                emptyCredentialSource,
+                allowList);
+
+            var component = new ComponentApiModel
+            {
+                ComponentId = 9,
+                ComponentName = "NetworkTf",
+                ComponentType = ComponentType.Terraform,
+                TerraformSourceType = TerraformSourceType.Git
+            };
+            var result = new DeploymentResultApiModel { Id = 700, ComponentId = 9, RequestId = 55 };
+
+            var succeeded = dispatcher.Dispatch(
+                component,
+                result,
+                new Dictionary<string, VariableValue>(),
+                requestId: 55,
+                isProduction: isProduction,
+                environmentName: "ENV-TF",
+                new StringBuilder(),
+                Dorc.Monitor.RunnerProcess.TerraformRunnerOperations.CreatePlan,
+                CancellationToken.None);
+
+            Assert.IsFalse(succeeded);
+            emptyCredentialSource.Received(1).Resolve(expectedTier);
+            _pipeServer.DidNotReceiveWithAnyArgs().Start(default!, default!, default!, default);
+            _configValues.DidNotReceiveWithAnyArgs().GetConfigValue(default!);
+        }
     }
 
     [TestClass]
@@ -229,14 +382,24 @@ namespace Dorc.Monitor.Tests
                 new ConfigurationBuilder().AddInMemoryCollection(values).Build());
         }
 
+        /// <summary>
+        /// A credential source that resolves, so these tests exercise what they are about rather
+        /// than the missing-credential path.
+        /// </summary>
+        private static IDeploymentCredentialSource CredentialSourceFor(string userName, string password)
+        {
+            var source = Substitute.For<IDeploymentCredentialSource>();
+            source.Description.Returns("test");
+            source.Resolve(Arg.Any<DeploymentTier>())
+                .Returns(_ => DeploymentCredential.FromPlainText(userName, password));
+            return source;
+        }
+
         [TestMethod]
         public void TheDispatchedScriptGroupCarriesNoWithheldKey()
         {
             var pipeServer = Substitute.For<IScriptGroupPipeServer>();
-
             var configValues = Substitute.For<IConfigValuesPersistentSource>();
-            configValues.GetConfigValue("DORC_ProdDeployUsername").Returns("svc-dorc");
-            configValues.GetConfigValue("DORC_ProdDeployPassword").Returns("password");
 
             var settings = Substitute.For<IConfigurationSettings>();
             settings.GetConfigurationDomainNameIntra().Returns(string.Empty);
@@ -251,6 +414,7 @@ namespace Dorc.Monitor.Tests
                 settings,
                 Substitute.For<IRequestsPersistentSource>(),
                 scopeValues,
+                CredentialSourceFor("svc-dorc", "password"),
                 Substitute.For<IPowerShellEvidenceCapture>());
 
             var properties = new Dictionary<string, VariableValue>
@@ -288,8 +452,6 @@ namespace Dorc.Monitor.Tests
         {
             var pipeServer = Substitute.For<IScriptGroupPipeServer>();
             var configValues = Substitute.For<IConfigValuesPersistentSource>();
-            configValues.GetConfigValue("DORC_ProdDeployUsername").Returns("svc-dorc");
-            configValues.GetConfigValue("DORC_ProdDeployPassword").Returns("password");
 
             var dispatcher = new ScriptDispatcher(
                 Substitute.For<IDeploymentRequestProcessesPersistentSource>(),
@@ -299,6 +461,7 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<IConfigurationSettings>(),
                 Substitute.For<IRequestsPersistentSource>(),
                 CreateWithholdingPolicy(BuiltInWithheld),
+                CredentialSourceFor("svc-dorc", "password"),
                 Substitute.For<IPowerShellEvidenceCapture>());
 
             var jsonPath = JsonSerializer.Serialize(new JSONPath
@@ -362,6 +525,7 @@ namespace Dorc.Monitor.Tests
                 settings,
                 Substitute.For<IRequestsPersistentSource>(),
                 CreateWithholdingPolicy(BuiltInWithheld, OperatorConfiguredWithheld),
+                CredentialSourceFor("svc-dorc", "password"),
                 Substitute.For<IPowerShellEvidenceCapture>());
 
             var jsonPath = JsonSerializer.Serialize(new JSONPath
@@ -507,6 +671,7 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<IDatabasesPersistentSource>(),
                 propertiesSource,
                 configuredScopeValues,
+                CredentialSourceFor("svc-dorc", "password"),
                 hostAllowList);
 
             var component = new ComponentApiModel

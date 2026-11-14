@@ -1,9 +1,10 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.AzureStorageAccount;
 using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
 using Dorc.Core.Interfaces;
+using Dorc.Core.Security;
 using Dorc.Monitor.Pipes;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.TerraformSourceConfig;
@@ -39,6 +40,22 @@ namespace Dorc.Monitor.Tests
         private IPowerShellEvidenceCapture _evidenceCapture = null!;
         private RecordingLogger<ScriptDispatcher> _scriptLogger = null!;
 
+        private readonly IDeploymentCredentialSource _credentialSource =
+            CredentialSourceFor("svc-dorc", "password");
+
+        /// <summary>
+        /// A credential source that resolves, so these tests exercise what they are about rather
+        /// than the missing-credential path.
+        /// </summary>
+        private static IDeploymentCredentialSource CredentialSourceFor(string userName, string password)
+        {
+            var source = Substitute.For<IDeploymentCredentialSource>();
+            source.Description.Returns("test");
+            source.Resolve(Arg.Any<DeploymentTier>())
+                .Returns(_ => DeploymentCredential.FromPlainText(userName, password));
+            return source;
+        }
+
         [TestInitialize]
         public void Setup()
         {
@@ -51,8 +68,6 @@ namespace Dorc.Monitor.Tests
                 .Returns(_ => throw new DispatchAcceptedException());
 
             _configValues = Substitute.For<IConfigValuesPersistentSource>();
-            _configValues.GetConfigValue("DORC_NonProdDeployUsername").Returns("svc-dorc");
-            _configValues.GetConfigValue("DORC_NonProdDeployPassword").Returns("password");
             _configValues.GetConfigValue("ScriptRoot").Returns(ScriptRoot);
             _configValues.GetConfigValue("ScriptRoot", Arg.Any<string>()).Returns(ScriptRoot);
 
@@ -71,6 +86,7 @@ namespace Dorc.Monitor.Tests
                 _settings,
                 requests ?? Substitute.For<IRequestsPersistentSource>(),
                 Substitute.For<IScriptScopeConfigValues>(),
+                _credentialSource,
                 _evidenceCapture);
 
         private bool Dispatch(
@@ -364,8 +380,6 @@ namespace Dorc.Monitor.Tests
             _settings.GetScriptPathEnforcementEnabled().Returns(enforce);
             _settings.GetConfigurationDomainNameIntra().Returns("CORP");
             _configValues.GetConfigValue("ScriptRoot", Arg.Any<string>()).Returns(string.Empty);
-            _configValues.GetConfigValue("DORC_NonProdDeployUsername").Returns("svc_tf");
-            _configValues.GetConfigValue("DORC_NonProdDeployPassword").Returns("secret");
 
             var tfLogger = new RecordingLogger<TerraformDispatcher>();
             var requests = Substitute.For<IRequestsPersistentSource>();
@@ -423,6 +437,7 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<IDatabasesPersistentSource>(),
                 propertySource,
                 Substitute.For<IScriptScopeConfigValues>(),
+                _credentialSource,
                 allowList);
 
             // Caller passes a live-looking component pointing inside team-a, proving Dispatch
