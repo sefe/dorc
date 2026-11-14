@@ -811,10 +811,10 @@ namespace Dorc.Api.Controllers
 
             // Match PendingRequestProcessor: ConfigValues fill missing values
             // before environment scope values and request overrides are seeded,
-            // excluding DOrc's withheld operating credentials.
+            // excluding DOrc's withheld operating credentials and hidden config values.
             foreach (var configValue in _configValuesPersistentSource.GetAllConfigValues(true))
             {
-                if (_scriptScopeConfigValues.IsWithheld(configValue.Key))
+                if (_scriptScopeConfigValues.IsWithheld(configValue))
                 {
                     continue;
                 }

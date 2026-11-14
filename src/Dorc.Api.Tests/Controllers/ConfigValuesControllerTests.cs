@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Security.Principal;
 using Dorc.Api.Controllers;
+using Dorc.ApiModel;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
@@ -16,21 +17,27 @@ namespace Dorc.Api.Tests.Controllers
         private IConfigValuesPersistentSource _configValues = null!;
         private IRolePrivilegesChecker _roleChecker = null!;
         private ConfigValuesController _controller = null!;
+        private RefDataConfigController _refDataConfigController = null!;
 
         [TestInitialize]
         public void Setup()
         {
             _configValues = Substitute.For<IConfigValuesPersistentSource>();
             _roleChecker = Substitute.For<IRolePrivilegesChecker>();
+            var controllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "TestUser") }))
+                }
+            };
             _controller = new ConfigValuesController(_configValues, _roleChecker)
             {
-                ControllerContext = new ControllerContext
-                {
-                    HttpContext = new DefaultHttpContext
-                    {
-                        User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "TestUser") }))
-                    }
-                }
+                ControllerContext = controllerContext
+            };
+            _refDataConfigController = new RefDataConfigController(_configValues, _roleChecker)
+            {
+                ControllerContext = controllerContext
             };
         }
 
@@ -71,6 +78,25 @@ namespace Dorc.Api.Tests.Controllers
 
             var ok = (OkObjectResult)result;
             Assert.AreEqual("public-value", ok.Value);
+        }
+
+        [TestMethod]
+        public void RefDataConfig_NonAdminCannotCreateOrFlipVisibleToScripts()
+        {
+            _roleChecker.IsAdmin(Arg.Any<IPrincipal>()).Returns(false);
+            var model = new ConfigValueApiModel
+            {
+                Id = 7,
+                Key = "SomeSecret",
+                Value = "secret",
+                Secure = true,
+                VisibleToScripts = true
+            };
+
+            Assert.IsInstanceOfType<ForbidResult>(_refDataConfigController.Post(model));
+            Assert.IsInstanceOfType<ForbidResult>(_refDataConfigController.Put(7, model));
+            _configValues.DidNotReceiveWithAnyArgs().Add(default!);
+            _configValues.DidNotReceiveWithAnyArgs().UpdateConfigValue(default!);
         }
     }
 }
