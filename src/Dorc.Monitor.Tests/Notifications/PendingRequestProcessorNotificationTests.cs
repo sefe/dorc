@@ -79,7 +79,8 @@ namespace Dorc.Monitor.Tests.Notifications
                 mockEventsPublisher,
                 mockNotificationSink,
                 mockGitHubArtifactDownloader,
-                Substitute.For<Dorc.PersistentData.Security.ISourceHostAllowList>());
+                Substitute.For<Dorc.PersistentData.Security.ISourceHostAllowList>(),
+                Substitute.For<Dorc.PersistentData.Security.IScriptScopeConfigValues>());
         }
 
         private static RequestToProcessDto CreateRequest(List<ComponentApiModel> components)

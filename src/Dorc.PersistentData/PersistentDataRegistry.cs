@@ -17,14 +17,24 @@ namespace Dorc.PersistentData
             For<DbContext>().Use(_ => _.GetInstance<DeploymentContext>()).Scoped();
             For<IDeploymentContext>().Use(_ => _.GetInstance<DeploymentContext>()).Scoped();
 
-            var configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+            var configuration = new ConfigurationBuilder()
+                .AddJsonFile("appsettings.json", optional: true)
+                .AddEnvironmentVariables()
+                .Build();
             var connectionString = configuration.GetConnectionString("DOrcConnectionString");
             For<IDeploymentContextFactory>().Use(new DeploymentContextFactory(connectionString));
 
-            // Read the same way as the connection string above rather than through the host's
-            // IConfiguration, so the allow-list resolves identically in every process that
-            // loads this registry. Settings do not change at runtime, so one instance serves.
-            For<ISourceHostAllowList>().Use(new SourceHostAllowList(configuration)).Singleton();
+            // Prefer the host's IConfiguration when registered so environment-variable
+            // overrides apply identically in Dorc.Api and Dorc.Monitor, falling back to
+            // the local ConfigurationBuilder when resolved outside a host.
+            For<ISourceHostAllowList>().Use(ctx =>
+                new SourceHostAllowList(
+                    ctx.TryGetInstance<IConfiguration>()
+                    ?? configuration)).Singleton();
+            For<IScriptScopeConfigValues>().Use(ctx =>
+                new ScriptScopeConfigValues(
+                    ctx.TryGetInstance<IConfiguration>()
+                    ?? configuration)).Singleton();
 
             For<IAccessControlPersistentSource>().Use<AccessControlPersistentSource>().Scoped();
             For<IAccountPersistentSource>().Use<AccountPersistentSource>().Scoped();

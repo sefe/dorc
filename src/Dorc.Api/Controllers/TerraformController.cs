@@ -11,6 +11,7 @@ using Dorc.Core.Interfaces;
 using Dorc.Core.Security;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using Dorc.Terraform.Catalog;
@@ -54,6 +55,7 @@ namespace Dorc.Api.Controllers
         private readonly IVariableScopeOptionsResolver _variableScopeOptionsResolver;
         private readonly IConfigurationSettings _configurationSettings;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
+        private readonly IScriptScopeConfigValues _scriptScopeConfigValues;
 
         public TerraformController(
             ILogger<TerraformController> log,
@@ -71,7 +73,8 @@ namespace Dorc.Api.Controllers
             [FromKeyedServices("VariableResolver")] IVariableResolver variableResolver,
             IVariableScopeOptionsResolver variableScopeOptionsResolver,
             IConfigurationSettings configurationSettings,
-            IConfigValuesPersistentSource configValuesPersistentSource)
+            IConfigValuesPersistentSource configValuesPersistentSource,
+            IScriptScopeConfigValues scriptScopeConfigValues)
         {
             _log = log;
             _requestsPersistentSource = requestsPersistentSource;
@@ -89,6 +92,7 @@ namespace Dorc.Api.Controllers
             _variableResolver = variableResolver;
             _variableScopeOptionsResolver = variableScopeOptionsResolver;
             _configValuesPersistentSource = configValuesPersistentSource;
+            _scriptScopeConfigValues = scriptScopeConfigValues;
         }
 
         /// <summary>
@@ -206,7 +210,9 @@ namespace Dorc.Api.Controllers
                 if (configuration != null && configuration.TemplateVersion != manifest.Version)
                     return Conflict("Saved inputs target a different module version. Review and replace the saved configuration.");
             }
-            var savedInputs = ReadSavedInputs(configuration);
+            var savedInputs = ReadSavedInputs(configuration)
+                .Where(pair => !_scriptScopeConfigValues.IsWithheld(pair.Key))
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
             IDictionary<string, VariableValue> resolved;
             try
             {
@@ -225,6 +231,7 @@ namespace Dorc.Api.Controllers
             var parameters = manifest.Parameters
                 .Select(p =>
                 {
+                    var isWithheld = _scriptScopeConfigValues.IsWithheld(p.Name);
                     var sensitive = p.Sensitive || _propertyValuesPersistentSource.IsCachedPropertySecure(p.Name) || secureInputNames.Contains(p.Name);
                     var model = new TerraformParameterResolutionApiModel
                     {
@@ -232,12 +239,12 @@ namespace Dorc.Api.Controllers
                         Required = p.Required,
                         Sensitive = sensitive,
                     };
-                    if (savedInputs.ContainsKey(p.Name))
+                    if (!isWithheld && savedInputs.ContainsKey(p.Name))
                         model.Status = TerraformParameterResolutionStatus.SavedConfiguration;
-                    else if (resolved.TryGetValue(p.Name, out var value)
+                    else if (!isWithheld && resolved.TryGetValue(p.Name, out var value)
                              && Convert.ToString(value?.Value, CultureInfo.InvariantCulture) is not null)
                         model.Status = TerraformParameterResolutionStatus.Environment;
-                    else if (!sensitive && CatalogInputSuggestions.For(p, suggestionContext) is { } suggestion)
+                    else if (!isWithheld && !sensitive && CatalogInputSuggestions.For(p, suggestionContext) is { } suggestion)
                     {
                         model.Status = TerraformParameterResolutionStatus.Suggested;
                         model.SuggestedValue = suggestion.Value;
@@ -294,7 +301,7 @@ namespace Dorc.Api.Controllers
             var manifest = await _templateCatalog.GetAsync(name, version, cancellationToken);
             if (manifest == null) return NotFound();
             if (input?.Inputs == null || input.ExpectedRevision < 0) return BadRequest("Inputs and a nonnegative expected revision are required.");
-            if (input.Inputs.Keys.Any(key => !manifest.Parameters.Any(parameter =>
+            if (input.Inputs.Keys.Any(key => _scriptScopeConfigValues.IsWithheld(key) || !manifest.Parameters.Any(parameter =>
                     parameter.Name == key && !parameter.Sensitive)))
                 return BadRequest("Only declared non-sensitive module inputs can be saved. Secrets must remain secure properties or one-off overrides.");
             // Save validates only the supplied scalar values; missing values remain inherited.
@@ -797,13 +804,21 @@ namespace Dorc.Api.Controllers
             IDictionary<string, string?> supplied,
             EnvironmentApiModel environment)
         {
+            (_variableResolver as VariableResolver)?.ExcludeWithheldKeys(_scriptScopeConfigValues);
+
             _propertyValuesPersistentSource.AddFilter(PropertyValueFilterTypes.EnvironmentPropertyFilterType, environment.EnvironmentName);
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvironmentName, environment.EnvironmentName);
 
             // Match PendingRequestProcessor: ConfigValues fill missing values
-            // before environment scope values and request overrides are seeded.
+            // before environment scope values and request overrides are seeded,
+            // excluding DOrc's withheld operating credentials.
             foreach (var configValue in _configValuesPersistentSource.GetAllConfigValues(true))
             {
+                if (_scriptScopeConfigValues.IsWithheld(configValue.Key))
+                {
+                    continue;
+                }
+
                 if (_variableResolver.GetPropertyValue(configValue.Key) is null
                     && (!configValue.IsForProd.HasValue
                         || configValue.IsForProd.Value == environment.EnvironmentIsProd))
@@ -814,12 +829,21 @@ namespace Dorc.Api.Controllers
             _variableScopeOptionsResolver.SetPropertyValues(_variableResolver, environment);
 
             // Derived environment properties must see the same overrides as
-            // the Monitor, which seeds request properties before resolution.
-            foreach (var parameter in manifest.Parameters.Where(p => supplied.ContainsKey(p.Name)))
+            // the Monitor, which seeds request properties before resolution
+            // and strips withheld keys before Terraform sees CommonProperties.
+            foreach (var parameter in manifest.Parameters.Where(p =>
+                         supplied.ContainsKey(p.Name) && !_scriptScopeConfigValues.IsWithheld(p.Name)))
             {
                 _variableResolver.SetRequestSuppliedPropertyValue(parameter.Name, supplied[parameter.Name] ?? string.Empty);
             }
-            return _variableResolver.LoadProperties();
+
+            var resolved = _variableResolver.LoadProperties();
+            foreach (var withheldKey in resolved.Keys.Where(_scriptScopeConfigValues.IsWithheld).ToArray())
+            {
+                resolved.Remove(withheldKey);
+            }
+
+            return resolved;
         }
 
         private Dictionary<string, string?> BuildValidationInputs(
@@ -829,9 +853,14 @@ namespace Dorc.Api.Controllers
             IDictionary<string, string>? savedInputs = null)
         {
             var resolvedProperties = LoadEnvironmentProperties(manifest, supplied, environment);
-            var validationInputs = new Dictionary<string, string?>(supplied, StringComparer.Ordinal);
-            foreach (var input in savedInputs ?? new Dictionary<string, string>())
+            var validationInputs = supplied
+                .Where(pair => !_scriptScopeConfigValues.IsWithheld(pair.Key))
+                .ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+            foreach (var input in (savedInputs ?? new Dictionary<string, string>())
+                         .Where(input => !_scriptScopeConfigValues.IsWithheld(input.Key)))
+            {
                 validationInputs.TryAdd(input.Key, input.Value);
+            }
 
             foreach (var parameter in manifest.Parameters)
             {
@@ -840,7 +869,8 @@ namespace Dorc.Api.Controllers
                     continue;
                 }
 
-                if (resolvedProperties.TryGetValue(parameter.Name, out var resolvedValue))
+                if (!_scriptScopeConfigValues.IsWithheld(parameter.Name)
+                    && resolvedProperties.TryGetValue(parameter.Name, out var resolvedValue))
                 {
                     var value = Convert.ToString(resolvedValue?.Value, CultureInfo.InvariantCulture);
                     if (value is not null)

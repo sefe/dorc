@@ -34,6 +34,7 @@
         <Json:JsonFile Id="WebRequestApiCors" ElementPath="$.AppSettings.AllowedCORSLocations" File="[#DeployApiWebConfig]" Value="[DEPLOYMENTORCHESTRATOR.CORS]" />
         <Json:JsonFile Id="AllowedArtefactHostsApi" ElementPath="$.AppSettings.AllowedArtefactHosts" File="[#DeployApiWebConfig]" Value="[ALLOWED.ARTEFACT.HOSTS]" Action="replaceJsonValue" />
         <Json:JsonFile Id="AllowedTerraformSourceHostsApi" ElementPath="$.AppSettings.AllowedTerraformSourceHosts" File="[#DeployApiWebConfig]" Value="[ALLOWED.TERRAFORM.SOURCE.HOSTS]" Action="replaceJsonValue" />
+        <Json:JsonFile Id="ConfigKeysWithheldFromScriptsApi" ElementPath="$.AppSettings.ConfigKeysWithheldFromScripts" File="[#DeployApiWebConfig]" Value="[DORC.CONFIG.KEYS.WITHHELD.FROM.SCRIPTS]" Action="replaceJsonValue" />
 
         <Json:JsonFile Id="ADRoleProviderConfigRequestApiAdmin" ElementPath="$.AppSettings.ActiveDirectoryRoles.Admin" File="[#DeployApiWebConfig]" Value="[AD.ROLEPROVIDER.GROUP.ADMIN]" />
         <Json:JsonFile Id="ADRoleProviderConfigRequestApiPowerUser" ElementPath="$.AppSettings.ActiveDirectoryRoles.PowerUser" File="[#DeployApiWebConfig]" Value="[AD.ROLEPROVIDER.GROUP.POWERUSER]" />
@@ -132,6 +133,7 @@
 		  <Json:JsonFile Id="WebRequestApiCorsProd" ElementPath="$.AppSettings.AllowedCORSLocations" File="[#DeployApiWebConfig]" Value="[DEPLOYMENTORCHESTRATOR.CORS]" />
 		  <Json:JsonFile Id="AllowedArtefactHostsApiProd" ElementPath="$.AppSettings.AllowedArtefactHosts" File="[#DeployApiWebConfig]" Value="[ALLOWED.ARTEFACT.HOSTS]" Action="replaceJsonValue" />
 		  <Json:JsonFile Id="AllowedTerraformSourceHostsApiProd" ElementPath="$.AppSettings.AllowedTerraformSourceHosts" File="[#DeployApiWebConfig]" Value="[ALLOWED.TERRAFORM.SOURCE.HOSTS]" Action="replaceJsonValue" />
+		  <Json:JsonFile Id="ConfigKeysWithheldFromScriptsApiProd" ElementPath="$.AppSettings.ConfigKeysWithheldFromScripts" File="[#DeployApiWebConfig]" Value="[DORC.CONFIG.KEYS.WITHHELD.FROM.SCRIPTS]" Action="replaceJsonValue" />
 
 		  <Json:JsonFile Id="ADRoleProviderConfigRequestApiAdminProd" ElementPath="$.AppSettings.ActiveDirectoryRoles.Admin" File="[#DeployApiWebConfig]" Value="[AD.ROLEPROVIDER.GROUP.ADMIN]" />
 		  <Json:JsonFile Id="ADRoleProviderConfigRequestApiPowerUserProd" ElementPath="$.AppSettings.ActiveDirectoryRoles.PowerUser" File="[#DeployApiWebConfig]" Value="[AD.ROLEPROVIDER.GROUP.POWERUSER]" />

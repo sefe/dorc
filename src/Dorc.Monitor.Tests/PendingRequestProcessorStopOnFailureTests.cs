@@ -1,4 +1,4 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
 using Dorc.Core.Events;
@@ -6,7 +6,9 @@ using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor.Notifications;
 using Dorc.Monitor.RequestProcessors;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 
@@ -27,6 +29,7 @@ namespace Dorc.Monitor.Tests
         private IDeploymentEventsPublisher mockEventsPublisher = null!;
         private IGitHubArtifactDownloader mockGitHubArtifactDownloader = null!;
         private IDeploymentNotificationSink mockNotificationSink = null!;
+        private IScriptScopeConfigValues mockScriptScopeConfigValues = null!;
 
         private PendingRequestProcessor sut = null!;
 
@@ -50,6 +53,7 @@ namespace Dorc.Monitor.Tests
             mockEventsPublisher = Substitute.For<IDeploymentEventsPublisher>();
             mockGitHubArtifactDownloader = Substitute.For<IGitHubArtifactDownloader>();
             mockNotificationSink = Substitute.For<IDeploymentNotificationSink>();
+            mockScriptScopeConfigValues = new ScriptScopeConfigValues(new ConfigurationBuilder().Build());
             mockGitHubArtifactDownloader.IsGitHubArtifactUrl(Arg.Any<string>()).Returns(false);
 
             // Common mock setup
@@ -92,7 +96,8 @@ namespace Dorc.Monitor.Tests
                 mockEventsPublisher,
                 mockNotificationSink,
                 mockGitHubArtifactDownloader,
-                Substitute.For<Dorc.PersistentData.Security.ISourceHostAllowList>());
+                Substitute.For<ISourceHostAllowList>(),
+                mockScriptScopeConfigValues);
         }
 
         private static RequestToProcessDto CreateRequest(List<ComponentApiModel> components)
@@ -456,6 +461,146 @@ namespace Dorc.Monitor.Tests
             // Assert — downloader APIs never consulted for a non-UNC/non-URL drop
             mockGitHubArtifactDownloader.DidNotReceive().DownloadAndExtract(Arg.Any<string>());
             mockGitHubArtifactDownloader.DidNotReceive().Cleanup(Arg.Any<string>());
+        }
+
+        [TestMethod]
+        public void Execute_WithholdsBuiltInAndOperatorConfiguredConfigKeysFromComponentProperties()
+        {
+            var config = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    [$"{ScriptScopeConfigValues.WithheldKeysSetting}:0"] = "DORC_ProdDeployPassword",
+                    [$"{ScriptScopeConfigValues.WithheldKeysSetting}:1"] = "CustomOperatorSecret"
+                })
+                .Build();
+            var processor = new PendingRequestProcessor(
+                mockLoggerFactory,
+                mockComponentProcessor,
+                mockVariableScopeOptionsResolver,
+                mockRequestsPersistentSource,
+                mockPropertyValuesPersistentSource,
+                mockEnvironmentsPersistentSource,
+                mockManageProjectsPersistentSource,
+                mockConfigValuesPersistentSource,
+                new PropertyEvaluator(),
+                mockEventsPublisher,
+                mockNotificationSink,
+                mockGitHubArtifactDownloader,
+                Substitute.For<ISourceHostAllowList>(),
+                new ScriptScopeConfigValues(config));
+
+            mockConfigValuesPersistentSource.GetAllConfigValues(true).Returns(new[]
+            {
+                new ConfigValueApiModel { Key = "DORC_ProdDeployPassword", Value = "prod-deploy-secret", Secure = true },
+                new ConfigValueApiModel { Key = "CustomOperatorSecret", Value = "operator-secret", Secure = true },
+                new ConfigValueApiModel { Key = "DORC_NonProdDeployPassword", Value = "still-published-secret", Secure = true },
+                new ConfigValueApiModel { Key = "ScriptRoot", Value = @"C:\Scripts", Secure = false }
+            });
+
+            var comp1 = new ComponentApiModel { ComponentId = 1, ComponentName = "Comp1", IsEnabled = true };
+            var components = new List<ComponentApiModel> { comp1 };
+            SetupOrderedComponents(components);
+            IDictionary<string, VariableValue>? capturedProperties = null;
+            mockComponentProcessor.DeployComponent(
+                comp1, Arg.Any<DeploymentResultApiModel>(),
+                Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
+                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Do<IDictionary<string, VariableValue>>(props => capturedProperties = new Dictionary<string, VariableValue>(props)),
+                Arg.Any<CancellationToken>())
+                .Returns(true);
+
+            processor.Execute(CreateRequest(components), CancellationToken.None, mockLoggerFactory);
+
+            Assert.IsNotNull(capturedProperties);
+            Assert.IsFalse(capturedProperties.ContainsKey("DORC_ProdDeployPassword"));
+            Assert.IsFalse(capturedProperties.ContainsKey("CustomOperatorSecret"));
+            Assert.IsTrue(capturedProperties.ContainsKey("DORC_NonProdDeployPassword"));
+            Assert.IsTrue(capturedProperties.ContainsKey("ScriptRoot"));
+        }
+
+        [TestMethod]
+        public void Execute_BlocksTokenInterpolationOfWithheldPropertyAndConfigValues()
+        {
+            var config = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    [ScriptScopeConfigValues.WithheldKeysSetting] = "CustomWithheldKey"
+                })
+                .Build();
+            var processor = new PendingRequestProcessor(
+                mockLoggerFactory,
+                mockComponentProcessor,
+                mockVariableScopeOptionsResolver,
+                mockRequestsPersistentSource,
+                mockPropertyValuesPersistentSource,
+                mockEnvironmentsPersistentSource,
+                mockManageProjectsPersistentSource,
+                mockConfigValuesPersistentSource,
+                new PropertyEvaluator(),
+                mockEventsPublisher,
+                mockNotificationSink,
+                mockGitHubArtifactDownloader,
+                Substitute.For<ISourceHostAllowList>(),
+                new ScriptScopeConfigValues(config));
+
+            mockConfigValuesPersistentSource.GetAllConfigValues(true).Returns(new[]
+            {
+                new ConfigValueApiModel { Key = "DORC_ProdDeployPassword", Value = "prod-config-secret", Secure = true },
+                new ConfigValueApiModel { Key = "ScriptRoot", Value = @"C:\Scripts", Secure = false }
+            });
+
+            var cachedWithheld = new PropertyValueDto
+            {
+                Value = "withheld-property-secret",
+                Property = new PropertyApiModel { Name = "CustomWithheldKey", Secure = true }
+            };
+            var cachedBuiltIn = new PropertyValueDto
+            {
+                Value = "prod-property-secret",
+                Property = new PropertyApiModel { Name = "DORC_ProdDeployPassword", Secure = true }
+            };
+            mockPropertyValuesPersistentSource.LoadAllPropertiesIntoCache().Returns(new Dictionary<string, PropertyValueDto>
+            {
+                ["CustomWithheldKey"] = cachedWithheld,
+                ["DORC_ProdDeployPassword"] = cachedBuiltIn,
+                ["EnvExfil"] = new PropertyValueDto
+                {
+                    Value = "$CustomWithheldKey$-from-env",
+                    Property = new PropertyApiModel { Name = "EnvExfil", Secure = false }
+                }
+            });
+            mockPropertyValuesPersistentSource.GetCachedPropertyValue("CustomWithheldKey").Returns(cachedWithheld);
+            mockPropertyValuesPersistentSource.GetCachedPropertyValue("DORC_ProdDeployPassword").Returns(cachedBuiltIn);
+
+            var comp1 = new ComponentApiModel { ComponentId = 1, ComponentName = "Comp1", IsEnabled = true };
+            var components = new List<ComponentApiModel> { comp1 };
+            SetupOrderedComponents(components);
+
+            IDictionary<string, VariableValue>? capturedProperties = null;
+            mockComponentProcessor.DeployComponent(
+                comp1, Arg.Any<DeploymentResultApiModel>(),
+                Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
+                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Do<IDictionary<string, VariableValue>>(props => capturedProperties = new Dictionary<string, VariableValue>(props)),
+                Arg.Any<CancellationToken>())
+                .Returns(true);
+
+            var dto = CreateRequest(components);
+            dto.Details.Properties = new List<PropertyPair>
+            {
+                new() { Name = "Exfil", Value = "$CustomWithheldKey$" },
+                new() { Name = "BuiltInExfil", Value = "$DORC_ProdDeployPassword$" },
+                new() { Name = "DORC_ProdDeployPassword", Value = "supplied-override" }
+            };
+
+            processor.Execute(dto, CancellationToken.None, mockLoggerFactory);
+
+            Assert.IsNotNull(capturedProperties);
+            Assert.IsFalse(capturedProperties.ContainsKey("CustomWithheldKey"));
+            Assert.IsFalse(capturedProperties.ContainsKey("DORC_ProdDeployPassword"));
+            Assert.AreEqual("$CustomWithheldKey$", capturedProperties["Exfil"].Value);
+            Assert.AreEqual("$DORC_ProdDeployPassword$", capturedProperties["BuiltInExfil"].Value);
+            Assert.AreEqual("$CustomWithheldKey$-from-env", capturedProperties["EnvExfil"].Value);
         }
     }
 }

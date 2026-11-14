@@ -1,6 +1,7 @@
 ﻿using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using Dorc.PersistentData.Security;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Dorc.Monitor.Registry
@@ -10,6 +11,14 @@ namespace Dorc.Monitor.Registry
         public static void Register(IServiceCollection collection)
         {
             collection.AddSingleton<ISourceHostAllowList, SourceHostAllowList>();
+            collection.AddSingleton<IScriptScopeConfigValues>(sp =>
+                new ScriptScopeConfigValues(
+                    sp.GetService<IConfiguration>()
+                    ?? sp.GetService<IConfigurationRoot>()
+                    ?? new ConfigurationBuilder()
+                        .AddJsonFile("appsettings.json", optional: true)
+                        .AddEnvironmentVariables()
+                        .Build()));
 
             collection.AddTransient<IRequestsPersistentSource, RequestsPersistentSource>();
             collection.AddTransient<IDeploymentRequestProcessesPersistentSource, DeploymentRequestProcessesPersistentSource>();

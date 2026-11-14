@@ -3,6 +3,7 @@ using Dorc.Core.VariableResolution;
 using Dorc.Monitor.Registry;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
@@ -29,6 +30,9 @@ namespace Dorc.Monitor.Tests
             Assert.IsNotNull(provider.GetRequiredService<IContainersPersistentSource>());
             Assert.IsNotNull(provider.GetRequiredService<ICloudResourcesPersistentSource>());
             Assert.IsNotNull(provider.GetRequiredService<IApiRegistrationsPersistentSource>());
+            var scriptScopeConfigValues = provider.GetRequiredService<IScriptScopeConfigValues>();
+            Assert.IsNotNull(scriptScopeConfigValues);
+            Assert.IsTrue(scriptScopeConfigValues.IsWithheld("DORC_ProdDeployPassword"));
         }
 
         [TestMethod]
