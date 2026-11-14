@@ -620,8 +620,8 @@ namespace Dorc.Api.Tests.Controllers
             _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
             _configValues.GetAllConfigValues(true).Returns(new[]
             {
-                new ConfigValueApiModel { Key = "AppCode", Value = "testapp", IsForProd = configIsForProd },
-                new ConfigValueApiModel { Key = "location", Value = "uksouth", IsForProd = configIsForProd }
+                new ConfigValueApiModel { Key = "AppCode", Value = "testapp", IsForProd = configIsForProd, VisibleToScripts = true },
+                new ConfigValueApiModel { Key = "location", Value = "uksouth", IsForProd = configIsForProd, VisibleToScripts = true }
             });
             _propertyValues.LoadAllPropertiesIntoCache().Returns(new Dictionary<string, PropertyValueDto>
             {
@@ -707,11 +707,11 @@ namespace Dorc.Api.Tests.Controllers
             _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
             _configValues.GetAllConfigValues(true).Returns(new[]
             {
-                new ConfigValueApiModel { Key = "DORC_ProdDeployPassword", Value = "prod-deploy-secret", Secure = true },
-                new ConfigValueApiModel { Key = "DORC_WebDeployPassword", Value = "web-deploy-secret", Secure = true },
-                new ConfigValueApiModel { Key = "DorcApiAccessPassword", Value = "api-access-secret", Secure = true },
-                new ConfigValueApiModel { Key = operatorWithheld, Value = "operator-vault-secret", Secure = true },
-                new ConfigValueApiModel { Key = "AppCode", Value = "legitapp", Secure = false }
+                new ConfigValueApiModel { Key = "DORC_ProdDeployPassword", Value = "prod-deploy-secret", Secure = true, VisibleToScripts = true },
+                new ConfigValueApiModel { Key = "DORC_WebDeployPassword", Value = "web-deploy-secret", Secure = true, VisibleToScripts = true },
+                new ConfigValueApiModel { Key = "DorcApiAccessPassword", Value = "api-access-secret", Secure = true, VisibleToScripts = true },
+                new ConfigValueApiModel { Key = operatorWithheld, Value = "operator-vault-secret", Secure = true, VisibleToScripts = true },
+                new ConfigValueApiModel { Key = "AppCode", Value = "legitapp", Secure = false, VisibleToScripts = true }
             });
             _propertyValues.LoadAllPropertiesIntoCache().Returns(new Dictionary<string, PropertyValueDto>
             {
@@ -751,7 +751,7 @@ namespace Dorc.Api.Tests.Controllers
             _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
             _configValues.GetAllConfigValues(true).Returns(new[]
             {
-                new ConfigValueApiModel { Key = "DORC_ProdDeployPassword", Value = "prod-deploy-secret", Secure = true }
+                new ConfigValueApiModel { Key = "DORC_ProdDeployPassword", Value = "prod-deploy-secret", Secure = true, VisibleToScripts = true }
             });
             _propertyValues.LoadAllPropertiesIntoCache().Returns(new Dictionary<string, PropertyValueDto>());
             _variableResolver = new VariableResolver(
@@ -769,6 +769,75 @@ namespace Dorc.Api.Tests.Controllers
 
             Assert.IsInstanceOfType<BadRequestObjectResult>(result);
             Assert.IsNull(_variableResolver.GetPropertyValue("DORC_ProdDeployPassword"));
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+        }
+
+        [TestMethod]
+        public async Task ResolveAndInstantiateTemplate_WithholdsConfigValuesClassifiedHiddenFromScripts()
+        {
+            const string hiddenSecretKey = "ClassifiedHiddenVaultToken";
+            const string visibleSecretKey = "PublishedServiceToken";
+
+            GivenTemplateAndProject(Manifest(
+                Parameter(hiddenSecretKey, required: true, sensitive: true),
+                Parameter(visibleSecretKey, required: true, sensitive: true),
+                Parameter("derived_from_hidden", required: true)));
+            _environments.GetEnvironment(EnvName).Returns(new EnvironmentApiModel
+            {
+                EnvironmentName = EnvName,
+                EnvironmentIsProd = false
+            });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _configValues.GetAllConfigValues(true).Returns(new[]
+            {
+                new ConfigValueApiModel
+                {
+                    Key = hiddenSecretKey,
+                    Value = "hidden-secret-value",
+                    Secure = true,
+                    VisibleToScripts = false
+                },
+                new ConfigValueApiModel
+                {
+                    Key = visibleSecretKey,
+                    Value = "visible-secret-value",
+                    Secure = true,
+                    VisibleToScripts = true
+                }
+            });
+            _propertyValues.LoadAllPropertiesIntoCache().Returns(new Dictionary<string, PropertyValueDto>
+            {
+                ["derived_from_hidden"] = new PropertyValueDto { Value = $"${hiddenSecretKey}$-probe" }
+            });
+            _variableResolver = new VariableResolver(
+                _propertyValues, NullLoggerFactory.Instance, new PropertyEvaluator());
+
+            var resolveResult = await CreateController(new ParameterValidator()).ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+
+            Assert.IsInstanceOfType<OkObjectResult>(resolveResult);
+            var resolution = (TerraformTemplateResolutionApiModel)((OkObjectResult)resolveResult).Value!;
+            var byName = resolution.Parameters.ToDictionary(p => p.Name, p => p.Status);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Missing, byName[hiddenSecretKey]);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Environment, byName[visibleSecretKey]);
+            CollectionAssert.Contains(resolution.Readiness.InvalidInputs.ToList(), hiddenSecretKey);
+            Assert.IsNull(_variableResolver.GetPropertyValue(hiddenSecretKey));
+            Assert.AreEqual($"${hiddenSecretKey}$-probe",
+                _variableResolver.GetPropertyValue("derived_from_hidden")!.Value);
+
+            _variableResolver = new VariableResolver(
+                _propertyValues, NullLoggerFactory.Instance, new PropertyEvaluator());
+            var instantiateResult = await CreateController(new ParameterValidator()).InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType<BadRequestObjectResult>(instantiateResult);
             _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
         }
 
@@ -820,7 +889,7 @@ namespace Dorc.Api.Tests.Controllers
             _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
             _configValues.GetAllConfigValues(true).Returns(new[]
             {
-                new ConfigValueApiModel { Key = "AppCode", Value = "legitapp", Secure = false }
+                new ConfigValueApiModel { Key = "AppCode", Value = "legitapp", Secure = false, VisibleToScripts = true }
             });
 
             var withheldDto = new PropertyValueDto

@@ -491,10 +491,11 @@ namespace Dorc.Monitor.Tests
 
             mockConfigValuesPersistentSource.GetAllConfigValues(true).Returns(new[]
             {
-                new ConfigValueApiModel { Key = "DORC_ProdDeployPassword", Value = "prod-deploy-secret", Secure = true },
-                new ConfigValueApiModel { Key = "CustomOperatorSecret", Value = "operator-secret", Secure = true },
-                new ConfigValueApiModel { Key = "DORC_NonProdDeployPassword", Value = "still-published-secret", Secure = true },
-                new ConfigValueApiModel { Key = "ScriptRoot", Value = @"C:\Scripts", Secure = false }
+                new ConfigValueApiModel { Key = "DORC_ProdDeployPassword", Value = "prod-deploy-secret", Secure = true, VisibleToScripts = true },
+                new ConfigValueApiModel { Key = "CustomOperatorSecret", Value = "operator-secret", Secure = true, VisibleToScripts = true },
+                new ConfigValueApiModel { Key = "HiddenByClassification", Value = "classified-secret", Secure = true, VisibleToScripts = false },
+                new ConfigValueApiModel { Key = "DORC_NonProdDeployPassword", Value = "still-published-secret", Secure = true, VisibleToScripts = true },
+                new ConfigValueApiModel { Key = "ScriptRoot", Value = @"C:\Scripts", Secure = false, VisibleToScripts = true }
             });
 
             var comp1 = new ComponentApiModel { ComponentId = 1, ComponentName = "Comp1", IsEnabled = true };
@@ -514,6 +515,7 @@ namespace Dorc.Monitor.Tests
             Assert.IsNotNull(capturedProperties);
             Assert.IsFalse(capturedProperties.ContainsKey("DORC_ProdDeployPassword"));
             Assert.IsFalse(capturedProperties.ContainsKey("CustomOperatorSecret"));
+            Assert.IsFalse(capturedProperties.ContainsKey("HiddenByClassification"));
             Assert.IsTrue(capturedProperties.ContainsKey("DORC_NonProdDeployPassword"));
             Assert.IsTrue(capturedProperties.ContainsKey("ScriptRoot"));
         }
@@ -545,8 +547,8 @@ namespace Dorc.Monitor.Tests
 
             mockConfigValuesPersistentSource.GetAllConfigValues(true).Returns(new[]
             {
-                new ConfigValueApiModel { Key = "DORC_ProdDeployPassword", Value = "prod-config-secret", Secure = true },
-                new ConfigValueApiModel { Key = "ScriptRoot", Value = @"C:\Scripts", Secure = false }
+                new ConfigValueApiModel { Key = "DORC_ProdDeployPassword", Value = "prod-config-secret", Secure = true, VisibleToScripts = true },
+                new ConfigValueApiModel { Key = "ScriptRoot", Value = @"C:\Scripts", Secure = false, VisibleToScripts = true }
             });
 
             var cachedWithheld = new PropertyValueDto

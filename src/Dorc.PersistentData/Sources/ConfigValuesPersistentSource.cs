@@ -93,7 +93,9 @@ namespace Dorc.PersistentData.Sources
                   ?? throw new ApplicationException($"Failed to decrypt secure value for Id={configValue.Id}")
                 : configValue.Value ?? string.Empty;
 
-            // 1) If Secure changed encrypt/decrypt value
+            // 1) If Secure changed encrypt/decrypt value and align visibility classification:
+            //    non-secure values are always visible to scripts; securing an existing value
+            //    preserves its current classification unless the caller explicitly states VisibleToScripts.
             if (configValue.Secure != model.Secure)
             {
                 configValue.Secure = model.Secure;
@@ -102,11 +104,16 @@ namespace Dorc.PersistentData.Sources
                     if (model.Value == null)
                         throw new ArgumentException("Value required when Secure=true.");
                     configValue.Value = _propertyEncrypt.EncryptValue(model.Value);
+                    if (model.VisibleToScripts.HasValue)
+                    {
+                        configValue.VisibleToScripts = model.VisibleToScripts.Value;
+                    }
                 }
 
                 else
                 {
                     configValue.Value = oldPlain;
+                    configValue.VisibleToScripts = true;
                 }
             }
 
@@ -114,14 +121,32 @@ namespace Dorc.PersistentData.Sources
             else if (configValue.IsForProd.GetValueOrDefault() != model.IsForProd.GetValueOrDefault())
             {
                 configValue.IsForProd = model.IsForProd;
+                if (configValue.Secure && model.VisibleToScripts.HasValue)
+                {
+                    configValue.VisibleToScripts = model.VisibleToScripts.Value;
+                }
             }
 
-            // 3) Else if Value changed update (encrypt if Secure)
+            // 3) Else if the script visibility is stated and changed on a secure value, update it.
+            // Placed before Value so that toggling visibility on a value whose text is unchanged
+            // is not mistaken for a no-op. A model that leaves the field out is not asking for a
+            // change - without that, a client written before the classification existed would hide
+            // every visible value it edited and lose the edit it meant to make.
+            else if (configValue.Secure && model.VisibleToScripts.HasValue && configValue.VisibleToScripts != model.VisibleToScripts.Value)
+            {
+                configValue.VisibleToScripts = model.VisibleToScripts.Value;
+            }
+
+            // 4) Else if Value changed update (encrypt if Secure)
             else if (model.Value != null && !string.Equals(model.Value, oldPlain, StringComparison.Ordinal))
             {
                 configValue.Value = configValue.Secure
                     ? _propertyEncrypt.EncryptValue(model.Value)
                     : model.Value;
+                if (configValue.Secure && model.VisibleToScripts.HasValue)
+                {
+                    configValue.VisibleToScripts = model.VisibleToScripts.Value;
+                }
             }
 
             context.SaveChanges();
@@ -147,7 +172,13 @@ namespace Dorc.PersistentData.Sources
                 Key = model.Key,
                 Value = model.Value,
                 Secure = model.Secure,
-                IsForProd = model.IsForProd
+                IsForProd = model.IsForProd,
+
+                // A new secure value is hidden from scripts unless its creator says otherwise.
+                // Existing values default the other way, in the column default, so that adding
+                // the classification changes no deployment's behaviour - the asymmetry is the
+                // point, and it is what lets this ship without an estate-wide inventory first.
+                VisibleToScripts = !model.Secure || model.VisibleToScripts.GetValueOrDefault()
             };
 
             if (model.Secure)
@@ -168,7 +199,8 @@ namespace Dorc.PersistentData.Sources
                 Key = configValue.Key,
                 Value = configValue.Value,
                 Secure = configValue.Secure,
-                IsForProd = configValue.IsForProd
+                IsForProd = configValue.IsForProd,
+                VisibleToScripts = configValue.VisibleToScripts
             };
         }
     }
