@@ -4,9 +4,9 @@ namespace Dorc.Core.Tests.Security
 {
     /// <summary>
     /// These paths are Windows and UNC paths judged on a Linux test host, which is the
-    /// reason PathConfinement normalises them itself rather than through System.IO.Path.
-    /// If these tests ever start depending on the host's path semantics they are no longer
-    /// testing what production does.
+    /// reason PathConfinement parses them through Uri rather than System.IO.Path. If these
+    /// tests ever start depending on the host's path semantics they are no longer testing
+    /// what production does.
     /// </summary>
     [TestClass]
     public class PathConfinementTests
@@ -95,6 +95,26 @@ namespace Dorc.Core.Tests.Security
         {
             Assert.IsFalse(PathConfinement.IsWithin(candidate, Root));
             Assert.IsNull(PathConfinement.Canonicalise(candidate));
+        }
+
+        /// <summary>
+        /// Uri decodes "%2e%2e" and resolves it exactly as it resolves "..", so an encoded
+        /// traversal lands where the plain one does: outside the root, and refused.
+        /// </summary>
+        [TestMethod]
+        public void RejectsPercentEncodedTraversal()
+        {
+            Assert.IsFalse(PathConfinement.IsWithin(Root + @"\%2e%2e\Scripts.ST\x.ps1", Root));
+            Assert.AreEqual(
+                PathConfinement.Canonicalise(Root + @"\..\Scripts.ST\x.ps1"),
+                PathConfinement.Canonicalise(Root + @"\%2e%2e\Scripts.ST\x.ps1"));
+        }
+
+        [TestMethod]
+        public void RejectsALocationThatIsNotAFile()
+        {
+            Assert.IsNull(PathConfinement.Canonicalise("https://itss.global/prod/x.ps1"));
+            Assert.IsFalse(PathConfinement.IsWithin("https://itss.global/prod/x.ps1", "https://itss.global/prod"));
         }
 
         [TestMethod]
