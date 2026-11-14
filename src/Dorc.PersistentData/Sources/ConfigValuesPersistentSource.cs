@@ -20,7 +20,14 @@ namespace Dorc.PersistentData.Sources
         public string GetConfigValue(string key, string defaultValue = null)
         {
             using var context = _contextFactory.GetContext();
-            var configValue = context.ConfigValues.SingleOrDefault(x => x.Key == key);
+            var matchingValues = context.ConfigValues.Where(x => x.Key == key).Take(2).ToList();
+            if (matchingValues.Count > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Multiple configuration values match key '{key}'.");
+            }
+
+            var configValue = matchingValues.Count == 1 ? matchingValues[0] : null;
 
             if (configValue != null)
             {
@@ -33,7 +40,14 @@ namespace Dorc.PersistentData.Sources
         public string? GetNonSecureConfigValue(string key)
         {
             using var context = _contextFactory.GetContext();
-            var configValue = context.ConfigValues.SingleOrDefault(x => x.Key == key);
+            var matchingValues = context.ConfigValues.Where(x => x.Key == key).Take(2).ToList();
+            if (matchingValues.Count > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Multiple configuration values match key '{key}'.");
+            }
+
+            var configValue = matchingValues.Count == 1 ? matchingValues[0] : null;
 
             if (configValue == null)
                 return null;
@@ -120,6 +134,20 @@ namespace Dorc.PersistentData.Sources
             // 2) Else if IsForProd changed update the flag
             else if (configValue.IsForProd.GetValueOrDefault() != model.IsForProd.GetValueOrDefault())
             {
+                var targetIsForProd = model.IsForProd ?? false;
+                var duplicateExists = IsDeploymentCredentialKey(configValue.Key)
+                    ? context.ConfigValues.Any(pv => pv.Id != configValue.Id && pv.Key == configValue.Key)
+                    : context.ConfigValues.Any(pv =>
+                        pv.Id != configValue.Id &&
+                        pv.Key == configValue.Key &&
+                        (pv.IsForProd ?? false) == targetIsForProd);
+
+                if (duplicateExists)
+                {
+                    throw new ArgumentException(
+                        $"A config value with the key '{configValue.Key}' and IsForProd = {targetIsForProd} already exists");
+                }
+
                 configValue.IsForProd = model.IsForProd;
                 if (configValue.Secure && model.VisibleToScripts.HasValue)
                 {
@@ -156,6 +184,17 @@ namespace Dorc.PersistentData.Sources
         public ConfigValueApiModel? Add(ConfigValueApiModel model)
         {
             using var context = _contextFactory.GetContext();
+
+            if (IsDeploymentCredentialKey(model.Key))
+            {
+                var existingCredentialKey = context.ConfigValues
+                    .FirstOrDefault(pv => pv.Key == model.Key);
+                if (existingCredentialKey != null)
+                {
+                    throw new ArgumentException(
+                        $"A deployment credential config value with the key '{model.Key}' already exists; deployment credential keys must be unique across IsForProd.");
+                }
+            }
 
             var existingConfigValue = context.ConfigValues
                 .FirstOrDefault(pv =>
@@ -202,6 +241,20 @@ namespace Dorc.PersistentData.Sources
                 IsForProd = configValue.IsForProd,
                 VisibleToScripts = configValue.VisibleToScripts
             };
+        }
+
+        private static bool IsDeploymentCredentialKey(string? key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return false;
+            }
+
+            return key.StartsWith("DORC_Deploy_", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "DORC_ProdDeployUsername", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "DORC_ProdDeployPassword", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "DORC_NonProdDeployUsername", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(key, "DORC_NonProdDeployPassword", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

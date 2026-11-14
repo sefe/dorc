@@ -361,7 +361,7 @@ namespace Dorc.Monitor.Tests
             processor.Execute(request, CancellationToken.None, loggerFactory);
 
             componentProcessor.DidNotReceiveWithAnyArgs().DeployComponent(
-                default!, default!, default, default, default, default, default!, default!, default!, default);
+                default!, default!, default, default, default, default, default!, default, default!, default!, default!, default);
             requestsPds.Received().SetRequestCompletionStatus(
                 77,
                 DeploymentRequestStatus.Errored,

@@ -79,20 +79,29 @@ namespace Dorc.Core.Secrets.OnePassword
                 itemId,
                 state: false,
                 static (utf8Json, _) => ParseSecureSecretFromUtf8Json(utf8Json),
+                CreateEmptyReadOnlySecureString,
                 cancellationToken);
         }
 
         private async Task<T> ReadVaultItemBytesAsync<T, TState>(
             string vaultId,
-            string itemId,
+            string itemIdentifier,
             TState state,
             Utf8JsonParser<T, TState> parseUtf8Json,
+            Func<T> createEmptyResult,
             CancellationToken cancellationToken)
         {
-            Uri uri = BuildItemUri(vaultId, itemId);
-
             using CancellationTokenSource? timeoutCts = CreateTimeoutCancellationTokenSource(cancellationToken);
             CancellationToken effectiveToken = timeoutCts?.Token ?? cancellationToken;
+
+            string? resolvedItemUuid = await ResolveVaultItemUuidAsync(vaultId, itemIdentifier, effectiveToken)
+                .ConfigureAwait(false);
+            if (resolvedItemUuid == null)
+            {
+                return createEmptyResult();
+            }
+
+            Uri uri = BuildItemByUuidUri(vaultId.Trim(), resolvedItemUuid);
 
             using HttpResponseMessage response = await _httpClient
                 .GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, effectiveToken)
@@ -147,9 +156,10 @@ namespace Dorc.Core.Secrets.OnePassword
             }
         }
 
-        private Uri BuildItemUri(string vaultId, string itemId)
+        private Uri BuildItemByUuidUri(string vaultId, string itemUuid)
         {
-            return new Uri($"{_httpClient.BaseAddress?.ToString().TrimEnd('/')}/v1/vaults/{vaultId}/items/{itemId}");
+            return new Uri(
+                $"{_httpClient.BaseAddress?.ToString().TrimEnd('/')}/v1/vaults/{Uri.EscapeDataString(vaultId)}/items/{Uri.EscapeDataString(itemUuid)}");
         }
 
         private CancellationTokenSource? CreateTimeoutCancellationTokenSource(CancellationToken cancellationToken)
@@ -803,6 +813,7 @@ namespace Dorc.Core.Secrets.OnePassword
                 itemId,
                 allowFallbackField,
                 static (utf8Json, fallback) => ParsePrincipalIdentifierFromUtf8Json(utf8Json, fallback),
+                static () => string.Empty,
                 cancellationToken);
         }
 
@@ -817,12 +828,97 @@ namespace Dorc.Core.Secrets.OnePassword
             return value;
         }
 
-        public async Task<OnePasswordItem?> GetItemAsync(string vaultId, string itemId)
+        public async Task<OnePasswordItem?> GetItemAsync(string vaultId, string itemIdentifier)
         {
-            Uri uri = BuildItemUri(vaultId, itemId);
-
             using CancellationTokenSource? timeoutCts = CreateTimeoutCancellationTokenSource(CancellationToken.None);
             CancellationToken effectiveToken = timeoutCts?.Token ?? CancellationToken.None;
+
+            string? resolvedItemUuid = await ResolveVaultItemUuidAsync(vaultId, itemIdentifier, effectiveToken)
+                .ConfigureAwait(false);
+            if (resolvedItemUuid == null)
+            {
+                return null;
+            }
+
+            return await FetchItemByUuidAsync(vaultId.Trim(), resolvedItemUuid, effectiveToken).ConfigureAwait(false);
+        }
+
+        private async Task<string?> ResolveVaultItemUuidAsync(
+            string vaultId,
+            string itemIdentifier,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(vaultId))
+            {
+                throw new ArgumentException("Vault identifier must not be empty.", nameof(vaultId));
+            }
+
+            if (string.IsNullOrWhiteSpace(itemIdentifier))
+            {
+                throw new ArgumentException("Item identifier must not be empty.", nameof(itemIdentifier));
+            }
+
+            vaultId = vaultId.Trim();
+            itemIdentifier = itemIdentifier.Trim();
+
+            if (IsVaultItemUuid(itemIdentifier))
+            {
+                return itemIdentifier;
+            }
+
+            string filter = $"title eq \"{EscapeFilterString(itemIdentifier)}\"";
+            Uri listUri = new(
+                $"{_httpClient.BaseAddress?.ToString().TrimEnd('/')}/v1/vaults/{Uri.EscapeDataString(vaultId)}/items?filter={Uri.EscapeDataString(filter)}");
+
+            using HttpResponseMessage listResponse = await _httpClient
+                .GetAsync(listUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+                .ConfigureAwait(false);
+            if (!listResponse.IsSuccessStatusCode)
+            {
+                throw new HttpRequestException(
+                    $"Error listing secrets by title: {listResponse.StatusCode}",
+                    null,
+                    listResponse.StatusCode);
+            }
+
+            using Stream listStream = await listResponse.Content
+                .ReadAsStreamAsync(cancellationToken)
+                .ConfigureAwait(false);
+            List<OnePasswordItem>? summaries = await JsonSerializer
+                .DeserializeAsync<List<OnePasswordItem>>(listStream, cancellationToken: cancellationToken)
+                .ConfigureAwait(false);
+
+            List<OnePasswordItem> matches = summaries?
+                .Where(i => i != null && string.Equals(i.Title, itemIdentifier, StringComparison.Ordinal))
+                .ToList() ?? [];
+
+            if (matches.Count == 0)
+            {
+                return null;
+            }
+
+            if (matches.Count > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Ambiguous 1Password item lookup: {matches.Count} items matched exact title '{itemIdentifier}'.");
+            }
+
+            string? matchedId = matches[0].Id?.Trim();
+            if (string.IsNullOrWhiteSpace(matchedId) || matchedId.Contains('/') || matchedId.Contains('\\'))
+            {
+                throw new InvalidOperationException(
+                    $"1Password item summary for title '{itemIdentifier}' did not contain a valid item id.");
+            }
+
+            return matchedId;
+        }
+
+        private async Task<OnePasswordItem?> FetchItemByUuidAsync(
+            string vaultId,
+            string itemUuid,
+            CancellationToken effectiveToken)
+        {
+            Uri uri = BuildItemByUuidUri(vaultId, itemUuid);
 
             using HttpResponseMessage response = await _httpClient
                 .GetAsync(uri, HttpCompletionOption.ResponseHeadersRead, effectiveToken)
@@ -843,6 +939,19 @@ namespace Dorc.Core.Secrets.OnePassword
             return await JsonSerializer
                 .DeserializeAsync<OnePasswordItem>(stream, cancellationToken: effectiveToken)
                 .ConfigureAwait(false);
+        }
+
+        private static bool IsVaultItemUuid(string itemIdentifier)
+        {
+            return itemIdentifier.Length == 26
+                && itemIdentifier.All(c => (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'));
+        }
+
+        private static string EscapeFilterString(string value)
+        {
+            return value
+                .Replace("\\", "\\\\", StringComparison.Ordinal)
+                .Replace("\"", "\\\"", StringComparison.Ordinal);
         }
     }
 }

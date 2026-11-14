@@ -125,6 +125,7 @@ models/EnvironmentContentApiModel.ts
 models/EnvironmentContentBuildsApiModel.ts
 models/EnvironmentContentWindowsServicesApiModel.ts
 models/EnvironmentDetailsApiModel.ts
+models/EnvironmentExecutionIdentityApiModel.ts
 models/EnvironmentHistoryApiModel.ts
 models/EnvironmentOwnerApiModel.ts
 models/EnvironmentShortApiModel.ts

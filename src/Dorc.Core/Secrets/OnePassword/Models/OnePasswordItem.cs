@@ -7,20 +7,20 @@ namespace Dorc.Core.Secrets.OnePassword
         public const string MissingFieldSentinel = "Not Found";
 
         [JsonPropertyName("id")]
-        public string Id { get; set; } = string.Empty;
+        public string? Id { get; set; } = string.Empty;
 
         [JsonPropertyName("category")]
-        public string Category { get; set; } = string.Empty;
+        public string? Category { get; set; } = string.Empty;
 
         [JsonPropertyName("title")]
-        public string Title { get; set; } = string.Empty;
+        public string? Title { get; set; } = string.Empty;
 
         [JsonPropertyName("fields")]
-        public List<OnePasswordField> Fields { get; set; } = new();
+        public List<OnePasswordField>? Fields { get; set; } = new();
 
         public string GetFieldValue(string fieldId)
         {
-            if (string.IsNullOrWhiteSpace(fieldId))
+            if (string.IsNullOrWhiteSpace(fieldId) || Fields == null)
             {
                 return string.Empty;
             }

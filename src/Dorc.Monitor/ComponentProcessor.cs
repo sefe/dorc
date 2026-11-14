@@ -45,6 +45,8 @@ namespace Dorc.Monitor
             int environmentId,
             bool isProductionEnvironment,
             string environmentName,
+            string? executionIdentityReference,
+            RequestExecutionIdentityAdoption identityAdoption,
             string scriptRoot,
             IDictionary<string, VariableValue> commonProperties,
             CancellationToken cancellationToken)
@@ -99,6 +101,8 @@ namespace Dorc.Monitor
                             requestId,
                             isProductionRequest,
                             environmentName,
+                            executionIdentityReference,
+                            identityAdoption,
                             componentResultLogBuilder,
                             terreformOperation,
                             cancellationToken);
@@ -173,6 +177,8 @@ namespace Dorc.Monitor
                                      deploymentResult.Id,
                                      isProductionRequest,
                                      environmentName,
+                                     executionIdentityReference,
+                                     identityAdoption,
                                      componentResultLogBuilder,
                                      cancellationToken);
 
@@ -207,6 +213,12 @@ namespace Dorc.Monitor
             finally
             {
                 deploymentResult.Log = componentResultLogBuilder.ToString();
+                if (componentResultLogBuilder.Length > 0)
+                {
+                    requestsPersistentSource.UpdateResultLog(
+                        deploymentResult,
+                        deploymentResult.Log);
+                }
                 requestsPersistentSource.UpdateResultStatus(
                     deploymentResult,
                     deploymentResultStatus);
