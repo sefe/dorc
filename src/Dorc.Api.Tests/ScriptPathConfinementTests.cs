@@ -150,5 +150,37 @@ namespace Dorc.Api.Tests
         {
             Assert.IsTrue(IsConfined("""{"GenericArguments":[]}"""));
         }
+
+        [TestMethod]
+        [DataRow(@"%2e%2e\Scripts.ST\x.ps1")]
+        [DataRow("sub/%2e%2e/%2e%2e/x.ps1")]
+        [DataRow("..%2f..%2fx.ps1")]
+        [DataRow("..%5cpayload.ps1")]
+        [DataRow("%5c%5cattacker%5cshare%5cx.ps1")]
+        [DataRow(@"c%3a\Windows\Temp\x.ps1")]
+        [DataRow("file://itss.global/prod/%2e%2e/x.ps1")]
+        [DataRow(@"\\?\UNC\attacker\share\x.ps1")]
+        [DataRow(@"\??\UNC\attacker\share\x.ps1")]
+        [DataRow(@"\\attacker@SSL@443\DavWWWRoot\x.ps1")]
+        [DataRow("""{"scriptPath":"%2e%2e\\payload.ps1"}""")]
+        public void RejectsPercentEncodedExtendedUncAndCaseVariantJsonEscapes(string path)
+        {
+            Assert.IsFalse(IsConfined(path));
+        }
+
+        [TestMethod]
+        [DataRow(@"%2e%2e\payload.ps1", "parent directory")]
+        [DataRow(@"%252e%252e\payload.ps1", "parent directory")]
+        [DataRow(@"%25252e%25252e\payload.ps1", "parent directory")]
+        [DataRow(@"%2525252e%2525252e\payload.ps1", "parent directory")]
+        [DataRow(@"%252525252e%252525252e\payload.ps1", "percent encoding")]
+        [DataRow("""{"ScriptPath":"%2525252e%2525252e\\payload.ps1"}""", "parent directory")]
+        [DataRow("""{"ScriptPath":"%252525252e%252525252e\\payload.ps1"}""", "percent encoding")]
+        public void RejectsNestedPercentEncodedTraversalAcrossAllPassDepths(string path, string expectedReasonFragment)
+        {
+            var decision = ScriptPathConfinement.Check(path);
+            Assert.IsFalse(decision.Allowed, $"'{path}' must be refused.");
+            StringAssert.Contains(decision.Reason, expectedReasonFragment);
+        }
     }
 }

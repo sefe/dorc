@@ -44,8 +44,8 @@ Four rules determine the order below. They are stated up front because several a
 | S-014 | Classify config values: reserved-key denylist | SD-3a, W-4, SC-03 | **DONE for the three zero-consumer keys**; the rest still gated on S-013 |
 | S-014a | Restrict `CanReadSecrets` to service principals | W-19 | **DONE** — has a blast radius, see the step |
 | ⚙ S-015 | Rotate the deployment credentials | SD-3, W-4 | **S-004 and S-014** |
-| ⚙ S-016 | Remediate off-share script paths | SD-5 precondition | S-010 |
-| S-017 | Confine script paths at dispatch | SD-5, W-5, SC-05 | S-010, S-016 |
+| ⚙ S-016 | Remediate off-share script paths | SD-5 precondition | **Worklist queries delivered** (`S-016-off-share-script-paths.sql`); operator-executed |
+| S-017 | Confine script paths at dispatch | SD-5, W-5, SC-05 | **DONE** — reports by default, enforce after S-016 |
 | S-018 | Verify script content at the point of read | SD-5, W-5, SC-05 | S-017, U-14; **lockstep release** |
 | S-019 | Introduce config-value visibility classification | SD-3b, W-4 | **Server side DONE**; web UI outstanding, see the step |
 | S-020 | Introduce the credential provider abstraction | SD-4 | S-019 (ConfigValues variant only) |
@@ -373,6 +373,10 @@ Two of the three point at what appears to be an individual's incident-workaround
 
 **Verification intent.** The inventory query returns no rows resolving outside the script root, with the comparison performed against the configured root after canonicalising both sides rather than by pattern. Each remediated component deploys successfully.
 
+**Worklist delivered; the remediation itself is operator-executed.** `S-016-off-share-script-paths.sql` classifies every stored script path by the rule S-017 enforces, counts the population, lists the JSON-path rows separately for manual inspection, and orders the off-share set by how often it actually deploys so remediation can be sequenced by risk.
+
+Everything in it is read-only except a remediation template that is commented out deliberately. There is no safe bulk update: each off-share script is either already on the share under another name (repoint), belongs on the share but was never promoted (**promote through the gated pipeline first, then repoint** — repointing before the file exists turns a security finding into a broken deployment), dead (disable the component), or deliberate with the root being wrong (a design decision to escalate, not a data fix).
+
 ### S-017 — Confine script paths at dispatch
 
 **What changes.** Path resolution at dispatch rejects any script path that resolves outside the configured script root after canonicalisation, covering both the direct and JSON path forms.
@@ -382,6 +386,12 @@ Two of the three point at what appears to be an individual's incident-workaround
 **Dependencies.** S-010, S-016.
 
 **Verification intent.** A component whose stored path resolves outside the root fails with a clear, attributable result rather than executing. All remediated components succeed. Comparison is against the configured root, not a pattern — the inventory query's pattern-based classification over-flags, and the enforcement must not inherit that.
+
+**Delivered reporting-first, and enforcement is a configuration switch.** `AppSettings:EnforceScriptPathConfinement` is absent by default, which means report. In that mode a script path that would be refused is logged as a warning and the deployment proceeds; with enforcement on, it is refused. That ordering is sequencing principle 3 applied literally — the estate holds paths that were never validated, and enforcing on the day this ships would fail every deployment of an off-share component at once.
+
+**The report is S-016's worklist.** It names the path, the script root and the reason, so the population to remediate is discoverable from the Monitor log without waiting for a scan. `S-016-off-share-script-paths.sql` finds the same population directly in the database, which is faster and does not require the components to be deployed first.
+
+**The check judges the exact resolved execution path using Windows path-combining semantics on every host.** `System.IO.Path.Combine` is platform-dependent: given a rooted second argument it discards the first on Windows, and merely concatenates on other hosts. `ScriptDispatcher` therefore combines against `ScriptRoot` through a host-independent Windows combiner shared by both the confinement gate and `ScriptGroup` assembly, then checks `PathConfinement.IsWithin` against `ScriptRoot`. Confined rooted paths beneath `ScriptRoot` succeed cleanly, off-root and traversal paths are reported or refused identically on Windows and Linux, and `PowerShellEvidence` and `Dorc.Runner` read the exact path string that passed confinement.
 
 ### S-018 — Verify script content at the point of read
 

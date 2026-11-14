@@ -2,13 +2,16 @@
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
 using Dorc.Core.Configuration;
+using Dorc.Core.Security;
 using Dorc.Monitor.Pipes;
+using Dorc.Monitor.Security;
 using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Dorc.Monitor.RunnerProcess;
 using Dorc.Monitor.RunnerProcess.Interop.Windows.Kernel32;
 using Dorc.Kafka.Events.Publisher;
@@ -83,11 +86,23 @@ namespace Dorc.Monitor
                 return isScriptExecutionSuccessful;
             }
 
+            if (!ScriptPathsAreConfined(script, scriptsLocation, properties, out var alreadyReported))
+            {
+                isScriptExecutionSuccessful = false;
+                return isScriptExecutionSuccessful;
+            }
+
             IList<ScriptGroup> scriptGroups = GetScriptsGroupedByPowerShellVersion(
                 script,
                 scriptsLocation,
                 properties,
                 deploymentRequestId);
+
+            if (!ResolvedScriptGroupPathsAreConfined(scriptGroups, scriptsLocation, alreadyReported))
+            {
+                isScriptExecutionSuccessful = false;
+                return isScriptExecutionSuccessful;
+            }
 
             var ordinalOffset = 0;
             foreach (ScriptGroup scriptGroup in scriptGroups)
@@ -363,6 +378,245 @@ namespace Dorc.Monitor
                 .ToDictionary(property => property.Key, property => property.Value);
         }
 
+        /// <summary>
+        /// Refuses, or reports, a script path whose resolved execution target lies outside the
+        /// configured script root.
+        ///
+        /// Both <see cref="ScriptPathsAreConfined"/> and <see cref="ExtractPath"/> resolve the
+        /// stored path (direct or JSON <c>ScriptPath</c>) through <see cref="CombineWithScriptRoot"/>,
+        /// which implements Windows <c>Path.Combine</c> semantics identically on Windows and Linux
+        /// hosts. Confinement is therefore judged on the exact <c>ScriptProperties.ScriptPath</c>
+        /// string handed to <c>PowerShellEvidence</c> and <c>Dorc.Runner</c>: rooted paths that
+        /// resolve beneath <paramref name="scriptsLocation"/> succeed cleanly, while off-root,
+        /// traversal, and variable-expansion escapes are reported (or refused when enforcing).
+        /// </summary>
+        private bool ScriptPathsAreConfined(
+            ScriptApiModel script,
+            string scriptsLocation,
+            IDictionary<string, VariableValue> properties,
+            out bool reported)
+        {
+            var enforcing = configurationSettingsEngine.GetScriptPathEnforcementEnabled();
+            var confined = true;
+            reported = false;
+
+            if (!TryExtractRawScriptPath(script, out var rawScriptPath, out var jsonFailureReason))
+            {
+                confined = false;
+                reported = true;
+                Report(enforcing, script.Path, scriptsLocation, jsonFailureReason);
+                return !enforcing;
+            }
+
+            var executionPath = CombineWithScriptRoot(scriptsLocation, rawScriptPath);
+
+            if (!string.IsNullOrWhiteSpace(rawScriptPath) && HasTraversalOrEncodedTraversal(rawScriptPath))
+            {
+                confined = false;
+                reported = true;
+                Report(enforcing, executionPath, scriptsLocation,
+                    "it contains a parent directory reference ('..'), which can resolve outside the script root.");
+            }
+            else if (!PathConfinement.IsWithin(executionPath, scriptsLocation))
+            {
+                confined = false;
+                reported = true;
+                Report(enforcing, executionPath, scriptsLocation,
+                    "the resolved execution path does not lie beneath the script root.");
+            }
+            else if (!string.IsNullOrWhiteSpace(rawScriptPath))
+            {
+                var expandedScriptPath = PropertyTokenExpander.Expand(rawScriptPath, properties);
+                if (PropertyTokenExpander.ContainsUnexpandedDropFolderToken(expandedScriptPath))
+                {
+                    confined = false;
+                    reported = true;
+                    Report(enforcing, script.Path, scriptsLocation,
+                        "it references an unexpanded DropFolder token that cannot be shown to resolve beneath the script root.");
+                }
+                else if (!string.Equals(expandedScriptPath, rawScriptPath, StringComparison.Ordinal))
+                {
+                    var expandedExecutionPath = CombineWithScriptRoot(scriptsLocation, expandedScriptPath);
+                    if (HasTraversalOrEncodedTraversal(expandedScriptPath)
+                        || !PathConfinement.IsWithin(expandedExecutionPath, scriptsLocation))
+                    {
+                        confined = false;
+                        reported = true;
+                        Report(enforcing, script.Path, scriptsLocation,
+                            "the resolved path after variable expansion does not lie beneath the script root.");
+                    }
+                }
+            }
+
+            // Reporting mode reports and proceeds. Only enforcement stops the deployment.
+            return confined || !enforcing;
+        }
+
+        private bool ResolvedScriptGroupPathsAreConfined(
+            IEnumerable<ScriptGroup> scriptGroups,
+            string scriptsLocation,
+            bool alreadyReported)
+        {
+            var enforcing = configurationSettingsEngine.GetScriptPathEnforcementEnabled();
+            var confined = true;
+
+            foreach (var scriptGroup in scriptGroups)
+            {
+                foreach (var scriptProperties in scriptGroup.ScriptProperties)
+                {
+                    if (!string.IsNullOrWhiteSpace(scriptProperties.ScriptPath)
+                        && PathConfinement.IsWithin(scriptProperties.ScriptPath, scriptsLocation))
+                    {
+                        continue;
+                    }
+
+                    confined = false;
+                    if (!alreadyReported)
+                    {
+                        Report(enforcing, scriptProperties.ScriptPath, scriptsLocation,
+                            "the resolved execution path does not lie beneath the script root.");
+                    }
+                }
+            }
+
+            return confined || !enforcing;
+        }
+
+        internal static string CombineWithScriptRoot(string scriptsLocation, string? scriptPath)
+        {
+            if (string.IsNullOrEmpty(scriptPath))
+            {
+                return scriptsLocation;
+            }
+
+            if (string.IsNullOrEmpty(scriptsLocation) || IsWindowsRootedOrDriveQualified(scriptPath))
+            {
+                return scriptPath;
+            }
+
+            return scriptsLocation.TrimEnd('\\', '/') + '\\' + scriptPath;
+        }
+
+        private static bool IsWindowsRootedOrDriveQualified(string path)
+        {
+            if (path[0] == '\\' || path[0] == '/')
+            {
+                return true;
+            }
+
+            return path.Length >= 2 && char.IsLetter(path[0]) && path[1] == ':';
+        }
+
+        private static bool HasTraversalOrEncodedTraversal(string path)
+        {
+            if (path.Split('\\', '/').Any(segment => segment.Trim() == ".."))
+            {
+                return true;
+            }
+
+            return path.Contains("%2e", StringComparison.OrdinalIgnoreCase)
+                || path.Contains("%2f", StringComparison.OrdinalIgnoreCase)
+                || path.Contains("%5c", StringComparison.OrdinalIgnoreCase)
+                || path.Contains("%25", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryExtractRawScriptPath(
+            ScriptApiModel script,
+            out string rawScriptPath,
+            out string failureReason)
+        {
+            rawScriptPath = string.Empty;
+            failureReason = string.Empty;
+
+            if (!script.IsPathJSON)
+            {
+                rawScriptPath = script.Path ?? string.Empty;
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(script.Path))
+            {
+                failureReason = "it is marked as a JSON script path but is empty.";
+                return false;
+            }
+
+            try
+            {
+                if (JsonNode.Parse(script.Path) is not JsonObject document)
+                {
+                    failureReason = "it is marked as a JSON script path but is not a JSON object.";
+                    return false;
+                }
+
+                var matchingProperties = document
+                    .Where(pair => string.Equals(pair.Key, nameof(JSONPath.ScriptPath), StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (matchingProperties.Count > 1)
+                {
+                    failureReason = "it is a JSON script path with conflicting ScriptPath properties.";
+                    return false;
+                }
+
+                if (matchingProperties.Count == 1)
+                {
+                    var prop = matchingProperties[0];
+                    if (!string.Equals(prop.Key, nameof(JSONPath.ScriptPath), StringComparison.Ordinal))
+                    {
+                        failureReason = "it is a JSON script path whose ScriptPath property casing does not match the execution contract.";
+                        return false;
+                    }
+
+                    if (prop.Value != null
+                        && (prop.Value is not JsonValue jsonVal || !jsonVal.TryGetValue<string>(out _)))
+                    {
+                        failureReason = "it is a JSON script path whose ScriptPath is not a string.";
+                        return false;
+                    }
+                }
+
+                var parsed = JsonSerializer.Deserialize<JSONPath>(script.Path);
+                if (parsed == null)
+                {
+                    failureReason = "the JSON script path deserialised to null.";
+                    return false;
+                }
+
+                rawScriptPath = parsed.ScriptPath ?? string.Empty;
+                return true;
+            }
+            catch (JsonException)
+            {
+                failureReason = "it is marked as a JSON script path but is not valid JSON.";
+                return false;
+            }
+        }
+
+        private void Report(bool enforcing, string? scriptPath, string scriptsLocation, string reason)
+        {
+            var safeScriptPath = LogText.SingleLine(scriptPath);
+            var safeScriptRoot = LogText.SingleLine(scriptsLocation);
+            var safeReason = LogText.SingleLine(reason);
+
+            if (enforcing)
+            {
+                logger.LogError(
+                    "Refusing to execute '{ScriptPath}' against script root '{ScriptRoot}', because"
+                    + " {Reason} Register the script beneath the root, or correct the component's"
+                    + " stored path.",
+                    safeScriptPath, safeScriptRoot, safeReason);
+            }
+            else
+            {
+                logger.LogWarning(
+                    "Script path '{ScriptPath}' would be refused once confinement is enforced,"
+                    + " because {Reason} Executing it because 'EnforceScriptPathConfinement' is not"
+                    + " enabled. Script root: '{ScriptRoot}'.",
+                    safeScriptPath, safeReason, safeScriptRoot);
+            }
+        }
+
+
         private (string, string) GetProcessCredentials(bool isProduction, string environmentName)
         {
             if (isProduction)
@@ -416,19 +670,32 @@ namespace Dorc.Monitor
         {
             if (!scriptApiModel.IsPathJSON)
             {
-                return Path.Combine(scriptsLocation, scriptApiModel.Path);
+                return CombineWithScriptRoot(scriptsLocation, scriptApiModel.Path ?? string.Empty);
             }
 
             logger.LogInformation("Found a JSON script path.");
 
-            var deserializeObject = JsonSerializer.Deserialize<JSONPath>(scriptApiModel.Path);
+            if (string.IsNullOrWhiteSpace(scriptApiModel.Path))
+            {
+                return string.Empty;
+            }
+
+            JSONPath? deserializeObject;
+            try
+            {
+                deserializeObject = JsonSerializer.Deserialize<JSONPath>(scriptApiModel.Path);
+            }
+            catch (JsonException)
+            {
+                return string.Empty;
+            }
 
             if (deserializeObject == null)
             {
                 return string.Empty;
             }
 
-            return Path.Combine(scriptsLocation, deserializeObject.ScriptPath);
+            return CombineWithScriptRoot(scriptsLocation, deserializeObject.ScriptPath);
         }
 
         private IDictionary<string, VariableValue> ExtractProperties(ScriptApiModel scriptApiModel,
@@ -440,9 +707,17 @@ namespace Dorc.Monitor
                 return properties;
             }
 
-            var deserializeObject = JsonSerializer.Deserialize<JSONPath>(scriptApiModel.Path);
+            JSONPath? deserializeObject;
+            try
+            {
+                deserializeObject = JsonSerializer.Deserialize<JSONPath>(scriptApiModel.Path);
+            }
+            catch (JsonException)
+            {
+                return properties;
+            }
 
-            if (deserializeObject == null)
+            if (deserializeObject?.GenericArguments == null)
             {
                 return properties;
             }

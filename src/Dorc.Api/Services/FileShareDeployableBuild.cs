@@ -65,10 +65,14 @@ namespace Dorc.Api.Services
                 return false;
             }
 
+            var resolvedLocalPath = normalizedBuildUrl.StartsWith("file:", StringComparison.OrdinalIgnoreCase)
+                ? uri.LocalPath
+                : normalizedBuildUrl.Replace('/', '\\');
+
             // Confine to the project's configured artefact roots and the operator's artefact
             // host allow-list BEFORE calling DirectoryExists so an attacker-chosen file:// or
             // UNC authority never triggers an outbound SMB/WebDAV NTLM/Kerberos handshake.
-            if (!IsWithinProjectArtefactRoots(dorcBuild))
+            if (!IsWithinProjectArtefactRoots(dorcBuild, resolvedLocalPath))
             {
                 return false;
             }
@@ -78,7 +82,7 @@ namespace Dorc.Api.Services
                 return false;
             }
 
-            if (!_helper.DirectoryExists(uri.LocalPath))
+            if (!_helper.DirectoryExists(resolvedLocalPath))
             {
                 _validationMessage = "File share build detected. But seems that folder doesn't exists or permissions denied";
                 return false;
@@ -107,7 +111,7 @@ namespace Dorc.Api.Services
             return true;
         }
 
-        private bool IsWithinProjectArtefactRoots(BuildDetails dorcBuild)
+        private bool IsWithinProjectArtefactRoots(BuildDetails dorcBuild, string resolvedLocalPath)
         {
             var project = _projectsPersistentSource.GetProject(dorcBuild.Project);
 
@@ -129,7 +133,8 @@ namespace Dorc.Api.Services
                 return false;
             }
 
-            if (!PathConfinement.IsWithinAny(dorcBuild.BuildUrl, permittedRoots))
+            if (!PathConfinement.IsWithinAny(dorcBuild.BuildUrl, permittedRoots)
+                || !PathConfinement.IsWithinAny(resolvedLocalPath, permittedRoots))
             {
                 _validationMessage =
                     $"The build location is outside the artefacts location configured for project '{dorcBuild.Project}'.";

@@ -46,6 +46,7 @@ TEAMS.DORC.UI.BASE.URL="http://localhost:8888" ^
 TEAMS.NOTIFY.ON.STATUSES="Completed,Failed,Errored" ^
 ALLOWED.ARTEFACT.HOSTS="[]" ^
 ALLOWED.TERRAFORM.SOURCE.HOSTS="[]" ^
+DORC.ENFORCE.SCRIPT.PATH.CONFINEMENT="false" ^
 DORC.CONFIG.KEYS.WITHHELD.FROM.SCRIPTS="[""DORC_ProdDeployPassword"",""DORC_WebDeployPassword"",""DorcApiAccessPassword""]" ^
 /qb /L*v "%MYDIR%\Setup.Dorc.log"
 
