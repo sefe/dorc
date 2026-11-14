@@ -1,7 +1,10 @@
 ﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.Core;
 using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
+using Dorc.Core.Security;
+using Dorc.Monitor.Security;
 using Dorc.PersistentData.Security;
 using Microsoft.Extensions.Logging;
 using Dorc.AzureDevOps.Client.Auth;
@@ -48,7 +51,9 @@ namespace Dorc.Monitor.TerraformSourceConfig
             ComponentApiModel component,
             DeploymentRequestApiModel request,
             ProjectApiModel? project,
-            IDictionary<string, VariableValue> properties)
+            IDictionary<string, VariableValue> properties,
+            bool sharedFolderConfinementAlreadyChecked = false,
+            string? configuredScriptRoot = null)
         {
             scriptGroup.TerraformSourceType = component.TerraformSourceType;
             scriptGroup.TerraformGitBranch = component.TerraformGitBranch ?? "main";
@@ -71,7 +76,13 @@ namespace Dorc.Monitor.TerraformSourceConfig
                     break;
 
                 case TerraformSourceType.SharedFolder:
-                    ConfigureSharedFolderSource(scriptGroup, component);
+                    ConfigureSharedFolderSource(
+                        scriptGroup,
+                        component,
+                        project,
+                        properties,
+                        sharedFolderConfinementAlreadyChecked,
+                        configuredScriptRoot);
                     break;
 
                 case TerraformSourceType.Catalog:
@@ -143,15 +154,208 @@ namespace Dorc.Monitor.TerraformSourceConfig
             }
         }
 
-        private void ConfigureSharedFolderSource(ScriptGroup scriptGroup, ComponentApiModel component)
+        private void ConfigureSharedFolderSource(
+            ScriptGroup scriptGroup,
+            ComponentApiModel component,
+            ProjectApiModel? project,
+            IDictionary<string, VariableValue> properties,
+            bool sharedFolderConfinementAlreadyChecked,
+            string? configuredScriptRoot = null)
         {
-            if (!SourceHost.IsRemoteOrUnc(component.ScriptPath))
+            if (SourceHost.IsRemoteOrUnc(component.ScriptPath))
             {
-                return;
+                RequireMayReceiveSourceCredentials(component.ScriptPath);
+                scriptGroup.AllowedTerraformSourceHosts = _sourceHosts.TerraformSourceHosts?.ToList() ?? new List<string>();
             }
 
-            RequireMayReceiveSourceCredentials(component.ScriptPath);
-            scriptGroup.AllowedTerraformSourceHosts = _sourceHosts.TerraformSourceHosts?.ToList() ?? new List<string>();
+            if (!sharedFolderConfinementAlreadyChecked
+                && !VerifySharedFolderConfinement(component, project, properties, configuredScriptRoot))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing Terraform SharedFolder script path '{LogText.SingleLine(component.ScriptPath)}' because it lies outside the allowed roots.");
+            }
+        }
+
+        /// <summary>
+        /// S-017 path confinement for Terraform SharedFolder definitions only.
+        /// Git, AzureArtifact, GitHubArtifact and Catalog definitions do not provision code
+        /// from a stored filesystem script path and are explicitly excluded.
+        ///
+        /// Validates the literal stored <see cref="ComponentApiModel.ScriptPath"/> directly,
+        /// because <c>TerraformDispatcher</c> passes it unexpanded as <c>ScriptsLocation</c>
+        /// and <c>SharedFolderCodeSourceProvider</c> never expands property tokens.
+        /// </summary>
+        public bool VerifySharedFolderConfinement(
+            ComponentApiModel component,
+            ProjectApiModel? project,
+            IDictionary<string, VariableValue>? properties,
+            string? configuredScriptRoot = null)
+        {
+            if (component.TerraformSourceType != TerraformSourceType.SharedFolder)
+            {
+                return true;
+            }
+
+            var enforcing = _configurationSettings.GetScriptPathEnforcementEnabled();
+            var allowedRoots = BuildAllowedSharedFolderRoots(project, properties, configuredScriptRoot);
+            var storedPath = component.ScriptPath;
+
+            if (string.IsNullOrWhiteSpace(storedPath))
+            {
+                ReportSharedFolderConfinement(
+                    enforcing,
+                    storedPath,
+                    allowedRoots,
+                    "the Terraform SharedFolder script path is empty.");
+                return !enforcing;
+            }
+
+            if (PropertyTokenExpander.ContainsUnexpandedDropFolderToken(storedPath))
+            {
+                ReportSharedFolderConfinement(
+                    enforcing,
+                    storedPath,
+                    allowedRoots,
+                    "it references an unexpanded DropFolder token that cannot be shown to resolve beneath an allowed root.");
+                return !enforcing;
+            }
+
+            if (HasDotDotSegment(storedPath))
+            {
+                ReportSharedFolderConfinement(
+                    enforcing,
+                    storedPath,
+                    allowedRoots,
+                    "it contains a parent directory reference ('..'), which can resolve outside the allowed roots.");
+                return !enforcing;
+            }
+
+            if (allowedRoots.Count == 0)
+            {
+                ReportSharedFolderConfinement(
+                    enforcing,
+                    storedPath,
+                    allowedRoots,
+                    "no allowed filesystem roots (ArtefactsSubPaths, ArtefactsUrl, or ScriptRoot) are configured.");
+                return !enforcing;
+            }
+
+            if (!PathConfinement.IsWithinAny(storedPath, allowedRoots))
+            {
+                ReportSharedFolderConfinement(
+                    enforcing,
+                    storedPath,
+                    allowedRoots,
+                    "the SharedFolder path does not lie beneath any allowed root.");
+                return !enforcing;
+            }
+
+            if (!string.IsNullOrWhiteSpace(component.TerraformSubPath))
+            {
+                var subPathDecision = ScriptPathConfinement.Check(component.TerraformSubPath);
+                if (!subPathDecision.Allowed)
+                {
+                    ReportSharedFolderConfinement(
+                        enforcing,
+                        component.TerraformSubPath,
+                        allowedRoots,
+                        subPathDecision.Reason);
+                    return !enforcing;
+                }
+            }
+
+            return true;
+        }
+
+        private static IReadOnlyList<string> BuildAllowedSharedFolderRoots(
+            ProjectApiModel? project,
+            IDictionary<string, VariableValue>? properties,
+            string? configuredScriptRoot)
+        {
+            var scriptRoot = configuredScriptRoot != null
+                ? configuredScriptRoot
+                : properties != null && properties.TryGetValue(PropertyValueScopeOptionsFixed.ScriptRoot, out var sr)
+                    ? sr?.Value?.ToString()
+                    : null;
+
+            var canonicalScriptRoot = PathConfinement.Canonicalise(scriptRoot) != null ? scriptRoot! : null;
+            var urlRoots = PathConfinement.SplitRoots(project?.ArtefactsUrl)
+                .Where(r => PathConfinement.Canonicalise(r) != null)
+                .ToList();
+            var subEntries = PathConfinement.SplitRoots(project?.ArtefactsSubPaths).ToList();
+
+            var anchoredSubRoots = subEntries
+                .Where(s => PathConfinement.Canonicalise(s) != null)
+                .ToList();
+            var relativeSubPaths = subEntries
+                .Where(s => PathConfinement.Canonicalise(s) == null && ScriptPathConfinement.Check(s).Allowed)
+                .ToList();
+
+            var allowedRoots = new List<string>();
+            allowedRoots.AddRange(anchoredSubRoots);
+
+            // Relative ArtefactsSubPaths narrow filesystem ArtefactsUrl roots only. When a
+            // project uses an HTTPS ArtefactsUrl (e.g. Azure DevOps or GitHub) with relative
+            // ArtefactsSubPaths, ScriptRoot remains an independent estate root and must not be
+            // narrowed by subpaths intended for ArtefactsUrl.
+            if (urlRoots.Count > 0)
+            {
+                if (relativeSubPaths.Count > 0)
+                {
+                    foreach (var urlRoot in urlRoots)
+                    {
+                        foreach (var rel in relativeSubPaths)
+                        {
+                            allowedRoots.Add(PropertyTokenExpander.ResolveAgainstRoot(urlRoot, rel));
+                        }
+                    }
+                }
+                else
+                {
+                    allowedRoots.AddRange(urlRoots);
+                }
+            }
+
+            if (canonicalScriptRoot != null)
+            {
+                allowedRoots.Add(canonicalScriptRoot);
+            }
+
+            return allowedRoots
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static bool HasDotDotSegment(string path)
+        {
+            return path.Split('\\', '/').Any(segment => segment.Trim() == "..");
+        }
+
+        private void ReportSharedFolderConfinement(
+            bool enforcing,
+            string? scriptPath,
+            IReadOnlyList<string> allowedRoots,
+            string reason)
+        {
+            var safeScriptPath = LogText.SingleLine(scriptPath);
+            var safeRoots = LogText.SingleLine(string.Join("; ", allowedRoots));
+            var safeReason = LogText.SingleLine(reason);
+
+            if (enforcing)
+            {
+                _logger.LogError(
+                    "Refusing Terraform SharedFolder path '{ScriptPath}' against allowed roots '{AllowedRoots}', because"
+                    + " {Reason} Register the folder beneath an allowed root, or correct the component's stored path.",
+                    safeScriptPath, safeRoots, safeReason);
+            }
+            else
+            {
+                _logger.LogWarning(
+                    "Terraform SharedFolder path '{ScriptPath}' would be refused once confinement is enforced,"
+                    + " because {Reason} Executing it because 'EnforceScriptPathConfinement' is not enabled."
+                    + " Allowed roots: '{AllowedRoots}'.",
+                    safeScriptPath, safeReason, safeRoots);
+            }
         }
 
         /// <summary>

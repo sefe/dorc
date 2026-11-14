@@ -59,9 +59,14 @@ namespace Dorc.PersistentData.Security
                 return CheckPath(scriptPath);
             }
 
-            var embedded = properties[ScriptPathProperty];
+            if (!TryGetEmbeddedScriptPath(properties, out var embedded, out var hasScriptPathProperty))
+            {
+                return PolicyDecision.Refuse(
+                    "it is a JSON script path with conflicting ScriptPath properties, so it cannot"
+                    + " be shown to resolve beneath the script root.");
+            }
 
-            if (embedded == null)
+            if (!hasScriptPathProperty || embedded == null)
             {
                 // Parsed cleanly and names no script. Dispatch combines an empty path with the
                 // root, which resolves to the root itself.
@@ -80,6 +85,33 @@ namespace Dorc.PersistentData.Security
                 + " resolve beneath the script root.");
         }
 
+        private static bool TryGetEmbeddedScriptPath(
+            JsonObject properties,
+            out JsonNode? embedded,
+            out bool found)
+        {
+            embedded = null;
+            found = false;
+
+            foreach (var pair in properties)
+            {
+                if (!string.Equals(pair.Key, ScriptPathProperty, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (found)
+                {
+                    return false;
+                }
+
+                found = true;
+                embedded = pair.Value;
+            }
+
+            return true;
+        }
+
         private static PolicyDecision CheckPath(string scriptPath)
         {
             if (string.IsNullOrWhiteSpace(scriptPath))
@@ -88,6 +120,37 @@ namespace Dorc.PersistentData.Security
             }
 
             var path = scriptPath.Trim();
+            var rawDecision = CheckSinglePathForm(path);
+            if (!rawDecision.Allowed)
+            {
+                return rawDecision;
+            }
+
+            if (path.Contains('%'))
+            {
+                if (!TryUnescapePercentEncoding(path, out var decoded))
+                {
+                    return PolicyDecision.Refuse(
+                        "it contains multi-layered percent encoding, so it cannot be shown to"
+                        + " resolve beneath the script root.");
+                }
+
+                var decodedDecision = CheckSinglePathForm(decoded.Trim());
+                if (!decodedDecision.Allowed)
+                {
+                    return decodedDecision;
+                }
+            }
+
+            return PolicyDecision.Allow();
+        }
+
+        private static PolicyDecision CheckSinglePathForm(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return PolicyDecision.Allow();
+            }
 
             if (IsRooted(path))
             {
@@ -114,6 +177,33 @@ namespace Dorc.PersistentData.Security
             }
 
             return PolicyDecision.Allow();
+        }
+
+        private static bool TryUnescapePercentEncoding(string value, out string unescaped)
+        {
+            const int maxPasses = 4;
+            var current = value;
+
+            for (var pass = 0; pass < maxPasses; pass++)
+            {
+                var next = Uri.UnescapeDataString(current);
+                if (string.Equals(next, current, StringComparison.Ordinal))
+                {
+                    unescaped = current;
+                    return true;
+                }
+
+                current = next;
+            }
+
+            if (string.Equals(Uri.UnescapeDataString(current), current, StringComparison.Ordinal))
+            {
+                unescaped = current;
+                return true;
+            }
+
+            unescaped = string.Empty;
+            return false;
         }
 
         private static bool IsRooted(string path)

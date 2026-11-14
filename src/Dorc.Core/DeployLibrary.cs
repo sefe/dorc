@@ -275,9 +275,27 @@ namespace Dorc.Core
                 }
 
                 var normalizedBuildUrl = SourceHost.NormalizeExtendedUnc(createRequest.BuildUrl);
-                buildDetail.DropLocation = Uri.TryCreate(normalizedBuildUrl, UriKind.Absolute, out var buildUri) && buildUri.IsFile
-                    ? buildUri.LocalPath
-                    : normalizedBuildUrl;
+                if (normalizedBuildUrl.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!Uri.TryCreate(normalizedBuildUrl, UriKind.Absolute, out var buildUri) || !buildUri.IsFile)
+                    {
+                        throw new InvalidOperationException(
+                            $"The build location is outside the artefacts location configured for project '{project.ProjectName}'.");
+                    }
+
+                    buildDetail.DropLocation = buildUri.LocalPath;
+                }
+                else
+                {
+                    buildDetail.DropLocation = normalizedBuildUrl.Replace('/', '\\');
+                }
+
+                if (!Security.PathConfinement.IsWithinAny(buildDetail.DropLocation, permittedRoots))
+                {
+                    throw new InvalidOperationException(
+                        $"The build location is outside the artefacts location configured for project '{project.ProjectName}'.");
+                }
+
                 RequirePermittedRemoteArtefactPath(buildDetail.DropLocation, "drop location");
                 buildDetail.BuildNumber = Path.GetFileName(buildDetail.DropLocation);
             }

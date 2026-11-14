@@ -146,6 +146,10 @@
       "DeployProperty": "DORC_TERRAFORM_CATALOG_MANIFESTS_DIRECTORY"
     },
     {
+      "MSIParameter": "DORC.ENFORCE.SCRIPT.PATH.CONFINEMENT",
+      "DeployProperty": "DORC_ENFORCE_SCRIPT_PATH_CONFINEMENT"
+    },
+    {
       "MSIParameter": "DORC.OAUTH.AUTHORITY",
       "DeployProperty": "DORC_OAUTH_AUTHORITY"
     },
