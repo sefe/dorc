@@ -1,6 +1,7 @@
 ﻿using System.Security.Claims;
 using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
+using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 
@@ -14,6 +15,7 @@ namespace Dorc.Api.Services
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IPropertyEncryptor _propertyEncryptor;
+        private readonly ISecurityPrivilegesChecker? _securityPrivilegesChecker;
 
         public PropertiesService(
             IPropertiesPersistentSource propertiesPersistentSource,
@@ -21,7 +23,26 @@ namespace Dorc.Api.Services
             IClaimsPrincipalReader claimsPrincipalReader,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             IPropertyEncryptor propertyEncryptor,
-            ILogger<PropertiesService> logger
+            ILogger<PropertiesService> logger)
+            : this(
+                propertiesPersistentSource,
+                propertyValuesService,
+                claimsPrincipalReader,
+                propertyValuesPersistentSource,
+                propertyEncryptor,
+                logger,
+                null)
+        {
+        }
+
+        public PropertiesService(
+            IPropertiesPersistentSource propertiesPersistentSource,
+            IPropertyValuesService propertyValuesService,
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IPropertyValuesPersistentSource propertyValuesPersistentSource,
+            IPropertyEncryptor propertyEncryptor,
+            ILogger<PropertiesService> logger,
+            ISecurityPrivilegesChecker? securityPrivilegesChecker
             )
         {
             _propertyValuesService = propertyValuesService;
@@ -30,6 +51,7 @@ namespace Dorc.Api.Services
             _claimsPrincipalReader = claimsPrincipalReader;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
             _propertyEncryptor = propertyEncryptor;
+            _securityPrivilegesChecker = securityPrivilegesChecker;
         }
 
         public PropertyApiModel GetProperty(string propertyName)
@@ -84,7 +106,7 @@ namespace Dorc.Api.Services
                 }
             }
 
-            return result;
+            return RedactResponsesIfRequired(result, User);
         }
 
         private static Response UnrollException(Exception e, object property)
@@ -189,6 +211,12 @@ namespace Dorc.Api.Services
                 return result;
             }
 
+            var securePropertyNames = new HashSet<string>(
+                importRows
+                    .Where(r => r != null && r.IsSecure && !string.IsNullOrWhiteSpace(r.PropertyName))
+                    .Select(r => r.PropertyName),
+                StringComparer.CurrentCultureIgnoreCase);
+
             foreach (var row in importRows)
             {
                 if (string.IsNullOrWhiteSpace(row.PropertyName))
@@ -212,7 +240,7 @@ namespace Dorc.Api.Services
 
             if (result.Any())
             {
-                return result;
+                return RedactResponsesIfRequired(result, User, securePropertyNames);
             }
 
             var propertySecurityMap = new Dictionary<string, bool>(StringComparer.CurrentCultureIgnoreCase);
@@ -231,7 +259,7 @@ namespace Dorc.Api.Services
 
             if (result.Any())
             {
-                return result;
+                return RedactResponsesIfRequired(result, User, securePropertyNames);
             }
 
             var properties = propertySecurityMap
@@ -242,7 +270,7 @@ namespace Dorc.Api.Services
                 })
                 .ToArray();
 
-            var propertyValues = importRows
+            PropertyValueDto[] CreatePropertyValueDtos() => importRows
                 .Select(row => new PropertyValueDto
                 {
                     Property = new PropertyApiModel
@@ -258,10 +286,119 @@ namespace Dorc.Api.Services
                 .ToArray();
 
             result.AddRange(PostProperties(properties, User));
-            result.AddRange(_propertyValuesService.PostPropertyValues(propertyValues, User));
-            result.AddRange(_propertyValuesService.PutPropertyValues(propertyValues, User));
+            result.AddRange(_propertyValuesService.PostPropertyValues(CreatePropertyValueDtos(), User));
+            result.AddRange(_propertyValuesService.PutPropertyValues(CreatePropertyValueDtos(), User));
 
-            return result;
+            return RedactResponsesIfRequired(result, User, securePropertyNames);
+        }
+
+        private List<Response> RedactResponsesIfRequired(
+            IEnumerable<Response> responses,
+            ClaimsPrincipal user,
+            ISet<string>? batchSecurePropertyNames = null)
+        {
+            return responses
+                .Select(r => new Response
+                {
+                    Item = RedactResponseItemIfRequired(r.Item, user, batchSecurePropertyNames),
+                    Status = r.Status
+                })
+                .ToList();
+        }
+
+        private object? RedactResponseItemIfRequired(
+            object? item,
+            ClaimsPrincipal user,
+            ISet<string>? batchSecurePropertyNames = null)
+        {
+            switch (item)
+            {
+                case PropertyValueDto pvDto:
+                    if (!IsSecureProperty(pvDto.Property?.Name, pvDto.Property?.Secure, batchSecurePropertyNames) ||
+                        CanReadSecrets(user, pvDto.PropertyValueFilter))
+                    {
+                        return pvDto;
+                    }
+
+                    return new PropertyValueDto
+                    {
+                        Id = pvDto.Id,
+                        Value = string.Empty,
+                        Property = pvDto.Property == null
+                            ? null
+                            : new PropertyApiModel
+                            {
+                                Id = pvDto.Property.Id,
+                                Name = pvDto.Property.Name,
+                                Secure = pvDto.Property.Secure,
+                                IsArray = pvDto.Property.IsArray
+                            },
+                        PropertyValueFilter = pvDto.PropertyValueFilter,
+                        PropertyValueFilterId = pvDto.PropertyValueFilterId,
+                        Priority = pvDto.Priority,
+                        DefaultValue = pvDto.DefaultValue,
+                        UserEditable = pvDto.UserEditable
+                    };
+
+                case PropertyImportCsvDto csvDto:
+                    if (!IsSecureProperty(csvDto.PropertyName, csvDto.IsSecure, batchSecurePropertyNames) ||
+                        CanReadSecrets(user, csvDto.Environment))
+                    {
+                        return csvDto;
+                    }
+
+                    return new PropertyImportCsvDto
+                    {
+                        PropertyName = csvDto.PropertyName,
+                        Value = string.Empty,
+                        IsSecure = csvDto.IsSecure,
+                        Environment = csvDto.Environment
+                    };
+
+                default:
+                    return item;
+            }
+        }
+
+        private bool CanReadSecrets(ClaimsPrincipal user, string? environmentName)
+        {
+            var normalizedEnvironment = string.IsNullOrWhiteSpace(environmentName)
+                ? null
+                : environmentName;
+            return _securityPrivilegesChecker?.CanReadSecrets(user, normalizedEnvironment) == true;
+        }
+
+        private bool IsSecureProperty(
+            string? propertyName,
+            bool? dtoSecure,
+            ISet<string>? batchSecurePropertyNames = null)
+        {
+            if (dtoSecure == true)
+            {
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(propertyName))
+            {
+                return false;
+            }
+
+            if (batchSecurePropertyNames != null && batchSecurePropertyNames.Contains(propertyName))
+            {
+                return true;
+            }
+
+            try
+            {
+                return _propertiesPersistentSource.GetProperty(propertyName)?.Secure == true;
+            }
+            catch (Exception ex)
+            {
+                _log.LogWarning(ex,
+                    "Failed to resolve security metadata for property '{PropertyName}'; redacting value.",
+                    propertyName);
+                return true;
+            }
         }
 
         private Response? EncryptExistingPropertyValues(string propertyName, ClaimsPrincipal user)

@@ -257,7 +257,7 @@ namespace Dorc.Api.Tests.Controllers
             };
 
             _securityPrivilegesChecker.CanModifyEnvironment(_user, accessControl.Name).Returns(true);
-            _securityPrivilegesChecker.CanReadSecrets(_user, accessControl.Name).Returns(true);
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, accessControl.Name).Returns(true);
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, accessControl.Name).Returns(false);
             StubResolvedObject(accessControl.Name, objectId);
             _accessControlPersistentSource.GetAccessControls(objectId).Returns(existingPrivileges);
@@ -290,6 +290,7 @@ namespace Dorc.Api.Tests.Controllers
 
             _securityPrivilegesChecker.CanModifyEnvironment(_user, accessControl.Name).Returns(true);
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, accessControl.Name).Returns(true);
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, accessControl.Name).Returns(true);
             _securityPrivilegesChecker.CanReadSecrets(_user, accessControl.Name).Returns(false);
             StubResolvedObject(accessControl.Name, objectId);
             _accessControlPersistentSource.GetAccessControls(objectId).Returns(existingPrivileges);
@@ -387,6 +388,7 @@ namespace Dorc.Api.Tests.Controllers
 
             _securityPrivilegesChecker.CanModifyEnvironment(_user, accessControl.Name).Returns(true);
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, accessControl.Name).Returns(false);
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, accessControl.Name).Returns(true);
             _securityPrivilegesChecker.CanReadSecrets(_user, accessControl.Name).Returns(false);
             StubResolvedObject(accessControl.Name, objectId);
             _accessControlPersistentSource.GetAccessControls(objectId).Returns(existingPrivileges);
@@ -512,6 +514,7 @@ namespace Dorc.Api.Tests.Controllers
 
             _securityPrivilegesChecker.CanModifyEnvironment(_user, "Env1").Returns(true);
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "Env1").Returns(true);
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, "Env1").Returns(true);
             _securityPrivilegesChecker.CanReadSecrets(_user, "Env1").Returns(false);
 
             var envGet = (_controller.Get(AccessControlType.Environment, "Env1") as ObjectResult)?.Value as AccessSecureApiModel;
@@ -521,6 +524,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsTrue(envGet.UserCanReadSecrets);
 
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "Env1").Returns(false);
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, "Env1").Returns(false);
             _securityPrivilegesChecker.CanReadSecrets(_user, "Env1").Returns(true);
             var envNonOwnerReaderGet = (_controller.Get(AccessControlType.Environment, "Env1") as ObjectResult)?.Value as AccessSecureApiModel;
             Assert.IsNotNull(envNonOwnerReaderGet);
@@ -549,7 +553,7 @@ namespace Dorc.Api.Tests.Controllers
             StubResolvedObject("TestEnv", objectId);
             _securityPrivilegesChecker.CanModifyEnvironment(_user, "TestEnv").Returns(true);
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "TestEnv").Returns(false);
-            _securityPrivilegesChecker.CanReadSecrets(_user, "TestEnv").Returns(true);
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, "TestEnv").Returns(true);
 
             // 1. Null Privileges -> 400
             var nullPrivs = new AccessSecureApiModel { Type = AccessControlType.Environment, Name = "TestEnv", Privileges = null! };
@@ -649,8 +653,9 @@ namespace Dorc.Api.Tests.Controllers
             };
             Assert.AreEqual(StatusCodes.Status400BadRequest, (_controller.Put(removeAllOwners) as ObjectResult)?.StatusCode);
 
-            // 9. Deleting a row with ReadSecrets on Environment when Write-only caller lacks CanReadSecrets -> 403
+            // 9. Deleting a row with ReadSecrets on Environment when Write-only caller lacks CanGrantReadSecrets -> 403
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "TestEnv").Returns(false);
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, "TestEnv").Returns(false);
             _securityPrivilegesChecker.CanReadSecrets(_user, "TestEnv").Returns(false);
             _accessControlPersistentSource.GetAccessControls(objectId).Returns(new List<AccessControlApiModel>
             {
@@ -711,8 +716,9 @@ namespace Dorc.Api.Tests.Controllers
             };
             Assert.AreEqual(StatusCodes.Status403Forbidden, (_controller.Put(addUnpersistedOwner) as ObjectResult)?.StatusCode);
 
-            // 11. Non-owner with Write + CanReadSecrets trying to grant ReadSecrets on Environment -> 403 Forbidden
+            // 11. Non-owner without CanGrantReadSecrets (even if CanReadSecrets is true) trying to grant ReadSecrets -> 403 Forbidden
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "TestEnv").Returns(false);
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, "TestEnv").Returns(false);
             _securityPrivilegesChecker.CanReadSecrets(_user, "TestEnv").Returns(true);
             var nonOwnerSecretReaderGrantsReadSecrets = new AccessSecureApiModel
             {
@@ -767,6 +773,157 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsNotNull(capturedAcl);
             Assert.AreEqual((int)(Dorc.PersistentData.AccessLevel.Owner | Dorc.PersistentData.AccessLevel.Write), capturedAcl.Allow);
             Assert.AreEqual(0, capturedAcl.Allow & (int)Dorc.PersistentData.AccessLevel.ReadSecrets);
+        }
+
+        [TestMethod]
+        public void Get_UsesGrantCapabilityForReadSecretsAdministration()
+        {
+            var objectId = Guid.NewGuid();
+            StubResolvedObject("EnvA", objectId);
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, "EnvA").Returns(true);
+
+            var result = (ObjectResult)_controller.Get(AccessControlType.Environment, "EnvA");
+            var model = (AccessSecureApiModel)result.Value!;
+
+            Assert.IsTrue(model.UserCanReadSecrets);
+            _securityPrivilegesChecker.Received().CanGrantReadSecrets(_user, "EnvA");
+            _securityPrivilegesChecker.DidNotReceive().CanReadSecrets(_user, "EnvA");
+        }
+
+        [TestMethod]
+        public void Put_CannotReassignAnExistingReadSecretsGrant()
+        {
+            var objectId = Guid.NewGuid();
+            var existing = new AccessControlApiModel
+            {
+                Id = 7,
+                Allow = 2,
+                Name = "Original service",
+                Pid = "original-service"
+            };
+            var submitted = new AccessControlApiModel
+            {
+                Id = 7,
+                Allow = 2,
+                Name = "Attacker service",
+                Pid = "attacker-service"
+            };
+
+            _securityPrivilegesChecker.CanModifyEnvironment(_user, "EnvA").Returns(true);
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, "EnvA").Returns(false);
+            StubResolvedObject("EnvA", objectId);
+            _accessControlPersistentSource.GetAccessControls(objectId).Returns(new[] { existing });
+
+            var result = (ObjectResult)_controller.Put(new AccessSecureApiModel
+            {
+                Type = AccessControlType.Environment,
+                Name = "EnvA",
+                ObjectId = objectId,
+                Privileges = new[] { submitted }
+            });
+
+            Assert.AreEqual(StatusCodes.Status403Forbidden, result.StatusCode);
+            _accessControlPersistentSource.DidNotReceive()
+                .UpdateAccessControl(Arg.Any<AccessControlApiModel>(), Arg.Any<Guid>(), Arg.Any<ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public void Put_RejectsAnEntryIdFromAnotherObject()
+        {
+            var objectId = Guid.NewGuid();
+            _securityPrivilegesChecker.CanModifyEnvironment(_user, "EnvA").Returns(true);
+            _securityPrivilegesChecker.CanGrantReadSecrets(_user, "EnvA").Returns(true);
+            StubResolvedObject("EnvA", objectId);
+            _accessControlPersistentSource.GetAccessControls(objectId)
+                .Returns(new[] { new AccessControlApiModel { Id = 1, Name = "Owner", Pid = "owner", Allow = 4 } });
+
+            var result = (ObjectResult)_controller.Put(new AccessSecureApiModel
+            {
+                Type = AccessControlType.Environment,
+                Name = "EnvA",
+                ObjectId = objectId,
+                Privileges = new[]
+                {
+                    new AccessControlApiModel { Id = 99, Name = "Foreign", Pid = "foreign", Allow = 1 }
+                }
+            });
+
+            Assert.AreEqual(StatusCodes.Status400BadRequest, result.StatusCode);
+            _accessControlPersistentSource.DidNotReceive()
+                .UpdateAccessControl(Arg.Any<AccessControlApiModel>(), Arg.Any<Guid>(), Arg.Any<ClaimsPrincipal>());
+        }
+
+        [TestMethod]
+        public void RealSecurityPrivilegesChecker_NonOwnerWithReadSecretsCannotGrantOrRevokeReadSecrets_WhileOwnerAndAdminCan()
+        {
+            var objectId = Guid.NewGuid();
+            var env = new Environment { Name = "EnvA", ObjectId = objectId };
+            var projectsSource = Substitute.For<IProjectsPersistentSource>();
+            var envsSource = Substitute.For<IEnvironmentsPersistentSource>();
+            var roleChecker = Substitute.For<Dorc.PersistentData.IRolePrivilegesChecker>();
+            var claimsReader = Substitute.For<Dorc.PersistentData.IClaimsPrincipalReader>();
+
+            envsSource.GetSecurityObject("EnvA").Returns(env);
+            _accessControlPersistentSource.GetSecurableObjects<Environment>(Arg.Any<ClaimsPrincipal>(), "EnvA")
+                .Returns(new[] { env });
+
+            var existingAcl = new List<AccessControlApiModel>
+            {
+                new AccessControlApiModel { Id = 1, Name = "HumanOwner", Sid = "owner-sid", Pid = "owner-pid", Allow = 4, Deny = 0 },
+                new AccessControlApiModel { Id = 2, Name = "MachineReaderWriter", Sid = "mp-sid", Pid = "mp-pid", Allow = 1 | 2, Deny = 0 }
+            };
+            _accessControlPersistentSource.GetAccessControls(objectId).Returns(existingAcl);
+
+            var machineHolder = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "MachineReaderWriter") }, "Bearer"));
+            var humanOwner = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "HumanOwner") }, "Bearer"));
+
+            envsSource.IsEnvironmentOwner("EnvA", humanOwner).Returns(true);
+            envsSource.IsEnvironmentOwner("EnvA", machineHolder).Returns(false);
+            claimsReader.GetSidsForUser(machineHolder).Returns(new List<string> { "mp-sid" });
+            claimsReader.GetSidsForUser(humanOwner).Returns(new List<string> { "owner-sid" });
+            claimsReader.IsMachinePrincipal(machineHolder).Returns(true);
+            claimsReader.IsMachinePrincipal(humanOwner).Returns(false);
+
+            var realFilter = new Dorc.PersistentData.SecurityObjectFilter(_accessControlPersistentSource, claimsReader);
+            var realChecker = new Dorc.Core.SecurityPrivilegesChecker(projectsSource, envsSource, realFilter, roleChecker, claimsReader);
+
+            var controllerForMachine = new AccessControlController(_accessControlPersistentSource, _adSearcher, realChecker)
+            {
+                ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = machineHolder } }
+            };
+
+            // Machine principal holds Write | ReadSecrets, so UserEditable is true, but UserCanReadSecrets (grant authority) MUST be false
+            var machineResult = (ObjectResult)controllerForMachine.Get(AccessControlType.Environment, "EnvA");
+            Assert.IsInstanceOfType(machineResult.Value, typeof(AccessSecureApiModel));
+            var machineGet = (AccessSecureApiModel)(machineResult.Value ?? throw new AssertFailedException());
+            Assert.IsTrue(machineGet.UserEditable);
+            Assert.IsFalse(machineGet.UserCanReadSecrets);
+
+            // Machine principal attempting to grant ReadSecrets to another entry is rejected 403 Forbidden
+            var grantAttempt = new AccessSecureApiModel
+            {
+                Type = AccessControlType.Environment,
+                Name = "EnvA",
+                ObjectId = objectId,
+                Privileges = new List<AccessControlApiModel>
+                {
+                    existingAcl[0],
+                    existingAcl[1],
+                    new AccessControlApiModel { Id = 0, Name = "AnotherClient", Sid = "other-sid", Pid = "other-pid", Allow = 2, Deny = 0 }
+                }
+            };
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((ObjectResult)controllerForMachine.Put(grantAttempt)).StatusCode);
+
+            // Human Owner cannot exercise ReadSecrets, but CAN grant ReadSecrets via AccessControlController
+            var controllerForOwner = new AccessControlController(_accessControlPersistentSource, _adSearcher, realChecker)
+            {
+                ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = humanOwner } }
+            };
+            var ownerResult = (ObjectResult)controllerForOwner.Get(AccessControlType.Environment, "EnvA");
+            Assert.IsInstanceOfType(ownerResult.Value, typeof(AccessSecureApiModel));
+            var ownerGet = (AccessSecureApiModel)(ownerResult.Value ?? throw new AssertFailedException());
+            Assert.IsTrue(ownerGet.UserCanReadSecrets);
+            Assert.AreEqual(StatusCodes.Status200OK, ((ObjectResult)controllerForOwner.Put(grantAttempt)).StatusCode);
         }
     }
 }

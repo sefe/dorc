@@ -11,6 +11,12 @@ namespace Dorc.Core.Interfaces
         bool CanModifyProject(ClaimsPrincipal user, string projectName);
         bool CanModifyEnvironment(ClaimsPrincipal user, string envName);
         bool CanReadSecrets(ClaimsPrincipal user, string environmentName);
+
+        /// <summary>
+        /// Whether the caller may grant the read-secrets privilege. Separate from exercising
+        /// it: administration is a human activity, retrieval is a machine one.
+        /// </summary>
+        bool CanGrantReadSecrets(ClaimsPrincipal user, string environmentName);
         bool CanModifyProject(ClaimsPrincipal user, int projectId);
     }
 }
