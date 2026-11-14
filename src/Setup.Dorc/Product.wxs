@@ -6,6 +6,7 @@
 		<Property Id="DOTNET.VERSION" Value="4.0.30319" />
 		<Property Id="ALLOWED.ARTEFACT.HOSTS" Value="[]" Secure="yes" />
 		<Property Id="ALLOWED.TERRAFORM.SOURCE.HOSTS" Value="[]" Secure="yes" />
+		<Property Id="DORC.CONFIG.KEYS.WITHHELD.FROM.SCRIPTS" Value='["DORC_ProdDeployPassword","DORC_WebDeployPassword","DorcApiAccessPassword"]' Secure="yes" />
 
 		<Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
 

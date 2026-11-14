@@ -67,7 +67,8 @@ namespace Dorc.Api.Tests.Controllers
                 Substitute.For<IVariableResolver>(),
                 Substitute.For<IVariableScopeOptionsResolver>(),
                 _configurationSettings,
-                Substitute.For<IConfigValuesPersistentSource>())
+                Substitute.For<IConfigValuesPersistentSource>(),
+                Substitute.For<Dorc.PersistentData.Security.IScriptScopeConfigValues>())
             {
                 ControllerContext = new ControllerContext
                 {

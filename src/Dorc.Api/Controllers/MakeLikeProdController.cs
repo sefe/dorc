@@ -173,11 +173,17 @@ namespace Dorc.Api.Controllers
                             List<RequestProperty> variables = new();
                             foreach (var variable in job.RequestProperties)
                             {
+                                var resolvedProperty = _variableResolver.GetPropertyValue(variable.PropertyName);
+                                if (resolvedProperty == null)
+                                {
+                                    continue;
+                                }
+
                                 variables.Add(new RequestProperty
                                 {
                                     PropertyName = variable.PropertyName,
-                                    PropertyValue = _variableResolver.GetPropertyValue(variable.PropertyName).Value
-                                        .ToString()
+                                    PropertyValue = resolvedProperty.Value?.ToString(),
+                                    IsSensitive = variable.IsSensitive
                                 });
                             }
 

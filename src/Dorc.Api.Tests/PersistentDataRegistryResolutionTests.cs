@@ -1,6 +1,8 @@
 using Dorc.PersistentData;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Lamar;
+using Microsoft.Extensions.Configuration;
 
 namespace Dorc.Api.Tests
 {
@@ -23,6 +25,41 @@ namespace Dorc.Api.Tests
             Assert.IsNotNull(container.GetInstance<IContainerAuditPersistentSource>());
             Assert.IsNotNull(container.GetInstance<ICloudResourceAuditPersistentSource>());
             Assert.IsNotNull(container.GetInstance<IApiRegistrationAuditPersistentSource>());
+            Assert.IsNotNull(container.GetInstance<IScriptScopeConfigValues>());
+        }
+
+        [TestMethod]
+        [DataRow(true)]
+        [DataRow(false)]
+        public void PersistentDataRegistry_UsesHostIConfigurationForScriptScopeConfigValues(bool scalarOverride)
+        {
+            var settings = scalarOverride
+                ? new Dictionary<string, string?>
+                {
+                    [ScriptScopeConfigValues.WithheldKeysSetting] = "EnvOverrideOne, EnvOverrideTwo"
+                }
+                : new Dictionary<string, string?>
+                {
+                    [$"{ScriptScopeConfigValues.WithheldKeysSetting}:0"] = "EnvOverrideOne",
+                    [$"{ScriptScopeConfigValues.WithheldKeysSetting}:1"] = "EnvOverrideTwo"
+                };
+            var hostConfiguration = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+                .AddInMemoryCollection(settings)
+                .Build();
+
+            using var container = new Container(registry =>
+            {
+                registry.For<Microsoft.Extensions.Configuration.IConfiguration>().Use(hostConfiguration);
+                registry.IncludeRegistry<PersistentDataRegistry>();
+            });
+
+            var resolved = container.GetInstance<IScriptScopeConfigValues>();
+
+            Assert.IsTrue(resolved.IsWithheld("DORC_ProdDeployPassword"));
+            Assert.IsTrue(resolved.IsWithheld("DORC_WebDeployPassword"));
+            Assert.IsTrue(resolved.IsWithheld("DorcApiAccessPassword"));
+            Assert.IsTrue(resolved.IsWithheld("EnvOverrideOne"));
+            Assert.IsTrue(resolved.IsWithheld("EnvOverrideTwo"));
         }
     }
 }
