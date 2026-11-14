@@ -4,7 +4,9 @@ using Dorc.PersistentData.Extensions;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 using System.Linq.Expressions;
+using System.Net;
 using System.Security.Principal;
 using Database = Dorc.PersistentData.Model.Database;
 
@@ -84,6 +86,262 @@ namespace Dorc.PersistentData.Sources
 
                 return output;
             }
+        }
+
+        private const int DefaultSqlServerPort = 1433;
+
+        private readonly record struct SqlServerEndpoint(
+            string NormalizedHost,
+            int? ExplicitPort,
+            string? InstanceName);
+
+        public IEnumerable<DatabaseApiModel> GetDatabasesForServerName(string serverName)
+        {
+            if (string.IsNullOrWhiteSpace(serverName))
+            {
+                return Enumerable.Empty<DatabaseApiModel>();
+            }
+
+            using var context = _contextFactory.GetContext();
+            var matchingIds = context.Databases
+                .Where(d => d.ServerName != null && d.ServerName != "")
+                .Select(d => new { d.Id, d.ServerName })
+                .AsEnumerable()
+                .Where(d => SqlServerInstancesMatch(d.ServerName, serverName))
+                .Select(d => d.Id)
+                .Distinct()
+                .ToList();
+
+            if (matchingIds.Count == 0)
+            {
+                return Enumerable.Empty<DatabaseApiModel>();
+            }
+
+            return context.Databases
+                .Include(d => d.Group)
+                .Include(d => d.TagLinks)
+                .Include(d => d.Environments)
+                .Where(d => matchingIds.Contains(d.Id))
+                .ToList()
+                .Select(MapToDatabaseApiModel)
+                .Where(d => d != null)
+                .Cast<DatabaseApiModel>()
+                .ToList();
+        }
+
+        public IEnumerable<DatabaseApiModel> GetDatabasesForServerAndLogin(string serverName, string username)
+        {
+            if (string.IsNullOrWhiteSpace(serverName) || string.IsNullOrWhiteSpace(username))
+            {
+                return Enumerable.Empty<DatabaseApiModel>();
+            }
+
+            string trimmedUsername = username.Trim();
+            using var context = _contextFactory.GetContext();
+            var matchingIds = context.EnvironmentUsers
+                .Where(eu => eu.Database != null
+                    && eu.Database.ServerName != null
+                    && eu.Database.ServerName != ""
+                    && eu.User != null
+                    && EF.Functions.Collate(eu.User.LoginId, DeploymentContext.CaseInsensitiveCollation)
+                        == EF.Functions.Collate(trimmedUsername, DeploymentContext.CaseInsensitiveCollation))
+                .Select(eu => new { eu.Database.Id, eu.Database.ServerName })
+                .AsEnumerable()
+                .Where(d => SqlServerInstancesMatch(d.ServerName, serverName))
+                .Select(d => d.Id)
+                .Distinct()
+                .ToList();
+
+            if (matchingIds.Count == 0)
+            {
+                return Enumerable.Empty<DatabaseApiModel>();
+            }
+
+            return context.Databases
+                .Include(d => d.Group)
+                .Include(d => d.TagLinks)
+                .Include(d => d.Environments)
+                .Where(d => matchingIds.Contains(d.Id))
+                .ToList()
+                .Select(MapToDatabaseApiModel)
+                .Where(d => d != null)
+                .Cast<DatabaseApiModel>()
+                .ToList();
+        }
+
+        public static bool SqlServerInstancesMatch(string? leftServerName, string? rightServerName)
+        {
+            if (!TryParseSqlServerEndpoint(leftServerName, out SqlServerEndpoint left)
+                || !TryParseSqlServerEndpoint(rightServerName, out SqlServerEndpoint right))
+            {
+                return false;
+            }
+
+            return SqlServerHostsMatch(left.NormalizedHost, right.NormalizedHost)
+                && SqlServerEndpointsMatch(left, right);
+        }
+
+        private static bool TryParseSqlServerEndpoint(
+            string? rawServerName,
+            out SqlServerEndpoint endpoint)
+        {
+            endpoint = default;
+
+            if (string.IsNullOrWhiteSpace(rawServerName))
+            {
+                return false;
+            }
+
+            string candidate = StripSqlProtocolPrefix(rawServerName.Trim());
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                return false;
+            }
+
+            int? explicitPort = null;
+            int commaIndex = candidate.LastIndexOf(',');
+            if (commaIndex >= 0)
+            {
+                string portPart = candidate[(commaIndex + 1)..].Trim();
+                candidate = candidate[..commaIndex].Trim();
+                if (!int.TryParse(portPart, NumberStyles.None, CultureInfo.InvariantCulture, out int parsedPort)
+                    || parsedPort is < 1 or > 65535)
+                {
+                    return false;
+                }
+
+                explicitPort = parsedPort;
+            }
+
+            string? instanceName = null;
+            int slashIndex = candidate.IndexOf('\\');
+            if (slashIndex >= 0)
+            {
+                string instancePart = candidate[(slashIndex + 1)..].Trim();
+                candidate = candidate[..slashIndex].Trim();
+                if (string.IsNullOrEmpty(instancePart))
+                {
+                    return false;
+                }
+
+                if (!string.Equals(instancePart, "MSSQLSERVER", StringComparison.OrdinalIgnoreCase))
+                {
+                    instanceName = instancePart;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(candidate))
+            {
+                return false;
+            }
+
+            string normalizedHost;
+            if (IsLocalSqlServerAlias(candidate))
+            {
+                normalizedHost = "localhost";
+            }
+            else
+            {
+                normalizedHost = candidate.TrimEnd('.');
+                if (string.IsNullOrWhiteSpace(normalizedHost))
+                {
+                    return false;
+                }
+            }
+
+            endpoint = new SqlServerEndpoint(normalizedHost, explicitPort, instanceName);
+            return true;
+        }
+
+        private static string StripSqlProtocolPrefix(string value)
+        {
+            ReadOnlySpan<string> prefixes = ["tcp:", "np:", "lpc:", "admin:"];
+            foreach (string prefix in prefixes)
+            {
+                if (value.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    return value[prefix.Length..].Trim();
+                }
+            }
+
+            return value;
+        }
+
+        private static bool IsLocalSqlServerAlias(string hostCandidate)
+        {
+            return string.Equals(hostCandidate, ".", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(hostCandidate, "(local)", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(hostCandidate, "localhost", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(hostCandidate, "localhost.", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(hostCandidate, "127.0.0.1", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(hostCandidate, "::1", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(hostCandidate, "[::1]", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool SqlServerHostsMatch(string leftHost, string rightHost)
+        {
+            if (string.Equals(leftHost, rightHost, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return IsShortHostMatchingFqdn(leftHost, rightHost)
+                || IsShortHostMatchingFqdn(rightHost, leftHost);
+        }
+
+        private static bool IsShortHostMatchingFqdn(string candidateShortHost, string candidateFqdn)
+        {
+            if (string.Equals(candidateShortHost, "localhost", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(candidateFqdn, "localhost", StringComparison.OrdinalIgnoreCase)
+                || candidateShortHost.Contains('.')
+                || candidateShortHost.Contains(':')
+                || candidateFqdn.Contains(':')
+                || IPAddress.TryParse(candidateShortHost, out _)
+                || IPAddress.TryParse(candidateFqdn, out _))
+            {
+                return false;
+            }
+
+            return candidateFqdn.Length > candidateShortHost.Length + 1
+                && candidateFqdn.StartsWith(candidateShortHost, StringComparison.OrdinalIgnoreCase)
+                && candidateFqdn[candidateShortHost.Length] == '.';
+        }
+
+        private static bool SqlServerEndpointsMatch(
+            SqlServerEndpoint left,
+            SqlServerEndpoint right)
+        {
+            if (left.ExplicitPort.HasValue && right.ExplicitPort.HasValue)
+            {
+                return left.ExplicitPort.Value == right.ExplicitPort.Value;
+            }
+
+            if (left.ExplicitPort.HasValue || right.ExplicitPort.HasValue)
+            {
+                SqlServerEndpoint explicitEndpoint = left.ExplicitPort.HasValue ? left : right;
+                SqlServerEndpoint implicitEndpoint = left.ExplicitPort.HasValue ? right : left;
+
+                if (explicitEndpoint.ExplicitPort!.Value == DefaultSqlServerPort)
+                {
+                    return string.IsNullOrEmpty(implicitEndpoint.InstanceName);
+                }
+
+                // A named instance without an explicit port and a non-default explicit TCP port on
+                // the same host may refer to the same SQL Server instance; fail closed.
+                return !string.IsNullOrEmpty(implicitEndpoint.InstanceName);
+            }
+
+            if (string.IsNullOrEmpty(left.InstanceName) && string.IsNullOrEmpty(right.InstanceName))
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrEmpty(left.InstanceName) && !string.IsNullOrEmpty(right.InstanceName))
+            {
+                return string.Equals(left.InstanceName, right.InstanceName, StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
         }
 
         public DatabaseApiModel? AddDatabase(DatabaseApiModel db)

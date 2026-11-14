@@ -86,6 +86,7 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<IDatabasesPersistentSource>(),
                 propertySource,
                 Substitute.For<IScriptScopeConfigValues>(),
+                Substitute.For<Dorc.Core.Security.IDeploymentCredentialSource>(),
                 allowList);
 
             var getScriptGroup = typeof(TerraformDispatcher).GetMethod(
