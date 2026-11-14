@@ -1468,6 +1468,24 @@
         "resolved": "1.2.0",
         "contentHash": "MdvJ90+CLKLwy1cvtQDMbQfYIiLUAmKtxP/fUyVI/bMBVgLTqKP51RwkxCL4t5GBidQ+fTPAjd0cve6Bt+7F8A=="
       },
+      "OpenSearch.Client": {
+        "type": "Transitive",
+        "resolved": "1.8.0",
+        "contentHash": "OoVHys2QZpnstwA9WliaFjpV/LEs5EbKPRjy8ww8cRxJMNzHpHTwUJBJ/N8qHhP/riiTHAtNUGLvhcoBXJkyTw==",
+        "dependencies": {
+          "OpenSearch.Net": "1.8.0"
+        }
+      },
+      "OpenSearch.Net": {
+        "type": "Transitive",
+        "resolved": "1.8.0",
+        "contentHash": "X4n+b3Eq9u7i5qXqcSPMJRpoH7qljwCIAv2t6h46R4JuObzx28VeFG0cGoy+y4azqScfKp2t67JeuHB1Mo+4Uw==",
+        "dependencies": {
+          "Microsoft.CSharp": "4.7.0",
+          "System.Buffers": "4.5.1",
+          "System.Diagnostics.DiagnosticSource": "6.0.1"
+        }
+      },
       "OpenTelemetry": {
         "type": "Transitive",
         "resolved": "1.15.3",
@@ -1606,6 +1624,22 @@
         "resolved": "4.3.0",
         "contentHash": "+cDryFR0GRhsGOnZSKwaDzRRl4MupvJ42FhCE4zhQRVanX0Jpg6WuCBk59OVhVDPmab1bB+nRykAnykYELA9qQ=="
       },
+      "Serilog.Enrichers.Environment": {
+        "type": "Transitive",
+        "resolved": "3.0.1",
+        "contentHash": "9BqCE4C9FF+/rJb/CsQwe7oVf44xqkOvMwX//CUxvUR25lFL4tSS6iuxE5eW07quby1BAyAEP+vM6TWsnT3iqw==",
+        "dependencies": {
+          "Serilog": "4.0.0"
+        }
+      },
+      "Serilog.Enrichers.Process": {
+        "type": "Transitive",
+        "resolved": "3.0.0",
+        "contentHash": "/wPYz2PDCJGSHNI+Z0PAacZvrgZgrGduWqLXeC2wvW6pgGM/Bi45JrKy887MRcRPHIZVU0LAlkmJ7TkByC0boQ==",
+        "dependencies": {
+          "Serilog": "4.0.0"
+        }
+      },
       "Serilog.Enrichers.Thread": {
         "type": "Transitive",
         "resolved": "4.0.0",
@@ -1623,6 +1657,14 @@
           "Serilog": "4.2.0"
         }
       },
+      "Serilog.Formatting.Compact": {
+        "type": "Transitive",
+        "resolved": "3.0.0",
+        "contentHash": "wQsv14w9cqlfB5FX2MZpNsTawckN4a8dryuNGbebB/3Nh1pXnROHZov3swtu3Nj5oNG7Ba+xdu7Et/ulAUPanQ==",
+        "dependencies": {
+          "Serilog": "4.0.0"
+        }
+      },
       "Serilog.Settings.Configuration": {
         "type": "Transitive",
         "resolved": "9.0.0",
@@ -1631,6 +1673,31 @@
           "Microsoft.Extensions.Configuration.Binder": "9.0.0",
           "Microsoft.Extensions.DependencyModel": "9.0.0",
           "Serilog": "4.2.0"
+        }
+      },
+      "Serilog.Sinks.Async": {
+        "type": "Transitive",
+        "resolved": "2.1.0",
+        "contentHash": "SnmRknWsSMgyo9wDXeZZCqSp48kkQYy44taSM6vcpxfiRICzSf09oLKEmVr0RCwQnfd8mJQ2WNN6nvhqf0RowQ==",
+        "dependencies": {
+          "Serilog": "4.1.0"
+        }
+      },
+      "Serilog.Sinks.Console": {
+        "type": "Transitive",
+        "resolved": "6.1.1",
+        "contentHash": "8jbqgjUyZlfCuSTaJk6lOca465OndqOz3KZP6Cryt/IqZYybyBu7GP0fE/AXBzrrQB3EBmQntBFAvMVz1COvAA==",
+        "dependencies": {
+          "Serilog": "4.0.0"
+        }
+      },
+      "Serilog.Sinks.EventLog": {
+        "type": "Transitive",
+        "resolved": "4.0.0",
+        "contentHash": "Cmfr5v407xVc0GA0Sk+RQCCBNvxvwY1lV5/k2bqLi3ksTvLx/KbGTVM2rA5Z/e2ZEZ12HOCvBviQ9Er9GsMjXQ==",
+        "dependencies": {
+          "Serilog": "4.0.0",
+          "System.Diagnostics.EventLog": "8.0.0"
         }
       },
       "Serilog.Sinks.File": {
@@ -1653,6 +1720,11 @@
         "type": "Transitive",
         "resolved": "2.0.8",
         "contentHash": "IAR4gJlLVD4r/FsU/rDb1+9sbB3/tCFVZz5IzlbM2yHoiUisBi5Ek/KXRUF7RcqNARka79EoaOz9INnXvQ/O6w=="
+      },
+      "System.Buffers": {
+        "type": "Transitive",
+        "resolved": "4.5.1",
+        "contentHash": "Rw7ijyl1qqRS0YQD/WycNst8hUUMgrMH4FCn1nNm27M4VxchZ1js3fVjQaANHO5f3sN4isvP4a+Met9Y4YomAg=="
       },
       "System.ClientModel": {
         "type": "Transitive",
@@ -2119,10 +2191,11 @@
       },
       "System.Security.Cryptography.Xml": {
         "type": "Transitive",
-        "resolved": "8.0.5",
-        "contentHash": "vu85aidUbxTh39CXdo/4mgtDlBNQ0h6k7oq5RIBwV2V2QYbRvtY6XlV3ikwYIyLX/LyaOraVvoCVVYnjFbV4/w==",
+        "resolved": "9.0.22",
+        "contentHash": "R3CPBoGomums36+pYIK5G4MSC7gZETkYaVKFklrqum6s+K4iwcQ+k6l5/5S1GGcTQToQeXq/0R8RljWrSfj88w==",
         "dependencies": {
-          "System.Security.Cryptography.Pkcs": "8.0.2"
+          "Microsoft.Bcl.Cryptography": "9.0.22",
+          "System.Security.Cryptography.Pkcs": "9.0.22"
         }
       },
       "System.Security.Permissions": {
@@ -2558,6 +2631,43 @@
           "System.Security.Cryptography.Pkcs": "[9.0.22, )",
           "System.Security.Permissions": "[9.0.10, )",
           "System.Text.RegularExpressions": "[4.3.1, )"
+        }
+      },
+      "dorc.powershell": {
+        "type": "Project",
+        "dependencies": {
+          "Dorc.ApiModel": "[1.0.0, )",
+          "Dorc.Runner.Logger": "[1.0.0, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.3, )",
+          "Microsoft.PowerShell.SDK": "[7.4.22, )",
+          "Newtonsoft.Json": "[13.0.4, )",
+          "System.Management.Automation": "[7.4.22, )",
+          "System.Security.Cryptography.Pkcs": "[9.0.22, )",
+          "System.Security.Cryptography.Xml": "[9.0.22, )",
+          "System.Text.RegularExpressions": "[4.3.1, )"
+        }
+      },
+      "dorc.runner.logger": {
+        "type": "Project",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration": "[9.0.10, )",
+          "Microsoft.Extensions.Configuration.Json": "[9.0.10, )",
+          "Microsoft.Extensions.Logging": "[9.0.22, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.3, )",
+          "Microsoft.Extensions.Logging.Console": "[9.0.10, )",
+          "Newtonsoft.Json": "[13.0.4, )",
+          "OpenSearch.Client": "[1.8.0, )",
+          "Serilog": "[4.3.0, )",
+          "Serilog.Enrichers.Environment": "[3.0.1, )",
+          "Serilog.Enrichers.Process": "[3.0.0, )",
+          "Serilog.Enrichers.Thread": "[4.0.0, )",
+          "Serilog.Extensions.Logging": "[9.0.2, )",
+          "Serilog.Formatting.Compact": "[3.0.0, )",
+          "Serilog.Settings.Configuration": "[9.0.0, )",
+          "Serilog.Sinks.Async": "[2.1.0, )",
+          "Serilog.Sinks.Console": "[6.1.1, )",
+          "Serilog.Sinks.EventLog": "[4.0.0, )",
+          "Serilog.Sinks.File": "[7.0.0, )"
         }
       },
       "org.openapitools": {

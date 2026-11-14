@@ -66,6 +66,7 @@ namespace Dorc.Monitor.Registry
             collection.AddSingleton<ISecureKeyPersistentDataSource, SecureKeyPersistentDataSource>();
             collection.AddTransient<IConfigValuesPersistentSource, ConfigValuesPersistentSource>();
             collection.AddTransient<IScriptsAuditPersistentSource, ScriptsAuditPersistentSource>();
+            collection.AddTransient<IScriptsPersistentSource, ScriptsPersistentSource>();
         }
     }
 }

@@ -62,7 +62,8 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<IConfigurationSettings>(),
                 Substitute.For<IRequestsPersistentSource>(),
                 Substitute.For<IScriptScopeConfigValues>(),
-                credentialSource);
+                credentialSource,
+                Substitute.For<IScriptsPersistentSource>());
 
             var terraformDispatcher = new TerraformDispatcher(
                 Substitute.For<ILogger<TerraformDispatcher>>(),
@@ -137,7 +138,8 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<IConfigurationSettings>(),
                 Substitute.For<IRequestsPersistentSource>(),
                 Substitute.For<IScriptScopeConfigValues>(),
-                credentialSource);
+                credentialSource,
+                Substitute.For<IScriptsPersistentSource>());
 
             var terraformDispatcher = new TerraformDispatcher(
                 Substitute.For<ILogger<TerraformDispatcher>>(),
@@ -223,6 +225,7 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<IRequestsPersistentSource>(),
                 Substitute.For<IScriptScopeConfigValues>(),
                 credentialSource,
+                Substitute.For<IScriptsPersistentSource>(),
                 Substitute.For<IPowerShellEvidenceCapture>());
 
             var requests = Substitute.For<IRequestsPersistentSource>();

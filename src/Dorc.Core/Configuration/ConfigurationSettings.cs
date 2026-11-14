@@ -208,10 +208,10 @@ namespace Dorc.Core.Configuration
         /// <summary>
         /// How far script content verification is taken.
         ///
-        /// Absence, and any value that is not recognised, means Report. An unreadable setting
-        /// must not be able to turn the control off silently, and must not be able to turn
-        /// enforcement on either — a typo that refused every deployment in the estate would be a
-        /// self-inflicted outage.
+        /// Absence or whitespace defaults to Report. Any unrecognised non-empty value fails
+        /// closed with <see cref="InvalidOperationException"/> so a typo (such as "Enfroce") or
+        /// unreplaced deployment token cannot silently downgrade enforcement or disable the
+        /// control.
         /// </summary>
         public ScriptContentVerificationMode GetScriptContentVerificationMode()
         {
@@ -226,7 +226,8 @@ namespace Dorc.Core.Configuration
                 "off" => ScriptContentVerificationMode.Off,
                 "report" => ScriptContentVerificationMode.Report,
                 "enforce" => ScriptContentVerificationMode.Enforce,
-                _ => ScriptContentVerificationMode.Report
+                _ => throw new InvalidOperationException(
+                    $"Invalid value '{value}' for configuration key 'AppSettings:ScriptContentVerification'. Expected 'Off', 'Report', 'Enforce', or empty.")
             };
         }
 

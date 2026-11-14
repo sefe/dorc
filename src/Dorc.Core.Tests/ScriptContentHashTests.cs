@@ -236,13 +236,6 @@ public class ScriptContentHashTests
     [DataRow("enforce", ScriptContentVerificationMode.Enforce)]
     [DataRow("ENFORCE", ScriptContentVerificationMode.Enforce)]
     [DataRow(" Enforce ", ScriptContentVerificationMode.Enforce)]
-    [DataRow("Off, Enforce", ScriptContentVerificationMode.Report)]
-    [DataRow("Off, Off", ScriptContentVerificationMode.Report)]
-    [DataRow("Report, Enforce", ScriptContentVerificationMode.Report)]
-    [DataRow("unknown-mode", ScriptContentVerificationMode.Report)]
-    [DataRow("0", ScriptContentVerificationMode.Report)]
-    [DataRow("2", ScriptContentVerificationMode.Report)]
-    [DataRow("99", ScriptContentVerificationMode.Report)]
     public void ConfigurationSettings_ParsesScriptContentVerificationModeSafely(
         string? configuredValue,
         ScriptContentVerificationMode expected)
@@ -259,5 +252,31 @@ public class ScriptContentHashTests
         var settings = new ConfigurationSettings(configuration);
 
         Assert.AreEqual(expected, settings.GetScriptContentVerificationMode());
+    }
+
+    [TestMethod]
+    [DataRow("Enfroce")]
+    [DataRow("[PLACEHOLDER]")]
+    [DataRow("[DORC.SCRIPT.CONTENT.VERIFICATION]")]
+    [DataRow("Off, Enforce")]
+    [DataRow("Off, Off")]
+    [DataRow("Report, Enforce")]
+    [DataRow("unknown-mode")]
+    [DataRow("0")]
+    [DataRow("2")]
+    [DataRow("99")]
+    public void ConfigurationSettings_RejectsUnrecognizedScriptContentVerificationMode(
+        string invalidValue)
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AppSettings:ScriptContentVerification"] = invalidValue
+            })
+            .Build();
+        var settings = new ConfigurationSettings(configuration);
+
+        Assert.ThrowsExactly<InvalidOperationException>(
+            () => settings.GetScriptContentVerificationMode());
     }
 }

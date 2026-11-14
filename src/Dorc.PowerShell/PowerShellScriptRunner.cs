@@ -1,20 +1,19 @@
+using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Runner.Logger;
-using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
 using System.Management.Automation.Runspaces;
 using System.Management.Automation;
-using Dorc.ApiModel;
 
 namespace Dorc.PowerShell
 {
     public class PowerShellScriptRunner : IPowerShellScriptRunner
     {
         private readonly IRunnerLogger logger;
-        private readonly ScriptGroup evidenceContract;
+        private readonly ScriptGroup? evidenceContract;
         private int ordinal;
 
-        public PowerShellScriptRunner(IRunnerLogger logger, ScriptGroup evidenceContract = null)
+        public PowerShellScriptRunner(IRunnerLogger logger, ScriptGroup? evidenceContract = null)
         {
             this.logger = logger;
             this.evidenceContract = evidenceContract;
@@ -24,7 +23,9 @@ namespace Dorc.PowerShell
         public int Run(string scriptsLocation,
             string scriptName,
             IDictionary<string, VariableValue> scriptProperties,
-            IDictionary<string, VariableValue> commonProperties)
+            IDictionary<string, VariableValue> commonProperties,
+            ScriptContentVerificationMode contentVerification = ScriptContentVerificationMode.Enforce,
+            string? expectedContentHash = null)
         {
             logger.FileLogger.LogInformation("Starting execution of script '{0}'", scriptName);
 
@@ -37,6 +38,37 @@ namespace Dorc.PowerShell
                     runspace.InitialSessionState.AuthorizationManager = new AuthorizationManager("Microsoft.PowerShell");
                     runspace.Open();
 
+                    // Read once via PowerShellInput (ScriptContentHash.ReadAndHash). The exact
+                    // decoded script text that is hashed into the execution receipt and checked
+                    // by ScriptContentGate is passed directly to AddScript without re-reading
+                    // the network-share file.
+                    var input = new PowerShellInput(
+                        scriptName,
+                        evidenceContract?.PowerShellEvidenceDirectory,
+                        evidenceContract?.DefinitionRequestId ?? 0,
+                        evidenceContract?.DeployResultId ?? 0,
+                        evidenceContract?.DefinitionRevision,
+                        ordinal++,
+                        evidenceContract?.PowerShellVersionNumber,
+                        runspace.Version.ToString());
+
+                    var decision = ScriptContentGate.Evaluate(
+                        contentVerification,
+                        expectedContentHash!,
+                        input.ContentHash);
+
+                    if (!decision.MayExecute)
+                    {
+                        var refusalMessage = $"Refusing to execute '{scriptName}'. {decision.Explanation}";
+                        logger.Error(refusalMessage);
+                        throw new ScriptContentVerificationException(refusalMessage);
+                    }
+
+                    if (decision.Verdict != ScriptContentVerdict.Matched)
+                    {
+                        logger.Warning($"{decision.Explanation} Script: '{scriptName}'.");
+                    }
+
                     AddProperties(runspace, combinedProperties);
 
                     using (var powerShell = System.Management.Automation.PowerShell.Create())
@@ -48,10 +80,6 @@ namespace Dorc.PowerShell
                             powerShell.AddCommand("Set-Location").AddParameter("Path", scriptsLocation);
                         }
 
-                        var input = new PowerShellInput(scriptName, evidenceContract?.PowerShellEvidenceDirectory,
-                            evidenceContract?.DefinitionRequestId ?? 0, evidenceContract?.DeployResultId ?? 0,
-                            evidenceContract?.DefinitionRevision, ordinal++, evidenceContract?.PowerShellVersionNumber,
-                            runspace.Version.ToString());
                         powerShell.AddScript(input.Text);
                         powerShell.InvocationStateChanged += (_, state) =>
                         {
@@ -109,6 +137,10 @@ namespace Dorc.PowerShell
                         logger.FileLogger.LogDebug("Checking InvocationStateInfo...Done");
                     }
                 }
+            }
+            catch (ScriptContentVerificationException)
+            {
+                throw;
             }
             catch (Exception e)
             {
