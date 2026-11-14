@@ -173,6 +173,7 @@ models/Response.ts
 models/SaveCatalogEnvironmentInputsApiModel.ts
 models/ScriptApiModel.ts
 models/ScriptAuditApiModel.ts
+models/ScriptContentHashApiModel.ts
 models/ServerApiModel.ts
 models/ServerAuditApiModel.ts
 models/ServerOperatingSystemApiModel.ts

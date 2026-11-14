@@ -13,16 +13,22 @@
 
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
-import { BaseAPI } from '../runtime';
+import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
 import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     GetScriptsListResponseDto,
     PagedDataOperators,
     ScriptApiModel,
+    ScriptContentHashApiModel,
 } from '../models';
 
 export interface RefDataScriptsEditPutRequest {
     scriptApiModel?: ScriptApiModel;
+}
+
+export interface RefDataScriptsIdContentHashPutRequest {
+    id: number;
+    scriptContentHashApiModel?: ScriptContentHashApiModel;
 }
 
 export interface RefDataScriptsPutRequest {
@@ -58,6 +64,32 @@ export class RefDataScriptsApi extends BaseAPI {
             method: 'PUT',
             headers,
             body: scriptApiModel,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    refDataScriptsIdContentHashPut({ id, scriptContentHashApiModel }: RefDataScriptsIdContentHashPutRequest): Observable<boolean>
+    refDataScriptsIdContentHashPut({ id, scriptContentHashApiModel }: RefDataScriptsIdContentHashPutRequest, opts?: OperationOpts): Observable<AjaxResponse<boolean>>
+    refDataScriptsIdContentHashPut({ id, scriptContentHashApiModel }: RefDataScriptsIdContentHashPutRequest, opts?: OperationOpts): Observable<boolean | AjaxResponse<boolean>> {
+        throwIfNullOrUndefined(id, 'id', 'refDataScriptsIdContentHashPut');
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<boolean>({
+            url: '/RefDataScripts/{id}/content-hash'.replace('{id}', encodeURI(id)),
+            method: 'PUT',
+            headers,
+            body: scriptContentHashApiModel,
         }, opts?.responseOpts);
     };
 

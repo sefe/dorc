@@ -31,6 +31,12 @@ namespace Dorc.PersistentData.Contexts
             }
         }
 
+        internal DeploymentContext(DbContextOptions<DeploymentContext> options)
+            : base(options)
+        {
+            nameOrConnectionString = string.Empty;
+        }
+
         public DbSet<AccessControl> AccessControls { get; set; }
         public DbSet<DeploymentDefinitionChange> DeploymentDefinitionChanges { get; set; }
         public DbSet<DeploymentDefinitionRevision> DeploymentDefinitionRevisions { get; set; }
@@ -101,8 +107,68 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<DeploymentRequestAttempt> DeploymentRequestAttempts { get; set; }
         public DbSet<DeploymentResultAttempt> DeploymentResultAttempts { get; set; }
 
+        public int RecordScriptContentHashIfUnrecorded(int scriptId, string contentHash)
+        {
+            if (Database.IsSqlServer())
+            {
+                return Database.ExecuteSqlRaw(
+                    @"UPDATE [deploy].[Script]
+                      SET [ContentHash] = @contentHash
+                      WHERE [Id] = @scriptId
+                        AND [ContentHash] IS NULL",
+                    new SqlParameter("@contentHash", SqlDbType.Char, 64) { Value = contentHash },
+                    new SqlParameter("@scriptId", SqlDbType.Int) { Value = scriptId });
+            }
+
+            var unrecorded = Scripts
+                .Where(script => script.Id == scriptId && script.ContentHash == null)
+                .AsEnumerable()
+                .FirstOrDefault();
+            if (unrecorded == null)
+            {
+                return 0;
+            }
+
+            unrecorded.ContentHash = contentHash;
+            return SaveChanges();
+        }
+
+        public int RecordScriptContentHashIfUnrecorded(int scriptId, string expectedPath, string contentHash)
+        {
+            if (Database.IsSqlServer())
+            {
+                return Database.ExecuteSqlRaw(
+                    @"UPDATE [deploy].[Script]
+                      SET [ContentHash] = @contentHash
+                      WHERE [Id] = @scriptId
+                        AND [ContentHash] IS NULL
+                        AND [Path] COLLATE Latin1_General_100_BIN2 = @expectedPath COLLATE Latin1_General_100_BIN2
+                        AND DATALENGTH([Path]) = DATALENGTH(@expectedPath)",
+                    new SqlParameter("@contentHash", SqlDbType.Char, 64) { Value = contentHash },
+                    new SqlParameter("@scriptId", SqlDbType.Int) { Value = scriptId },
+                    new SqlParameter("@expectedPath", SqlDbType.NVarChar, -1) { Value = expectedPath });
+            }
+
+            var unrecorded = Scripts
+                .Where(script => script.Id == scriptId && script.ContentHash == null)
+                .AsEnumerable()
+                .FirstOrDefault(script => string.Equals(script.Path, expectedPath, StringComparison.Ordinal));
+            if (unrecorded == null)
+            {
+                return 0;
+            }
+
+            unrecorded.ContentHash = contentHash;
+            return SaveChanges();
+        }
+
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
+            if (optionsBuilder.IsConfigured)
+            {
+                return;
+            }
+
             optionsBuilder.UseSqlServer(nameOrConnectionString, sqlOptions =>
             {
                 sqlOptions.CommandTimeout(60);

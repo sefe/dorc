@@ -484,6 +484,9 @@ namespace Dorc.PersistentData.Sources
 
                             if (isScriptContentChanged)
                             {
+                                var retainedContentHash = ScriptContentHash.RetainForPath(
+                                    oldScript.ContentHash, oldScript.Path, apiComponent.ScriptPath);
+
                                 if (isScriptShared)
                                 {
                                     // Script is shared with other components, create a new script
@@ -493,7 +496,8 @@ namespace Dorc.PersistentData.Sources
                                         Path = apiComponent.ScriptPath,
                                         NonProdOnly = apiComponent.NonProdOnly,
                                         IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
-                                        PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
+                                        PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString(),
+                                        ContentHash = retainedContentHash
                                     };
                                     component.Script = newScript;
                                 }
@@ -505,6 +509,7 @@ namespace Dorc.PersistentData.Sources
                                     oldScript.NonProdOnly = apiComponent.NonProdOnly;
                                     oldScript.IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath);
                                     oldScript.PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString();
+                                    oldScript.ContentHash = retainedContentHash;
                                 }
                             }
                             else
@@ -521,7 +526,9 @@ namespace Dorc.PersistentData.Sources
                                             Path = apiComponent.ScriptPath,
                                             NonProdOnly = apiComponent.NonProdOnly,
                                             IsPathJSON = IsScriptPathJson(apiComponent.ScriptPath),
-                                            PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString()
+                                            PowerShellVersionNumber = apiComponent.PSVersion.ToSafePsVersionString(),
+                                            ContentHash = ScriptContentHash.RetainForPath(
+                                                oldScript.ContentHash, oldScript.Path, apiComponent.ScriptPath)
                                         };
                                         component.Script = newScript;
                                     }

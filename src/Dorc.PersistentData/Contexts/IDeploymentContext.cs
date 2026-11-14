@@ -83,6 +83,8 @@ namespace Dorc.PersistentData.Contexts
 
         int SaveChanges();
         Task<int> SaveChangesAsync(CancellationToken cancellationToken);
+        int RecordScriptContentHashIfUnrecorded(int scriptId, string contentHash);
+        int RecordScriptContentHashIfUnrecorded(int scriptId, string expectedPath, string contentHash);
         IEnumerable<SelectDeploymentsByProjectDateResultDbo> sp_Select_Deployments_By_Project_Date();
         IEnumerable<SelectDeploymentsByProjectMonthResultDbo> sp_Select_Deployments_By_Project_Month();
         string AppendRequestLog(int id, string entry);

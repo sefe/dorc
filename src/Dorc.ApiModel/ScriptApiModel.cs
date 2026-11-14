@@ -16,6 +16,18 @@ namespace Dorc.ApiModel
         public string InstallScriptName { get; set; }
         public bool IsEnabled { set; get; }
         public string PowerShellVersionNumber { set; get; }
+
+        /// <summary>
+        /// SHA-256, lower-case 64-character hex, over the UTF-8 bytes of the decoded script text
+        /// the runner is expected to execute, or null when no hash has been recorded.
+        /// </summary>
+        /// <remarks>
+        /// Not settable through the ordinary script edit. It is recorded by the deployment path
+        /// on first use and set deliberately by a promotion pipeline or administrator; changing
+        /// <see cref="Path"/> clears any recorded baseline automatically.
+        /// </remarks>
+        public string ContentHash { set; get; }
+
         public IList<string> ProjectNames { get; set; }
     }
 }

@@ -51,7 +51,7 @@ public partial class RequestsPersistentSource
         var project = context.Projects.FromSqlRaw("SELECT * FROM [deploy].[Project] WITH (UPDLOCK,HOLDLOCK)")
             .SingleOrDefault(p => p.Name == request.Project)
             ?? throw new InvalidOperationException("The request project no longer exists.");
-        var current = DeploymentDefinitions.Read(context, project.Id);
+        var current = DeploymentDefinitions.Read(context, project.Id, out var scriptsByComponentId);
         var selected = (request.Components ?? "").Split('|', StringSplitOptions.RemoveEmptyEntries)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var graph = DeploymentDefinitions.Flatten(current.Components).ToList();
@@ -68,8 +68,8 @@ public partial class RequestsPersistentSource
             DeploymentDefinitions.ValidateNonSecret(component.ScriptPath);
             DeploymentDefinitions.ValidateKnownSensitiveArguments(context, component.ScriptPath);
             component.Children = new List<ComponentApiModel>();
-            var revision = DeploymentDefinitions.Observe(context, current.Project, component);
-            var script = context.Components.Where(c => c.Id == component.ComponentId).Select(c => c.Script).SingleOrDefault();
+            scriptsByComponentId.TryGetValue(component.ComponentId!.Value, out var script);
+            var revision = DeploymentDefinitions.Observe(context, current.Project, component, script?.ContentHash);
             var submittedProject = JsonSerializer.Deserialize<ProjectApiModel>(JsonSerializer.Serialize(current.Project))!;
             if (component.ComponentType == ComponentType.Terraform &&
                 component.TerraformSourceType == TerraformSourceType.Catalog)
@@ -103,16 +103,27 @@ public partial class RequestsPersistentSource
                 ComponentName = component.ComponentName, DefinitionRevisionId = revision.Id,
                 DefinitionRevision = revision.Revision, DefinitionJson = JsonSerializer.Serialize(component),
                 ProjectJson = JsonSerializer.Serialize(submittedProject), IsSkipped = skipped.Contains(component.ComponentName),
-                ScriptJson = script == null ? null : JsonSerializer.Serialize(new ScriptApiModel
-                {
-                    Id = script.Id, Name = script.Name, Path = script.Path, IsPathJSON = script.IsPathJSON,
-                    NonProdOnly = script.NonProdOnly, PowerShellVersionNumber = script.PowerShellVersionNumber,
-                    IsEnabled = component.IsEnabled, Revision = revision.Revision
-                }),
+                ScriptJson = SerializeSubmittedScript(script, component.IsEnabled, revision.Revision),
                 SubmittedAt = request.RequestedTime ?? DateTimeOffset.UtcNow, SubmittedBy = request.UserName ?? ""
             });
         }
         return result;
+    }
+
+    internal static string? SerializeSubmittedScript(Script? script, bool isEnabled, string revision)
+    {
+        return script == null ? null : JsonSerializer.Serialize(new ScriptApiModel
+        {
+            Id = script.Id,
+            Name = script.Name,
+            Path = script.Path,
+            IsPathJSON = script.IsPathJSON,
+            NonProdOnly = script.NonProdOnly,
+            PowerShellVersionNumber = script.PowerShellVersionNumber,
+            ContentHash = DeploymentDefinitions.NormalizeRecordedContentHash(script.ContentHash),
+            IsEnabled = isEnabled,
+            Revision = revision
+        });
     }
 
     public IList<DeploymentRequestDefinition> GetRequestDefinitions(int requestId)
