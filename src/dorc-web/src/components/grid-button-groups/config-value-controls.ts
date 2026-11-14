@@ -7,7 +7,8 @@ import '@vaadin/password-field';
 import { TextField } from '@vaadin/text-field';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import { css, LitElement } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
+import { live } from 'lit/directives/live.js';
 import { html } from 'lit/html.js';
 import { ConfigValueApiModel, RefDataConfigApi } from '../../apis/dorc-api';
 import '../../icons/editor-icons.js';
@@ -16,18 +17,65 @@ import '@vaadin/text-field';
 import '@vaadin/tooltip';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
+export interface ConfigValueEditDraft {
+  value: string;
+  dirty: boolean;
+  secure: boolean;
+}
+
+const SECURE_MASK = 'Ex@mplePassw0rd';
+
 @customElement('config-value-controls')
 export class ConfigValueControls extends LitElement {
   @property({ type: Object })
   value!: ConfigValueApiModel;
 
-  @property({ type: Boolean }) editHidden = false;
+  @property({ type: Boolean }) disabled = false;
 
-  @property({ type: Boolean }) saveHidden = true;
+  @property({ type: Boolean }) draftControlled = false;
 
-  @property({ type: Boolean }) cancelHidden = true;
+  @property({ attribute: false }) draft: ConfigValueEditDraft | undefined =
+    undefined;
 
   @property({ type: String }) additionalInformation = '';
+
+  @state() private localDraft:
+    (ConfigValueEditDraft & { id: number | undefined }) | undefined = undefined;
+
+  @state() private saving = false;
+
+  private get activeDraft(): ConfigValueEditDraft | undefined {
+    const secure = Boolean(this.value?.Secure);
+    if (this.draftControlled) {
+      return this.draft && this.draft.secure === secure
+        ? this.draft
+        : undefined;
+    }
+    if (
+      this.localDraft &&
+      this.localDraft.id === this.value?.Id &&
+      this.localDraft.secure === secure
+    ) {
+      return this.localDraft;
+    }
+    return undefined;
+  }
+
+  get editHidden(): boolean {
+    return this.activeDraft !== undefined;
+  }
+
+  get saveHidden(): boolean {
+    return this.activeDraft === undefined;
+  }
+
+  get cancelHidden(): boolean {
+    return this.activeDraft === undefined;
+  }
+
+  private get isBusy(): boolean {
+    return this.disabled || this.saving;
+  }
 
   static get styles() {
     return css`
@@ -36,6 +84,11 @@ export class ConfigValueControls extends LitElement {
         align-items: center;
         flex-wrap: nowrap;
         gap: var(--lumo-space-xs);
+        max-width: 100%;
+      }
+      .value-input {
+        width: 720px;
+        max-width: calc(100vw - 160px);
       }
       vaadin-button {
         padding: 0px;
@@ -49,31 +102,31 @@ export class ConfigValueControls extends LitElement {
   }
 
   render() {
+    const draft = this.activeDraft;
+    const editing = draft !== undefined;
+    const busy = this.isBusy;
+    const secureDisplayValue = editing ? draft.value : SECURE_MASK;
+    const plainDisplayValue = editing ? draft.value : (this.value?.Value ?? '');
+
     return html`
       ${
         this.value?.Secure
           ? html`<vaadin-password-field
+              class="value-input"
               id="${`propValue${this.value?.Id}`}"
-              value="Ex@mplePassw0rd"
               reveal-button-hidden
-              readonly
+              ?readonly="${!editing || busy}"
               focus-target
-              @value-changed="${(e: CustomEvent) => {
-                const textField = e.detail as TextField;
-                if (this.value) this.value.Value = textField.value;
-              }}"
-              style="width: 720px"
+              .value="${live(secureDisplayValue)}"
+              @input="${this._onValueInput}"
             ></vaadin-password-field>`
-          : html` <vaadin-text-field
+          : html`<vaadin-text-field
+              class="value-input"
               id="${`propValue${this.value?.Id}`}"
-              readonly
+              ?readonly="${!editing || busy}"
               focus-target
-              .value="${this.value?.Value ?? ''}"
-              @value-changed="${(e: CustomEvent) => {
-                const textField = e.detail as TextField;
-                if (this.value) this.value.Value = textField.value;
-              }}"
-              style="width: 720px"
+              .value="${live(plainDisplayValue)}"
+              @input="${this._onValueInput}"
             ></vaadin-text-field>`
       }
 
@@ -81,8 +134,9 @@ export class ConfigValueControls extends LitElement {
         id="edit"
         aria-label="Edit"
         theme="icon"
+        ?disabled="${busy}"
         @click="${this._editClick}"
-        ?hidden="${this.editHidden}"
+        ?hidden="${editing}"
       >
         <vaadin-tooltip slot="tooltip" text="Edit"></vaadin-tooltip>
         <vaadin-icon
@@ -94,19 +148,22 @@ export class ConfigValueControls extends LitElement {
         aria-label="Save"
         theme="primary"
         focus-target
-        ?hidden="${this.saveHidden}"
+        ?disabled="${busy}"
+        ?hidden="${!editing}"
         @click="${this._saveClick}"
         >Save</vaadin-button
       >
       <vaadin-button
         aria-label="Cancel"
-        ?hidden="${this.cancelHidden}"
+        ?disabled="${busy}"
+        ?hidden="${!editing}"
         @click="${this._cancelClick}"
         >Cancel</vaadin-button
       >
       <vaadin-button
         aria-label="Delete Value"
         theme="icon"
+        ?disabled="${busy}"
         @click="${this.removeConfigValue}"
       >
         <vaadin-tooltip slot="tooltip" text="Delete Value"></vaadin-tooltip>
@@ -126,6 +183,7 @@ export class ConfigValueControls extends LitElement {
   }
 
   async removeConfigValue() {
+    if (this.isBusy) return;
     // Snapshot before awaiting: this control sits in a recycled grid cell, so
     // `this.value` can belong to a different row by the time the user answers.
     const configValue = this.value;
@@ -161,49 +219,143 @@ export class ConfigValueControls extends LitElement {
     this.dispatchEvent(event);
   }
 
-  _editClick() {
-    const textField = this.shadowRoot?.querySelector(
-      `#propValue${this.value?.Id}`
-    ) as unknown as TextField;
-    if (this.value.Secure) {
-      textField.value = '';
+  private setDraftState(nextDraft: ConfigValueEditDraft | undefined) {
+    const id = this.value?.Id;
+    this.localDraft = nextDraft ? { id, ...nextDraft } : undefined;
+    if (id != null) {
+      this.dispatchEvent(
+        new CustomEvent('config-value-draft-changed', {
+          detail: { id, draft: nextDraft },
+          bubbles: true,
+          composed: true
+        })
+      );
     }
-    textField.readonly = false;
-    textField.focus();
-    this.updateButtonsVisibility(true);
   }
 
-  updateButtonsVisibility(editing: boolean) {
-    this.editHidden = editing;
-    this.saveHidden = !editing;
-    this.cancelHidden = !editing;
+  private _onValueInput(e: Event) {
+    if (this.activeDraft === undefined || this.isBusy) return;
+    const textField = e.currentTarget as TextField;
+    this.setDraftState({
+      value: textField.value ?? '',
+      dirty: true,
+      secure: Boolean(this.value?.Secure)
+    });
+  }
+
+  _editClick() {
+    if (this.isBusy || !this.value) return;
+    const secure = Boolean(this.value.Secure);
+    const initialDraft: ConfigValueEditDraft = {
+      value: secure ? '' : (this.value.Value ?? ''),
+      dirty: false,
+      secure
+    };
+    this.setDraftState(initialDraft);
+
+    const textField = this.shadowRoot?.querySelector(
+      `#propValue${this.value?.Id}`
+    ) as unknown as TextField | null;
+    if (textField) {
+      textField.value = initialDraft.value;
+      textField.readonly = false;
+      textField.focus();
+    }
+  }
+
+  private exitEditMode() {
+    const secure = Boolean(this.value?.Secure);
+    const restoredValue = secure ? SECURE_MASK : (this.value?.Value ?? '');
+    this.setDraftState(undefined);
+
+    const textField = this.shadowRoot?.querySelector(
+      `#propValue${this.value?.Id}`
+    ) as unknown as TextField | null;
+    if (textField) {
+      textField.value = restoredValue;
+      textField.readonly = true;
+    }
+
+    const edit = this.shadowRoot?.getElementById('edit') as Button | null;
+    edit?.focus();
   }
 
   _cancelClick() {
-    this.updateButtonsVisibility(false);
-    const edit = this.shadowRoot?.getElementById('edit') as Button;
-    edit.focus();
-
-    const textField = this.shadowRoot?.querySelector(
-      `#propValue${this.value?.Id}`
-    ) as unknown as TextField;
-    if (textField) textField.readonly = true;
+    if (this.saving) return;
+    this.exitEditMode();
   }
 
   _saveClick() {
+    if (this.isBusy || !this.value || this.value.Id == null) return;
+
+    const currentItem = this.value;
+    const id = currentItem.Id!;
+    const draft = this.activeDraft;
+    if (!draft) return;
+
+    if (currentItem.Secure) {
+      if (!draft.dirty || draft.value.length === 0) {
+        this.exitEditMode();
+        return;
+      }
+    } else if (!draft.dirty || draft.value === (currentItem.Value ?? '')) {
+      this.exitEditMode();
+      return;
+    }
+
+    this.saving = true;
+    this.dispatchEvent(
+      new CustomEvent('config-value-save-started', {
+        detail: { id },
+        bubbles: true,
+        composed: true
+      })
+    );
+
     const api = new RefDataConfigApi(dorcApiConfiguration);
     api
       .refDataConfigPut({
-        id: this.value.Id,
-        configValueApiModel: this.value
+        id,
+        configValueApiModel: {
+          ...currentItem,
+          Value: draft.value,
+          VisibleToScripts: undefined
+        }
       })
-      .subscribe(() => {
-        this._cancelClick();
-
-        const textField = this.shadowRoot?.querySelector(
-          `#propValue${this.value?.Id}`
-        ) as unknown as TextField;
-        if (textField) textField.readonly = true;
+      .subscribe({
+        next: () => {
+          this.saving = false;
+          if (this.value?.Id === id) {
+            this.exitEditMode();
+          } else {
+            this.localDraft = undefined;
+            this.dispatchEvent(
+              new CustomEvent('config-value-draft-changed', {
+                detail: { id, draft: undefined },
+                bubbles: true,
+                composed: true
+              })
+            );
+          }
+          this.dispatchEvent(
+            new CustomEvent('config-value-saved', {
+              detail: { id },
+              bubbles: true,
+              composed: true
+            })
+          );
+        },
+        error: (err: any) => {
+          console.error('Failed to save config value', err);
+          this.saving = false;
+          this.dispatchEvent(
+            new CustomEvent('config-value-save-failed', {
+              detail: { id },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }
       });
   }
 }
