@@ -20,11 +20,6 @@ namespace Dorc.Monitor
 {
     public class ScriptDispatcher : IScriptDispatcher
     {
-        private string ProdDeployUsernamePropertyName = "DORC_ProdDeployUsername";   
-        private string ProdDeployPasswordPropertyName = "DORC_ProdDeployPassword";   
-        private string NonProdDeployUsernamePropertyName = "DORC_NonProdDeployUsername";   
-        private string NonProdDeployPasswordPropertyName = "DORC_NonProdDeployPassword";   
-
         private readonly ILogger logger;
         private readonly IDeploymentRequestProcessesPersistentSource processesPersistentSource;
         private readonly IConfigValuesPersistentSource _configValuesPersistentSource;
@@ -32,6 +27,7 @@ namespace Dorc.Monitor
         private readonly IConfigurationSettings configurationSettingsEngine;
         private readonly IRequestsPersistentSource requestsPersistentSource;
         private readonly IScriptScopeConfigValues _scriptScopeConfigValues;
+        private readonly IDeploymentCredentialSource _credentialSource;
         private readonly IPowerShellEvidenceCapture evidenceCapture;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
@@ -46,6 +42,7 @@ namespace Dorc.Monitor
             IConfigurationSettings configurationSettingsEngine,
             IRequestsPersistentSource requestsPersistentSource,
             IScriptScopeConfigValues scriptScopeConfigValues,
+            IDeploymentCredentialSource credentialSource,
             IPowerShellEvidenceCapture evidenceCapture = null)
         {
             this.processesPersistentSource = processesPersistentSource;
@@ -55,6 +52,7 @@ namespace Dorc.Monitor
             this.configurationSettingsEngine = configurationSettingsEngine;
             this.requestsPersistentSource = requestsPersistentSource;
             this._scriptScopeConfigValues = scriptScopeConfigValues;
+            this._credentialSource = credentialSource;
             this.evidenceCapture = evidenceCapture ?? new PowerShellEvidenceCapture();
         }
 
@@ -74,17 +72,26 @@ namespace Dorc.Monitor
 
             this.componentResultLogBuilder = componentResultLogBuilder;
 
-            var processCredentials = GetProcessCredentials(isProduction, environmentName);
-            string processAccountName = processCredentials.Item1;
-            string processAccountPassword = processCredentials.Item2;
-            if (string.IsNullOrEmpty(processAccountName)
-                || string.IsNullOrEmpty(processAccountPassword))
+            // One resolution point, shared with the Terraform dispatcher, the daemon status
+            // probe and the password reset controller. Four independent copies of the same four
+            // key names and the same production boolean is four places for a security decision
+            // to drift.
+            using var credential = _credentialSource.Resolve(
+                isProduction ? DeploymentTier.Production : DeploymentTier.NonProduction);
+
+            if (credential == null)
             {
-                logger.LogError($"Unable to find a valid DOrc Username or Password for environment '{environmentName}'.");
+                logger.LogError(
+                    "No deployment credential is available for environment '{EnvironmentName}'."
+                    + " Credentials are read from {Source}.",
+                    environmentName,
+                    _credentialSource.Description);
 
                 isScriptExecutionSuccessful = false;
                 return isScriptExecutionSuccessful;
             }
+
+            var processAccountName = credential.UserName;
 
             if (!ScriptPathsAreConfined(script, scriptsLocation, properties, out var alreadyReported))
             {
@@ -137,11 +144,10 @@ namespace Dorc.Monitor
                         var contextBuilder = new ProcessSecurityContextBuilder(logger)
                         {
                             UserName = processAccountName,
-                            Domain = domainName,
-                            Password = processAccountPassword
+                            Domain = domainName
                         };
 
-                        using (var securityContext = contextBuilder.Build())
+                        using (var securityContext = contextBuilder.Build(credential.Password))
                         {
                             var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
                             .GetSection("AppSettings")["RunnerLogPath"]!;
@@ -617,18 +623,6 @@ namespace Dorc.Monitor
         }
 
 
-        private (string, string) GetProcessCredentials(bool isProduction, string environmentName)
-        {
-            if (isProduction)
-            {
-                return (GetConfigValue(ProdDeployUsernamePropertyName),
-                    GetConfigValue(ProdDeployPasswordPropertyName));
-            }
-
-            return (GetConfigValue(NonProdDeployUsernamePropertyName),
-                GetConfigValue(NonProdDeployPasswordPropertyName));
-        }
-
         private string GetDeploymentRunnerFileFullName(
             string powerShellVersionNumber)
         {
@@ -657,14 +651,6 @@ namespace Dorc.Monitor
 
             return fileInfo.FullName;
         }
-
-        private string GetConfigValue(string configValue)
-        {
-            if (string.IsNullOrEmpty(configValue))
-                throw new ApplicationException($"Config value name is empty, should have a value"); 
-            return _configValuesPersistentSource.GetConfigValue(configValue);
-        }
-
 
         private string ExtractPath(string scriptsLocation, ScriptApiModel scriptApiModel)
         {

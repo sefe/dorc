@@ -22,6 +22,8 @@ namespace Dorc.PersistentData.Sources.Interfaces
             PagedDataOperators operators, IPrincipal user);
         List<String?> GetDatabasServerNameslist();
         public IEnumerable<string> GetEnvironmentNamesForDatabaseId(int serverId);
+        IEnumerable<DatabaseApiModel> GetDatabasesForServerName(string serverName);
+        IEnumerable<DatabaseApiModel> GetDatabasesForServerAndLogin(string serverName, string username);
         DatabaseApiModel? UpdateDatabase(int id, DatabaseApiModel database, IPrincipal user);
     }
 }
