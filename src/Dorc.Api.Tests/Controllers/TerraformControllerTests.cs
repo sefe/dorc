@@ -9,11 +9,13 @@ using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources;
 using Dorc.PersistentData.Sources.Interfaces;
 using Dorc.Terraform.Catalog;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using System.Security.Claims;
@@ -37,6 +39,7 @@ namespace Dorc.Api.Tests.Controllers
         private IVariableResolver _variableResolver = null!;
         private IVariableScopeOptionsResolver _variableScopeOptionsResolver = null!;
         private IConfigValuesPersistentSource _configValues = null!;
+        private IScriptScopeConfigValues _scriptScopeConfigValues = null!;
         private TerraformController _controller = null!;
 
         private const int DeploymentResultId = 42;
@@ -61,6 +64,7 @@ namespace Dorc.Api.Tests.Controllers
             _variableResolver = Substitute.For<IVariableResolver>();
             _variableScopeOptionsResolver = Substitute.For<IVariableScopeOptionsResolver>();
             _configValues = Substitute.For<IConfigValuesPersistentSource>();
+            _scriptScopeConfigValues = new ScriptScopeConfigValues(new ConfigurationBuilder().Build());
 
             _variableResolver.LoadProperties().Returns(new Dictionary<string, VariableValue>());
             _variableResolver.SetPropertyValue(Arg.Any<string>(), Arg.Any<string>());
@@ -90,7 +94,8 @@ namespace Dorc.Api.Tests.Controllers
                 _variableResolver,
                 _variableScopeOptionsResolver,
                 Substitute.For<IConfigurationSettings>(),
-                _configValues)
+                _configValues,
+                _scriptScopeConfigValues)
             {
                 ControllerContext = new ControllerContext
                 {
@@ -302,7 +307,8 @@ namespace Dorc.Api.Tests.Controllers
                 _variableResolver,
                 _variableScopeOptionsResolver,
                 Substitute.For<IConfigurationSettings>(),
-                _configValues)
+                _configValues,
+                _scriptScopeConfigValues)
             {
                 ControllerContext = new ControllerContext
                 {
@@ -671,6 +677,204 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsFalse(json.Contains("testapp"));
             Assert.IsFalse(json.Contains("uksouth"));
             Assert.AreEqual("testapp-cosmos", _variableResolver.GetPropertyValue("account_name")!.Value);
+        }
+
+        [TestMethod]
+        public async Task ResolveTemplateInputs_WithholdsReservedAndConfiguredOperatingConfigKeys()
+        {
+            const string operatorWithheld = "OperatorVaultMasterPassword";
+            _scriptScopeConfigValues = new ScriptScopeConfigValues(
+                new ConfigurationBuilder()
+                    .AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        [$"{ScriptScopeConfigValues.WithheldKeysSetting}:0"] = "DORC_ProdDeployPassword",
+                        [$"{ScriptScopeConfigValues.WithheldKeysSetting}:1"] = "DORC_WebDeployPassword",
+                        [$"{ScriptScopeConfigValues.WithheldKeysSetting}:2"] = "DorcApiAccessPassword",
+                        [$"{ScriptScopeConfigValues.WithheldKeysSetting}:3"] = operatorWithheld
+                    })
+                    .Build());
+
+            GivenTemplateAndProject(Manifest(
+                Parameter("DORC_ProdDeployPassword", required: true, sensitive: true),
+                Parameter(operatorWithheld, required: true, sensitive: true),
+                Parameter("derived_from_withheld", required: true),
+                Parameter("AppCode", required: true)));
+            _environments.GetEnvironment(EnvName).Returns(new EnvironmentApiModel
+            {
+                EnvironmentName = EnvName,
+                EnvironmentIsProd = true
+            });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _configValues.GetAllConfigValues(true).Returns(new[]
+            {
+                new ConfigValueApiModel { Key = "DORC_ProdDeployPassword", Value = "prod-deploy-secret", Secure = true },
+                new ConfigValueApiModel { Key = "DORC_WebDeployPassword", Value = "web-deploy-secret", Secure = true },
+                new ConfigValueApiModel { Key = "DorcApiAccessPassword", Value = "api-access-secret", Secure = true },
+                new ConfigValueApiModel { Key = operatorWithheld, Value = "operator-vault-secret", Secure = true },
+                new ConfigValueApiModel { Key = "AppCode", Value = "legitapp", Secure = false }
+            });
+            _propertyValues.LoadAllPropertiesIntoCache().Returns(new Dictionary<string, PropertyValueDto>
+            {
+                ["derived_from_withheld"] = new PropertyValueDto { Value = "$DORC_ProdDeployPassword$-probe" }
+            });
+            _variableResolver = new VariableResolver(
+                _propertyValues, NullLoggerFactory.Instance, new PropertyEvaluator());
+
+            var result = await CreateController(new ParameterValidator()).ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None);
+
+            Assert.IsInstanceOfType<OkObjectResult>(result);
+            var resolution = (TerraformTemplateResolutionApiModel)((OkObjectResult)result).Value!;
+            var byName = resolution.Parameters.ToDictionary(p => p.Name, p => p.Status);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Missing, byName["DORC_ProdDeployPassword"]);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Missing, byName[operatorWithheld]);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Environment, byName["AppCode"]);
+            Assert.IsNull(_variableResolver.GetPropertyValue("DORC_ProdDeployPassword"));
+            Assert.IsNull(_variableResolver.GetPropertyValue("DORC_WebDeployPassword"));
+            Assert.IsNull(_variableResolver.GetPropertyValue("DorcApiAccessPassword"));
+            Assert.IsNull(_variableResolver.GetPropertyValue(operatorWithheld));
+            Assert.AreEqual("$DORC_ProdDeployPassword$-probe",
+                _variableResolver.GetPropertyValue("derived_from_withheld")!.Value,
+                "Interpolated environment properties must not expand a withheld operating credential.");
+        }
+
+        [TestMethod]
+        public async Task InstantiateTemplate_WithheldOperatingConfigKeysDoNotSatisfyRequiredInputs()
+        {
+            GivenTemplateAndProject(Manifest(
+                Parameter("DORC_ProdDeployPassword", required: true, sensitive: true)));
+            _environments.GetEnvironment(EnvName).Returns(new EnvironmentApiModel
+            {
+                EnvironmentName = EnvName,
+                EnvironmentIsProd = true
+            });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _configValues.GetAllConfigValues(true).Returns(new[]
+            {
+                new ConfigValueApiModel { Key = "DORC_ProdDeployPassword", Value = "prod-deploy-secret", Secure = true }
+            });
+            _propertyValues.LoadAllPropertiesIntoCache().Returns(new Dictionary<string, PropertyValueDto>());
+            _variableResolver = new VariableResolver(
+                _propertyValues, NullLoggerFactory.Instance, new PropertyEvaluator());
+
+            var result = await CreateController(new ParameterValidator()).InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType<BadRequestObjectResult>(result);
+            Assert.IsNull(_variableResolver.GetPropertyValue("DORC_ProdDeployPassword"));
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+        }
+
+        [TestMethod]
+        public async Task CatalogResolutionAndInstantiation_StripWithheldPropertyValuesBlockTokenInterpolationAndMatchDispatcher()
+        {
+            const string customWithheld = "CustomWithheldSecret";
+            _scriptScopeConfigValues = new ScriptScopeConfigValues(
+                new ConfigurationBuilder()
+                    .AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        [ScriptScopeConfigValues.WithheldKeysSetting] = customWithheld
+                    })
+                    .Build());
+
+            GivenTemplateAndProject(Manifest(
+                Parameter(customWithheld, required: true),
+                Parameter("exfil_probe", required: true),
+                Parameter("AppCode", required: true)));
+            _projects.GetComponentsForProject(ProjectId).Returns(new List<ComponentApiModel>
+            {
+                new()
+                {
+                    ComponentId = 42,
+                    ComponentName = "ModComp",
+                    ComponentType = ComponentType.Terraform,
+                    TerraformSourceType = TerraformSourceType.Catalog,
+                    TerraformTemplateName = TemplateName,
+                    TerraformTemplateVersion = TemplateVersion
+                }
+            });
+            _requests.GetCatalogEnvironmentInputs(42, Arg.Any<int>()).Returns(new Dorc.PersistentData.Model.CatalogEnvironmentInputs
+            {
+                ComponentId = 42,
+                EnvironmentId = 1,
+                TemplateVersion = TemplateVersion,
+                Revision = 1,
+                InputsJson = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, string>
+                {
+                    [customWithheld] = "saved-withheld-secret"
+                })
+            });
+            _environments.GetEnvironment(EnvName).Returns(new EnvironmentApiModel
+            {
+                EnvironmentId = 1,
+                EnvironmentName = EnvName,
+                EnvironmentIsProd = false
+            });
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _configValues.GetAllConfigValues(true).Returns(new[]
+            {
+                new ConfigValueApiModel { Key = "AppCode", Value = "legitapp", Secure = false }
+            });
+
+            var withheldDto = new PropertyValueDto
+            {
+                Value = "property-table-secret",
+                Property = new PropertyApiModel { Name = customWithheld, Secure = true }
+            };
+            _propertyValues.LoadAllPropertiesIntoCache().Returns(new Dictionary<string, PropertyValueDto>
+            {
+                [customWithheld] = withheldDto,
+                ["exfil_probe"] = new PropertyValueDto
+                {
+                    Value = $"${customWithheld}$",
+                    Property = new PropertyApiModel { Name = "exfil_probe", Secure = false }
+                }
+            });
+            _propertyValues.GetCachedPropertyValue(customWithheld).Returns(withheldDto);
+            _variableResolver = new VariableResolver(
+                _propertyValues, NullLoggerFactory.Instance, new PropertyEvaluator());
+
+            var controller = CreateController(new ParameterValidator());
+            var resolveResult = await controller.ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None, componentId: 42);
+
+            Assert.IsInstanceOfType<OkObjectResult>(resolveResult);
+            var resolution = (TerraformTemplateResolutionApiModel)((OkObjectResult)resolveResult).Value!;
+            var byName = resolution.Parameters.ToDictionary(p => p.Name, p => p.Status);
+            Assert.AreEqual(TerraformParameterResolutionStatus.Missing, byName[customWithheld],
+                "Withheld property/saved input must report Missing so API readiness agrees with TerraformDispatcher.");
+            CollectionAssert.Contains(resolution.Readiness.InvalidInputs.ToList(), customWithheld);
+            Assert.IsNull(_variableResolver.GetPropertyValue(customWithheld));
+            Assert.AreEqual($"${customWithheld}$", _variableResolver.GetPropertyValue("exfil_probe")!.Value,
+                "Withheld PropertyValue must never be interpolated via $Key$ tokens.");
+
+            _variableResolver = new VariableResolver(
+                _propertyValues, NullLoggerFactory.Instance, new PropertyEvaluator());
+            var instantiateResult = await CreateController(new ParameterValidator()).InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>
+                    {
+                        [customWithheld] = "supplied-withheld-secret",
+                        ["exfil_probe"] = $"${customWithheld}$"
+                    }
+                },
+                CancellationToken.None);
+
+            Assert.IsInstanceOfType<BadRequestObjectResult>(instantiateResult,
+                "Withheld parameter name must fail API validation just as TerraformDispatcher strips it at runtime.");
+            _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
         }
 
         [DataTestMethod]

@@ -7,9 +7,11 @@ using Dorc.Core;
 using Dorc.Core.Interfaces;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using System.Security.Claims;
@@ -696,6 +698,206 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual(
                 "Bundle Requests cannot be run against production environment 'Endur PROD'.",
                 result.Value);
+        }
+
+        [TestMethod]
+        public void Put_OmitsBuiltInAndOperatorWithheldProperties_WhilePreservingLegitimateProperties()
+        {
+            const string targetEnv = "Endur DV 10";
+            const string bundleName = "SecurityWithholdingBundle";
+            const string operatorWithheldKey = "OperatorOnlyVaultPassword";
+
+            var configuration = new ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    [ScriptScopeConfigValues.WithheldKeysSetting] = operatorWithheldKey
+                })
+                .Build();
+            var scriptScopeConfigValues = new ScriptScopeConfigValues(configuration);
+            var loader = new BundledRequestVariableLoader();
+            var resolver = new BundledRequestVariableResolver(
+                loader,
+                new PropertyExpressionEvaluator(Substitute.For<ILogger<PropertyExpressionEvaluator>>()),
+                new PropertyEvaluator(),
+                scriptScopeConfigValues);
+
+            var controller = new MakeLikeProdController(
+                _logger,
+                _deployLibrary,
+                _environmentsPersistentSource,
+                _securityPrivilegesChecker,
+                _envBackups,
+                _bundledRequestsPersistentSource,
+                resolver,
+                loader,
+                _projectsPersistentSource,
+                _claimsPrincipalReader,
+                _requestsPersistentSource,
+                _requestService)
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext { User = _user }
+                }
+            };
+
+            var mlpRequest = new MakeLikeProdRequest
+            {
+                TargetEnv = targetEnv,
+                DataBackup = "Live Snap",
+                BundleName = bundleName,
+                BundleProperties = new List<RequestProperty>
+                {
+                    new() { PropertyName = "LegitBundleOverride", PropertyValue = "override-value" },
+                    new() { PropertyName = "DORC_WebDeployPassword", PropertyValue = "withheld-bundle-override" }
+                }
+            };
+
+            var jobRequest1 = new RequestDto
+            {
+                Project = "ProjectOne",
+                BuildUrl = "http://build.url/1",
+                BuildText = "Build 1.0",
+                Components = new List<string> { "Comp1" },
+                RequestProperties = new List<RequestProperty>
+                {
+                    new() { PropertyName = "DORC_ProdDeployPassword", PropertyValue = "stored-prod-secret" },
+                    new() { PropertyName = operatorWithheldKey, PropertyValue = "stored-operator-secret" },
+                    new() { PropertyName = "LegitStaticProp", PropertyValue = "allowed-static" },
+                    new() { PropertyName = "LegitEnvProp", PropertyValue = "$TargetEnvironmentName$" },
+                    new() { PropertyName = "LegitOverrideProp", PropertyValue = "$LegitBundleOverride$", IsSensitive = true }
+                }
+            };
+
+            var jobRequest2 = new RequestDto
+            {
+                Project = "ProjectTwo",
+                BuildUrl = "http://build.url/2",
+                BuildText = "Build 2.0",
+                Components = new List<string> { "Comp2" },
+                RequestProperties = new List<RequestProperty>
+                {
+                    new() { PropertyName = "dorc_proddeploypassword", PropertyValue = "stored-prod-secret-2" },
+                    new() { PropertyName = operatorWithheldKey.ToUpperInvariant(), PropertyValue = "stored-operator-secret-2" },
+                    new() { PropertyName = "SecondJobLegitProp", PropertyValue = "second-allowed" }
+                }
+            };
+
+            var bundledRequests = new List<BundledRequestsApiModel>
+            {
+                new()
+                {
+                    Type = BundledRequestType.JobRequest,
+                    Request = System.Text.Json.JsonSerializer.Serialize(jobRequest1),
+                    Sequence = 1
+                },
+                new()
+                {
+                    Type = BundledRequestType.JobRequest,
+                    Request = System.Text.Json.JsonSerializer.Serialize(jobRequest2),
+                    Sequence = 2
+                }
+            };
+
+            var submittedRequests = new List<RequestDto>();
+            var nextId = 5001;
+            _environmentsPersistentSource.GetEnvironment(targetEnv)
+                .Returns(new EnvironmentApiModel { EnvironmentName = targetEnv, EnvironmentIsProd = false });
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, targetEnv).Returns(true);
+            _bundledRequestsPersistentSource.GetRequestsForBundle(bundleName).Returns(bundledRequests);
+            _claimsPrincipalReader.GetUserEmail(_user).Returns("testuser@example.com");
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), _user)
+                .Returns(call =>
+                {
+                    submittedRequests.Add(call.Arg<RequestDto>());
+                    return new RequestStatusDto { Id = nextId++ };
+                });
+
+            var result = controller.Put(mlpRequest) as OkObjectResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
+            Assert.AreEqual(2, submittedRequests.Count);
+
+            var firstJobProps = submittedRequests[0].RequestProperties.ToDictionary(p => p.PropertyName, p => p, StringComparer.OrdinalIgnoreCase);
+            Assert.IsFalse(firstJobProps.ContainsKey("DORC_ProdDeployPassword"));
+            Assert.IsFalse(firstJobProps.ContainsKey("DORC_WebDeployPassword"));
+            Assert.IsFalse(firstJobProps.ContainsKey(operatorWithheldKey));
+            Assert.AreEqual(3, firstJobProps.Count);
+            Assert.IsTrue(firstJobProps.TryGetValue("LegitStaticProp", out var legitStaticProp));
+            Assert.AreEqual("allowed-static", legitStaticProp.PropertyValue);
+            Assert.IsTrue(firstJobProps.TryGetValue("LegitEnvProp", out var legitEnvProp));
+            Assert.AreEqual(targetEnv, legitEnvProp.PropertyValue);
+            Assert.IsTrue(firstJobProps.TryGetValue("LegitOverrideProp", out var legitOverrideProp));
+            Assert.AreEqual("override-value", legitOverrideProp.PropertyValue);
+            Assert.IsTrue(legitOverrideProp.IsSensitive);
+
+            var secondJobProps = submittedRequests[1].RequestProperties.ToDictionary(p => p.PropertyName, p => p, StringComparer.OrdinalIgnoreCase);
+            Assert.IsFalse(secondJobProps.ContainsKey("DORC_ProdDeployPassword"));
+            Assert.IsFalse(secondJobProps.ContainsKey(operatorWithheldKey));
+            Assert.AreEqual(1, secondJobProps.Count);
+            Assert.IsTrue(secondJobProps.TryGetValue("SecondJobLegitProp", out var secondJobLegitProp));
+            Assert.AreEqual("second-allowed", secondJobLegitProp.PropertyValue);
+        }
+
+        [TestMethod]
+        public void Put_OmitsPropertiesWhenResolverReturnsNull_WithoutThrowing()
+        {
+            const string targetEnv = "TestEnv";
+            const string bundleName = "NullPropertyBundle";
+            var mlpRequest = new MakeLikeProdRequest
+            {
+                TargetEnv = targetEnv,
+                DataBackup = "Live Snap",
+                BundleName = bundleName,
+                BundleProperties = new List<RequestProperty>()
+            };
+
+            var jobRequest = new RequestDto
+            {
+                Project = "TestProject",
+                BuildUrl = "http://build.url",
+                BuildText = "Build 1.0",
+                Components = new List<string> { "Component1" },
+                RequestProperties = new List<RequestProperty>
+                {
+                    new() { PropertyName = "DORC_ProdDeployPassword", PropertyValue = "withheld" },
+                    new() { PropertyName = "LegitProp", PropertyValue = "preserved" }
+                }
+            };
+
+            var bundledRequests = new List<BundledRequestsApiModel>
+            {
+                new()
+                {
+                    Type = BundledRequestType.JobRequest,
+                    Request = System.Text.Json.JsonSerializer.Serialize(jobRequest),
+                    Sequence = 1
+                }
+            };
+
+            RequestDto? capturedRequest = null;
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, targetEnv).Returns(true);
+            _environmentsPersistentSource.GetEnvironment(targetEnv).Returns(new EnvironmentApiModel { EnvironmentIsProd = false });
+            _bundledRequestsPersistentSource.GetRequestsForBundle(bundleName).Returns(bundledRequests);
+            _claimsPrincipalReader.GetUserEmail(_user).Returns("testuser@example.com");
+            _variableResolver.GetPropertyValue("DORC_ProdDeployPassword").Returns((VariableValue?)null);
+            _variableResolver.GetPropertyValue("LegitProp").Returns(new VariableValue { Value = "preserved", Type = typeof(string) });
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), _user)
+                .Returns(call =>
+                {
+                    capturedRequest = call.Arg<RequestDto>();
+                    return new RequestStatusDto { Id = 12345 };
+                });
+
+            var result = _controller.Put(mlpRequest) as OkObjectResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
+            Assert.IsNotNull(capturedRequest);
+            var singleProp = capturedRequest.RequestProperties.Single();
+            Assert.AreEqual("LegitProp", singleProp.PropertyName);
+            Assert.AreEqual("preserved", singleProp.PropertyValue);
         }
     }
 }

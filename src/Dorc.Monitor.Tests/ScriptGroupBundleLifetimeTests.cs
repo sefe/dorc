@@ -1,12 +1,20 @@
-using Dorc.ApiModel;
+﻿using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.Core;
+using Dorc.Core.AzureStorageAccount;
+using Dorc.Core.BuildServer;
 using Dorc.Core.Configuration;
 using Dorc.Monitor;
 using Dorc.Monitor.Pipes;
+using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using System.Text;
+using System.Text.Json;
 
 namespace Dorc.Monitor.Tests
 {
@@ -33,6 +41,7 @@ namespace Dorc.Monitor.Tests
         private IScriptGroupPipeServer _pipeServer = null!;
         private IConfigValuesPersistentSource _configValues = null!;
         private IConfigurationSettings _configurationSettings = null!;
+        private IScriptScopeConfigValues _scriptScopeConfigValues = null!;
 
         [TestInitialize]
         public void Setup()
@@ -46,6 +55,7 @@ namespace Dorc.Monitor.Tests
             _configValues.GetConfigValue("DORC_NonProdDeployPassword").Returns("nonprod-password");
 
             _configurationSettings = Substitute.For<IConfigurationSettings>();
+            _scriptScopeConfigValues = Substitute.For<IScriptScopeConfigValues>();
             _configurationSettings.GetConfigurationDomainNameIntra().Returns(Domain);
         }
 
@@ -57,6 +67,7 @@ namespace Dorc.Monitor.Tests
                 _pipeServer,
                 _configurationSettings,
                 Substitute.For<IRequestsPersistentSource>(),
+                _scriptScopeConfigValues,
                 Substitute.For<IPowerShellEvidenceCapture>());
 
         /// <summary>
@@ -190,6 +201,346 @@ namespace Dorc.Monitor.Tests
         public void RefusesToNameNoAccountAtAll(string? userName)
         {
             Assert.ThrowsExactly<ArgumentException>(() => new ScriptGroupReaderIdentity("CORP", userName!));
+        }
+    }
+    /// <summary>
+    /// The withheld keys are already excluded where configuration values become properties.
+    /// This is the second gate: the script group is the artefact that crosses the process
+    /// boundary into a Runner, so the invariant has to hold there rather than be assumed to
+    /// have held upstream. A property reaching the set by another route - an environment
+    /// property, or a request-supplied value bearing the same name - would otherwise carry
+    /// DOrc's own operating credential into script scope after all.
+    /// </summary>
+    [TestClass]
+    public class WithheldKeysAreNotDispatchedTests
+    {
+        private const string BuiltInWithheld = "DORC_ProdDeployPassword";
+        private const string OperatorConfiguredWithheld = "OperatorOnlySigningPassword";
+
+        private static ScriptScopeConfigValues CreateWithholdingPolicy(params string[] configuredKeys)
+        {
+            var values = new Dictionary<string, string?>();
+            for (var i = 0; i < configuredKeys.Length; i++)
+            {
+                values[$"{ScriptScopeConfigValues.WithheldKeysSetting}:{i}"] = configuredKeys[i];
+            }
+
+            return new ScriptScopeConfigValues(
+                new ConfigurationBuilder().AddInMemoryCollection(values).Build());
+        }
+
+        [TestMethod]
+        public void TheDispatchedScriptGroupCarriesNoWithheldKey()
+        {
+            var pipeServer = Substitute.For<IScriptGroupPipeServer>();
+
+            var configValues = Substitute.For<IConfigValuesPersistentSource>();
+            configValues.GetConfigValue("DORC_ProdDeployUsername").Returns("svc-dorc");
+            configValues.GetConfigValue("DORC_ProdDeployPassword").Returns("password");
+
+            var settings = Substitute.For<IConfigurationSettings>();
+            settings.GetConfigurationDomainNameIntra().Returns(string.Empty);
+
+            var scopeValues = CreateWithholdingPolicy(BuiltInWithheld, OperatorConfiguredWithheld);
+
+            var dispatcher = new ScriptDispatcher(
+                Substitute.For<IDeploymentRequestProcessesPersistentSource>(),
+                configValues,
+                Substitute.For<ILogger<ScriptDispatcher>>(),
+                pipeServer,
+                settings,
+                Substitute.For<IRequestsPersistentSource>(),
+                scopeValues,
+                Substitute.For<IPowerShellEvidenceCapture>());
+
+            var properties = new Dictionary<string, VariableValue>
+            {
+                [BuiltInWithheld] = new() { Value = "the-credential", Type = typeof(string) },
+                [OperatorConfiguredWithheld] = new() { Value = "operator-credential", Type = typeof(string) },
+                ["EnvironmentName"] = new() { Value = "SOME-ENV", Type = typeof(string) }
+            };
+
+            // Fails once it reaches the security context, which a test host cannot build. The
+            // script group has been published by then, which is what is under test.
+            Assert.Throws<Exception>(() => dispatcher.Dispatch(
+                @"\\host\share\Scripts",
+                new ScriptApiModel { Path = "Deploy.ps1", PowerShellVersionNumber = "7.4" },
+                properties,
+                requestId: 42,
+                deploymentRequestId: 42,
+                isProduction: true,
+                environmentName: "SOME-ENV",
+                new StringBuilder(),
+                CancellationToken.None));
+
+            pipeServer.Received(1).Start(
+                Arg.Any<string>(),
+                Arg.Is<ScriptGroup>(group =>
+                    !group.CommonProperties.ContainsKey(BuiltInWithheld)
+                    && !group.CommonProperties.ContainsKey(OperatorConfiguredWithheld)
+                    && group.CommonProperties.ContainsKey("EnvironmentName")),
+                Arg.Any<ScriptGroupReaderIdentity>(),
+                Arg.Any<CancellationToken>());
+        }
+
+        [TestMethod]
+        public void JsonScriptReferencingWithheldKeyIsRefusedBeforeDispatch()
+        {
+            var pipeServer = Substitute.For<IScriptGroupPipeServer>();
+            var configValues = Substitute.For<IConfigValuesPersistentSource>();
+            configValues.GetConfigValue("DORC_ProdDeployUsername").Returns("svc-dorc");
+            configValues.GetConfigValue("DORC_ProdDeployPassword").Returns("password");
+
+            var dispatcher = new ScriptDispatcher(
+                Substitute.For<IDeploymentRequestProcessesPersistentSource>(),
+                configValues,
+                Substitute.For<ILogger<ScriptDispatcher>>(),
+                pipeServer,
+                Substitute.For<IConfigurationSettings>(),
+                Substitute.For<IRequestsPersistentSource>(),
+                CreateWithholdingPolicy(BuiltInWithheld),
+                Substitute.For<IPowerShellEvidenceCapture>());
+
+            var jsonPath = JsonSerializer.Serialize(new JSONPath
+            {
+                ScriptPath = "Deploy.ps1",
+                GenericArguments = new List<IDictionary<string, string>>
+                {
+                    new Dictionary<string, string> { ["SecretParam"] = $"${{{BuiltInWithheld}}}" }
+                }
+            });
+            var properties = new Dictionary<string, VariableValue>
+            {
+                [BuiltInWithheld] = new() { Value = "the-credential", Type = typeof(string) }
+            };
+
+            var ex = Assert.ThrowsExactly<InvalidOperationException>(() => dispatcher.Dispatch(
+                @"\\host\share\Scripts",
+                new ScriptApiModel { Path = jsonPath, IsPathJSON = true, PowerShellVersionNumber = "7.4" },
+                properties,
+                requestId: 42,
+                deploymentRequestId: 42,
+                isProduction: true,
+                environmentName: "SOME-ENV",
+                new StringBuilder(),
+                CancellationToken.None));
+
+            StringAssert.Contains(ex.Message, "unavailable");
+            pipeServer.DidNotReceiveWithAnyArgs().Start(default!, default!, default!, default);
+        }
+
+        [TestMethod]
+        public void JsonScriptGenericArgumentsWithWithheldKeysAreStrippedFromScriptProperties()
+        {
+            const string literalProdSecret = "literal-prod-secret-value";
+            const string literalOperatorSecret = "literal-operator-secret-value";
+
+            var pipeServer = Substitute.For<IScriptGroupPipeServer>();
+            ScriptGroup? capturedGroup = null;
+            pipeServer
+                .When(server => server.Start(
+                    Arg.Any<string>(),
+                    Arg.Any<ScriptGroup>(),
+                    Arg.Any<ScriptGroupReaderIdentity>(),
+                    Arg.Any<CancellationToken>()))
+                .Do(call => capturedGroup = call.ArgAt<ScriptGroup>(1));
+
+            var configValues = Substitute.For<IConfigValuesPersistentSource>();
+            configValues.GetConfigValue("DORC_ProdDeployUsername").Returns("svc-dorc");
+            configValues.GetConfigValue("DORC_ProdDeployPassword").Returns("password");
+
+            var settings = Substitute.For<IConfigurationSettings>();
+            settings.GetConfigurationDomainNameIntra().Returns(string.Empty);
+
+            var logger = new RecordingLogger<ScriptDispatcher>();
+
+            var dispatcher = new ScriptDispatcher(
+                Substitute.For<IDeploymentRequestProcessesPersistentSource>(),
+                configValues,
+                logger,
+                pipeServer,
+                settings,
+                Substitute.For<IRequestsPersistentSource>(),
+                CreateWithholdingPolicy(BuiltInWithheld, OperatorConfiguredWithheld),
+                Substitute.For<IPowerShellEvidenceCapture>());
+
+            var jsonPath = JsonSerializer.Serialize(new JSONPath
+            {
+                ScriptPath = "Deploy.ps1",
+                GenericArguments = new List<IDictionary<string, string>>
+                {
+                    new Dictionary<string, string> { [BuiltInWithheld] = literalProdSecret },
+                    new Dictionary<string, string> { [OperatorConfiguredWithheld] = literalOperatorSecret },
+                    new Dictionary<string, string> { ["DORC_WebDeployPassword"] = "${EnvironmentName}" },
+                    new Dictionary<string, string> { ["LegitScriptArg"] = "allowed-arg-value" }
+                }
+            });
+            var properties = new Dictionary<string, VariableValue>
+            {
+                ["EnvironmentName"] = new() { Value = "SOME-ENV", Type = typeof(string) }
+            };
+
+            var thrown = Assert.Throws<Exception>(() => dispatcher.Dispatch(
+                @"\\host\share\Scripts",
+                new ScriptApiModel { Path = jsonPath, IsPathJSON = true, PowerShellVersionNumber = "7.4" },
+                properties,
+                requestId: 42,
+                deploymentRequestId: 42,
+                isProduction: true,
+                environmentName: "SOME-ENV",
+                new StringBuilder(),
+                CancellationToken.None));
+
+            Assert.IsNotNull(capturedGroup, $"Expected ScriptGroup to be published before failure, but Dispatch threw early: {thrown}");
+            Assert.AreEqual(1, capturedGroup.ScriptProperties.Count);
+            var scriptProperties = capturedGroup.ScriptProperties.Single().Properties;
+            Assert.IsFalse(scriptProperties.ContainsKey(BuiltInWithheld));
+            Assert.IsFalse(scriptProperties.ContainsKey(OperatorConfiguredWithheld));
+            Assert.IsFalse(scriptProperties.ContainsKey("DORC_WebDeployPassword"));
+            Assert.IsTrue(scriptProperties.TryGetValue("LegitScriptArg", out var legitProp));
+            Assert.AreEqual("allowed-arg-value", legitProp.Value?.ToString());
+
+            var serializedGroup = JsonSerializer.Serialize(capturedGroup);
+            Assert.IsFalse(serializedGroup.Contains(BuiltInWithheld, StringComparison.OrdinalIgnoreCase));
+            Assert.IsFalse(serializedGroup.Contains(OperatorConfiguredWithheld, StringComparison.OrdinalIgnoreCase));
+            Assert.IsFalse(serializedGroup.Contains("DORC_WebDeployPassword", StringComparison.OrdinalIgnoreCase));
+            Assert.IsFalse(serializedGroup.Contains(literalProdSecret, StringComparison.Ordinal));
+            Assert.IsFalse(serializedGroup.Contains(literalOperatorSecret, StringComparison.Ordinal));
+
+            Assert.IsTrue(logger.Entries.Any(entry =>
+                entry.Level == LogLevel.Warning
+                && entry.Message.Contains(BuiltInWithheld, StringComparison.Ordinal)
+                && entry.Message.Contains(OperatorConfiguredWithheld, StringComparison.Ordinal)
+                && entry.Message.Contains("DORC_WebDeployPassword", StringComparison.Ordinal)));
+            Assert.IsFalse(logger.Entries.Any(entry =>
+                entry.Message.Contains(literalProdSecret, StringComparison.Ordinal)
+                || entry.Message.Contains(literalOperatorSecret, StringComparison.Ordinal)));
+        }
+
+        private sealed class RecordingLogger<T> : ILogger<T>
+        {
+            public List<(LogLevel Level, string Message)> Entries { get; } = new();
+
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(
+                LogLevel logLevel,
+                EventId eventId,
+                TState state,
+                Exception? exception,
+                Func<TState, Exception?, string> formatter)
+            {
+                Entries.Add((logLevel, formatter(state, exception)));
+            }
+        }
+
+        [TestMethod]
+        public void TerraformScriptGroupStripsWithheldKeysFromPropertiesAndCatalogInputs()
+        {
+            const int requestId = 77;
+            const int componentId = 19;
+
+            var requests = Substitute.For<IRequestsPersistentSource>();
+            var requestDetails = new DeploymentRequestDetailSerializer().Serialize(new DeploymentRequestDetail
+            {
+                EnvironmentName = "SOME-ENV",
+                Components = new List<string> { "CatalogComp" },
+                Properties = new List<PropertyPair>()
+            });
+            var request = new DeploymentRequestApiModel
+            {
+                Id = requestId,
+                Project = "Infra",
+                EnvironmentName = "SOME-ENV",
+                RequestDetails = requestDetails
+            };
+            requests.GetCatalogRequestInputs(requestId, componentId).Returns(new CatalogRequestInputs
+            {
+                DeploymentRequestId = requestId,
+                ComponentId = componentId,
+                TemplateName = "storage",
+                TemplateVersion = "1.0.0",
+                InputsJson = JsonSerializer.Serialize(new Dictionary<string, string>
+                {
+                    [BuiltInWithheld] = "smuggled-via-catalog-builtin",
+                    [OperatorConfiguredWithheld] = "smuggled-via-catalog-custom",
+                    ["account_name"] = "legitstorage"
+                })
+            });
+
+            var propertiesSource = Substitute.For<IPropertiesPersistentSource>();
+            propertiesSource.GetAllProperties().Returns(Array.Empty<PropertyApiModel>());
+            var configValues = Substitute.For<IConfigValuesPersistentSource>();
+            configValues.GetAllConfigValues(false).Returns(Array.Empty<ConfigValueApiModel>());
+
+            var hostAllowList = new SourceHostAllowList(
+                new ConfigurationBuilder()
+                    .AddInMemoryCollection(new Dictionary<string, string?>
+                    {
+                        [$"{SourceHostAllowList.TerraformHostsSetting}:0"] = "github.corp.example.com"
+                    })
+                    .Build());
+
+            var scopeValues = new ScriptScopeConfigValues(new ConfigurationBuilder().Build());
+            var configuredScopeValues = CreateWithholdingPolicy(
+                BuiltInWithheld,
+                "DORC_WebDeployPassword",
+                OperatorConfiguredWithheld);
+
+            Assert.IsTrue(scopeValues.IsWithheld(BuiltInWithheld));
+
+            var dispatcher = new TerraformDispatcher(
+                NullLogger<TerraformDispatcher>.Instance,
+                requests,
+                configValues,
+                Substitute.For<IConfigurationSettings>(),
+                Substitute.For<IDeploymentRequestProcessesPersistentSource>(),
+                Substitute.For<IScriptGroupPipeServer>(),
+                Substitute.For<IAzureStorageAccountWorker>(),
+                Substitute.For<IProjectsPersistentSource>(),
+                Substitute.For<IGitHubHostValidator>(),
+                Substitute.For<ICloudResourcesPersistentSource>(),
+                Substitute.For<ICloudResourceAuditPersistentSource>(),
+                Substitute.For<IEnvironmentsPersistentSource>(),
+                Substitute.For<IDatabasesPersistentSource>(),
+                propertiesSource,
+                configuredScopeValues,
+                hostAllowList);
+
+            var component = new ComponentApiModel
+            {
+                ComponentId = componentId,
+                ComponentName = "CatalogComp",
+                ComponentType = ComponentType.Terraform,
+                TerraformSourceType = TerraformSourceType.Catalog
+            };
+            var inheritedProperties = new Dictionary<string, VariableValue>
+            {
+                ["DORC_WebDeployPassword"] = new() { Value = "smuggled-via-properties", Type = typeof(string) },
+                ["EnvironmentName"] = new() { Value = "SOME-ENV", Type = typeof(string) }
+            };
+
+            var assembledProperties = dispatcher.ApplyCatalogInputs(component, inheritedProperties, requestId, request);
+            Assert.IsTrue(assembledProperties.ContainsKey(BuiltInWithheld),
+                "Precondition: Catalog snapshot merged the withheld key before GetScriptGroup runs.");
+            Assert.IsTrue(assembledProperties.ContainsKey(OperatorConfiguredWithheld),
+                "Precondition: Catalog snapshot merged the operator-configured withheld key before GetScriptGroup runs.");
+
+            var group = dispatcher.GetScriptGroup(
+                string.Empty,
+                assembledProperties,
+                deploymentResultId: 901,
+                component,
+                request,
+                new ProjectApiModel { ProjectId = 5, ProjectName = "Infra" });
+
+            Assert.IsFalse(group.CommonProperties.ContainsKey(BuiltInWithheld));
+            Assert.IsFalse(group.CommonProperties.ContainsKey("DORC_WebDeployPassword"));
+            Assert.IsFalse(group.CommonProperties.ContainsKey(OperatorConfiguredWithheld));
+            Assert.AreEqual("legitstorage", group.CommonProperties["account_name"].Value);
+            Assert.AreEqual("SOME-ENV", group.CommonProperties["EnvironmentName"].Value);
         }
     }
 }

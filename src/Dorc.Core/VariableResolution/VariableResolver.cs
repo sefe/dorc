@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
+using System.Linq;
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 
@@ -15,15 +17,46 @@ namespace Dorc.Core.VariableResolution
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IPropertyEvaluator _propertyEvaluator;
         private readonly ILogger _logger;
+        private IScriptScopeConfigValues? _scriptScopeConfigValues;
 
-        public VariableResolver(IPropertyValuesPersistentSource propertyValuesPersistentSource, ILoggerFactory loggerFactory, IPropertyEvaluator propertyEvaluator)
+        public VariableResolver(
+            IPropertyValuesPersistentSource propertyValuesPersistentSource,
+            ILoggerFactory loggerFactory,
+            IPropertyEvaluator propertyEvaluator)
+            : this(propertyValuesPersistentSource, loggerFactory, propertyEvaluator, null)
+        {
+        }
+
+        public VariableResolver(
+            IPropertyValuesPersistentSource propertyValuesPersistentSource,
+            ILoggerFactory loggerFactory,
+            IPropertyEvaluator propertyEvaluator,
+            IScriptScopeConfigValues? scriptScopeConfigValues)
         {
             _propertyEvaluator = propertyEvaluator;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
-            
+            _scriptScopeConfigValues = scriptScopeConfigValues;
+
             _expressionEvaluator = new PropertyExpressionEvaluator(loggerFactory.CreateLogger<PropertyExpressionEvaluator>());
             _logger = loggerFactory.CreateLogger<VariableResolver>();
         }
+
+        public void ExcludeWithheldKeys(IScriptScopeConfigValues? scriptScopeConfigValues)
+        {
+            _scriptScopeConfigValues = scriptScopeConfigValues;
+            if (scriptScopeConfigValues == null)
+            {
+                return;
+            }
+
+            foreach (var key in localProperties.Keys.Where(scriptScopeConfigValues.IsWithheld))
+            {
+                localProperties.TryRemove(key, out _);
+            }
+        }
+
+        private bool IsWithheld(string? property) =>
+            _scriptScopeConfigValues != null && _scriptScopeConfigValues.IsWithheld(property);
 
         public bool PropertiesLoaded()
         {
@@ -33,6 +66,7 @@ namespace Dorc.Core.VariableResolution
         public IDictionary<string, VariableValue> LocalProperties()
         {
             return localProperties.Keys.AsParallel()
+                .Where(x => !IsWithheld(x))
                 .ToDictionary(x => x, GetPropertyValue);
         }
 
@@ -40,6 +74,11 @@ namespace Dorc.Core.VariableResolution
         {
             foreach (var propertyValuePair in _propertyValuesPersistentSource.LoadAllPropertiesIntoCache())
             {
+                if (IsWithheld(propertyValuePair.Key))
+                {
+                    continue;
+                }
+
                 if (!localProperties.ContainsKey(propertyValuePair.Key))
                 {
                     SetPropertyValue(propertyValuePair.Key, propertyValuePair.Value.Value);
@@ -47,6 +86,7 @@ namespace Dorc.Core.VariableResolution
             }
 
             var dictionary = localProperties.Keys.AsParallel()
+                .Where(x => !IsWithheld(x))
                 .Select(x => new { Key = x, Value = GetPropertyValue(x) })
                 .Where(x => x.Value != null)
                 .ToDictionary(x => x.Key, x => x.Value!);
@@ -56,6 +96,11 @@ namespace Dorc.Core.VariableResolution
 
         public VariableValue? GetPropertyValue(string property)
         {
+            if (IsWithheld(property))
+            {
+                return null;
+            }
+
             try
             {
                 VariableValue? propertyValue;
@@ -100,6 +145,11 @@ namespace Dorc.Core.VariableResolution
 
         public void SetPropertyValue(string property, VariableValue? value)
         {
+            if (IsWithheld(property))
+            {
+                return;
+            }
+
             if (localProperties.TryAdd(property, value))
             {
                 return;
@@ -118,6 +168,11 @@ namespace Dorc.Core.VariableResolution
 
         public void SetRequestSuppliedPropertyValue(string property, string value)
         {
+            if (IsWithheld(property))
+            {
+                return;
+            }
+
             // The mark is applied before the value is stored, so a concurrent reader can see
             // the property marked but not yet set, never set but not yet marked.
             _requestSuppliedProperties.Mark(property);

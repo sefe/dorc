@@ -85,6 +85,7 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<IEnvironmentsPersistentSource>(),
                 Substitute.For<IDatabasesPersistentSource>(),
                 propertySource,
+                Substitute.For<IScriptScopeConfigValues>(),
                 allowList);
 
             var getScriptGroup = typeof(TerraformDispatcher).GetMethod(
@@ -337,7 +338,8 @@ namespace Dorc.Monitor.Tests
                 eventsPublisher,
                 Substitute.For<Dorc.Monitor.Notifications.IDeploymentNotificationSink>(),
                 gitHubDownloader,
-                BuildAllowList(artefactHosts: ["trusted.corp"]));
+                BuildAllowList(artefactHosts: ["trusted.corp"]),
+                Substitute.For<IScriptScopeConfigValues>());
 
             var request = new RequestToProcessDto(
                 new DeploymentRequestApiModel
