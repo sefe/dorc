@@ -12,6 +12,11 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .ToTable("Script", "deploy")
                 .HasKey(x => x.Id);
 
+            builder
+                .Property(x => x.ContentHash)
+                .HasMaxLength(64)
+                .IsUnicode(false)
+                .IsFixedLength();
         }
     }
 }
