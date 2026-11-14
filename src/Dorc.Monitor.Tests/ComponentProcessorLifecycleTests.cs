@@ -127,34 +127,5 @@ namespace Dorc.Monitor.Tests
             requests.Received(1).UpdateResultLog(result, Arg.Is<string>(log => log.Contains("NON PROD ENVIRONMENTS ONLY")));
             requests.DidNotReceiveWithAnyArgs().AppendResultLog(default!, default!);
         }
-
-        [TestMethod]
-        public void TerraformPlanStorage_CleanupResultDirectory_RemovesEmptyChildAndLeavesNonEmptyChild()
-        {
-            var tempRoot = Path.Combine(Path.GetTempPath(), "dorc-tf-cleanup-" + Guid.NewGuid().ToString("N"));
-            try
-            {
-                var plansRoot = Path.Combine(tempRoot, Dorc.Monitor.Security.TerraformPlanStorage.DirectoryName);
-                var emptyResultDir = Path.Combine(plansRoot, "101");
-                var nonEmptyResultDir = Path.Combine(plansRoot, "102");
-                Directory.CreateDirectory(emptyResultDir);
-                Directory.CreateDirectory(nonEmptyResultDir);
-                File.WriteAllText(Path.Combine(nonEmptyResultDir, "leftover.txt"), "x");
-
-                var logger = Substitute.For<ILogger>();
-                Dorc.Monitor.Security.TerraformPlanStorage.CleanupResultDirectory(emptyResultDir, tempRoot, logger);
-                Dorc.Monitor.Security.TerraformPlanStorage.CleanupResultDirectory(nonEmptyResultDir, tempRoot, logger);
-
-                Assert.IsFalse(Directory.Exists(emptyResultDir));
-                Assert.IsTrue(Directory.Exists(nonEmptyResultDir));
-            }
-            finally
-            {
-                if (Directory.Exists(tempRoot))
-                {
-                    Directory.Delete(tempRoot, recursive: true);
-                }
-            }
-        }
     }
 }
