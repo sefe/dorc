@@ -659,6 +659,60 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             }
         }
 
+        public EnvironmentApiModel SetExecutionIdentityReference(
+            int environmentId,
+            string? executionIdentityReference,
+            IPrincipal user)
+        {
+            if (!_rolePrivilegesChecker.IsAdmin(user))
+            {
+                throw new UnauthorizedAccessException(
+                    "Only administrators can change an environment's execution identity.");
+            }
+
+            var normalizedReference = EnvironmentExecutionIdentityReference.Validate(executionIdentityReference);
+
+            using (var context = contextFactory.GetContext())
+            {
+                var environment = context.Environments.SingleOrDefault(e => e.Id == environmentId);
+                if (environment == null)
+                {
+                    throw new KeyNotFoundException($"Environment with ID {environmentId} was not found.");
+                }
+
+                var oldReference = environment.ExecutionIdentityReference;
+                if (string.Equals(oldReference, normalizedReference, StringComparison.Ordinal))
+                {
+                    return MapToEnvironmentApiModel(environment);
+                }
+
+                var username = _claimsPrincipalReader.GetUserFullDomainName(user);
+                var summary = normalizedReference == null
+                    ? $"Execution identity reference cleared from environment '{environment.Name}'."
+                    : $"Execution identity reference for environment '{environment.Name}' set to '{normalizedReference}'.";
+
+                EnvironmentHistoryPersistentSource.AddHistoryAction(
+                    environment,
+                    oldReference ?? string.Empty,
+                    normalizedReference ?? string.Empty,
+                    username,
+                    "Execution Identity Update",
+                    summary,
+                    context);
+
+                environment.ExecutionIdentityReference = normalizedReference;
+                context.SaveChanges();
+
+                logger.LogInformation(
+                    "Execution identity reference for environment '{EnvironmentName}' (Id: {EnvironmentId}) updated to '{IdentityReference}'.",
+                    LogText.SingleLine(environment.Name),
+                    environment.Id,
+                    LogText.SingleLine(normalizedReference ?? "<tier-default>"));
+
+                return MapToEnvironmentApiModel(environment);
+            }
+        }
+
         public bool DeleteEnvironment(EnvironmentApiModel env, IPrincipal principal)
         {
             using (var context = contextFactory.GetContext())
@@ -734,17 +788,15 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
 
                             transaction.Commit();
 
-                            logger.LogInformation("Environment '{EnvironmentName}' (Id: {EnvironmentId}) deleted successfully", environment.Name, environment.Id);
+                            logger.LogInformation("Environment '{EnvironmentName}' (Id: {EnvironmentId}) deleted successfully", LogText.SingleLine(environment.Name), environment.Id);
 
                             return true;
                         }
                         catch (Exception ex)
                         {
                             transaction.Rollback();
-                            var safeEnvironmentName = env.EnvironmentName?
-                                .Replace("\r", string.Empty)
-                                .Replace("\n", string.Empty);
-                            logger.LogError(ex, $"Failed to delete environment '{safeEnvironmentName}'");
+                            var safeEnvironmentName = LogText.SingleLine(env.EnvironmentName ?? string.Empty);
+                            logger.LogError(ex, "Failed to delete environment '{EnvironmentName}'", safeEnvironmentName);
                             throw;
                         }
                     }
@@ -783,7 +835,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                     .SetProperty(e => e.ParentId, (int?)null)
                     .SetProperty(e => e.LastUpdate, detachedAt));
 
-            logger.LogInformation($"Detached {childEnvironmentIds.Count} child environment(s) from '{environment.Name}' before deleting it");
+            logger.LogInformation("Detached {ChildCount} child environment(s) from '{EnvironmentName}' before deleting it", childEnvironmentIds.Count, LogText.SingleLine(environment.Name));
         }
 
         public bool EnvironmentIsProd(string envName)
@@ -989,6 +1041,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                 EnvironmentSecure = env.Secure,
                 EnvironmentIsProd = env.IsProd,
                 EnvironmentId = env.Id,
+                ExecutionIdentityReference = env.ExecutionIdentityReference,
                 Details = MapToEnvironmentDetailsApiModel(env),
                 ParentId = env.ParentId,
                 IsParent = env.ChildEnvironments.Any(),
@@ -1021,7 +1074,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
         {
             var ownerAc = env.AccessControls.FirstOrDefault(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
             if (ownerAc == null)
-                logger.LogWarning($"Owner access control was not found for Environment '{env.Name}', ObjecId:{env.ObjectId}. Check that code has Include(e => e.AccessControls) and Distinct() is not used upper in IQueryable for unnamed object containing Environment");
+                logger.LogWarning("Owner access control was not found for Environment '{EnvironmentName}', ObjecId:{ObjectId}. Check that code has Include(e => e.AccessControls) and Distinct() is not used upper in IQueryable for unnamed object containing Environment", LogText.SingleLine(env.Name), env.ObjectId);
             return ownerAc;
         }
 
@@ -1081,7 +1134,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
 
                     if (childEnv.ParentId == parentEnvId)
                     {
-                        logger.LogDebug($"Environment {childEnv.Name} is already a child of {parentEnv.Name}");
+                        logger.LogDebug("Environment {ChildEnvironmentName} is already a child of {ParentEnvironmentName}", LogText.SingleLine(childEnv.Name), LogText.SingleLine(parentEnv.Name));
                         return;
                     }
 
@@ -1104,7 +1157,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                 {
                     if (!childEnv.ParentId.HasValue)
                     {
-                        logger.LogDebug($"Environment {childEnv.Name} is not a child");
+                        logger.LogDebug("Environment {ChildEnvironmentName} is not a child", LogText.SingleLine(childEnv.Name));
                         return;
                     }
 

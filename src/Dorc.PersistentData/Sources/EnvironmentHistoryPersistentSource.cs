@@ -42,12 +42,10 @@ namespace Dorc.PersistentData.Sources
         internal static void AddHistory(Environment environment, string backupFile, string newVersion, string updatedBy, string updateType,
             IDeploymentContext context)
         {
-            var firstEnvHistory = context.EnvironmentHistories.Include(h => h.Environment)
-                .Where(h => h.Environment.Name == environment.Name)
-                .OrderByDescending(h => h.Id).FirstOrDefault();
+            ArgumentNullException.ThrowIfNull(environment);
 
-            var oldBackupFile = firstEnvHistory != null ? firstEnvHistory.ToValue : string.Empty;
-            var newBackupFile = backupFile != string.Empty ? backupFile : oldBackupFile;
+            var oldBackupFile = environment.RestoredFromBackup ?? string.Empty;
+            var newBackupFile = !string.IsNullOrEmpty(backupFile) ? backupFile : oldBackupFile;
             var newHistory = new EnvironmentHistory
             {
                 Environment = environment,
@@ -66,26 +64,8 @@ namespace Dorc.PersistentData.Sources
         internal static void AddHistory(string envName, string backupFile, string newVersion, string updatedBy, string updateType,
             IDeploymentContext context)
         {
-            var firstEnvHistory = context.EnvironmentHistories.Include(h => h.Environment)
-                .Where(h => h.Environment.Name == envName)
-                .OrderByDescending(h => h.Id).FirstOrDefault();
-
-            var oldBackupFile = firstEnvHistory != null ? firstEnvHistory.ToValue : string.Empty;
-            var newBackupFile = backupFile != string.Empty ? backupFile : oldBackupFile;
             var envDetails = EnvironmentUnifier.GetEnvironment(context, envName);
-            var newHistory = new EnvironmentHistory
-            {
-                Environment = envDetails,
-                UpdateDate = DateTime.Now,
-                UpdateType = updateType,
-                UpdatedBy = updatedBy,
-                FromValue = oldBackupFile,
-                ToValue = newBackupFile,
-                Details = newVersion
-            };
-            context.EnvironmentHistories.Add(newHistory);
-            envDetails.RestoredFromBackup = newBackupFile;
-            envDetails.LastUpdate = newHistory.UpdateDate;
+            AddHistory(envDetails, backupFile, newVersion, updatedBy, updateType, context);
         }
 
         internal static void AddHistoryAction(Environment environment, string oldValue, string newValue, string updatedBy, string updateType, string summary,

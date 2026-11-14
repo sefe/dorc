@@ -107,7 +107,7 @@ namespace Dorc.Core
             string errorMessage = $"No deployment credential is available for daemon status check on environment '{environment.EnvironmentName}'. Credentials are read from {_credentialSource.Description}.";
             _logger.LogError(
                 "No deployment credential is available for daemon status check on environment '{EnvironmentName}'. Credentials are read from {Source}.",
-                environment.EnvironmentName, _credentialSource.Description);
+                LogText.SingleLine(environment.EnvironmentName), _credentialSource.Description);
             foreach (var daemon in daemons)
             {
                 daemon.Status = null;
@@ -130,7 +130,7 @@ namespace Dorc.Core
             {
                 _logger.LogError(
                     "No deployment credential is available for daemon discovery on environment '{EnvironmentName}'. Credentials are read from {Source}.",
-                    environment.EnvironmentName, _credentialSource.Description);
+                    LogText.SingleLine(environment.EnvironmentName), _credentialSource.Description);
                 return [];
             }
 
@@ -173,7 +173,8 @@ namespace Dorc.Core
             return _credentialSource.Resolve(
                 environment?.EnvironmentIsProd == true
                     ? DeploymentTier.Production
-                    : DeploymentTier.NonProduction);
+                    : DeploymentTier.NonProduction,
+                environment?.ExecutionIdentityReference);
         }
 
         private List<DaemonStatus> BuildDaemonList(EnvironmentApiModel? environment,

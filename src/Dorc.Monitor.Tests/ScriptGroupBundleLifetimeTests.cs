@@ -60,6 +60,10 @@ namespace Dorc.Monitor.Tests
                 .Returns(_ => DeploymentCredential.FromPlainText(ProdAccount, "prod-password"));
             source.Resolve(DeploymentTier.NonProduction)
                 .Returns(_ => DeploymentCredential.FromPlainText(NonProdAccount, "nonprod-password"));
+            source.Resolve(DeploymentTier.Production, Arg.Any<string?>())
+                .Returns(_ => DeploymentCredential.FromPlainText(ProdAccount, "prod-password"));
+            source.Resolve(DeploymentTier.NonProduction, Arg.Any<string?>())
+                .Returns(_ => DeploymentCredential.FromPlainText(NonProdAccount, "nonprod-password"));
             return source;
         }
 
@@ -111,6 +115,8 @@ namespace Dorc.Monitor.Tests
                     deploymentRequestId: 42,
                     isProduction: isProduction,
                     environmentName: "SOME-ENV",
+                    executionIdentityReference: null,
+                    identityAdoption: new RequestExecutionIdentityAdoption(),
                     new StringBuilder(),
                     CancellationToken.None),
                 "Dispatch was expected to fail while building the Runner's security context. If it now" +
@@ -200,7 +206,7 @@ namespace Dorc.Monitor.Tests
 
             DispatchExpectingFailure(dispatcher, isProduction);
 
-            _credentialSource.Received(1).Resolve(expectedTier);
+            _credentialSource.Received(1).Resolve(expectedTier, null);
             _configValues.DidNotReceiveWithAnyArgs().GetConfigValue(default!);
             evidenceCapture.Received(1).Prepare(
                 Arg.Any<ScriptGroup>(),
@@ -211,11 +217,71 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
-        public void ScriptDispatcherFailsClosedBeforeEvidenceCaptureOrPipeWhenCredentialUnavailable()
+        public void PowerShellEvidenceCaptureReceivesQualifiedAccountFromNamedExecutionIdentityRatherThanTierDefault()
+        {
+            var credentialSource = Substitute.For<IDeploymentCredentialSource>();
+            credentialSource.Description.Returns("vault");
+            credentialSource.Resolve(DeploymentTier.Production, null)
+                .Returns(DeploymentCredential.FromPlainText(ProdAccount, "tier-default-password"));
+            credentialSource.Resolve(DeploymentTier.Production, "payments-prod")
+                .Returns(DeploymentCredential.FromPlainText("svc-payments", "named-password"));
+
+            var evidenceCapture = Substitute.For<IPowerShellEvidenceCapture>();
+            var dispatcher = new ScriptDispatcher(
+                Substitute.For<IDeploymentRequestProcessesPersistentSource>(),
+                _configValues,
+                Substitute.For<ILogger<ScriptDispatcher>>(),
+                _pipeServer,
+                _configurationSettings,
+                Substitute.For<IRequestsPersistentSource>(),
+                _scriptScopeConfigValues,
+                credentialSource,
+                evidenceCapture);
+
+            var adoption = new RequestExecutionIdentityAdoption();
+            Assert.Throws<Exception>(() => dispatcher.Dispatch(
+                @"\\host\share\Scripts",
+                new ScriptApiModel { Path = "Deploy.ps1", PowerShellVersionNumber = "7.4", Revision = "rev-payments" },
+                new Dictionary<string, VariableValue>(),
+                requestId: 42,
+                deploymentRequestId: 42,
+                isProduction: true,
+                environmentName: "PAYMENTS-PROD",
+                executionIdentityReference: "payments-prod",
+                identityAdoption: adoption,
+                new StringBuilder(),
+                CancellationToken.None));
+
+            Assert.AreEqual((1, 0), adoption.Counts);
+            credentialSource.Received(1).Resolve(DeploymentTier.Production, "payments-prod");
+            credentialSource.DidNotReceive().Resolve(DeploymentTier.Production, null);
+            evidenceCapture.Received(1).Prepare(
+                Arg.Any<ScriptGroup>(),
+                "rev-payments",
+                42,
+                0,
+                $@"{Domain}\svc-payments");
+            _pipeServer.Received(1).Start(
+                Arg.Any<string>(),
+                Arg.Any<ScriptGroup>(),
+                Arg.Is<ScriptGroupReaderIdentity>(id => id.QualifiedAccountName == $@"{Domain}\svc-payments"),
+                Arg.Any<CancellationToken>());
+        }
+
+        [TestMethod]
+        [DataRow(null)]
+        [DataRow("payments-prod")]
+        public void ScriptDispatcherFailsClosedBeforeEvidenceCaptureOrPipeWhenCredentialUnavailable(
+            string? executionIdentityReference)
         {
             var emptyCredentialSource = Substitute.For<IDeploymentCredentialSource>();
             emptyCredentialSource.Description.Returns("vault");
-            emptyCredentialSource.Resolve(Arg.Any<DeploymentTier>()).Returns((DeploymentCredential?)null);
+            emptyCredentialSource.Resolve(DeploymentTier.Production, null)
+                .Returns(executionIdentityReference == null
+                    ? null
+                    : DeploymentCredential.FromPlainText(ProdAccount, "tier-default-password"));
+            emptyCredentialSource.Resolve(DeploymentTier.Production, "payments-prod")
+                .Returns((DeploymentCredential?)null);
 
             var evidenceCapture = Substitute.For<IPowerShellEvidenceCapture>();
             var dispatcher = new ScriptDispatcher(
@@ -229,34 +295,51 @@ namespace Dorc.Monitor.Tests
                 emptyCredentialSource,
                 evidenceCapture);
 
+            var adoption = new RequestExecutionIdentityAdoption();
             var succeeded = dispatcher.Dispatch(
                 @"\\host\share\Scripts",
-                new ScriptApiModel { Path = "Deploy.ps1", PowerShellVersionNumber = "7.4" },
+                new ScriptApiModel { Path = "Deploy.ps1", PowerShellVersionNumber = "7.4", Revision = "rev-1" },
                 new Dictionary<string, VariableValue>(),
                 requestId: 42,
                 deploymentRequestId: 42,
                 isProduction: true,
                 environmentName: "PROD-ENV",
+                executionIdentityReference: executionIdentityReference,
+                identityAdoption: adoption,
                 new StringBuilder(),
                 CancellationToken.None);
 
             Assert.IsFalse(succeeded);
-            emptyCredentialSource.Received(1).Resolve(DeploymentTier.Production);
-            evidenceCapture.DidNotReceiveWithAnyArgs().Prepare(default!, default, default, default, default!);
+            emptyCredentialSource.Received(1).Resolve(DeploymentTier.Production, executionIdentityReference);
+            if (executionIdentityReference != null)
+            {
+                Assert.AreEqual((0, 0), adoption.Counts);
+                emptyCredentialSource.DidNotReceive().Resolve(DeploymentTier.Production, null);
+            }
+            evidenceCapture.DidNotReceiveWithAnyArgs().Prepare(default!, default!, default, default, default!);
             _pipeServer.DidNotReceiveWithAnyArgs().Start(default!, default!, default!, default);
             _configValues.DidNotReceiveWithAnyArgs().GetConfigValue(default!);
         }
 
         [TestMethod]
-        [DataRow(true, DeploymentTier.Production)]
-        [DataRow(false, DeploymentTier.NonProduction)]
+        [DataRow(true, DeploymentTier.Production, null, Dorc.Monitor.RunnerProcess.TerraformRunnerOperations.CreatePlan)]
+        [DataRow(false, DeploymentTier.NonProduction, null, Dorc.Monitor.RunnerProcess.TerraformRunnerOperations.CreatePlan)]
+        [DataRow(true, DeploymentTier.Production, "payments-prod", Dorc.Monitor.RunnerProcess.TerraformRunnerOperations.CreatePlan)]
+        [DataRow(true, DeploymentTier.Production, "payments-prod", Dorc.Monitor.RunnerProcess.TerraformRunnerOperations.ApplyPlan)]
         public void TerraformDispatcherFailsClosedBeforePipeWhenCredentialUnavailable(
             bool isProduction,
-            DeploymentTier expectedTier)
+            DeploymentTier expectedTier,
+            string? executionIdentityReference,
+            Dorc.Monitor.RunnerProcess.TerraformRunnerOperations operation)
         {
             var emptyCredentialSource = Substitute.For<IDeploymentCredentialSource>();
             emptyCredentialSource.Description.Returns("vault");
-            emptyCredentialSource.Resolve(Arg.Any<DeploymentTier>()).Returns((DeploymentCredential?)null);
+            emptyCredentialSource.Resolve(Arg.Any<DeploymentTier>(), null)
+                .Returns(executionIdentityReference == null
+                    ? null
+                    : DeploymentCredential.FromPlainText(ProdAccount, "tier-default-password"));
+            emptyCredentialSource.Resolve(Arg.Any<DeploymentTier>(), "payments-prod")
+                .Returns((DeploymentCredential?)null);
 
             var requests = Substitute.For<IRequestsPersistentSource>();
             requests.GetRequest(55).Returns(new DeploymentRequestApiModel
@@ -268,6 +351,7 @@ namespace Dorc.Monitor.Tests
 
             var allowList = Substitute.For<ISourceHostAllowList>();
             allowList.CheckTerraformSource(Arg.Any<string>()).Returns(PolicyDecision.Allow());
+            var azureStorage = Substitute.For<IAzureStorageAccountWorker>();
 
             var dispatcher = new TerraformDispatcher(
                 NullLogger<TerraformDispatcher>.Instance,
@@ -276,7 +360,7 @@ namespace Dorc.Monitor.Tests
                 _configurationSettings,
                 Substitute.For<IDeploymentRequestProcessesPersistentSource>(),
                 _pipeServer,
-                Substitute.For<IAzureStorageAccountWorker>(),
+                azureStorage,
                 Substitute.For<IProjectsPersistentSource>(),
                 Substitute.For<IGitHubHostValidator>(),
                 Substitute.For<ICloudResourcesPersistentSource>(),
@@ -297,6 +381,7 @@ namespace Dorc.Monitor.Tests
             };
             var result = new DeploymentResultApiModel { Id = 700, ComponentId = 9, RequestId = 55 };
 
+            var adoption = new RequestExecutionIdentityAdoption();
             var succeeded = dispatcher.Dispatch(
                 component,
                 result,
@@ -304,12 +389,20 @@ namespace Dorc.Monitor.Tests
                 requestId: 55,
                 isProduction: isProduction,
                 environmentName: "ENV-TF",
+                executionIdentityReference: executionIdentityReference,
+                identityAdoption: adoption,
                 new StringBuilder(),
-                Dorc.Monitor.RunnerProcess.TerraformRunnerOperations.CreatePlan,
+                operation,
                 CancellationToken.None);
 
             Assert.IsFalse(succeeded);
-            emptyCredentialSource.Received(1).Resolve(expectedTier);
+            emptyCredentialSource.Received(1).Resolve(expectedTier, executionIdentityReference);
+            if (executionIdentityReference != null)
+            {
+                Assert.AreEqual((0, 0), adoption.Counts);
+                emptyCredentialSource.DidNotReceive().Resolve(expectedTier, null);
+            }
+            azureStorage.DidNotReceiveWithAnyArgs().DownloadFileFromBlobs(default!, default!);
             _pipeServer.DidNotReceiveWithAnyArgs().Start(default!, default!, default!, default);
             _configValues.DidNotReceiveWithAnyArgs().GetConfigValue(default!);
         }
@@ -390,7 +483,11 @@ namespace Dorc.Monitor.Tests
         {
             var source = Substitute.For<IDeploymentCredentialSource>();
             source.Description.Returns("test");
+            // Both overloads: the dispatchers call the environment-keyed one, and NSubstitute
+            // treats them as separate members.
             source.Resolve(Arg.Any<DeploymentTier>())
+                .Returns(_ => DeploymentCredential.FromPlainText(userName, password));
+            source.Resolve(Arg.Any<DeploymentTier>(), Arg.Any<string?>())
                 .Returns(_ => DeploymentCredential.FromPlainText(userName, password));
             return source;
         }
@@ -434,6 +531,8 @@ namespace Dorc.Monitor.Tests
                 deploymentRequestId: 42,
                 isProduction: true,
                 environmentName: "SOME-ENV",
+                executionIdentityReference: null,
+                identityAdoption: new RequestExecutionIdentityAdoption(),
                 new StringBuilder(),
                 CancellationToken.None));
 
@@ -485,6 +584,8 @@ namespace Dorc.Monitor.Tests
                 deploymentRequestId: 42,
                 isProduction: true,
                 environmentName: "SOME-ENV",
+                executionIdentityReference: null,
+                identityAdoption: new RequestExecutionIdentityAdoption(),
                 new StringBuilder(),
                 CancellationToken.None));
 
@@ -552,6 +653,8 @@ namespace Dorc.Monitor.Tests
                 deploymentRequestId: 42,
                 isProduction: true,
                 environmentName: "SOME-ENV",
+                executionIdentityReference: null,
+                identityAdoption: new RequestExecutionIdentityAdoption(),
                 new StringBuilder(),
                 CancellationToken.None));
 

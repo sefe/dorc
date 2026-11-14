@@ -68,6 +68,9 @@ namespace Dorc.PersistentData.Security
     {
         public const string WithheldKeysSetting = "AppSettings:ConfigKeysWithheldFromScripts";
 
+        private const string NamedDeployKeyPrefix = "DORC_Deploy_";
+        private const string NamedDeployPasswordSuffix = "_Password";
+
         /// <summary>
         /// The keys a completed production share scan showed no script consumes. Defaulted
         /// rather than left empty because an empty default would leave a live incident open on
@@ -194,8 +197,21 @@ namespace Dorc.PersistentData.Security
 
         public IReadOnlyCollection<string> WithheldKeys => withheld;
 
-        public bool IsWithheld(string? key) =>
-            !string.IsNullOrWhiteSpace(key) && withheld.Contains(key.Trim());
+        public bool IsWithheld(string? key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return false;
+            }
+
+            var trimmed = key.Trim();
+            return withheld.Contains(trimmed) || IsNamedDeployPasswordKey(trimmed);
+        }
+
+        private static bool IsNamedDeployPasswordKey(string trimmed) =>
+            trimmed.StartsWith(NamedDeployKeyPrefix, StringComparison.OrdinalIgnoreCase)
+            && trimmed.EndsWith(NamedDeployPasswordSuffix, StringComparison.OrdinalIgnoreCase)
+            && trimmed.Length > (NamedDeployKeyPrefix.Length + NamedDeployPasswordSuffix.Length);
 
         public bool IsWithheld(ConfigValueApiModel configValue) =>
             configValue == null || configValue.VisibleToScripts != true || IsWithheld(configValue.Key);

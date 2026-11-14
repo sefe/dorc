@@ -62,9 +62,21 @@ namespace Dorc.Monitor.Tests
         [TestMethod]
         [DataRow("DORC_ProdDeployUsername")]
         [DataRow("DORC_NonProdDeployUsername")]
+        [DataRow("DORC_Deploy_trading-tier_Username")]
         public void DoesNotWithholdUsernames(string key)
         {
             Assert.IsFalse(Default().IsWithheld(key));
+        }
+
+        [TestMethod]
+        [DataRow("DORC_Deploy_trading-tier_Password")]
+        [DataRow("  dorc_deploy_payments-prod_password  ")]
+        public void UnconditionallyWithholdsNamedDeployPasswordKeysEvenWhenMarkedVisible(string key)
+        {
+            var values = Default();
+
+            Assert.IsTrue(values.IsWithheld(key));
+            Assert.IsTrue(values.IsWithheld(Visible(key)));
         }
 
         [TestMethod]

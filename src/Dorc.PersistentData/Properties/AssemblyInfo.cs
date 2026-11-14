@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 
 // This project sets GenerateAssemblyInfo=False, so the <InternalsVisibleTo> MSBuild items in
 // the .csproj are ignored; the attributes must be declared in source here instead.
+[assembly: InternalsVisibleTo("Dorc.Api.Tests")]
 [assembly: InternalsVisibleTo("Dorc.Core.Tests")]
 [assembly: InternalsVisibleTo("Dorc.Monitor.Tests")]
 

@@ -1,5 +1,6 @@
 using Dorc.Monitor.Pipes;
 using Microsoft.Extensions.Logging;
+using System.Globalization;
 using System.Runtime.Versioning;
 using System.Security.Principal;
 
@@ -15,17 +16,19 @@ namespace Dorc.Monitor.Security
     /// indefinitely, so any authenticated user on the Monitor host could read every plan the
     /// host had ever staged.
     ///
-    /// The directory is restricted the same way the Terraform working directory is, with one
-    /// addition: the Runner that writes the plan runs as the deployment account, not as the
-    /// Monitor, so that account must be admitted or nothing can be planned at all.
+    /// The shared root is restricted to the Monitor, SYSTEM and Administrators alone, while
+    /// each deployment result stages into its own subdirectory that additionally admits only
+    /// that deployment's Runner account - so concurrent environments never overwrite one
+    /// another's directory DACL or expose plans across execution identities.
     /// </summary>
     internal static class TerraformPlanStorage
     {
         internal const string DirectoryName = "terraform-plans";
 
         /// <summary>
-        /// Returns the plan directory, restricted to the Monitor, SYSTEM, Administrators and
-        /// the deployment account the Runner will be started as.
+        /// Returns the per-result plan directory, restricted to the Monitor, SYSTEM,
+        /// Administrators and the deployment account the Runner will be started as, beneath a
+        /// root directory restricted to the Monitor, SYSTEM and Administrators alone.
         ///
         /// A failure to APPLY the restriction is fatal to the dispatch, deliberately: the
         /// alternative is staging a plan in a directory the whole host can read, which is the
@@ -36,34 +39,43 @@ namespace Dorc.Monitor.Security
         /// </summary>
         public static string EnsureRestricted(
             string dorcProgramDataRoot,
+            int deploymentResultId,
             ScriptGroupReaderIdentity readerIdentity,
             ILogger logger)
         {
-            var planStorageDir = Path.Join(dorcProgramDataRoot, DirectoryName);
+            ArgumentOutOfRangeException.ThrowIfNegative(deploymentResultId);
+
+            var planStorageRoot = Path.Join(dorcProgramDataRoot, DirectoryName);
+            var resultDir = Path.Join(
+                planStorageRoot,
+                deploymentResultId.ToString(CultureInfo.InvariantCulture));
 
             if (!OperatingSystem.IsWindows())
             {
                 // DOrc deploys on Windows; this branch exists so the surrounding logic is
                 // exercisable off it. No restriction is applied here, so it must never be the
                 // production path.
-                Directory.CreateDirectory(planStorageDir);
-                return planStorageDir;
+                Directory.CreateDirectory(resultDir);
+                return resultDir;
             }
 
-            Restrict(planStorageDir, readerIdentity, logger);
-            return planStorageDir;
+            Restrict(planStorageRoot, resultDir, readerIdentity, logger);
+            return resultDir;
         }
 
         [SupportedOSPlatform("windows")]
         private static void Restrict(
-            string planStorageDir,
+            string planStorageRoot,
+            string resultDir,
             ScriptGroupReaderIdentity readerIdentity,
             ILogger logger)
         {
+            RestrictedDirectory.Ensure(planStorageRoot);
+
             var deploymentAccount = ResolveDeploymentAccount(readerIdentity, logger);
 
             RestrictedDirectory.Ensure(
-                planStorageDir,
+                resultDir,
                 deploymentAccount is null ? [] : [deploymentAccount]);
         }
 

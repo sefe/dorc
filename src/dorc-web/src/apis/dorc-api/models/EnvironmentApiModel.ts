@@ -41,6 +41,11 @@ export interface EnvironmentApiModel {
      */
     EnvironmentIsProd?: boolean;
     /**
+     * @type {string}
+     * @memberof EnvironmentApiModel
+     */
+    ExecutionIdentityReference?: string | null;
+    /**
      * @type {boolean}
      * @memberof EnvironmentApiModel
      */

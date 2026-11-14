@@ -3,6 +3,7 @@ using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core;
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
+using Dorc.Core.Security;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor.Notifications;
 using Dorc.PersistentData.Security;
@@ -88,6 +89,7 @@ namespace Dorc.Monitor.RequestProcessors
                 _variableResolver = new VariableResolver(propertyValuesPersistentSource, _loggerFactory, _propertyEvaluator, _scriptScopeConfigValues);
 
                 string? resolvedDropFolder = null;
+                var identityAdoption = new RequestExecutionIdentityAdoption();
                 try
                 {
                     var scriptRoot = _configValuesPersistentSource.GetConfigValue("ScriptRoot");
@@ -282,6 +284,11 @@ namespace Dorc.Monitor.RequestProcessors
                                     environment.EnvironmentId,
                                     environment.EnvironmentIsProd,
                                     environmentName,
+                                    // The environment's own execution identity, where it names
+                                    // one. Null means the tier default, which is how every
+                                    // environment behaves until it is bound.
+                                    environment.ExecutionIdentityReference,
+                                    identityAdoption,
                                     scriptRoot,
                                     commonProperties,
                                     compositeCts.Token);
@@ -441,6 +448,8 @@ namespace Dorc.Monitor.RequestProcessors
                 }
                 finally
                 {
+                    ReportExecutionIdentityAdoption(identityAdoption);
+
                     // Clean up downloaded GitHub artifacts after deployment completes
                     if (resolvedDropFolder != null &&
                         _gitHubArtifactDownloader.IsGitHubArtifactUrl(requestToExecute.Details.BuildDetail.DropLocation))
@@ -622,6 +631,26 @@ namespace Dorc.Monitor.RequestProcessors
                     stillPublished.Count,
                     string.Join(", ", stillPublished));
             }
+        }
+
+        /// <summary>
+        /// Records how many credential resolutions used an environment's own execution identity
+        /// and how many fell back to the tier default.
+        ///
+        /// Migration progress is otherwise invisible, and "we have started binding identities"
+        /// is not the same claim as "the estate is bound". Reported from the count rather than
+        /// from a configuration flag, so it cannot be wrong.
+        /// </summary>
+        private void ReportExecutionIdentityAdoption(RequestExecutionIdentityAdoption identityAdoption)
+        {
+            var (bound, fallback) = identityAdoption.Counts;
+
+            logger.LogInformation(
+                "Execution identity adoption for request: {Bound} resolution(s) used an environment's"
+                + " own identity, {Fallback} fell back to the shared tier default. Every fallback"
+                + " shares one account across its whole tier.",
+                bound,
+                fallback);
         }
 
         private void SetUpRefDataApiUrlAsProperty()

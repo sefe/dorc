@@ -129,7 +129,7 @@ namespace Dorc.Monitor.Tests.Notifications
             mockComponentProcessor.DeployComponent(
                 component, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<RequestExecutionIdentityAdoption>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(succeeds);
         }
@@ -193,7 +193,7 @@ namespace Dorc.Monitor.Tests.Notifications
             mockComponentProcessor.DeployComponent(
                 component, Arg.Any<DeploymentResultApiModel>(),
                 Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
-                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<RequestExecutionIdentityAdoption>(), Arg.Any<string>(),
                 Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
                 .Returns(_ => throw new OperationCanceledException());
 
