@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Dorc.Monitor\Dorc.Monitor.csproj" />
+    <ProjectReference Include="..\Dorc.PowerShell\Dorc.PowerShell.csproj" />
   </ItemGroup>
 
   <ItemGroup>

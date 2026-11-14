@@ -56,8 +56,9 @@ namespace Dorc.Core.Configuration
         bool GetScriptPathEnforcementEnabled();
 
         /// <summary>
-        /// How far script content verification is taken. Absence, or an unrecognised value,
-        /// means <see cref="ScriptContentVerificationMode.Report"/>.
+        /// How far script content verification is taken. Absence or whitespace means
+        /// <see cref="ScriptContentVerificationMode.Report"/>; an unrecognised non-empty value
+        /// fails closed with <see cref="System.InvalidOperationException"/>.
         /// </summary>
         ScriptContentVerificationMode GetScriptContentVerificationMode();
 

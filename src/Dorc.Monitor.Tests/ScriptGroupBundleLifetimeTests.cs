@@ -89,6 +89,7 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<IRequestsPersistentSource>(),
                 _scriptScopeConfigValues,
                 _credentialSource,
+                Substitute.For<IScriptsPersistentSource>(),
                 Substitute.For<IPowerShellEvidenceCapture>());
 
         /// <summary>
@@ -202,6 +203,7 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<IRequestsPersistentSource>(),
                 _scriptScopeConfigValues,
                 _credentialSource,
+                Substitute.For<IScriptsPersistentSource>(),
                 evidenceCapture);
 
             DispatchExpectingFailure(dispatcher, isProduction);
@@ -236,6 +238,7 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<IRequestsPersistentSource>(),
                 _scriptScopeConfigValues,
                 credentialSource,
+                Substitute.For<IScriptsPersistentSource>(),
                 evidenceCapture);
 
             var adoption = new RequestExecutionIdentityAdoption();
@@ -293,6 +296,7 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<IRequestsPersistentSource>(),
                 _scriptScopeConfigValues,
                 emptyCredentialSource,
+                Substitute.For<IScriptsPersistentSource>(),
                 evidenceCapture);
 
             var adoption = new RequestExecutionIdentityAdoption();
@@ -512,6 +516,7 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<IRequestsPersistentSource>(),
                 scopeValues,
                 CredentialSourceFor("svc-dorc", "password"),
+                Substitute.For<IScriptsPersistentSource>(),
                 Substitute.For<IPowerShellEvidenceCapture>());
 
             var properties = new Dictionary<string, VariableValue>
@@ -561,6 +566,7 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<IRequestsPersistentSource>(),
                 CreateWithholdingPolicy(BuiltInWithheld),
                 CredentialSourceFor("svc-dorc", "password"),
+                Substitute.For<IScriptsPersistentSource>(),
                 Substitute.For<IPowerShellEvidenceCapture>());
 
             var jsonPath = JsonSerializer.Serialize(new JSONPath
@@ -627,6 +633,7 @@ namespace Dorc.Monitor.Tests
                 Substitute.For<IRequestsPersistentSource>(),
                 CreateWithholdingPolicy(BuiltInWithheld, OperatorConfiguredWithheld),
                 CredentialSourceFor("svc-dorc", "password"),
+                Substitute.For<IScriptsPersistentSource>(),
                 Substitute.For<IPowerShellEvidenceCapture>());
 
             var jsonPath = JsonSerializer.Serialize(new JSONPath

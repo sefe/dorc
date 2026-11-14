@@ -76,6 +76,17 @@ namespace Dorc.ApiModel
         public IList<string> AllowedTerraformSourceHosts { get; set; } = new List<string>();
         public IList<string> AllowedArtefactHosts { get; set; } = new List<string>();
 
+        /// <summary>
+        /// How far the runner takes content verification.
+        ///
+        /// Carried rather than read by the runner from its own configuration. The Monitor is
+        /// where the estate's setting lives (defaulting to <see cref="ScriptContentVerificationMode.Report"/>),
+        /// while the wire payload defaults fail-closed to <see cref="ScriptContentVerificationMode.Enforce"/>
+        /// if a producer omits the field.
+        /// </summary>
+        public ScriptContentVerificationMode ContentVerification { get; set; }
+            = ScriptContentVerificationMode.Enforce;
+
         public IDictionary<string, VariableValue> CommonProperties { get; set; }
         public IList<ScriptProperties> ScriptProperties { get; set; }
     }
