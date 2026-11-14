@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Runtime.ExceptionServices;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.PersistentData.Security;
 
@@ -52,13 +53,21 @@ namespace Dorc.Core.VariableResolution
                 }
             }
 
-            var dictionary = localProperties.Keys.AsParallel()
-                .Where(x => !IsWithheld(x))
-                .Select(x => new { Key = x, Value = GetPropertyValue(x) })
-                .Where(x => x.Value != null)
-                .ToDictionary(x => x.Key, x => x.Value!);
+            try
+            {
+                var dictionary = localProperties.Keys.AsParallel()
+                    .Where(x => !IsWithheld(x))
+                    .Select(x => new { Key = x, Value = GetPropertyValue(x) })
+                    .Where(x => x.Value != null)
+                    .ToDictionary(x => x.Key, x => x.Value!);
 
-            return dictionary;
+                return dictionary;
+            }
+            catch (AggregateException ex) when (ex.Flatten().InnerExceptions.OfType<PropertyExpressionEvaluationException>().FirstOrDefault() is { } evaluationException)
+            {
+                ExceptionDispatchInfo.Capture(evaluationException).Throw();
+                throw;
+            }
         }
 
         public void SetPropertyValue(string property, VariableValue? value)
@@ -117,8 +126,9 @@ namespace Dorc.Core.VariableResolution
                 return propertyValue;
             }
 
-            // As in VariableResolver: expression evaluation compiles and runs C#, so it is
-            // applied only where no request-supplied text can reach the evaluated string.
+            // As in VariableResolver: expression evaluation is applied only to
+            // administrator-curated values, where no request-supplied text can reach the
+            // evaluated string.
             if (_requestSuppliedProperties.IsInfluenced(property, RawValueOf))
             {
                 return propertyValue;
@@ -135,11 +145,19 @@ namespace Dorc.Core.VariableResolution
 
         public IDictionary<string, VariableValue> LocalProperties()
         {
-            return localProperties.Keys.AsParallel()
-                .Where(x => !IsWithheld(x))
-                .Select(x => new { Key = x, Value = GetPropertyValue(x) })
-                .Where(x => x.Value != null)
-                .ToDictionary(x => x.Key, x => x.Value!);
+            try
+            {
+                return localProperties.Keys.AsParallel()
+                    .Where(x => !IsWithheld(x))
+                    .Select(x => new { Key = x, Value = GetPropertyValue(x) })
+                    .Where(x => x.Value != null)
+                    .ToDictionary(x => x.Key, x => x.Value!);
+            }
+            catch (AggregateException ex) when (ex.Flatten().InnerExceptions.OfType<PropertyExpressionEvaluationException>().FirstOrDefault() is { } evaluationException)
+            {
+                ExceptionDispatchInfo.Capture(evaluationException).Throw();
+                throw;
+            }
         }
 
         private string? RawValueOf(string property)
