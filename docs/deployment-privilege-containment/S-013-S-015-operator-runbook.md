@@ -240,33 +240,51 @@ merely once per key name. For `DorcCliSecret`, `DeploymentServiceAccountPassword
 separate `ConfigValue` rows and must each be rotated, updated, verified, and recorded
 individually (if two `ConfigValue` rows share the same underlying directory/service account,
 pause and drain consumers across both populations in step 1 and update **every** corresponding
-`ConfigValue` row in step 3 before running verification).
+credential entry in step 4 before running verification).
 
 1. **Pause new deployment work and drain all affected authentication consumers** before rotating
    the account — including `DaemonStatusProbe` service status/discovery/control calls (which
    authenticate with the deployment credentials) and `ResetAppPasswordController` SQL password
    reset requests (which authenticate with the non-production deployment credential), while
-   preserving administrative DOrc UI/API access to update configuration in step 3. Rotating while
+   preserving administrative DOrc UI/API access to update configuration in step 4. Rotating while
    deployments, daemon probes, or password resets are active can cause authentication failures and
    directory account lockouts: in-flight requests retain script-facing secrets already captured by
    `PendingRequestProcessor.SetUpConfigValuesAsProperties`, and any deployment dispatch, daemon
-   probe, or SQL password reset executing between target rotation (step 2) and the DOrc
-   `ConfigValue` update (step 3) submits the old password. (The earlier drain in S-013 covers only
-   the host restart, not each rotation.) Keep ordinary deployment work, daemon status/control
-   activity, and SQL password resets paused until all corresponding `ConfigValue` rows for that
-   account are updated and the controlled verification deployment(s) in step 4 succeed.
-2. Rotate the target account password or client secret in the directory / identity store.
-3. Update every corresponding `ConfigValue` row (`IsForProd = 0`, `IsForProd = 1`, or the single
-   row for the four operator keys) through the DOrc UI or API so it is re-encrypted with the
-   current key. **Do not** write to `deploy.ConfigValue` directly — the value is encrypted at rest
-   and a direct write stores plaintext — and **do not** insert a second `IsForProd` row for any of
-   the four single-row operator keys (`ConfigValuesPersistentSource.GetConfigValue` queries by
-   `Key` with `SingleOrDefault`). When rotating an account that also backs a saved Windows service
-   logon identity (in particular `DORC_NonProdDeployPassword`, which `Setup.Dorc.msi.json` maps to
-   the non-production Monitor service logon, and any production Monitor host sharing a rotated
-   account), update the saved Windows service credentials and deployment configuration on every
-   affected host and verify controlled service restarts before proceeding.
-4. Run the controlled verification checks and deployment(s) for the rotated population before
+   probe, or SQL password reset executing between target rotation (step 3) and the credential store
+   update (step 4) submits the old password. (The earlier drain in S-013 covers only the host
+   restart, not each rotation.) Keep ordinary deployment work, daemon status/control activity, and
+   SQL password resets paused until all corresponding credential entries for that account are
+   updated and the controlled verification checks and deployment(s) in step 5 succeed.
+2. For `DORC_ProdDeployPassword` and `DORC_NonProdDeployPassword`, check
+   `AppSettings:DeploymentCredentialsFromVault` on the instance being rotated and record which
+   credential source is active before changing the account.
+3. Rotate the target account password or client secret in the directory / identity store.
+4. Update the active credential store:
+   - For `DORC_ProdDeployPassword` or `DORC_NonProdDeployPassword` when
+     `DeploymentCredentialsFromVault` is `true`, update the 1Password item named by
+     `ProdDeployPasswordItemId` or `NonProdDeployPasswordItemId`, then read it through the
+     configured Connect service to confirm the new value is available.
+   - Otherwise (and for all five remaining keys in this runbook), update every corresponding
+     `ConfigValue` row (`IsForProd = 0`, `IsForProd = 1`, or the single row for the four operator
+     keys) through the DOrc UI or API so it is re-encrypted with the current key.
+
+   **Do not** write to `deploy.ConfigValue` directly — the value is encrypted at rest and a direct
+   write stores plaintext — **do not** insert a second `IsForProd` row for any of the four
+   single-row operator keys (`ConfigValuesPersistentSource.GetConfigValue` queries by `Key` with
+   `SingleOrDefault`), and **do not** treat updating a deployment password in `ConfigValue` alone
+   as rotating the active runtime credential when `DeploymentCredentialsFromVault` is `true`
+   (runtime deployments, daemon probes, and password resets read the 1Password item, so leaving the
+   vault item unchanged leaves runtime authentication on the old password). When rotating an
+   account that also backs a saved Windows service logon identity (in particular
+   `DORC_NonProdDeployPassword`, which `src/Setup.Dorc/Setup.Dorc.msi.json` maps to
+   `SVC.PASSWORDNONPROD` for the non-production Monitor service logon, and any production Monitor
+   host sharing a rotated account), update the saved Windows service credentials and deployment
+   configuration on every affected host, verify controlled service restarts before proceeding, and
+   if the MSI installer pipeline still consumes `DORC_NonProdDeployPassword` from `ConfigValue`
+   during service upgrades before service-logon and deployment inputs are decoupled, keep that
+   `ConfigValue` synchronized with the rotated service-logon password after updating the vault so a
+   subsequent MSI upgrade cannot overwrite the service logon with a stale password.
+5. Run the controlled verification checks and deployment(s) for the rotated population before
    resuming ordinary deployment work or proceeding to the next population:
    - For a **single-row operator key** (`DORC_ProdDeployPassword`, `DORC_NonProdDeployPassword`,
      `DORC_WebDeployPassword`, `DorcApiAccessPassword`): verify the rotated credential directly
@@ -281,7 +299,7 @@ pause and drain consumers across both populations in step 1 and update **every**
      matching class (`IsForProd = 0` → non-production; `IsForProd = 1` → production) and confirm
      success. If both `0` and `1` rows shared one underlying account and were updated together,
      verify **both** a consuming non-production deployment and a consuming production deployment.
-5. Resume ordinary deployment work for the verified population, record the completed
+6. Resume ordinary deployment work for the verified population, record the completed
    `(Key, IsForProd)` population in the execution table below, then repeat from step 1 for the
    next population.
 

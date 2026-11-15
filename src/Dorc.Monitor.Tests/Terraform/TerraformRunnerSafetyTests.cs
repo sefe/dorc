@@ -70,6 +70,7 @@ public class TerraformRunnerSafetyTests
             Substitute.For<ICloudResourceAuditPersistentSource>(), Substitute.For<IEnvironmentsPersistentSource>(),
             Substitute.For<IDatabasesPersistentSource>(), propertySource,
             Substitute.For<Dorc.PersistentData.Security.IScriptScopeConfigValues>(),
+            Substitute.For<Dorc.Core.Security.IDeploymentCredentialSource>(),
             Substitute.For<Dorc.PersistentData.Security.ISourceHostAllowList>());
         var group = (ScriptGroup)typeof(TerraformDispatcher).GetMethod("GetScriptGroup",
             BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(dispatcher, new object?[]
