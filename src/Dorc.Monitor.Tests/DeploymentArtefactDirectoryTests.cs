@@ -858,5 +858,47 @@ namespace Dorc.Monitor.Tests
         {
             NewWriter().Expire(@"..\..\evil");
         }
+
+        [TestMethod]
+        public async Task Start_CreatesBundleWithProtectedDaclAndRunnerReadWithoutPostCreationRewrite()
+        {
+            var pipeName = "DOrcMonitor-protected-" + Guid.NewGuid().ToString("N");
+            var writer = NewWriter();
+            var bundlePath = Path.Join(
+                Dorc.ApiModel.Constants.RunnerConstants.ScriptGroupFilesPath,
+                pipeName + ".json");
+            try
+            {
+                await writer.Start(
+                    pipeName,
+                    new ScriptGroup(),
+                    new ScriptGroupReaderIdentity("NT AUTHORITY", "LOCAL SERVICE"),
+                    CancellationToken.None);
+
+                Assert.IsTrue(File.Exists(bundlePath));
+                var aclBeforeSweep = new FileInfo(bundlePath).GetAccessControl();
+                Assert.IsTrue(aclBeforeSweep.AreAccessRulesProtected);
+                var localServiceSid = new SecurityIdentifier(WellKnownSidType.LocalServiceSid, null);
+                var rulesBefore = aclBeforeSweep
+                    .GetAccessRules(includeExplicit: true, includeInherited: true, typeof(SecurityIdentifier))
+                    .Cast<FileSystemAccessRule>()
+                    .ToList();
+                Assert.IsEmpty(rulesBefore.Where(r => r.IsInherited));
+                Assert.HasCount(1, rulesBefore.Where(r => localServiceSid.Equals(r.IdentityReference)));
+
+                writer.RemoveOrphanedBundles(Dorc.ApiModel.Constants.RunnerConstants.ScriptGroupFilesPath);
+
+                var rulesAfter = new FileInfo(bundlePath)
+                    .GetAccessControl()
+                    .GetAccessRules(includeExplicit: true, includeInherited: true, typeof(SecurityIdentifier))
+                    .Cast<FileSystemAccessRule>()
+                    .ToList();
+                Assert.HasCount(1, rulesAfter.Where(r => localServiceSid.Equals(r.IdentityReference)));
+            }
+            finally
+            {
+                writer.Expire(pipeName);
+            }
+        }
     }
 }

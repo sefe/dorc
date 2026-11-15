@@ -693,6 +693,11 @@ namespace Dorc.Core.BuildServer
                         continue;
                     }
 
+                    if ((rule.PropagationFlags & System.Security.AccessControl.PropagationFlags.InheritOnly) != 0)
+                    {
+                        continue;
+                    }
+
                     var sid = (System.Security.Principal.SecurityIdentifier)rule.IdentityReference;
                     if (privilegedOwners.Contains(sid) || sid == ownerRightsSid)
                     {

@@ -389,6 +389,99 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
+        public void DownloadAndExtract_AllowsConfiguredPrivilegedRootWithCreatorOwnerInheritOnlyRule()
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            var downloadRoot = Path.Join(Path.GetTempPath(),
+                "dorc-creator-owner-test-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(downloadRoot);
+
+            try
+            {
+                var restrictedBaseAcl = new System.Security.AccessControl.DirectorySecurity();
+                restrictedBaseAcl.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+                using (var identity = System.Security.Principal.WindowsIdentity.GetCurrent())
+                {
+                    if (identity.User != null)
+                    {
+                        restrictedBaseAcl.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                            identity.User,
+                            System.Security.AccessControl.FileSystemRights.FullControl,
+                            System.Security.AccessControl.InheritanceFlags.ContainerInherit
+                            | System.Security.AccessControl.InheritanceFlags.ObjectInherit,
+                            System.Security.AccessControl.PropagationFlags.None,
+                            System.Security.AccessControl.AccessControlType.Allow));
+                    }
+                }
+                restrictedBaseAcl.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                    new System.Security.Principal.SecurityIdentifier(
+                        System.Security.Principal.WellKnownSidType.LocalSystemSid,
+                        null),
+                    System.Security.AccessControl.FileSystemRights.FullControl,
+                    System.Security.AccessControl.InheritanceFlags.ContainerInherit
+                    | System.Security.AccessControl.InheritanceFlags.ObjectInherit,
+                    System.Security.AccessControl.PropagationFlags.None,
+                    System.Security.AccessControl.AccessControlType.Allow));
+                restrictedBaseAcl.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                    new System.Security.Principal.SecurityIdentifier(
+                        System.Security.Principal.WellKnownSidType.BuiltinAdministratorsSid,
+                        null),
+                    System.Security.AccessControl.FileSystemRights.FullControl,
+                    System.Security.AccessControl.InheritanceFlags.ContainerInherit
+                    | System.Security.AccessControl.InheritanceFlags.ObjectInherit,
+                    System.Security.AccessControl.PropagationFlags.None,
+                    System.Security.AccessControl.AccessControlType.Allow));
+                restrictedBaseAcl.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                    new System.Security.Principal.SecurityIdentifier(
+                        System.Security.Principal.WellKnownSidType.CreatorOwnerSid,
+                        null),
+                    System.Security.AccessControl.FileSystemRights.FullControl,
+                    System.Security.AccessControl.InheritanceFlags.ContainerInherit
+                    | System.Security.AccessControl.InheritanceFlags.ObjectInherit,
+                    System.Security.AccessControl.PropagationFlags.InheritOnly,
+                    System.Security.AccessControl.AccessControlType.Allow));
+                new DirectoryInfo(downloadRoot).SetAccessControl(restrictedBaseAcl);
+
+                var appSettings = Substitute.For<IConfigurationSection>();
+                appSettings["GitHubArtifactDownloadFolder"].Returns(downloadRoot);
+                appSettings["GitHubToken"].Returns("test-token");
+                _configuration.GetSection("AppSettings").Returns(appSettings);
+
+                var archive = BuildZipArchive(("deploy.ps1", "Write-Host 'ok'"));
+                using var handler = new StubHttpHandler(HttpStatusCode.OK, archive);
+                _httpClientFactory.CreateClient("GitHubActions").Returns(
+                    TrackClient(new HttpClient(handler, disposeHandler: false)));
+
+                var sut = CreateSut();
+
+                var extractedDir = sut.DownloadAndExtract(
+                    "https://api.github.com/repos/o/r/actions/artifacts/1/zip");
+
+                Assert.IsTrue(File.Exists(Path.Join(extractedDir, "drop", "deploy.ps1")));
+                var childAcl = new DirectoryInfo(extractedDir).GetAccessControl();
+                Assert.IsTrue(childAcl.AreAccessRulesProtected);
+                var creatorOwnerSid = new System.Security.Principal.SecurityIdentifier(
+                    System.Security.Principal.WellKnownSidType.CreatorOwnerSid,
+                    null);
+                var childRules = childAcl
+                    .GetAccessRules(includeExplicit: true, includeInherited: true, typeof(System.Security.Principal.SecurityIdentifier))
+                    .Cast<System.Security.AccessControl.FileSystemAccessRule>();
+                Assert.IsEmpty(childRules.Where(r => creatorOwnerSid.Equals(r.IdentityReference)));
+            }
+            finally
+            {
+                if (Directory.Exists(downloadRoot))
+                {
+                    Directory.Delete(downloadRoot, recursive: true);
+                }
+            }
+        }
+
+        [TestMethod]
         public void DownloadAndExtract_RefusesConfiguredLocalRootUnderUnsafeAncestorDirectory()
         {
             if (!OperatingSystem.IsWindows())
