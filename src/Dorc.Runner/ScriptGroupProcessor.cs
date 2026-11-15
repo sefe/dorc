@@ -37,11 +37,18 @@ namespace Dorc.Runner
             int sumResult = 0;
             foreach (var scriptProps in scriptGroupProperties.ScriptProperties)
             {
-                sumResult += scriptRunner.Run(
+                var result = scriptRunner.Run(
                     scriptGroupProperties.ScriptsLocation,
                     scriptProps.ScriptPath,
                     scriptProps.Properties,
-                    scriptGroupProperties.CommonProperties);
+                    scriptGroupProperties.CommonProperties,
+                    scriptGroupProperties.ContentVerification,
+                    scriptProps.ExpectedContentHash);
+                sumResult += result;
+                if (result != 0)
+                {
+                    break;
+                }
             }
 
             return sumResult;            

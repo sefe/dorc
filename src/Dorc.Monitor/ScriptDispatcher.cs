@@ -9,6 +9,9 @@ using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Win32.SafeHandles;
+using System.Runtime.Versioning;
+using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -28,6 +31,7 @@ namespace Dorc.Monitor
         private readonly IRequestsPersistentSource requestsPersistentSource;
         private readonly IScriptScopeConfigValues _scriptScopeConfigValues;
         private readonly IDeploymentCredentialSource _credentialSource;
+        private readonly IScriptsPersistentSource _scriptsPersistentSource;
         private readonly IPowerShellEvidenceCapture evidenceCapture;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
@@ -43,8 +47,10 @@ namespace Dorc.Monitor
             IRequestsPersistentSource requestsPersistentSource,
             IScriptScopeConfigValues scriptScopeConfigValues,
             IDeploymentCredentialSource credentialSource,
-            IPowerShellEvidenceCapture evidenceCapture = null)
+            IScriptsPersistentSource scriptsPersistentSource,
+            IPowerShellEvidenceCapture? evidenceCapture = null)
         {
+            this._scriptsPersistentSource = scriptsPersistentSource;
             this.processesPersistentSource = processesPersistentSource;
             this._configValuesPersistentSource = configValuesPersistentSource;
             this.logger = logger;
@@ -123,6 +129,8 @@ namespace Dorc.Monitor
                 isScriptExecutionSuccessful = false;
                 return isScriptExecutionSuccessful;
             }
+
+            ApplyContentBaseline(script, scriptsLocation, scriptGroups);
 
             var ordinalOffset = 0;
             foreach (ScriptGroup scriptGroup in scriptGroups)
@@ -627,6 +635,392 @@ namespace Dorc.Monitor
                 return false;
             }
         }
+
+        /// <summary>
+        /// Puts the script's content baseline into the group the runner will receive, recording
+        /// one from the share when none exists yet.
+        ///
+        /// The baseline comes from the frozen <see cref="ScriptApiModel"/> snapshot captured when
+        /// the deployment request was submitted, falling back to a live lookup only for legacy
+        /// pre-snapshot requests that did not record <see cref="ScriptApiModel.Id"/>. First-use
+        /// recording is pinned to the snapshot's <see cref="ScriptApiModel.Path"/> and applies
+        /// only to PowerShell share scripts.
+        /// </summary>
+        private void ApplyContentBaseline(
+            ScriptApiModel script,
+            string scriptsLocation,
+            IList<ScriptGroup> scriptGroups)
+        {
+            var mode = configurationSettingsEngine.GetScriptContentVerificationMode();
+
+            var shareScriptGroups = new List<ScriptGroup>();
+            foreach (var scriptGroup in scriptGroups)
+            {
+                if (scriptGroup.TerraformSourceType != TerraformSourceType.SharedFolder)
+                {
+                    scriptGroup.ContentVerification = ScriptContentVerificationMode.Off;
+                    continue;
+                }
+
+                scriptGroup.ContentVerification = mode;
+                shareScriptGroups.Add(scriptGroup);
+            }
+
+            if (mode == ScriptContentVerificationMode.Off || shareScriptGroups.Count == 0)
+            {
+                return;
+            }
+
+            var scriptId = script.Id;
+            var expectedPath = script.Path;
+            var baseline = script.ContentHash;
+
+            if (string.IsNullOrWhiteSpace(baseline)
+                && scriptId <= 0
+                && !string.IsNullOrWhiteSpace(expectedPath))
+            {
+                var liveScript = LookupLiveScriptByPath(expectedPath);
+                if (liveScript != null)
+                {
+                    scriptId = liveScript.Id;
+                    baseline = liveScript.ContentHash;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(baseline))
+            {
+                if (mode == ScriptContentVerificationMode.Report && scriptId > 0)
+                {
+                    baseline = RecordFirstSeenBaseline(
+                        scriptId,
+                        expectedPath,
+                        scriptsLocation,
+                        shareScriptGroups);
+                }
+                else if (mode == ScriptContentVerificationMode.Enforce)
+                {
+                    logger.LogWarning(
+                        "Script {ScriptId} ('{ScriptPath}') has no recorded content baseline while"
+                        + " ScriptContentVerification is set to Enforce. Skipping trust-on-first-use"
+                        + " capture; the runner will refuse execution until a baseline is recorded.",
+                        scriptId,
+                        LogText.SingleLine(expectedPath));
+                    return;
+                }
+            }
+
+            if (string.IsNullOrWhiteSpace(baseline))
+            {
+                return;
+            }
+
+            foreach (var scriptGroup in shareScriptGroups)
+            {
+                foreach (var scriptProperties in scriptGroup.ScriptProperties)
+                {
+                    scriptProperties.ExpectedContentHash = baseline;
+                }
+            }
+        }
+
+        private ScriptApiModel? LookupLiveScriptByPath(string expectedPath)
+        {
+            var page = _scriptsPersistentSource.GetScriptsByPage(
+                int.MaxValue,
+                1,
+                new PagedDataOperators
+                {
+                    Filters = new List<PagedDataFilter>
+                    {
+                        new PagedDataFilter { Path = nameof(ScriptApiModel.Path), FilterValue = expectedPath }
+                    }
+                });
+
+            return page?.Items?.FirstOrDefault(
+                candidate => string.Equals(candidate.Path, expectedPath, StringComparison.Ordinal));
+        }
+
+        /// <summary>
+        /// Trust on first use in <see cref="ScriptContentVerificationMode.Report"/> mode. Worth
+        /// being honest about what this is and is not: it does not establish that the script was
+        /// legitimate when first seen — if the share was already compromised, the compromised
+        /// bytes become the baseline. What it detects is change *after* recording, which is the
+        /// actual attack, and it is what makes the control adoptable during the Report rollout
+        /// without an inventory of what every script in the estate currently is.
+        ///
+        /// Monitor-side reads are strictly restricted to paths confined beneath
+        /// <paramref name="scriptsLocation"/> so an off-root UNC path cannot coerce the Monitor
+        /// service identity into connecting to an untrusted host while path confinement is in
+        /// report mode.
+        /// </summary>
+        private string? RecordFirstSeenBaseline(
+            int scriptId,
+            string? expectedPath,
+            string scriptsLocation,
+            IEnumerable<ScriptGroup> scriptGroups)
+        {
+            var path = scriptGroups
+                .SelectMany(group => group.ScriptProperties)
+                .Select(properties => properties.ScriptPath)
+                .FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate));
+
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(scriptsLocation)
+                || HasTraversalOrEncodedTraversal(path)
+                || !PathConfinement.IsWithin(path, scriptsLocation)
+                || !TryPrepareConfinedBaselineTarget(path, scriptsLocation, out var rootFull, out var relativeSegments))
+            {
+                logger.LogWarning(
+                    "Skipping trust-on-first-use baseline capture for script {ScriptId}"
+                    + " ('{ScriptPath}') because it does not lie within configured script root"
+                    + " '{ScriptRoot}'.",
+                    scriptId,
+                    LogText.SingleLine(path),
+                    LogText.SingleLine(scriptsLocation));
+                return null;
+            }
+
+            string? baseline;
+            try
+            {
+                baseline = OperatingSystem.IsWindows()
+                    ? ReadAndHashThroughPinnedHandlesWindows(rootFull, relativeSegments)
+                    : ReadAndHashTopDownNonWindows(rootFull, relativeSegments);
+            }
+            catch (Exception ex) when (ex is IOException
+                or UnauthorizedAccessException
+                or System.Security.SecurityException
+                or ArgumentException
+                or NotSupportedException)
+            {
+                // Reading the share or refusing a reparse/link swap can fail for ordinary or
+                // confinement reasons; skip baseline capture rather than aborting Report dispatch.
+                logger.LogWarning(ex,
+                    "Could not read '{ScriptPath}' through verified handles beneath '{ScriptRoot}'"
+                    + " to record a content baseline. The script will be dispatched without one.",
+                    LogText.SingleLine(path),
+                    LogText.SingleLine(scriptsLocation));
+
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(baseline))
+            {
+                return null;
+            }
+
+            // A synthetic principal, because there is no user here — this is the deployment
+            // engine baselining a script, and the audit entry should say so. The Monitor's
+            // claims reader reports the service's own configured identity whatever it is
+            // handed, so the name below is what makes the intent legible in code rather than
+            // what lands in the audit trail.
+            var engine = new GenericPrincipal(new GenericIdentity("DOrc deployment engine"), null);
+
+            var authoritativeBaseline = string.IsNullOrWhiteSpace(expectedPath)
+                ? _scriptsPersistentSource.RecordContentHashIfUnrecorded(scriptId, baseline, engine)
+                : _scriptsPersistentSource.RecordContentHashIfUnrecorded(
+                    scriptId, expectedPath, baseline, engine);
+
+            if (string.IsNullOrWhiteSpace(authoritativeBaseline))
+            {
+                logger.LogWarning(
+                    "Could not record a content baseline for script {ScriptId} ('{ScriptPath}')."
+                    + " It will be verified from whenever one is recorded.",
+                    scriptId, path);
+
+                return null;
+            }
+
+            if (ScriptContentHash.Matches(authoritativeBaseline, baseline))
+            {
+                logger.LogInformation(
+                    "Recorded a first-seen content baseline for script {ScriptId}"
+                    + " ('{ScriptPath}'). Subsequent deployments verify against it.",
+                    scriptId, path);
+            }
+            else
+            {
+                logger.LogInformation(
+                    "Another deployment recorded the first content baseline for script"
+                    + " {ScriptId} ('{ScriptPath}'). This deployment will verify against that"
+                    + " authoritative baseline.",
+                    scriptId, path);
+            }
+
+            return authoritativeBaseline;
+        }
+
+        internal static bool TryPrepareConfinedBaselineTarget(
+            string candidatePath,
+            string rootPath,
+            out string rootFull,
+            out string[] relativeSegments)
+        {
+            rootFull = string.Empty;
+            relativeSegments = [];
+
+            var directoryPath = Path.GetDirectoryName(candidatePath);
+            var fileName = Path.GetFileName(candidatePath);
+            if (string.IsNullOrWhiteSpace(directoryPath)
+                || directoryPath.Contains("..")
+                || string.IsNullOrWhiteSpace(fileName)
+                || fileName == "."
+                || fileName == "..")
+            {
+                return false;
+            }
+
+            try
+            {
+                rootFull = Path.TrimEndingDirectorySeparator(Path.GetFullPath(rootPath));
+                var rootPrefix = Path.EndsInDirectorySeparator(rootFull)
+                    ? rootFull
+                    : rootFull + Path.DirectorySeparatorChar;
+                var dirFull = Path.GetFullPath(directoryPath);
+                var targetFull = Path.GetFullPath(Path.Combine(dirFull, fileName));
+                var comparison = OperatingSystem.IsWindows()
+                    ? StringComparison.OrdinalIgnoreCase
+                    : StringComparison.Ordinal;
+                if (!targetFull.StartsWith(rootPrefix, comparison))
+                {
+                    return false;
+                }
+
+                var relative = targetFull[rootPrefix.Length..];
+                var segments = relative.Split(
+                    [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+                    StringSplitOptions.None);
+                if (segments.Length == 0
+                    || segments.Any(segment => string.IsNullOrWhiteSpace(segment) || segment is "." or ".."))
+                {
+                    return false;
+                }
+
+                relativeSegments = segments;
+                return true;
+            }
+            catch (Exception ex) when (ex is ArgumentException
+                or NotSupportedException
+                or PathTooLongException
+                or System.Security.SecurityException)
+            {
+                return false;
+            }
+        }
+
+        [SupportedOSPlatform("windows")]
+        private static string ReadAndHashThroughPinnedHandlesWindows(string rootFull, string[] relativeSegments)
+        {
+            var pinnedDirectories = new List<SafeFileHandle>(relativeSegments.Length);
+            try
+            {
+                var rootHandle = ReparseFreeHandles.OpenWriteExcludingDirectoryHandle(rootFull);
+                pinnedDirectories.Add(rootHandle);
+                var canonicalCurrent = ReparseFreeHandles.GetCanonicalPath(rootHandle, rootFull);
+
+                for (var i = 0; i < relativeSegments.Length - 1; i++)
+                {
+                    var nextDirectoryPath = Path.Join(canonicalCurrent, relativeSegments[i]);
+                    var childDirectoryHandle = ReparseFreeHandles.OpenWriteExcludingDirectoryHandle(nextDirectoryPath);
+                    pinnedDirectories.Add(childDirectoryHandle);
+
+                    var childCanonical = ReparseFreeHandles.GetCanonicalPath(childDirectoryHandle, nextDirectoryPath);
+                    if (!string.Equals(Path.GetDirectoryName(childCanonical), canonicalCurrent, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new IOException(
+                            $"Refusing to baseline beneath '{nextDirectoryPath}' because its canonical path resolved to '{childCanonical}'.");
+                    }
+
+                    canonicalCurrent = childCanonical;
+                }
+
+                var expectedLeafCanonical = Path.Join(canonicalCurrent, relativeSegments[^1]);
+                var fileHandle = ReparseFreeHandles.OpenRawHandle(
+                    expectedLeafCanonical,
+                    ReparseFreeHandles.GenericRead | ReparseFreeHandles.FileReadAttributes,
+                    ReparseFreeHandles.FileShareRead,
+                    ReparseFreeHandles.OpenExisting,
+                    out var error);
+                if (fileHandle.IsInvalid)
+                {
+                    fileHandle.Dispose();
+                    throw ReparseFreeHandles.CreateWin32IoException(
+                        $"Failed to open script '{expectedLeafCanonical}' for baseline capture",
+                        error);
+                }
+
+                try
+                {
+                    var attributes = File.GetAttributes(fileHandle);
+                    if ((attributes & (FileAttributes.ReparsePoint | FileAttributes.Directory)) != 0)
+                    {
+                        throw new IOException(
+                            $"Refusing to baseline '{expectedLeafCanonical}' because it is a directory or reparse point.");
+                    }
+
+                    ReparseFreeHandles.VerifySingleLinkRegularFile(fileHandle, expectedLeafCanonical);
+
+                    var actualLeafCanonical = ReparseFreeHandles.GetCanonicalPath(fileHandle, expectedLeafCanonical);
+                    if (!string.Equals(Path.GetDirectoryName(actualLeafCanonical), canonicalCurrent, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new IOException(
+                            $"Refusing to baseline '{expectedLeafCanonical}' because its canonical path resolved to '{actualLeafCanonical}'.");
+                    }
+
+                    using var stream = new FileStream(fileHandle, FileAccess.Read, bufferSize: 81920, isAsync: false);
+                    using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+                    return ScriptContentHash.ComputeFromScriptText(reader.ReadToEnd());
+                }
+                catch
+                {
+                    fileHandle.Dispose();
+                    throw;
+                }
+            }
+            finally
+            {
+                for (var i = pinnedDirectories.Count - 1; i >= 0; i--)
+                {
+                    pinnedDirectories[i].Dispose();
+                }
+            }
+        }
+
+        private static string? ReadAndHashTopDownNonWindows(string rootFull, string[] relativeSegments)
+        {
+            var rootInfo = new DirectoryInfo(rootFull);
+            if (!rootInfo.Exists || IsReparsePoint(rootInfo))
+            {
+                return null;
+            }
+
+            var currentPath = rootFull;
+            for (var i = 0; i < relativeSegments.Length - 1; i++)
+            {
+                currentPath = Path.Combine(currentPath, relativeSegments[i]);
+                var directoryInfo = new DirectoryInfo(currentPath);
+                if (!directoryInfo.Exists || IsReparsePoint(directoryInfo))
+                {
+                    return null;
+                }
+            }
+
+            var leafPath = Path.Combine(currentPath, relativeSegments[^1]);
+            var fileInfo = new FileInfo(leafPath);
+            if (!fileInfo.Exists || IsReparsePoint(fileInfo))
+            {
+                return null;
+            }
+
+            return ScriptContentHash.ComputeFromFile(leafPath);
+        }
+
+        private static bool IsReparsePoint(FileSystemInfo info) =>
+            (info.Attributes & FileAttributes.ReparsePoint) != 0 || info.LinkTarget != null;
 
         private void Report(bool enforcing, string? scriptPath, string scriptsLocation, string reason)
         {

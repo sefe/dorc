@@ -91,6 +91,7 @@ namespace Dorc.Monitor.Tests
                 requests ?? Substitute.For<IRequestsPersistentSource>(),
                 Substitute.For<IScriptScopeConfigValues>(),
                 _credentialSource,
+                Substitute.For<IScriptsPersistentSource>(),
                 _evidenceCapture);
 
         private bool Dispatch(
