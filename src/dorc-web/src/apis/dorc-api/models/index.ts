@@ -108,6 +108,7 @@ export * from './Response';
 export * from './SaveCatalogEnvironmentInputsApiModel';
 export * from './ScriptApiModel';
 export * from './ScriptAuditApiModel';
+export * from './ScriptContentHashApiModel';
 export * from './ServerApiModel';
 export * from './ServerAuditApiModel';
 export * from './ServerOperatingSystemApiModel';

@@ -1,4 +1,5 @@
 using System.Data;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -15,6 +16,8 @@ namespace Dorc.PersistentData.Sources;
 /// <summary>Owns definition writes and their evidence on one context and transaction.</summary>
 public sealed partial class DeploymentDefinitions(IDeploymentContextFactory factory) : Interfaces.IDeploymentDefinitions
 {
+    private static readonly ConditionalWeakTable<RefDataApiModel, IReadOnlyDictionary<int, string?>> ReadScriptContentHashes = new();
+
     internal static string Hash(string value) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(value)));
 
@@ -99,9 +102,22 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
         });
     }
 
+    internal static string? NormalizeRecordedContentHash(string? contentHash)
+    {
+        if (string.IsNullOrWhiteSpace(contentHash))
+        {
+            return null;
+        }
+
+        return ScriptContentHash.TryNormalize(contentHash, out var normalized)
+            ? normalized
+            : contentHash.Trim().ToLowerInvariant();
+    }
+
     internal static string ScriptRevision(Script script) => Hash(JsonSerializer.Serialize(new
     {
         script.Id, script.Name, script.Path, script.IsPathJSON, script.NonProdOnly, script.PowerShellVersionNumber,
+        ContentHash = NormalizeRecordedContentHash(script.ContentHash),
         Consumers = script.Components.OrderBy(c => c.Id).Select(c => new
         { c.Id, c.IsEnabled, Projects = c.Projects.Select(p => p.Id).Order().ToArray() })
     }));
@@ -127,15 +143,19 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
                 throw new ArgumentException("Confirm the complete current list of affected projects before editing shared script content.");
             var before = projects.ToDictionary(id => id, id => Read(context, id));
             var aggregatedIsEnabled = script.Components.Any(c => c.IsEnabled);
+            var previousPath = script.Path;
+            var previousContentHash = script.ContentHash;
             script.Name = input.Name;
             script.Path = input.Path;
             script.IsPathJSON = IsJson(input.Path);
             script.NonProdOnly = input.NonProdOnly;
             script.PowerShellVersionNumber = input.PowerShellVersionNumber.ToSafePsVersionString();
+            script.ContentHash = ScriptContentHash.RetainForPath(previousContentHash, previousPath, input.Path);
             if (script.Components.Count <= 1 || input.IsEnabled != aggregatedIsEnabled)
                 foreach (var component in script.Components) component.IsEnabled = input.IsEnabled;
             context.SaveChanges();
-            foreach (var id in projects) Record(context, before[id], Read(context, id), actor, "Script.SharedEdit");
+            foreach (var id in projects)
+                Record(context, before[id], Read(context, id), actor, "Script.SharedEdit");
             context.AuditScripts.Add(new AuditScript
             {
                 ScriptId = script.Id, ScriptName = script.Name, UpdatedBy = actor, UpdatedDate = DateTime.UtcNow,
@@ -149,12 +169,20 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
     }
 
     internal static RefDataApiModel Read(IDeploymentContext context, int projectId)
+        => Read(context, projectId, out _);
+
+    internal static RefDataApiModel Read(
+        IDeploymentContext context,
+        int projectId,
+        out Dictionary<int, Script?> scriptsByComponentId)
     {
         var project = context.Projects.Include(p => p.SourceDatabase).SingleOrDefault(p => p.Id == projectId)
             ?? throw new ProjectNotFoundException(projectId);
         var components = context.Components.Include(c => c.Script).Include(c => c.Parent)
             .Include(c => c.Projects).Where(c => c.Projects.Any(p => p.Id == projectId))
             .OrderBy(c => c.Name).ThenBy(c => c.Id).ToList();
+        scriptsByComponentId = components.ToDictionary(c => c.Id, c => c.Script);
+        var contentHashes = components.ToDictionary(c => c.Id, c => c.Script?.ContentHash);
         var models = components.ToDictionary(c => c.Id, Map);
         foreach (var component in components)
             if (component.Parent != null && models.TryGetValue(component.Parent.Id, out var parent))
@@ -176,6 +204,7 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
                 .Select(x => new { x.ComponentId, x.EnvironmentId, x.Revision }).ToList()
         }));
         result.Project.Revision = result.Revision;
+        ReadScriptContentHashes.AddOrUpdate(result, contentHashes);
         return result;
     }
 
@@ -254,7 +283,7 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
         });
     }
 
-    private static void SaveTree(IDeploymentContext context, IEnumerable<ComponentApiModel> input,
+    internal static void SaveTree(IDeploymentContext context, IEnumerable<ComponentApiModel> input,
         Project project, Component? parent, HashSet<int> kept, Func<int, bool> canModify)
     {
         foreach (var item in input)
@@ -310,12 +339,15 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
                 if (old == null || old.Path != item.ScriptPath || old.NonProdOnly != item.NonProdOnly ||
                     old.PowerShellVersionNumber != item.PSVersion.ToSafePsVersionString() || old.Name != item.ComponentName)
                 {
+                    var previousPath = old?.Path;
+                    var previousContentHash = old?.ContentHash;
                     var script = old != null && old.Components.Count == 1 ? old : new Script();
                     script.Name = item.ComponentName;
                     script.Path = item.ScriptPath;
                     script.NonProdOnly = item.NonProdOnly;
                     script.IsPathJSON = IsJson(item.ScriptPath);
                     script.PowerShellVersionNumber = item.PSVersion.ToSafePsVersionString();
+                    script.ContentHash = ScriptContentHash.RetainForPath(previousContentHash, previousPath, item.ScriptPath);
                     component.Script = script;
                 }
             }
@@ -348,7 +380,8 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
     }
 
     internal static Guid? Record(IDeploymentContext context, RefDataApiModel? before, RefDataApiModel after,
-        string actor, string operation, string? sourceRecordId = null, string? operatorNoteJson = null)
+        string actor, string operation, string? sourceRecordId = null, string? operatorNoteJson = null,
+        IReadOnlyDictionary<int, string?>? beforeScriptContentHashes = null)
     {
         if (before?.Revision == after.Revision) return null;
         var change = new DeploymentDefinitionChange
@@ -375,9 +408,11 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
         }
         if (before != null)
         {
+            var resolvedBeforeHashes = ResolveComponentContentHashes(context, before, beforeScriptContentHashes);
             foreach (var previous in Flatten(before.Components))
             {
-                Observe(context, before.Project, previous);
+                resolvedBeforeHashes.TryGetValue(previous.ComponentId.GetValueOrDefault(), out var previousHash);
+                Observe(context, before.Project, previous, previousHash);
                 if (Flatten(after.Components).Any(c => c.ComponentId == previous.ComponentId)) continue;
                 var detached = SafeJson(new { SchemaVersion = 1, DetachedFromProject = after.Project.ProjectId, Component = previous });
                 var revision = Hash(detached);
@@ -391,17 +426,98 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
                     });
             }
         }
+        var resolvedAfterHashes = ResolveComponentContentHashes(context, after);
         foreach (var component in Flatten(after.Components))
-            Observe(context, after.Project, component, change.Id);
+        {
+            resolvedAfterHashes.TryGetValue(component.ComponentId.GetValueOrDefault(), out var afterHash);
+            Observe(context, after.Project, component, afterHash, change.Id);
+        }
         return change.Id;
+    }
+
+    private static IReadOnlyDictionary<int, string?> ResolveComponentContentHashes(
+        IDeploymentContext context,
+        RefDataApiModel? document,
+        IReadOnlyDictionary<int, string?>? explicitHashes = null)
+    {
+        if (document == null)
+        {
+            return new Dictionary<int, string?>();
+        }
+
+        var componentIds = Flatten(document.Components ?? [])
+            .Select(c => c.ComponentId.GetValueOrDefault())
+            .Where(id => id > 0)
+            .Distinct()
+            .ToArray();
+
+        if (componentIds.Length == 0)
+        {
+            return new Dictionary<int, string?>();
+        }
+
+        ReadScriptContentHashes.TryGetValue(document, out var capturedHashes);
+
+        var resolved = new Dictionary<int, string?>(componentIds.Length);
+        var missingIds = new List<int>();
+        foreach (var componentId in componentIds)
+        {
+            if (explicitHashes != null && explicitHashes.TryGetValue(componentId, out var explicitHash))
+            {
+                resolved[componentId] = explicitHash;
+            }
+            else if (capturedHashes != null && capturedHashes.TryGetValue(componentId, out var capturedHash))
+            {
+                resolved[componentId] = capturedHash;
+            }
+            else
+            {
+                missingIds.Add(componentId);
+            }
+        }
+
+        if (missingIds.Count > 0)
+        {
+            var batch = context.Components
+                .Where(c => missingIds.Contains(c.Id))
+                .Select(c => new { c.Id, ContentHash = c.Script != null ? c.Script.ContentHash : null })
+                .ToList();
+
+            foreach (var row in batch)
+            {
+                resolved[row.Id] = row.ContentHash;
+            }
+        }
+
+        return resolved;
     }
 
     internal static DeploymentDefinitionRevision Observe(IDeploymentContext context, ProjectApiModel project,
         ComponentApiModel component, Guid? changeId = null)
     {
-        var json = SafeJson(new { SchemaVersion = 1, Project = project, Component = component });
+        var scriptContentHash = component.ComponentId.GetValueOrDefault() == 0
+            ? null
+            : context.Components
+                .Where(c => c.Id == component.ComponentId)
+                .Select(c => c.Script != null ? c.Script.ContentHash : null)
+                .SingleOrDefault();
+
+        return Observe(context, project, component, scriptContentHash, changeId);
+    }
+
+    internal static DeploymentDefinitionRevision Observe(IDeploymentContext context, ProjectApiModel project,
+        ComponentApiModel component, string? scriptContentHash, Guid? changeId = null)
+    {
+        var normalizedContentHash = NormalizeRecordedContentHash(scriptContentHash);
+        var json = SafeJson(new
+        {
+            SchemaVersion = 1,
+            Project = project,
+            Component = component,
+            ContentHash = normalizedContentHash
+        });
         var revision = Hash(json);
-        var found = context.DeploymentDefinitionRevisions.Local.FirstOrDefault(x =>
+        var found = context.DeploymentDefinitionRevisions.Local?.FirstOrDefault(x =>
             x.ProjectId == project.ProjectId && x.ComponentId == component.ComponentId && x.Revision == revision) ??
             context.DeploymentDefinitionRevisions.SingleOrDefault(x =>
                 x.ProjectId == project.ProjectId && x.ComponentId == component.ComponentId && x.Revision == revision);

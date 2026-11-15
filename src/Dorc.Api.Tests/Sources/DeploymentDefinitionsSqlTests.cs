@@ -744,6 +744,170 @@ public class DeploymentDefinitionsSqlTests
     }
 
     [TestMethod]
+    public void ScriptContentHash_SurvivesFrozenSnapshotAndSamePathEdits_AndClearsOnPathChange()
+    {
+        const string tofuHash = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+        const string hash = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        var document = Create();
+        var componentId = document.Components[0].ComponentId!.Value;
+        var componentName = document.Components[0].ComponentName;
+        var claims = Substitute.For<IClaimsPrincipalReader>();
+        claims.GetUserFullDomainName(Arg.Any<System.Security.Principal.IPrincipal>()).Returns("promoter");
+        var scripts = new ScriptsPersistentSource(
+            factory,
+            claims,
+            Substitute.For<IScriptsAuditPersistentSource>());
+        int scriptId;
+        string initialPath;
+        using (var context = factory.GetContext())
+        {
+            var scriptEntity = context.Components.Include(c => c.Script).Single(c => c.Id == componentId).Script!;
+            scriptId = scriptEntity.Id;
+            initialPath = scriptEntity.Path;
+        }
+
+        var requests = new RequestsPersistentSource(factory, Substitute.For<IClaimsPrincipalReader>());
+        var unrecordedRequestId = requests.SubmitRequest(new DeploymentRequest
+        {
+            Project = document.Project.ProjectName,
+            Components = componentName,
+            RequestDetails = "<root/>",
+            UserName = "requester",
+            RequestedTime = DateTimeOffset.UtcNow
+        });
+
+        // SQL binary + DATALENGTH TOFU path check rejects case and trailing-space mismatches
+        Assert.IsNull(scripts.RecordContentHashIfUnrecorded(scriptId, initialPath.ToUpperInvariant(), tofuHash, new ClaimsPrincipal()));
+        Assert.IsNull(scripts.RecordContentHashIfUnrecorded(scriptId, initialPath + "   ", tofuHash, new ClaimsPrincipal()));
+        Assert.AreEqual(tofuHash, scripts.RecordContentHashIfUnrecorded(scriptId, initialPath, tofuHash, new ClaimsPrincipal()));
+
+        // ExpectedPath guard rejects stale path with InvalidOperationException, then records promoted hash + audit atomically
+        Assert.Throws<InvalidOperationException>(() =>
+            scripts.RecordContentHash(scriptId, hash, "stale.ps1", new ClaimsPrincipal(), _ => true));
+        Assert.Throws<UnauthorizedAccessException>(() =>
+            scripts.RecordContentHash(scriptId, hash, initialPath, new ClaimsPrincipal(), _ => false));
+        Assert.IsTrue(scripts.RecordContentHash(scriptId, hash, initialPath, new ClaimsPrincipal(), projectId => projectId == document.Project.ProjectId));
+
+        using (var context = factory.GetContext())
+        {
+            var auditTypes = context.AuditScripts.Where(a => a.ScriptId == scriptId).Select(a => a.Type).ToList();
+            CollectionAssert.Contains(auditTypes, "RecordFirstContentHash");
+            CollectionAssert.Contains(auditTypes, "RecordContentHash");
+        }
+
+        var requestId = requests.SubmitRequest(new DeploymentRequest
+        {
+            Project = document.Project.ProjectName,
+            Components = componentName,
+            RequestDetails = "<root/>",
+            UserName = "requester",
+            RequestedTime = DateTimeOffset.UtcNow
+        });
+
+        // Changing ContentHash produces a distinct frozen DefinitionRevision for the same script path!
+        Assert.AreNotEqual(
+            requests.GetSubmittedScript(unrecordedRequestId, componentId).Revision,
+            requests.GetSubmittedScript(requestId, componentId).Revision);
+
+        // EditScript with unchanged path preserves ContentHash; path change clears ContentHash;
+        // frozen submitted script still preserves the ContentHash captured at submission!
+        var editable = scripts.GetScript(scriptId);
+        editable.ConfirmImpact = true;
+        editable.NonProdOnly = true;
+        definitions.EditScript(editable, "editor", _ => true);
+        Assert.AreEqual(hash, scripts.GetScript(scriptId).ContentHash);
+
+        editable = scripts.GetScript(scriptId);
+        editable.ConfirmImpact = true;
+        editable.Path = "replaced.ps1";
+        definitions.EditScript(editable, "editor", _ => true);
+        Assert.IsNull(scripts.GetScript(scriptId).ContentHash);
+
+        var submittedScript = requests.GetSubmittedScript(requestId, componentId);
+        Assert.AreEqual(scriptId, submittedScript.Id);
+        Assert.AreEqual(hash, submittedScript.ContentHash);
+    }
+
+    [TestMethod]
+    public async Task RecordContentHash_BlocksConcurrentUnauthorizedProjectAttachmentUntilCommit_ThenRefusesRebaseline()
+    {
+        const string firstHash = "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08";
+        const string secondHash = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+
+        var authorized = Create();
+        var unauthorized = Create();
+        var componentId = authorized.Components[0].ComponentId!.Value;
+
+        var claims = Substitute.For<IClaimsPrincipalReader>();
+        claims.GetUserFullDomainName(Arg.Any<System.Security.Principal.IPrincipal>()).Returns("promoter");
+        var scripts = new ScriptsPersistentSource(
+            factory,
+            claims,
+            Substitute.For<IScriptsAuditPersistentSource>());
+
+        int scriptId;
+        string initialPath;
+        using (var setupContext = factory.GetContext())
+        {
+            var scriptEntity = setupContext.Components.Include(c => c.Script).Single(c => c.Id == componentId).Script!;
+            scriptId = scriptEntity.Id;
+            initialPath = scriptEntity.Path;
+        }
+
+        using var attachContext = factory.GetContext();
+        attachContext.Database.OpenConnection();
+        var trackedComponent = attachContext.Components.Include(c => c.Projects).Single(c => c.Id == componentId);
+        var trackedUnauthorizedProject = attachContext.Projects.Single(p => p.Id == unauthorized.Project.ProjectId);
+        trackedComponent.Projects.Add(trackedUnauthorizedProject);
+
+        using var referencingProjectsRead = new ManualResetEventSlim();
+        using var attachEnteringSql = new ManualResetEventSlim();
+        var linkBlockedWhileRecording = false;
+
+        var attachTask = Task.Run(() =>
+        {
+            Assert.IsTrue(referencingProjectsRead.Wait(TimeSpan.FromSeconds(15)));
+            attachEnteringSql.Set();
+            attachContext.SaveChanges();
+        });
+
+        var recorded = scripts.RecordContentHash(
+            scriptId,
+            firstHash,
+            initialPath,
+            new ClaimsPrincipal(),
+            projectId =>
+            {
+                if (!referencingProjectsRead.IsSet)
+                {
+                    referencingProjectsRead.Set();
+                    Assert.IsTrue(attachEnteringSql.Wait(TimeSpan.FromSeconds(10)));
+                    linkBlockedWhileRecording = !attachTask.Wait(TimeSpan.FromMilliseconds(500));
+                }
+
+                return projectId == authorized.Project.ProjectId;
+            });
+
+        await attachTask;
+
+        Assert.IsTrue(recorded);
+        Assert.IsTrue(
+            linkBlockedWhileRecording,
+            "Serializable lock on referencing projects must block concurrent ProjectComponent attachment until RecordContentHash commits.");
+        Assert.AreEqual(firstHash, scripts.GetScript(scriptId).ContentHash);
+
+        // Once the unauthorized project link commits, subsequent baseline writes by a caller authorized only on the first project are refused.
+        Assert.Throws<UnauthorizedAccessException>(() =>
+            scripts.RecordContentHash(
+                scriptId,
+                secondHash,
+                initialPath,
+                new ClaimsPrincipal(),
+                projectId => projectId == authorized.Project.ProjectId));
+        Assert.AreEqual(firstHash, scripts.GetScript(scriptId).ContentHash);
+    }
+
+    [TestMethod]
     [DataRow(TerraformSourceType.SharedFolder)]
     [DataRow(TerraformSourceType.Git)]
     [DataRow(TerraformSourceType.AzureArtifact)]
