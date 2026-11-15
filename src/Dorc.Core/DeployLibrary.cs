@@ -287,7 +287,7 @@ namespace Dorc.Core
                 }
                 else
                 {
-                    buildDetail.DropLocation = normalizedBuildUrl.Replace('/', '\\');
+                    buildDetail.DropLocation = Security.PathConfinement.NormalizeLocalOrUncPath(normalizedBuildUrl);
                 }
 
                 if (!Security.PathConfinement.IsWithinAny(buildDetail.DropLocation, permittedRoots))
@@ -297,7 +297,7 @@ namespace Dorc.Core
                 }
 
                 RequirePermittedRemoteArtefactPath(buildDetail.DropLocation, "drop location");
-                buildDetail.BuildNumber = Path.GetFileName(buildDetail.DropLocation);
+                buildDetail.BuildNumber = Security.PathConfinement.ExtractBuildLeafName(buildDetail.DropLocation);
             }
             else
             {

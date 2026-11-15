@@ -447,5 +447,52 @@ namespace Dorc.Core.Security
             return delimitedRoots
                 .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         }
+
+        /// <summary>
+        /// Normalizes Windows/UNC separator slashes to backslashes while preserving local POSIX
+        /// paths (single leading <c>/</c>) on non-Windows hosts so filesystem checks and
+        /// <c>DropLocation</c> / <c>Path.GetFileName</c> do not corrupt POSIX paths into
+        /// backslash-containing relative filenames.
+        /// </summary>
+        public static string NormalizeLocalOrUncPath(string path) =>
+            NormalizeLocalOrUncPath(path, OperatingSystem.IsWindows());
+
+        public static string NormalizeLocalOrUncPath(string path, bool isWindowsHost)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return path;
+            }
+
+            if (!isWindowsHost && path[0] == '/' && (path.Length == 1 || path[1] != '/'))
+            {
+                return path;
+            }
+
+            return path.Replace('/', '\\');
+        }
+
+        public static string ExtractBuildLeafName(string dropLocation) =>
+            ExtractBuildLeafName(dropLocation, OperatingSystem.IsWindows());
+
+        public static string ExtractBuildLeafName(string dropLocation, bool isWindowsHost)
+        {
+            if (string.IsNullOrEmpty(dropLocation))
+            {
+                return string.Empty;
+            }
+
+            if (!isWindowsHost
+                && (dropLocation.StartsWith(@"\\", StringComparison.Ordinal)
+                    || (dropLocation.Length >= 3
+                        && char.IsLetter(dropLocation[0])
+                        && dropLocation[1] == ':'
+                        && dropLocation[2] == '\\')))
+            {
+                return Path.GetFileName(dropLocation.Replace('\\', '/'));
+            }
+
+            return Path.GetFileName(dropLocation);
+        }
     }
 }

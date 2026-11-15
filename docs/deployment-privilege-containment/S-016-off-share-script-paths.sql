@@ -287,14 +287,26 @@ WITH PowerShellScripts AS (
             ) jp
     WHERE   cm.ComponentType = 0
       AND   cm.IsEnabled = 1
+),
+ComponentDeployments AS (
+    SELECT  res.ComponentId,
+            dr.Id             AS DeploymentRequestId,
+            dr.RequestedTime
+    FROM    deploy.DeploymentResult res
+            INNER JOIN deploy.DeploymentRequest dr ON dr.Id = res.DeploymentRequestId
+    UNION ALL
+    SELECT  res.ComponentId,
+            dr.Id             AS DeploymentRequestId,
+            dr.RequestedTime
+    FROM    archive.DeploymentResult res
+            INNER JOIN archive.DeploymentRequest dr ON dr.Id = res.DeploymentRequestId
 )
 SELECT      s.Id, s.Name, s.StoredPath, s.EffectivePath,
-            COUNT(DISTINCT dr.Id)   AS Deployments,
-            MAX(dr.RequestedTime)   AS LastDeployed
+            COUNT(DISTINCT cd.DeploymentRequestId) AS Deployments,
+            MAX(cd.RequestedTime)                  AS LastDeployed
 FROM        PowerShellScripts s
-            INNER JOIN deploy.Component cm         ON cm.ScriptId = s.Id AND cm.ComponentType = 0 AND cm.IsEnabled = 1
-            LEFT  JOIN deploy.DeploymentResult res ON res.ComponentId = cm.Id
-            LEFT  JOIN deploy.DeploymentRequest dr ON dr.Id = res.DeploymentRequestId
+            INNER JOIN deploy.Component cm     ON cm.ScriptId = s.Id AND cm.ComponentType = 0 AND cm.IsEnabled = 1
+            LEFT  JOIN ComponentDeployments cd ON cd.ComponentId = cm.Id
 WHERE       (s.IsPathJSON = 1 AND (COALESCE(ISJSON(s.StoredPath), 0) = 0
                                 OR LEFT(LTRIM(s.StoredPath), 1) <> N'{'
                                 OR s.HasDuplicateJsonKeys = 1
@@ -414,10 +426,16 @@ WHERE   Id = <ScriptId>
   AND   ISJSON([Path]) = 1
   AND   LEFT(LTRIM([Path]), 1) = N'{';
 
--- (c): disable the components using a dead script rather than editing the path.
-UPDATE  deploy.Component
-SET     IsEnabled = 0
-WHERE   ScriptId = <ScriptId>;
+-- (c): disable the PowerShell / Terraform SharedFolder components using a dead script
+--      rather than editing the path. Scoped to filesystem-script component types so
+--      Git/AzureArtifact/GitHubArtifact/Catalog Terraform components with legacy ScriptIds
+--      are never disabled.
+UPDATE  c
+SET     c.IsEnabled = 0
+FROM    deploy.Component c
+WHERE   c.ScriptId = <ScriptId>
+  AND   (COALESCE(c.ComponentType, 0) = 0
+      OR (c.ComponentType = 1 AND COALESCE(c.TerraformSourceType, 0) = 0));
 */
 
 

@@ -240,5 +240,29 @@ namespace Dorc.Core.Tests.Security
             Assert.IsFalse(decision.Allowed, $"'{path}' must be refused.");
             StringAssert.Contains(decision.Reason, expectedReasonFragment);
         }
+
+        [TestMethod]
+        public void NormalizeLocalOrUncPathPreservesLocalPosixPathsOnNonWindowsWhileNormalizingWindowsAndUnc()
+        {
+            Assert.AreEqual(
+                "/mnt/drops/TestProject/1.2.3",
+                PathConfinement.NormalizeLocalOrUncPath("/mnt/drops/TestProject/1.2.3", isWindowsHost: false));
+            Assert.AreEqual(
+                @"\\buildserver\drops\TestProject\1.2.3",
+                PathConfinement.NormalizeLocalOrUncPath("//buildserver/drops/TestProject/1.2.3", isWindowsHost: false));
+            Assert.AreEqual(
+                @"C:\drops\TestProject\1.2.3",
+                PathConfinement.NormalizeLocalOrUncPath("C:/drops/TestProject/1.2.3", isWindowsHost: false));
+            Assert.AreEqual(
+                @"\mnt\drops\TestProject\1.2.3",
+                PathConfinement.NormalizeLocalOrUncPath("/mnt/drops/TestProject/1.2.3", isWindowsHost: true));
+
+            Assert.AreEqual(
+                "1.2.3",
+                PathConfinement.ExtractBuildLeafName("/mnt/drops/TestProject/1.2.3", isWindowsHost: false));
+            Assert.AreEqual(
+                "1.2.3",
+                PathConfinement.ExtractBuildLeafName(@"\\buildserver\drops\TestProject\1.2.3", isWindowsHost: false));
+        }
     }
 }

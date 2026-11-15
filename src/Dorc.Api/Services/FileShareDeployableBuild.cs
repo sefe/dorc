@@ -67,7 +67,7 @@ namespace Dorc.Api.Services
 
             var resolvedLocalPath = normalizedBuildUrl.StartsWith("file:", StringComparison.OrdinalIgnoreCase)
                 ? uri.LocalPath
-                : normalizedBuildUrl.Replace('/', '\\');
+                : PathConfinement.NormalizeLocalOrUncPath(normalizedBuildUrl);
 
             // Confine to the project's configured artefact roots and the operator's artefact
             // host allow-list BEFORE calling DirectoryExists so an attacker-chosen file:// or
