@@ -67,6 +67,16 @@ namespace Dorc.Api.Controllers
             }
 
             var log = _deploymentLogService.GetLogsForSingleResult(requestId, resultId);
+            if (string.IsNullOrWhiteSpace(log) && !string.IsNullOrWhiteSpace(deploymentResult.Log))
+            {
+                return Ok(deploymentResult.Log);
+            }
+            if (!string.IsNullOrWhiteSpace(log)
+                && !string.IsNullOrWhiteSpace(deploymentResult.Log)
+                && !log.Contains(deploymentResult.Log.Trim(), StringComparison.Ordinal))
+            {
+                return Ok(log + System.Environment.NewLine + deploymentResult.Log);
+            }
 
             return Ok(log);
         }

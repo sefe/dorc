@@ -303,6 +303,21 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
+        [DataRow(@"CORP\svc-trading", "FALLBACK", "svc-trading", "CORP")]
+        [DataRow("svc-payments@corp.example", "FALLBACK", "svc-payments@corp.example", null)]
+        [DataRow("svc-plain", "FALLBACK", "svc-plain", "FALLBACK")]
+        public void WindowsLogon_NormalizeLogonIdentity_HandlesNetBiosUpnAndUnqualifiedNames(
+            string rawUserName,
+            string fallbackDomain,
+            string expectedUserName,
+            string? expectedDomain)
+        {
+            var (actualUser, actualDomain) = WindowsLogon.NormalizeLogonIdentity(rawUserName, fallbackDomain);
+            Assert.AreEqual(expectedUserName, actualUser);
+            Assert.AreEqual(expectedDomain, actualDomain);
+        }
+
+        [TestMethod]
         public void SharedApiCredentialItemWithoutUsernameField_RefusesRatherThanPuttingCredentialInUserName()
         {
             const string apiCredJson = $$"""

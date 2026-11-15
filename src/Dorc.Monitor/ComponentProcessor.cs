@@ -212,12 +212,15 @@ namespace Dorc.Monitor
             }
             finally
             {
-                deploymentResult.Log = componentResultLogBuilder.ToString();
                 if (componentResultLogBuilder.Length > 0)
                 {
-                    requestsPersistentSource.UpdateResultLog(
-                        deploymentResult,
-                        deploymentResult.Log);
+                    var appendedLog = componentResultLogBuilder.ToString();
+                    if (!requestsPersistentSource.AppendResultLog(deploymentResult, appendedLog))
+                    {
+                        deploymentResult.Log = string.IsNullOrEmpty(deploymentResult.Log)
+                            ? appendedLog
+                            : deploymentResult.Log + Environment.NewLine + appendedLog;
+                    }
                 }
                 requestsPersistentSource.UpdateResultStatus(
                     deploymentResult,

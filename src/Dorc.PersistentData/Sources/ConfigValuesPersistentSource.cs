@@ -67,7 +67,10 @@ namespace Dorc.PersistentData.Sources
 
             foreach (var configValue in allConfigValues)
             {
-                if (configValue.Secure && decryptSecure)
+                if (configValue.Secure
+                    && decryptSecure
+                    && configValue.VisibleToScripts
+                    && !IsDeploymentCredentialKey(configValue.Key))
                 {
                     configValue.Value = _propertyEncrypt.DecryptValue(configValue.Value);
                 }
@@ -181,7 +184,22 @@ namespace Dorc.PersistentData.Sources
             return MapToConfigValueApiModel(configValue);
         }
 
+        private static readonly object CredentialKeyMutationLock = new();
+
         public ConfigValueApiModel? Add(ConfigValueApiModel model)
+        {
+            if (IsDeploymentCredentialKey(model?.Key))
+            {
+                lock (CredentialKeyMutationLock)
+                {
+                    return AddCore(model!);
+                }
+            }
+
+            return AddCore(model!);
+        }
+
+        private ConfigValueApiModel? AddCore(ConfigValueApiModel model)
         {
             using var context = _contextFactory.GetContext();
 

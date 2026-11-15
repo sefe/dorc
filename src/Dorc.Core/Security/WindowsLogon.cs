@@ -57,10 +57,11 @@ namespace Dorc.Core.Security
             LogonType logonType,
             LogonProvider logonProvider)
         {
+            var (normalizedUserName, normalizedDomain) = NormalizeLogonIdentity(userName, domain);
             var passwordPointer = Marshal.SecureStringToGlobalAllocUnicode(password);
             try
             {
-                if (LogonUser(userName, domain, passwordPointer, (int)logonType, (int)logonProvider, out var token))
+                if (LogonUser(normalizedUserName, normalizedDomain!, passwordPointer, (int)logonType, (int)logonProvider, out var token))
                 {
                     return token;
                 }
@@ -74,6 +75,27 @@ namespace Dorc.Core.Security
             {
                 Marshal.ZeroFreeGlobalAllocUnicode(passwordPointer);
             }
+        }
+
+        internal static (string UserName, string? Domain) NormalizeLogonIdentity(string userName, string? fallbackDomain)
+        {
+            if (string.IsNullOrEmpty(userName))
+            {
+                return (userName, fallbackDomain);
+            }
+
+            int slashIndex = userName.IndexOf('\\');
+            if (slashIndex > 0 && slashIndex < userName.Length - 1)
+            {
+                return (userName[(slashIndex + 1)..], userName[..slashIndex]);
+            }
+
+            if (userName.Contains('@'))
+            {
+                return (userName, null);
+            }
+
+            return (userName, fallbackDomain);
         }
 
         [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]

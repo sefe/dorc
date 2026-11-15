@@ -672,44 +672,47 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
 
             var normalizedReference = EnvironmentExecutionIdentityReference.Validate(executionIdentityReference);
 
-            using (var context = contextFactory.GetContext())
+            lock (ExecutionIdentityMutationLock)
             {
-                var environment = context.Environments.SingleOrDefault(e => e.Id == environmentId);
-                if (environment == null)
+                using (var context = contextFactory.GetContext())
                 {
-                    throw new KeyNotFoundException($"Environment with ID {environmentId} was not found.");
-                }
+                    var environment = context.Environments.SingleOrDefault(e => e.Id == environmentId);
+                    if (environment == null)
+                    {
+                        throw new KeyNotFoundException($"Environment with ID {environmentId} was not found.");
+                    }
 
-                var oldReference = environment.ExecutionIdentityReference;
-                if (string.Equals(oldReference, normalizedReference, StringComparison.Ordinal))
-                {
+                    var oldReference = environment.ExecutionIdentityReference;
+                    if (string.Equals(oldReference, normalizedReference, StringComparison.Ordinal))
+                    {
+                        return MapToEnvironmentApiModel(environment);
+                    }
+
+                    var username = _claimsPrincipalReader.GetUserFullDomainName(user);
+                    var summary = normalizedReference == null
+                        ? $"Execution identity reference cleared from environment '{environment.Name}'."
+                        : $"Execution identity reference for environment '{environment.Name}' set to '{normalizedReference}'.";
+
+                    EnvironmentHistoryPersistentSource.AddHistoryAction(
+                        environment,
+                        oldReference ?? string.Empty,
+                        normalizedReference ?? string.Empty,
+                        username,
+                        "Execution Identity Update",
+                        summary,
+                        context);
+
+                    environment.ExecutionIdentityReference = normalizedReference;
+                    context.SaveChanges();
+
+                    logger.LogInformation(
+                        "Execution identity reference for environment '{EnvironmentName}' (Id: {EnvironmentId}) updated to '{IdentityReference}'.",
+                        LogText.SingleLine(environment.Name),
+                        environment.Id,
+                        LogText.SingleLine(normalizedReference ?? "<tier-default>"));
+
                     return MapToEnvironmentApiModel(environment);
                 }
-
-                var username = _claimsPrincipalReader.GetUserFullDomainName(user);
-                var summary = normalizedReference == null
-                    ? $"Execution identity reference cleared from environment '{environment.Name}'."
-                    : $"Execution identity reference for environment '{environment.Name}' set to '{normalizedReference}'.";
-
-                EnvironmentHistoryPersistentSource.AddHistoryAction(
-                    environment,
-                    oldReference ?? string.Empty,
-                    normalizedReference ?? string.Empty,
-                    username,
-                    "Execution Identity Update",
-                    summary,
-                    context);
-
-                environment.ExecutionIdentityReference = normalizedReference;
-                context.SaveChanges();
-
-                logger.LogInformation(
-                    "Execution identity reference for environment '{EnvironmentName}' (Id: {EnvironmentId}) updated to '{IdentityReference}'.",
-                    LogText.SingleLine(environment.Name),
-                    environment.Id,
-                    LogText.SingleLine(normalizedReference ?? "<tier-default>"));
-
-                return MapToEnvironmentApiModel(environment);
             }
         }
 
@@ -983,6 +986,8 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             return MapToEnvironmentApiModel(ed.Environment, ed.UserEditable, ed.IsOwner);
         }
 
+        private static readonly object ExecutionIdentityMutationLock = new();
+
         private static EnvironmentApiModel MapToParentEnvironmentApiModel(Environment? parentEnv)
         {
             if (parentEnv is null)
@@ -994,6 +999,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                 EnvironmentSecure = parentEnv.Secure,
                 EnvironmentIsProd = parentEnv.IsProd,
                 EnvironmentId = parentEnv.Id,
+                ExecutionIdentityReference = parentEnv.ExecutionIdentityReference,
                 ParentId = parentEnv.ParentId,
                 IsParent = true,
                 ParentEnvironment = MapToParentEnvironmentApiModel(parentEnv.ParentEnvironment)
@@ -1011,6 +1017,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                 EnvironmentSecure = childEnv.Secure,
                 EnvironmentIsProd = childEnv.IsProd,
                 EnvironmentId = childEnv.Id,
+                ExecutionIdentityReference = childEnv.ExecutionIdentityReference,
                 ParentId = childEnv.ParentId,
                 IsParent = childEnv.ChildEnvironments.Any(),
                 ChildEnvironments = childEnv.ChildEnvironments.Select(MapToChildEnvironmentApiModel).ToList()

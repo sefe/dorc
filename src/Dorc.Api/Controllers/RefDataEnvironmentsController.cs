@@ -252,6 +252,12 @@ namespace Dorc.Api.Controllers
                 return StatusCode(StatusCodes.Status400BadRequest, "Invalid environment Id specified!");
             }
 
+            if (content == null || !content.IsExecutionIdentityReferenceSpecified)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest,
+                    "ExecutionIdentityReference must be explicitly specified (use null or empty string to clear).");
+            }
+
             try
             {
                 environmentsPersistentSource.SetExecutionIdentityReference(

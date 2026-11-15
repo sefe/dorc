@@ -711,6 +711,29 @@ namespace Dorc.PersistentData.Sources
             }
         }        
 
+        public bool AppendResultLog(DeploymentResultApiModel deploymentResultModel, string log)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                int updatedResultCount = context.DeploymentResults
+                    .Where(result => result.Id == deploymentResultModel.Id)
+                    .ExecuteUpdate(setters => setters.SetProperty(
+                        b => b.Log,
+                        b => string.IsNullOrEmpty(b.Log) ? log : b.Log + System.Environment.NewLine + log));
+
+                if (updatedResultCount == 0)
+                {
+                    return false;
+                }
+
+                deploymentResultModel.Log = string.IsNullOrEmpty(deploymentResultModel.Log)
+                    ? log
+                    : deploymentResultModel.Log + System.Environment.NewLine + log;
+
+                return true;
+            }
+        }
+
         public int SubmitRequest(DeploymentRequest deploymentRequest)
         {
             using var strategyContext = _contextFactory.GetContext();

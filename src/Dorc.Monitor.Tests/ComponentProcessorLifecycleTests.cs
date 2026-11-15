@@ -90,7 +90,7 @@ namespace Dorc.Monitor.Tests
             Assert.IsFalse(succeeded);
             StringAssert.Contains(result.Log, "Deployment refused");
             StringAssert.Contains(result.Log, "payments-prod");
-            requests.Received(1).UpdateResultLog(
+            requests.Received(1).AppendResultLog(
                 result,
                 Arg.Is<string>(log => log.Contains("Deployment refused") && log.Contains("payments-prod")));
             requests.Received(1).UpdateResultStatus(

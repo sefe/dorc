@@ -789,6 +789,22 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
+        [DataRow("{}")]
+        [DataRow("{\"typo\":\"payments-prod\"}")]
+        public void PutExecutionIdentityRejectsBodyWhenExecutionIdentityReferencePropertyIsOmitted(string rawJson)
+        {
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
+            var deserialized = System.Text.Json.JsonSerializer.Deserialize<EnvironmentExecutionIdentityApiModel>(rawJson);
+
+            var result = Assert.IsInstanceOfType<ObjectResult>(_controller.PutExecutionIdentity(12, deserialized!));
+            Assert.AreEqual(StatusCodes.Status400BadRequest, result.StatusCode);
+            _environmentsPersistentSource.DidNotReceiveWithAnyArgs().SetExecutionIdentityReference(
+                default,
+                default,
+                default!);
+        }
+
+        [TestMethod]
         public void MissingEnvironmentForExecutionIdentityReturnsNotFound()
         {
             _rolePrivilegesChecker.IsAdmin(_user).Returns(true);

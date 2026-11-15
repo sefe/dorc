@@ -89,7 +89,7 @@ namespace Dorc.Monitor.RequestProcessors
                 _variableResolver = new VariableResolver(propertyValuesPersistentSource, _loggerFactory, _propertyEvaluator, _scriptScopeConfigValues);
 
                 string? resolvedDropFolder = null;
-                var identityAdoption = new RequestExecutionIdentityAdoption();
+                var identityAdoption = GetOrCreateRequestAdoption(requestToExecute.Request.Id);
                 try
                 {
                     var scriptRoot = _configValuesPersistentSource.GetConfigValue("ScriptRoot");
@@ -448,7 +448,13 @@ namespace Dorc.Monitor.RequestProcessors
                 }
                 finally
                 {
-                    ReportExecutionIdentityAdoption(identityAdoption);
+                    bool pausedForResume = requestToExecute.Request.Status == DeploymentRequestStatus.WaitingConfirmation.ToString()
+                        || requestToExecute.Request.Status == DeploymentRequestStatus.Pending.ToString();
+                    if (!pausedForResume)
+                    {
+                        _activeAdoptionByRequestId.TryRemove(requestToExecute.Request.Id, out var completedAdoption);
+                        ReportExecutionIdentityAdoption(completedAdoption ?? identityAdoption);
+                    }
 
                     // Clean up downloaded GitHub artifacts after deployment completes
                     if (resolvedDropFolder != null &&
@@ -641,6 +647,18 @@ namespace Dorc.Monitor.RequestProcessors
         /// is not the same claim as "the estate is bound". Reported from the count rather than
         /// from a configuration flag, so it cannot be wrong.
         /// </summary>
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<int, RequestExecutionIdentityAdoption> _activeAdoptionByRequestId = new();
+
+        private static RequestExecutionIdentityAdoption GetOrCreateRequestAdoption(int requestId)
+        {
+            if (_activeAdoptionByRequestId.Count > 4096)
+            {
+                _activeAdoptionByRequestId.Clear();
+            }
+
+            return _activeAdoptionByRequestId.GetOrAdd(requestId, static _ => new RequestExecutionIdentityAdoption());
+        }
+
         private void ReportExecutionIdentityAdoption(RequestExecutionIdentityAdoption identityAdoption)
         {
             var (bound, fallback) = identityAdoption.Counts;
