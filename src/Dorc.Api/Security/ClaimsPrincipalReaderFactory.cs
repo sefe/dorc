@@ -30,6 +30,11 @@ namespace Dorc.Api.Security
             _winAuthReader = new WinAuthClaimsPrincipalReader(_adUserGroupsReader);
         }
 
+        public bool IsMachinePrincipal(IPrincipal user)
+        {
+            return ResolveReader().IsMachinePrincipal(user);
+        }
+
         public string GetUserName(IPrincipal user)
         {
             var reader = ResolveReader();

@@ -128,6 +128,7 @@ namespace Tests.Acceptance.DatabaseTests
             public string GetUserSafeIdentifier(IPrincipal user) => throw new NotSupportedException();
             public string GetUserEmail(ClaimsPrincipal user) => throw new NotSupportedException();
             public List<string> GetSidsForUser(IPrincipal user) => throw new NotSupportedException();
+            public bool IsMachinePrincipal(IPrincipal user) => throw new NotSupportedException();
         }
     }
 }

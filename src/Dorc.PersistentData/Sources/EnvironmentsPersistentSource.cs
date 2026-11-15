@@ -1282,7 +1282,8 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                         // Copy property values if requested
                         if (request.CopyPropertyValues)
                         {
-                            var canReadSourceSecrets = objectFilter.HasPrivilege(sourceEnv, user, AccessLevel.ReadSecrets);
+                            var canReadSourceSecrets = _claimsPrincipalReader.IsMachinePrincipal(user) &&
+                                                       objectFilter.HasPrivilege(sourceEnv, user, AccessLevel.ReadSecrets);
                             CopyPropertyValues(context, sourceEnv.Name, request.NewEnvironmentName, username, canReadSourceSecrets);
                         }
 

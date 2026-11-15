@@ -711,7 +711,8 @@ namespace Dorc.Api.Tests
                     CopyServerMappings = true
                 }, user));
 
-            // 3. CloneEnvironment with CopyPropertyValues skips Secure properties when caller lacks ReadSecrets, and copies them when granted
+            // 3. CloneEnvironment with CopyPropertyValues skips Secure properties unless caller is a machine principal with explicit ReadSecrets
+            _claimsPrincipalReader.IsMachinePrincipal(user).Returns(false);
             _objectFilter.HasPrivilege(devEnv, user, AccessLevel.ReadSecrets).Returns(false);
             _environmentsPersistentSource.CloneEnvironment(new CloneEnvironmentRequest
             {
@@ -730,9 +731,27 @@ namespace Dorc.Api.Tests
             Assert.AreEqual(1, pvList.Count);
             Assert.AreEqual("plain-val", pvList[0].Value);
 
-            // Now grant ReadSecrets on devEnv -> both plain and secure property values are copied
+            // Human caller with a legacy ReadSecrets ACL bit still cannot copy secure property values (S-014a)
             pvList.Clear();
             _objectFilter.HasPrivilege(devEnv, user, AccessLevel.ReadSecrets).Returns(true);
+            _environmentsPersistentSource.CloneEnvironment(new CloneEnvironmentRequest
+            {
+                SourceEnvironmentId = 20,
+                NewEnvironmentName = "CLONE_HUMAN_LEGACY_GRANT",
+                CopyPropertyValues = true,
+                CopyServerMappings = false,
+                CopyDatabaseMappings = false,
+                CopyProjectMappings = false,
+                CopyContainerMappings = false,
+                CopyCloudResourceMappings = false,
+                CopyApiRegistrationMappings = false
+            }, user);
+            Assert.AreEqual(1, pvList.Count);
+            Assert.AreEqual("plain-val", pvList[0].Value);
+
+            // Machine principal with explicit ReadSecrets on devEnv copies both plain and secure property values
+            pvList.Clear();
+            _claimsPrincipalReader.IsMachinePrincipal(user).Returns(true);
             _environmentsPersistentSource.CloneEnvironment(new CloneEnvironmentRequest
             {
                 SourceEnvironmentId = 20,

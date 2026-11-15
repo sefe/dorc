@@ -446,5 +446,248 @@ namespace Dorc.Api.Tests
             Assert.IsTrue(result.Any(r => r.Status.Contains("Property value")));
         }
 
+        [TestMethod]
+        public void ImportProperties_WhenCallerCannotReadSecrets_PreservesNewlyCreatedSecureValueAndRedactsResponses()
+        {
+            var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
+            var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+            var mockPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
+            var mockPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
+            var mockSecurityPrivilegesChecker = Substitute.For<Dorc.Core.Interfaces.ISecurityPrivilegesChecker>();
+            var mockEnvironmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
+            var mockAuditSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
+            var mockRoleChecker = Substitute.For<IRolePrivilegesChecker>();
+
+            const string envName = "EnvA";
+            const string propName = "ImportedSecret";
+            const string plainSecret = "TopSecretValue!";
+            const string cipherSecret = "ENC(TopSecretValue!)";
+
+            var propModel = new PropertyApiModel { Id = 10, Name = propName, Secure = true };
+            mockPropertiesPersistentSource.CreateProperty(Arg.Any<PropertyApiModel>(), Arg.Any<string>()).Returns(propModel);
+            mockPropertiesPersistentSource.GetProperty(propName).Returns(propModel);
+            mockEnvironmentsPersistentSource.GetEnvironment(envName, _user).Returns(new EnvironmentApiModel { EnvironmentName = envName });
+            mockSecurityPrivilegesChecker.CanModifyPropertyValue(_user, envName).Returns(true);
+            mockSecurityPrivilegesChecker.CanReadSecrets(_user, envName).Returns(false);
+
+            mockPropertyEncryptor.EncryptValue(plainSecret).Returns(cipherSecret);
+            mockPropertyEncryptor.EncryptValue(string.Empty).Returns("ENC_EMPTY");
+
+            var storedRows = new List<PropertyValueDto>();
+            mockPropertyValuesPersistentSource.GetPropertyValuesByName(propName).Returns(_ => storedRows.ToArray());
+            mockPropertyValuesPersistentSource.AddPropertyValue(Arg.Any<PropertyValueDto>()).Returns(ci =>
+            {
+                var input = ci.Arg<PropertyValueDto>();
+                Assert.AreEqual(plainSecret, input.Value);
+                var stored = new PropertyValueDto
+                {
+                    Id = 99,
+                    Property = propModel,
+                    PropertyValueFilter = envName,
+                    PropertyValueFilterId = 1,
+                    Value = cipherSecret
+                };
+                storedRows.Add(stored);
+                return stored;
+            });
+
+            var realPvs = new PropertyValuesService(
+                mockSecurityPrivilegesChecker,
+                mockPropertyEncryptor,
+                mockPropertiesPersistentSource,
+                mockEnvironmentsPersistentSource,
+                mockPropertyValuesPersistentSource,
+                mockAuditSource,
+                mockRoleChecker,
+                new MockedLog<PropertyValuesService>(),
+                mockClaimsPrincipalReader);
+
+            var service = new PropertiesService(
+                mockPropertiesPersistentSource,
+                realPvs,
+                mockClaimsPrincipalReader,
+                mockPropertyValuesPersistentSource,
+                mockPropertyEncryptor,
+                Substitute.For<ILogger<PropertiesService>>());
+
+            var responses = service.ImportProperties(
+                new[]
+                {
+                    new PropertyImportCsvDto
+                    {
+                        PropertyName = propName,
+                        Value = plainSecret,
+                        IsSecure = true,
+                        Environment = envName
+                    }
+                },
+                _user).ToList();
+
+            mockPropertyValuesPersistentSource.DidNotReceive().UpdatePropertyValue(Arg.Any<long>(), "ENC_EMPTY");
+            foreach (var pvDto in responses.Select(r => r.Item).OfType<PropertyValueDto>())
+            {
+                Assert.AreEqual(string.Empty, pvDto.Value);
+            }
+        }
+
+        [TestMethod]
+        public void ImportProperties_WhenReplacingExistingSecureValueWithoutReadSecrets_UpdatesStoredSecretAndRedactsEveryResponseItem()
+        {
+            var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
+            var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+            var mockPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
+            var mockPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
+            var mockSecurityPrivilegesChecker = Substitute.For<Dorc.Core.Interfaces.ISecurityPrivilegesChecker>();
+            var mockEnvironmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
+            var mockAuditSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
+            var mockRoleChecker = Substitute.For<IRolePrivilegesChecker>();
+
+            const string envName = "EnvA";
+            const string propName = "ExistingSecret";
+            const string oldCipherSecret = "ENC(OldSecretValue!)";
+            const string replacementPlainSecret = "ReplacementSecretValue!";
+            const string replacementCipherSecret = "ENC(ReplacementSecretValue!)";
+
+            var propModel = new PropertyApiModel { Id = 10, Name = propName, Secure = true };
+            mockPropertiesPersistentSource.CreateProperty(Arg.Any<PropertyApiModel>(), Arg.Any<string>()).Returns(propModel);
+            mockPropertiesPersistentSource.GetProperty(propName).Returns(propModel);
+            mockEnvironmentsPersistentSource.GetEnvironment(envName, _user).Returns(new EnvironmentApiModel { EnvironmentName = envName });
+            mockSecurityPrivilegesChecker.CanModifyPropertyValue(_user, envName).Returns(true);
+            mockSecurityPrivilegesChecker.CanReadSecrets(_user, envName).Returns(false);
+
+            mockPropertyEncryptor.EncryptValue(replacementPlainSecret).Returns(replacementCipherSecret);
+            mockPropertyEncryptor.EncryptValue(string.Empty).Returns("ENC_EMPTY");
+
+            var existingStoredValue = new PropertyValueDto
+            {
+                Id = 99,
+                Property = propModel,
+                PropertyValueFilter = envName,
+                PropertyValueFilterId = 1,
+                Value = oldCipherSecret
+            };
+            mockPropertyValuesPersistentSource.GetPropertyValuesByName(propName).Returns(_ => new[]
+            {
+                new PropertyValueDto
+                {
+                    Id = existingStoredValue.Id,
+                    Property = propModel,
+                    PropertyValueFilter = existingStoredValue.PropertyValueFilter,
+                    PropertyValueFilterId = existingStoredValue.PropertyValueFilterId,
+                    Value = existingStoredValue.Value
+                }
+            });
+            mockPropertyValuesPersistentSource.UpdatePropertyValue(99, Arg.Any<string>()).Returns(ci =>
+            {
+                existingStoredValue.Value = ci.ArgAt<string>(1);
+                return existingStoredValue;
+            });
+
+            var realPvs = new PropertyValuesService(
+                mockSecurityPrivilegesChecker,
+                mockPropertyEncryptor,
+                mockPropertiesPersistentSource,
+                mockEnvironmentsPersistentSource,
+                mockPropertyValuesPersistentSource,
+                mockAuditSource,
+                mockRoleChecker,
+                new MockedLog<PropertyValuesService>(),
+                mockClaimsPrincipalReader);
+
+            // 1. Direct PostPropertyValues against an existing secure property redacts the "already exists" response item
+            var directPostConflict = realPvs.PostPropertyValues(
+                new[]
+                {
+                    new PropertyValueDto
+                    {
+                        Property = new PropertyApiModel { Name = propName, Secure = true },
+                        PropertyValueFilter = envName,
+                        Value = replacementPlainSecret
+                    }
+                },
+                _user).Single();
+            StringAssert.Contains(directPostConflict.Status, "already exists");
+            Assert.AreEqual(string.Empty, ((PropertyValueDto)directPostConflict.Item).Value);
+
+            // 2. ImportProperties replacing an existing secure property value updates storage cleanly and redacts EVERY response item
+            var service = new PropertiesService(
+                mockPropertiesPersistentSource,
+                realPvs,
+                mockClaimsPrincipalReader,
+                mockPropertyValuesPersistentSource,
+                mockPropertyEncryptor,
+                Substitute.For<ILogger<PropertiesService>>(),
+                mockSecurityPrivilegesChecker);
+
+            var responses = service.ImportProperties(
+                new[]
+                {
+                    new PropertyImportCsvDto
+                    {
+                        PropertyName = propName,
+                        Value = replacementPlainSecret,
+                        IsSecure = true,
+                        Environment = envName
+                    }
+                },
+                _user).ToList();
+
+            mockPropertyValuesPersistentSource.Received(1).UpdatePropertyValue(99, replacementCipherSecret);
+            mockPropertyValuesPersistentSource.DidNotReceive().UpdatePropertyValue(Arg.Any<long>(), "ENC_EMPTY");
+            Assert.AreEqual(replacementCipherSecret, existingStoredValue.Value);
+
+            var pvResponses = responses.Where(r => r.Item is PropertyValueDto).ToList();
+            Assert.AreEqual(2, pvResponses.Count);
+            Assert.IsTrue(pvResponses.Any(r => r.Status.Contains("already exists")));
+            Assert.IsTrue(pvResponses.Any(r => r.Status == "success"));
+
+            foreach (var pvDto in pvResponses.Select(r => (PropertyValueDto)r.Item))
+            {
+                Assert.AreEqual(string.Empty, pvDto.Value);
+            }
+
+            var serializedResponses = System.Text.Json.JsonSerializer.Serialize(responses);
+            Assert.IsFalse(serializedResponses.Contains(replacementPlainSecret, StringComparison.Ordinal));
+            Assert.IsFalse(serializedResponses.Contains(oldCipherSecret, StringComparison.Ordinal));
+            Assert.IsFalse(serializedResponses.Contains(replacementCipherSecret, StringComparison.Ordinal));
+
+            // 3. Validation and conflict error responses in ImportProperties also redact secure PropertyImportCsvDto values
+            var blankNameResponses = service.ImportProperties(
+                new[]
+                {
+                    new PropertyImportCsvDto
+                    {
+                        PropertyName = "",
+                        Value = replacementPlainSecret,
+                        IsSecure = true,
+                        Environment = envName
+                    }
+                },
+                _user).ToList();
+            Assert.IsTrue(blankNameResponses.Select(r => r.Item).OfType<PropertyImportCsvDto>().All(i => i.Value == string.Empty));
+
+            var conflictingSecureResponses = service.ImportProperties(
+                new[]
+                {
+                    new PropertyImportCsvDto
+                    {
+                        PropertyName = propName,
+                        Value = replacementPlainSecret,
+                        IsSecure = true,
+                        Environment = envName
+                    },
+                    new PropertyImportCsvDto
+                    {
+                        PropertyName = propName,
+                        Value = replacementPlainSecret,
+                        IsSecure = false,
+                        Environment = envName
+                    }
+                },
+                _user).ToList();
+            Assert.IsTrue(conflictingSecureResponses.Any(r => r.Status.Contains("conflicting IsSecure")));
+            Assert.IsTrue(conflictingSecureResponses.Select(r => r.Item).OfType<PropertyImportCsvDto>().All(i => i.Value == string.Empty));
+        }
+
     }
 }

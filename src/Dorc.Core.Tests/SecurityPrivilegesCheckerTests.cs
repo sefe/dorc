@@ -72,8 +72,8 @@ namespace Dorc.Core.Tests
             Assert.IsTrue(_sut.CanModifyProject(_user, 7));
         }
 
-        //[TestMethod]
-        public void CanReadSecrets_RequiresExplicitReadSecrets_NeverImpliedByAdminOrOwner()
+        [TestMethod]
+        public void CanReadSecrets_RequiresMachinePrincipalAndExplicitReadSecrets_NeverImpliedByAdminOrOwner()
         {
             var objectId = Guid.NewGuid();
             var env = new Environment { Name = "ProdEnv", ObjectId = objectId };
@@ -81,25 +81,241 @@ namespace Dorc.Core.Tests
 
             var accessControlPersistentSource = Substitute.For<IAccessControlPersistentSource>();
             var claimsReader = Substitute.For<IClaimsPrincipalReader>();
-            claimsReader.GetSidsForUser(Arg.Any<System.Security.Principal.IPrincipal>())
-                .Returns(new List<string> { "admin-sid" });
 
-            // Real SecurityObjectFilter with an Admin user who also has Owner + Write on the ACL, but NOT ReadSecrets (2)
-            var adminIdentity = new ClaimsIdentity(
+            var humanAdminIdentity = new ClaimsIdentity(
                 new[] { new Claim(ClaimTypes.Name, "AdminUser"), new Claim(ClaimTypes.Role, "Admin") },
                 "TestAuth",
                 ClaimTypes.Name,
                 ClaimTypes.Role);
-            var adminUser = new ClaimsPrincipal(adminIdentity);
+            var humanAdmin = new ClaimsPrincipal(humanAdminIdentity);
 
+            var humanOwner = new ClaimsPrincipal(new ClaimsIdentity(
+                new[] { new Claim(ClaimTypes.Name, "OwnerUser") },
+                "TestAuth"));
+
+            var groupOwner = new ClaimsPrincipal(new ClaimsIdentity(
+                new[] { new Claim(ClaimTypes.Name, "GroupOwnerUser") },
+                "TestAuth"));
+
+            var machinePrincipal = new ClaimsPrincipal(new ClaimsIdentity(
+                new[] { new Claim(ClaimTypes.Name, "DeployMp"), new Claim(ClaimTypes.Role, "Admin") },
+                "TestAuth",
+                ClaimTypes.Name,
+                ClaimTypes.Role));
+
+            var nonAdminMachineReader = new ClaimsPrincipal(new ClaimsIdentity(
+                new[] { new Claim(ClaimTypes.Name, "NonAdminMp") },
+                "TestAuth"));
+
+            var writerUser = new ClaimsPrincipal(new ClaimsIdentity(
+                new[] { new Claim(ClaimTypes.Name, "WriterUser") },
+                "TestAuth"));
+
+            var humanSecretHolder = new ClaimsPrincipal(new ClaimsIdentity(
+                new[] { new Claim(ClaimTypes.Name, "LegacySecretHolder") },
+                "TestAuth"));
+
+            claimsReader.GetSidsForUser(humanAdmin).Returns(new List<string> { "admin-sid" });
+            claimsReader.GetSidsForUser(humanOwner).Returns(new List<string> { "owner-sid" });
+            claimsReader.GetSidsForUser(groupOwner).Returns(new List<string> { "group-owner-sid" });
+            claimsReader.GetSidsForUser(machinePrincipal).Returns(new List<string> { "mp-sid" });
+            claimsReader.GetSidsForUser(nonAdminMachineReader).Returns(new List<string> { "nonadmin-mp-sid" });
+            claimsReader.GetSidsForUser(writerUser).Returns(new List<string> { "writer-sid" });
+            claimsReader.GetSidsForUser(humanSecretHolder).Returns(new List<string> { "secret-holder-sid" });
+
+            claimsReader.IsMachinePrincipal(humanAdmin).Returns(false);
+            claimsReader.IsMachinePrincipal(humanOwner).Returns(false);
+            claimsReader.IsMachinePrincipal(groupOwner).Returns(false);
+            claimsReader.IsMachinePrincipal(machinePrincipal).Returns(true);
+            claimsReader.IsMachinePrincipal(nonAdminMachineReader).Returns(true);
+            claimsReader.IsMachinePrincipal(writerUser).Returns(false);
+            claimsReader.IsMachinePrincipal(humanSecretHolder).Returns(false);
+
+            var realFilter = new SecurityObjectFilter(accessControlPersistentSource, claimsReader);
+            var realSut = new SecurityPrivilegesChecker(
+                _projectsPersistentSource,
+                _environmentsPersistentSource,
+                realFilter,
+                _rolePrivilegesChecker,
+                claimsReader);
+
+            _rolePrivilegesChecker.IsAdmin(humanAdmin).Returns(true);
+            _environmentsPersistentSource.IsEnvironmentOwner("ProdEnv", humanOwner).Returns(true);
+            _environmentsPersistentSource.IsEnvironmentOwner("ProdEnv", groupOwner).Returns(true);
+
+            // 1. Human Admin and Human Owner are ALWAYS denied CanReadSecrets, even if granted explicit ReadSecrets on ACL
             accessControlPersistentSource.GetAccessControls(objectId).Returns(new[]
             {
                 new Dorc.ApiModel.AccessControlApiModel
                 {
                     Id = 1,
                     Sid = "admin-sid",
+                    Allow = (int)(AccessLevel.Owner | AccessLevel.Write | AccessLevel.ReadSecrets),
+                    Deny = 0
+                },
+                new Dorc.ApiModel.AccessControlApiModel
+                {
+                    Id = 2,
+                    Sid = "owner-sid",
+                    Allow = (int)(AccessLevel.Owner | AccessLevel.Write | AccessLevel.ReadSecrets),
+                    Deny = 0
+                }
+            });
+
+            Assert.IsFalse(realSut.CanReadSecrets(humanAdmin, "ProdEnv"));
+            Assert.IsFalse(realSut.CanReadSecrets(humanOwner, "ProdEnv"));
+
+            // 2. CanGrantReadSecrets IS allowed ONLY for Admins and Environment Owners (via IsEnvironmentOwner),
+            //    and NEVER for non-owners even when they hold explicit ReadSecrets (human or machine).
+            accessControlPersistentSource.GetAccessControls(objectId).Returns(new[]
+            {
+                new Dorc.ApiModel.AccessControlApiModel
+                {
+                    Id = 2,
+                    Sid = "group-owner-sid",
+                    Allow = (int)AccessLevel.Owner,
+                    Deny = 0
+                },
+                new Dorc.ApiModel.AccessControlApiModel
+                {
+                    Id = 3,
+                    Sid = "writer-sid",
+                    Allow = (int)AccessLevel.Write,
+                    Deny = 0
+                },
+                new Dorc.ApiModel.AccessControlApiModel
+                {
+                    Id = 4,
+                    Sid = "secret-holder-sid",
+                    Allow = (int)(AccessLevel.Write | AccessLevel.ReadSecrets),
+                    Deny = 0
+                },
+                new Dorc.ApiModel.AccessControlApiModel
+                {
+                    Id = 5,
+                    Sid = "nonadmin-mp-sid",
+                    Allow = (int)(AccessLevel.Write | AccessLevel.ReadSecrets),
+                    Deny = 0
+                }
+            });
+
+            Assert.IsTrue(realSut.CanGrantReadSecrets(humanAdmin, "ProdEnv"));
+            Assert.IsTrue(realSut.CanGrantReadSecrets(humanOwner, "ProdEnv"));
+            Assert.IsTrue(realSut.CanGrantReadSecrets(groupOwner, "ProdEnv"));
+            Assert.IsFalse(realSut.CanGrantReadSecrets(writerUser, "ProdEnv"));
+            Assert.IsFalse(realSut.CanGrantReadSecrets(humanSecretHolder, "ProdEnv"));
+            Assert.IsTrue(realSut.CanReadSecrets(nonAdminMachineReader, "ProdEnv"));
+            Assert.IsFalse(realSut.CanGrantReadSecrets(nonAdminMachineReader, "ProdEnv"));
+
+            // 3. Machine principal WITHOUT explicit ReadSecrets grant (even with Admin role + Owner + Write) is denied CanReadSecrets
+            accessControlPersistentSource.GetAccessControls(objectId).Returns(new[]
+            {
+                new Dorc.ApiModel.AccessControlApiModel
+                {
+                    Id = 1,
+                    Sid = "mp-sid",
                     Allow = (int)(AccessLevel.Owner | AccessLevel.Write),
                     Deny = 0
+                }
+            });
+
+            Assert.IsFalse(realSut.CanReadSecrets(machinePrincipal, "ProdEnv"));
+
+            // 4. Machine principal WITH explicit ReadSecrets (2) on the ACL satisfies CanReadSecrets
+            accessControlPersistentSource.GetAccessControls(objectId).Returns(new[]
+            {
+                new Dorc.ApiModel.AccessControlApiModel
+                {
+                    Id = 1,
+                    Sid = "mp-sid",
+                    Allow = (int)AccessLevel.ReadSecrets,
+                    Deny = 0
+                },
+                new Dorc.ApiModel.AccessControlApiModel
+                {
+                    Id = 2,
+                    Sid = "nonadmin-mp-sid",
+                    Allow = (int)AccessLevel.ReadSecrets,
+                    Deny = 0
+                }
+            });
+
+            Assert.IsTrue(realSut.CanReadSecrets(machinePrincipal, "ProdEnv"));
+            Assert.IsTrue(realSut.CanReadSecrets(nonAdminMachineReader, "ProdEnv"));
+            Assert.IsFalse(realSut.CanGrantReadSecrets(nonAdminMachineReader, "ProdEnv"));
+
+            // 5. When a matching ACL row has Deny != 0, HasPrivilege returns false even if Allow has ReadSecrets
+            accessControlPersistentSource.GetAccessControls(objectId).Returns(new[]
+            {
+                new Dorc.ApiModel.AccessControlApiModel
+                {
+                    Id = 1,
+                    Sid = "mp-sid",
+                    Allow = (int)(AccessLevel.Owner | AccessLevel.Write | AccessLevel.ReadSecrets),
+                    Deny = (int)AccessLevel.ReadSecrets
+                },
+                new Dorc.ApiModel.AccessControlApiModel
+                {
+                    Id = 2,
+                    Pid = "mp-sid",
+                    Allow = (int)AccessLevel.Write,
+                    Deny = 0
+                }
+            });
+            Assert.IsFalse(realSut.CanReadSecrets(machinePrincipal, "ProdEnv"));
+
+            // 6. Admin role still bypasses non-ReadSecrets checks in HasPrivilege, but NEVER bypasses ReadSecrets
+            Assert.IsTrue(realFilter.HasPrivilege(env, humanAdmin, AccessLevel.Write));
+            Assert.IsFalse(realFilter.HasPrivilege(env, humanAdmin, AccessLevel.ReadSecrets));
+
+            // 7. When environment does not exist, neither CanReadSecrets nor CanGrantReadSecrets admits it
+            _environmentsPersistentSource.GetSecurityObject("MissingEnv").Returns((Environment)null!);
+            Assert.IsFalse(realSut.CanReadSecrets(machinePrincipal, "MissingEnv"));
+            Assert.IsFalse(realSut.CanGrantReadSecrets(humanAdmin, "MissingEnv"));
+
+            // 8. DirectToolClaimsPrincipalReader reports itself as a machine principal
+            var directToolReader = new Dorc.Core.Security.DirectToolClaimsPrincipalReader();
+            Assert.IsTrue(directToolReader.IsMachinePrincipal(_user));
+        }
+
+        [TestMethod]
+        public void CanGrantReadSecrets_WhenOAuthCallerHasGroupOwnerGrantAndExplicitOidDeny_ReturnsFalse()
+        {
+            var objectId = Guid.NewGuid();
+            var env = new Environment { Name = "ProdEnv", ObjectId = objectId };
+            _environmentsPersistentSource.GetSecurityObject("ProdEnv").Returns(env);
+
+            var accessControlPersistentSource = Substitute.For<IAccessControlPersistentSource>();
+            var claimsReader = Substitute.For<IClaimsPrincipalReader>();
+
+            var oauthCaller = new ClaimsPrincipal(new ClaimsIdentity(
+                new[]
+                {
+                    new Claim(ClaimTypes.Name, "jdoe"),
+                    new Claim("oid", "oauth-caller-oid"),
+                    new Claim("samAccountName", "jdoe")
+                },
+                "Bearer"));
+
+            // With IsUseAdSidsForAccessControl enabled, GetSidsForUser returns only AD SIDs (not Entra oid)
+            claimsReader.GetSidsForUser(oauthCaller).Returns(new List<string> { "S-1-5-21-USER", "S-1-5-21-TEAM-OWNERS" });
+            claimsReader.IsMachinePrincipal(oauthCaller).Returns(false);
+
+            accessControlPersistentSource.GetAccessControls(objectId).Returns(new[]
+            {
+                new Dorc.ApiModel.AccessControlApiModel
+                {
+                    Id = 1,
+                    Sid = "S-1-5-21-TEAM-OWNERS",
+                    Allow = (int)AccessLevel.Owner,
+                    Deny = 0
+                },
+                new Dorc.ApiModel.AccessControlApiModel
+                {
+                    Id = 2,
+                    Pid = "oauth-caller-oid",
+                    Allow = 0,
+                    Deny = (int)AccessLevel.Owner
                 }
             });
 
@@ -111,52 +327,13 @@ namespace Dorc.Core.Tests
                 _rolePrivilegesChecker,
                 claimsReader);
 
-            _rolePrivilegesChecker.IsAdmin(adminUser).Returns(true);
-            _environmentsPersistentSource.IsEnvironmentOwner("ProdEnv", adminUser).Returns(true);
+            _rolePrivilegesChecker.IsAdmin(oauthCaller).Returns(false);
+            // IsEnvironmentOwner inspects user.FindFirst("oid") directly and rejects the explicit Deny
+            _environmentsPersistentSource.IsEnvironmentOwner("ProdEnv", oauthCaller).Returns(false);
 
-            // Admin + Owner + Write still cannot read secrets without explicit AccessLevel.ReadSecrets
-            Assert.IsFalse(realSut.CanReadSecrets(adminUser, "ProdEnv"));
-
-            // Once explicit ReadSecrets (2) is granted on the ACL, CanReadSecrets returns true
-            accessControlPersistentSource.GetAccessControls(objectId).Returns(new[]
-            {
-                new Dorc.ApiModel.AccessControlApiModel
-                {
-                    Id = 1,
-                    Sid = "admin-sid",
-                    Allow = (int)(AccessLevel.Owner | AccessLevel.Write | AccessLevel.ReadSecrets),
-                    Deny = 0
-                }
-            });
-
-            Assert.IsTrue(realSut.CanReadSecrets(adminUser, "ProdEnv"));
-
-            // When a matching ACL row has Deny != 0, HasPrivilege returns false even if Allow has ReadSecrets
-            accessControlPersistentSource.GetAccessControls(objectId).Returns(new[]
-            {
-                new Dorc.ApiModel.AccessControlApiModel
-                {
-                    Id = 1,
-                    Sid = "admin-sid",
-                    Allow = (int)(AccessLevel.Owner | AccessLevel.Write | AccessLevel.ReadSecrets),
-                    Deny = (int)AccessLevel.ReadSecrets
-                },
-                new Dorc.ApiModel.AccessControlApiModel
-                {
-                    Id = 2,
-                    Pid = "admin-sid",
-                    Allow = (int)AccessLevel.Write,
-                    Deny = 0
-                }
-            });
-            Assert.IsFalse(realSut.CanReadSecrets(adminUser, "ProdEnv"));
-
-            // Admin role still bypasses non-ReadSecrets checks in HasPrivilege
-            Assert.IsTrue(realFilter.HasPrivilege(env, adminUser, AccessLevel.Write));
-
-            // When environment does not exist, CanReadSecrets returns false
-            _environmentsPersistentSource.GetSecurityObject("MissingEnv").Returns((Environment)null!);
-            Assert.IsFalse(realSut.CanReadSecrets(adminUser, "MissingEnv"));
+            // SecurityObjectFilter only sees AD SIDs and would return true; CanGrantReadSecrets must NOT fall back to it
+            Assert.IsTrue(realFilter.HasPrivilege(env, oauthCaller, AccessLevel.Owner));
+            Assert.IsFalse(realSut.CanGrantReadSecrets(oauthCaller, "ProdEnv"));
         }
 
         [TestMethod]
