@@ -297,10 +297,11 @@ namespace Dorc.Api.Services
             ClaimsPrincipal user,
             ISet<string>? batchSecurePropertyNames = null)
         {
+            var resolvedSecurityByProperty = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
             return responses
                 .Select(r => new Response
                 {
-                    Item = RedactResponseItemIfRequired(r.Item, user, batchSecurePropertyNames),
+                    Item = RedactResponseItemIfRequired(r.Item, user, batchSecurePropertyNames, resolvedSecurityByProperty),
                     Status = r.Status
                 })
                 .ToList();
@@ -309,12 +310,13 @@ namespace Dorc.Api.Services
         private object? RedactResponseItemIfRequired(
             object? item,
             ClaimsPrincipal user,
-            ISet<string>? batchSecurePropertyNames = null)
+            ISet<string>? batchSecurePropertyNames = null,
+            IDictionary<string, bool>? resolvedSecurityByProperty = null)
         {
             switch (item)
             {
                 case PropertyValueDto pvDto:
-                    if (!IsSecureProperty(pvDto.Property?.Name, pvDto.Property?.Secure, batchSecurePropertyNames) ||
+                    if (!IsSecureProperty(pvDto.Property?.Name, pvDto.Property?.Secure, batchSecurePropertyNames, resolvedSecurityByProperty) ||
                         CanReadSecrets(user, pvDto.PropertyValueFilter))
                     {
                         return pvDto;
@@ -341,7 +343,7 @@ namespace Dorc.Api.Services
                     };
 
                 case PropertyImportCsvDto csvDto:
-                    if (!IsSecureProperty(csvDto.PropertyName, csvDto.IsSecure, batchSecurePropertyNames) ||
+                    if (!IsSecureProperty(csvDto.PropertyName, csvDto.IsSecure, batchSecurePropertyNames, resolvedSecurityByProperty) ||
                         CanReadSecrets(user, csvDto.Environment))
                     {
                         return csvDto;
@@ -371,7 +373,8 @@ namespace Dorc.Api.Services
         private bool IsSecureProperty(
             string? propertyName,
             bool? dtoSecure,
-            ISet<string>? batchSecurePropertyNames = null)
+            ISet<string>? batchSecurePropertyNames = null,
+            IDictionary<string, bool>? resolvedSecurityByProperty = null)
         {
             if (dtoSecure == true)
             {
@@ -388,17 +391,30 @@ namespace Dorc.Api.Services
                 return true;
             }
 
+            if (resolvedSecurityByProperty != null && resolvedSecurityByProperty.TryGetValue(propertyName, out var cachedSecure))
+            {
+                return cachedSecure;
+            }
+
+            bool resolvedSecure;
             try
             {
-                return _propertiesPersistentSource.GetProperty(propertyName)?.Secure == true;
+                resolvedSecure = _propertiesPersistentSource.GetProperty(propertyName)?.Secure == true;
             }
             catch (Exception ex)
             {
                 _log.LogWarning(ex,
                     "Failed to resolve security metadata for property '{PropertyName}'; redacting value.",
                     propertyName);
-                return true;
+                resolvedSecure = true;
             }
+
+            if (resolvedSecurityByProperty != null)
+            {
+                resolvedSecurityByProperty[propertyName] = resolvedSecure;
+            }
+
+            return resolvedSecure;
         }
 
         private Response? EncryptExistingPropertyValues(string propertyName, ClaimsPrincipal user)
