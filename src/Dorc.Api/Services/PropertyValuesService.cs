@@ -411,7 +411,7 @@ namespace Dorc.Api.Services
                 return true;
             }
 
-            if (persistedPropertySecure.HasValue)
+            if (persistedPropertySecure.HasValue || existingValueSecure.HasValue)
             {
                 return false;
             }
