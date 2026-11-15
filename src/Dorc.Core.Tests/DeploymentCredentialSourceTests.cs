@@ -688,6 +688,30 @@ namespace Dorc.Core.Tests
             Assert.AreEqual("EscapedSecret!11", escapedItem.GetFieldValue("credential"));
         }
 
+        [TestMethod]
+        public void VaultTierDefault_RefusesSharedApiCredentialWithoutUsernameEvenWhenReferencedByTitleAndUuid()
+        {
+            const string sharedUuid = "abcdefghijklmnopqrstuvwx12";
+            const string sharedTitle = "prod-shared-api-credential";
+            const string sharedItemJson = """
+                {
+                  "id": "abcdefghijklmnopqrstuvwx12",
+                  "title": "prod-shared-api-credential",
+                  "category": "API_CREDENTIAL",
+                  "fields": [
+                    { "id": "credential", "type": "CONCEALED", "label": "credential", "value": "NeverExposeAsPrincipal!99" }
+                  ]
+                }
+                """;
+
+            using var harness = CreateVaultHarness(
+                new Dictionary<string, string> { [sharedUuid] = sharedItemJson },
+                userNameItemId: sharedTitle,
+                passwordItemId: sharedUuid);
+
+            Assert.IsNull(harness.Source.Resolve(DeploymentTier.Production));
+        }
+
         private static VaultTestHarness CreateVaultHarness(
             IReadOnlyDictionary<string, string> itemsById,
             string userNameItemId,

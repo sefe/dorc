@@ -822,5 +822,40 @@ namespace Dorc.Api.Tests.Controllers
                 }));
             Assert.AreEqual(StatusCodes.Status404NotFound, result.StatusCode);
         }
+
+        [TestMethod]
+        public void ResultStatusesGetComponentsPreservesAndMergesPersistedRefusalLogsInPreviewMode()
+        {
+            var requestsSource = Substitute.For<IRequestsPersistentSource>();
+            var logService = Substitute.For<Dorc.OpenSearchData.Sources.Interfaces.IDeploymentLogService>();
+            requestsSource.GetRequestForUser(77, _user).Returns(new DeploymentRequestApiModel { Id = 77 });
+            requestsSource.GetDeploymentResultsForRequest(77).Returns(_ => new List<DeploymentResultApiModel>
+            {
+                new() { Id = 1, RequestId = 77, Log = "Refused: missing named identity." },
+                new() { Id = 2, RequestId = 77, Log = "Refused after plan." },
+                new() { Id = 3, RequestId = 77, Log = "Refused when OpenSearch down." }
+            });
+
+            logService.When(s => s.EnrichDeploymentResultsWithLogs(Arg.Any<IEnumerable<DeploymentResultApiModel>>(), 3))
+                .Do(callInfo =>
+                {
+                    var items = callInfo.Arg<IEnumerable<DeploymentResultApiModel>>().ToList();
+                    // Item 1: no OpenSearch logs (leaves Log null)
+                    items[1].Log = "[plan] line 1";
+                    items[2].Log = "No logs in the OpenSearch or it is unavailable.";
+                });
+
+            var controller = new ResultStatusesController(requestsSource, logService)
+            {
+                ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = _user } }
+            };
+
+            var okResult = Assert.IsInstanceOfType<OkObjectResult>(controller.GetComponents(77));
+            var returned = Assert.IsInstanceOfType<IEnumerable<DeploymentResultApiModel>>(okResult.Value).ToList();
+
+            Assert.AreEqual("Refused: missing named identity.", returned[0].Log);
+            Assert.AreEqual("[plan] line 1" + System.Environment.NewLine + "Refused after plan.", returned[1].Log);
+            Assert.AreEqual("Refused when OpenSearch down.", returned[2].Log);
+        }
     }
 }

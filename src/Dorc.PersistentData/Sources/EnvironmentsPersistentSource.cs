@@ -700,7 +700,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                             oldReference ?? string.Empty,
                             normalizedReference ?? string.Empty,
                             username,
-                            "Execution Identity Update",
+                            EnvironmentHistoryPersistentSource.ExecutionIdentityUpdateType,
                             summary,
                             context);
 

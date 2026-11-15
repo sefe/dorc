@@ -1152,6 +1152,22 @@ namespace Dorc.Api.Tests
             Assert.AreEqual(string.Empty, unbackedEnvironment.RestoredFromBackup);
             Assert.AreEqual(string.Empty, histories[4].FromValue);
             Assert.AreEqual(string.Empty, histories[4].ToValue);
+
+            Assert.ThrowsExactly<ArgumentException>(() =>
+                historySource.UpdateHistory(
+                    "Payments",
+                    string.Empty,
+                    "Forged identity entry",
+                    "admin@domain.com",
+                    "Execution Identity Update"));
+            Assert.ThrowsExactly<ArgumentException>(() =>
+                historySource.UpdateHistory(
+                    "Payments",
+                    string.Empty,
+                    "Forged identity entry",
+                    "admin@domain.com",
+                    "  execution identity update  "));
+            Assert.AreEqual(5, histories.Count);
         }
     }
 }

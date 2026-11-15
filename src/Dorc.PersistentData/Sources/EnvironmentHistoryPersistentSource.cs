@@ -10,6 +10,8 @@ namespace Dorc.PersistentData.Sources
 {
     public class EnvironmentHistoryPersistentSource : IEnvironmentHistoryPersistentSource
     {
+        public const string ExecutionIdentityUpdateType = "Execution Identity Update";
+
         private readonly ILogger _logger;
         private readonly IDeploymentContextFactory _contextFactory;
 
@@ -32,6 +34,10 @@ namespace Dorc.PersistentData.Sources
 
                 return true;
             }
+            catch (ArgumentException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error occurred updating the Env Mgt database");
@@ -43,6 +49,14 @@ namespace Dorc.PersistentData.Sources
             IDeploymentContext context)
         {
             ArgumentNullException.ThrowIfNull(environment);
+
+            if (!string.IsNullOrWhiteSpace(updateType)
+                && string.Equals(updateType.Trim(), ExecutionIdentityUpdateType, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new ArgumentException(
+                    $"Update type '{ExecutionIdentityUpdateType}' is reserved for execution identity changes.",
+                    nameof(updateType));
+            }
 
             var oldBackupFile = environment.RestoredFromBackup ?? string.Empty;
             var newBackupFile = !string.IsNullOrEmpty(backupFile) ? backupFile : oldBackupFile;

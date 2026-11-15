@@ -830,6 +830,16 @@ namespace Dorc.Core.Secrets.OnePassword
             return value;
         }
 
+        internal async Task<string?> ResolveItemIdAsync(
+            string vaultId,
+            string itemIdentifier,
+            CancellationToken cancellationToken = default)
+        {
+            using CancellationTokenSource? timeoutCts = CreateTimeoutCancellationTokenSource(cancellationToken);
+            CancellationToken effectiveToken = timeoutCts?.Token ?? cancellationToken;
+            return await ResolveVaultItemUuidAsync(vaultId, itemIdentifier, effectiveToken).ConfigureAwait(false);
+        }
+
         public async Task<OnePasswordItem?> GetItemAsync(string vaultId, string itemIdentifier)
         {
             using CancellationTokenSource? timeoutCts = CreateTimeoutCancellationTokenSource(CancellationToken.None);
@@ -943,7 +953,7 @@ namespace Dorc.Core.Secrets.OnePassword
                 .ConfigureAwait(false);
         }
 
-        private static bool IsVaultItemUuid(string itemIdentifier)
+        internal static bool IsVaultItemUuid(string itemIdentifier)
         {
             return itemIdentifier.Length == 26
                 && itemIdentifier.All(c => (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'));

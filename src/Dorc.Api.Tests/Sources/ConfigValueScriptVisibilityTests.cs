@@ -402,11 +402,11 @@ namespace Dorc.Api.Tests.Sources
         [DataRow("DORC_ProdDeployPassword")]
         [DataRow("DORC_NonProdDeployPassword")]
         [DataRow("DORC_Deploy_payments_Password")]
-        public void DeploymentPasswordKeysRequireSecureTrueOnAddAndUpdate(string passwordKey)
+        public void DeploymentPasswordKeysRequireSecureTrueOnAddAndUpdate(string configKeyName)
         {
             Assert.ThrowsExactly<ArgumentException>(() => _source.Add(new ConfigValueApiModel
             {
-                Key = passwordKey,
+                Key = configKeyName,
                 Value = "plaintext-secret",
                 Secure = false,
                 IsForProd = true
@@ -415,7 +415,7 @@ namespace Dorc.Api.Tests.Sources
             _stored.Add(new ConfigValue
             {
                 Id = 41,
-                Key = passwordKey,
+                Key = configKeyName,
                 Value = "enc:stored-secret",
                 Secure = true,
                 IsForProd = true,
@@ -431,7 +431,7 @@ namespace Dorc.Api.Tests.Sources
             Assert.ThrowsExactly<ArgumentException>(() => sourceWithDecrypt.UpdateConfigValue(new ConfigValueApiModel
             {
                 Id = 41,
-                Key = passwordKey,
+                Key = configKeyName,
                 Value = "stored-secret",
                 Secure = false,
                 IsForProd = true
