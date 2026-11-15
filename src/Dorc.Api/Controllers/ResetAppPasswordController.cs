@@ -152,6 +152,7 @@ namespace Dorc.Api.Controllers
                 .ToList();
 
             var environmentNamesByDbId = new Dictionary<int, HashSet<string>>();
+            var isProdByEnvironmentName = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
             foreach (var instanceDb in instanceDatabases)
             {
@@ -161,7 +162,7 @@ namespace Dorc.Api.Controllers
                 }
 
                 var mappedEnvironmentNames = GetMappedEnvironmentNames(instanceDb, environmentNamesByDbId);
-                if (mappedEnvironmentNames.Any(mappedEnv => _environmentsPersistentSource.EnvironmentIsProd(mappedEnv)))
+                if (mappedEnvironmentNames.Any(mappedEnv => IsProductionEnvironment(mappedEnv, isProdByEnvironmentName)))
                 {
                     return false;
                 }
@@ -197,6 +198,20 @@ namespace Dorc.Api.Controllers
             }
 
             return true;
+        }
+
+        private bool IsProductionEnvironment(
+            string environmentName,
+            Dictionary<string, bool> cache)
+        {
+            if (cache.TryGetValue(environmentName, out var isProd))
+            {
+                return isProd;
+            }
+
+            isProd = _environmentsPersistentSource.EnvironmentIsProd(environmentName);
+            cache[environmentName] = isProd;
+            return isProd;
         }
 
         private HashSet<string> GetMappedEnvironmentNames(
