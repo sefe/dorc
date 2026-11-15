@@ -813,9 +813,10 @@ namespace Dorc.Api.Tests.Controllers
                     return new RequestStatusDto { Id = nextId++ };
                 });
 
-            var result = controller.Put(mlpRequest) as OkObjectResult;
+            var rawResult = controller.Put(mlpRequest);
+            Assert.IsInstanceOfType(rawResult, typeof(OkObjectResult));
+            var result = (OkObjectResult)rawResult;
 
-            Assert.IsNotNull(result);
             Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
             Assert.AreEqual(2, submittedRequests.Count);
 
@@ -890,9 +891,10 @@ namespace Dorc.Api.Tests.Controllers
                     return new RequestStatusDto { Id = 12345 };
                 });
 
-            var result = _controller.Put(mlpRequest) as OkObjectResult;
+            var rawResult = _controller.Put(mlpRequest);
+            Assert.IsInstanceOfType(rawResult, typeof(OkObjectResult));
+            var result = (OkObjectResult)rawResult;
 
-            Assert.IsNotNull(result);
             Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
             Assert.IsNotNull(capturedRequest);
             var singleProp = capturedRequest.RequestProperties.Single();
