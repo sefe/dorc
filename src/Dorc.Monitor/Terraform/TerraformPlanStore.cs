@@ -439,9 +439,7 @@ namespace Dorc.Monitor.Terraform
 
             if (OperatingSystem.IsWindows())
             {
-                using var directoryHandle = ReparseFreeHandles.OpenVerifiedDirectoryHandle(
-                    Directory,
-                    ReparseFreeHandles.FileReadAttributes);
+                using var directoryHandle = ReparseFreeHandles.OpenWriteExcludingDirectoryHandle(Directory);
                 VerifyPinnedDispatchDirectoryWindows(directoryHandle, "write cancel signal into");
                 ReparseFreeHandles.WriteVerifiedEmptyFile(fullPath, expectedCanonicalPath);
                 return;

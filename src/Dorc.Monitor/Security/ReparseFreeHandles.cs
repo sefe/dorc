@@ -389,6 +389,21 @@ namespace Dorc.Monitor.Security
                 desiredAccess,
                 FileShareRead | FileShareWrite);
 
+        /// <summary>
+        /// Opens a verified non-reparse directory handle with <c>FILE_LIST_DIRECTORY | FILE_READ_ATTRIBUTES</c>
+        /// and <c>FILE_SHARE_READ</c> only (omitting both <c>FILE_SHARE_WRITE</c> and <c>FILE_SHARE_DELETE</c>).
+        /// Holding this handle fails closed with <c>ERROR_SHARING_VIOLATION</c> if a writer already holds
+        /// the directory FCB for write, and blocks any concurrent <c>FSCTL_SET_REPARSE_POINT</c> open
+        /// while the caller creates or verifies child sentinel files inside the directory.
+        /// </summary>
+        public static SafeFileHandle OpenWriteExcludingDirectoryHandle(
+            string path,
+            uint desiredAccess = FileListDirectory | FileReadAttributes) =>
+            OpenVerifiedDirectoryHandleWithShareMode(
+                path,
+                desiredAccess,
+                FileShareRead);
+
         private static SafeFileHandle OpenVerifiedDirectoryHandleWithShareMode(
             string path,
             uint desiredAccess,

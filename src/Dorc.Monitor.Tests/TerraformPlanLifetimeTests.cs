@@ -728,6 +728,32 @@ namespace Dorc.Monitor.Tests
             File.SetAttributes(workVictimFile, File.GetAttributes(workVictimFile) & ~FileAttributes.ReadOnly);
         }
 
+        [TestMethod]
+        [SupportedOSPlatform("windows")]
+        public void WriteCancelSignalFailsClosedWhenDirectoryWriterHoldsDispatchDirectory()
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            var store = Track(TerraformPlanStore.Reserve(_logger, _root, 4301));
+            using (var writerHandle = ReparseFreeHandles.OpenRawHandle(
+                store.Directory,
+                ReparseFreeHandles.GenericWrite,
+                ReparseFreeHandles.FileShareRead | ReparseFreeHandles.FileShareWrite,
+                ReparseFreeHandles.OpenExisting,
+                out var openError))
+            {
+                Assert.IsFalse(writerHandle.IsInvalid, $"Expected directory write handle open to succeed, got Win32 error {openError}.");
+                Assert.ThrowsExactly<IOException>(() => store.WriteCancelSignal("4301.cancel"));
+                Assert.IsFalse(File.Exists(store.PathOf("4301.cancel")));
+            }
+
+            store.WriteCancelSignal("4301.cancel");
+            Assert.IsTrue(File.Exists(store.PathOf("4301.cancel")));
+        }
+
         [SupportedOSPlatform("windows")]
         [DllImport("kernel32.dll", EntryPoint = "CreateHardLinkW", CharSet = CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]

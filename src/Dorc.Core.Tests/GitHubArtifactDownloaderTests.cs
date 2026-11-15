@@ -389,6 +389,91 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
+        public void DownloadAndExtract_RefusesConfiguredLocalRootUnderUnsafeAncestorDirectory()
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            var unsafeAncestor = Path.Join(Path.GetTempPath(),
+                "dorc-unsafe-ancestor-test-" + Guid.NewGuid().ToString("N"));
+            var downloadRoot = Path.Join(unsafeAncestor, "artifacts");
+            Directory.CreateDirectory(unsafeAncestor);
+            Directory.CreateDirectory(downloadRoot);
+
+            try
+            {
+                // Harden baseDir itself so only the enclosing ancestor permits non-privileged replacement.
+                var restrictedBaseAcl = new System.Security.AccessControl.DirectorySecurity();
+                restrictedBaseAcl.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+                using (var identity = System.Security.Principal.WindowsIdentity.GetCurrent())
+                {
+                    if (identity.User != null)
+                    {
+                        restrictedBaseAcl.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                            identity.User,
+                            System.Security.AccessControl.FileSystemRights.FullControl,
+                            System.Security.AccessControl.InheritanceFlags.ContainerInherit
+                            | System.Security.AccessControl.InheritanceFlags.ObjectInherit,
+                            System.Security.AccessControl.PropagationFlags.None,
+                            System.Security.AccessControl.AccessControlType.Allow));
+                    }
+                }
+                restrictedBaseAcl.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                    new System.Security.Principal.SecurityIdentifier(
+                        System.Security.Principal.WellKnownSidType.LocalSystemSid,
+                        null),
+                    System.Security.AccessControl.FileSystemRights.FullControl,
+                    System.Security.AccessControl.InheritanceFlags.ContainerInherit
+                    | System.Security.AccessControl.InheritanceFlags.ObjectInherit,
+                    System.Security.AccessControl.PropagationFlags.None,
+                    System.Security.AccessControl.AccessControlType.Allow));
+                restrictedBaseAcl.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                    new System.Security.Principal.SecurityIdentifier(
+                        System.Security.Principal.WellKnownSidType.BuiltinAdministratorsSid,
+                        null),
+                    System.Security.AccessControl.FileSystemRights.FullControl,
+                    System.Security.AccessControl.InheritanceFlags.ContainerInherit
+                    | System.Security.AccessControl.InheritanceFlags.ObjectInherit,
+                    System.Security.AccessControl.PropagationFlags.None,
+                    System.Security.AccessControl.AccessControlType.Allow));
+                new DirectoryInfo(downloadRoot).SetAccessControl(restrictedBaseAcl);
+
+                var ancestorAcl = new DirectoryInfo(unsafeAncestor).GetAccessControl();
+                ancestorAcl.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                    new System.Security.Principal.SecurityIdentifier(
+                        System.Security.Principal.WellKnownSidType.BuiltinUsersSid,
+                        null),
+                    System.Security.AccessControl.FileSystemRights.DeleteSubdirectoriesAndFiles,
+                    System.Security.AccessControl.InheritanceFlags.None,
+                    System.Security.AccessControl.PropagationFlags.None,
+                    System.Security.AccessControl.AccessControlType.Allow));
+                new DirectoryInfo(unsafeAncestor).SetAccessControl(ancestorAcl);
+
+                var appSettings = Substitute.For<IConfigurationSection>();
+                appSettings["GitHubArtifactDownloadFolder"].Returns(downloadRoot);
+                appSettings["GitHubToken"].Returns("test-token");
+                _configuration.GetSection("AppSettings").Returns(appSettings);
+
+                var zipBytes = BuildZipArchive(("Server/hello.txt", "payload"));
+                _httpClientFactory.CreateClient("GitHubActions").Returns(
+                    TrackClient(new HttpClient(new StubHttpHandler(HttpStatusCode.OK, zipBytes))));
+
+                var sut = CreateSut();
+
+                var ex = Assert.Throws<IOException>(() =>
+                    sut.DownloadAndExtract("https://api.github.com/repos/o/r/actions/artifacts/1/zip"));
+                StringAssert.Contains(ex.Message, "ancestor directory");
+            }
+            finally
+            {
+                if (Directory.Exists(unsafeAncestor))
+                    Directory.Delete(unsafeAncestor, recursive: true);
+            }
+        }
+
+        [TestMethod]
         public void DownloadAndExtract_PinsRequestDirectoryAgainstMidFlightRenameOrReplacement()
         {
             if (!OperatingSystem.IsWindows())
