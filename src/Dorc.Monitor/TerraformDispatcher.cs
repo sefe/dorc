@@ -39,6 +39,7 @@ namespace Dorc.Monitor
         private readonly TerraformSourceConfigurator _sourceConfigurator;
         private readonly TerraformCloudResourceRegistrar _cloudResourceRegistrar;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
+        private readonly IScriptScopeConfigValues _scriptScopeConfigValues;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
 
@@ -57,6 +58,7 @@ namespace Dorc.Monitor
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IDatabasesPersistentSource databasesPersistentSource,
             IPropertiesPersistentSource propertiesPersistentSource,
+            IScriptScopeConfigValues scriptScopeConfigValues,
             ISourceHostAllowList sourceHostAllowList)
         {
             this.logger = logger;
@@ -69,6 +71,7 @@ namespace Dorc.Monitor
             this._azureStorageAccountWorker = azureStorageAccountWorker;
             this._projectsPersistentSource = projectsPersistentSource;
             _environmentsPersistentSource = environmentsPersistentSource;
+            this._scriptScopeConfigValues = scriptScopeConfigValues;
             this._sourceConfigurator = new TerraformSourceConfigurator(logger, _configurationSettingsEngine, gitHubHostValidator, sourceHostAllowList);
             this._cloudResourceRegistrar = new TerraformCloudResourceRegistrar(
                 logger,
@@ -101,12 +104,7 @@ namespace Dorc.Monitor
             // key - see docs/Terraform/STATE-MODEL.md.
             var request = _requestsPersistentSource.GetRequest(requestId);
             var projectName = request?.Project ?? string.Empty;
-            var catalogInputs = component.ComponentId.HasValue
-                ? _requestsPersistentSource.GetCatalogRequestInputs(requestId, component.ComponentId.Value) : null;
-            if (catalogInputs != null)
-            {
-                properties = TerraformCatalogRequestSnapshot.Apply(component, properties, request.RequestDetails, catalogInputs);
-            }
+            properties = ApplyCatalogInputs(component, properties, requestId, request);
 
             // serialise plan/apply per (project, environment, component)
             // within this monitor instance. Acquired once around the whole
@@ -464,6 +462,30 @@ namespace Dorc.Monitor
             }
         }
 
+        /// <summary>
+        /// See ScriptDispatcher: the same invariant, on the branch that serialises a script
+        /// group for the Terraform Runner.
+        /// </summary>
+        private IDictionary<string, VariableValue> WithheldKeysRemoved(
+            IDictionary<string, VariableValue> properties)
+        {
+            var withheld = properties.Keys.Where(_scriptScopeConfigValues.IsWithheld).ToList();
+
+            if (withheld.Count == 0)
+            {
+                return properties;
+            }
+
+            logger.LogWarning(
+                "Removed {Count} withheld key(s) from the Terraform script group before dispatch: {Keys}.",
+                withheld.Count,
+                string.Join(", ", withheld));
+
+            return properties
+                .Where(property => !_scriptScopeConfigValues.IsWithheld(property.Key))
+                .ToDictionary(property => property.Key, property => property.Value);
+        }
+
         private (string, string) GetProcessCredentials(bool isProduction, string environmentName)
         {
             if (isProduction)
@@ -483,7 +505,21 @@ namespace Dorc.Monitor
             return _configValuesPersistentSource.GetConfigValue(configValue);
         }
 
-        private ScriptGroup GetScriptGroup(
+        internal IDictionary<string, VariableValue> ApplyCatalogInputs(
+            ComponentApiModel component,
+            IDictionary<string, VariableValue> properties,
+            int requestId,
+            DeploymentRequestApiModel? request)
+        {
+            var catalogInputs = component.ComponentId.HasValue
+                ? _requestsPersistentSource.GetCatalogRequestInputs(requestId, component.ComponentId.Value)
+                : null;
+            return catalogInputs != null
+                ? TerraformCatalogRequestSnapshot.Apply(component, properties, request?.RequestDetails ?? string.Empty, catalogInputs)
+                : properties;
+        }
+
+        internal ScriptGroup GetScriptGroup(
             string scriptsLocation,
             IDictionary<string, VariableValue> properties,
             int deploymentResultId,
@@ -491,12 +527,13 @@ namespace Dorc.Monitor
             DeploymentRequestApiModel request,
             ProjectApiModel? project)
         {
+            var commonProperties = WithheldKeysRemoved(properties);
             var scriptGroup = new ScriptGroup()
             {
                 ID = Guid.NewGuid(),
                 DeployResultId = deploymentResultId,
                 ScriptsLocation = scriptsLocation,
-                CommonProperties = properties,
+                CommonProperties = commonProperties,
                 ScriptProperties = new List<ScriptProperties>(),
                 // Exact names of sensitive wizard parameters, so runner-side
                 // log redaction covers flagged properties whose names don't
@@ -507,7 +544,7 @@ namespace Dorc.Monitor
             };
 
             // Use the configurator to set Terraform-specific fields based on source type
-            _sourceConfigurator.ConfigureScriptGroup(scriptGroup, component, request, project, properties);
+            _sourceConfigurator.ConfigureScriptGroup(scriptGroup, component, request, project, commonProperties);
             scriptGroup.SensitivePropertyNames = scriptGroup.SensitivePropertyNames
                 .Concat(_propertiesPersistentSource.GetAllProperties().Where(p => p.Secure).Select(p => p.Name))
                 .Concat(_configValuesPersistentSource.GetAllConfigValues(false).Where(c => c.Secure).Select(c => c.Key))
