@@ -207,6 +207,7 @@ namespace Dorc.Monitor
                 // context rather than assumed to be the Monitor's own identity.
                 var readerIdentity = new ScriptGroupReaderIdentity(domainName, processAccountName);
                 var stagedFiles = new List<string>();
+                string? planStorageDir = null;
 
                 try
                 {
@@ -228,7 +229,7 @@ namespace Dorc.Monitor
                     // configuration was rendered with. They are staged in a per-result directory
                     // that admits the Monitor, SYSTEM, Administrators and the account the Runner
                     // will write them as - and nobody else on the host.
-                    var planStorageDir = TerraformPlanStorage.EnsureRestricted(
+                    planStorageDir = TerraformPlanStorage.EnsureRestricted(
                         DorcProgramData.Root,
                         deploymentResult.Id,
                         readerIdentity,
@@ -475,6 +476,7 @@ namespace Dorc.Monitor
                     // cancellation paths as much as the successful one.
                     _scriptGroupPipeServer.Expire(startedScriptGroupPipeName);
                     foreach (var file in stagedFiles) TryDeleteFile(file);
+                    TerraformPlanStorage.CleanupResultDirectory(planStorageDir, DorcProgramData.Root, logger);
                 }
 
             }

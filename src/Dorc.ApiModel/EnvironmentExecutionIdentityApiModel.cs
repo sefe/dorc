@@ -9,6 +9,7 @@ namespace Dorc.ApiModel
         /// <summary>
         /// The named deployment identity to bind, or null/empty to restore the tier default.
         /// </summary>
+        [JsonRequired]
         public string ExecutionIdentityReference
         {
             get => _executionIdentityReference;
@@ -23,3 +24,5 @@ namespace Dorc.ApiModel
         public bool IsExecutionIdentityReferenceSpecified { get; private set; }
     }
 }
+
+

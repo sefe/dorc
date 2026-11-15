@@ -74,6 +74,7 @@ namespace Dorc.Monitor
 
             var deploymentResultStatus = DeploymentResultStatus.StatusNotSet;
             StringBuilder componentResultLogBuilder = new StringBuilder();
+            bool resultLogAlreadyPersisted = false;
 
             try
             {
@@ -147,9 +148,12 @@ namespace Dorc.Monitor
                             _logger.LogWarning(warningMessage);
                             componentResultLogBuilder.AppendLine(warningMessage);
 
+                            var warningLog = componentResultLogBuilder.ToString();
                             requestsPersistentSource.UpdateResultLog(
                                 deploymentResult,
-                                componentResultLogBuilder.ToString());
+                                warningLog);
+                            deploymentResult.Log = warningLog;
+                            resultLogAlreadyPersisted = true;
                             requestsPersistentSource.UpdateResultStatus(
                                 deploymentResult,
                                 deploymentResultStatus);
@@ -212,7 +216,7 @@ namespace Dorc.Monitor
             }
             finally
             {
-                if (componentResultLogBuilder.Length > 0)
+                if (!resultLogAlreadyPersisted && componentResultLogBuilder.Length > 0)
                 {
                     var appendedLog = componentResultLogBuilder.ToString();
                     if (!requestsPersistentSource.AppendResultLog(deploymentResult, appendedLog))

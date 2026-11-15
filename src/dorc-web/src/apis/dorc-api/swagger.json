@@ -14079,6 +14079,9 @@
         "additionalProperties": false
       },
       "EnvironmentExecutionIdentityApiModel": {
+        "required": [
+          "ExecutionIdentityReference"
+        ],
         "type": "object",
         "properties": {
           "ExecutionIdentityReference": {

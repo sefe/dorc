@@ -132,6 +132,12 @@ namespace Dorc.PersistentData.Sources
                     //    preserves its current classification unless the caller explicitly states VisibleToScripts.
                     if (configValue.Secure != model.Secure)
                     {
+                        if (!model.Secure && IsDeploymentPasswordKey(configValue.Key))
+                        {
+                            throw new ArgumentException(
+                                $"Deployment password configuration key '{configValue.Key}' must remain Secure = true.");
+                        }
+
                         configValue.Secure = model.Secure;
                         if (model.Secure)
                         {
@@ -149,6 +155,11 @@ namespace Dorc.PersistentData.Sources
                             configValue.Value = oldPlain;
                             configValue.VisibleToScripts = true;
                         }
+                    }
+                    else if (!configValue.Secure && IsDeploymentPasswordKey(configValue.Key))
+                    {
+                        throw new ArgumentException(
+                            $"Deployment password configuration key '{configValue.Key}' must be stored with Secure = true.");
                     }
 
                     // 2) Else if IsForProd changed update the flag
@@ -220,6 +231,12 @@ namespace Dorc.PersistentData.Sources
 
         private ConfigValueApiModel? AddCore(ConfigValueApiModel model)
         {
+            if (IsDeploymentPasswordKey(model.Key) && !model.Secure)
+            {
+                throw new ArgumentException(
+                    $"Deployment password configuration key '{model.Key}' must be stored with Secure = true.");
+            }
+
             using var context = _contextFactory.GetContext();
             return ExecuteInSerializableTransaction(context, () =>
             {
@@ -310,11 +327,25 @@ namespace Dorc.PersistentData.Sources
                 return false;
             }
 
-            return key.StartsWith("DORC_Deploy_", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(key, "DORC_ProdDeployUsername", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(key, "DORC_ProdDeployPassword", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(key, "DORC_NonProdDeployUsername", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(key, "DORC_NonProdDeployPassword", StringComparison.OrdinalIgnoreCase);
+            var trimmed = key.Trim();
+            return trimmed.StartsWith("DORC_Deploy_", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(trimmed, "DORC_ProdDeployUsername", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(trimmed, "DORC_ProdDeployPassword", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(trimmed, "DORC_NonProdDeployUsername", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(trimmed, "DORC_NonProdDeployPassword", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsDeploymentPasswordKey(string? key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return false;
+            }
+
+            var trimmed = key.Trim();
+            return string.Equals(trimmed, "DORC_ProdDeployPassword", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(trimmed, "DORC_NonProdDeployPassword", StringComparison.OrdinalIgnoreCase)
+                || ScriptScopeConfigValues.IsNamedDeployPasswordKey(trimmed);
         }
     }
 }

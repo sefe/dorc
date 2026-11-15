@@ -351,6 +351,7 @@ namespace Dorc.PersistentData.Sources
                     ComponentId = result.ComponentId,
                     ComponentName = result.ComponentName,
                     Status = result.Status,
+                    Log = result.Log,
                     StartedTime = result.StartedTime,
                     CompletedTime = result.CompletedTime
                 }).FirstOrDefault();
@@ -823,7 +824,7 @@ namespace Dorc.PersistentData.Sources
                 };
 
                 var maxAttempt = context.DeploymentRequestAttempts
-                    .Where(a => EF.Property<int>(a, "DeploymentRequestId") == requestId)
+                    .Where(a => a.DeploymentRequest.Id == requestId)
                     .Select(a => (int?)a.AttemptNumber)
                     .Max();
                 var attemptNumber = (maxAttempt ?? 0) + 1;
@@ -857,8 +858,10 @@ namespace Dorc.PersistentData.Sources
                         StartedTime = result.StartedTime,
                         CompletedTime = result.CompletedTime,
                         Status = result.Status ?? "Unknown",
-                        DeploymentResultId = result.Id
+                        DeploymentResultId = result.Id,
+                        Log = result.Log
                     };
+                    attempt.DeploymentResultAttempts.Add(resultAttempt);
                     context.DeploymentResultAttempts.Add(resultAttempt);
                 }
 
@@ -873,7 +876,7 @@ namespace Dorc.PersistentData.Sources
                 var attempts = context.DeploymentRequestAttempts
                     .AsNoTracking()
                     .Include(a => a.DeploymentResultAttempts)
-                    .Where(a => EF.Property<int>(a, "DeploymentRequestId") == requestId)
+                    .Where(a => a.DeploymentRequest.Id == requestId)
                     .OrderBy(a => a.AttemptNumber)
                     .Select(a => new DeploymentRequestAttemptApiModel
                     {
@@ -895,6 +898,7 @@ namespace Dorc.PersistentData.Sources
                             CompletedTime = r.CompletedTime,
                             Status = r.Status,
                             DeploymentResultId = r.DeploymentResultId,
+                            Log = r.Log,
                             HasTerraformPlan = context.TerraformDeploymentReceipts.Any(receipt =>
                                 receipt.DeploymentResultId == r.DeploymentResultId) ||
                                 context.TerraformPlanApprovals.Any(approval =>

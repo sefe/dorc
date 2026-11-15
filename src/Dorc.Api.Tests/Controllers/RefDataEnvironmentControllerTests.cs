@@ -794,9 +794,11 @@ namespace Dorc.Api.Tests.Controllers
         public void PutExecutionIdentityRejectsBodyWhenExecutionIdentityReferencePropertyIsOmitted(string rawJson)
         {
             _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
-            var deserialized = System.Text.Json.JsonSerializer.Deserialize<EnvironmentExecutionIdentityApiModel>(rawJson);
+            Assert.ThrowsExactly<System.Text.Json.JsonException>(() =>
+                System.Text.Json.JsonSerializer.Deserialize<EnvironmentExecutionIdentityApiModel>(rawJson));
 
-            var result = Assert.IsInstanceOfType<ObjectResult>(_controller.PutExecutionIdentity(12, deserialized!));
+            var result = Assert.IsInstanceOfType<ObjectResult>(
+                _controller.PutExecutionIdentity(12, new EnvironmentExecutionIdentityApiModel()));
             Assert.AreEqual(StatusCodes.Status400BadRequest, result.StatusCode);
             _environmentsPersistentSource.DidNotReceiveWithAnyArgs().SetExecutionIdentityReference(
                 default,

@@ -397,5 +397,45 @@ namespace Dorc.Api.Tests.Sources
             Assert.AreEqual("enc:prod-secret", results["DORC_ProdDeployPassword"]);
             Assert.AreEqual("enc:payments-secret", results["DORC_Deploy_payments_Password"]);
         }
+
+        [TestMethod]
+        [DataRow("DORC_ProdDeployPassword")]
+        [DataRow("DORC_NonProdDeployPassword")]
+        [DataRow("DORC_Deploy_payments_Password")]
+        public void DeploymentPasswordKeysRequireSecureTrueOnAddAndUpdate(string passwordKey)
+        {
+            Assert.ThrowsExactly<ArgumentException>(() => _source.Add(new ConfigValueApiModel
+            {
+                Key = passwordKey,
+                Value = "plaintext-secret",
+                Secure = false,
+                IsForProd = true
+            }));
+
+            _stored.Add(new ConfigValue
+            {
+                Id = 41,
+                Key = passwordKey,
+                Value = "enc:stored-secret",
+                Secure = true,
+                IsForProd = true,
+                VisibleToScripts = false
+            });
+
+            var encryptor = Substitute.For<IPropertyEncryptor>();
+            encryptor.DecryptValue("enc:stored-secret").Returns("stored-secret");
+            var contextFactory = Substitute.For<IDeploymentContextFactory>();
+            contextFactory.GetContext().Returns(_context);
+            var sourceWithDecrypt = new ConfigValuesPersistentSource(contextFactory, encryptor);
+
+            Assert.ThrowsExactly<ArgumentException>(() => sourceWithDecrypt.UpdateConfigValue(new ConfigValueApiModel
+            {
+                Id = 41,
+                Key = passwordKey,
+                Value = "stored-secret",
+                Secure = false,
+                IsForProd = true
+            }));
+        }
     }
 }

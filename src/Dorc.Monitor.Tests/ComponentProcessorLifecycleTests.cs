@@ -97,5 +97,64 @@ namespace Dorc.Monitor.Tests
                 result,
                 Arg.Is<DeploymentResultStatus>(s => s.ToString() == DeploymentResultStatus.Failed.ToString()));
         }
+
+        [TestMethod]
+        public void NonProdOnlyScriptInProduction_PersistsWarningLogOnceWithoutDuplicateAppend()
+        {
+            var requests = Substitute.For<IRequestsPersistentSource>();
+            requests.GetSubmittedScript(7, 1).Returns(new ScriptApiModel { Path = "seed-dev.ps1", NonProdOnly = true });
+
+            var events = Substitute.For<IDeploymentEventsPublisher>();
+            events.PublishResultStatusChangedAsync(Arg.Any<DeploymentResultEventData>())
+                .Returns(Task.CompletedTask);
+
+            var scripts = Substitute.For<IScriptDispatcher>();
+            var processor = new ComponentProcessor(scripts, Substitute.For<ITerraformDispatcher>(), requests,
+                Substitute.For<IComponentsPersistentSource>(), events,
+                Substitute.For<IConfigValuesPersistentSource>(), Substitute.For<ILogger<ComponentProcessor>>());
+            var result = new DeploymentResultApiModel { Id = 42, RequestId = 7, Status = "Pending" };
+            var component = new ComponentApiModel
+            {
+                ComponentId = 1, ComponentName = "ps-nonprod", ComponentType = ComponentType.PowerShell
+            };
+
+            var succeeded = processor.DeployComponent(
+                component, result, 7, true, 1, true,
+                "PROD-ENV", null, new RequestExecutionIdentityAdoption(), "C:\\Scripts",
+                new Dictionary<string, VariableValue>(), CancellationToken.None);
+
+            Assert.IsTrue(succeeded);
+            requests.Received(1).UpdateResultLog(result, Arg.Is<string>(log => log.Contains("NON PROD ENVIRONMENTS ONLY")));
+            requests.DidNotReceiveWithAnyArgs().AppendResultLog(default!, default!);
+        }
+
+        [TestMethod]
+        public void TerraformPlanStorage_CleanupResultDirectory_RemovesEmptyChildAndLeavesNonEmptyChild()
+        {
+            var tempRoot = Path.Combine(Path.GetTempPath(), "dorc-tf-cleanup-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                var plansRoot = Path.Combine(tempRoot, Dorc.Monitor.Security.TerraformPlanStorage.DirectoryName);
+                var emptyResultDir = Path.Combine(plansRoot, "101");
+                var nonEmptyResultDir = Path.Combine(plansRoot, "102");
+                Directory.CreateDirectory(emptyResultDir);
+                Directory.CreateDirectory(nonEmptyResultDir);
+                File.WriteAllText(Path.Combine(nonEmptyResultDir, "leftover.txt"), "x");
+
+                var logger = Substitute.For<ILogger>();
+                Dorc.Monitor.Security.TerraformPlanStorage.CleanupResultDirectory(emptyResultDir, tempRoot, logger);
+                Dorc.Monitor.Security.TerraformPlanStorage.CleanupResultDirectory(nonEmptyResultDir, tempRoot, logger);
+
+                Assert.IsFalse(Directory.Exists(emptyResultDir));
+                Assert.IsTrue(Directory.Exists(nonEmptyResultDir));
+            }
+            finally
+            {
+                if (Directory.Exists(tempRoot))
+                {
+                    Directory.Delete(tempRoot, recursive: true);
+                }
+            }
+        }
     }
 }

@@ -220,10 +220,18 @@ namespace Dorc.PersistentData.Security
                 || IsNamedDeployPasswordKey(trimmed);
         }
 
-        private static bool IsNamedDeployPasswordKey(string trimmed) =>
-            trimmed.StartsWith(NamedDeployKeyPrefix, StringComparison.OrdinalIgnoreCase)
-            && trimmed.EndsWith(NamedDeployPasswordSuffix, StringComparison.OrdinalIgnoreCase)
-            && trimmed.Length > (NamedDeployKeyPrefix.Length + NamedDeployPasswordSuffix.Length);
+        public static bool IsNamedDeployPasswordKey(string? key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return false;
+            }
+
+            var trimmed = key.Trim();
+            return trimmed.StartsWith(NamedDeployKeyPrefix, StringComparison.OrdinalIgnoreCase)
+                && trimmed.EndsWith(NamedDeployPasswordSuffix, StringComparison.OrdinalIgnoreCase)
+                && trimmed.Length > (NamedDeployKeyPrefix.Length + NamedDeployPasswordSuffix.Length);
+        }
 
         public bool IsWithheld(ConfigValueApiModel configValue) =>
             configValue == null || configValue.VisibleToScripts != true || IsWithheld(configValue.Key);

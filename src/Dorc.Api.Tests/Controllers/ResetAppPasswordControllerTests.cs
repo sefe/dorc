@@ -131,8 +131,15 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(NotFoundObjectResult));
             var notFoundResult = (NotFoundObjectResult)result;
             Assert.AreEqual(StatusCodes.Status404NotFound, notFoundResult.StatusCode);
+            AssertCredentialNotResolved(credentialSource);
+        }
+
+        private static void AssertCredentialNotResolved(IDeploymentCredentialSource credentialSource)
+        {
             credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default, default);
+            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default, default(string?));
+            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default, default(System.Threading.CancellationToken));
+            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default, default(string?), default(System.Threading.CancellationToken));
         }
 
         [TestMethod]
@@ -167,8 +174,7 @@ namespace Dorc.Api.Tests.Controllers
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
             databases.DidNotReceiveWithAnyArgs().GetApplicationDatabaseForEnvFilter(default!, default!, default!);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default, default);
+            AssertCredentialNotResolved(credentialSource);
             sqlReset.DidNotReceiveWithAnyArgs().ResetSqlUserPassword(default!, default!);
         }
 
@@ -199,8 +205,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default, default);
+            AssertCredentialNotResolved(credentialSource);
         }
 
         [TestMethod]
@@ -235,8 +240,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default, default);
+            AssertCredentialNotResolved(credentialSource);
         }
 
         [TestMethod]
@@ -274,8 +278,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default, default);
+            AssertCredentialNotResolved(credentialSource);
         }
 
         [TestMethod]
@@ -331,8 +334,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default, default);
+            AssertCredentialNotResolved(credentialSource);
             sqlReset.DidNotReceiveWithAnyArgs().ResetSqlUserPassword(default!, default!);
         }
 
@@ -371,8 +373,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default, default);
+            AssertCredentialNotResolved(credentialSource);
             sqlReset.DidNotReceiveWithAnyArgs().ResetSqlUserPassword(default!, default!);
         }
 
@@ -420,8 +421,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default, default);
+            AssertCredentialNotResolved(credentialSource);
             sqlReset.DidNotReceiveWithAnyArgs().ResetSqlUserPassword(default!, default!);
         }
 

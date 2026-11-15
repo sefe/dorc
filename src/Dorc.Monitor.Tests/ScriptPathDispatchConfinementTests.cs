@@ -280,6 +280,8 @@ namespace Dorc.Monitor.Tests
                         deploymentRequestId: 42,
                         isProduction: false,
                         environmentName: "SOME-ENV",
+                        executionIdentityReference: null,
+                        identityAdoption: new RequestExecutionIdentityAdoption(),
                         resultLog,
                         CancellationToken.None);
                 }

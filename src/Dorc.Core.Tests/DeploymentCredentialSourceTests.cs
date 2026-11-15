@@ -1552,23 +1552,40 @@ namespace Dorc.Core.Tests
                 .Returns(_ => DeploymentCredential.ToSecureString("tier-default-secret"));
 
             var passwordSecret = DeploymentCredential.ToSecureString(returnedPassword);
-            secrets.GetPrincipalIdentifierByItemId("payments-prod-username", Arg.Any<string>())
-                .Returns(returnedUserName);
-            secrets.GetSecureSecret("payments-prod-password", Arg.Any<string>())
-                .Returns(passwordSecret);
+            try
+            {
+                secrets.GetPrincipalIdentifierByItemId("payments-prod-username", Arg.Any<string>())
+                    .Returns(returnedUserName);
+                secrets.GetSecureSecret("payments-prod-password", Arg.Any<string>())
+                    .Returns(passwordSecret);
 
-            var vaultSource = new VaultDeploymentCredentialSource(
-                secrets,
-                settings,
-                Substitute.For<ILogger<VaultDeploymentCredentialSource>>());
+                var vaultSource = new VaultDeploymentCredentialSource(
+                    secrets,
+                    settings,
+                    Substitute.For<ILogger<VaultDeploymentCredentialSource>>());
 
-            var resolved = vaultSource.Resolve(DeploymentTier.Production, "payments-prod");
+                var resolved = vaultSource.Resolve(DeploymentTier.Production, "payments-prod");
 
-            Assert.IsNull(resolved, "Named identity must fail closed rather than falling back to tier default.");
-            Assert.AreEqual((0, 0), vaultSource.ResolutionCounts);
-            Assert.ThrowsExactly<ObjectDisposedException>(() => _ = passwordSecret.Length);
-            secrets.DidNotReceive().GetPrincipalIdentifierByItemId("tier-prod-user", Arg.Any<string>());
-            secrets.DidNotReceiveWithAnyArgs().GetSecretByItemId(default!, default!);
+                Assert.IsNull(resolved, "Named identity must fail closed rather than falling back to tier default.");
+                Assert.AreEqual((0, 0), vaultSource.ResolutionCounts);
+                bool userNameAbsent = string.IsNullOrWhiteSpace(returnedUserName)
+                    || string.Equals(returnedUserName.Trim(), "Not Found", StringComparison.OrdinalIgnoreCase);
+                if (userNameAbsent)
+                {
+                    secrets.DidNotReceive().GetSecureSecret("payments-prod-password", Arg.Any<string>());
+                }
+                else
+                {
+                    Assert.ThrowsExactly<ObjectDisposedException>(() => _ = passwordSecret.Length);
+                }
+
+                secrets.DidNotReceive().GetPrincipalIdentifierByItemId("tier-prod-user", Arg.Any<string>());
+                secrets.DidNotReceiveWithAnyArgs().GetSecretByItemId(default!, default!);
+            }
+            finally
+            {
+                passwordSecret.Dispose();
+            }
         }
     }
 }

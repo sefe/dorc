@@ -20,5 +20,5 @@ export interface EnvironmentExecutionIdentityApiModel {
      * @type {string}
      * @memberof EnvironmentExecutionIdentityApiModel
      */
-    ExecutionIdentityReference?: string | null;
+    ExecutionIdentityReference: string | null;
 }

@@ -413,7 +413,8 @@ namespace Dorc.Api.Tests
                 Id = 500,
                 Component = liveComponent,
                 DeploymentRequest = request,
-                Status = "Failed"
+                Status = "Failed",
+                Log = "Deployment refused: execution identity 'payments-prod' could not be resolved."
             };
             var results = new List<DeploymentResult> { existingResult };
             var requestAttempts = new List<DeploymentRequestAttempt>();
@@ -431,18 +432,22 @@ namespace Dorc.Api.Tests
 
             var requestsSource = new RequestsPersistentSource(_contextFactory, _claimsPrincipalReader);
 
-            // 1. ArchiveCurrentAttempt stores the pinned ComponentName rather than the live renamed Component.Name
+            // 1. ArchiveCurrentAttempt stores the pinned ComponentName and persisted pre-Runner Log
             requestsSource.ArchiveCurrentAttempt(77);
             Assert.HasCount(1, resultAttempts);
             Assert.AreEqual("OriginalJobName", resultAttempts[0].ComponentName);
+            Assert.AreEqual("Deployment refused: execution identity 'payments-prod' could not be resolved.", resultAttempts[0].Log);
+            var attempts = requestsSource.GetAttemptsForRequest(77).ToList();
+            Assert.AreEqual("Deployment refused: execution identity 'payments-prod' could not be resolved.", attempts[0].ComponentResults[0].Log);
 
-            // 2. Even if an older attempt row in DB had the live name stored, GetArchivedDeploymentResult returns the pinned name and SHA
+            // 2. Even if an older attempt row in DB had the live name stored, GetArchivedDeploymentResult returns the pinned name, SHA, and Log
             resultAttempts[0].ComponentName = "RenamedJobName";
             resultAttempts[0].DeploymentRequestAttempt = requestAttempts[0];
             var archived = requestsSource.GetArchivedDeploymentResult(500);
             Assert.IsNotNull(archived);
             Assert.AreEqual("OriginalJobName", archived.ComponentName);
             Assert.AreEqual(new string('b', 64), archived.DefinitionRevision);
+            Assert.AreEqual("Deployment refused: execution identity 'payments-prod' could not be resolved.", archived.Log);
 
             // 3. CreateDeploymentResult on restart uses pinned IsEnabled (true) and pinned ComponentName ("OriginalJobName")
             results.Clear();

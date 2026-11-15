@@ -63,6 +63,52 @@ namespace Dorc.Monitor.Security
             return resultDir;
         }
 
+        public static void CleanupResultDirectory(
+            string? resultDir,
+            string dorcProgramDataRoot,
+            ILogger logger)
+        {
+            if (string.IsNullOrWhiteSpace(resultDir) || string.IsNullOrWhiteSpace(dorcProgramDataRoot))
+            {
+                return;
+            }
+
+            try
+            {
+                string expectedRoot = Path.TrimEndingDirectorySeparator(
+                    Path.GetFullPath(Path.Join(dorcProgramDataRoot, DirectoryName)));
+                string candidatePath = Path.TrimEndingDirectorySeparator(Path.GetFullPath(resultDir));
+                string? candidateParent = Path.GetDirectoryName(candidatePath);
+
+                if (string.IsNullOrEmpty(candidateParent)
+                    || !string.Equals(
+                        Path.TrimEndingDirectorySeparator(candidateParent),
+                        expectedRoot,
+                        OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                {
+                    return;
+                }
+
+                var dirInfo = new DirectoryInfo(candidatePath);
+                if (!dirInfo.Exists || (dirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    return;
+                }
+
+                if (!Directory.EnumerateFileSystemEntries(candidatePath).Any())
+                {
+                    Directory.Delete(candidatePath, recursive: false);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                logger.LogDebug(
+                    ex,
+                    "Could not remove empty Terraform plan staging directory '{PlanStorageDir}' after dispatch.",
+                    resultDir);
+            }
+        }
+
         [SupportedOSPlatform("windows")]
         private static void Restrict(
             string planStorageRoot,

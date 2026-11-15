@@ -318,9 +318,10 @@ namespace Dorc.Api.Controllers
                     return NotFound($"Request with ID {requestId} not found");
                 }
 
-                var attempts = _requestsPersistentSource.GetAttemptsForRequest(requestId);
+                var attempts = _requestsPersistentSource.GetAttemptsForRequest(requestId).ToList();
 
-                // Enrich component results with log snippets from OpenSearch
+                // Enrich component results with log snippets from OpenSearch while preserving
+                // persisted pre-Runner logs (such as execution-identity or confinement refusals).
                 foreach (var attempt in attempts)
                 {
                     var resultsWithDeploymentResultId = attempt.ComponentResults
@@ -329,7 +330,6 @@ namespace Dorc.Api.Controllers
 
                     if (resultsWithDeploymentResultId.Any())
                     {
-                        // Create temporary DeploymentResultApiModel objects for the enrichment service
                         var tempResults = resultsWithDeploymentResultId.Select(r => new DeploymentResultApiModel
                         {
                             Id = r.DeploymentResultId!.Value,
@@ -339,14 +339,13 @@ namespace Dorc.Api.Controllers
 
                         _deploymentLogService.EnrichDeploymentResultsWithLogs(tempResults, 3);
 
-                        // Map the enriched logs back to the attempt results
                         foreach (var tempResult in tempResults)
                         {
                             var attemptResult = resultsWithDeploymentResultId
                                 .FirstOrDefault(r => r.DeploymentResultId == tempResult.Id);
                             if (attemptResult != null)
                             {
-                                attemptResult.Log = tempResult.Log;
+                                attemptResult.Log = MergeOpenSearchAndPersistedLog(tempResult.Log, attemptResult.Log);
                             }
                         }
                     }
@@ -363,14 +362,12 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
-        /// Gets the full log for a component result from a previous attempt, fetched from OpenSearch.
-        /// The deploymentResultId is the original DeploymentResult.Id captured at archive time.
-        /// OpenSearch retains logs indexed by (requestId, deploymentResultId) even after
-        /// DeploymentResult rows are deleted during restart.
+        /// Gets the full log for a component result from a previous attempt, fetched from OpenSearch
+        /// and merged with any persisted SQL diagnostic log captured at archive time.
         /// </summary>
         /// <param name="requestId">The deployment request ID</param>
         /// <param name="deploymentResultId">The original DeploymentResult.Id stored in the attempt</param>
-        /// <returns>Full log text from OpenSearch</returns>
+        /// <returns>Full log text</returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status404NotFound)]
         [Route("{requestId}/attempts/log")]
@@ -385,20 +382,46 @@ namespace Dorc.Api.Controllers
                     return NotFound($"Request with ID {requestId} not found");
                 }
 
-                var log = _deploymentLogService.GetLogsForSingleResult(requestId, deploymentResultId);
+                var openSearchLog = _deploymentLogService.GetLogsForSingleResult(requestId, deploymentResultId);
+                var archivedLog = _requestsPersistentSource
+                    .GetAttemptsForRequest(requestId)
+                    .SelectMany(a => a.ComponentResults)
+                    .LastOrDefault(r => r.DeploymentResultId == deploymentResultId)
+                    ?.Log;
 
-                if (string.IsNullOrEmpty(log))
+                var mergedLog = MergeOpenSearchAndPersistedLog(openSearchLog, archivedLog);
+                if (string.IsNullOrEmpty(mergedLog))
                 {
                     return Ok("No logs found in OpenSearch for this result.");
                 }
 
-                return Ok(log);
+                return Ok(mergedLog);
             }
             catch (Exception e)
             {
                 _log.LogError(e, "api/Request/{RequestId}/attempts/log?deploymentResultId={DeploymentResultId}", requestId, deploymentResultId);
                 return StatusCode(StatusCodes.Status500InternalServerError, e);
             }
+        }
+
+        private static string? MergeOpenSearchAndPersistedLog(string? openSearchLog, string? persistedLog)
+        {
+            const string openSearchUnavailableSentinel = "No logs in the OpenSearch or it is unavailable.";
+            bool hasPersisted = !string.IsNullOrWhiteSpace(persistedLog);
+            bool hasOpenSearch = !string.IsNullOrWhiteSpace(openSearchLog)
+                && (!hasPersisted || !string.Equals(openSearchLog, openSearchUnavailableSentinel, StringComparison.Ordinal));
+
+            if (!hasOpenSearch && hasPersisted)
+            {
+                return persistedLog;
+            }
+
+            if (hasOpenSearch && hasPersisted && !openSearchLog!.Contains(persistedLog!.Trim(), StringComparison.Ordinal))
+            {
+                return openSearchLog + System.Environment.NewLine + persistedLog;
+            }
+
+            return openSearchLog;
         }
 
 
