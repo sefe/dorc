@@ -514,6 +514,15 @@ namespace Dorc.Api.Tests.Controllers
                 Environments = new List<Environment> { devEnv },
                 TagLinks = new List<DatabaseTag>()
             };
+            var postgresSameHostDb = new Database
+            {
+                Id = 106,
+                Name = "PostgresSameHostProdDb",
+                ServerName = "sql01,1433",
+                DatabaseType = DatabaseType.PostgreSql,
+                Environments = new List<Environment> { prodEnv },
+                TagLinks = new List<DatabaseTag>()
+            };
 
             var sharedLogin = new User { Id = 7, LoginId = "app_shared_login" };
             var environmentUsers = new List<EnvironmentUser>
@@ -521,7 +530,8 @@ namespace Dorc.Api.Tests.Controllers
                 new() { DbId = 101, UserId = 7, Database = devPortDb, User = sharedLogin },
                 new() { DbId = 102, UserId = 7, Database = prodSamePortDb, User = sharedLogin },
                 new() { DbId = 104, UserId = 7, Database = ignoredLabelDefaultPortDb, User = sharedLogin },
-                new() { DbId = 105, UserId = 7, Database = differentPortDb, User = sharedLogin }
+                new() { DbId = 105, UserId = 7, Database = differentPortDb, User = sharedLogin },
+                new() { DbId = 106, UserId = 7, Database = postgresSameHostDb, User = sharedLogin }
             };
 
             var dbSet = DbContextMock.GetQueryableMockDbSet(new List<Database>
@@ -530,7 +540,8 @@ namespace Dorc.Api.Tests.Controllers
                 prodSamePortDb,
                 defaultPortDb,
                 ignoredLabelDefaultPortDb,
-                differentPortDb
+                differentPortDb,
+                postgresSameHostDb
             });
             var envUsersSet = DbContextMock.GetQueryableMockDbSet(environmentUsers);
 

@@ -428,6 +428,39 @@ namespace Dorc.Core.Tests
                 allowFallbackField: true);
 
             Assert.AreEqual(string.Empty, rejectedConcealed);
+
+            const string sharedApiCredentialWithConcealedUsernameJson = """
+                {
+                  "category": "API_CREDENTIAL",
+                  "fields": [
+                    { "id": "username", "type": "CONCEALED", "label": "username", "value": "ConcealedApiSecretInUsernameSlot" },
+                    { "id": "credential", "type": "CONCEALED", "label": "credential", "value": "ActualApiCredential!123" }
+                  ]
+                }
+                """;
+
+            string rejectedSharedApiConcealed = OnePasswordClient.ParsePrincipalIdentifierFromUtf8Json(
+                Encoding.UTF8.GetBytes(sharedApiCredentialWithConcealedUsernameJson),
+                allowFallbackField: false);
+
+            Assert.AreEqual(string.Empty, rejectedSharedApiConcealed);
+
+            const string sharedApiCredentialWithPlainUsernameJson = """
+                {
+                  "category": "API_CREDENTIAL",
+                  "fields": [
+                    { "id": "concealed-user", "type": "CONCEALED", "label": "username", "value": "ConcealedFakePrincipal" },
+                    { "id": "plain-user", "type": "STRING", "label": "username", "value": "CORP\\svc_api_principal" },
+                    { "id": "credential", "type": "CONCEALED", "label": "credential", "value": "ActualApiCredential!123" }
+                  ]
+                }
+                """;
+
+            string resolvedSharedApiPrincipal = OnePasswordClient.ParsePrincipalIdentifierFromUtf8Json(
+                Encoding.UTF8.GetBytes(sharedApiCredentialWithPlainUsernameJson),
+                allowFallbackField: false);
+
+            Assert.AreEqual(@"CORP\svc_api_principal", resolvedSharedApiPrincipal);
         }
 
         [TestMethod]

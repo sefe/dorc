@@ -528,7 +528,7 @@ namespace Dorc.Core.Secrets.OnePassword
                     bool canBePrincipal = !isSecretField
                         && !idIsCredential
                         && !labelIsCredential
-                        && (category != VaultItemCategory.Login || !typeIsConcealed);
+                        && !typeIsConcealed;
 
                     if (!foundPrincipalByIdOrPurpose && canBePrincipal && (idIsPrincipal || purposeIsPrincipal))
                     {

@@ -105,7 +105,7 @@ namespace Dorc.PersistentData.Sources
 
             using var context = _contextFactory.GetContext();
             var matchingIds = context.Databases
-                .Where(d => d.ServerName != null && d.ServerName != "")
+                .Where(d => d.DatabaseType == DatabaseType.SqlServer && d.ServerName != null && d.ServerName != "")
                 .Select(d => new { d.Id, d.ServerName })
                 .AsEnumerable()
                 .Where(d => !CanParseSqlServerEndpoint(d.ServerName) || SqlServerInstancesMatch(d.ServerName, serverName))
@@ -141,6 +141,7 @@ namespace Dorc.PersistentData.Sources
             using var context = _contextFactory.GetContext();
             var matchingIds = context.EnvironmentUsers
                 .Where(eu => eu.Database != null
+                    && eu.Database.DatabaseType == DatabaseType.SqlServer
                     && eu.Database.ServerName != null
                     && eu.Database.ServerName != ""
                     && eu.User != null
