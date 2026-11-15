@@ -404,7 +404,7 @@ namespace Dorc.Monitor
             {
                 confined = false;
                 reported = true;
-                Report(enforcing, script.Path, scriptsLocation, jsonFailureReason);
+                Report(enforcing, FormatUnextractedScriptIdentifier(script), scriptsLocation, jsonFailureReason);
                 return !enforcing;
             }
 
@@ -431,7 +431,7 @@ namespace Dorc.Monitor
                 {
                     confined = false;
                     reported = true;
-                    Report(enforcing, script.Path, scriptsLocation,
+                    Report(enforcing, rawScriptPath, scriptsLocation,
                         "it references an unexpanded DropFolder token that cannot be shown to resolve beneath the script root.");
                 }
                 else if (!string.Equals(expandedScriptPath, rawScriptPath, StringComparison.Ordinal))
@@ -442,7 +442,7 @@ namespace Dorc.Monitor
                     {
                         confined = false;
                         reported = true;
-                        Report(enforcing, script.Path, scriptsLocation,
+                        Report(enforcing, rawScriptPath, scriptsLocation,
                             "the resolved path after variable expansion does not lie beneath the script root.");
                     }
                 }
@@ -450,6 +450,18 @@ namespace Dorc.Monitor
 
             // Reporting mode reports and proceeds. Only enforcement stops the deployment.
             return confined || !enforcing;
+        }
+
+        private static string? FormatUnextractedScriptIdentifier(ScriptApiModel script)
+        {
+            if (!script.IsPathJSON)
+            {
+                return script.Path;
+            }
+
+            return !string.IsNullOrWhiteSpace(script.Name)
+                ? $"JSON script '{script.Name}' (Id={script.Id})"
+                : $"JSON script (Id={script.Id})";
         }
 
         private bool ResolvedScriptGroupPathsAreConfined(

@@ -65,10 +65,11 @@ WITH PowerShellScripts AS (
             s.[Path] AS StoredPath,
             s.IsPathJSON,
             jp.MatchingKeyCount,
+            jp.HasDuplicateJsonKeys,
             jp.HasNonStringScriptPath,
             jp.HasWrongCaseKey,
             CASE WHEN s.IsPathJSON = 1 AND COALESCE(ISJSON(s.[Path]), 0) = 1 AND LEFT(LTRIM(s.[Path]), 1) = N'{'
-                      AND jp.MatchingKeyCount = 1 AND jp.HasWrongCaseKey = 0 AND jp.HasNonStringScriptPath = 0
+                      AND jp.HasDuplicateJsonKeys = 0 AND jp.MatchingKeyCount = 1 AND jp.HasWrongCaseKey = 0 AND jp.HasNonStringScriptPath = 0
                  THEN jp.StringScriptPath
                  WHEN s.IsPathJSON = 1
                  THEN NULL
@@ -77,12 +78,12 @@ WITH PowerShellScripts AS (
     FROM    deploy.Script s
             INNER JOIN deploy.Component cm ON cm.ScriptId = s.Id
             OUTER APPLY (
-                SELECT  COUNT(*) AS MatchingKeyCount,
+                SELECT  COALESCE(SUM(CASE WHEN LOWER(j.[key]) = N'scriptpath' THEN 1 ELSE 0 END), 0) AS MatchingKeyCount,
+                        CASE WHEN COUNT(*) > COUNT(DISTINCT j.[key] COLLATE Latin1_General_BIN2) THEN 1 ELSE 0 END AS HasDuplicateJsonKeys,
                         MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 = N'ScriptPath' AND j.[type] = 1 THEN j.[value] END) AS StringScriptPath,
-                        MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 = N'ScriptPath' AND j.[type] NOT IN (0, 1) THEN 1 ELSE 0 END) AS HasNonStringScriptPath,
-                        MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 <> N'ScriptPath' THEN 1 ELSE 0 END) AS HasWrongCaseKey
+                        COALESCE(MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 = N'ScriptPath' AND j.[type] NOT IN (0, 1) THEN 1 ELSE 0 END), 0) AS HasNonStringScriptPath,
+                        COALESCE(MAX(CASE WHEN LOWER(j.[key]) = N'scriptpath' AND j.[key] COLLATE Latin1_General_BIN2 <> N'ScriptPath' THEN 1 ELSE 0 END), 0) AS HasWrongCaseKey
                 FROM    OPENJSON(CASE WHEN s.IsPathJSON = 1 AND COALESCE(ISJSON(s.[Path]), 0) = 1 AND LEFT(LTRIM(s.[Path]), 1) = N'{' THEN s.[Path] END) j
-                WHERE   LOWER(j.[key]) = N'scriptpath'
             ) jp
     WHERE   cm.ComponentType = 0 -- PowerShell only
       AND   cm.IsEnabled = 1     -- Active executable components only
@@ -96,6 +97,7 @@ Classified AS (
             CASE
                 WHEN s.IsPathJSON = 1 AND COALESCE(ISJSON(s.StoredPath), 0) = 0     THEN 'malformed JSON script path'
                 WHEN s.IsPathJSON = 1 AND LEFT(LTRIM(s.StoredPath), 1) <> N'{'      THEN 'invalid JSON script path (not a JSON object)'
+                WHEN s.IsPathJSON = 1 AND s.HasDuplicateJsonKeys = 1                THEN 'duplicate JSON object property names'
                 WHEN s.IsPathJSON = 1 AND s.MatchingKeyCount > 1                    THEN 'conflicting JSON ScriptPath properties'
                 WHEN s.IsPathJSON = 1 AND s.HasWrongCaseKey = 1                     THEN 'mis-cased JSON ScriptPath property'
                 WHEN s.IsPathJSON = 1 AND s.HasNonStringScriptPath = 1              THEN 'non-string JSON $.ScriptPath'
@@ -113,7 +115,7 @@ Classified AS (
                 WHEN LOWER(s.EffectivePath) LIKE N'%$dropfolder%'
                   OR LOWER(s.EffectivePath) LIKE N'%${dropfolder}%'
                   OR s.EffectivePath LIKE N'%${%}%'
-                  OR s.EffectivePath LIKE N'%$[A-Za-z_]%'                           THEN 'variable: DropFolder / property interpolation (verify runtime confinement)'
+                  OR s.EffectivePath LIKE N'%$[-A-Za-z0-9_.]%'                      THEN 'variable: DropFolder / property interpolation (verify runtime confinement)'
                 WHEN s.EffectivePath LIKE N'%:%'
                   OR LOWER(s.EffectivePath) LIKE N'%~%3a%' ESCAPE N'~'              THEN 'colon: device or data stream'
                 WHEN PATINDEX(N'%[%][0-9A-Fa-f][0-9A-Fa-f]%', s.EffectivePath) > 0  THEN 'percent-encoded sequence (verify or remove URI escaping)'
@@ -151,10 +153,11 @@ WITH PowerShellScripts AS (
             s.IsPathJSON,
             s.[Path] AS StoredPath,
             jp.MatchingKeyCount,
+            jp.HasDuplicateJsonKeys,
             jp.HasNonStringScriptPath,
             jp.HasWrongCaseKey,
             CASE WHEN s.IsPathJSON = 1 AND COALESCE(ISJSON(s.[Path]), 0) = 1 AND LEFT(LTRIM(s.[Path]), 1) = N'{'
-                      AND jp.MatchingKeyCount = 1 AND jp.HasWrongCaseKey = 0 AND jp.HasNonStringScriptPath = 0
+                      AND jp.HasDuplicateJsonKeys = 0 AND jp.MatchingKeyCount = 1 AND jp.HasWrongCaseKey = 0 AND jp.HasNonStringScriptPath = 0
                  THEN jp.StringScriptPath
                  WHEN s.IsPathJSON = 1
                  THEN NULL
@@ -163,12 +166,12 @@ WITH PowerShellScripts AS (
     FROM    deploy.Script s
             INNER JOIN deploy.Component cm ON cm.ScriptId = s.Id
             OUTER APPLY (
-                SELECT  COUNT(*) AS MatchingKeyCount,
+                SELECT  COALESCE(SUM(CASE WHEN LOWER(j.[key]) = N'scriptpath' THEN 1 ELSE 0 END), 0) AS MatchingKeyCount,
+                        CASE WHEN COUNT(*) > COUNT(DISTINCT j.[key] COLLATE Latin1_General_BIN2) THEN 1 ELSE 0 END AS HasDuplicateJsonKeys,
                         MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 = N'ScriptPath' AND j.[type] = 1 THEN j.[value] END) AS StringScriptPath,
-                        MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 = N'ScriptPath' AND j.[type] NOT IN (0, 1) THEN 1 ELSE 0 END) AS HasNonStringScriptPath,
-                        MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 <> N'ScriptPath' THEN 1 ELSE 0 END) AS HasWrongCaseKey
+                        COALESCE(MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 = N'ScriptPath' AND j.[type] NOT IN (0, 1) THEN 1 ELSE 0 END), 0) AS HasNonStringScriptPath,
+                        COALESCE(MAX(CASE WHEN LOWER(j.[key]) = N'scriptpath' AND j.[key] COLLATE Latin1_General_BIN2 <> N'ScriptPath' THEN 1 ELSE 0 END), 0) AS HasWrongCaseKey
                 FROM    OPENJSON(CASE WHEN s.IsPathJSON = 1 AND COALESCE(ISJSON(s.[Path]), 0) = 1 AND LEFT(LTRIM(s.[Path]), 1) = N'{' THEN s.[Path] END) j
-                WHERE   LOWER(j.[key]) = N'scriptpath'
             ) jp
     WHERE   cm.ComponentType = 0 -- PowerShell only
       AND   cm.IsEnabled = 1     -- Active executable components only
@@ -177,6 +180,7 @@ Verdicts AS (
     SELECT  CASE
                 WHEN IsPathJSON = 1 AND COALESCE(ISJSON(StoredPath), 0) = 0     THEN 'malformed JSON script path'
                 WHEN IsPathJSON = 1 AND LEFT(LTRIM(StoredPath), 1) <> N'{'      THEN 'invalid JSON script path (not a JSON object)'
+                WHEN IsPathJSON = 1 AND HasDuplicateJsonKeys = 1                THEN 'duplicate JSON object property names'
                 WHEN IsPathJSON = 1 AND MatchingKeyCount > 1                    THEN 'conflicting JSON ScriptPath properties'
                 WHEN IsPathJSON = 1 AND HasWrongCaseKey = 1                     THEN 'mis-cased JSON ScriptPath property'
                 WHEN IsPathJSON = 1 AND HasNonStringScriptPath = 1              THEN 'non-string JSON $.ScriptPath'
@@ -194,7 +198,7 @@ Verdicts AS (
                 WHEN LOWER(EffectivePath) LIKE N'%$dropfolder%'
                   OR LOWER(EffectivePath) LIKE N'%${dropfolder}%'
                   OR EffectivePath LIKE N'%${%}%'
-                  OR EffectivePath LIKE N'%$[A-Za-z_]%'                         THEN 'variable: DropFolder / property interpolation (verify runtime confinement)'
+                  OR EffectivePath LIKE N'%$[-A-Za-z0-9_.]%'                    THEN 'variable: DropFolder / property interpolation (verify runtime confinement)'
                 WHEN EffectivePath LIKE N'%:%'
                   OR LOWER(EffectivePath) LIKE N'%~%3a%' ESCAPE N'~'            THEN 'colon: device or data stream'
                 WHEN PATINDEX(N'%[%][0-9A-Fa-f][0-9A-Fa-f]%', EffectivePath) > 0 THEN 'percent-encoded sequence (verify or remove URI escaping)'
@@ -222,6 +226,7 @@ SELECT DISTINCT
         CASE
             WHEN COALESCE(ISJSON(s.[Path]), 0) = 0  THEN 'malformed JSON script path'
             WHEN LEFT(LTRIM(s.[Path]), 1) <> N'{'   THEN 'invalid JSON script path (not a JSON object)'
+            WHEN jp.HasDuplicateJsonKeys = 1        THEN 'duplicate JSON object property names'
             WHEN jp.MatchingKeyCount > 1            THEN 'conflicting JSON ScriptPath properties'
             WHEN jp.HasWrongCaseKey = 1             THEN 'mis-cased JSON ScriptPath property'
             WHEN jp.HasNonStringScriptPath = 1      THEN 'non-string $.ScriptPath (number, boolean, array, or object)'
@@ -230,18 +235,19 @@ SELECT DISTINCT
 FROM    deploy.Script s
         INNER JOIN deploy.Component cm ON cm.ScriptId = s.Id
         OUTER APPLY (
-            SELECT  COUNT(*) AS MatchingKeyCount,
+            SELECT  COALESCE(SUM(CASE WHEN LOWER(j.[key]) = N'scriptpath' THEN 1 ELSE 0 END), 0) AS MatchingKeyCount,
+                    CASE WHEN COUNT(*) > COUNT(DISTINCT j.[key] COLLATE Latin1_General_BIN2) THEN 1 ELSE 0 END AS HasDuplicateJsonKeys,
                     MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 = N'ScriptPath' AND j.[type] = 1 THEN j.[value] END) AS StringScriptPath,
-                    MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 = N'ScriptPath' AND j.[type] NOT IN (0, 1) THEN 1 ELSE 0 END) AS HasNonStringScriptPath,
-                    MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 <> N'ScriptPath' THEN 1 ELSE 0 END) AS HasWrongCaseKey
+                    COALESCE(MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 = N'ScriptPath' AND j.[type] NOT IN (0, 1) THEN 1 ELSE 0 END), 0) AS HasNonStringScriptPath,
+                    COALESCE(MAX(CASE WHEN LOWER(j.[key]) = N'scriptpath' AND j.[key] COLLATE Latin1_General_BIN2 <> N'ScriptPath' THEN 1 ELSE 0 END), 0) AS HasWrongCaseKey
             FROM    OPENJSON(CASE WHEN s.IsPathJSON = 1 AND COALESCE(ISJSON(s.[Path]), 0) = 1 AND LEFT(LTRIM(s.[Path]), 1) = N'{' THEN s.[Path] END) j
-            WHERE   LOWER(j.[key]) = N'scriptpath'
         ) jp
 WHERE   cm.ComponentType = 0
   AND   cm.IsEnabled = 1
   AND   s.IsPathJSON = 1
   AND   (COALESCE(ISJSON(s.[Path]), 0) = 0
       OR LEFT(LTRIM(s.[Path]), 1) <> N'{'
+      OR jp.HasDuplicateJsonKeys = 1
       OR jp.MatchingKeyCount > 1
       OR jp.HasWrongCaseKey = 1
       OR jp.HasNonStringScriptPath = 1
@@ -259,10 +265,11 @@ WITH PowerShellScripts AS (
             s.[Path] AS StoredPath,
             s.IsPathJSON,
             jp.MatchingKeyCount,
+            jp.HasDuplicateJsonKeys,
             jp.HasNonStringScriptPath,
             jp.HasWrongCaseKey,
             CASE WHEN s.IsPathJSON = 1 AND COALESCE(ISJSON(s.[Path]), 0) = 1 AND LEFT(LTRIM(s.[Path]), 1) = N'{'
-                      AND jp.MatchingKeyCount = 1 AND jp.HasWrongCaseKey = 0 AND jp.HasNonStringScriptPath = 0
+                      AND jp.HasDuplicateJsonKeys = 0 AND jp.MatchingKeyCount = 1 AND jp.HasWrongCaseKey = 0 AND jp.HasNonStringScriptPath = 0
                  THEN jp.StringScriptPath
                  WHEN s.IsPathJSON = 1
                  THEN NULL
@@ -271,12 +278,12 @@ WITH PowerShellScripts AS (
     FROM    deploy.Script s
             INNER JOIN deploy.Component cm ON cm.ScriptId = s.Id
             OUTER APPLY (
-                SELECT  COUNT(*) AS MatchingKeyCount,
+                SELECT  COALESCE(SUM(CASE WHEN LOWER(j.[key]) = N'scriptpath' THEN 1 ELSE 0 END), 0) AS MatchingKeyCount,
+                        CASE WHEN COUNT(*) > COUNT(DISTINCT j.[key] COLLATE Latin1_General_BIN2) THEN 1 ELSE 0 END AS HasDuplicateJsonKeys,
                         MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 = N'ScriptPath' AND j.[type] = 1 THEN j.[value] END) AS StringScriptPath,
-                        MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 = N'ScriptPath' AND j.[type] NOT IN (0, 1) THEN 1 ELSE 0 END) AS HasNonStringScriptPath,
-                        MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 <> N'ScriptPath' THEN 1 ELSE 0 END) AS HasWrongCaseKey
+                        COALESCE(MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 = N'ScriptPath' AND j.[type] NOT IN (0, 1) THEN 1 ELSE 0 END), 0) AS HasNonStringScriptPath,
+                        COALESCE(MAX(CASE WHEN LOWER(j.[key]) = N'scriptpath' AND j.[key] COLLATE Latin1_General_BIN2 <> N'ScriptPath' THEN 1 ELSE 0 END), 0) AS HasWrongCaseKey
                 FROM    OPENJSON(CASE WHEN s.IsPathJSON = 1 AND COALESCE(ISJSON(s.[Path]), 0) = 1 AND LEFT(LTRIM(s.[Path]), 1) = N'{' THEN s.[Path] END) j
-                WHERE   LOWER(j.[key]) = N'scriptpath'
             ) jp
     WHERE   cm.ComponentType = 0
       AND   cm.IsEnabled = 1
@@ -290,6 +297,7 @@ FROM        PowerShellScripts s
             LEFT  JOIN deploy.DeploymentRequest dr ON dr.Id = res.DeploymentRequestId
 WHERE       (s.IsPathJSON = 1 AND (COALESCE(ISJSON(s.StoredPath), 0) = 0
                                 OR LEFT(LTRIM(s.StoredPath), 1) <> N'{'
+                                OR s.HasDuplicateJsonKeys = 1
                                 OR s.MatchingKeyCount > 1
                                 OR s.HasWrongCaseKey = 1
                                 OR s.HasNonStringScriptPath = 1))
@@ -306,7 +314,7 @@ WHERE       (s.IsPathJSON = 1 AND (COALESCE(ISJSON(s.StoredPath), 0) = 0
          OR LOWER(s.EffectivePath) LIKE N'%$dropfolder%'
          OR LOWER(s.EffectivePath) LIKE N'%${dropfolder}%'
          OR s.EffectivePath LIKE N'%${%}%'
-         OR s.EffectivePath LIKE N'%$[A-Za-z_]%'
+         OR s.EffectivePath LIKE N'%$[-A-Za-z0-9_.]%'
          OR s.EffectivePath LIKE N'%:%'
          OR LOWER(s.EffectivePath) LIKE N'%~%3a%' ESCAPE N'~'
          OR PATINDEX(N'%[%][0-9A-Fa-f][0-9A-Fa-f]%', s.EffectivePath) > 0
@@ -455,19 +463,23 @@ WITH ActiveRequestSnapshots AS (
             COALESCE(fs.IsPathJson, 0)              AS FrozenIsPathJson,
             fs.StoredPath                           AS FrozenStoredScriptPath,
             COALESCE(fs.HasNonStringOuterPath, 0)   AS HasNonStringOuterPath,
+            COALESCE(dj.HasDuplicateDefinitionKeys, 0) AS HasDuplicateDefinitionKeys,
+            COALESCE(fs.HasDuplicateScriptKeys, 0)  AS HasDuplicateScriptKeys,
             jp.MatchingKeyCount,
+            jp.HasDuplicateJsonKeys,
             jp.HasNonStringScriptPath,
             jp.HasWrongCaseKey,
             CASE
                 WHEN drd.ScriptJson IS NULL
                   OR COALESCE(ISJSON(drd.ScriptJson), 0) = 0
                   OR LEFT(LTRIM(drd.ScriptJson), 1) <> N'{'
+                  OR COALESCE(fs.HasDuplicateScriptKeys, 0) = 1
                   OR COALESCE(fs.HasNonStringOuterPath, 0) = 1
                 THEN NULL
                 WHEN COALESCE(fs.IsPathJson, 0) = 1
                  AND COALESCE(ISJSON(fs.StoredPath), 0) = 1
                  AND LEFT(LTRIM(fs.StoredPath), 1) = N'{'
-                 AND jp.MatchingKeyCount = 1 AND jp.HasWrongCaseKey = 0 AND jp.HasNonStringScriptPath = 0
+                 AND jp.HasDuplicateJsonKeys = 0 AND jp.MatchingKeyCount = 1 AND jp.HasWrongCaseKey = 0 AND jp.HasNonStringScriptPath = 0
                 THEN jp.StringScriptPath
                 WHEN COALESCE(fs.IsPathJson, 0) = 1
                 THEN NULL
@@ -480,27 +492,29 @@ WITH ActiveRequestSnapshots AS (
                         TRY_CAST(MAX(CASE WHEN d.[key] COLLATE Latin1_General_BIN2 = N'TerraformSourceType' AND d.[type] = 2 THEN d.[value] END) AS INT) AS TerraformSourceType,
                         MAX(CASE WHEN d.[key] COLLATE Latin1_General_BIN2 = N'IsEnabled' AND d.[type] = 3 AND d.[value] = N'true' THEN 1 ELSE 0 END)     AS IsEnabled,
                         MAX(CASE WHEN d.[key] COLLATE Latin1_General_BIN2 = N'ScriptPath' AND d.[type] = 1 THEN d.[value] END)                           AS ScriptPath,
-                        MAX(CASE WHEN d.[key] COLLATE Latin1_General_BIN2 = N'TerraformSubPath' AND d.[type] = 1 THEN d.[value] END)                     AS TerraformSubPath
+                        MAX(CASE WHEN d.[key] COLLATE Latin1_General_BIN2 = N'TerraformSubPath' AND d.[type] = 1 THEN d.[value] END)                     AS TerraformSubPath,
+                        CASE WHEN COUNT(*) > COUNT(DISTINCT d.[key] COLLATE Latin1_General_BIN2) THEN 1 ELSE 0 END                                       AS HasDuplicateDefinitionKeys
                 FROM    OPENJSON(CASE WHEN COALESCE(ISJSON(drd.DefinitionJson), 0) = 1 AND LEFT(LTRIM(drd.DefinitionJson), 1) = N'{' THEN drd.DefinitionJson END) d
             ) dj
             OUTER APPLY (
                 SELECT  MAX(CASE WHEN sj.[key] COLLATE Latin1_General_BIN2 = N'IsPathJSON' AND sj.[type] = 3 AND sj.[value] = N'true' THEN 1 ELSE 0 END) AS IsPathJson,
                         MAX(CASE WHEN sj.[key] COLLATE Latin1_General_BIN2 = N'Path' AND sj.[type] = 1 THEN sj.[value] END)                               AS StoredPath,
-                        MAX(CASE WHEN sj.[key] COLLATE Latin1_General_BIN2 = N'Path' AND sj.[type] NOT IN (0, 1) THEN 1 ELSE 0 END)                       AS HasNonStringOuterPath
+                        MAX(CASE WHEN sj.[key] COLLATE Latin1_General_BIN2 = N'Path' AND sj.[type] NOT IN (0, 1) THEN 1 ELSE 0 END)                       AS HasNonStringOuterPath,
+                        CASE WHEN COUNT(*) > COUNT(DISTINCT sj.[key] COLLATE Latin1_General_BIN2) THEN 1 ELSE 0 END                                      AS HasDuplicateScriptKeys
                 FROM    OPENJSON(CASE WHEN drd.ScriptJson IS NOT NULL AND COALESCE(ISJSON(drd.ScriptJson), 0) = 1 AND LEFT(LTRIM(drd.ScriptJson), 1) = N'{' THEN drd.ScriptJson END) sj
             ) fs
             OUTER APPLY (
-                SELECT  COUNT(*) AS MatchingKeyCount,
+                SELECT  COALESCE(SUM(CASE WHEN LOWER(j.[key]) = N'scriptpath' THEN 1 ELSE 0 END), 0) AS MatchingKeyCount,
+                        CASE WHEN COUNT(*) > COUNT(DISTINCT j.[key] COLLATE Latin1_General_BIN2) THEN 1 ELSE 0 END AS HasDuplicateJsonKeys,
                         MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 = N'ScriptPath' AND j.[type] = 1 THEN j.[value] END) AS StringScriptPath,
-                        MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 = N'ScriptPath' AND j.[type] NOT IN (0, 1) THEN 1 ELSE 0 END) AS HasNonStringScriptPath,
-                        MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 <> N'ScriptPath' THEN 1 ELSE 0 END) AS HasWrongCaseKey
+                        COALESCE(MAX(CASE WHEN j.[key] COLLATE Latin1_General_BIN2 = N'ScriptPath' AND j.[type] NOT IN (0, 1) THEN 1 ELSE 0 END), 0) AS HasNonStringScriptPath,
+                        COALESCE(MAX(CASE WHEN LOWER(j.[key]) = N'scriptpath' AND j.[key] COLLATE Latin1_General_BIN2 <> N'ScriptPath' THEN 1 ELSE 0 END), 0) AS HasWrongCaseKey
                 FROM    OPENJSON(
                             CASE WHEN COALESCE(fs.IsPathJson, 0) = 1
                                   AND COALESCE(ISJSON(fs.StoredPath), 0) = 1
                                   AND LEFT(LTRIM(fs.StoredPath), 1) = N'{'
                                  THEN fs.StoredPath
                             END) j
-                WHERE   LOWER(j.[key]) = N'scriptpath'
             ) jp
     WHERE   dr.[Status] IN (
                 N'Pending',
@@ -523,16 +537,19 @@ FlaggedSnapshots AS (
             s.ComponentName,
             CASE
                 WHEN COALESCE(ISJSON(s.DefinitionJson), 0) = 0
-                  OR LEFT(LTRIM(s.DefinitionJson), 1) <> N'{' THEN 'malformed frozen DefinitionJson'
+                  OR LEFT(LTRIM(s.DefinitionJson), 1) <> N'{'
+                  OR s.HasDuplicateDefinitionKeys = 1 THEN 'malformed frozen DefinitionJson'
                 WHEN COALESCE(s.FrozenIsEnabled, 0) = 0 THEN NULL
                 WHEN s.ComponentType = 0 THEN
                     CASE
                         WHEN s.ScriptJson IS NOT NULL
                          AND (COALESCE(ISJSON(s.ScriptJson), 0) = 0
                            OR LEFT(LTRIM(s.ScriptJson), 1) <> N'{'
+                           OR s.HasDuplicateScriptKeys = 1
                            OR s.HasNonStringOuterPath = 1) THEN 'malformed frozen ScriptJson'
                         WHEN s.FrozenIsPathJson = 1 AND COALESCE(ISJSON(s.FrozenStoredScriptPath), 0) = 0 THEN 'malformed frozen JSON script path'
                         WHEN s.FrozenIsPathJson = 1 AND LEFT(LTRIM(s.FrozenStoredScriptPath), 1) <> N'{' THEN 'invalid frozen JSON script path (not a JSON object)'
+                        WHEN s.FrozenIsPathJson = 1 AND s.HasDuplicateJsonKeys = 1 THEN 'duplicate frozen JSON script-path property names'
                         WHEN s.FrozenIsPathJson = 1 AND s.MatchingKeyCount > 1 THEN 'conflicting frozen JSON ScriptPath properties'
                         WHEN s.FrozenIsPathJson = 1 AND s.HasWrongCaseKey = 1 THEN 'mis-cased frozen JSON ScriptPath property'
                         WHEN s.FrozenIsPathJson = 1 AND s.HasNonStringScriptPath = 1 THEN 'non-string frozen JSON $.ScriptPath'
@@ -550,7 +567,7 @@ FlaggedSnapshots AS (
                         WHEN LOWER(s.FrozenEffectiveScriptPath) LIKE N'%$dropfolder%'
                           OR LOWER(s.FrozenEffectiveScriptPath) LIKE N'%${dropfolder}%'
                           OR s.FrozenEffectiveScriptPath LIKE N'%${%}%'
-                          OR s.FrozenEffectiveScriptPath LIKE N'%$[A-Za-z_]%' THEN 'frozen PowerShell snapshot: variable interpolation (verify runtime confinement)'
+                          OR s.FrozenEffectiveScriptPath LIKE N'%$[-A-Za-z0-9_.]%' THEN 'frozen PowerShell snapshot: variable interpolation (verify runtime confinement)'
                         WHEN s.FrozenEffectiveScriptPath LIKE N'%:%'
                           OR LOWER(s.FrozenEffectiveScriptPath) LIKE N'%~%3a%' ESCAPE N'~' THEN 'frozen PowerShell snapshot: colon (cancel & resubmit)'
                         WHEN PATINDEX(N'%[%][0-9A-Fa-f][0-9A-Fa-f]%', s.FrozenEffectiveScriptPath) > 0 THEN 'frozen PowerShell snapshot: percent-encoded sequence (cancel & resubmit)'

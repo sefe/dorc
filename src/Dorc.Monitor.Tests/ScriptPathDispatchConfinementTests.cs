@@ -221,6 +221,65 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
+        [DataRow("""{"ScriptPath":"$DropFolder\\deploy.ps1","GenericArguments":[{"Name":"ApiSecret","Value":"TOP-SECRET-GENERIC-ARG-1"}]}""", null)]
+        [DataRow("""{"ScriptPath":"$DropFolder\\deploy.ps1","GenericArguments":[{"Name":"ApiSecret","Value":"TOP-SECRET-GENERIC-ARG-1"}]}""", @"\\builds.corp\drops\build-99")]
+        [DataRow("""{"ScriptPath":42,"GenericArguments":[{"Name":"ApiSecret","Value":"TOP-SECRET-GENERIC-ARG-1"}]}""", ScriptRoot)]
+        [DataRow(""""{"ScriptPath":"deploy.ps1","GenericArguments":[{"Name":"ApiSecret","Value":"TOP-SECRET-GENERIC-ARG-1"""" , ScriptRoot)]
+        public void ConfinementDiagnosticsDoNotLogJsonGenericArgumentsSecrets(string jsonPayload, string? dropFolder)
+        {
+            const string sentinelSecret = "TOP-SECRET-GENERIC-ARG-1";
+            var props = new Dictionary<string, VariableValue>();
+            if (dropFolder != null)
+            {
+                props["DropFolder"] = new() { Value = dropFolder, Type = typeof(string) };
+            }
+
+            foreach (var enforce in new[] { true, false })
+            {
+                _scriptLogger.Entries.Clear();
+                _settings.GetScriptPathEnforcementEnabled().Returns(enforce);
+
+                var resultLog = new StringBuilder();
+                try
+                {
+                    NewDispatcher().Dispatch(
+                        ScriptRoot,
+                        new ScriptApiModel
+                        {
+                            Id = 91,
+                            Name = "DeployService",
+                            Path = jsonPayload,
+                            IsPathJSON = true,
+                            PowerShellVersionNumber = "7.4",
+                            Revision = "rev-1"
+                        },
+                        props,
+                        requestId: 42,
+                        deploymentRequestId: 42,
+                        isProduction: false,
+                        environmentName: "SOME-ENV",
+                        resultLog,
+                        CancellationToken.None);
+                }
+                catch (DispatchAcceptedException)
+                {
+                }
+
+                Assert.IsTrue(_scriptLogger.Entries.Count > 0, "Expected confinement diagnostic to be logged.");
+                foreach (var (_, message) in _scriptLogger.Entries)
+                {
+                    Assert.IsFalse(
+                        message.Contains(sentinelSecret, StringComparison.Ordinal),
+                        $"Confinement log leaked GenericArguments secret: {message}");
+                }
+
+                Assert.IsFalse(
+                    resultLog.ToString().Contains(sentinelSecret, StringComparison.Ordinal),
+                    "Deployment result log leaked GenericArguments secret.");
+            }
+        }
+
+        [TestMethod]
         public void RefusesPropertyInjectedRelativeTraversalWhenEnforcing()
         {
             _settings.GetScriptPathEnforcementEnabled().Returns(true);

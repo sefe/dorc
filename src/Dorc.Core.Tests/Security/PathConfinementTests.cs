@@ -83,6 +83,8 @@ namespace Dorc.Core.Tests.Security
         public void AcceptsDriveRootedPaths()
         {
             Assert.IsTrue(PathConfinement.IsWithin(@"C:\Builds\app\drop", @"c:\builds"));
+            Assert.IsTrue(PathConfinement.IsWithin(@"C:\\drops\release-1", @"C:\drops"));
+            Assert.IsTrue(PathConfinement.IsWithin(@"C:\drops\release-1", @"C:\\drops"));
             Assert.IsFalse(PathConfinement.IsWithin(@"D:\Builds\app\drop", @"C:\Builds"));
         }
 

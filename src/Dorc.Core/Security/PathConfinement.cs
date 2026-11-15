@@ -205,13 +205,14 @@ namespace Dorc.Core.Security
                 return false;
             }
 
-            // Single-letter 'X:\...' and 'X:/...' are Windows drive paths, whereas 'X://...'
-            // is a single-letter URI authority scheme and must be rejected.
+            // Single-letter 'X:\...' (including repeated separators 'X:\\...') and 'X:/sub' are
+            // Windows drive paths, whereas 'X://...' is a single-letter URI authority scheme and
+            // must be rejected.
             if (scheme.Length == 1)
             {
                 return value.Length >= colonIndex + 3
-                    && IsSlash(value[colonIndex + 1])
-                    && IsSlash(value[colonIndex + 2]);
+                    && value[colonIndex + 1] == '/'
+                    && value[colonIndex + 2] == '/';
             }
 
             return true;
