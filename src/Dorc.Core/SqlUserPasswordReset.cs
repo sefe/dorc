@@ -9,7 +9,7 @@ namespace Dorc.Core
 {
     public class SqlUserPasswordReset : ISqlUserPasswordReset
     {
-        private const string ServerNamePattern = @"^[a-zA-Z0-9._\-]+(\\[a-zA-Z0-9_$#\-]+)?(,[0-9]{1,5})?$";
+        private const string ServerNamePattern = @"^(?:tcp:)?(?:\(local\)|[a-zA-Z0-9._\-]+)(?:\\[a-zA-Z0-9_$#\-]+)?(?:,[0-9]{1,5})?$";
         private const string SqlLoginIdentifierPattern = @"^[a-zA-Z0-9_][a-zA-Z0-9_.\-]{0,127}$";
         internal const string AlterLoginParameterizedSql =
             "DECLARE @stmt nvarchar(600) = N'ALTER LOGIN ' + QUOTENAME(@loginName, '[') + N' WITH PASSWORD = N' + QUOTENAME(@newPassword, ''''); IF @stmt IS NULL THROW 50000, 'Invalid SQL login parameter.', 1; EXEC sys.sp_executesql @stmt;";
@@ -63,7 +63,7 @@ namespace Dorc.Core
         {
             if (string.IsNullOrWhiteSpace(targetDbServer)
                 || targetDbServer.Any(ch => ch == ';' || char.IsWhiteSpace(ch) || char.IsControl(ch) || ch == '\'' || ch == '"')
-                || !Regex.IsMatch(targetDbServer, ServerNamePattern))
+                || !Regex.IsMatch(targetDbServer, ServerNamePattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
             {
                 throw new ArgumentException("Target database server name is invalid.", nameof(targetDbServer));
             }

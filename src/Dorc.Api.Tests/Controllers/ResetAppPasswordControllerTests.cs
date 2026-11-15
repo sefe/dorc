@@ -446,6 +446,7 @@ namespace Dorc.Api.Tests.Controllers
         [DataRow("sql01,1433", @"sql01\PROD,1433", true)]
         [DataRow("sql01", "sql01,1433", true)]
         [DataRow("sql01", @"sql01\PROD,1433", true)]
+        [DataRow("sql01,1433", @"sql01\PROD", true)]
         [DataRow(@"sql01\DEV,1444", @"sql01\DEV,1445", false)]
         [DataRow(@"sql01\DEV", @"sql01\PROD", false)]
         [DataRow(@"sql01.corp.local\INST_DEV", @"sql01.corp.local\INST_PROD", false)]

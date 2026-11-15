@@ -323,7 +323,9 @@ namespace Dorc.PersistentData.Sources
 
                 if (explicitEndpoint.ExplicitPort!.Value == DefaultSqlServerPort)
                 {
-                    return string.IsNullOrEmpty(implicitEndpoint.InstanceName);
+                    // Both the default instance and a named instance explicitly configured on
+                    // TCP 1433 on the same host can resolve to port 1433; fail closed.
+                    return true;
                 }
 
                 // A named instance without an explicit port and a non-default explicit TCP port on

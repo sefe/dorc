@@ -291,6 +291,27 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
+        public void SharedApiCredentialItemWithUsernameLabelOnCredentialField_RefusesRatherThanPuttingCredentialInUserName()
+        {
+            const string apiCredJson = """
+                {
+                  "id": "shared-api-cred-label-collision",
+                  "category": "API_CREDENTIAL",
+                  "fields": [
+                    { "id": "credential", "label": "username", "value": "SharedApiSecretValue" }
+                  ]
+                }
+                """;
+
+            using var harness = CreateVaultHarness(
+                new Dictionary<string, string> { ["shared-api-cred-label-collision"] = apiCredJson },
+                userNameItemId: "shared-api-cred-label-collision",
+                passwordItemId: "shared-api-cred-label-collision");
+
+            Assert.IsNull(harness.Source.Resolve(DeploymentTier.Production));
+        }
+
+        [TestMethod]
         public void SeparateApiCredentialItems_ResolvesDedicatedUsernameAndPasswordItems()
         {
             const string userItemJson = """
@@ -811,6 +832,10 @@ namespace Dorc.Core.Tests
         [DataRow("sql01.corp.local")]
         [DataRow(@"sql01.corp.local\INST01")]
         [DataRow("sql01.corp.local,1433")]
+        [DataRow("tcp:sql01.corp.local,1433")]
+        [DataRow("(local)")]
+        [DataRow(@"(local)\INST01")]
+        [DataRow(@".\INST01")]
         public void BuildConnectionString_UsesSqlConnectionStringBuilderForValidServer(string serverName)
         {
             string connectionString = SqlUserPasswordReset.BuildConnectionString(serverName);

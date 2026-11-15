@@ -151,6 +151,8 @@ namespace Dorc.Api.Controllers
                 .Append(db)
                 .ToList();
 
+            var environmentNamesByDbId = new Dictionary<int, HashSet<string>>();
+
             foreach (var instanceDb in instanceDatabases)
             {
                 if (instanceDb.Id <= 0)
@@ -158,7 +160,7 @@ namespace Dorc.Api.Controllers
                     return false;
                 }
 
-                var mappedEnvironmentNames = GetMappedEnvironmentNames(instanceDb);
+                var mappedEnvironmentNames = GetMappedEnvironmentNames(instanceDb, environmentNamesByDbId);
                 if (mappedEnvironmentNames.Any(mappedEnv => _environmentsPersistentSource.EnvironmentIsProd(mappedEnv)))
                 {
                     return false;
@@ -181,7 +183,7 @@ namespace Dorc.Api.Controllers
                     return false;
                 }
 
-                var mappedEnvironmentNames = GetMappedEnvironmentNames(loginDb);
+                var mappedEnvironmentNames = GetMappedEnvironmentNames(loginDb, environmentNamesByDbId);
                 if (mappedEnvironmentNames.Count == 0)
                 {
                     return false;
@@ -197,8 +199,15 @@ namespace Dorc.Api.Controllers
             return true;
         }
 
-        private HashSet<string> GetMappedEnvironmentNames(DatabaseApiModel database)
+        private HashSet<string> GetMappedEnvironmentNames(
+            DatabaseApiModel database,
+            Dictionary<int, HashSet<string>> cache)
         {
+            if (database.Id > 0 && cache.TryGetValue(database.Id, out var cached))
+            {
+                return cached;
+            }
+
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             if (database.EnvironmentNames != null)
@@ -209,13 +218,21 @@ namespace Dorc.Api.Controllers
                 }
             }
 
-            var persistedNames = _databasesPersistentSource.GetEnvironmentNamesForDatabaseId(database.Id);
-            if (persistedNames != null)
+            if (names.Count == 0)
             {
-                foreach (var envName in persistedNames.Where(name => !string.IsNullOrWhiteSpace(name)))
+                var persistedNames = _databasesPersistentSource.GetEnvironmentNamesForDatabaseId(database.Id);
+                if (persistedNames != null)
                 {
-                    names.Add(envName);
+                    foreach (var envName in persistedNames.Where(name => !string.IsNullOrWhiteSpace(name)))
+                    {
+                        names.Add(envName);
+                    }
                 }
+            }
+
+            if (database.Id > 0)
+            {
+                cache[database.Id] = names;
             }
 
             return names;
