@@ -9,6 +9,8 @@ using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Win32.SafeHandles;
+using System.Runtime.Versioning;
 using System.Security.Principal;
 using System.Text;
 using System.Text.Json;
@@ -770,22 +772,24 @@ namespace Dorc.Monitor
             if (string.IsNullOrWhiteSpace(scriptsLocation)
                 || HasTraversalOrEncodedTraversal(path)
                 || !PathConfinement.IsWithin(path, scriptsLocation)
-                || HasReparsePointBeneathRoot(path, scriptsLocation))
+                || !TryPrepareConfinedBaselineTarget(path, scriptsLocation, out var rootFull, out var relativeSegments))
             {
                 logger.LogWarning(
                     "Skipping trust-on-first-use baseline capture for script {ScriptId}"
                     + " ('{ScriptPath}') because it does not lie within configured script root"
-                    + " '{ScriptRoot}' or traverses a reparse point.",
+                    + " '{ScriptRoot}'.",
                     scriptId,
                     LogText.SingleLine(path),
                     LogText.SingleLine(scriptsLocation));
                 return null;
             }
 
-            string baseline;
+            string? baseline;
             try
             {
-                baseline = ScriptContentHash.ComputeFromFile(path);
+                baseline = OperatingSystem.IsWindows()
+                    ? ReadAndHashThroughPinnedHandlesWindows(rootFull, relativeSegments)
+                    : ReadAndHashTopDownNonWindows(rootFull, relativeSegments);
             }
             catch (Exception ex) when (ex is IOException
                 or UnauthorizedAccessException
@@ -793,13 +797,19 @@ namespace Dorc.Monitor
                 or ArgumentException
                 or NotSupportedException)
             {
-                // Reading the share can fail for every ordinary reason. The deployment is about
-                // to fail on its own for the same reason and say so more usefully.
+                // Reading the share or refusing a reparse/link swap can fail for ordinary or
+                // confinement reasons; skip baseline capture rather than aborting Report dispatch.
                 logger.LogWarning(ex,
-                    "Could not read '{ScriptPath}' to record a content baseline. The script will be"
-                    + " dispatched without one.",
-                    LogText.SingleLine(path));
+                    "Could not read '{ScriptPath}' through verified handles beneath '{ScriptRoot}'"
+                    + " to record a content baseline. The script will be dispatched without one.",
+                    LogText.SingleLine(path),
+                    LogText.SingleLine(scriptsLocation));
 
+                return null;
+            }
+
+            if (string.IsNullOrWhiteSpace(baseline))
+            {
                 return null;
             }
 
@@ -844,8 +854,15 @@ namespace Dorc.Monitor
             return authoritativeBaseline;
         }
 
-        private static bool HasReparsePointBeneathRoot(string candidatePath, string rootPath)
+        private static bool TryPrepareConfinedBaselineTarget(
+            string candidatePath,
+            string rootPath,
+            out string rootFull,
+            out string[] relativeSegments)
         {
+            rootFull = string.Empty;
+            relativeSegments = [];
+
             var directoryPath = Path.GetDirectoryName(candidatePath);
             var fileName = Path.GetFileName(candidatePath);
             if (string.IsNullOrWhiteSpace(directoryPath)
@@ -854,70 +871,155 @@ namespace Dorc.Monitor
                 || fileName == "."
                 || fileName == "..")
             {
-                return true;
+                return false;
             }
 
-            string rootFull;
-            string current;
             try
             {
                 rootFull = Path.GetFullPath(rootPath)
                     .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 var rootPrefix = rootFull + Path.DirectorySeparatorChar;
                 var dirFull = Path.GetFullPath(directoryPath);
-                current = Path.GetFullPath(Path.Combine(dirFull, fileName));
-                if (!current.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+                var targetFull = Path.GetFullPath(Path.Combine(dirFull, fileName));
+                var comparison = OperatingSystem.IsWindows()
+                    ? StringComparison.OrdinalIgnoreCase
+                    : StringComparison.Ordinal;
+                if (!targetFull.StartsWith(rootPrefix, comparison))
                 {
-                    return true;
+                    return false;
                 }
+
+                var relative = targetFull[rootPrefix.Length..];
+                var segments = relative.Split(
+                    [Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar],
+                    StringSplitOptions.None);
+                if (segments.Length == 0
+                    || segments.Any(segment => string.IsNullOrWhiteSpace(segment) || segment is "." or ".."))
+                {
+                    return false;
+                }
+
+                relativeSegments = segments;
+                return true;
             }
             catch (Exception ex) when (ex is ArgumentException
                 or NotSupportedException
                 or PathTooLongException
                 or System.Security.SecurityException)
             {
-                return true;
+                return false;
             }
+        }
 
-            var isFirst = true;
-            while (!string.IsNullOrWhiteSpace(current))
+        [SupportedOSPlatform("windows")]
+        private static string ReadAndHashThroughPinnedHandlesWindows(string rootFull, string[] relativeSegments)
+        {
+            var pinnedDirectories = new List<SafeFileHandle>(relativeSegments.Length);
+            try
             {
+                var rootHandle = ReparseFreeHandles.OpenPinnedDirectoryHandle(rootFull);
+                pinnedDirectories.Add(rootHandle);
+                var canonicalCurrent = ReparseFreeHandles.GetCanonicalPath(rootHandle, rootFull);
+
+                for (var i = 0; i < relativeSegments.Length - 1; i++)
+                {
+                    var nextDirectoryPath = Path.Join(canonicalCurrent, relativeSegments[i]);
+                    var childDirectoryHandle = ReparseFreeHandles.OpenPinnedDirectoryHandle(nextDirectoryPath);
+                    pinnedDirectories.Add(childDirectoryHandle);
+
+                    var childCanonical = ReparseFreeHandles.GetCanonicalPath(childDirectoryHandle, nextDirectoryPath);
+                    if (!string.Equals(childCanonical, nextDirectoryPath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new IOException(
+                            $"Refusing to baseline beneath '{nextDirectoryPath}' because its canonical path resolved to '{childCanonical}'.");
+                    }
+
+                    canonicalCurrent = childCanonical;
+                }
+
+                var expectedLeafCanonical = Path.Join(canonicalCurrent, relativeSegments[^1]);
+                var fileHandle = ReparseFreeHandles.OpenRawHandle(
+                    expectedLeafCanonical,
+                    ReparseFreeHandles.GenericRead | ReparseFreeHandles.FileReadAttributes,
+                    ReparseFreeHandles.FileShareRead,
+                    ReparseFreeHandles.OpenExisting,
+                    out var error);
+                if (fileHandle.IsInvalid)
+                {
+                    fileHandle.Dispose();
+                    throw ReparseFreeHandles.CreateWin32IoException(
+                        $"Failed to open script '{expectedLeafCanonical}' for baseline capture",
+                        error);
+                }
+
                 try
                 {
-                    FileSystemInfo info = isFirst ? new FileInfo(current) : new DirectoryInfo(current);
-                    isFirst = false;
-                    if (info.Exists
-                        && ((info.Attributes & FileAttributes.ReparsePoint) != 0 || info.LinkTarget != null))
+                    var attributes = File.GetAttributes(fileHandle);
+                    if ((attributes & (FileAttributes.ReparsePoint | FileAttributes.Directory)) != 0)
                     {
-                        return true;
+                        throw new IOException(
+                            $"Refusing to baseline '{expectedLeafCanonical}' because it is a directory or reparse point.");
                     }
-                }
-                catch (Exception ex) when (ex is IOException
-                    or UnauthorizedAccessException
-                    or System.Security.SecurityException
-                    or ArgumentException
-                    or NotSupportedException)
-                {
-                    return true;
-                }
 
-                if (string.Equals(current, rootFull, StringComparison.OrdinalIgnoreCase))
-                {
-                    break;
-                }
+                    ReparseFreeHandles.VerifySingleLinkRegularFile(fileHandle, expectedLeafCanonical);
 
-                var parent = Path.GetDirectoryName(current);
-                if (string.IsNullOrWhiteSpace(parent)
-                    || string.Equals(parent, current, StringComparison.OrdinalIgnoreCase))
-                {
-                    break;
-                }
+                    var actualLeafCanonical = ReparseFreeHandles.GetCanonicalPath(fileHandle, expectedLeafCanonical);
+                    if (!string.Equals(actualLeafCanonical, expectedLeafCanonical, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new IOException(
+                            $"Refusing to baseline '{expectedLeafCanonical}' because its canonical path resolved to '{actualLeafCanonical}'.");
+                    }
 
-                current = parent;
+                    using var stream = new FileStream(fileHandle, FileAccess.Read, bufferSize: 81920, isAsync: false);
+                    using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+                    return ScriptContentHash.ComputeFromScriptText(reader.ReadToEnd());
+                }
+                catch
+                {
+                    fileHandle.Dispose();
+                    throw;
+                }
+            }
+            finally
+            {
+                for (var i = pinnedDirectories.Count - 1; i >= 0; i--)
+                {
+                    pinnedDirectories[i].Dispose();
+                }
+            }
+        }
+
+        private static string? ReadAndHashTopDownNonWindows(string rootFull, string[] relativeSegments)
+        {
+            var rootInfo = new DirectoryInfo(rootFull);
+            if (!rootInfo.Exists || IsReparsePoint(rootInfo))
+            {
+                return null;
             }
 
-            return false;
+            var currentPath = rootFull;
+            for (var i = 0; i < relativeSegments.Length - 1; i++)
+            {
+                currentPath = Path.Combine(currentPath, relativeSegments[i]);
+                var directoryInfo = new DirectoryInfo(currentPath);
+                if (!directoryInfo.Exists || IsReparsePoint(directoryInfo))
+                {
+                    return null;
+                }
+            }
+
+            var leafPath = Path.Combine(currentPath, relativeSegments[^1]);
+            var fileInfo = new FileInfo(leafPath);
+            if (!fileInfo.Exists || IsReparsePoint(fileInfo))
+            {
+                return null;
+            }
+
+            return ScriptContentHash.ComputeFromFile(leafPath);
         }
+
+        private static bool IsReparsePoint(FileSystemInfo info) =>
+            (info.Attributes & FileAttributes.ReparsePoint) != 0 || info.LinkTarget != null;
 
         private void Report(bool enforcing, string? scriptPath, string scriptsLocation, string reason)
         {

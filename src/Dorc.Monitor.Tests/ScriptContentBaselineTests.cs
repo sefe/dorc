@@ -412,6 +412,77 @@ namespace Dorc.Monitor.Tests
         }
 
         [TestMethod]
+        public void ReportMode_SkipsBaselineCaptureWhenParentDirectoryBeneathScriptRootIsAReparsePoint()
+        {
+            _settings.GetScriptPathEnforcementEnabled().Returns(false);
+            _settings.GetScriptContentVerificationMode()
+                .Returns(ScriptContentVerificationMode.Report);
+
+            var outsideDir = Path.Join(
+                AppContext.BaseDirectory,
+                "dorc-script-reparse-target",
+                Guid.NewGuid().ToString("N"));
+            var nestedOutsideDir = Path.Join(outsideDir, "nested");
+            Directory.CreateDirectory(nestedOutsideDir);
+            var linkedDir = Path.Join(_scriptRoot, "linked");
+
+            try
+            {
+                File.WriteAllText(Path.Join(nestedOutsideDir, "Outside.ps1"), "Write-Host 'reparse'");
+                CreateDirectoryLinkOrJunction(linkedDir, outsideDir);
+
+                var candidateScript = Path.Join(linkedDir, "nested", "Outside.ps1");
+                var group = DispatchAndCaptureGroup(new ScriptApiModel
+                {
+                    Id = 78,
+                    Path = candidateScript,
+                    PowerShellVersionNumber = "7.4",
+                    Revision = "rev-reparse-parent",
+                    ContentHash = null
+                });
+
+                _scripts.DidNotReceiveWithAnyArgs()
+                    .RecordContentHashIfUnrecorded(default, default!, default!);
+                _scripts.DidNotReceiveWithAnyArgs()
+                    .RecordContentHashIfUnrecorded(default, default!, default!, default!);
+                Assert.IsNull(group.ScriptProperties.Single().ExpectedContentHash);
+            }
+            finally
+            {
+                if (Directory.Exists(linkedDir))
+                {
+                    Directory.Delete(linkedDir, recursive: false);
+                }
+
+                if (Directory.Exists(outsideDir))
+                {
+                    Directory.Delete(outsideDir, recursive: true);
+                }
+            }
+        }
+
+        private static void CreateDirectoryLinkOrJunction(string linkPath, string targetPath)
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                Directory.CreateSymbolicLink(linkPath, targetPath);
+                return;
+            }
+
+            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = Environment.GetEnvironmentVariable("ComSpec") ?? "cmd.exe",
+                Arguments = $"/c mklink /J \"{linkPath}\" \"{targetPath}\"",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            })!;
+            process.WaitForExit();
+            Assert.AreEqual(0, process.ExitCode, $"Failed to create test directory junction '{linkPath}'.");
+        }
+
+        [TestMethod]
         public void UnexpectedBaselinePersistenceFailuresAreNotHidden()
         {
             _scripts.RecordContentHashIfUnrecorded(
