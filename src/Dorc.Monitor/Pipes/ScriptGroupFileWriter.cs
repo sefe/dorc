@@ -22,6 +22,7 @@ namespace Dorc.Monitor.Pipes
         /// bundles orphaned by a Monitor that died between writing one and expiring it.
         /// </summary>
         private static readonly TimeSpan OrphanedBundleRetention = TimeSpan.FromDays(1);
+        private static readonly object BundleDirectorySync = new();
 
         private ILogger logger;
 
@@ -39,22 +40,6 @@ namespace Dorc.Monitor.Pipes
             string filename = BundlePath(pipeName);
             try
             {
-                // The serialised ScriptGroup contains secrets (GitHubToken, AzureBearerToken,
-                // TerraformGitPat) alongside every resolved deployment property. The directory
-                // ACL is locked down to the writing service account + SYSTEM + Administrators,
-                // with ContainerInherit | ObjectInherit so newly-created child files inherit
-                // the same restriction.
-                EnsureRestrictedDirectory(RunnerConstants.ScriptGroupFilesPath);
-                RemoveOrphanedBundles(RunnerConstants.ScriptGroupFilesPath);
-
-                // Deleted rather than truncated. File.Create on an existing file keeps that
-                // file's discretionary access list, so a bundle left behind by a build that
-                // predates the restricted directory - the whole accumulated backlog - would
-                // hand its permissive ACL to the bundle written over it, and the directory's
-                // restriction would never apply to it. Bundle names repeat across attempts at
-                // the same request, so this is reachable, not hypothetical.
-                Expire(pipeName);
-
                 var serializeOptions = new JsonSerializerOptions
                 {
                     WriteIndented = true,
@@ -64,12 +49,38 @@ namespace Dorc.Monitor.Pipes
                                 }
                 };
 
-                using (FileStream createStream = File.Create(filename))
+                var runnerSid = ResolveRunnerIdentity(readerIdentity, filename);
+                var bundleSecurity = BuildProtectedBundleSecurity(runnerSid);
+
+                lock (BundleDirectorySync)
                 {
+                    // The serialised ScriptGroup contains secrets (GitHubToken, AzureBearerToken,
+                    // TerraformGitPat) alongside every resolved deployment property. The directory
+                    // ACL is locked down to the writing service account + SYSTEM + Administrators,
+                    // and each bundle file is created atomically with its final protected DACL
+                    // (including the resolved Runner Read ACE) so concurrent orphan sweeps never
+                    // need to rewrite a live bundle's ACL.
+                    EnsureRestrictedDirectory(RunnerConstants.ScriptGroupFilesPath);
+                    RemoveOrphanedBundlesCore(RunnerConstants.ScriptGroupFilesPath);
+
+                    // Deleted rather than truncated so a pre-existing file cannot lend an older
+                    // ACL or collide with FileMode.CreateNew. Bundle names repeat across attempts
+                    // at the same request, so this is reachable, not hypothetical.
+                    ExpireCore(pipeName);
+
+                    using FileStream createStream = FileSystemAclExtensions.Create(
+                        new FileInfo(filename),
+                        FileMode.CreateNew,
+                        FileSystemRights.WriteData
+                            | FileSystemRights.AppendData
+                            | FileSystemRights.ReadAttributes
+                            | FileSystemRights.Synchronize,
+                        FileShare.None,
+                        bufferSize: 4096,
+                        FileOptions.None,
+                        bundleSecurity);
                     JsonSerializer.Serialize(createStream, scriptGroup, serializeOptions);
                 }
-
-                GrantReadAccessToRunner(pipeName, readerIdentity);
 
                 return Task.CompletedTask;
             }
@@ -90,6 +101,14 @@ namespace Dorc.Monitor.Pipes
         /// durable on-disk one, and every bundle ever written was previously kept.
         /// </summary>
         public void Expire(string pipeName)
+        {
+            lock (BundleDirectorySync)
+            {
+                ExpireCore(pipeName);
+            }
+        }
+
+        private void ExpireCore(string pipeName)
         {
             string filename;
             try
@@ -191,15 +210,10 @@ namespace Dorc.Monitor.Pipes
         /// would convert a transient directory-service blip into a failed production
         /// deployment, which is a far worse outcome than the one being guarded against.
         /// </summary>
-        private void GrantReadAccessToRunner(string pipeName, ScriptGroupReaderIdentity readerIdentity)
+        private SecurityIdentifier? ResolveRunnerIdentity(
+            ScriptGroupReaderIdentity readerIdentity,
+            string filename)
         {
-            var account = readerIdentity.QualifiedAccountName;
-
-            // Resolved here rather than taken as a path, so the confinement check runs on the
-            // way to every operation performed on the bundle rather than only on the way to
-            // the first one.
-            var filename = BundlePath(pipeName);
-
             var resolution = readerIdentity.Resolve();
 
             if (!resolution.IsResolved)
@@ -214,43 +228,62 @@ namespace Dorc.Monitor.Pipes
                     + " will be unable to read it unless it runs as an account the directory already admits.",
                     resolution.Refusal,
                     filename);
-                return;
+                return null;
             }
 
-            try
-            {
-                var fileInfo = new FileInfo(filename);
-                var security = fileInfo.GetAccessControl();
-                security.AddAccessRule(new FileSystemAccessRule(
-                    resolution.SecurityIdentifier!,
-                    FileSystemRights.Read,
-                    AccessControlType.Allow));
-                fileInfo.SetAccessControl(security);
-            }
-            catch (PrivilegeNotHeldException ex) { LogFailedGrant(ex, account, filename); }
-            catch (UnauthorizedAccessException ex) { LogFailedGrant(ex, account, filename); }
-            catch (IOException ex) { LogFailedGrant(ex, account, filename); }
+            return resolution.SecurityIdentifier;
         }
 
-        private void LogFailedGrant(Exception ex, string account, string filename) =>
-            logger.LogError(
-                ex,
-                "The deployment account '{Account}' could not be granted access to the script group bundle" +
-                " '{BundlePath}'. The Runner will be unable to read it unless it runs as an account the" +
-                " directory already admits.",
-                LogText.SingleLine(account),
-                filename);
+        private static FileSecurity BuildProtectedBundleSecurity(SecurityIdentifier? runnerSid)
+        {
+            var security = new FileSecurity();
+            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            foreach (var privileged in RestrictedDirectory.PrivilegedIdentities().Distinct())
+            {
+                security.AddAccessRule(new FileSystemAccessRule(
+                    privileged,
+                    FileSystemRights.FullControl,
+                    AccessControlType.Allow));
+            }
+
+            if (runnerSid != null)
+            {
+                security.AddAccessRule(new FileSystemAccessRule(
+                    runnerSid,
+                    FileSystemRights.Read,
+                    AccessControlType.Allow));
+            }
+
+            return security;
+        }
 
         /// <summary>
-        /// Removes bundles that outlived the deployment that wrote them. Expiry on the
-        /// deployment path covers the normal and failed cases; this covers the case where the
-        /// Monitor process itself did not survive to run it, and clears bundles accumulated
-        /// before expiry existed at all.
+        /// Removes bundles that outlived the deployment that wrote them, and confines any
+        /// younger retained bundles (such as legacy bundles written within the retention window
+        /// before the directory was restricted) through verified single-link child handles.
+        /// Expiry on the deployment path covers the normal and failed cases; this covers the
+        /// case where the Monitor process itself did not survive to run it, and clears or
+        /// confines bundles accumulated before expiry and directory restriction existed.
         /// </summary>
-        private void RemoveOrphanedBundles(string path)
+        internal void RemoveOrphanedBundles(string path)
+        {
+            lock (BundleDirectorySync)
+            {
+                RemoveOrphanedBundlesCore(path);
+            }
+        }
+
+        private void RemoveOrphanedBundlesCore(string path)
         {
             try
             {
+                using var dirHandle = ReparseFreeHandles.OpenVerifiedDirectoryHandle(
+                    path,
+                    ReparseFreeHandles.FileReadAttributes);
+                var canonicalRoot = ReparseFreeHandles.GetCanonicalPath(dirHandle, path);
+                var privilegedIdentities = RestrictedDirectory.PrivilegedIdentities().Distinct().ToArray();
+                var privilegedSet = privilegedIdentities.ToHashSet();
+
                 var cutoff = DateTime.UtcNow - OrphanedBundleRetention;
                 var removed = 0;
 
@@ -260,6 +293,7 @@ namespace Dorc.Monitor.Pipes
                     {
                         if (File.GetLastWriteTimeUtc(bundle) >= cutoff)
                         {
+                            ConfineRetainedBundle(bundle, canonicalRoot, privilegedIdentities, privilegedSet);
                             continue;
                         }
 
@@ -284,6 +318,77 @@ namespace Dorc.Monitor.Pipes
             catch (UnauthorizedAccessException ex) { LogSweepAbandoned(ex, path); }
             catch (SecurityException ex) { LogSweepAbandoned(ex, path); }
             catch (IOException ex) { LogSweepAbandoned(ex, path); }
+        }
+
+        private static void ConfineRetainedBundle(
+            string bundlePath,
+            string canonicalRoot,
+            IReadOnlyList<SecurityIdentifier> privilegedIdentities,
+            HashSet<SecurityIdentifier> privilegedSet)
+        {
+            var leafName = Path.GetFileName(bundlePath);
+            if (string.IsNullOrEmpty(leafName))
+            {
+                return;
+            }
+
+            var expectedCanonicalFilePath = Path.Join(canonicalRoot, leafName);
+            using var fileHandle = ReparseFreeHandles.OpenVerifiedRegularFileForDacl(
+                bundlePath,
+                expectedCanonicalFilePath);
+            var currentSecurity = ReparseFreeHandles.GetFileSecurity(fileHandle, bundlePath);
+            var existingRules = currentSecurity
+                .GetAccessRules(includeExplicit: true, includeInherited: true, typeof(SecurityIdentifier))
+                .Cast<FileSystemAccessRule>()
+                .ToList();
+
+            var needsConfinement = !currentSecurity.AreAccessRulesProtected
+                || existingRules.Any(rule =>
+                    rule.IsInherited
+                    || (rule.AccessControlType == AccessControlType.Allow
+                        && !privilegedSet.Contains((SecurityIdentifier)rule.IdentityReference)
+                        && (DeploymentPrincipal.IsTooBroadToHoldASecret((SecurityIdentifier)rule.IdentityReference)
+                            || (rule.FileSystemRights & ~(FileSystemRights.Read | FileSystemRights.Synchronize)) != 0)));
+            if (!needsConfinement)
+            {
+                return;
+            }
+
+            var hardenedSecurity = new FileSecurity();
+            hardenedSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            foreach (var privileged in privilegedIdentities)
+            {
+                hardenedSecurity.AddAccessRule(new FileSystemAccessRule(
+                    privileged,
+                    FileSystemRights.FullControl,
+                    AccessControlType.Allow));
+            }
+
+            // Preserve any explicit (non-inherited) per-deployment Runner Read grant on an
+            // in-flight bundle while stripping all inherited or broad principals.
+            foreach (var rule in existingRules)
+            {
+                if (rule.IsInherited || rule.AccessControlType != AccessControlType.Allow)
+                {
+                    continue;
+                }
+
+                var sid = (SecurityIdentifier)rule.IdentityReference;
+                if (privilegedSet.Contains(sid) || DeploymentPrincipal.IsTooBroadToHoldASecret(sid))
+                {
+                    continue;
+                }
+
+                if ((rule.FileSystemRights & ~(FileSystemRights.Read | FileSystemRights.Synchronize)) == 0)
+                {
+                    hardenedSecurity.AddAccessRule(new FileSystemAccessRule(
+                        sid,
+                        FileSystemRights.Read,
+                        AccessControlType.Allow));
+                }
+            }
+
+            ReparseFreeHandles.ApplyProtectedDacl(fileHandle, hardenedSecurity, bundlePath);
         }
 
         private void LogOrphanNotRemoved(Exception ex, string bundle) =>

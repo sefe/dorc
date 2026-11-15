@@ -286,5 +286,10 @@ builder.Services.AddTransient<IPropertyEncryptor>(serviceProvider =>
 builder.Services.AddHostedService<MonitorService>();
 builder.Services.AddTransient<IClaimsPrincipalReader, DirectToolClaimsPrincipalReader>();
 
+if (OperatingSystem.IsWindows())
+{
+    Dorc.Monitor.Security.RestrictedDirectory.EnsureProgramDataRoot(DorcProgramData.Root);
+}
+
 IHost host = builder.Build();
 host.Run();

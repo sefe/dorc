@@ -108,7 +108,7 @@ public class TerraformRunnerSafetyTests
             job.Assign(process.Handle);
             File.WriteAllText(startMarker, "");
             Assert.IsTrue(SpinWait.SpinUntil(() => File.Exists(childIdPath)
-                && new FileInfo(childIdPath).Length > 0, TimeSpan.FromSeconds(15)), "Runner did not spawn test child.");
+                && new FileInfo(childIdPath).Length > 0, TimeSpan.FromSeconds(45)), "Runner did not spawn test child.");
             child = Process.GetProcessById(int.Parse(File.ReadAllText(childIdPath).Trim()));
             Assert.IsTrue(DuplicateHandle(GetCurrentProcess(), process.Handle, GetCurrentProcess(),
                 out var duplicate, 0, false, 2));

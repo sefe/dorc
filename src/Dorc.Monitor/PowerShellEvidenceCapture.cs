@@ -12,8 +12,9 @@ internal sealed class PowerShellEvidenceCapture : IPowerShellEvidenceCapture
     public void Prepare(ScriptGroup group, string revision, int requestId, int offset, string accountName)
     {
         if (string.IsNullOrWhiteSpace(revision)) throw new InvalidOperationException("A pinned script revision is required.");
-        var root = Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.CommonApplicationData),
-            "DOrc", "PowerShellEvidence");
+        var root = Path.Combine(
+            Dorc.Core.DorcProgramData.Root,
+            RestrictedDirectory.PowerShellEvidenceDirectoryName);
         RestrictedDirectory.Ensure(root);
         var directory = Path.Combine(root, $"{group.DeployResultId}-{Guid.NewGuid():N}");
         RestrictedDirectory.Ensure(directory, new NTAccount(accountName));

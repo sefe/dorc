@@ -78,5 +78,21 @@ namespace Dorc.Core.Security
         {
             Password.Dispose();
         }
+
+        /// <summary>
+        /// The account in the form the local security authority resolves. A user name that
+        /// already carries its own qualifier - DOMAIN\user or user@domain - is left alone, so
+        /// a configured value that disagrees with the configured domain is not silently
+        /// rewritten into a different account.
+        /// </summary>
+        public string QualifiedAccountName(string? domain)
+        {
+            var userName = UserName.Trim();
+            var trimmedDomain = domain?.Trim() ?? string.Empty;
+
+            return userName.Contains('\\') || userName.Contains('@') || trimmedDomain.Length == 0
+                ? userName
+                : $@"{trimmedDomain}\{userName}";
+        }
     }
 }
