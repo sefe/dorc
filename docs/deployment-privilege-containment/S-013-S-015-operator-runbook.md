@@ -124,7 +124,11 @@ via `PUT /RefDataScripts/{id}/content-hash` before dispatching.
 ### Then — extend `AppSettings:ConfigKeysWithheldFromScripts` and restart hosts
 
 1. Extend `AppSettings:ConfigKeysWithheldFromScripts` on **both** the **DOrc API** and **DOrc
-   Monitor** hosts to include `DORC_NonProdDeployPassword` (plus any other newly-freed operating
+   Monitor** hosts (both production and non-production Monitor flavours) **and** persist the same
+   expanded list in deployment/installer configuration (`DORC_CONFIG_KEYS_WITHHELD_FROM_SCRIPTS` /
+   MSI parameter `DORC.CONFIG.KEYS.WITHHELD.FROM.SCRIPTS`, since `src/Setup.Dorc/Product.wxs`
+   defaults to the three built-in keys and a subsequent upgrade would otherwise overwrite the
+   host config) to include `DORC_NonProdDeployPassword` (plus any other newly-freed operating
    keys), alongside the three built-in zero-consumer keys (`DORC_ProdDeployPassword`,
    `DORC_WebDeployPassword`, `DorcApiAccessPassword`).
 2. Perform a **controlled restart** of both the **DOrc API** and **DOrc Monitor** services/hosts
@@ -211,13 +215,21 @@ pause and drain consumers across both populations in step 1 and update **every**
    current key. **Do not** write to `deploy.ConfigValue` directly — the value is encrypted at rest
    and a direct write stores plaintext — and **do not** insert a second `IsForProd` row for any of
    the four single-row operator keys (`ConfigValuesPersistentSource.GetConfigValue` queries by
-   `Key` with `SingleOrDefault`).
-4. Run the controlled verification deployment(s) for the rotated population before resuming
-   ordinary deployment work or proceeding to the next population:
+   `Key` with `SingleOrDefault`). When rotating an account that also backs a saved Windows service
+   logon identity (in particular `DORC_NonProdDeployPassword`, which `Setup.Dorc.msi.json` maps to
+   the non-production Monitor service logon, and any production Monitor host sharing a rotated
+   account), update the saved Windows service credentials and deployment configuration on every
+   affected host and verify controlled service restarts before proceeding.
+4. Run the controlled verification checks and deployment(s) for the rotated population before
+   resuming ordinary deployment work or proceeding to the next population:
    - For a **single-row operator key** (`DORC_ProdDeployPassword`, `DORC_NonProdDeployPassword`,
-     `DORC_WebDeployPassword`, `DorcApiAccessPassword`): deploy a component exercising that
-     credential path to a **non-production** environment and to a **production** environment,
-     confirm both succeed, and confirm the key is absent from resolved deployment properties.
+     `DORC_WebDeployPassword`, `DorcApiAccessPassword`): verify the rotated credential directly
+     through each of its actual authentication consumers (`DORC_ProdDeployPassword` via a
+     production deployment, `DORC_NonProdDeployPassword` via a non-production deployment and
+     non-production Monitor service logon, and `DORC_WebDeployPassword` /
+     `DorcApiAccessPassword` via their web/API authentication paths), run regression deployments in
+     both non-production and production classes, and confirm the key is absent from resolved
+     deployment properties.
    - For a **split population** (`DorcCliSecret`, `DeploymentServiceAccountPassword`,
      `ProgetAccountPassword`): deploy a component that consumes that key to an environment in the
      matching class (`IsForProd = 0` → non-production; `IsForProd = 1` → production) and confirm
@@ -239,8 +251,9 @@ waiting for S-020 leaves disclosed credentials live across all seven keys for th
 
 ### Verification
 
-- Deployments exercising each rotated key succeed against every environment class (`IsForProd = 0`
-  non-production and `IsForProd = 1` production).
+- Each rotated key is verified through its actual authentication consumer(s) (including service
+  logon and web/API consumers where applicable), and regression deployments succeed across both
+  environment classes (`IsForProd = 0` non-production and `IsForProd = 1` production).
 - Every `ConfigValue` row across all seven secure keys holds a freshly rotated value; no row or
   component holds a previous value.
 - All four operator keys (`DORC_ProdDeployPassword`, `DORC_NonProdDeployPassword`,
