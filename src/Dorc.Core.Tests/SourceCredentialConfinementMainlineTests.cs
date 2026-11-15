@@ -1027,8 +1027,8 @@ namespace Dorc.Core.Tests
                 };
 
                 await using var stream = codec.Deserialize<Stream>(restResponse);
-                var fileStream = stream as FileStream;
-                Assert.IsNotNull(fileStream);
+                Assert.IsInstanceOfType(stream, typeof(FileStream));
+                var fileStream = (FileStream)stream;
 
                 var expectedFile = Path.Join(Path.GetFullPath(tempDir), expectedLeafName);
                 Assert.AreEqual(expectedFile, Path.GetFullPath(fileStream.Name));

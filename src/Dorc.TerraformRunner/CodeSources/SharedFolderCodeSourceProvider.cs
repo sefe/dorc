@@ -76,24 +76,7 @@ namespace Dorc.TerraformRunner.CodeSources
 
         private async Task CopyDirectoryAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
         {
-            await Task.Run(() =>
-            {
-                foreach (var file in Directory.GetFiles(sourceDir, "*", SearchOption.AllDirectories))
-                {
-                    cancellationToken.ThrowIfCancellationRequested();
-
-                    var relativePath = Path.GetRelativePath(sourceDir, file);
-                    var destFile = Path.Combine(destDir, relativePath);
-                    var destFileDir = Path.GetDirectoryName(destFile);
-
-                    if (!string.IsNullOrEmpty(destFileDir))
-                    {
-                        Directory.CreateDirectory(destFileDir);
-                    }
-
-                    File.Copy(file, destFile, true);
-                }
-            }, cancellationToken);
+            await DirectoryTreeCopy.CopyAsync(sourceDir, destDir, cancellationToken);
         }
     }
 }

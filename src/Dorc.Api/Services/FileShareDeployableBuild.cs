@@ -78,6 +78,12 @@ namespace Dorc.Api.Services
                 return false;
             }
 
+            if (!isRemote && HasExistingReparsePoint(uri.LocalPath))
+            {
+                _validationMessage = "File share build location contains a reparse point and was refused.";
+                return false;
+            }
+
             if (!_helper.DirectoryExists(uri.LocalPath))
             {
                 _validationMessage = "File share build detected. But seems that folder doesn't exists or permissions denied";
@@ -85,6 +91,50 @@ namespace Dorc.Api.Services
             }
 
             return true;
+        }
+
+        private static bool HasExistingReparsePoint(string localPath)
+        {
+            if (string.IsNullOrWhiteSpace(localPath) || localPath.Contains(".."))
+            {
+                return true;
+            }
+
+            string fullPath;
+            try
+            {
+                fullPath = Path.GetFullPath(localPath);
+            }
+            catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+            {
+                return true;
+            }
+
+            var segments = new Stack<string>();
+            var current = fullPath;
+            while (!string.IsNullOrEmpty(current))
+            {
+                segments.Push(current);
+                var parent = Path.GetDirectoryName(current);
+                if (string.IsNullOrEmpty(parent) || string.Equals(parent, current, StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+
+                current = parent;
+            }
+
+            while (segments.Count > 0)
+            {
+                var candidate = segments.Pop();
+                var info = new DirectoryInfo(candidate);
+                if (info.Exists && ((info.Attributes & FileAttributes.ReparsePoint) != 0 || info.LinkTarget != null))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private bool IsPermittedRemoteArtefactHost(string buildUrl)

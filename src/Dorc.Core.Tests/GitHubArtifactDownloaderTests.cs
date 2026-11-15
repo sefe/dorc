@@ -146,6 +146,18 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
+        public void DownloadAndExtract_RejectsNonDefaultHttpsPort()
+        {
+            var sut = CreateSut();
+
+            var ex = Assert.Throws<ArgumentException>(() =>
+                sut.DownloadAndExtract("https://github.mycorp.local:8443/api/v3/repos/o/r/actions/artifacts/1/zip"));
+
+            StringAssert.Contains(ex.Message, "default port 443");
+            _hostValidator.DidNotReceiveWithAnyArgs().ValidateHost(default!);
+        }
+
+        [TestMethod]
         public void DownloadAndExtract_FailsClosedBeforeHttpCallWhenArtefactAllowListUnconfigured()
         {
             _httpClientFactory.ClearReceivedCalls();

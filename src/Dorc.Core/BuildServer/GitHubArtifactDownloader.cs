@@ -75,14 +75,22 @@ namespace Dorc.Core.BuildServer
             // dispatching the request. Otherwise a crafted DropLocation could
             // exfiltrate the token to an attacker-controlled host.
             if (!Uri.TryCreate(artifactUrl, UriKind.Absolute, out var parsedUrl) ||
-                parsedUrl.Scheme != Uri.UriSchemeHttps)
+                parsedUrl.Scheme != Uri.UriSchemeHttps ||
+                !parsedUrl.IsDefaultPort)
             {
                 throw new ArgumentException(
-                    $"GitHub artifact URL must be an absolute https:// URL: '{artifactUrl}'",
+                    $"GitHub artifact URL must be an absolute https:// URL on default port 443: '{artifactUrl}'",
                     nameof(artifactUrl));
             }
             _hostValidator.ValidateHost(parsedUrl.Host);
             RequirePermittedGitHubArtefactHost(artifactUrl);
+            var configuredApiBase = _hostValidator.GetApiBase(artifactUrl);
+            if (Uri.TryCreate(configuredApiBase, UriKind.Absolute, out var originUri)
+                && !ApiModel.SourceHost.HasSameOrigin(artifactUrl, originUri.AbsoluteUri))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present GitHub token to '{artifactUrl}': origin '{ApiModel.SourceHost.OriginOf(artifactUrl) ?? "<none>"}' does not match configured GitHub API origin '{ApiModel.SourceHost.OriginOf(originUri.AbsoluteUri) ?? "<none>"}'.");
+            }
 
             _logger.LogInformation("Downloading GitHub Actions artifact from: {Url}", artifactUrl);
 

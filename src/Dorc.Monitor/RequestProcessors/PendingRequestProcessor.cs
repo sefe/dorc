@@ -624,14 +624,9 @@ namespace Dorc.Monitor.RequestProcessors
                 && !dropFolder.StartsWith("http", StringComparison.OrdinalIgnoreCase))
             {
                 RequirePermittedRemoteDropFolder(dropFolder);
-                if (dropFolder.StartsWith("file", StringComparison.OrdinalIgnoreCase))
-                {
-                    dropFolder = new Uri(SourceHost.NormalizeExtendedUnc(dropFolder)).LocalPath;
-                }
-                else
-                {
-                    dropFolder = SourceHost.NormalizeExtendedUnc(dropFolder);
-                }
+                dropFolder = dropFolder.StartsWith("file", StringComparison.OrdinalIgnoreCase)
+                    ? new Uri(SourceHost.NormalizeExtendedUnc(dropFolder)).LocalPath
+                    : SourceHost.NormalizeExtendedUnc(dropFolder);
             }
             _variableResolver.SetPropertyValue(PropertyValueScopeOptionsFixed.DropFolder, dropFolder);
             return dropFolder;
