@@ -187,8 +187,11 @@ rotate.
    immediately discloses the freshly rotated password again. *(The three deliberately
    script-facing keys — `DorcCliSecret`, `DeploymentServiceAccountPassword`, and
    `ProgetAccountPassword` — remain published to their respective `IsForProd` populations by
-   design until S-020 lands; rotating them here invalidates prior disclosure and they will be
-   rotated again under S-020.)*
+   design until their script consumers are migrated off `ConfigValue` injection and each key is
+   withheld via `VisibleToScripts = false` under S-019 or `AppSettings:ConfigKeysWithheldFromScripts`;
+   S-020 moves only deployment execution credentials to a provider-backed store and does **not**
+   stop publishing those three script-facing keys. Rotating them here invalidates prior disclosure,
+   and each must be rotated again after its own consumer migration and verified withholding.)*
 4. A **rollback plan for the accounts and secrets themselves** exists — this step is not
    revertible from DOrc's side. If a rotated account breaks a target server's access control list
    or downstream service authentication, the fix is on the target or identity store, not here.
@@ -251,10 +254,16 @@ Rotate one credential population at a time and verify between each. Rotating all
 
 ### Note on rotating twice
 
-S-020 migrates credential storage to a provider-backed store (including replacing script-injected
-delivery for `DorcCliSecret`, `DeploymentServiceAccountPassword`, and `ProgetAccountPassword`).
-Rotating now means rotating again when that lands. That is expected and is the correct order —
-waiting for S-020 leaves disclosed credentials live across all seven keys for the duration.
+S-020 migrates deployment execution credentials (`DORC_ProdDeployPassword` and
+`DORC_NonProdDeployPassword`) to a provider-backed store, so those deployment accounts are rotated
+again at S-020 cutover. S-020 does **not** remove `DorcCliSecret`,
+`DeploymentServiceAccountPassword`, or `ProgetAccountPassword` from script scope: ending injected
+delivery for any of those three keys requires a separate script-consumer migration off
+`ConfigValue` injection, withholding the key from scripts (`VisibleToScripts = false` under S-019
+or `AppSettings:ConfigKeysWithheldFromScripts`), verifying that withholding on a deployment, and
+rotating that secret again afterward. Rotating now means rotating again when each respective
+cutover lands — that is expected and is the correct order, because waiting leaves disclosed
+credentials live across all seven keys for the duration.
 
 ### Verification
 
