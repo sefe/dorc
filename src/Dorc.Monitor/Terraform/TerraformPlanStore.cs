@@ -833,24 +833,37 @@ namespace Dorc.Monitor.Terraform
                 monitorOnlyDirectorySecurity,
                 Directory);
 
-            IOException? hardLinkViolation = null;
+            var failures = new List<Exception>();
             RevokeRunnerOnChildrenWindows(
+                _canonicalDirectory,
                 _canonicalDirectory,
                 monitorOnlyDirectorySecurity,
                 monitorOnlyFileSecurity,
-                ref hardLinkViolation);
-            if (hardLinkViolation is not null)
+                failures);
+            if (failures.Count == 1)
             {
-                throw hardLinkViolation;
+                if (failures[0] is IOException)
+                {
+                    System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failures[0]).Throw();
+                }
+
+                throw new IOException(failures[0].Message, failures[0]);
+            }
+            if (failures.Count > 1)
+            {
+                throw new IOException(
+                    $"Failed to confine {failures.Count} child artefact(s) under '{_canonicalDirectory}' while revoking runner access: {string.Join("; ", failures.Select(f => f.Message))}",
+                    new AggregateException(failures));
             }
         }
 
         [SupportedOSPlatform("windows")]
         private void RevokeRunnerOnChildrenWindows(
             string parentCanonicalDirectory,
+            string confinementRootCanonical,
             System.Security.AccessControl.DirectorySecurity monitorOnlyDirectorySecurity,
             System.Security.AccessControl.FileSecurity monitorOnlyFileSecurity,
-            ref IOException? hardLinkViolation)
+            List<Exception> failures)
         {
             foreach (var entry in new DirectoryInfo(parentCanonicalDirectory).EnumerateFileSystemInfos())
             {
@@ -860,68 +873,78 @@ namespace Dorc.Monitor.Terraform
                 }
 
                 var expectedChildCanonical = Path.Join(parentCanonicalDirectory, entry.Name);
-                using var childHandle = ReparseFreeHandles.OpenRawHandle(
-                    expectedChildCanonical,
-                    ReparseFreeHandles.FileReadAttributes
-                    | ReparseFreeHandles.ReadControl
-                    | ReparseFreeHandles.WriteDac,
-                    ReparseFreeHandles.FileShareRead
-                    | ReparseFreeHandles.FileShareWrite
-                    | ReparseFreeHandles.FileShareDelete,
-                    ReparseFreeHandles.OpenExisting,
-                    out var openError);
-                if (childHandle.IsInvalid)
+                try
                 {
-                    if (openError is ReparseFreeHandles.ErrorFileNotFound or ReparseFreeHandles.ErrorPathNotFound)
+                    using var childHandle = ReparseFreeHandles.OpenRawHandle(
+                        expectedChildCanonical,
+                        ReparseFreeHandles.FileReadAttributes
+                        | ReparseFreeHandles.ReadControl
+                        | ReparseFreeHandles.WriteDac,
+                        ReparseFreeHandles.FileShareRead
+                        | ReparseFreeHandles.FileShareWrite
+                        | ReparseFreeHandles.FileShareDelete,
+                        ReparseFreeHandles.OpenExisting,
+                        out var openError);
+                    if (childHandle.IsInvalid)
+                    {
+                        if (openError is ReparseFreeHandles.ErrorFileNotFound or ReparseFreeHandles.ErrorPathNotFound)
+                        {
+                            continue;
+                        }
+
+                        failures.Add(ReparseFreeHandles.CreateWin32IoException(
+                            $"Failed to open '{expectedChildCanonical}' while revoking runner access",
+                            openError));
+                        continue;
+                    }
+
+                    var childAttributes = File.GetAttributes(childHandle);
+                    if ((childAttributes & FileAttributes.ReparsePoint) != 0)
                     {
                         continue;
                     }
 
-                    throw ReparseFreeHandles.CreateWin32IoException(
-                        $"Failed to open '{expectedChildCanonical}' while revoking runner access",
-                        openError);
-                }
-
-                var childAttributes = File.GetAttributes(childHandle);
-                if ((childAttributes & FileAttributes.ReparsePoint) != 0)
-                {
-                    continue;
-                }
-
-                var actualChildCanonical = ReparseFreeHandles.GetCanonicalPath(childHandle, expectedChildCanonical);
-                if (!string.Equals(actualChildCanonical, expectedChildCanonical, StringComparison.OrdinalIgnoreCase)
-                    || !IsStrictlyBeneath(actualChildCanonical, _canonicalDirectory))
-                {
-                    throw new IOException(
-                        $"Refusing to revoke runner access on '{expectedChildCanonical}' because its canonical path '{actualChildCanonical}' escaped '{parentCanonicalDirectory}'.");
-                }
-
-                if ((childAttributes & FileAttributes.Directory) != 0)
-                {
-                    ReparseFreeHandles.ApplyProtectedDacl(
-                        childHandle,
-                        monitorOnlyDirectorySecurity,
-                        actualChildCanonical);
-                    RevokeRunnerOnChildrenWindows(
-                        actualChildCanonical,
-                        monitorOnlyDirectorySecurity,
-                        monitorOnlyFileSecurity,
-                        ref hardLinkViolation);
-                }
-                else
-                {
-                    var linkCount = ReparseFreeHandles.GetLinkCount(childHandle, actualChildCanonical);
-                    if (linkCount != 1)
+                    var actualChildCanonical = ReparseFreeHandles.GetCanonicalPath(childHandle, expectedChildCanonical);
+                    if (!string.Equals(actualChildCanonical, expectedChildCanonical, StringComparison.OrdinalIgnoreCase)
+                        || !IsStrictlyBeneath(actualChildCanonical, confinementRootCanonical))
                     {
-                        hardLinkViolation ??= new IOException(
-                            $"Refusing to rewrite DACL on '{actualChildCanonical}' because it has {linkCount} NTFS links (expected 1).");
+                        failures.Add(new IOException(
+                            $"Refusing to revoke runner access on '{expectedChildCanonical}' because its canonical path '{actualChildCanonical}' escaped '{parentCanonicalDirectory}'."));
                         continue;
                     }
 
-                    ReparseFreeHandles.ApplyProtectedDacl(
-                        childHandle,
-                        monitorOnlyFileSecurity,
-                        actualChildCanonical);
+                    if ((childAttributes & FileAttributes.Directory) != 0)
+                    {
+                        ReparseFreeHandles.ApplyProtectedDacl(
+                            childHandle,
+                            monitorOnlyDirectorySecurity,
+                            actualChildCanonical);
+                        RevokeRunnerOnChildrenWindows(
+                            actualChildCanonical,
+                            confinementRootCanonical,
+                            monitorOnlyDirectorySecurity,
+                            monitorOnlyFileSecurity,
+                            failures);
+                    }
+                    else
+                    {
+                        var linkCount = ReparseFreeHandles.GetLinkCount(childHandle, actualChildCanonical);
+                        if (linkCount != 1)
+                        {
+                            failures.Add(new IOException(
+                                $"Refusing to rewrite DACL on '{actualChildCanonical}' because it has {linkCount} NTFS links (expected 1)."));
+                            continue;
+                        }
+
+                        ReparseFreeHandles.ApplyProtectedDacl(
+                            childHandle,
+                            monitorOnlyFileSecurity,
+                            actualChildCanonical);
+                    }
+                }
+                catch (Exception ex) when (IsExpectedFileSystemFailure(ex))
+                {
+                    failures.Add(ex);
                 }
             }
         }
@@ -969,6 +992,7 @@ namespace Dorc.Monitor.Terraform
                             // spent - not the moment it was created.
                             if (LastWriteWithin(subDirectory, cutoff))
                             {
+                                ConfineRetainedOrphanDirectory(subDirectory);
                                 continue;
                             }
 
@@ -1045,6 +1069,87 @@ namespace Dorc.Monitor.Terraform
             }
 
             return false;
+        }
+
+        private void ConfineRetainedOrphanDirectory(DirectoryInfo subDirectory)
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            var baseFull = Path.TrimEndingDirectorySeparator(Path.GetFullPath(_root));
+            var fullPath = Path.GetFullPath(subDirectory.FullName);
+            if (!fullPath.StartsWith(baseFull + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            ConfineRetainedOrphanDirectoryWindows(fullPath);
+        }
+
+        [SupportedOSPlatform("windows")]
+        private void ConfineRetainedOrphanDirectoryWindows(string fullPath)
+        {
+            // Active dispatches in any live Monitor process hold a pinned handle without
+            // FileShareDelete, so requesting Delete access fails with ERROR_SHARING_VIOLATION
+            // when another live Monitor process still owns the directory.
+            using var dirHandle = ReparseFreeHandles.OpenRawHandle(
+                fullPath,
+                ReparseFreeHandles.Delete
+                | ReparseFreeHandles.FileListDirectory
+                | ReparseFreeHandles.FileReadAttributes
+                | ReparseFreeHandles.ReadControl
+                | ReparseFreeHandles.WriteDac,
+                ReparseFreeHandles.FileShareRead | ReparseFreeHandles.FileShareWrite,
+                ReparseFreeHandles.OpenExisting,
+                out var error);
+            if (dirHandle.IsInvalid)
+            {
+                if (error is ReparseFreeHandles.ErrorFileNotFound
+                    or ReparseFreeHandles.ErrorPathNotFound
+                    or ReparseFreeHandles.ErrorSharingViolation)
+                {
+                    return;
+                }
+
+                throw ReparseFreeHandles.CreateWin32IoException(
+                    $"Failed to open orphaned Terraform plan directory '{fullPath}' to revoke retained runner access",
+                    error);
+            }
+
+            var attributes = File.GetAttributes(dirHandle);
+            if ((attributes & FileAttributes.ReparsePoint) != 0 || (attributes & FileAttributes.Directory) == 0)
+            {
+                return;
+            }
+
+            var canonicalDir = ReparseFreeHandles.GetCanonicalPath(dirHandle, fullPath);
+            if (!IsStrictlyBeneath(canonicalDir, _canonicalRoot))
+            {
+                return;
+            }
+
+            var monitorOnlyDirectorySecurity = RestrictedDirectory.BuildSecurity([], inheritToChildren: false);
+            var monitorOnlyFileSecurity = RestrictedDirectory.BuildFileSecurity([]);
+
+            ReparseFreeHandles.ApplyProtectedDacl(dirHandle, monitorOnlyDirectorySecurity, canonicalDir);
+
+            var failures = new List<Exception>();
+            RevokeRunnerOnChildrenWindows(
+                canonicalDir,
+                canonicalDir,
+                monitorOnlyDirectorySecurity,
+                monitorOnlyFileSecurity,
+                failures);
+            if (failures.Count > 0)
+            {
+                _logger.LogWarning(
+                    new AggregateException(failures),
+                    "Failed to confine {Count} descendant(s) under retained orphaned Terraform directory '{DirectoryPath}'.",
+                    failures.Count,
+                    canonicalDir);
+            }
         }
 
         private void ConfineRetainedRootFile(FileSystemInfo entry)

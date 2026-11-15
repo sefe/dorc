@@ -104,7 +104,7 @@ namespace Dorc.Core.BuildServer
                 ? _downloadFolder
                 : Path.Join(DorcProgramData.Root, "artifacts");
             var tempDir = Path.Join(baseDir, Guid.NewGuid().ToString("N"));
-            Directory.CreateDirectory(tempDir);
+            CreateRestrictedArtifactDirectory(baseDir, tempDir);
 
             try
             {
@@ -138,6 +138,71 @@ namespace Dorc.Core.BuildServer
                 Cleanup(tempDir);
                 throw;
             }
+        }
+
+        private static void CreateRestrictedArtifactDirectory(string baseDir, string tempDir)
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                Directory.CreateDirectory(tempDir);
+                return;
+            }
+
+            if (Directory.Exists(baseDir) && (new DirectoryInfo(baseDir).Attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                throw new IOException($"Refusing to stage GitHub artifact under reparse point '{baseDir}'.");
+            }
+
+            var security = BuildRestrictedArtifactDirectorySecurity();
+            if (!Directory.Exists(baseDir))
+            {
+                security.CreateDirectory(baseDir);
+            }
+
+            if (File.Exists(tempDir) || Directory.Exists(tempDir))
+            {
+                throw new IOException($"Refusing to stage GitHub artifact into pre-existing path '{tempDir}'.");
+            }
+
+            security.CreateDirectory(tempDir);
+        }
+
+        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+        private static System.Security.AccessControl.DirectorySecurity BuildRestrictedArtifactDirectorySecurity()
+        {
+            var security = new System.Security.AccessControl.DirectorySecurity();
+            security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+
+            const System.Security.AccessControl.InheritanceFlags inherit =
+                System.Security.AccessControl.InheritanceFlags.ContainerInherit
+                | System.Security.AccessControl.InheritanceFlags.ObjectInherit;
+
+            using var currentIdentity = System.Security.Principal.WindowsIdentity.GetCurrent();
+            if (currentIdentity.User != null)
+            {
+                security.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                    currentIdentity.User,
+                    System.Security.AccessControl.FileSystemRights.FullControl,
+                    inherit,
+                    System.Security.AccessControl.PropagationFlags.None,
+                    System.Security.AccessControl.AccessControlType.Allow));
+            }
+
+            security.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.LocalSystemSid, null),
+                System.Security.AccessControl.FileSystemRights.FullControl,
+                inherit,
+                System.Security.AccessControl.PropagationFlags.None,
+                System.Security.AccessControl.AccessControlType.Allow));
+
+            security.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.BuiltinAdministratorsSid, null),
+                System.Security.AccessControl.FileSystemRights.FullControl,
+                inherit,
+                System.Security.AccessControl.PropagationFlags.None,
+                System.Security.AccessControl.AccessControlType.Allow));
+
+            return security;
         }
 
         public void Cleanup(string extractedPath)

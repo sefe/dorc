@@ -78,6 +78,7 @@ namespace Dorc.Monitor.Security
         internal const int ErrorFileNotFound = 2;
         internal const int ErrorPathNotFound = 3;
         internal const int ErrorAccessDenied = 5;
+        internal const int ErrorSharingViolation = 32;
         internal const int ErrorNotSupported = 50;
         internal const int ErrorInvalidParameter = 87;
         private const int ErrorInsufficientBuffer = 122;

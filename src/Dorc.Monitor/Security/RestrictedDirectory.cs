@@ -185,6 +185,7 @@ namespace Dorc.Monitor.Security
             out SafeFileHandle pinnedHandle)
         {
             var security = BuildProgramDataRootSecurity();
+            var bootstrapPrivilegedSecurity = BuildSecurity([], inheritToChildren: false);
 
             if (File.Exists(path))
             {
@@ -196,9 +197,13 @@ namespace Dorc.Monitor.Security
                 throw new IOException($"Refusing to create or modify ProgramData root directory at reparse point '{path}'.");
             }
 
+            bool createdBootstrapRoot = false;
             if (!Directory.Exists(path))
             {
-                security.CreateDirectory(path);
+                // Bootstrap with privileged-only permissions first so Authenticated Users cannot
+                // claim 'terraform-plans' or 'artifacts' before both reserved children exist.
+                bootstrapPrivilegedSecurity.CreateDirectory(path);
+                createdBootstrapRoot = true;
             }
 
             bool needsDaclHardening;
@@ -217,7 +222,7 @@ namespace Dorc.Monitor.Security
                 }
 
                 var currentSecurity = ReparseFreeHandles.GetDirectorySecurity(inspectHandle, path);
-                needsDaclHardening = NeedsProgramDataRootDaclHardening(currentSecurity);
+                needsDaclHardening = createdBootstrapRoot || NeedsProgramDataRootDaclHardening(currentSecurity);
             }
 
             var pinDesiredAccess = ReparseFreeHandles.FileListDirectory
@@ -237,17 +242,14 @@ namespace Dorc.Monitor.Security
                         $"Refusing to use directory '{path}' because its NTFS owner '{pinnedOwner}' is not a privileged account.");
                 }
 
-                if (needsDaclHardening)
+                if (needsDaclHardening && !createdBootstrapRoot)
                 {
-                    ReparseFreeHandles.ApplyProtectedDacl(pinnedHandle, security, path);
+                    ReparseFreeHandles.ApplyProtectedDacl(pinnedHandle, bootstrapPrivilegedSecurity, path);
                 }
 
-                // Immediately ensure terraform-plans and artifacts exist under %ProgramData%\dorc
-                // as privileged-owned restricted directories while holding pinnedHandle, preventing
-                // any Authenticated User from squatting them via CreateDirectories. Note that
-                // artifacts itself admits only Monitor/SYSTEM/Administrators; each downloaded
-                // per-request GitHub build drop directory beneath it receives an explicit
-                // ReadAndExecute grant scoped solely to that request's execution identity.
+                // Provision terraform-plans and artifacts under %ProgramData%\dorc while the root
+                // still blocks Authenticated Users from creating subdirectories, preventing any
+                // local user from squatting either reserved directory name.
                 var terraformPlansPath = Path.Join(path, Terraform.TerraformPlanStore.DirectoryName);
                 EnsureWithOwnersAndPin(
                     terraformPlansPath,
@@ -265,6 +267,11 @@ namespace Dorc.Monitor.Security
                     out _,
                     out var artifactsPinHandle);
                 artifactsPinHandle.Dispose();
+
+                if (needsDaclHardening)
+                {
+                    ReparseFreeHandles.ApplyProtectedDacl(pinnedHandle, security, path);
+                }
 
                 return new DirectoryInfo(path);
             }
