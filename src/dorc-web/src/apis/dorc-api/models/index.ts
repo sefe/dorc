@@ -31,6 +31,7 @@ export * from './ComponentApiModelTemplateApiModel';
 export * from './ComponentAuditApiModel';
 export * from './ComponentType';
 export * from './ConfigValueApiModel';
+export * from './ConfigValueScriptVisibilityApiModel';
 export * from './ContainerApiModel';
 export * from './CopyEnvBuildDto';
 export * from './CopyEnvBuildResponseDto';

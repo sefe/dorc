@@ -17,5 +17,6 @@ public interface IConfigValuesPersistentSource
     IEnumerable<ConfigValueApiModel> GetAllConfigValues(bool decryptSecure);
     bool RemoveConfigValue(int configValueId);
     ConfigValueApiModel UpdateConfigValue(ConfigValueApiModel newValue);
+    ConfigValueApiModel UpdateConfigValueScriptVisibility(int configValueId, bool visibleToScripts);
     ConfigValueApiModel? Add(ConfigValueApiModel model);
 }

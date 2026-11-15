@@ -79,6 +79,35 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
+        /// Update script visibility classification for a secure config value
+        /// </summary>
+        /// <param name="id"></param>
+        /// <param name="model"></param>
+        /// <returns></returns>
+        [HttpPut("{id}/script-visibility")]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ConfigValueApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest)]
+        [SwaggerResponse(StatusCodes.Status403Forbidden)]
+        [SwaggerResponse(StatusCodes.Status404NotFound)]
+        public IActionResult PutScriptVisibility(int id, [FromBody] ConfigValueScriptVisibilityApiModel model)
+        {
+            if (!_rolePrivilegesChecker.IsAdmin(User))
+                return Forbid();
+            try
+            {
+                return Ok(_configValuesPersistentSource.UpdateConfigValueScriptVisibility(id, model.VisibleToScripts));
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        /// <summary>
         /// Delete config value
         /// </summary>
         /// <param name="id"></param>

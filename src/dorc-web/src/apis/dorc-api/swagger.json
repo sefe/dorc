@@ -5086,6 +5086,69 @@
         }
       }
     },
+    "/RefDataConfig/{id}/script-visibility": {
+      "put": {
+        "tags": [
+          "RefDataConfig"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigValueScriptVisibilityApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigValueScriptVisibilityApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConfigValueScriptVisibilityApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigValueApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigValueApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/RefDataContainers": {
       "get": {
         "tags": [
@@ -12994,6 +13057,18 @@
           "VisibleToScripts": {
             "type": "boolean",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ConfigValueScriptVisibilityApiModel": {
+        "required": [
+          "VisibleToScripts"
+        ],
+        "type": "object",
+        "properties": {
+          "VisibleToScripts": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
