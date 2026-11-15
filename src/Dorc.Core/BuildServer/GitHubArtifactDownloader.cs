@@ -100,31 +100,53 @@ namespace Dorc.Core.BuildServer
                 ? new AuthenticationHeaderValue("Bearer", _gitHubToken)
                 : null;
 
-            var baseDir = !string.IsNullOrEmpty(_downloadFolder)
+            var isDefaultArtifactsRoot = string.IsNullOrEmpty(_downloadFolder);
+            var baseDir = !isDefaultArtifactsRoot
                 ? _downloadFolder
                 : Path.Join(DorcProgramData.Root, "artifacts");
-            var tempDir = Path.Join(baseDir, Guid.NewGuid().ToString("N"));
-            CreateRestrictedArtifactDirectory(baseDir, tempDir);
+            var requestFolderName = Guid.NewGuid().ToString("N");
+            var tempDir = Path.Join(baseDir, requestFolderName);
+
+            PinnedLocalArtifactStage? pinnedStage = null;
+            if (OperatingSystem.IsWindows() && !ApiModel.SourceHost.IsRemoteOrUnc(baseDir))
+            {
+                pinnedStage = PinnedLocalArtifactStage.Create(baseDir, tempDir, isDefaultArtifactsRoot);
+            }
+            else
+            {
+                CreateRemoteOrUnixArtifactDirectory(baseDir, tempDir);
+            }
 
             try
             {
-                var zipPath = Path.Join(tempDir, "artifact.zip");
+                var zipPath = Path.Join(pinnedStage?.TempDirectory ?? tempDir, "artifact.zip");
+                var extractDir = pinnedStage?.ExtractDirectory ?? Path.Join(tempDir, "drop");
 
                 using (var response = Security.OriginBoundHttpSender.GetAsync(client, parsedUrl, authorization).GetAwaiter().GetResult())
                 {
                     response.EnsureSuccessStatusCode();
                     using var stream = response.Content.ReadAsStreamAsync().GetAwaiter().GetResult();
-                    using var fileStream = File.Create(zipPath);
+                    using var fileStream = pinnedStage != null
+                        ? pinnedStage.CreateNewVerifiedZipStream(zipPath)
+                        : new FileStream(zipPath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None);
                     CopyWithLimit(stream, fileStream, MaxArtifactBytes);
+                    fileStream.Flush(flushToDisk: true);
+
+                    _logger.LogInformation("Downloaded artifact zip ({Size} bytes) to: {Path}",
+                        fileStream.Length, zipPath);
+
+                    // Extract directly from the open, unshared zip handle while baseDir, tempDir,
+                    // and extractDir remain pinned without FileShare.Delete so no directory or zip
+                    // path can be replaced with a junction/symlink mid-flight.
+                    fileStream.Position = 0;
+                    if (pinnedStage == null)
+                    {
+                        Directory.CreateDirectory(extractDir);
+                    }
+
+                    using var archive = new ZipArchive(fileStream, ZipArchiveMode.Read, leaveOpen: true);
+                    archive.ExtractToDirectory(extractDir);
                 }
-
-                _logger.LogInformation("Downloaded artifact zip ({Size} bytes) to: {Path}",
-                    new FileInfo(zipPath).Length, zipPath);
-
-                // Extract into a "drop" subfolder so that deployment scripts using
-                // Join-Path $DropFolder "drop\..." resolve correctly.
-                var extractDir = Path.Join(tempDir, "drop");
-                ZipFile.ExtractToDirectory(zipPath, extractDir);
 
                 _logger.LogInformation("Extracted artifact to: {Path}", extractDir);
 
@@ -135,19 +157,19 @@ namespace Dorc.Core.BuildServer
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to download/extract GitHub artifact from: {Url}", artifactUrl);
+                pinnedStage?.Dispose();
+                pinnedStage = null;
                 Cleanup(tempDir);
                 throw;
             }
+            finally
+            {
+                pinnedStage?.Dispose();
+            }
         }
 
-        private static void CreateRestrictedArtifactDirectory(string baseDir, string tempDir)
+        private static void CreateRemoteOrUnixArtifactDirectory(string baseDir, string tempDir)
         {
-            if (!OperatingSystem.IsWindows())
-            {
-                Directory.CreateDirectory(tempDir);
-                return;
-            }
-
             if (Directory.Exists(baseDir) && (new DirectoryInfo(baseDir).Attributes & FileAttributes.ReparsePoint) != 0)
             {
                 throw new IOException($"Refusing to stage GitHub artifact under reparse point '{baseDir}'.");
@@ -162,40 +184,515 @@ namespace Dorc.Core.BuildServer
             // Monitor + Runner hosts; PendingRequestProcessor.RestrictExtractedArtifactDrop skips
             // UNC paths, so applying a local-host-only protected DACL here would lock out distinct
             // non-admin Runner service accounts.
-            if (ApiModel.SourceHost.IsRemoteOrUnc(baseDir))
+            Directory.CreateDirectory(tempDir);
+        }
+
+        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+        private sealed class PinnedLocalArtifactStage : IDisposable
+        {
+            private const uint GenericRead = 0x80000000u;
+            private const uint GenericWrite = 0x40000000u;
+            private const uint DeleteRight = 0x00010000u;
+            private const uint FileListDirectory = 0x00000001u;
+            private const uint FileReadAttributes = 0x00000080u;
+            private const uint ReadControl = 0x00020000u;
+            private const uint WriteDac = 0x00040000u;
+
+            private const uint FileShareNone = 0u;
+            private const uint FileShareRead = 0x00000001u;
+            private const uint FileShareWrite = 0x00000002u;
+
+            private const uint CreateNewDisposition = 1u;
+            private const uint OpenExistingDisposition = 3u;
+
+            private const uint FileAttributeNormal = 0x00000080u;
+            private const uint FileFlagBackupSemantics = 0x02000000u;
+            private const uint FileFlagOpenReparsePoint = 0x00200000u;
+
+            private const uint SeFileObject = 1u;
+            private const uint OwnerSecurityInformation = 0x00000001u;
+            private const uint DaclSecurityInformation = 0x00000004u;
+            private const int ErrorInsufficientBuffer = 122;
+
+            private const System.Security.AccessControl.FileSystemRights UnsafeParentAllowRights =
+                System.Security.AccessControl.FileSystemRights.CreateDirectories
+                | System.Security.AccessControl.FileSystemRights.CreateFiles
+                | System.Security.AccessControl.FileSystemRights.DeleteSubdirectoriesAndFiles
+                | System.Security.AccessControl.FileSystemRights.Delete
+                | System.Security.AccessControl.FileSystemRights.ChangePermissions
+                | System.Security.AccessControl.FileSystemRights.TakeOwnership
+                | System.Security.AccessControl.FileSystemRights.WriteAttributes
+                | System.Security.AccessControl.FileSystemRights.WriteExtendedAttributes;
+
+            private const int GenericWriteOrAllMask = unchecked((int)0x50000000);
+
+            [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+            private struct SecurityAttributes
             {
-                Directory.CreateDirectory(tempDir);
-                return;
+                public uint nLength;
+                public IntPtr lpSecurityDescriptor;
+                public int bInheritHandle;
             }
 
-            var security = BuildRestrictedArtifactDirectorySecurity(out var privilegedOwners);
-            if (!Directory.Exists(baseDir))
+            [System.Runtime.InteropServices.DllImport("kernel32.dll", EntryPoint = "CreateFileW", CharSet = System.Runtime.InteropServices.CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+            private static extern Microsoft.Win32.SafeHandles.SafeFileHandle CreateFileW(
+                string lpFileName,
+                uint dwDesiredAccess,
+                uint dwShareMode,
+                IntPtr lpSecurityAttributes,
+                uint dwCreationDisposition,
+                uint dwFlagsAndAttributes,
+                IntPtr hTemplateFile);
+
+            [System.Runtime.InteropServices.DllImport("kernel32.dll", EntryPoint = "CreateDirectoryW", CharSet = System.Runtime.InteropServices.CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+            [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+            private static extern bool CreateDirectoryW(
+                string lpPathName,
+                ref SecurityAttributes lpSecurityAttributes);
+
+            [System.Runtime.InteropServices.DllImport("kernel32.dll", EntryPoint = "GetFinalPathNameByHandleW", CharSet = System.Runtime.InteropServices.CharSet.Unicode, ExactSpelling = true, SetLastError = true)]
+            private static extern uint GetFinalPathNameByHandleW(
+                Microsoft.Win32.SafeHandles.SafeFileHandle hFile,
+                [System.Runtime.InteropServices.Out] char[] lpszFilePath,
+                uint cchFilePath,
+                uint dwFlags);
+
+            [System.Runtime.InteropServices.DllImport("advapi32.dll", EntryPoint = "GetSecurityInfo", ExactSpelling = true, SetLastError = false)]
+            private static extern uint GetSecurityInfo(
+                Microsoft.Win32.SafeHandles.SafeFileHandle handle,
+                uint objectType,
+                uint securityInfo,
+                out IntPtr ppsidOwner,
+                IntPtr ppsidGroup,
+                IntPtr ppDacl,
+                IntPtr ppSacl,
+                out IntPtr ppSecurityDescriptor);
+
+            [System.Runtime.InteropServices.DllImport("kernel32.dll", EntryPoint = "LocalFree", ExactSpelling = true, SetLastError = true)]
+            private static extern IntPtr LocalFree(IntPtr hMem);
+
+            [System.Runtime.InteropServices.DllImport("advapi32.dll", EntryPoint = "GetKernelObjectSecurity", ExactSpelling = true, SetLastError = true)]
+            [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+            private static extern bool GetKernelObjectSecurity(
+                Microsoft.Win32.SafeHandles.SafeFileHandle handle,
+                uint requestedInformation,
+                [System.Runtime.InteropServices.Out] byte[]? pSecurityDescriptor,
+                uint nLength,
+                out uint lpnLengthNeeded);
+
+            [System.Runtime.InteropServices.DllImport("advapi32.dll", EntryPoint = "SetKernelObjectSecurity", ExactSpelling = true, SetLastError = true)]
+            [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+            private static extern bool SetKernelObjectSecurity(
+                Microsoft.Win32.SafeHandles.SafeFileHandle handle,
+                uint securityInformation,
+                [System.Runtime.InteropServices.In] byte[] pSecurityDescriptor);
+
+            private readonly Microsoft.Win32.SafeHandles.SafeFileHandle _baseHandle;
+            private readonly Microsoft.Win32.SafeHandles.SafeFileHandle _tempHandle;
+            private readonly Microsoft.Win32.SafeHandles.SafeFileHandle _extractHandle;
+
+            public string TempDirectory { get; }
+            public string ExtractDirectory { get; }
+
+            private PinnedLocalArtifactStage(
+                Microsoft.Win32.SafeHandles.SafeFileHandle baseHandle,
+                Microsoft.Win32.SafeHandles.SafeFileHandle tempHandle,
+                Microsoft.Win32.SafeHandles.SafeFileHandle extractHandle,
+                string tempDirectory,
+                string extractDirectory)
             {
-                security.CreateDirectory(baseDir);
+                _baseHandle = baseHandle;
+                _tempHandle = tempHandle;
+                _extractHandle = extractHandle;
+                TempDirectory = tempDirectory;
+                ExtractDirectory = extractDirectory;
             }
 
-            var baseDirInfo = new DirectoryInfo(baseDir);
-            if ((baseDirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+            public static PinnedLocalArtifactStage Create(string baseDir, string tempDir, bool isDefaultArtifactsRoot)
             {
-                throw new IOException($"Refusing to stage GitHub artifact under reparse point '{baseDir}'.");
+                if (File.Exists(baseDir))
+                {
+                    throw new IOException($"Refusing to stage GitHub artifact under file '{baseDir}'.");
+                }
+
+                if (Directory.Exists(baseDir) && (new DirectoryInfo(baseDir).Attributes & FileAttributes.ReparsePoint) != 0)
+                {
+                    throw new IOException($"Refusing to stage GitHub artifact under reparse point '{baseDir}'.");
+                }
+
+                if (File.Exists(tempDir) || Directory.Exists(tempDir))
+                {
+                    throw new IOException($"Refusing to stage GitHub artifact into pre-existing path '{tempDir}'.");
+                }
+
+                var security = BuildRestrictedArtifactDirectorySecurity(out var privilegedOwners);
+                if (!Directory.Exists(baseDir))
+                {
+                    security.CreateDirectory(baseDir);
+                }
+
+                var baseHandle = OpenPinnedDirectory(baseDir);
+                Microsoft.Win32.SafeHandles.SafeFileHandle? tempHandle = null;
+                Microsoft.Win32.SafeHandles.SafeFileHandle? extractHandle = null;
+                try
+                {
+                    VerifyPrivilegedOwner(baseHandle, baseDir, privilegedOwners);
+                    VerifyOrHardenParentDacl(baseHandle, baseDir, privilegedOwners, security, isDefaultArtifactsRoot);
+
+                    var canonicalBase = GetCanonicalPath(baseHandle, baseDir);
+                    var requestLeaf = Path.GetFileName(Path.TrimEndingDirectorySeparator(tempDir));
+                    if (string.IsNullOrEmpty(requestLeaf))
+                    {
+                        throw new IOException($"Invalid artifact request staging directory '{tempDir}'.");
+                    }
+
+                    var canonicalTemp = Path.Join(canonicalBase, requestLeaf);
+                    tempHandle = CreateAndPinChildDirectory(canonicalTemp, security, privilegedOwners);
+
+                    var canonicalExtract = Path.Join(canonicalTemp, "drop");
+                    extractHandle = CreateAndPinChildDirectory(canonicalExtract, security, privilegedOwners);
+
+                    return new PinnedLocalArtifactStage(
+                        baseHandle,
+                        tempHandle,
+                        extractHandle,
+                        canonicalTemp,
+                        canonicalExtract);
+                }
+                catch
+                {
+                    extractHandle?.Dispose();
+                    tempHandle?.Dispose();
+                    baseHandle.Dispose();
+                    if (Directory.Exists(tempDir))
+                    {
+                        try { Directory.Delete(tempDir, recursive: true); } catch { /* best-effort rollback */ }
+                    }
+                    throw;
+                }
             }
 
-            var ownerSid = baseDirInfo
-                .GetAccessControl(System.Security.AccessControl.AccessControlSections.Owner)
-                .GetOwner(typeof(System.Security.Principal.SecurityIdentifier))
-                as System.Security.Principal.SecurityIdentifier;
-            if (ownerSid == null || !privilegedOwners.Contains(ownerSid))
+            public FileStream CreateNewVerifiedZipStream(string zipPath)
             {
-                throw new IOException(
-                    $"Refusing to stage GitHub artifact under '{baseDir}' because its NTFS owner '{ownerSid?.Value ?? "<unknown>"}' is not a privileged account.");
+                var handle = CreateFileW(
+                    zipPath,
+                    GenericRead | GenericWrite | FileReadAttributes | DeleteRight,
+                    FileShareNone,
+                    IntPtr.Zero,
+                    CreateNewDisposition,
+                    FileAttributeNormal | FileFlagOpenReparsePoint,
+                    IntPtr.Zero);
+                if (handle.IsInvalid)
+                {
+                    var error = System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
+                    handle.Dispose();
+                    throw new IOException(
+                        $"Cannot create GitHub artifact zip '{zipPath}' (Win32 error {error}).",
+                        new System.ComponentModel.Win32Exception(error));
+                }
+
+                try
+                {
+                    var attributes = File.GetAttributes(handle);
+                    if ((attributes & (FileAttributes.ReparsePoint | FileAttributes.Directory)) != 0)
+                    {
+                        throw new IOException($"Refusing to write GitHub artifact zip through unexpected file attributes on '{zipPath}'.");
+                    }
+
+                    var actualCanonical = GetCanonicalPath(handle, zipPath);
+                    var expectedCanonical = Path.Join(TempDirectory, "artifact.zip");
+                    if (!string.Equals(actualCanonical, expectedCanonical, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new IOException(
+                            $"GitHub artifact zip '{zipPath}' resolved to '{actualCanonical}' instead of '{expectedCanonical}'.");
+                    }
+
+                    return new FileStream(handle, FileAccess.ReadWrite, bufferSize: 81920, isAsync: false);
+                }
+                catch
+                {
+                    handle.Dispose();
+                    throw;
+                }
             }
 
-            if (File.Exists(tempDir) || Directory.Exists(tempDir))
+            public void Dispose()
             {
-                throw new IOException($"Refusing to stage GitHub artifact into pre-existing path '{tempDir}'.");
+                _extractHandle.Dispose();
+                _tempHandle.Dispose();
+                _baseHandle.Dispose();
             }
 
-            security.CreateDirectory(tempDir);
+            private static Microsoft.Win32.SafeHandles.SafeFileHandle OpenPinnedDirectory(string path)
+            {
+                // Omit FILE_SHARE_DELETE and request FILE_LIST_DIRECTORY so NTFS enforces the
+                // share mask on the directory FCB, blocking rename/replacement of the directory
+                // and its ancestors while the handle remains open.
+                var handle = CreateFileW(
+                    path,
+                    FileListDirectory | FileReadAttributes | ReadControl | WriteDac,
+                    FileShareRead | FileShareWrite,
+                    IntPtr.Zero,
+                    OpenExistingDisposition,
+                    FileFlagBackupSemantics | FileFlagOpenReparsePoint,
+                    IntPtr.Zero);
+                if (handle.IsInvalid)
+                {
+                    var error = System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
+                    handle.Dispose();
+                    throw new IOException(
+                        $"Failed to open artifact directory '{path}' (Win32 error {error}).",
+                        new System.ComponentModel.Win32Exception(error));
+                }
+
+                try
+                {
+                    var attributes = File.GetAttributes(handle);
+                    if ((attributes & FileAttributes.ReparsePoint) != 0)
+                    {
+                        throw new IOException($"Refusing to stage GitHub artifact under reparse point '{path}'.");
+                    }
+
+                    if ((attributes & FileAttributes.Directory) == 0)
+                    {
+                        throw new IOException($"Expected artifact staging directory at '{path}', but found a file.");
+                    }
+
+                    return handle;
+                }
+                catch
+                {
+                    handle.Dispose();
+                    throw;
+                }
+            }
+
+            private static Microsoft.Win32.SafeHandles.SafeFileHandle CreateAndPinChildDirectory(
+                string expectedCanonicalChild,
+                System.Security.AccessControl.DirectorySecurity security,
+                HashSet<System.Security.Principal.SecurityIdentifier> privilegedOwners)
+            {
+                var descriptorBytes = security.GetSecurityDescriptorBinaryForm();
+                var pinnedDescriptor = System.Runtime.InteropServices.GCHandle.Alloc(
+                    descriptorBytes,
+                    System.Runtime.InteropServices.GCHandleType.Pinned);
+                try
+                {
+                    var attributes = new SecurityAttributes
+                    {
+                        nLength = (uint)System.Runtime.InteropServices.Marshal.SizeOf<SecurityAttributes>(),
+                        lpSecurityDescriptor = pinnedDescriptor.AddrOfPinnedObject(),
+                        bInheritHandle = 0
+                    };
+
+                    if (!CreateDirectoryW(expectedCanonicalChild, ref attributes))
+                    {
+                        var error = System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
+                        throw new IOException(
+                            $"Cannot create restricted artifact staging directory '{expectedCanonicalChild}' (Win32 error {error}).",
+                            new System.ComponentModel.Win32Exception(error));
+                    }
+                }
+                finally
+                {
+                    pinnedDescriptor.Free();
+                }
+
+                var handle = OpenPinnedDirectory(expectedCanonicalChild);
+                try
+                {
+                    VerifyPrivilegedOwner(handle, expectedCanonicalChild, privilegedOwners);
+                    var actualCanonical = GetCanonicalPath(handle, expectedCanonicalChild);
+                    if (!string.Equals(actualCanonical, expectedCanonicalChild, StringComparison.OrdinalIgnoreCase))
+                    {
+                        throw new IOException(
+                            $"Artifact staging directory '{expectedCanonicalChild}' resolved to '{actualCanonical}'.");
+                    }
+
+                    ApplyProtectedDacl(handle, security, expectedCanonicalChild);
+                    return handle;
+                }
+                catch
+                {
+                    handle.Dispose();
+                    throw;
+                }
+            }
+
+            private static void VerifyPrivilegedOwner(
+                Microsoft.Win32.SafeHandles.SafeFileHandle handle,
+                string path,
+                HashSet<System.Security.Principal.SecurityIdentifier> privilegedOwners)
+            {
+                var result = GetSecurityInfo(
+                    handle,
+                    SeFileObject,
+                    OwnerSecurityInformation,
+                    out var ownerSidPtr,
+                    IntPtr.Zero,
+                    IntPtr.Zero,
+                    IntPtr.Zero,
+                    out var securityDescriptorPtr);
+                if (result != 0)
+                {
+                    throw new IOException(
+                        $"Failed to inspect NTFS owner of '{path}' (Win32 error {result}).",
+                        new System.ComponentModel.Win32Exception((int)result));
+                }
+
+                try
+                {
+                    var ownerSid = ownerSidPtr != IntPtr.Zero
+                        ? new System.Security.Principal.SecurityIdentifier(ownerSidPtr)
+                        : null;
+                    if (ownerSid == null || !privilegedOwners.Contains(ownerSid))
+                    {
+                        throw new IOException(
+                            $"Refusing to stage GitHub artifact under '{path}' because its NTFS owner '{ownerSid?.Value ?? "<unknown>"}' is not a privileged account.");
+                    }
+                }
+                finally
+                {
+                    if (securityDescriptorPtr != IntPtr.Zero)
+                    {
+                        LocalFree(securityDescriptorPtr);
+                    }
+                }
+            }
+
+            private static void VerifyOrHardenParentDacl(
+                Microsoft.Win32.SafeHandles.SafeFileHandle baseHandle,
+                string baseDir,
+                HashSet<System.Security.Principal.SecurityIdentifier> privilegedOwners,
+                System.Security.AccessControl.DirectorySecurity restrictedSecurity,
+                bool isDefaultArtifactsRoot)
+            {
+                var currentSecurity = GetDirectorySecurity(baseHandle, baseDir);
+                var ownerRightsSid = new System.Security.Principal.SecurityIdentifier("S-1-3-4");
+                var rules = currentSecurity
+                    .GetAccessRules(includeExplicit: true, includeInherited: true, typeof(System.Security.Principal.SecurityIdentifier))
+                    .Cast<System.Security.AccessControl.FileSystemAccessRule>();
+
+                foreach (var rule in rules)
+                {
+                    if (rule.AccessControlType != System.Security.AccessControl.AccessControlType.Allow)
+                    {
+                        continue;
+                    }
+
+                    var sid = (System.Security.Principal.SecurityIdentifier)rule.IdentityReference;
+                    if (privilegedOwners.Contains(sid) || sid == ownerRightsSid)
+                    {
+                        continue;
+                    }
+
+                    var hasUnsafeRights = (rule.FileSystemRights & UnsafeParentAllowRights) != 0
+                        || ((int)rule.FileSystemRights & GenericWriteOrAllMask) != 0;
+                    if (!hasUnsafeRights)
+                    {
+                        continue;
+                    }
+
+                    if (isDefaultArtifactsRoot)
+                    {
+                        ApplyProtectedDacl(baseHandle, restrictedSecurity, baseDir);
+                        return;
+                    }
+
+                    throw new IOException(
+                        $"Refusing to stage GitHub artifact under '{baseDir}' because its DACL grants write, child-creation, or child-deletion rights to non-privileged principal '{sid.Value}'.");
+                }
+
+                if (isDefaultArtifactsRoot && !currentSecurity.AreAccessRulesProtected)
+                {
+                    ApplyProtectedDacl(baseHandle, restrictedSecurity, baseDir);
+                }
+            }
+
+            private static System.Security.AccessControl.DirectorySecurity GetDirectorySecurity(
+                Microsoft.Win32.SafeHandles.SafeFileHandle handle,
+                string path)
+            {
+                if (!GetKernelObjectSecurity(handle, DaclSecurityInformation, null, 0u, out var lengthNeeded))
+                {
+                    var probeError = System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
+                    if (probeError != ErrorInsufficientBuffer || lengthNeeded == 0)
+                    {
+                        throw new IOException(
+                            $"Failed to query DACL size for '{path}' (Win32 error {probeError}).",
+                            new System.ComponentModel.Win32Exception(probeError));
+                    }
+                }
+
+                var rawDescriptor = new byte[lengthNeeded];
+                if (!GetKernelObjectSecurity(handle, DaclSecurityInformation, rawDescriptor, lengthNeeded, out _))
+                {
+                    var error = System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
+                    throw new IOException(
+                        $"Failed to read DACL for '{path}' (Win32 error {error}).",
+                        new System.ComponentModel.Win32Exception(error));
+                }
+
+                var security = new System.Security.AccessControl.DirectorySecurity();
+                security.SetSecurityDescriptorBinaryForm(
+                    rawDescriptor,
+                    System.Security.AccessControl.AccessControlSections.Access);
+                return security;
+            }
+
+            private static void ApplyProtectedDacl(
+                Microsoft.Win32.SafeHandles.SafeFileHandle handle,
+                System.Security.AccessControl.DirectorySecurity security,
+                string path)
+            {
+                var descriptorBytes = security.GetSecurityDescriptorBinaryForm();
+                if (descriptorBytes.Length < 4)
+                {
+                    throw new IOException($"Security descriptor for '{path}' was truncated.");
+                }
+
+                descriptorBytes[3] |= 0x10; // SE_DACL_PROTECTED
+                if (!SetKernelObjectSecurity(handle, DaclSecurityInformation, descriptorBytes))
+                {
+                    var error = System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
+                    throw new IOException(
+                        $"Failed to apply restricted DACL to '{path}' (Win32 error {error}).",
+                        new System.ComponentModel.Win32Exception(error));
+                }
+            }
+
+            private static string GetCanonicalPath(
+                Microsoft.Win32.SafeHandles.SafeFileHandle handle,
+                string originalPath)
+            {
+                var buffer = new char[512];
+                var length = GetFinalPathNameByHandleW(handle, buffer, (uint)buffer.Length, 0u);
+                if (length >= buffer.Length)
+                {
+                    buffer = new char[length + 1];
+                    length = GetFinalPathNameByHandleW(handle, buffer, (uint)buffer.Length, 0u);
+                }
+
+                if (length == 0 || length >= buffer.Length)
+                {
+                    var error = System.Runtime.InteropServices.Marshal.GetLastPInvokeError();
+                    throw new IOException(
+                        $"Failed to resolve canonical path for '{originalPath}' (Win32 error {error}).",
+                        new System.ComponentModel.Win32Exception(error));
+                }
+
+                var resolved = new string(buffer, 0, (int)length);
+                if (resolved.StartsWith(@"\\?\UNC\", StringComparison.OrdinalIgnoreCase))
+                {
+                    resolved = @"\\" + resolved[8..];
+                }
+                else if (resolved.StartsWith(@"\\?\", StringComparison.Ordinal))
+                {
+                    resolved = resolved[4..];
+                }
+
+                return Path.TrimEndingDirectorySeparator(resolved);
+            }
         }
 
         [System.Runtime.Versioning.SupportedOSPlatform("windows")]

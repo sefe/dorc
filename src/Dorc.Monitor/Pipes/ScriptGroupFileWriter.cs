@@ -242,15 +242,24 @@ namespace Dorc.Monitor.Pipes
                 filename);
 
         /// <summary>
-        /// Removes bundles that outlived the deployment that wrote them. Expiry on the
-        /// deployment path covers the normal and failed cases; this covers the case where the
-        /// Monitor process itself did not survive to run it, and clears bundles accumulated
-        /// before expiry existed at all.
+        /// Removes bundles that outlived the deployment that wrote them, and confines any
+        /// younger retained bundles (such as legacy bundles written within the retention window
+        /// before the directory was restricted) through verified single-link child handles.
+        /// Expiry on the deployment path covers the normal and failed cases; this covers the
+        /// case where the Monitor process itself did not survive to run it, and clears or
+        /// confines bundles accumulated before expiry and directory restriction existed.
         /// </summary>
-        private void RemoveOrphanedBundles(string path)
+        internal void RemoveOrphanedBundles(string path)
         {
             try
             {
+                using var dirHandle = ReparseFreeHandles.OpenVerifiedDirectoryHandle(
+                    path,
+                    ReparseFreeHandles.FileReadAttributes);
+                var canonicalRoot = ReparseFreeHandles.GetCanonicalPath(dirHandle, path);
+                var privilegedIdentities = RestrictedDirectory.PrivilegedIdentities().Distinct().ToArray();
+                var privilegedSet = privilegedIdentities.ToHashSet();
+
                 var cutoff = DateTime.UtcNow - OrphanedBundleRetention;
                 var removed = 0;
 
@@ -260,6 +269,7 @@ namespace Dorc.Monitor.Pipes
                     {
                         if (File.GetLastWriteTimeUtc(bundle) >= cutoff)
                         {
+                            ConfineRetainedBundle(bundle, canonicalRoot, privilegedIdentities, privilegedSet);
                             continue;
                         }
 
@@ -284,6 +294,77 @@ namespace Dorc.Monitor.Pipes
             catch (UnauthorizedAccessException ex) { LogSweepAbandoned(ex, path); }
             catch (SecurityException ex) { LogSweepAbandoned(ex, path); }
             catch (IOException ex) { LogSweepAbandoned(ex, path); }
+        }
+
+        private static void ConfineRetainedBundle(
+            string bundlePath,
+            string canonicalRoot,
+            IReadOnlyList<SecurityIdentifier> privilegedIdentities,
+            HashSet<SecurityIdentifier> privilegedSet)
+        {
+            var leafName = Path.GetFileName(bundlePath);
+            if (string.IsNullOrEmpty(leafName))
+            {
+                return;
+            }
+
+            var expectedCanonicalFilePath = Path.Join(canonicalRoot, leafName);
+            using var fileHandle = ReparseFreeHandles.OpenVerifiedRegularFileForDacl(
+                bundlePath,
+                expectedCanonicalFilePath);
+            var currentSecurity = ReparseFreeHandles.GetFileSecurity(fileHandle, bundlePath);
+            var existingRules = currentSecurity
+                .GetAccessRules(includeExplicit: true, includeInherited: true, typeof(SecurityIdentifier))
+                .Cast<FileSystemAccessRule>()
+                .ToList();
+
+            var needsConfinement = !currentSecurity.AreAccessRulesProtected
+                || existingRules.Any(rule =>
+                    rule.IsInherited
+                    || (rule.AccessControlType == AccessControlType.Allow
+                        && !privilegedSet.Contains((SecurityIdentifier)rule.IdentityReference)
+                        && (DeploymentPrincipal.IsTooBroadToHoldASecret((SecurityIdentifier)rule.IdentityReference)
+                            || (rule.FileSystemRights & ~(FileSystemRights.Read | FileSystemRights.Synchronize)) != 0)));
+            if (!needsConfinement)
+            {
+                return;
+            }
+
+            var hardenedSecurity = new FileSecurity();
+            hardenedSecurity.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            foreach (var privileged in privilegedIdentities)
+            {
+                hardenedSecurity.AddAccessRule(new FileSystemAccessRule(
+                    privileged,
+                    FileSystemRights.FullControl,
+                    AccessControlType.Allow));
+            }
+
+            // Preserve any explicit (non-inherited) per-deployment Runner Read grant on an
+            // in-flight bundle while stripping all inherited or broad principals.
+            foreach (var rule in existingRules)
+            {
+                if (rule.IsInherited || rule.AccessControlType != AccessControlType.Allow)
+                {
+                    continue;
+                }
+
+                var sid = (SecurityIdentifier)rule.IdentityReference;
+                if (privilegedSet.Contains(sid) || DeploymentPrincipal.IsTooBroadToHoldASecret(sid))
+                {
+                    continue;
+                }
+
+                if ((rule.FileSystemRights & ~(FileSystemRights.Read | FileSystemRights.Synchronize)) == 0)
+                {
+                    hardenedSecurity.AddAccessRule(new FileSystemAccessRule(
+                        sid,
+                        FileSystemRights.Read,
+                        AccessControlType.Allow));
+                }
+            }
+
+            ReparseFreeHandles.ApplyProtectedDacl(fileHandle, hardenedSecurity, bundlePath);
         }
 
         private void LogOrphanNotRemoved(Exception ex, string bundle) =>

@@ -340,6 +340,100 @@ namespace Dorc.Core.Tests
             }
         }
 
+        [TestMethod]
+        public void DownloadAndExtract_RefusesConfiguredLocalRootGrantingNonPrivilegedChildDeletionOrCreation()
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            var downloadRoot = Path.Join(Path.GetTempPath(),
+                "dorc-unsafe-download-test-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(downloadRoot);
+
+            try
+            {
+                var acl = new DirectoryInfo(downloadRoot).GetAccessControl();
+                acl.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
+                    new System.Security.Principal.SecurityIdentifier(
+                        System.Security.Principal.WellKnownSidType.BuiltinUsersSid,
+                        null),
+                    System.Security.AccessControl.FileSystemRights.CreateDirectories
+                    | System.Security.AccessControl.FileSystemRights.DeleteSubdirectoriesAndFiles,
+                    System.Security.AccessControl.InheritanceFlags.None,
+                    System.Security.AccessControl.PropagationFlags.None,
+                    System.Security.AccessControl.AccessControlType.Allow));
+                new DirectoryInfo(downloadRoot).SetAccessControl(acl);
+
+                var appSettings = Substitute.For<IConfigurationSection>();
+                appSettings["GitHubArtifactDownloadFolder"].Returns(downloadRoot);
+                appSettings["GitHubToken"].Returns("test-token");
+                _configuration.GetSection("AppSettings").Returns(appSettings);
+
+                var zipBytes = BuildZipArchive(("Server/hello.txt", "payload"));
+                _httpClientFactory.CreateClient("GitHubActions").Returns(
+                    TrackClient(new HttpClient(new StubHttpHandler(HttpStatusCode.OK, zipBytes))));
+
+                var sut = CreateSut();
+
+                var ex = Assert.Throws<IOException>(() =>
+                    sut.DownloadAndExtract("https://api.github.com/repos/o/r/actions/artifacts/1/zip"));
+                StringAssert.Contains(ex.Message, "DACL grants write, child-creation, or child-deletion rights");
+            }
+            finally
+            {
+                if (Directory.Exists(downloadRoot))
+                    Directory.Delete(downloadRoot, recursive: true);
+            }
+        }
+
+        [TestMethod]
+        public void DownloadAndExtract_PinsRequestDirectoryAgainstMidFlightRenameOrReplacement()
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            var downloadRoot = Path.Join(Path.GetTempPath(),
+                "dorc-pinned-download-test-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(downloadRoot);
+
+            try
+            {
+                var appSettings = Substitute.For<IConfigurationSection>();
+                appSettings["GitHubArtifactDownloadFolder"].Returns(downloadRoot);
+                appSettings["GitHubToken"].Returns("test-token");
+                _configuration.GetSection("AppSettings").Returns(appSettings);
+
+                var zipBytes = BuildZipArchive(("Server/hello.txt", "payload"));
+                var midFlightRenameRejected = false;
+                var handler = new CallbackHttpHandler(() =>
+                {
+                    var createdDirs = Directory.GetDirectories(downloadRoot);
+                    Assert.AreEqual(1, createdDirs.Length, "Request directory must exist and be pinned before HTTP response body is read.");
+                    var renamedTarget = createdDirs[0] + "-swapped";
+                    Assert.Throws<IOException>(() => Directory.Move(createdDirs[0], renamedTarget));
+                    midFlightRenameRejected = true;
+                    return new HttpResponseMessage(HttpStatusCode.OK) { Content = new ByteArrayContent(zipBytes) };
+                });
+
+                _httpClientFactory.CreateClient("GitHubActions").Returns(TrackClient(new HttpClient(handler)));
+
+                var sut = CreateSut();
+                var returnedPath = sut.DownloadAndExtract("https://api.github.com/repos/o/r/actions/artifacts/1/zip");
+
+                Assert.IsTrue(midFlightRenameRejected);
+                Assert.IsTrue(File.Exists(Path.Join(returnedPath, "drop", "Server", "hello.txt")));
+            }
+            finally
+            {
+                if (Directory.Exists(downloadRoot))
+                    Directory.Delete(downloadRoot, recursive: true);
+            }
+        }
+
         // -------- Cleanup path-traversal guard --------
 
         [TestMethod]
@@ -500,6 +594,21 @@ namespace Dorc.Core.Tests
                 }
                 base.Dispose(disposing);
             }
+        }
+
+        private sealed class CallbackHttpHandler : HttpMessageHandler
+        {
+            private readonly Func<HttpResponseMessage> _factory;
+
+            public CallbackHttpHandler(Func<HttpResponseMessage> factory)
+            {
+                _factory = factory;
+            }
+
+            protected override Task<HttpResponseMessage> SendAsync(
+                HttpRequestMessage request,
+                CancellationToken cancellationToken) =>
+                Task.FromResult(_factory());
         }
     }
 }

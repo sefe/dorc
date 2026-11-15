@@ -373,6 +373,12 @@ namespace Dorc.Monitor.Tests
             Assert.IsEmpty(RulesFor(preCreatedArtifactsRoot, authenticatedUsers));
             Assert.IsEmpty(RulesFor(preCreatedArtifactsRoot, Everyone));
 
+            var preCreatedEvidenceRoot = Path.Join(programDataDorc, RestrictedDirectory.PowerShellEvidenceDirectoryName);
+            Assert.IsTrue(Directory.Exists(preCreatedEvidenceRoot));
+            Assert.IsTrue(IsProtected(preCreatedEvidenceRoot));
+            Assert.IsEmpty(RulesFor(preCreatedEvidenceRoot, authenticatedUsers));
+            Assert.IsEmpty(RulesFor(preCreatedEvidenceRoot, Everyone));
+
             // CreateNew refuses to create a child directory when the parent's NTFS FileIdentity does not match.
             var bogusParentIdentity = new FileIdentity(0xDEADBEEFUL, 0x1234UL, 0UL);
             var rejectedChild = Path.Join(programDataDorc, "should-not-exist");
@@ -727,6 +733,85 @@ namespace Dorc.Monitor.Tests
                 DeploymentRequestStatus.Errored,
                 Arg.Any<DateTimeOffset>(),
                 Arg.Any<string>());
+        }
+
+        [TestMethod]
+        public void ScriptGroupFileWriterConfinesRetainedLegacyBundlesWhilePreservingRunnerReadAndRefusingHardLinks()
+        {
+            var bundleDir = Path.Join(_scratch, "legacy-script-group-bundles");
+            Directory.CreateDirectory(bundleDir);
+
+            // Simulate a legacy unhardened directory where Everyone had inherited read/write.
+            var legacyDirAcl = new DirectoryInfo(bundleDir).GetAccessControl();
+            legacyDirAcl.AddAccessRule(new FileSystemAccessRule(
+                Everyone,
+                FileSystemRights.ReadAndExecute,
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                PropagationFlags.None,
+                System.Security.AccessControl.AccessControlType.Allow));
+            new DirectoryInfo(bundleDir).SetAccessControl(legacyDirAcl);
+
+            // 1. Recent (<1 day) legacy bundle inheriting Everyone read.
+            var legacyBundle = Path.Join(bundleDir, "DOrcMonitor-legacy-101.json");
+            File.WriteAllText(legacyBundle, "{\"secret\":\"legacy\"}");
+
+            // 2. Harden the parent directory as Start() does via RestrictedDirectory.Ensure.
+            // Because SetKernelObjectSecurity does not walk children, legacyBundle still has
+            // its old ACL until RemoveOrphanedBundles runs.
+            RestrictedDirectory.Ensure(bundleDir);
+
+            // 3. Concurrent in-flight bundle with an explicit single-account Read ACE (LOCAL SERVICE).
+            var localServiceSid = new SecurityIdentifier(WellKnownSidType.LocalServiceSid, null);
+            var inFlightBundle = Path.Join(bundleDir, "DOrcMonitor-inflight-102.json");
+            File.WriteAllText(inFlightBundle, "{\"secret\":\"inflight\"}");
+            var inFlightAcl = new FileInfo(inFlightBundle).GetAccessControl();
+            inFlightAcl.AddAccessRule(new FileSystemAccessRule(
+                localServiceSid,
+                FileSystemRights.Read,
+                System.Security.AccessControl.AccessControlType.Allow));
+            new FileInfo(inFlightBundle).SetAccessControl(inFlightAcl);
+
+            // 4. Planted hard link pointing to an external file readable by Everyone.
+            var externalTarget = Path.Join(_scratch, "external-bundle-target.json");
+            File.WriteAllText(externalTarget, "{\"external\":true}");
+            var extAcl = new FileInfo(externalTarget).GetAccessControl();
+            extAcl.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            extAcl.AddAccessRule(new FileSystemAccessRule(CurrentUser, FileSystemRights.FullControl, System.Security.AccessControl.AccessControlType.Allow));
+            extAcl.AddAccessRule(new FileSystemAccessRule(Everyone, FileSystemRights.Read, System.Security.AccessControl.AccessControlType.Allow));
+            new FileInfo(externalTarget).SetAccessControl(extAcl);
+            var hardLinkedBundle = Path.Join(bundleDir, "DOrcMonitor-hardlink-103.json");
+            TerraformPlanLifetimeTests.CreateHardLink(hardLinkedBundle, externalTarget);
+
+            var writer = new ScriptGroupFileWriter(Substitute.For<ILogger<ScriptGroupFileWriter>>());
+            writer.RemoveOrphanedBundles(bundleDir);
+
+            // Legacy bundle (<1 day) is retained on disk but confined with a protected DACL stripping Everyone.
+            Assert.IsTrue(File.Exists(legacyBundle));
+            var confinedLegacyAcl = new FileInfo(legacyBundle).GetAccessControl();
+            Assert.IsTrue(confinedLegacyAcl.AreAccessRulesProtected);
+            var legacyRules = confinedLegacyAcl
+                .GetAccessRules(true, true, typeof(SecurityIdentifier))
+                .Cast<FileSystemAccessRule>()
+                .ToList();
+            Assert.IsEmpty(legacyRules.Where(r => Everyone.Equals(r.IdentityReference)));
+
+            // In-flight bundle retains LOCAL SERVICE Read while protected and closed to Everyone.
+            var confinedInFlightAcl = new FileInfo(inFlightBundle).GetAccessControl();
+            Assert.IsTrue(confinedInFlightAcl.AreAccessRulesProtected);
+            var inFlightRules = confinedInFlightAcl
+                .GetAccessRules(true, true, typeof(SecurityIdentifier))
+                .Cast<FileSystemAccessRule>()
+                .ToList();
+            Assert.IsEmpty(inFlightRules.Where(r => Everyone.Equals(r.IdentityReference)));
+            Assert.HasCount(1, inFlightRules.Where(r => localServiceSid.Equals(r.IdentityReference)));
+
+            // Hard-linked child was refused by single-link verification, leaving the external file's ACL untouched.
+            var externalRulesAfter = new FileInfo(externalTarget)
+                .GetAccessControl()
+                .GetAccessRules(true, true, typeof(SecurityIdentifier))
+                .Cast<FileSystemAccessRule>()
+                .ToList();
+            Assert.IsNotEmpty(externalRulesAfter.Where(r => Everyone.Equals(r.IdentityReference)));
         }
     }
 

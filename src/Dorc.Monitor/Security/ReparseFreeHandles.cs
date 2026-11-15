@@ -695,6 +695,40 @@ namespace Dorc.Monitor.Security
             return security;
         }
 
+        public static FileSecurity GetFileSecurity(SafeFileHandle handle, string path)
+        {
+            if (!GetKernelObjectSecurity(
+                    handle,
+                    DaclSecurityInformation,
+                    null,
+                    0u,
+                    out var lengthNeeded))
+            {
+                var probeError = Marshal.GetLastPInvokeError();
+                if (probeError != ErrorInsufficientBuffer || lengthNeeded == 0)
+                {
+                    throw CreateWin32IoException($"Failed to query DACL size for '{path}'", probeError);
+                }
+            }
+
+            var rawDescriptor = new byte[lengthNeeded];
+            if (!GetKernelObjectSecurity(
+                    handle,
+                    DaclSecurityInformation,
+                    rawDescriptor,
+                    lengthNeeded,
+                    out _))
+            {
+                throw CreateWin32IoException(
+                    $"Failed to read DACL for '{path}'",
+                    Marshal.GetLastPInvokeError());
+            }
+
+            var security = new FileSecurity();
+            security.SetSecurityDescriptorBinaryForm(rawDescriptor, AccessControlSections.Access);
+            return security;
+        }
+
         public static SecurityIdentifier GetOwnerSid(SafeFileHandle handle, string path)
         {
             var result = GetSecurityInfo(

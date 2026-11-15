@@ -22,6 +22,7 @@ namespace Dorc.Monitor.Security
     internal static class RestrictedDirectory
     {
         internal const string ArtifactsDirectoryName = "artifacts";
+        internal const string PowerShellEvidenceDirectoryName = "PowerShellEvidence";
 
         internal const FileSystemRights ProgramDataRootAuthenticatedUsersRights =
             FileSystemRights.Traverse
@@ -247,9 +248,9 @@ namespace Dorc.Monitor.Security
                     ReparseFreeHandles.ApplyProtectedDacl(pinnedHandle, bootstrapPrivilegedSecurity, path);
                 }
 
-                // Provision terraform-plans and artifacts under %ProgramData%\dorc while the root
-                // still blocks Authenticated Users from creating subdirectories, preventing any
-                // local user from squatting either reserved directory name.
+                // Provision terraform-plans, artifacts, and PowerShellEvidence under %ProgramData%\dorc
+                // while the root still blocks Authenticated Users from creating subdirectories, preventing
+                // any local user from squatting any reserved directory name.
                 var terraformPlansPath = Path.Join(path, Terraform.TerraformPlanStore.DirectoryName);
                 EnsureWithOwnersAndPin(
                     terraformPlansPath,
@@ -267,6 +268,15 @@ namespace Dorc.Monitor.Security
                     out _,
                     out var artifactsPinHandle);
                 artifactsPinHandle.Dispose();
+
+                var powerShellEvidencePath = Path.Join(path, PowerShellEvidenceDirectoryName);
+                EnsureWithOwnersAndPin(
+                    powerShellEvidencePath,
+                    directoryIdentity,
+                    privilegedOwners,
+                    out _,
+                    out var powerShellEvidencePinHandle);
+                powerShellEvidencePinHandle.Dispose();
 
                 if (needsDaclHardening)
                 {
