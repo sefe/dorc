@@ -247,7 +247,8 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
         }}"
         @unsaved-changes-discarded="${this.resetAddConfigValue}"
         ${dialogRenderer(this.renderAddConfigValue, [
-          this.addConfigValueSequence
+          this.addConfigValueSequence,
+          this.isAdmin
         ])}
         ${dialogFooterRenderer(this.renderAddConfigValueFooter, [])}
       ></vaadin-dialog>
@@ -385,7 +386,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   private renderAddConfigValue = () =>
     html`${keyed(
       this.addConfigValueSequence,
-      html`<add-config-value></add-config-value>`
+      html`<add-config-value .isAdmin="${this.isAdmin}"></add-config-value>`
     )}`;
 
   private resetAddConfigValue = () => {

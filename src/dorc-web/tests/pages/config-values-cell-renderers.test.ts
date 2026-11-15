@@ -1031,7 +1031,7 @@ describe('add-config-value script visibility control', () => {
 
     try {
       const el = await fixture<HTMLElement>(
-        html`<add-config-value></add-config-value>`
+        html`<add-config-value .isAdmin="${true}"></add-config-value>`
       );
       await settle();
 
@@ -1081,7 +1081,7 @@ describe('add-config-value script visibility control', () => {
 
   it('resets Visible To Scripts when Is Secure is unchecked or Clear is clicked', async () => {
     const el = await fixture<HTMLElement>(
-      html`<add-config-value></add-config-value>`
+      html`<add-config-value .isAdmin="${true}"></add-config-value>`
     );
     await settle();
 
@@ -1126,5 +1126,22 @@ describe('add-config-value script visibility control', () => {
     expect(prodBox.checked).to.equal(false);
     expect(visibleBox.checked).to.equal(false);
     expect(visibleBox.disabled).to.equal(true);
+  });
+
+  it('keeps Visible To Scripts disabled for non-administrators even when Is Secure is checked', async () => {
+    const el = await fixture<HTMLElement>(
+      html`<add-config-value></add-config-value>`
+    );
+    await settle();
+
+    const secureBox = checkboxIn(el, 'secure');
+    const visibleBox = checkboxIn(el, 'visible-to-scripts');
+
+    clickCheckbox(secureBox);
+    await settle();
+
+    expect(secureBox.checked).to.equal(true);
+    expect(visibleBox.disabled).to.equal(true);
+    expect(visibleBox.checked).to.equal(false);
   });
 });

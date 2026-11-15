@@ -30,6 +30,8 @@ export class AddConfigValue extends LitElement {
 
   @property({ type: Boolean }) isForProd: boolean = false;
 
+  @property({ type: Boolean }) isAdmin = false;
+
   @property({ type: Boolean }) valid = false;
 
   // Unticked by default, and only meaningful for a secure value: the server hides a new
@@ -119,7 +121,7 @@ export class AddConfigValue extends LitElement {
             id="visible-to-scripts"
             label="Visible To Scripts"
             title="Allow deployment scripts to read this secure value. Non-secure values are visible to scripts unless reserved; reserved DOrc operating credentials are always withheld from script scope regardless of this setting."
-            ?disabled="${!this.isSecure}"
+            ?disabled="${!this.isSecure || !this.isAdmin}"
             .checked="${live(this.visibleToScripts)}"
             @change="${(e: Event) => {
               this.visibleToScripts = (e.currentTarget as Checkbox).checked;
@@ -160,9 +162,8 @@ export class AddConfigValue extends LitElement {
 
     this.configValue.Secure = this.isSecure;
     this.configValue.IsForProd = this.isForProd;
-    this.configValue.VisibleToScripts = this.isSecure
-      ? this.visibleToScripts
-      : false;
+    this.configValue.VisibleToScripts =
+      this.isSecure && this.isAdmin ? this.visibleToScripts : false;
     this.configValue.Key = this.key;
     this.configValue.Value = this.value;
 
