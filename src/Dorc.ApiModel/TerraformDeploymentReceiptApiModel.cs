@@ -25,5 +25,6 @@ namespace Dorc.ApiModel
         public string StateContainerName { get; set; }
         public string StateKey { get; set; }
         public DateTimeOffset PlannedAt { get; set; }
+        public string Operation { get; set; } = "Plan";
     }
 }

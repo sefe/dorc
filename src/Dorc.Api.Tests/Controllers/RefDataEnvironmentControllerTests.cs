@@ -429,6 +429,10 @@ namespace Dorc.Api.Tests.Controllers
             _environmentsPersistentSource.GetEnvironment(999, Arg.Any<ClaimsPrincipal>()).Returns((EnvironmentApiModel)null!);
             Assert.AreEqual(StatusCodes.Status400BadRequest,
                 (_controller.Put(new EnvironmentApiModel { EnvironmentId = 10, EnvironmentName = "ChildEnv", ParentId = 999 }) as ObjectResult)?.StatusCode);
+            _environmentsPersistentSource.GetEnvironment(998, Arg.Any<ClaimsPrincipal>())
+                .Returns(new EnvironmentApiModel { EnvironmentId = 998, EnvironmentName = "EphParent", IsEphemeral = true });
+            Assert.AreEqual(StatusCodes.Status400BadRequest,
+                (_controller.Put(new EnvironmentApiModel { EnvironmentId = 10, EnvironmentName = "ChildEnv", ParentId = 998 }) as ObjectResult)?.StatusCode);
 
             // 9. ParentId change when new parent is Prod and caller is non-Admin -> 403
             _environmentsPersistentSource.GetEnvironment(40, Arg.Any<ClaimsPrincipal>())
@@ -452,6 +456,27 @@ namespace Dorc.Api.Tests.Controllers
                 .Do(_ => throw new ArgumentException("Hierarchy depth exceeded"));
             Assert.AreEqual(StatusCodes.Status400BadRequest,
                 (_controller.Put(new EnvironmentApiModel { EnvironmentId = 10, EnvironmentName = "ChildEnv", ParentId = 41 }) as ObjectResult)?.StatusCode);
+
+            // 12. Renaming an ephemeral environment -> 409 Conflict (and non-renaming update on ephemeral -> 200 OK)
+            _environmentsPersistentSource.GetEnvironment(55, Arg.Any<ClaimsPrincipal>())
+                .Returns(new EnvironmentApiModel { EnvironmentId = 55, EnvironmentName = "eph-orig", IsEphemeral = true });
+            _securityPrivilegesChecker.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), "eph-orig").Returns(true);
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "eph-orig").Returns(true);
+            Assert.AreEqual(StatusCodes.Status409Conflict,
+                (_controller.Put(new EnvironmentApiModel { EnvironmentId = 55, EnvironmentName = "eph-renamed", IsEphemeral = true }) as ObjectResult)?.StatusCode);
+            _environmentsPersistentSource.UpdateEnvironment(Arg.Any<EnvironmentApiModel>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new EnvironmentApiModel { EnvironmentId = 55, EnvironmentName = "eph-orig", IsEphemeral = true });
+            Assert.AreEqual(StatusCodes.Status200OK,
+                (_controller.Put(new EnvironmentApiModel { EnvironmentId = 55, EnvironmentName = "eph-orig", IsEphemeral = true }) as ObjectResult)?.StatusCode);
+
+            // 13. Delete when active ephemeral throws InvalidOperationException -> 409 Conflict
+            var activeEph = new EnvironmentApiModel { EnvironmentName = "eph-active", IsEphemeral = true, EphemeralState = "Ready" };
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "eph-active").Returns(true);
+            _environmentsPersistentSource
+                .When(x => x.DeleteEnvironment(activeEph, Arg.Any<ClaimsPrincipal>()))
+                .Do(_ => throw new InvalidOperationException("Active ephemeral environment 'eph-active' cannot be deleted directly without running ephemeral teardown first."));
+            Assert.AreEqual(StatusCodes.Status409Conflict,
+                (_controller.Delete(activeEph) as ObjectResult)?.StatusCode);
         }
 
         [TestMethod]
@@ -499,6 +524,21 @@ namespace Dorc.Api.Tests.Controllers
                 CopyApiRegistrationMappings = false
             }) as ObjectResult;
             Assert.AreEqual(StatusCodes.Status200OK, okResult?.StatusCode);
+
+            // 5. Post with IsEphemeral = true is rejected with 400 BadRequest
+            Assert.AreEqual(StatusCodes.Status400BadRequest,
+                (_controller.Post(new EnvironmentApiModel { EnvironmentName = "eph-direct", IsEphemeral = true }) as ObjectResult)?.StatusCode);
+
+            // 6. Put on ephemeral environment with EnvironmentIsProd = true -> 400 BadRequest, and case-only rename -> 409 Conflict
+            _environmentsPersistentSource.GetEnvironment(77, Arg.Any<ClaimsPrincipal>())
+                .Returns(new EnvironmentApiModel { EnvironmentId = 77, EnvironmentName = "eph-case", IsEphemeral = true, EnvironmentIsProd = false });
+            _securityPrivilegesChecker.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), "eph-case").Returns(true);
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "eph-case").Returns(true);
+            _rolePrivilegesChecker.IsAdmin(Arg.Any<ClaimsPrincipal>()).Returns(true);
+            Assert.AreEqual(StatusCodes.Status400BadRequest,
+                (_controller.Put(new EnvironmentApiModel { EnvironmentId = 77, EnvironmentName = "eph-case", EnvironmentIsProd = true }) as ObjectResult)?.StatusCode);
+            Assert.AreEqual(StatusCodes.Status409Conflict,
+                (_controller.Put(new EnvironmentApiModel { EnvironmentId = 77, EnvironmentName = "Eph-Case", EnvironmentIsProd = false }) as ObjectResult)?.StatusCode);
         }
 
         [TestMethod]
@@ -576,10 +616,13 @@ namespace Dorc.Api.Tests.Controllers
                 .Returns(new EnvironmentApiModel { EnvironmentId = 30, EnvironmentName = "OldParent", EnvironmentIsProd = false });
             Assert.IsTrue(detailsController.SetParentForEnvironment(null, 12).Result);
 
-            // 7. New parent not found -> false
+            // 7. New parent not found or is ephemeral -> false
             _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "Env10").Returns(true);
             _environmentsPersistentSource.GetEnvironment(999, _user).Returns((EnvironmentApiModel)null!);
             Assert.IsFalse(detailsController.SetParentForEnvironment(999, 10).Result);
+            _environmentsPersistentSource.GetEnvironment(998, _user)
+                .Returns(new EnvironmentApiModel { EnvironmentId = 998, EnvironmentName = "EphParent", IsEphemeral = true });
+            Assert.IsFalse(detailsController.SetParentForEnvironment(998, 10).Result);
 
             // 8. Non-owner of new parent -> false
             _environmentsPersistentSource.GetEnvironment(20, _user)

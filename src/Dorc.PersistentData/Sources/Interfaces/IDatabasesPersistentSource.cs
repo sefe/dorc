@@ -17,6 +17,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         DatabaseApiModel GetDatabaseByTag(EnvironmentApiModel environment, string tag);
         DatabaseApiModel? GetDatabaseByTag(string envName, string tag);
         bool DeleteDatabase(int databaseId);
+        bool DetachAndDeleteDatabaseIfOrphaned(int environmentId, int databaseId, int? deploymentResultId = null);
         DatabaseApiModel? GetApplicationDatabaseForEnvFilter(string username, string filter, string envFilter);
         GetDatabaseApiModelListResponseDto GetDatabaseApiModelByPage(int limit, int page,
             PagedDataOperators operators, IPrincipal user);

@@ -14,25 +14,37 @@ namespace Dorc.Terraform.Catalog
         // Upper bound on a single manifest-pattern match against a
         // user-supplied value; guards the request thread against ReDoS.
         private static readonly TimeSpan RegexMatchTimeout = TimeSpan.FromSeconds(1);
-        private static readonly Regex NumberSyntax = new(
+        internal static Regex NumberSyntax { get; set; } = new(
             @"\A-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?\z",
-            RegexOptions.CultureInvariant, RegexMatchTimeout);
+            RegexOptions.CultureInvariant,
+            RegexMatchTimeout);
+
+        private static readonly string[] EphemeralProtectionParameters =
+        {
+            "termination_protection",
+            "service_termination_protection",
+        };
 
         // Decimal.TryParse can succeed after rounding/underflow. Reject those
         // values so normalizing a property cannot change the Terraform input.
         public static bool TryParseNumberExact(string raw, out decimal value)
         {
-            value = default;
             try
             {
-                return NumberSyntax.IsMatch(raw)
-                    && decimal.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out value)
-                    && NumberIdentity(raw) == NumberIdentity(value.ToString(CultureInfo.InvariantCulture));
+                if (!NumberSyntax.IsMatch(raw))
+                {
+                    value = 0m;
+                    return false;
+                }
             }
             catch (RegexMatchTimeoutException)
             {
+                value = 0m;
                 return false;
             }
+
+            return decimal.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out value)
+                && NumberIdentity(raw) == NumberIdentity(value.ToString(CultureInfo.InvariantCulture));
         }
 
         private static (bool Negative, string Digits, BigInteger Exponent) NumberIdentity(string raw)
@@ -51,12 +63,24 @@ namespace Dorc.Terraform.Catalog
 
         public ParameterValidationResult Validate(
             TerraformTemplateManifest manifest,
-            IReadOnlyDictionary<string, string?> suppliedValues)
+            IReadOnlyDictionary<string, string?> suppliedValues) =>
+            Validate(manifest, suppliedValues, isEphemeral: false, isProd: false);
+
+        public ParameterValidationResult Validate(
+            TerraformTemplateManifest manifest,
+            IReadOnlyDictionary<string, string?> suppliedValues,
+            bool isEphemeral,
+            bool isProd = false)
         {
             if (manifest is null) throw new ArgumentNullException(nameof(manifest));
             if (suppliedValues is null) throw new ArgumentNullException(nameof(suppliedValues));
 
             var errors = new List<ParameterValidationError>();
+
+            if (isEphemeral)
+            {
+                ValidateEphemeralInvariants(suppliedValues, isProd, errors);
+            }
 
             ValidateRequired(manifest, suppliedValues, errors);
             ValidateValues(manifest, suppliedValues, errors);
@@ -64,6 +88,58 @@ namespace Dorc.Terraform.Catalog
             ValidateConflicts(manifest, suppliedValues, errors);
 
             return new ParameterValidationResult(errors.Count == 0, errors);
+        }
+
+        public IReadOnlyDictionary<string, string?> EnforceEphemeralInvariants(
+            TerraformTemplateManifest manifest,
+            IReadOnlyDictionary<string, string?> suppliedValues,
+            bool isEphemeral)
+        {
+            if (manifest is null) throw new ArgumentNullException(nameof(manifest));
+            if (suppliedValues is null) throw new ArgumentNullException(nameof(suppliedValues));
+
+            var result = new Dictionary<string, string?>(suppliedValues, StringComparer.Ordinal);
+            if (!isEphemeral)
+            {
+                return result;
+            }
+
+            foreach (var protectionName in EphemeralProtectionParameters)
+            {
+                if (manifest.Parameters.Any(p => string.Equals(p.Name, protectionName, StringComparison.OrdinalIgnoreCase))
+                    || result.ContainsKey(protectionName))
+                {
+                    result[protectionName] = "false";
+                }
+            }
+
+            return result;
+        }
+
+        private static void ValidateEphemeralInvariants(
+            IReadOnlyDictionary<string, string?> supplied,
+            bool isProd,
+            List<ParameterValidationError> errors)
+        {
+            if (isProd)
+            {
+                errors.Add(new ParameterValidationError(
+                    "$environment",
+                    ParameterValidationErrorKind.NotAllowed,
+                    "Ephemeral environments are never allowed when IsProd is true."));
+            }
+
+            foreach (var protectionName in EphemeralProtectionParameters)
+            {
+                if (supplied.TryGetValue(protectionName, out var rawValue)
+                    && string.Equals(rawValue, "true", StringComparison.OrdinalIgnoreCase))
+                {
+                    errors.Add(new ParameterValidationError(
+                        protectionName,
+                        ParameterValidationErrorKind.NotAllowed,
+                        $"Ephemeral environments require termination_protection = false and service_termination_protection = false; '{protectionName}' cannot be true."));
+                }
+            }
         }
 
         private static void ValidateConflicts(

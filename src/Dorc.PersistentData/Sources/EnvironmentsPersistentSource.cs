@@ -7,6 +7,7 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using System;
+using System.Data;
 using System.Security.Claims;
 using System.Security.Principal;
 using System.Xml;
@@ -76,6 +77,15 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             {
                 var environment = EnvironmentUnifier.GetEnvironment(context, environmentName);
                 return MapToEnvironmentApiModel(environment, false, false);
+            }
+        }
+
+        public EnvironmentApiModel? GetEnvironment(int environmentId)
+        {
+            using (var context = contextFactory.GetContext())
+            {
+                var environment = EnvironmentUnifier.GetEnvironment(context, environmentId);
+                return environment == null ? null : MapToEnvironmentApiModel(environment, false, false);
             }
         }
 
@@ -171,6 +181,8 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
 
         public bool IsEnvironmentOwner(string envName, ClaimsPrincipal user)
         {
+            if (string.IsNullOrEmpty(envName) || user is null) return false;
+
             using (var context = contextFactory.GetContext())
             {
                 var env = EnvironmentUnifier.GetEnvironment(context, envName);
@@ -448,8 +460,6 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             if (string.IsNullOrEmpty(environmentName))
                 return null;
 
-            var userSids = _claimsPrincipalReader.GetSidsForUser(user);
-
             using (var context = contextFactory.GetContext())
             {
                 var environment = EnvironmentUnifier.GetEnvironmentWithParentChild(context, environmentName);
@@ -457,6 +467,12 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                     return null;
 
                 var result = MapToEnvironmentApiModel(environment);
+                if (user is null)
+                    return result;
+
+                var userSids = _claimsPrincipalReader.GetSidsForUser(user);
+                if (userSids == null)
+                    return result;
 
                 var envPermissions = context.AccessControls
                     .Where(ac => ac.ObjectId == environment.ObjectId && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid)))
@@ -484,13 +500,16 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             }
         }
 
-        public EnvironmentApiModel? GetEnvironment(int environmentId, ClaimsPrincipal user)
+        public EnvironmentApiModel? GetEnvironment(int environmentId, ClaimsPrincipal? user = null)
         {
             using (var context = contextFactory.GetContext())
             {
                 var environment = EnvironmentUnifier.GetFullEnvironment(context, environmentId);
                 if (environment == null)
                     return null;
+
+                if (user is null)
+                    return MapToEnvironmentApiModel(environment, false, false);
 
                 var isOwner = IsEnvironmentOwner(environment.Name, user);
                 var isEditable = _rolePrivilegesChecker.IsAdmin(user) ||
@@ -601,6 +620,11 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                 }
 
                 var environment = EnvironmentUnifier.GetEnvironment(context, env.EnvironmentName);
+                if (environment != null && env.IsEphemeral)
+                {
+                    throw new InvalidOperationException($"Environment '{env.EnvironmentName}' already exists.");
+                }
+
                 if (environment == null)
                 {
                     var e = new Environment()
@@ -608,16 +632,44 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                         ObjectId = Guid.NewGuid()
                     };
 
-                    MapToEnvironment(env, e, isNewEnvironment: true);
+                    env.Details ??= new EnvironmentDetailsApiModel();
+                    if (string.IsNullOrWhiteSpace(env.Details.EnvironmentOwnerId) && user is not null)
+                    {
+                        var ownerId = _claimsPrincipalReader.GetUserId(user);
+                        env.Details.EnvironmentOwnerId = !string.IsNullOrWhiteSpace(ownerId)
+                            ? ownerId
+                            : (user.FindFirst(ClaimTypes.Sid)?.Value ?? user.FindFirst("oid")?.Value);
+                    }
 
-                    context.Environments.Add(e);
+                    lock (EnvironmentTemplatesPersistentSource.TemplateReferenceSyncRoot)
+                    {
+                        int maxTtlMinutes = 1440;
+                        int defaultTtlMinutes = 240;
+                        if (env.IsEphemeral && env.TemplateId.HasValue)
+                        {
+                            var template = context.EnvironmentTemplates
+                                .AsNoTracking()
+                                .FirstOrDefault(t => t.Id == env.TemplateId.Value);
+                            if (template is null)
+                            {
+                                throw new InvalidOperationException($"Environment template with ID {env.TemplateId.Value} no longer exists.");
+                            }
 
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
-                    EnvironmentHistoryPersistentSource.AddHistory(e, string.Empty,
-                        "Environment created",
-                        username, "Create Environment", context);
+                            maxTtlMinutes = Math.Clamp(template.MaxTtlMinutes, 1, 10080);
+                            defaultTtlMinutes = Math.Clamp(template.DefaultTtlMinutes, 1, maxTtlMinutes);
+                        }
 
-                    context.SaveChanges();
+                        MapToEnvironment(env, e, isNewEnvironment: true, maxTtlMinutes, defaultTtlMinutes);
+
+                        context.Environments.Add(e);
+
+                        string username = _claimsPrincipalReader.GetUserFullDomainName(user);
+                        EnvironmentHistoryPersistentSource.AddHistory(e, string.Empty,
+                            "Environment created",
+                            username, "Create Environment", context);
+
+                        context.SaveChanges();
+                    }
                 }
 
                 return GetEnvironment(env.EnvironmentName, user);
@@ -631,6 +683,9 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                 var environment = EnvironmentUnifier.GetFullEnvironment(context, env.EnvironmentId);
                 if (env.EnvironmentName != environment.Name)
                 {
+                    if (environment.IsEphemeral)
+                        throw new InvalidOperationException($"Ephemeral environment '{environment.Name}' cannot be renamed because its Terraform state key is bound to its name.");
+
                     string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                     EnvironmentHistoryPersistentSource.AddHistoryAction(environment, environment.Name,
                         env.EnvironmentName, username, "Env Name Update", "Environment Name Updated to " + env.EnvironmentName + " from " + environment.Name, context);
@@ -692,6 +747,11 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                                 !objectFilter.HasPrivilege(environment, principal, AccessLevel.Owner) &&
                                 !_rolePrivilegesChecker.IsAdmin(principal))
                                 throw new UnauthorizedAccessException($"User does not have permission to delete environment '{environment.Name}'");
+
+                            if (environment.IsEphemeral &&
+                                !string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.TornDown, StringComparison.OrdinalIgnoreCase) &&
+                                !(string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.TeardownFailed, StringComparison.OrdinalIgnoreCase) && _rolePrivilegesChecker.IsAdmin(principal)))
+                                throw new InvalidOperationException($"Active ephemeral environment '{environment.Name}' cannot be deleted directly without running ephemeral teardown first.");
 
                             var username = _claimsPrincipalReader.GetUserFullDomainName(principal);
                             var environmentDetails = $"Environment ID: {environment.Id}, Name: {environment.Name}, Secure: {environment.Secure}, IsProd: {environment.IsProd}";
@@ -887,11 +947,175 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
         /// </summary>
         /// <param name="env">model to set values from</param>
         /// <param name="e">model to set values to. DTO for DB</param>
-        private static void MapToEnvironment(EnvironmentApiModel env, Environment e, bool isNewEnvironment = false)
+        public bool DeleteEnvironmentInternal(int environmentId, bool onlyIfProvisioningWithoutRequests = false)
         {
+            if (environmentId <= 0)
+                return false;
+
+            using (var context = contextFactory.GetContext())
+            {
+                var strategy = context.Database.CreateExecutionStrategy();
+                return strategy.Execute(() =>
+                {
+                    context.ChangeTracker.Clear();
+                    using var transaction = context.Database.BeginTransaction(IsolationLevel.Serializable);
+
+                    var environment = context.Environments
+                        .Include(e => e.AccessControls)
+                        .Include(e => e.CloudResources)
+                        .Include(e => e.Databases)
+                        .Include(e => e.Projects)
+                        .Include(e => e.Servers)
+                        .Include(e => e.Containers)
+                        .Include(e => e.ApiRegistrations)
+                        .SingleOrDefault(e => e.Id == environmentId);
+
+                    if (environment == null)
+                        return false;
+
+                    if (!environment.IsEphemeral || environment.IsProd)
+                    {
+                        throw new InvalidOperationException(
+                            $"DeleteEnvironmentInternal is only permitted for non-production ephemeral environments (EnvironmentId: {environmentId}).");
+                    }
+
+                    if (onlyIfProvisioningWithoutRequests)
+                    {
+                        if (!string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.Provisioning, StringComparison.OrdinalIgnoreCase) &&
+                            !string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.Testing, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return false;
+                        }
+
+                        var candidateDetails = context.DeploymentRequests
+                            .Where(r => r.Environment == environment.Name &&
+                                        r.RequestDetails != null &&
+                                        r.RequestDetails.Contains(TerraformDestroyOperationConstants.EphemeralEnvironmentIdPropertyName))
+                            .Select(r => r.RequestDetails)
+                            .ToList();
+                        if (candidateDetails.Any(details =>
+                                RequestsPersistentSource.TryGetExpectedEphemeralEnvironmentId(details) == environment.Id))
+                        {
+                            environment.EphemeralState = EphemeralEnvironmentStates.ProvisionFailed;
+                            environment.LastUpdate = DateTime.UtcNow;
+                            context.SaveChanges();
+                            transaction.Commit();
+                            return false;
+                        }
+                    }
+
+                    var environmentDetails = $"Environment ID: {environment.Id}, Name: {environment.Name}, Secure: {environment.Secure}, IsProd: {environment.IsProd}";
+                    EnvironmentHistoryPersistentSource.AddDeletionHistory(environmentDetails, "system:ephemeral-teardown", "DELETION", context);
+
+                    context.Database.ExecuteSqlRaw(
+                        DeleteEnvironmentPropertyValuesSql,
+                        new SqlParameter("@environmentName", SqlDbType.NVarChar) { Value = environment.Name });
+
+                    var filtersToRemove = context.PropertyValueFilters
+                        .Where(pvf => EF.Functions.Collate(pvf.Value, DeploymentContext.CaseInsensitiveCollation)
+                            == EF.Functions.Collate(environment.Name, DeploymentContext.CaseInsensitiveCollation))
+                        .ToList();
+                    var valuesToRemove = filtersToRemove
+                        .Select(pvf => pvf.PropertyValue)
+                        .Distinct()
+                        .ToList();
+                    context.PropertyValueFilters.RemoveRange(filtersToRemove);
+                    context.PropertyValues.RemoveRange(valuesToRemove);
+
+                    var catalogInputs = context.CatalogEnvironmentInputs
+                        .Where(c => c.EnvironmentId == environment.Id)
+                        .ToList();
+                    context.CatalogEnvironmentInputs.RemoveRange(catalogInputs);
+
+                    var provenanceRows = context.TerraformInventoryProvenance
+                        .Where(p => p.EnvironmentId == environment.Id)
+                        .ToList();
+                    context.TerraformInventoryProvenance.RemoveRange(provenanceRows);
+
+                    var accessControls = context.AccessControls
+                        .Where(ac => ac.ObjectId == environment.ObjectId)
+                        .ToList();
+                    context.AccessControls.RemoveRange(accessControls);
+                    environment.AccessControls.Clear();
+
+                    var candidateCloudResources = environment.CloudResources.ToList();
+                    var candidateDatabases = environment.Databases.ToList();
+                    environment.CloudResources.Clear();
+                    environment.Databases.Clear();
+                    foreach (var cr in candidateCloudResources)
+                    {
+                        if (!context.Environments.Any(e => e.Id != environment.Id && e.CloudResources.Any(c => c.Id == cr.Id)) &&
+                            !context.TerraformInventoryProvenance.Any(p => p.EnvironmentId != environment.Id && p.CloudResourceId == cr.Id))
+                        {
+                            context.CloudResources.Remove(cr);
+                        }
+                    }
+                    foreach (var db in candidateDatabases)
+                    {
+                        if (!context.Environments.Any(e => e.Id != environment.Id && e.Databases.Any(d => d.Id == db.Id)) &&
+                            !context.Projects.Any(p => p.SourceDatabaseId == db.Id) &&
+                            !context.EnvironmentUsers.Any(eu => eu.DbId == db.Id) &&
+                            !context.TerraformInventoryProvenance.Any(p => p.EnvironmentId != environment.Id && p.DatabaseId == db.Id))
+                        {
+                            context.Databases.Remove(db);
+                        }
+                    }
+                    environment.Projects.Clear();
+                    environment.Servers.Clear();
+                    environment.Containers.Clear();
+                    environment.ApiRegistrations.Clear();
+
+                    var statuses = context.EnvironmentComponentStatuses
+                        .Where(ecs => ecs.Environment.Id == environment.Id)
+                        .ToList();
+                    context.EnvironmentComponentStatuses.RemoveRange(statuses);
+
+                    var childEnvironments = context.Environments
+                        .Where(e => e.ParentId == environment.Id)
+                        .ToList();
+                    foreach (var child in childEnvironments)
+                    {
+                        child.ParentId = environment.ParentId;
+                    }
+
+                    context.Environments.Remove(environment);
+                    context.SaveChanges();
+                    transaction.Commit();
+                    return true;
+                });
+            }
+        }
+
+        private static void MapToEnvironment(
+            EnvironmentApiModel env,
+            Environment e,
+            bool isNewEnvironment = false,
+            int maxTtlMinutes = 1440,
+            int defaultTtlMinutes = 240)
+        {
+            bool isCreation = isNewEnvironment && e.Id == 0;
+            if (((isCreation && env.IsEphemeral) || e.IsEphemeral) && env.EnvironmentIsProd)
+            {
+                throw new ArgumentException("Ephemeral environments cannot be marked as production (IsProd = true).");
+            }
+
             e.Name = env.EnvironmentName;
             e.Secure = env.EnvironmentSecure;
             e.IsProd = env.EnvironmentIsProd;
+            if (isCreation)
+            {
+                e.IsEphemeral = env.IsEphemeral;
+                e.EnvironmentTier = env.EnvironmentTier;
+                e.TemplateId = env.TemplateId;
+                var nowUtc = DateTime.UtcNow;
+                var maxExpiresUtc = nowUtc.AddMinutes(maxTtlMinutes);
+                e.ExpiresAtUtc = env.IsEphemeral
+                    ? (env.ExpiresAtUtc.HasValue && env.ExpiresAtUtc.Value > nowUtc
+                        ? (env.ExpiresAtUtc.Value <= maxExpiresUtc ? env.ExpiresAtUtc.Value : maxExpiresUtc)
+                        : nowUtc.AddMinutes(defaultTtlMinutes))
+                    : env.ExpiresAtUtc;
+                e.EphemeralState = env.EphemeralState;
+            }
 
             e.Name = env.EnvironmentName;
             e.Description = env.Details.Description;
@@ -942,6 +1166,11 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                 EnvironmentSecure = parentEnv.Secure,
                 EnvironmentIsProd = parentEnv.IsProd,
                 EnvironmentId = parentEnv.Id,
+                IsEphemeral = parentEnv.IsEphemeral,
+                EnvironmentTier = parentEnv.EnvironmentTier,
+                TemplateId = parentEnv.TemplateId,
+                ExpiresAtUtc = parentEnv.ExpiresAtUtc,
+                EphemeralState = parentEnv.EphemeralState,
                 ParentId = parentEnv.ParentId,
                 IsParent = true,
                 ParentEnvironment = MapToParentEnvironmentApiModel(parentEnv.ParentEnvironment)
@@ -959,6 +1188,11 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                 EnvironmentSecure = childEnv.Secure,
                 EnvironmentIsProd = childEnv.IsProd,
                 EnvironmentId = childEnv.Id,
+                IsEphemeral = childEnv.IsEphemeral,
+                EnvironmentTier = childEnv.EnvironmentTier,
+                TemplateId = childEnv.TemplateId,
+                ExpiresAtUtc = childEnv.ExpiresAtUtc,
+                EphemeralState = childEnv.EphemeralState,
                 ParentId = childEnv.ParentId,
                 IsParent = childEnv.ChildEnvironments.Any(),
                 ChildEnvironments = childEnv.ChildEnvironments.Select(MapToChildEnvironmentApiModel).ToList()
@@ -989,6 +1223,11 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                 EnvironmentSecure = env.Secure,
                 EnvironmentIsProd = env.IsProd,
                 EnvironmentId = env.Id,
+                IsEphemeral = env.IsEphemeral,
+                EnvironmentTier = env.EnvironmentTier,
+                TemplateId = env.TemplateId,
+                ExpiresAtUtc = env.ExpiresAtUtc,
+                EphemeralState = env.EphemeralState,
                 Details = MapToEnvironmentDetailsApiModel(env),
                 ParentId = env.ParentId,
                 IsParent = env.ChildEnvironments.Any(),
@@ -1078,6 +1317,9 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                     var parentEnv = envChain.FirstOrDefault(e => e.Id == parentEnvId);
                     if (parentEnv is null)
                         throw new ArgumentException("Parent environment not found.");
+
+                    if (EnvironmentUnifier.GetEnvironment(context, parentEnvId.Value)!.IsEphemeral)
+                        throw new ArgumentException("Ephemeral environments cannot be used as a parent environment.");
 
                     if (childEnv.ParentId == parentEnvId)
                     {
@@ -1376,6 +1618,352 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                     Type = "Insert (Clone)"
                 };
                 context.Audits.Add(audit);
+            }
+        }
+
+        public IEnumerable<EnvironmentApiModel> GetEphemeralEnvironments(int? projectId, IPrincipal? user)
+        {
+            return GetEphemeralEnvironments(projectId, null, user);
+        }
+
+        public IEnumerable<EnvironmentApiModel> GetEphemeralEnvironments(int? projectId = null, string? state = null, IPrincipal? user = null)
+        {
+            using (var context = contextFactory.GetContext())
+            {
+                var query = context.Environments
+                    .Include(e => e.AccessControls)
+                    .Include(e => e.Projects)
+                    .Where(e => e.IsEphemeral);
+
+                if (projectId.HasValue && projectId.Value > 0)
+                {
+                    query = query.Where(e => e.Projects.Any(p => p.Id == projectId.Value));
+                }
+
+                if (!string.IsNullOrWhiteSpace(state))
+                {
+                    query = query.Where(e => e.EphemeralState == state);
+                }
+
+                var environments = query
+                    .OrderByDescending(e => e.Id)
+                    .ToList();
+
+                if (user is null)
+                {
+                    return environments
+                        .Select(MapToEnvironmentApiModel)
+                        .ToList();
+                }
+
+                return environments.Select(env =>
+                {
+                    var model = MapToEnvironmentApiModel(env);
+                    PopulateUserPermissions(model, env, user);
+                    return model;
+                }).ToList();
+            }
+        }
+
+        private void PopulateUserPermissions(EnvironmentApiModel model, Environment env, IPrincipal user)
+        {
+            var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
+            var userSids = _claimsPrincipalReader.GetSidsForUser(user) ?? new List<string>();
+            var userId = user is ClaimsPrincipal cp ? _claimsPrincipalReader.GetUserId(cp) : null;
+
+            var matchingControls = env.AccessControls
+                .Where(ac => userSids.Contains(ac.Sid)
+                    || (ac.Pid != null && (userSids.Contains(ac.Pid) || ac.Pid == userId)))
+                .ToList();
+
+            var hasDeny = matchingControls.Any(ac => ac.Deny != 0);
+            var isOwner = !hasDeny && matchingControls.Any(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
+            var isModify = !hasDeny && (matchingControls.Any(ac => (ac.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
+                || objectFilter.HasPrivilege(env, user, AccessLevel.Write | AccessLevel.Owner));
+
+            model.UserEditable = isAdmin || isOwner || isModify;
+            model.IsOwner = isOwner;
+        }
+
+        public IEnumerable<EnvironmentApiModel> GetExpiredEphemeralEnvironments(
+            DateTime utcNow,
+            bool allowReclaimStrandedTearingDown = false)
+        {
+            var strandedLeaseCutoffUtc = utcNow.AddMinutes(-2);
+            using (var context = contextFactory.GetContext())
+            {
+                var expired = context.Environments
+                    .Include(e => e.AccessControls)
+                    .Where(e => e.IsEphemeral
+                        && !e.IsProd
+                        && e.ExpiresAtUtc != null
+                        && e.ExpiresAtUtc <= utcNow
+                        && (e.EphemeralState != EphemeralEnvironmentStates.TearingDown
+                            || (allowReclaimStrandedTearingDown
+                                && (e.LastUpdate == null || e.LastUpdate <= strandedLeaseCutoffUtc)))
+                        && e.EphemeralState != EphemeralEnvironmentStates.TornDown
+                        && e.EphemeralState != EphemeralEnvironmentStates.TeardownFailed)
+                    .ToList();
+
+                return expired.Select(MapToEnvironmentApiModel).ToList();
+            }
+        }
+
+        public bool TryClaimExpiredEphemeralEnvironmentForTeardown(
+            int environmentId,
+            DateTime utcNow,
+            bool allowReclaimStrandedTearingDown = false)
+        {
+            return TryClaimEphemeralEnvironmentForTeardown(
+                environmentId,
+                requireExpired: true,
+                utcNow,
+                out _,
+                allowReclaimStrandedTearingDown);
+        }
+
+        public bool TryClaimEphemeralEnvironmentForTeardown(
+            int environmentId,
+            bool requireExpired,
+            DateTime utcNow,
+            out string? previousState,
+            bool allowReclaimStrandedTearingDown = false)
+        {
+            previousState = null;
+            if (environmentId <= 0)
+                return false;
+
+            var strandedLeaseCutoffUtc = utcNow.AddMinutes(-2);
+            using (var context = contextFactory.GetContext())
+            {
+                var strategy = context.Database.CreateExecutionStrategy();
+                string? capturedPreviousState = null;
+                var claimed = strategy.Execute(() =>
+                {
+                    context.ChangeTracker.Clear();
+                    using var transaction = context.Database.BeginTransaction(IsolationLevel.Serializable);
+
+                    var environment = context.Environments.SingleOrDefault(e =>
+                        e.Id == environmentId
+                        && e.IsEphemeral
+                        && !e.IsProd
+                        && (e.EphemeralState != EphemeralEnvironmentStates.TearingDown
+                            || (allowReclaimStrandedTearingDown
+                                && (e.LastUpdate == null || e.LastUpdate <= strandedLeaseCutoffUtc)))
+                        && e.EphemeralState != EphemeralEnvironmentStates.TornDown);
+
+                    if (environment == null)
+                        return false;
+
+                    if (requireExpired
+                        && (environment.ExpiresAtUtc == null
+                            || environment.ExpiresAtUtc.Value > utcNow
+                            || environment.EphemeralState == EphemeralEnvironmentStates.TeardownFailed))
+                    {
+                        return false;
+                    }
+
+                    capturedPreviousState = environment.EphemeralState;
+                    environment.EphemeralState = EphemeralEnvironmentStates.TearingDown;
+                    if (environment.ExpiresAtUtc == null || environment.ExpiresAtUtc.Value > DateTime.UnixEpoch.AddSeconds(1))
+                    {
+                        environment.ExpiresAtUtc = utcNow;
+                    }
+                    environment.LastUpdate = utcNow;
+                    context.SaveChanges();
+                    transaction.Commit();
+                    return true;
+                });
+
+                previousState = capturedPreviousState;
+                return claimed;
+            }
+        }
+
+        public bool TryTransitionEphemeralState(
+            string environmentName,
+            IReadOnlyCollection<string> allowedCurrentStates,
+            string nextState,
+            int? expectedEnvironmentId = null)
+        {
+            if (string.IsNullOrWhiteSpace(environmentName)
+                || allowedCurrentStates is null
+                || allowedCurrentStates.Count == 0
+                || !EphemeralEnvironmentStates.IsValid(nextState))
+            {
+                return false;
+            }
+
+            using (var context = contextFactory.GetContext())
+            {
+                var strategy = context.Database.CreateExecutionStrategy();
+                return strategy.Execute(() =>
+                {
+                    context.ChangeTracker.Clear();
+                    using var transaction = context.Database.BeginTransaction(IsolationLevel.Serializable);
+
+                    var environment = EnvironmentUnifier.GetEnvironment(context, environmentName);
+                    if (environment == null || !environment.IsEphemeral || environment.IsProd ||
+                        (expectedEnvironmentId.HasValue && environment.Id != expectedEnvironmentId.Value))
+                    {
+                        return false;
+                    }
+
+                    var currentState = environment.EphemeralState ?? string.Empty;
+                    if (!allowedCurrentStates.Any(s => string.Equals(s, currentState, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        return false;
+                    }
+
+                    environment.EphemeralState = nextState;
+                    environment.LastUpdate = DateTime.UtcNow;
+                    context.SaveChanges();
+                    transaction.Commit();
+                    return true;
+                });
+            }
+        }
+
+        public EnvironmentApiModel? UpdateEphemeralState(int environmentId, string ephemeralState, DateTime? expiresAtUtc = null)
+        {
+            if (environmentId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(environmentId), "EnvironmentId must be greater than zero.");
+
+            if (!EphemeralEnvironmentStates.IsValid(ephemeralState))
+                throw new ArgumentException($"Invalid ephemeral environment state '{ephemeralState}'.", nameof(ephemeralState));
+
+            using (var context = contextFactory.GetContext())
+            {
+                var environment = EnvironmentUnifier.GetEnvironment(context, environmentId);
+                if (environment == null)
+                    return null;
+
+                if (!environment.IsEphemeral)
+                    throw new InvalidOperationException($"Environment '{environment.Name}' is not an ephemeral environment.");
+
+                environment.EphemeralState = ephemeralState;
+                if (expiresAtUtc.HasValue)
+                {
+                    environment.ExpiresAtUtc = expiresAtUtc.Value;
+                }
+                environment.LastUpdate = DateTime.UtcNow;
+
+                context.SaveChanges();
+                return MapToEnvironmentApiModel(environment);
+            }
+        }
+
+        public EnvironmentApiModel? UpdateEphemeralState(string environmentName, string ephemeralState, DateTime? expiresAtUtc = null)
+        {
+            if (string.IsNullOrWhiteSpace(environmentName))
+                throw new ArgumentException("EnvironmentName is required.", nameof(environmentName));
+
+            if (!EphemeralEnvironmentStates.IsValid(ephemeralState))
+                throw new ArgumentException($"Invalid ephemeral environment state '{ephemeralState}'.", nameof(ephemeralState));
+
+            using (var context = contextFactory.GetContext())
+            {
+                var environment = EnvironmentUnifier.GetEnvironment(context, environmentName);
+                if (environment == null)
+                    return null;
+
+                if (!environment.IsEphemeral)
+                    throw new InvalidOperationException($"Environment '{environmentName}' is not an ephemeral environment.");
+
+                environment.EphemeralState = ephemeralState;
+                if (expiresAtUtc.HasValue)
+                {
+                    environment.ExpiresAtUtc = expiresAtUtc.Value;
+                }
+                environment.LastUpdate = DateTime.UtcNow;
+
+                context.SaveChanges();
+                return MapToEnvironmentApiModel(environment);
+            }
+        }
+
+        public EnvironmentApiModel? ExtendEphemeralTtl(int environmentId, DateTime newExpiresAtUtc, int maxTtlMinutesCap = 1440, IPrincipal? user = null)
+        {
+            if (environmentId <= 0)
+                throw new ArgumentOutOfRangeException(nameof(environmentId), "EnvironmentId must be greater than zero.");
+
+            using (var context = contextFactory.GetContext())
+            {
+                var environment = EnvironmentUnifier.GetEnvironment(context, environmentId);
+                if (environment == null)
+                    return null;
+
+                return ExtendEphemeralTtl(environment.Name, newExpiresAtUtc, maxTtlMinutesCap, user, environmentId);
+            }
+        }
+
+        public EnvironmentApiModel? ExtendEphemeralTtl(string environmentName, DateTime newExpiresAtUtc, int maxTtlMinutesCap, IPrincipal? user = null, int? expectedEnvironmentId = null, int? additionalMinutes = null)
+        {
+            if (string.IsNullOrWhiteSpace(environmentName))
+                throw new ArgumentException("EnvironmentName is required.", nameof(environmentName));
+
+            if (maxTtlMinutesCap <= 0)
+                throw new ArgumentOutOfRangeException(nameof(maxTtlMinutesCap), "Max TTL minutes cap must be greater than zero.");
+
+            var nowUtc = DateTime.UtcNow;
+            if (newExpiresAtUtc <= nowUtc)
+                throw new ArgumentException("New expiration time must be in the future.", nameof(newExpiresAtUtc));
+
+            var maxAllowedUtc = nowUtc.AddMinutes(maxTtlMinutesCap).AddSeconds(5);
+            if (newExpiresAtUtc > maxAllowedUtc)
+                throw new ArgumentException($"Requested expiration exceeds the maximum TTL cap of {maxTtlMinutesCap} minutes.", nameof(newExpiresAtUtc));
+
+            using (var context = contextFactory.GetContext())
+            {
+                var strategy = context.Database.CreateExecutionStrategy();
+                return strategy.Execute(() =>
+                {
+                    context.ChangeTracker.Clear();
+                    using var transaction = context.Database.BeginTransaction(IsolationLevel.Serializable);
+
+                    var environment = EnvironmentUnifier.GetEnvironment(context, environmentName);
+                    if (environment == null || (expectedEnvironmentId.HasValue && environment.Id != expectedEnvironmentId.Value))
+                        return null;
+
+                    if (!environment.IsEphemeral)
+                        throw new InvalidOperationException($"Environment '{environmentName}' is not an ephemeral environment.");
+
+                    if (environment.EphemeralState == EphemeralEnvironmentStates.TearingDown
+                        || environment.EphemeralState == EphemeralEnvironmentStates.TornDown
+                        || environment.EphemeralState == EphemeralEnvironmentStates.TeardownFailed)
+                    {
+                        throw new InvalidOperationException($"Cannot extend TTL for ephemeral environment '{environmentName}' in state '{environment.EphemeralState}'.");
+                    }
+
+                    var effectiveExpiresAtUtc = newExpiresAtUtc;
+                    if (additionalMinutes is > 0 &&
+                        environment.ExpiresAtUtc is { } currentExpiry &&
+                        currentExpiry > nowUtc)
+                    {
+                        var recomputedExpiry = currentExpiry.AddMinutes(additionalMinutes.Value);
+                        if (recomputedExpiry > maxAllowedUtc)
+                        {
+                            throw new ArgumentException($"Requested expiration exceeds the maximum TTL cap of {maxTtlMinutesCap} minutes.", nameof(newExpiresAtUtc));
+                        }
+                        if (recomputedExpiry > effectiveExpiresAtUtc)
+                        {
+                            effectiveExpiresAtUtc = recomputedExpiry;
+                        }
+                    }
+
+                    environment.ExpiresAtUtc = effectiveExpiresAtUtc;
+                    environment.LastUpdate = nowUtc;
+
+                    context.SaveChanges();
+                    transaction.Commit();
+                    var model = MapToEnvironmentApiModel(environment);
+                    if (user is not null)
+                    {
+                        PopulateUserPermissions(model, environment, user);
+                    }
+
+                    return model;
+                });
             }
         }
     }

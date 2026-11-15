@@ -15,7 +15,8 @@ namespace Dorc.TerraformRunner.State
                 scriptGroup.TerraformStateSubscriptionId
             };
             if (values.All(string.IsNullOrWhiteSpace)
-                && scriptGroup.TerraformSourceType != TerraformSourceType.Catalog)
+                && scriptGroup.TerraformSourceType != TerraformSourceType.Catalog
+                && !TerraformProcessor.IsEphemeral(scriptGroup.CommonProperties))
                 return null;
 
             if (string.IsNullOrWhiteSpace(scriptGroup.TerraformStateStorageAccount)

@@ -1,0 +1,21 @@
+CREATE TABLE [deploy].[EnvironmentTemplate] (
+    [Id]                           INT            IDENTITY (1, 1) NOT NULL,
+    [ProjectId]                    INT            NOT NULL,
+    [Name]                         NVARCHAR (128) NOT NULL,
+    [Description]                  NVARCHAR (512) NULL,
+    [DefaultTier]                  NVARCHAR (16)  NOT NULL CONSTRAINT [DF_EnvironmentTemplate_DefaultTier] DEFAULT ('ephemeral'),
+    [BaseEnvironmentId]            INT            NULL,
+    [DefaultTtlMinutes]            INT            NOT NULL CONSTRAINT [DF_EnvironmentTemplate_DefaultTtlMinutes] DEFAULT (240),
+    [MaxTtlMinutes]                INT            NOT NULL CONSTRAINT [DF_EnvironmentTemplate_MaxTtlMinutes] DEFAULT (1440),
+    [ProvisionComponentIdsJson]    NVARCHAR (MAX) NOT NULL CONSTRAINT [DF_EnvironmentTemplate_ProvisionComponents] DEFAULT ('[]'),
+    [ValidationComponentIdsJson]   NVARCHAR (MAX) NOT NULL CONSTRAINT [DF_EnvironmentTemplate_ValidationComponents] DEFAULT ('[]'),
+    [TierParameterOverridesJson]   NVARCHAR (MAX) NULL,
+    [CreatedBy]                    NVARCHAR (128) NULL,
+    [CreatedAtUtc]                 DATETIME2 (7)  NOT NULL CONSTRAINT [DF_EnvironmentTemplate_CreatedAtUtc] DEFAULT (SYSUTCDATETIME()),
+    [UpdatedAtUtc]                 DATETIME2 (7)  NOT NULL CONSTRAINT [DF_EnvironmentTemplate_UpdatedAtUtc] DEFAULT (SYSUTCDATETIME()),
+    CONSTRAINT [PK_EnvironmentTemplate] PRIMARY KEY CLUSTERED ([Id] ASC),
+    CONSTRAINT [UQ_EnvironmentTemplate_ProjectId_Name] UNIQUE NONCLUSTERED ([ProjectId] ASC, [Name] ASC),
+    CONSTRAINT [FK_EnvironmentTemplate_Project] FOREIGN KEY ([ProjectId]) REFERENCES [deploy].[Project] ([Id]),
+    CONSTRAINT [FK_EnvironmentTemplate_BaseEnvironment] FOREIGN KEY ([BaseEnvironmentId]) REFERENCES [deploy].[Environment] ([Id]) ON DELETE SET NULL,
+    CONSTRAINT [CK_EnvironmentTemplate_Ttl] CHECK ([DefaultTtlMinutes] > 0 AND [MaxTtlMinutes] >= [DefaultTtlMinutes])
+);

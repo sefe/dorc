@@ -14,26 +14,49 @@ namespace Dorc.Api.Services
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly ITemplateCatalog _catalog;
         private readonly IPropertiesPersistentSource _properties;
+        private readonly IRequestsPersistentSource? _requestsPersistentSource;
+        private readonly IEnvironmentsPersistentSource? _environmentsPersistentSource;
 
         public RequestService(ILogger<RequestService> log, IDeployableBuildFactory deployableBuildFactory,
             IProjectsPersistentSource projectsPersistentSource, ITemplateCatalog catalog,
-            IPropertiesPersistentSource properties)
+            IPropertiesPersistentSource properties,
+            IRequestsPersistentSource? requestsPersistentSource = null,
+            IEnvironmentsPersistentSource? environmentsPersistentSource = null)
         {
             _projectsPersistentSource = projectsPersistentSource;
             _log = log;
             _deployableBuildFactory = deployableBuildFactory;
             _catalog = catalog;
             _properties = properties;
+            _requestsPersistentSource = requestsPersistentSource;
+            _environmentsPersistentSource = environmentsPersistentSource;
         }
 
         public RequestStatusDto CreateRequest(RequestDto request, ClaimsPrincipal user)
         {
+            if (!string.IsNullOrWhiteSpace(request.Environment) &&
+                _environmentsPersistentSource?.GetEnvironment(request.Environment) is { IsEphemeral: true, EnvironmentId: > 0 } targetEnv)
+            {
+                request.RequestProperties ??= new List<RequestProperty>();
+                if (!request.RequestProperties.Any(p => string.Equals(
+                        p.PropertyName,
+                        TerraformDestroyOperationConstants.EphemeralEnvironmentIdPropertyName,
+                        StringComparison.OrdinalIgnoreCase)))
+                {
+                    request.RequestProperties.Add(new RequestProperty
+                    {
+                        PropertyName = TerraformDestroyOperationConstants.EphemeralEnvironmentIdPropertyName,
+                        PropertyValue = targetEnv.EnvironmentId.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    });
+                }
+            }
+
             CheckRequest(ref request);
             ClassifySensitiveProperties(request);
             var build = _deployableBuildFactory.CreateInstance(request);
             if (build == null)
             {
-                _log.LogError($"Wrong build type: {request}");
+                _log.LogError("Wrong build type for deployment request.");
                 throw new WrongBuildTypeException($"Wrong build type. BuildUrl should start with 'http', 'file', or be a numeric run ID (GitHub), but got {request.BuildUrl}");
             }
 
@@ -54,8 +77,22 @@ namespace Dorc.Api.Services
             if (request.RequestProperties is not { Count: > 0 }) return;
             var sensitiveNames = new HashSet<string>(StringComparer.Ordinal);
             var selected = new HashSet<string>(request.Components ?? new List<string>(), StringComparer.OrdinalIgnoreCase);
-            var components = _projectsPersistentSource.GetComponentsForProject(request.Project)
-                .Where(component => selected.Contains(component.ComponentName)).ToArray();
+            var liveComponents = _projectsPersistentSource.GetComponentsForProject(request.Project)
+                .Where(component => selected.Contains(component.ComponentName)).ToList();
+            if (selected.Except(liveComponents.Select(component => component.ComponentName),
+                    StringComparer.OrdinalIgnoreCase).Any() &&
+                IsDestroyRequest(request) &&
+                _environmentsPersistentSource?.GetEnvironment(request.Environment) is { } environment &&
+                _requestsPersistentSource is not null)
+            {
+                foreach (var entry in _requestsPersistentSource.GetProvisionedComponentDefinitionsForEnvironment(environment.EnvironmentId)
+                    .Where(e => string.Equals(e.Project.ProjectName, request.Project, StringComparison.OrdinalIgnoreCase) &&
+                                selected.Contains(e.Component.ComponentName)))
+                {
+                    liveComponents.Add(entry.Component);
+                }
+            }
+            var components = liveComponents.ToArray();
             if (selected.Except(components.Select(component => component.ComponentName),
                     StringComparer.OrdinalIgnoreCase).Any())
                 throw new InvalidOperationException("A selected component is no longer available in this project.");
@@ -78,9 +115,20 @@ namespace Dorc.Api.Services
             var secureProperties = _properties.GetAllProperties().Where(property => property.Secure)
                 .Select(property => property.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
             foreach (var property in request.RequestProperties)
+            {
+                var colonIndex = property.PropertyName.LastIndexOf(':');
+                var bareName = colonIndex >= 0 ? property.PropertyName[(colonIndex + 1)..] : property.PropertyName;
                 property.IsSensitive |= sensitiveNames.Contains(property.PropertyName)
-                    || secureProperties.Contains(property.PropertyName);
+                    || sensitiveNames.Contains(bareName)
+                    || secureProperties.Contains(property.PropertyName)
+                    || secureProperties.Contains(bareName);
+            }
         }
+
+        private static bool IsDestroyRequest(RequestDto request) =>
+            request.RequestProperties.Any(p =>
+                string.Equals(p.PropertyName, TerraformDestroyOperationConstants.PropertyName, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(p.PropertyValue, TerraformDestroyOperationConstants.DestroyValue, StringComparison.OrdinalIgnoreCase));
 
         public void CheckRequest(ref RequestDto request)
         {

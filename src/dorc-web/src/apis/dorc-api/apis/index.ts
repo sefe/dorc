@@ -16,6 +16,7 @@ export * from './DatabaseAuditApi';
 export * from './DeploymentDefinitionsApi';
 export * from './DeploymentV2Api';
 export * from './DirectorySearchApi';
+export * from './EphemeralEnvironmentsApi';
 export * from './MakeLikeProdApi';
 export * from './MetadataApi';
 export * from './PowerShellVersionsApi';

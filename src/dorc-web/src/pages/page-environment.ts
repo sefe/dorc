@@ -2,6 +2,7 @@ import { css, PropertyValueMap, TemplateResult } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-access-control';
+import '../components/ephemeral-environment-banner';
 import { navigate } from '../router/router';
 import { Tabs } from '@vaadin/tabs';
 import { PageElement } from '../helpers/page-element';
@@ -26,6 +27,7 @@ export enum EnvPageTabNames {
 export class PageEnvironment extends PageElement {
   @property() environmentName = '';
   @property() parentName = '';
+  @property({ type: Object }) environment: EnvironmentApiModel | undefined;
 
   private tabId = -1;
 
@@ -70,6 +72,10 @@ export class PageEnvironment extends PageElement {
       .env-header h2 {
         text-align: center;
         margin: var(--lumo-space-s) 0;
+      }
+
+      .ephemeral-banner-wrapper {
+        padding: 0 var(--lumo-space-m) var(--lumo-space-xs) var(--lumo-space-m);
       }
 
       /* D-22: the ring was hardcoded #f3f3f3/#3498db, which renders as a glaring
@@ -150,6 +156,21 @@ export class PageEnvironment extends PageElement {
         }
       </div>
 
+      ${
+        this.environment?.IsEphemeral
+          ? html`
+              <div class="ephemeral-banner-wrapper">
+                <ephemeral-environment-banner
+                  full-width
+                  .environment=${this.environment}
+                  @ephemeral-environment-updated=${this.onEphemeralUpdated}
+                  @ephemeral-environment-teardown=${this.onEphemeralUpdated}
+                ></ephemeral-environment-banner>
+              </div>
+            `
+          : html``
+      }
+
       <vaadin-tabs
         id="env-tabs"
         theme="centered"
@@ -200,18 +221,39 @@ export class PageEnvironment extends PageElement {
 
   environmentLoading() {
     this.loading = true;
+    this.environment = undefined;
   }
 
   environmentLoaded(e: CustomEvent) {
     const env = e.detail.environment as EnvironmentApiModel;
+    this.environment = env;
     this.environmentName = env.EnvironmentName ?? '';
     this.parentName = env.ParentEnvironment?.EnvironmentName ?? '';
     this.loading = false;
   }
 
+  private onEphemeralUpdated = (e: CustomEvent) => {
+    if (e.detail?.environment) {
+      this.environment = {
+        ...this.environment,
+        ...(e.detail.environment as EnvironmentApiModel)
+      };
+    }
+    const slot = this.shadowRoot?.querySelector(
+      'slot'
+    ) as HTMLSlotElement | null;
+    const childNodes: Node[] = slot?.assignedNodes({ flatten: true }) ?? [];
+    childNodes.forEach(node => {
+      if (node instanceof PageEnvBase && this.environment) {
+        node.environment = this.environment;
+      }
+    });
+  };
+
   environmentNotFound() {
     this.notFound = true;
     this.loading = false;
+    this.environment = undefined;
   }
 
   environmentRenamed(e: CustomEvent) {

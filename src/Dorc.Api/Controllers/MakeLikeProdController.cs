@@ -132,6 +132,9 @@ namespace Dorc.Api.Controllers
                         StatusCodes.Status403Forbidden,
                         $"Bundle Requests cannot be run against production environment '{mlpRequest.TargetEnv}'.");
 
+                if (RequestController.IsEphemeralEnvironmentBlockedForDeployments(targetEnv))
+                    return Conflict($"Cannot submit bundle requests to ephemeral environment '{mlpRequest.TargetEnv}' while it is in '{targetEnv!.EphemeralState}' state.");
+
                 if (!_securityPrivilegesChecker.CanModifyEnvironment(User, mlpRequest.TargetEnv) &&
                     !_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, mlpRequest.TargetEnv))
                 {
@@ -143,7 +146,10 @@ namespace Dorc.Api.Controllers
                         $"You do not have Write or Owner permission on environment '{mlpRequest.TargetEnv}'{ownerText}. Only an Environment Writer, Owner, or DOrc Admin can queue a Bundle Request.");
                 }
 
-                var requestsForBundle = _bundledRequestsPersistentSource.GetRequestsForBundle(mlpRequest.BundleName).OrderBy(br => br.Sequence);
+                var requestsForBundle = _bundledRequestsPersistentSource
+                    .GetRequestsForBundle(mlpRequest.BundleName)
+                    .OrderBy(br => br.Sequence)
+                    .ToList();
 
                 _variableResolver.SetPropertyValue("CreatedByUserEmail", this.GetUserEmail(User));
                 _variableResolver.SetRequestSuppliedPropertyValue("DataBackup", mlpRequest.DataBackup);
@@ -151,9 +157,32 @@ namespace Dorc.Api.Controllers
 
                 foreach (var mlpRequestBundleProperty in mlpRequest.BundleProperties)
                 {
+                    if (TerraformDestroyOperationConstants.IsReservedLifecycleProperty(mlpRequestBundleProperty.PropertyName))
+                    {
+                        return BadRequest($"Property '{mlpRequestBundleProperty.PropertyName}' is reserved for DOrc ephemeral lifecycle management and cannot be supplied by callers.");
+                    }
+
                     _variableResolver.SetRequestSuppliedPropertyValue(
                         mlpRequestBundleProperty.PropertyName,
                         mlpRequestBundleProperty.PropertyValue);
+                }
+
+                var parsedJobs = new Dictionary<BundledRequestsApiModel, RequestDto>();
+                foreach (var req in requestsForBundle.Where(r => r.Type == BundledRequestType.JobRequest))
+                {
+                    var job = System.Text.Json.JsonSerializer.Deserialize<RequestDto>(req.Request)!;
+                    if (job.RequestProperties != null)
+                    {
+                        foreach (var variable in job.RequestProperties)
+                        {
+                            if (TerraformDestroyOperationConstants.IsReservedLifecycleProperty(variable.PropertyName))
+                            {
+                                return BadRequest($"Property '{variable.PropertyName}' is reserved for DOrc ephemeral lifecycle management and cannot be supplied by callers.");
+                            }
+                        }
+                    }
+
+                    parsedJobs[req] = job;
                 }
 
                 var initialRequestIdNotSet = true;
@@ -166,7 +195,7 @@ namespace Dorc.Api.Controllers
                     switch (req.Type)
                     {
                         case BundledRequestType.JobRequest:
-                            var job = System.Text.Json.JsonSerializer.Deserialize<RequestDto>(req.Request);
+                            var job = parsedJobs[req];
 
                             _bundledRequestVariableLoader.SetVariables(job.RequestProperties.ToList());
                             _variableResolver.LoadProperties();

@@ -37,6 +37,7 @@ namespace Dorc.PersistentData.Contexts
         DbSet<DeploymentRequestAttempt> DeploymentRequestAttempts { get; set; }
         DbSet<DeploymentResultAttempt> DeploymentResultAttempts { get; set; }
         DbSet<Environment> Environments { get; set; }
+        DbSet<EnvironmentTemplate> EnvironmentTemplates { get; set; }
         DbSet<AccessControl> AccessControls { get; set; }
         DbSet<EnvironmentComponentStatus> EnvironmentComponentStatuses { get; set; }
         DbSet<ConfigValue> ConfigValues { get; set; }

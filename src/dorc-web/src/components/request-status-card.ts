@@ -13,6 +13,7 @@ import { css, LitElement, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import './component-deployment-results';
+import './ephemeral-environment-banner';
 import './log-dialog';
 import './grid-button-groups/request-controls';
 import { styleMap } from 'lit/directives/style-map.js';
@@ -54,6 +55,13 @@ export class RequestStatusCard extends LitElement {
 
   @state()
   selectedLog: string | undefined;
+
+  @state()
+  private ephemeralEnv: EnvironmentApiModel | undefined;
+
+  private loadedEnvName = '';
+
+  private envLoadSubscription?: { unsubscribe(): void };
 
   constructor() {
     super();
@@ -166,6 +174,44 @@ export class RequestStatusCard extends LitElement {
       .request-error-banner__action {
         flex-shrink: 0;
       }
+
+      .ephemeral-request-badges {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-left: 6px;
+      }
+
+      .req-indicator-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.03em;
+        white-space: nowrap;
+      }
+
+      .req-indicator-ephemeral {
+        background: #ede9fe;
+        color: #5b21b6;
+        border: 1px solid #c4b5fd;
+      }
+
+      .req-indicator-auto-approve {
+        background: #dcfce7;
+        color: #166534;
+        border: 1px solid #86efac;
+      }
+
+      .req-indicator-destroy {
+        background: #fee2e2;
+        color: #b91c1c;
+        border: 1px solid #fca5a5;
+      }
     `;
   }
 
@@ -193,6 +239,7 @@ export class RequestStatusCard extends LitElement {
           <div class="card-header">
             <div class="card-header-left">
               <h3 class="card-element__heading">${this.selectedProject}</h3>
+              ${this.renderEphemeralRequestIndicators()}
               <vaadin-button
                 aria-label="Refresh Page"
                 theme="icon"
@@ -263,7 +310,10 @@ export class RequestStatusCard extends LitElement {
                 Environment:
               </td>
               <td>
-                <h4 class="card-element__text">
+                <h4
+                  class="card-element__text"
+                  style="display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;"
+                >
                   ${this.deployRequest?.EnvironmentName}
                   <vaadin-button
                     aria-label="Open Environment Details for ${
@@ -283,6 +333,21 @@ export class RequestStatusCard extends LitElement {
                       style="color: var(--dorc-link-color)"
                     ></vaadin-icon>
                   </vaadin-button>
+                  ${
+                    this.ephemeralEnv?.IsEphemeral
+                      ? html`<ephemeral-environment-banner
+                          .environment=${this.ephemeralEnv}
+                          compact
+                          .showActionsInCompact=${true}
+                          @ephemeral-environment-updated=${
+                            this.onEphemeralEnvironmentUpdated
+                          }
+                          @ephemeral-environment-teardown=${
+                            this.onEphemeralEnvironmentTeardown
+                          }
+                        ></ephemeral-environment-banner>`
+                      : html``
+                  }
                 </h4>
               </td>
             </tr>
@@ -451,10 +516,13 @@ export class RequestStatusCard extends LitElement {
       })
       .subscribe({
         next: (data: EnvironmentApiModel[]) => {
-          if (data[0] !== null) {
+          const matched = (data || []).find(e =>
+            this.matchesRequestEnvironment(e)
+          );
+          if (matched) {
             const event = new CustomEvent('open-env-detail', {
               detail: {
-                Environment: data[0]
+                Environment: matched
               },
               bubbles: true,
               composed: true
@@ -539,8 +607,16 @@ export class RequestStatusCard extends LitElement {
     return new Date(dateVal ?? '').toLocaleString();
   }
 
+  disconnectedCallback(): void {
+    super.disconnectedCallback();
+    this.envLoadSubscription?.unsubscribe();
+    this.envLoadSubscription = undefined;
+  }
+
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
+
+    this.loadTargetEnvironmentIfNeeded();
 
     const projectsApi = new RefDataProjectsApi(dorcApiConfiguration);
     projectsApi
@@ -557,6 +633,178 @@ export class RequestStatusCard extends LitElement {
           }/_build/results?buildId=${buildId}&view=results`;
         }
       });
+  }
+
+  protected updated(_changedProperties: PropertyValues) {
+    super.updated(_changedProperties);
+    if (_changedProperties.has('deployRequest')) {
+      this.loadTargetEnvironmentIfNeeded();
+    }
+  }
+
+  private extractRequestEnvironmentId(): number | undefined {
+    const details = this.deployRequest?.RequestDetails ?? '';
+    const match =
+      /(?:<Name>|")EphemeralEnvironmentId(?:<\/Name>|")[\s\S]{0,120}?(?:>|":\s*")(\d+)(?:<|")/i.exec(
+        details
+      );
+    return match ? Number(match[1]) : undefined;
+  }
+
+  private matchesRequestEnvironment(env: EnvironmentApiModel): boolean {
+    const envName = this.deployRequest?.EnvironmentName?.trim() ?? '';
+    if (env.EnvironmentName?.toLowerCase() !== envName.toLowerCase()) {
+      return false;
+    }
+    const reqEnvId = this.extractRequestEnvironmentId();
+    return reqEnvId === undefined || env.EnvironmentId === reqEnvId;
+  }
+
+  private loadTargetEnvironmentIfNeeded() {
+    const envName = this.deployRequest?.EnvironmentName?.trim() ?? '';
+    if (!envName) {
+      this.envLoadSubscription?.unsubscribe();
+      this.envLoadSubscription = undefined;
+      this.loadedEnvName = '';
+      this.ephemeralEnv = undefined;
+      return;
+    }
+    const lookupKey = `${envName}:${this.extractRequestEnvironmentId() ?? ''}`;
+    if (lookupKey === this.loadedEnvName) {
+      return;
+    }
+    this.envLoadSubscription?.unsubscribe();
+    this.loadedEnvName = lookupKey;
+    this.ephemeralEnv = undefined;
+    const envApi = new RefDataEnvironmentsApi(dorcApiConfiguration);
+    this.envLoadSubscription = envApi
+      .refDataEnvironmentsGet({ env: envName })
+      .subscribe({
+        next: (envs: EnvironmentApiModel[]) => {
+          if (this.loadedEnvName !== lookupKey) {
+            return;
+          }
+          const match = (envs || []).find(e =>
+            this.matchesRequestEnvironment(e)
+          );
+          this.ephemeralEnv = match;
+        },
+        error: () => {
+          if (this.loadedEnvName !== lookupKey) {
+            return;
+          }
+          this.ephemeralEnv = undefined;
+        }
+      });
+  }
+
+  private onEphemeralEnvironmentUpdated = (e: CustomEvent) => {
+    const updated = e.detail?.environment as EnvironmentApiModel | undefined;
+    if (updated && this.matchesRequestEnvironment(updated)) {
+      this.ephemeralEnv = updated;
+    }
+  };
+
+  private onEphemeralEnvironmentTeardown = (e: CustomEvent) => {
+    const updated = e.detail?.environment as EnvironmentApiModel | undefined;
+    if (updated && this.matchesRequestEnvironment(updated)) {
+      this.ephemeralEnv = updated;
+    }
+    this.refresh();
+  };
+
+  private isDestroyRequest(): boolean {
+    if (this.ephemeralEnv && this.ephemeralEnv.IsEphemeral !== true) {
+      return false;
+    }
+    const details = this.deployRequest?.RequestDetails ?? '';
+    return (
+      /TerraformOperation[\s\S]{0,120}?Destroy/i.test(details) ||
+      /IsDestroy[\s\S]{0,120}?true/i.test(details) ||
+      /EphemeralTargetState[\s\S]{0,120}?TornDown/i.test(details)
+    );
+  }
+
+  private hasEphemeralRequestMarkers(): boolean {
+    const details = this.deployRequest?.RequestDetails ?? '';
+    return (
+      this.isDestroyRequest() ||
+      /EphemeralTargetState/i.test(details) ||
+      /DeferredValidationComponents/i.test(details)
+    );
+  }
+
+  private isEphemeralRequest(): boolean {
+    return (
+      this.ephemeralEnv?.IsEphemeral === true ||
+      (!this.ephemeralEnv && this.hasEphemeralRequestMarkers())
+    );
+  }
+
+  private isAutoApproveRequest(): boolean {
+    return (
+      (this.ephemeralEnv?.IsEphemeral === true &&
+        !this.ephemeralEnv?.EnvironmentIsProd) ||
+      (!this.ephemeralEnv && this.hasEphemeralRequestMarkers())
+    );
+  }
+
+  private renderEphemeralRequestIndicators() {
+    const isEph = this.isEphemeralRequest();
+    const isDestroy = this.isDestroyRequest();
+    if (!isEph && !isDestroy) {
+      return html``;
+    }
+    const isAutoApprove = this.isAutoApproveRequest();
+
+    return html`
+      <span class="ephemeral-request-badges">
+        ${
+          isEph
+            ? html`
+                <span
+                  class="req-indicator-pill req-indicator-ephemeral"
+                  title="Ephemeral Environment Deployment Request"
+                >
+                  <vaadin-icon
+                    icon="vaadin:stopwatch"
+                    style="width: 11px; height: 11px;"
+                  ></vaadin-icon>
+                  EPHEMERAL
+                </span>
+              `
+            : html``
+        }
+        ${
+          isAutoApprove
+            ? html`
+                <span
+                  class="req-indicator-pill req-indicator-auto-approve"
+                  title="Non-production ephemeral request auto-approves Terraform plans"
+                >
+                  AUTO-APPROVE
+                </span>
+              `
+            : html``
+        }
+        ${
+          isDestroy
+            ? html`
+                <span
+                  class="req-indicator-pill req-indicator-destroy"
+                  title="Automated Terraform Destroy / Teardown Request"
+                >
+                  <vaadin-icon
+                    icon="vaadin:trash"
+                    style="width: 11px; height: 11px;"
+                  ></vaadin-icon>
+                  DESTROY
+                </span>
+              `
+            : html``
+        }
+      </span>
+    `;
   }
 
   private refresh() {

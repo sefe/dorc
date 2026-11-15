@@ -19,6 +19,8 @@ import {
 } from '../apis/dorc-api';
 import '../components/attach-environment';
 import '../components/environment-card.ts';
+import '../components/ephemeral-environment-wizard-dialog';
+import { EphemeralEnvironmentWizardDialog } from '../components/ephemeral-environment-wizard-dialog';
 import '../components/project-workspace-nav';
 import { EnvironmentApiModel, ProjectApiModel } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
@@ -71,6 +73,9 @@ export class PageProjectEnvs extends PageElement {
   private projectUserEditable = false;
 
   @query('#add-edit-project') addEditProject!: AddEditProject;
+
+  @query('#project-ephemeral-wizard')
+  ephemeralWizard!: EphemeralEnvironmentWizardDialog;
 
   static get styles() {
     return css`
@@ -270,6 +275,21 @@ export class PageProjectEnvs extends PageElement {
                 ></vaadin-icon>
               </vaadin-button>
               <vaadin-button
+                aria-label="Spin Up Temporary Environment"
+                theme="icon"
+                @click="${this.openEphemeralWizard}"
+                style="margin: 0;"
+              >
+                <vaadin-tooltip
+                  slot="tooltip"
+                  text="Spin Up Temporary Environment"
+                ></vaadin-tooltip>
+                <vaadin-icon
+                  icon="vaadin:stopwatch"
+                  style="color: var(--dorc-link-color)"
+                ></vaadin-icon>
+              </vaadin-button>
+              <vaadin-button
                 aria-label="Edit Metadata..."
                 theme="icon"
                 @click="${this.openProjectMetadata}"
@@ -293,9 +313,16 @@ export class PageProjectEnvs extends PageElement {
               .environment="${env}"
               .project="${this.project}"
               @envs-changed="${this.getEnvironments}"
+              @ephemeral-environment-updated="${
+                this.handleEphemeralEnvironmentUpdated
+              }"
             ></environment-card>`
         )}
       </div>
+      <ephemeral-environment-wizard-dialog
+        id="project-ephemeral-wizard"
+        @environment-created="${this.getEnvironments}"
+      ></ephemeral-environment-wizard-dialog>
       <vaadin-dialog
         ${ref(this.unsavedChanges.attach)}
         header-title="Map Environment to Project"
@@ -404,6 +431,29 @@ export class PageProjectEnvs extends PageElement {
   private close() {
     this.mapEnvDialogOpened = false;
   }
+
+  openEphemeralWizard() {
+    this.ephemeralWizard?.open({ projectName: this.project });
+  }
+
+  private handleEphemeralEnvironmentUpdated = (e: CustomEvent) => {
+    const updated = e.detail?.environment as EnvironmentApiModel | undefined;
+    if (e.detail?.deleted) {
+      this.getEnvironments();
+      return;
+    }
+    if (updated && this.environments) {
+      const targetName = updated.EnvironmentName?.toLowerCase();
+      this.environments = this.environments.map(env => {
+        const isMatch =
+          (updated.EnvironmentId !== undefined &&
+            env.EnvironmentId === updated.EnvironmentId) ||
+          (targetName !== undefined &&
+            env.EnvironmentName?.toLowerCase() === targetName);
+        return isMatch ? { ...env, ...updated } : env;
+      });
+    }
+  };
 
   openAttachEnv() {
     this.mapEnvDialogOpened = true;

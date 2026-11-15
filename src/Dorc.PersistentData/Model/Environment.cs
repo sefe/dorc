@@ -12,7 +12,13 @@
         public string? EnvNote { get; set; }
         public string? Description { get; set; }
         public int? ParentId { get; set; }
+        public bool IsEphemeral { get; set; }
+        public string? EnvironmentTier { get; set; }
+        public int? TemplateId { get; set; }
+        public DateTime? ExpiresAtUtc { get; set; }
+        public string? EphemeralState { get; set; }
 
+        public EnvironmentTemplate? Template { get; set; }
         public ICollection<Database> Databases { get; set; } = new List<Database>();
         public ICollection<EnvironmentHistory> Histories { get; set; } = new List<EnvironmentHistory>();
         public ICollection<Server> Servers { get; set; } = new List<Server>();

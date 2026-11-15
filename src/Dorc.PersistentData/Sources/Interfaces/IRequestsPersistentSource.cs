@@ -62,6 +62,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         bool TryDeclineTerraformPlan(DeploymentResultApiModel result, string user, DateTimeOffset declinedAt);
         TerraformPlanApproval? GetTerraformPlanApproval(int deploymentResultId);
         TerraformDeploymentReceipt? GetTerraformDeploymentReceipt(int deploymentResultId);
+        IReadOnlyList<TerraformDeploymentReceipt> GetTerraformReceiptsForEnvironment(string environmentName);
         TerraformTemplateInstantiateResponseApiModel? FindCatalogSubmission(CatalogSubmissionIdentity submission);
         int SubmitCatalogRequest(DeploymentRequest request, CatalogSubmissionIdentity submission);
         CatalogEnvironmentInputs? GetCatalogEnvironmentInputs(int componentId, int environmentId);
@@ -79,6 +80,14 @@ namespace Dorc.PersistentData.Sources.Interfaces
         void RecordTerraformInventory(int componentId, int environmentId, int resultId, DateTimeOffset appliedAt,
             IReadOnlyList<TerraformInventoryObservation> observed, bool complete);
         IReadOnlyList<TerraformInventoryProvenanceApiModel> GetTerraformInventory(int componentId, int environmentId);
+        IReadOnlyList<TerraformInventoryProvenanceApiModel> GetTerraformInventoryForEnvironment(int environmentId, int? deploymentResultId = null);
+        IReadOnlyList<int> GetProvisionedComponentIdsForEnvironment(int environmentId);
+        IReadOnlyList<string> GetProvisionedProjectsForComponent(int environmentId, int componentId);
+        IReadOnlyList<(ProjectApiModel Project, ComponentApiModel Component)> GetProvisionedComponentDefinitionsForEnvironment(int environmentId);
+        IReadOnlyList<RequestProperty> GetProvisionedRequestPropertiesForEnvironment(int environmentId, string? projectName = null);
+        DeploymentRequestApiModel? GetLatestAppliedRequestForEnvironment(string environmentName, string? projectName = null, int? componentId = null);
+        void BackfillRequestBuildMetadata(int requestId, string? buildUri, string? dropLocation, string? buildNumber = null);
+        void DeleteTerraformInventoryProvenance(int environmentId, int? deploymentResultId = null);
         bool ReviewTerraformInventory(int componentId, int environmentId, int cloudResourceId, long expectedRevision);
         DeploymentResultApiModel? GetArchivedDeploymentResult(int deploymentResultId);
         bool UpdateUncLogPath(DeploymentRequestApiModel deploymentRequest, string uncLogPath);

@@ -527,5 +527,134 @@ namespace Dorc.Monitor.Tests.Terraform
 
             _cloudResources.Received(1).Add(Arg.Is<CloudResourceApiModel>(m => m.Name == "rg-second"));
         }
+
+        [TestMethod]
+        public void DeregisterEnvironmentResources_WithInvalidEnvironmentId_DoesNothing()
+        {
+            _registrar.DeregisterEnvironmentResources(0);
+            _registrar.DeregisterEnvironmentResources(-5, 100);
+
+            _cloudResources.DidNotReceiveWithAnyArgs().GetForEnvironmentId(default);
+        }
+
+        [TestMethod]
+        public void DeregisterEnvironmentResources_WithProvenance_RemovesProvenanceLinksAndOrphanedResourcesOnly()
+        {
+            var requests = Substitute.For<IRequestsPersistentSource>();
+            requests.GetTerraformInventoryForEnvironment(2598, 77).Returns(new[]
+            {
+                new TerraformInventoryProvenanceApiModel { ComponentId = 10, CloudResourceId = 101, DatabaseId = 201 },
+                new TerraformInventoryProvenanceApiModel { ComponentId = 10, CloudResourceId = 102, DatabaseId = 202 },
+                new TerraformInventoryProvenanceApiModel { ComponentId = 10, CloudResourceId = 103, DatabaseId = 203 },
+                new TerraformInventoryProvenanceApiModel { ComponentId = 10, CloudResourceId = 0, DatabaseId = null }
+            });
+            requests.GetTerraformInventoryForEnvironment(2598, null).Returns(new[]
+            {
+                new TerraformInventoryProvenanceApiModel { ComponentId = 10, CloudResourceId = 101, DatabaseId = 201 },
+                new TerraformInventoryProvenanceApiModel { ComponentId = 10, CloudResourceId = 102, DatabaseId = 202 },
+                new TerraformInventoryProvenanceApiModel { ComponentId = 10, CloudResourceId = 103, DatabaseId = 203 },
+                new TerraformInventoryProvenanceApiModel { ComponentId = 20, CloudResourceId = 103, DatabaseId = 203 },
+                new TerraformInventoryProvenanceApiModel { ComponentId = 20, CloudResourceId = 0, DatabaseId = null }
+            });
+
+            var registrar = new TerraformCloudResourceRegistrar(
+                Substitute.For<ILogger>(), _cloudResources, _audit, _environments, _databases, requests);
+
+            registrar.DeregisterEnvironmentResources(2598, 77);
+
+            requests.Received(1).DeleteTerraformInventoryProvenance(2598, 77);
+            _cloudResources.Received(1).DetachAndDeleteIfOrphaned(101, 2598, 77);
+            _cloudResources.Received(1).DetachAndDeleteIfOrphaned(102, 2598, 77);
+            _cloudResources.DidNotReceive().DetachAndDeleteIfOrphaned(103, 2598, Arg.Any<int?>());
+
+            _databases.Received(1).DetachAndDeleteDatabaseIfOrphaned(2598, 201, 77);
+            _databases.Received(1).DetachAndDeleteDatabaseIfOrphaned(2598, 202, 77);
+            _databases.DidNotReceive().DetachAndDeleteDatabaseIfOrphaned(2598, 203, Arg.Any<int?>());
+        }
+
+        [TestMethod]
+        public void DeregisterEnvironmentResources_WithoutProvenance_FallsBackToEnvironmentLinksWhenTearingDownEnvironment()
+        {
+            _cloudResources.GetForEnvironmentId(2598).Returns(new[]
+            {
+                new CloudResourceApiModel { Id = 301, Name = "cr-1" },
+                new CloudResourceApiModel { Id = 0, Name = "cr-invalid" }
+            });
+            _databases.GetDatabasesForEnvId(2598).Returns(new[]
+            {
+                new DatabaseApiModel { Id = 401, Name = "db-1" },
+                new DatabaseApiModel { Id = 0, Name = "db-invalid" }
+            });
+
+            _registrar.DeregisterEnvironmentResources(2598, null);
+
+            _cloudResources.Received(1).DetachAndDeleteIfOrphaned(301, 2598, null);
+            _databases.Received(1).DetachAndDeleteDatabaseIfOrphaned(2598, 401, null);
+        }
+
+        [TestMethod]
+        public void DeregisterEnvironmentResources_WhenScopedToResultWithEmptyProvenance_ReturnsWithoutTouchingEnvironmentResources()
+        {
+            var requests = Substitute.For<IRequestsPersistentSource>();
+            requests.GetTerraformInventoryForEnvironment(2598, 88).Returns(Array.Empty<TerraformInventoryProvenanceApiModel>());
+            var registrar = new TerraformCloudResourceRegistrar(
+                Substitute.For<ILogger>(), _cloudResources, _audit, _environments, _databases, requests);
+
+            registrar.DeregisterEnvironmentResources(2598, 88);
+
+            requests.DidNotReceiveWithAnyArgs().DeleteTerraformInventoryProvenance(default, default);
+            _cloudResources.DidNotReceiveWithAnyArgs().GetForEnvironmentId(default);
+            _databases.DidNotReceiveWithAnyArgs().GetDatabasesForEnvId(default);
+        }
+
+        [TestMethod]
+        public void DeregisterEnvironmentResources_WithoutResultScopeAndNullEnvironmentCollections_CompletesCleanly()
+        {
+            var requests = Substitute.For<IRequestsPersistentSource>();
+            requests.GetTerraformInventoryForEnvironment(2598, null).Returns((IReadOnlyList<TerraformInventoryProvenanceApiModel>)null!);
+            _cloudResources.GetForEnvironmentId(2598).Returns((IReadOnlyList<CloudResourceApiModel>)null!);
+            _databases.GetDatabasesForEnvId(2598).Returns((IEnumerable<DatabaseApiModel>)null!);
+            var registrar = new TerraformCloudResourceRegistrar(
+                Substitute.For<ILogger>(), _cloudResources, _audit, _environments, _databases, requests);
+
+            registrar.DeregisterEnvironmentResources(2598, null);
+
+            requests.Received(1).DeleteTerraformInventoryProvenance(2598, null);
+        }
+
+        [TestMethod]
+        public void DeregisterEnvironmentResources_HandlesCloudResourceAndDatabaseExceptionsAndRetainsProvenanceForRetry()
+        {
+            var requests = Substitute.For<IRequestsPersistentSource>();
+            requests.GetTerraformInventoryForEnvironment(2598, 99).Returns(new[]
+            {
+                new TerraformInventoryProvenanceApiModel { CloudResourceId = 500, DatabaseId = 501 }
+            });
+            requests.GetTerraformInventoryForEnvironment(2598, null).Returns((IReadOnlyList<TerraformInventoryProvenanceApiModel>)null!);
+            _cloudResources.When(c => c.DetachAndDeleteIfOrphaned(500, 2598, 99))
+                .Do(_ => throw new InvalidOperationException("Detach failed"));
+
+            _databases.When(d => d.DetachAndDeleteDatabaseIfOrphaned(2598, 501, 99))
+                .Do(_ => throw new InvalidOperationException("Database detach failed"));
+
+            var registrar = new TerraformCloudResourceRegistrar(
+                Substitute.For<ILogger>(), _cloudResources, _audit, _environments, _databases, requests);
+
+            Assert.ThrowsExactly<InvalidOperationException>(() => registrar.DeregisterEnvironmentResources(2598, 99));
+
+            requests.DidNotReceiveWithAnyArgs().DeleteTerraformInventoryProvenance(default, default);
+
+            var retryRequests = Substitute.For<IRequestsPersistentSource>();
+            retryRequests.GetTerraformInventoryForEnvironment(2598, 100).Returns(new[]
+            {
+                new TerraformInventoryProvenanceApiModel { CloudResourceId = 502, DatabaseId = 503 }
+            });
+            var retryRegistrar = new TerraformCloudResourceRegistrar(
+                Substitute.For<ILogger>(), _cloudResources, _audit, _environments, _databases, retryRequests);
+
+            retryRegistrar.DeregisterEnvironmentResources(2598, 100);
+
+            retryRequests.Received(1).DeleteTerraformInventoryProvenance(2598, 100);
+        }
     }
 }

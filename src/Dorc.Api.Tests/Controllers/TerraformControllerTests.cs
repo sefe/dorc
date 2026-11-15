@@ -396,6 +396,59 @@ namespace Dorc.Api.Tests.Controllers
             _manageProjects.DidNotReceiveWithAnyArgs()
                 .CreateCatalogComponent(default!, default, default, default);
             _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
+
+            // Also cover InstantiateTemplate returning 409 Conflict when target environment is an ephemeral environment in TearingDown or TornDown state
+            _security.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), EnvName).Returns(true);
+            _environments.GetEnvironment(EnvName).Returns(new EnvironmentApiModel
+            {
+                EnvironmentId = 17,
+                EnvironmentName = EnvName,
+                UserEditable = true,
+                IsEphemeral = true,
+                EphemeralState = EphemeralEnvironmentStates.TearingDown
+            });
+            var conflictResult = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>()
+                },
+                CancellationToken.None);
+            Assert.IsInstanceOfType<ConflictObjectResult>(conflictResult);
+
+            _environments.GetEnvironment(EnvName).Returns(new EnvironmentApiModel
+            {
+                EnvironmentId = 17,
+                EnvironmentName = EnvName,
+                UserEditable = true,
+                IsEphemeral = true,
+                EphemeralState = EphemeralEnvironmentStates.Ready
+            });
+            _parameterValidator.Validate(
+                    Arg.Any<TerraformTemplateManifest>(),
+                    Arg.Any<IReadOnlyDictionary<string, string?>>())
+                .Returns(new ParameterValidationResult(true, Array.Empty<ParameterValidationError>()));
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 888, Status = "Pending" });
+            var readyResult = await _controller.InstantiateTemplate(
+                TemplateName,
+                TemplateVersion,
+                new TerraformTemplateInstantiateRequestApiModel
+                {
+                    ProjectId = ProjectId,
+                    EnvironmentName = EnvName,
+                    Parameters = new Dictionary<string, string>()
+                },
+                CancellationToken.None);
+            Assert.IsInstanceOfType<OkObjectResult>(readyResult);
+            _requestService.Received(1).CreateRequest(
+                Arg.Is<RequestDto>(dto => dto.RequestProperties.Any(p =>
+                    p.PropertyName == TerraformDestroyOperationConstants.EphemeralEnvironmentIdPropertyName &&
+                    p.PropertyValue == "17")),
+                Arg.Any<ClaimsPrincipal>());
         }
 
         [TestMethod]
@@ -974,7 +1027,7 @@ namespace Dorc.Api.Tests.Controllers
                 Arg.Is<ComponentApiModel>(c => c.ComponentId == 0),
                 ProjectId, Arg.Any<int?>(), false);
             _requestService.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
-            _environments.DidNotReceiveWithAnyArgs().GetEnvironment(default!);
+            _environments.DidNotReceive().GetEnvironment(Arg.Any<string>());
         }
 
         [TestMethod]
@@ -1309,6 +1362,21 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual(TerraformParameterResolutionStatus.Missing, byName["location"].Status,
                 "Sensitive inputs are never suggested even when a rule matches the name.");
             Assert.IsNull(byName["location"].SuggestedValue);
+
+            _projects.GetComponentsForProject(ProjectId).Returns(new List<ComponentApiModel>
+            {
+                new()
+                {
+                    ComponentId = 101,
+                    ComponentName = "OrdersTopic",
+                    TerraformSourceType = TerraformSourceType.Catalog,
+                    TerraformTemplateName = TemplateName,
+                    TerraformTemplateVersion = TemplateVersion
+                }
+            });
+            var withCompResult = await _controller.ResolveTemplateInputs(
+                TemplateName, TemplateVersion, ProjectId, EnvName, CancellationToken.None, componentId: 101);
+            Assert.IsInstanceOfType<OkObjectResult>(withCompResult);
         }
 
         [TestMethod]

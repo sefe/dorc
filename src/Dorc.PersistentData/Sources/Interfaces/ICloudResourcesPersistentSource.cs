@@ -17,5 +17,6 @@ namespace Dorc.PersistentData.Sources.Interfaces
         IEnumerable<string> GetEnvironmentNamesForId(int id);
         EnvironmentAttachmentOutcome AttachToEnvironment(int id, int environmentId);
         EnvironmentAttachmentOutcome DetachFromEnvironment(int id, int environmentId);
+        bool DetachAndDeleteIfOrphaned(int id, int environmentId, int? deploymentResultId = null);
     }
 }

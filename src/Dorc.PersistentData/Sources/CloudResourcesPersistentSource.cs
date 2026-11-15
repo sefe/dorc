@@ -196,6 +196,50 @@ namespace Dorc.PersistentData.Sources
             return EnvironmentAttachmentOutcome.Detached;
         }
 
+        public bool DetachAndDeleteIfOrphaned(int id, int environmentId, int? deploymentResultId = null)
+        {
+            return SharedResourceMutation.ExecuteInContext(_contextFactory, context =>
+            {
+                var cloudResource = context.CloudResources
+                    .Include(c => c.Environments)
+                    .FirstOrDefault(c => c.Id == id);
+                if (cloudResource == null)
+                    return false;
+
+                if (SharedResourceMutation.HasRemainingSameEnvironmentProvenance(
+                        context,
+                        environmentId,
+                        deploymentResultId,
+                        p => p.CloudResourceId == id))
+                {
+                    return false;
+                }
+
+                var attached = cloudResource.Environments.FirstOrDefault(e => e.Id == environmentId);
+                if (attached != null)
+                {
+                    cloudResource.Environments.Remove(attached);
+                }
+
+                var hasOtherReferences =
+                    cloudResource.Environments.Any(e => e.Id != environmentId) ||
+                    (context.Environments != null &&
+                     context.Environments.Any(e => e.Id != environmentId && e.CloudResources.Any(c => c.Id == id))) ||
+                    (context.TerraformInventoryProvenance != null &&
+                     context.TerraformInventoryProvenance.Any(p => p.EnvironmentId != environmentId && p.CloudResourceId == id));
+
+                var deleted = false;
+                if (!hasOtherReferences)
+                {
+                    context.CloudResources.Remove(cloudResource);
+                    deleted = true;
+                }
+
+                context.SaveChanges();
+                return deleted;
+            });
+        }
+
         private static CloudResourceApiModel MapToApiModel(CloudResource cloudResource)
         {
             return new CloudResourceApiModel

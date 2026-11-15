@@ -23,6 +23,7 @@ namespace Dorc.Api.Tests
             Assert.IsNotNull(container.GetInstance<IContainerAuditPersistentSource>());
             Assert.IsNotNull(container.GetInstance<ICloudResourceAuditPersistentSource>());
             Assert.IsNotNull(container.GetInstance<IApiRegistrationAuditPersistentSource>());
+            Assert.IsNotNull(container.GetInstance<IEnvironmentTemplatesPersistentSource>());
         }
     }
 }

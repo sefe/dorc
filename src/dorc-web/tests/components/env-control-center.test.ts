@@ -128,4 +128,50 @@ describe('EnvControlCenter delete status', () => {
       "Unable to queue Bundle Request: Only an Owner of environment 'Endur DV 10' (current owner: Jane Doe) or a DOrc Admin can queue a Bundle Request."
     );
   });
+
+  it('disables raw Delete Environment button for active ephemeral environments and enables it when TornDown or for Admin on TeardownFailed', async () => {
+    const el = await fixture<EnvControlCenter>(
+      html`<env-control-center></env-control-center>`
+    );
+    (el as unknown as { isAdmin: boolean }).isAdmin = true;
+    (el as unknown as { isEnvOwner: boolean }).isEnvOwner = true;
+    (el as unknown as { environment: unknown }).environment = {
+      EnvironmentName: 'traveler-ephemeral-eph-1234',
+      IsEphemeral: true,
+      EphemeralState: 'Ready'
+    };
+    await el.updateComplete;
+
+    const deleteButton = el.shadowRoot!.querySelector(
+      'vaadin-button'
+    ) as HTMLElement | null;
+    expect(deleteButton).to.not.equal(null);
+    expect(deleteButton!.hasAttribute('disabled')).to.equal(true);
+    expect(deleteButton!.getAttribute('title')).to.include('Tear Down Now');
+    expect(
+      el.shadowRoot!.querySelector('.ephemeral-delete-hint')?.textContent
+    ).to.include('Tear Down Now');
+
+    (el as unknown as { environment: unknown }).environment = {
+      EnvironmentName: 'traveler-ephemeral-eph-1234',
+      IsEphemeral: true,
+      EphemeralState: 'TeardownFailed'
+    };
+    await el.updateComplete;
+    expect(deleteButton!.hasAttribute('disabled')).to.equal(false);
+    expect(el.shadowRoot!.querySelector('.ephemeral-delete-hint')).to.equal(
+      null
+    );
+
+    (el as unknown as { environment: unknown }).environment = {
+      EnvironmentName: 'traveler-ephemeral-eph-1234',
+      IsEphemeral: true,
+      EphemeralState: 'TornDown'
+    };
+    await el.updateComplete;
+    expect(deleteButton!.hasAttribute('disabled')).to.equal(false);
+    expect(deleteButton!.getAttribute('title')).to.equal(
+      'Delete Environment & Properties'
+    );
+  });
 });

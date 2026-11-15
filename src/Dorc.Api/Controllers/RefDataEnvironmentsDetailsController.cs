@@ -220,9 +220,9 @@ namespace Dorc.Api.Controllers
             if (parentEnvId.HasValue)
             {
                 var parentEnvironment = environmentsPersistentSource.GetEnvironment(parentEnvId.Value, User);
-                if (parentEnvironment == null)
+                if (parentEnvironment == null || parentEnvironment.IsEphemeral)
                 {
-                    return new ApiBoolResult { Result = false, Message = "Parent environment not found." };
+                    return new ApiBoolResult { Result = false, Message = "Parent environment not found or cannot be an ephemeral environment." };
                 }
 
                 if (!securityService.IsEnvironmentOwnerOrAdmin(User, parentEnvironment.EnvironmentName))

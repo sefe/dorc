@@ -121,4 +121,9 @@ export interface TerraformDeploymentReceiptApiModel {
      * @memberof TerraformDeploymentReceiptApiModel
      */
     PlannedAt?: string;
+    /**
+     * @type {string}
+     * @memberof TerraformDeploymentReceiptApiModel
+     */
+    Operation?: string | null;
 }

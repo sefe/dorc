@@ -30,11 +30,23 @@ namespace Dorc.Terraform.Catalog
             public const string ApplicationCode = "application_code";
             public const string Scope = "scope";
             public const string Location = "location";
+            public const string CreateService = "create_service";
+            public const string CreateResourceGroup = "create_resource_group";
+            public const string Partitions = "partitions";
+            public const string RetentionMs = "retention_ms";
+            public const string Throughput = "throughput";
+            public const string Plan = "plan";
+            public const string ServiceName = "service_name";
+            public const string DatabaseName = "database_name";
+            public const string Sku = "sku";
+            public const string ResourceName = "resource_name";
 
             public static readonly IReadOnlyList<string> All = new[]
             {
                 DorcEnvironment, EnvironmentTier, IsProd, CloudByTier, TerminationProtection,
                 BusinessVertical, ApplicationCode, Scope, Location,
+                CreateService, CreateResourceGroup, Partitions, RetentionMs, Throughput,
+                Plan, ServiceName, DatabaseName, Sku, ResourceName,
             };
         }
 
@@ -42,7 +54,11 @@ namespace Dorc.Terraform.Catalog
             string EnvironmentName,
             bool EnvironmentIsProd,
             string? BusinessVertical,
-            string? ApplicationCode);
+            string? ApplicationCode,
+            bool IsEphemeral = false,
+            string? ExplicitTierOverride = null,
+            string? ModuleName = null,
+            string? ComponentName = null);
 
         public sealed record Suggestion(string Value, string Reason);
 
@@ -54,6 +70,7 @@ namespace Dorc.Terraform.Catalog
         private static readonly IReadOnlyDictionary<string, string> TierAliases =
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
+                ["ephemeral"] = "ephemeral", ["eph"] = "ephemeral", ["temp"] = "ephemeral", ["temporary"] = "ephemeral",
                 ["dv"] = "dv", ["dev"] = "dv", ["development"] = "dv",
                 ["qa"] = "qa", ["test"] = "qa", ["systest"] = "qa", ["st"] = "qa",
                 ["it"] = "it", ["int"] = "it", ["integration"] = "it",
@@ -83,8 +100,67 @@ namespace Dorc.Terraform.Catalog
                 ["location"] = Hints.Location,
             };
 
+        private static readonly IReadOnlyDictionary<string, Func<TerraformTemplateParameter, Context, Suggestion?>> RuleEvaluators =
+            new Dictionary<string, Func<TerraformTemplateParameter, Context, Suggestion?>>(StringComparer.Ordinal)
+            {
+                [Hints.DorcEnvironment] = static (_, context) =>
+                {
+                    var slug = FormatDorcEnvironmentSlug(context.EnvironmentName, context.IsEphemeral);
+                    return slug.Length == 0 ? null : new Suggestion(slug, $"DOrc environment \"{context.EnvironmentName}\".");
+                },
+                [Hints.EnvironmentTier] = static (_, context) =>
+                {
+                    var tier = EnvironmentTier(context, out var reason);
+                    return new Suggestion(tier, reason);
+                },
+                [Hints.IsProd] = static (_, context) =>
+                {
+                    var isProd = IsProduction(context);
+                    return new Suggestion(isProd ? "true" : "false",
+                        $"Environment \"{context.EnvironmentName}\" {(isProd ? "is" : "is not")} production.");
+                },
+                [Hints.CloudByTier] = static (_, context) =>
+                    IsProduction(context)
+                        ? new Suggestion(ProdCloudName, "Production workloads use the prod Aiven cloud.")
+                        : new Suggestion(NonProdCloudName, "Non-production workloads use the nprod Aiven cloud."),
+                [Hints.TerminationProtection] = static (_, context) =>
+                {
+                    if (context.IsEphemeral)
+                    {
+                        return new Suggestion("false", "Ephemeral environments always disable termination protection.");
+                    }
+                    var tier = EnvironmentTier(context, out string _);
+                    return tier is "dv" or "ephemeral"
+                        ? new Suggestion("false", "Development tier resources are expected to be rebuilt freely.")
+                        : new Suggestion("true", $"Protect {tier.ToUpperInvariant()} tier resources from accidental destroy.");
+                },
+                [Hints.BusinessVertical] = static (_, context) =>
+                    string.IsNullOrEmpty(context.BusinessVertical)
+                        ? new Suggestion(DefaultBusinessVertical, "No business vertical on the project; platform default. Set it in Project Ref Data.")
+                        : new Suggestion(context.BusinessVertical!, "Business vertical configured on the project."),
+                [Hints.ApplicationCode] = static (_, context) =>
+                    string.IsNullOrEmpty(context.ApplicationCode)
+                        ? null
+                        : new Suggestion(context.ApplicationCode!, "Application code configured on the project."),
+                [Hints.Scope] = static (_, context) =>
+                {
+                    var tier = EnvironmentTier(context, out string _);
+                    return tier is "dv" or "ephemeral"
+                        ? new Suggestion("tst", "Development tier topics default to the test scope.")
+                        : new Suggestion("gbl", "Global scope unless the topic is local or user-specific.");
+                },
+                [Hints.Location] = static (_, _) =>
+                    new Suggestion(DefaultLocation, "Platform default Azure region."),
+            };
+
         public static bool IsKnownHint(string? hint) =>
             hint is not null && Hints.All.Contains(hint, StringComparer.Ordinal);
+
+        public static IReadOnlyDictionary<string, string?> ResolveTierWeightedInputs(
+            TerraformTemplateManifest manifest,
+            Context context,
+            IReadOnlyDictionary<string, string?>? tierOverrides = null)
+            => TierSizingProfileResolver.ResolveTierWeightedInputs(manifest, context, tierOverrides);
 
         /// <summary>
         /// Returns a suggestion for the parameter, or null when no rule applies,
@@ -94,10 +170,26 @@ namespace Dorc.Terraform.Catalog
         public static Suggestion? For(TerraformTemplateParameter parameter, Context context)
         {
             if (parameter.Sensitive) return null;
-            var rule = parameter.Suggest;
-            if (rule is null && !NameRules.TryGetValue(parameter.Name, out rule)) return null;
 
-            var suggestion = Apply(rule!, context);
+            Suggestion? suggestion = null;
+            var rule = parameter.Suggest;
+            if (rule is not null)
+            {
+                suggestion = Apply(rule, parameter, context);
+                if (suggestion is null && ShouldUseTierSizingSuggestions(context))
+                {
+                    suggestion = TierSizingProfileResolver.TrySuggestForParameter(parameter, context);
+                }
+            }
+            else if (NameRules.TryGetValue(parameter.Name, out var generalRule))
+            {
+                suggestion = Apply(generalRule, parameter, context);
+            }
+            else if (ShouldUseTierSizingSuggestions(context))
+            {
+                suggestion = TierSizingProfileResolver.TrySuggestForParameter(parameter, context);
+            }
+
             if (suggestion is null) return null;
             if (parameter.AllowedValues is { Count: > 0 } &&
                 !parameter.AllowedValues.Contains(suggestion.Value, StringComparer.Ordinal))
@@ -121,26 +213,79 @@ namespace Dorc.Terraform.Catalog
             return NonSlugCharacters.Replace(environmentName.Trim().ToLowerInvariant(), string.Empty);
         }
 
+        public static string FormatDorcEnvironmentSlug(string environmentName, bool isEphemeral)
+        {
+            var slug = NormaliseEnvironmentName(environmentName);
+            if (slug.Length == 0 || !isEphemeral)
+            {
+                return slug;
+            }
+
+            var rawEnvKey = environmentName.Trim().ToLowerInvariant();
+            if (!string.Equals(slug, rawEnvKey, StringComparison.Ordinal) ||
+                TierSizingProfileResolver.EndsWithDelimitedHex6(slug, '-'))
+            {
+                slug = $"{slug}-{TierSizingProfileResolver.ComputeShortHash(rawEnvKey)}";
+            }
+
+            return slug;
+        }
+
         /// <summary>
-        /// Environment tier derived from tokens in the environment name
-        /// (e.g. "APP QA 01" → qa, "APP PREPROD" → pp). Falls back to the
-        /// environment's production flag when no token matches.
+        /// Environment tier derived from explicit tier overrides, tokens in the
+        /// environment name (e.g. "APP QA 01" → qa, "APP PREPROD" → pp), or the
+        /// environment's ephemeral/production flags when no token matches.
         /// </summary>
         public static string EnvironmentTier(Context context, out string reason)
         {
+            if (!string.IsNullOrWhiteSpace(context.ExplicitTierOverride))
+            {
+                var overrideToken = context.ExplicitTierOverride.Trim().ToLowerInvariant();
+                if (TierAliases.TryGetValue(overrideToken, out var overrideTier))
+                {
+                    if (overrideTier == "ephemeral" && context.EnvironmentIsProd)
+                    {
+                        reason = $"Explicit tier override \"{context.ExplicitTierOverride}\" cannot set ephemeral tier on production environment \"{context.EnvironmentName}\"; falling back to \"pr\".";
+                        return "pr";
+                    }
+                    reason = $"From explicit tier override \"{context.ExplicitTierOverride}\" for environment \"{context.EnvironmentName}\".";
+                    return overrideTier;
+                }
+            }
+
             foreach (Match token in Tokens.Matches(context.EnvironmentName.ToLowerInvariant()))
             {
                 if (TierAliases.TryGetValue(token.Value, out var tier))
                 {
+                    if (tier == "ephemeral" && context.EnvironmentIsProd)
+                    {
+                        continue;
+                    }
+                    if (context.IsEphemeral && !context.EnvironmentIsProd && tier is "pr" or "dr")
+                    {
+                        continue;
+                    }
                     reason = $"From \"{token.Value.ToUpperInvariant()}\" in environment name \"{context.EnvironmentName}\".";
                     return tier;
                 }
             }
+
+            if (context.IsEphemeral && !context.EnvironmentIsProd)
+            {
+                reason = $"Environment \"{context.EnvironmentName}\" is flagged ephemeral.";
+                return "ephemeral";
+            }
+
             reason = context.EnvironmentIsProd
                 ? $"Environment \"{context.EnvironmentName}\" is flagged production."
                 : $"Environment \"{context.EnvironmentName}\" is not flagged production.";
             return context.EnvironmentIsProd ? "pr" : "dv";
         }
+
+        private static bool ShouldUseTierSizingSuggestions(Context context) =>
+            context.IsEphemeral
+            || !string.IsNullOrWhiteSpace(context.ModuleName)
+            || !string.IsNullOrWhiteSpace(context.ExplicitTierOverride);
 
         private static bool IsProduction(Context context)
         {
@@ -148,54 +293,7 @@ namespace Dorc.Terraform.Catalog
             return context.EnvironmentIsProd || tier == "pr" || tier == "dr";
         }
 
-        private static Suggestion? Apply(string rule, Context context)
-        {
-            switch (rule)
-            {
-                case Hints.DorcEnvironment:
-                {
-                    var slug = NormaliseEnvironmentName(context.EnvironmentName);
-                    return slug.Length == 0 ? null : new Suggestion(slug, $"DOrc environment \"{context.EnvironmentName}\".");
-                }
-                case Hints.EnvironmentTier:
-                {
-                    var tier = EnvironmentTier(context, out var reason);
-                    return new Suggestion(tier, reason);
-                }
-                case Hints.IsProd:
-                    return new Suggestion(IsProduction(context) ? "true" : "false",
-                        $"Environment \"{context.EnvironmentName}\" {(IsProduction(context) ? "is" : "is not")} production.");
-                case Hints.CloudByTier:
-                    return IsProduction(context)
-                        ? new Suggestion(ProdCloudName, "Production workloads use the prod Aiven cloud.")
-                        : new Suggestion(NonProdCloudName, "Non-production workloads use the nprod Aiven cloud.");
-                case Hints.TerminationProtection:
-                {
-                    var tier = EnvironmentTier(context, out _);
-                    return tier == "dv"
-                        ? new Suggestion("false", "Development tier resources are expected to be rebuilt freely.")
-                        : new Suggestion("true", $"Protect {tier.ToUpperInvariant()} tier resources from accidental destroy.");
-                }
-                case Hints.BusinessVertical:
-                    return string.IsNullOrEmpty(context.BusinessVertical)
-                        ? new Suggestion(DefaultBusinessVertical, "No business vertical on the project; platform default. Set it in Project Ref Data.")
-                        : new Suggestion(context.BusinessVertical!, "Business vertical configured on the project.");
-                case Hints.ApplicationCode:
-                    return string.IsNullOrEmpty(context.ApplicationCode)
-                        ? null
-                        : new Suggestion(context.ApplicationCode!, "Application code configured on the project.");
-                case Hints.Scope:
-                {
-                    var tier = EnvironmentTier(context, out _);
-                    return tier == "dv"
-                        ? new Suggestion("tst", "Development tier topics default to the test scope.")
-                        : new Suggestion("gbl", "Global scope unless the topic is local or user-specific.");
-                }
-                case Hints.Location:
-                    return new Suggestion(DefaultLocation, "Platform default Azure region.");
-                default:
-                    return null;
-            }
-        }
+        private static Suggestion? Apply(string rule, TerraformTemplateParameter parameter, Context context) =>
+            RuleEvaluators.TryGetValue(rule, out var evaluator) ? evaluator(parameter, context) : null;
     }
 }

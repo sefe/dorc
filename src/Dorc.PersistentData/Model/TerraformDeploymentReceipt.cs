@@ -28,5 +28,6 @@ namespace Dorc.PersistentData.Model
         public string PlanContentSha256 { get; set; } = string.Empty;
         public string SourceSha256 { get; set; } = string.Empty;
         public string PlanSha256 { get; set; } = string.Empty;
+        public string Operation { get; set; } = "Plan";
     }
 }

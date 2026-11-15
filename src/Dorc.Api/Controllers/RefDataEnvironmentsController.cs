@@ -92,6 +92,10 @@ namespace Dorc.Api.Controllers
                         return StatusCode(StatusCodes.Status403Forbidden,
                             "Production Environments can only be created by Admins!");
 
+                    if (content.IsEphemeral)
+                        return StatusCode(StatusCodes.Status400BadRequest,
+                            "Ephemeral environments must be provisioned through the EphemeralEnvironments API so TTL and template policies are enforced.");
+
                     if (content.ParentId.HasValue)
                         return StatusCode(StatusCodes.Status400BadRequest,
                             "Parent environment cannot be set during creation. Use the SetParentForEnvironment endpoint instead.");
@@ -118,6 +122,7 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(bool))]
         [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status409Conflict, Type = typeof(string))]
         [HttpDelete]
         public IActionResult Delete([FromBody] EnvironmentApiModel content)
         {
@@ -128,9 +133,16 @@ namespace Dorc.Api.Controllers
                 return StatusCode(StatusCodes.Status403Forbidden,
                     $"Only the owner of environment '{content.EnvironmentName}' or an administrator can delete it.");
 
-            if (!environmentsPersistentSource.DeleteEnvironment(content, User))
-                return StatusCode(StatusCodes.Status404NotFound,
-                    $"Environment '{content.EnvironmentName}' no longer exists, so there was nothing to delete.");
+            try
+            {
+                if (!environmentsPersistentSource.DeleteEnvironment(content, User))
+                    return StatusCode(StatusCodes.Status404NotFound,
+                        $"Environment '{content.EnvironmentName}' no longer exists, so there was nothing to delete.");
+            }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(StatusCodes.Status409Conflict, ex.Message);
+            }
 
             return StatusCode(StatusCodes.Status200OK, true);
         }
@@ -164,9 +176,18 @@ namespace Dorc.Api.Controllers
                 !_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, existingEnv.EnvironmentName))
                 return StatusCode(StatusCodes.Status403Forbidden, "Only an Environment Owner or Admin can change the Secure status of an environment!");
 
-            if (!string.Equals(existingEnv.EnvironmentName, content.EnvironmentName, StringComparison.OrdinalIgnoreCase) &&
+            if (!string.Equals(existingEnv.EnvironmentName, content.EnvironmentName, StringComparison.Ordinal) &&
                 !_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, existingEnv.EnvironmentName))
                 return StatusCode(StatusCodes.Status403Forbidden, "Only an Environment Owner or Admin can rename an environment!");
+
+            if (existingEnv.IsEphemeral &&
+                !string.Equals(existingEnv.EnvironmentName, content.EnvironmentName, StringComparison.Ordinal))
+                return StatusCode(StatusCodes.Status409Conflict,
+                    $"Ephemeral environment '{existingEnv.EnvironmentName}' cannot be renamed because its Terraform state key is bound to its name.");
+
+            if (existingEnv.IsEphemeral && content.EnvironmentIsProd)
+                return StatusCode(StatusCodes.Status400BadRequest,
+                    "Ephemeral environments cannot be marked as production (IsProd = true).");
 
             if (existingEnv.ParentId != content.ParentId)
             {
@@ -196,8 +217,8 @@ namespace Dorc.Api.Controllers
                 if (content.ParentId.HasValue)
                 {
                     var parentEnvironment = environmentsPersistentSource.GetEnvironment(content.ParentId.Value, User);
-                    if (parentEnvironment == null)
-                        return StatusCode(StatusCodes.Status400BadRequest, "Parent environment not found.");
+                    if (parentEnvironment == null || parentEnvironment.IsEphemeral)
+                        return StatusCode(StatusCodes.Status400BadRequest, "Parent environment not found or cannot be an ephemeral environment.");
 
                     if (!_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, parentEnvironment.EnvironmentName))
                         return StatusCode(StatusCodes.Status403Forbidden,
