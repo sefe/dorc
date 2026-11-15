@@ -154,11 +154,25 @@ namespace Dorc.Core.Secrets
 
             try
             {
-                bool allowFallbackField = !SharesVaultEntryWithTierVerification(itemId);
+                string trimmedPrimary = itemId.Trim();
+                string? resolvedPrimaryId = _onePasswordClient
+                    .ResolveItemIdAsync(_vaultId, trimmedPrimary, cancellationToken)
+                    .GetAwaiter()
+                    .GetResult();
+                if (string.IsNullOrWhiteSpace(resolvedPrimaryId))
+                {
+                    return string.Empty;
+                }
+
+                bool allowFallbackField = !SharesVaultEntryWithTierVerification(
+                    trimmedPrimary,
+                    resolvedPrimaryId,
+                    cancellationToken);
+
                 return _onePasswordClient
                     .GetPrincipalIdentifierAsync(
                         _vaultId,
-                        itemId.Trim(),
+                        resolvedPrimaryId,
                         allowFallbackField: allowFallbackField,
                         cancellationToken: cancellationToken)
                     .GetAwaiter()
@@ -264,16 +278,65 @@ namespace Dorc.Core.Secrets
             _log.LogError(ex, "Failed to retrieve {EntryLabel} from 1Password.", safeLabel);
         }
 
-        private bool SharesVaultEntryWithTierVerification(string itemId)
+        private bool SharesVaultEntryWithTierVerification(
+            string configuredPrimary,
+            string resolvedPrimaryId,
+            CancellationToken cancellationToken)
         {
-            string trimmed = itemId.Trim();
-            string? prodSecondaryItem = _config.GetDeploymentCredentialItemId(DeploymentTier.Production, true);
-            string? nonProdSecondaryItem = _config.GetDeploymentCredentialItemId(DeploymentTier.NonProduction, true);
+            return MatchesSecondaryVaultEntry(
+                    configuredPrimary,
+                    resolvedPrimaryId,
+                    _config.GetDeploymentCredentialItemId(DeploymentTier.Production, true),
+                    cancellationToken)
+                || MatchesSecondaryVaultEntry(
+                    configuredPrimary,
+                    resolvedPrimaryId,
+                    _config.GetDeploymentCredentialItemId(DeploymentTier.NonProduction, true),
+                    cancellationToken);
+        }
 
-            return (!string.IsNullOrWhiteSpace(prodSecondaryItem)
-                    && string.Equals(trimmed, prodSecondaryItem.Trim(), StringComparison.OrdinalIgnoreCase))
-                || (!string.IsNullOrWhiteSpace(nonProdSecondaryItem)
-                    && string.Equals(trimmed, nonProdSecondaryItem.Trim(), StringComparison.OrdinalIgnoreCase));
+        private bool MatchesSecondaryVaultEntry(
+            string configuredPrimary,
+            string resolvedPrimaryId,
+            string? configuredSecondary,
+            CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(configuredSecondary))
+            {
+                return false;
+            }
+
+            string trimmedSecondary = configuredSecondary.Trim();
+            if (string.Equals(configuredPrimary, trimmedSecondary, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(resolvedPrimaryId, trimmedSecondary, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (OnePasswordClient.IsVaultItemUuid(trimmedSecondary) || _onePasswordClient == null || string.IsNullOrWhiteSpace(_vaultId))
+            {
+                return false;
+            }
+
+            try
+            {
+                string? resolvedSecondaryId = _onePasswordClient
+                    .ResolveItemIdAsync(_vaultId, trimmedSecondary, cancellationToken)
+                    .GetAwaiter()
+                    .GetResult();
+                return !string.IsNullOrWhiteSpace(resolvedSecondaryId)
+                    && string.Equals(resolvedPrimaryId, resolvedSecondaryId.Trim(), StringComparison.OrdinalIgnoreCase);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch
+            {
+                // Fail closed on secondary title-resolution errors so a shared API_CREDENTIAL item
+                // without a username field can never fall back to exposing its credential as UserName.
+                return true;
+            }
         }
     }
 } 

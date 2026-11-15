@@ -106,5 +106,47 @@ namespace Dorc.Core.Tests.Security
             }));
             Assert.IsTrue(sut.IsWithheld((ConfigValueApiModel)null!));
         }
+
+        [TestMethod]
+        public void NamedIdentityDeployPasswordKeysAreUnconditionallyWithheldWhileUsernamesRemainGovernedNormally()
+        {
+            var sut = new ScriptScopeConfigValues(new ConfigurationBuilder().Build());
+
+            Assert.IsTrue(sut.IsWithheld("DORC_Deploy_trading-tier_Password"));
+            Assert.IsTrue(sut.IsWithheld("  dorc_deploy_trading-tier_password  "));
+            Assert.IsTrue(sut.IsWithheld(new ConfigValueApiModel
+            {
+                Key = "DORC_Deploy_trading-tier_Password",
+                Secure = true,
+                VisibleToScripts = true
+            }));
+            Assert.IsFalse(sut.IsWithheld("DORC_Deploy__Password"));
+
+            Assert.IsFalse(sut.IsWithheld("DORC_Deploy_trading-tier_Username"));
+            Assert.IsFalse(sut.IsWithheld(new ConfigValueApiModel
+            {
+                Key = "DORC_Deploy_trading-tier_Username",
+                Secure = false,
+                VisibleToScripts = true
+            }));
+
+            var stillPublished = sut.StillPublishedSecureKeys(new[]
+            {
+                new ConfigValueApiModel
+                {
+                    Key = "DORC_Deploy_trading-tier_Password",
+                    Secure = true,
+                    VisibleToScripts = true
+                },
+                new ConfigValueApiModel
+                {
+                    Key = "TerraformSecret",
+                    Secure = true,
+                    VisibleToScripts = true
+                }
+            });
+
+            CollectionAssert.AreEqual(new[] { "TerraformSecret" }, stillPublished.ToArray());
+        }
     }
 }

@@ -58,6 +58,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         bool UpdateResultStatus(DeploymentResultApiModel deploymentResultModel, DeploymentResultStatus status,
             DeploymentResultStatus expectedCurrentStatus);
         bool UpdateResultLog(DeploymentResultApiModel deploymentResultModel, string log);
+        bool AppendResultLog(DeploymentResultApiModel deploymentResultModel, string log);
         bool TryConfirmTerraformPlan(DeploymentResultApiModel result, TerraformPlanApproval approval);
         bool TryDeclineTerraformPlan(DeploymentResultApiModel result, string user, DateTimeOffset declinedAt);
         TerraformPlanApproval? GetTerraformPlanApproval(int deploymentResultId);

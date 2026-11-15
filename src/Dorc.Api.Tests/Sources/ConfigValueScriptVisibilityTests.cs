@@ -292,5 +292,150 @@ namespace Dorc.Api.Tests.Sources
             Assert.IsTrue(_stored.Single().VisibleToScripts);
             Assert.IsTrue(updated.VisibleToScripts);
         }
+
+        [TestMethod]
+        [DataRow("DORC_Deploy_payments_Username")]
+        [DataRow("DORC_Deploy_payments_Password")]
+        [DataRow("DORC_ProdDeployPassword")]
+        public void DeploymentCredentialKeysCannotBeDuplicatedAcrossIsForProdOnAddOrUpdate(string key)
+        {
+            _stored.Add(new ConfigValue
+            {
+                Id = 21,
+                Key = key,
+                Value = "enc:first",
+                Secure = true,
+                IsForProd = true,
+                VisibleToScripts = false
+            });
+
+            Assert.ThrowsExactly<ArgumentException>(() => _source.Add(new ConfigValueApiModel
+            {
+                Key = key,
+                Value = "second",
+                Secure = true,
+                IsForProd = false
+            }));
+
+            _stored.Add(new ConfigValue
+            {
+                Id = 22,
+                Key = key,
+                Value = "enc:legacy-duplicate",
+                Secure = true,
+                IsForProd = false,
+                VisibleToScripts = false
+            });
+
+            var encryptor = Substitute.For<IPropertyEncryptor>();
+            encryptor.DecryptValue(Arg.Any<string>()).Returns("decrypted");
+            var contextFactory = Substitute.For<IDeploymentContextFactory>();
+            contextFactory.GetContext().Returns(_context);
+            var sourceWithDecrypt = new ConfigValuesPersistentSource(contextFactory, encryptor);
+
+            Assert.ThrowsExactly<ArgumentException>(() => sourceWithDecrypt.UpdateConfigValue(new ConfigValueApiModel
+            {
+                Id = 22,
+                Key = key,
+                Secure = true,
+                IsForProd = true
+            }));
+        }
+
+        [TestMethod]
+        public void GetAllConfigValues_DecryptSecure_DecryptsNonWithheldCredentialKeysAndSkipsWithheldKeys()
+        {
+            _stored.AddRange(new[]
+            {
+                new ConfigValue
+                {
+                    Id = 31,
+                    Key = "DORC_NonProdDeployPassword",
+                    Value = "enc:nonprod-secret",
+                    Secure = true,
+                    VisibleToScripts = true
+                },
+                new ConfigValue
+                {
+                    Id = 32,
+                    Key = "DORC_Deploy_payments_Username",
+                    Value = "enc:svc-payments",
+                    Secure = true,
+                    VisibleToScripts = true
+                },
+                new ConfigValue
+                {
+                    Id = 33,
+                    Key = "DORC_ProdDeployPassword",
+                    Value = "enc:prod-secret",
+                    Secure = true,
+                    VisibleToScripts = true
+                },
+                new ConfigValue
+                {
+                    Id = 34,
+                    Key = "DORC_Deploy_payments_Password",
+                    Value = "enc:payments-secret",
+                    Secure = true,
+                    VisibleToScripts = true
+                }
+            });
+
+            var encryptor = Substitute.For<IPropertyEncryptor>();
+            encryptor.DecryptValue(Arg.Any<string>())
+                .Returns(call => call.Arg<string>().Substring("enc:".Length));
+            _context.GetAllConfigValues().Returns(_stored);
+            var contextFactory = Substitute.For<IDeploymentContextFactory>();
+            contextFactory.GetContext().Returns(_context);
+            var sourceWithDecrypt = new ConfigValuesPersistentSource(contextFactory, encryptor);
+
+            var results = sourceWithDecrypt.GetAllConfigValues(decryptSecure: true)
+                .ToDictionary(cv => cv.Key, cv => cv.Value);
+
+            Assert.AreEqual("nonprod-secret", results["DORC_NonProdDeployPassword"]);
+            Assert.AreEqual("svc-payments", results["DORC_Deploy_payments_Username"]);
+            Assert.AreEqual("enc:prod-secret", results["DORC_ProdDeployPassword"]);
+            Assert.AreEqual("enc:payments-secret", results["DORC_Deploy_payments_Password"]);
+        }
+
+        [TestMethod]
+        [DataRow("DORC_ProdDeployPassword")]
+        [DataRow("DORC_NonProdDeployPassword")]
+        [DataRow("DORC_Deploy_payments_Password")]
+        public void DeploymentPasswordKeysRequireSecureTrueOnAddAndUpdate(string configKeyName)
+        {
+            Assert.ThrowsExactly<ArgumentException>(() => _source.Add(new ConfigValueApiModel
+            {
+                Key = configKeyName,
+                Value = "plaintext-secret",
+                Secure = false,
+                IsForProd = true
+            }));
+
+            _stored.Add(new ConfigValue
+            {
+                Id = 41,
+                Key = configKeyName,
+                Value = "enc:stored-secret",
+                Secure = true,
+                IsForProd = true,
+                VisibleToScripts = false
+            });
+
+            var encryptor = Substitute.For<IPropertyEncryptor>();
+            encryptor.DecryptValue("enc:stored-secret").Returns("stored-secret");
+            var contextFactory = Substitute.For<IDeploymentContextFactory>();
+            contextFactory.GetContext().Returns(_context);
+            var sourceWithDecrypt = new ConfigValuesPersistentSource(contextFactory, encryptor);
+
+            Assert.ThrowsExactly<ArgumentException>(() => sourceWithDecrypt.UpdateConfigValue(new ConfigValueApiModel
+            {
+                Id = 41,
+                Key = configKeyName,
+                Value = "stored-secret",
+                Secure = false,
+                IsForProd = true
+            }));
+        }
     }
 }

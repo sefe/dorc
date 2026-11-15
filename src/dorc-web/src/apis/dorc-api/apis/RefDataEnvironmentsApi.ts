@@ -13,11 +13,12 @@
 
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
-import { BaseAPI } from '../runtime';
+import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
 import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     CloneEnvironmentRequest,
     EnvironmentApiModel,
+    EnvironmentExecutionIdentityApiModel,
 } from '../models';
 
 export interface RefDataEnvironmentsClonePostRequest {
@@ -26,6 +27,11 @@ export interface RefDataEnvironmentsClonePostRequest {
 
 export interface RefDataEnvironmentsDeleteRequest {
     environmentApiModel?: EnvironmentApiModel;
+}
+
+export interface RefDataEnvironmentsEnvironmentIdExecutionIdentityPutRequest {
+    environmentId: number;
+    environmentExecutionIdentityApiModel?: EnvironmentExecutionIdentityApiModel;
 }
 
 export interface RefDataEnvironmentsGetRequest {
@@ -96,6 +102,32 @@ export class RefDataEnvironmentsApi extends BaseAPI {
             method: 'DELETE',
             headers,
             body: environmentApiModel,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    refDataEnvironmentsEnvironmentIdExecutionIdentityPut({ environmentId, environmentExecutionIdentityApiModel }: RefDataEnvironmentsEnvironmentIdExecutionIdentityPutRequest): Observable<EnvironmentApiModel>
+    refDataEnvironmentsEnvironmentIdExecutionIdentityPut({ environmentId, environmentExecutionIdentityApiModel }: RefDataEnvironmentsEnvironmentIdExecutionIdentityPutRequest, opts?: OperationOpts): Observable<AjaxResponse<EnvironmentApiModel>>
+    refDataEnvironmentsEnvironmentIdExecutionIdentityPut({ environmentId, environmentExecutionIdentityApiModel }: RefDataEnvironmentsEnvironmentIdExecutionIdentityPutRequest, opts?: OperationOpts): Observable<EnvironmentApiModel | AjaxResponse<EnvironmentApiModel>> {
+        throwIfNullOrUndefined(environmentId, 'environmentId', 'refDataEnvironmentsEnvironmentIdExecutionIdentityPut');
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<EnvironmentApiModel>({
+            url: '/RefDataEnvironments/{environmentId}/ExecutionIdentity'.replace('{environmentId}', encodeURI(environmentId)),
+            method: 'PUT',
+            headers,
+            body: environmentExecutionIdentityApiModel,
         }, opts?.responseOpts);
     };
 

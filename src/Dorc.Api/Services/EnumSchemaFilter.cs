@@ -29,6 +29,26 @@ namespace Dorc.Api.Services
             {
                 schema.Items.MaxLength = TagLimits.MaxTagLength;
             }
+
+            if (schema.Properties != null && schema.Properties.Count > 0)
+            {
+                foreach (var property in context.Type.GetProperties())
+                {
+                    if (!property.GetCustomAttributes(
+                            typeof(System.Text.Json.Serialization.JsonRequiredAttribute),
+                            inherit: true).Any())
+                    {
+                        continue;
+                    }
+
+                    var matchingKey = schema.Properties.Keys.FirstOrDefault(
+                        key => string.Equals(key, property.Name, StringComparison.OrdinalIgnoreCase));
+                    if (matchingKey != null && !schema.Required.Contains(matchingKey))
+                    {
+                        schema.Required.Add(matchingKey);
+                    }
+                }
+            }
         }
     }
 }

@@ -36,9 +36,22 @@ namespace Dorc.Api.Controllers
                 return Ok(new List<DeploymentResultApiModel>());
             }
 
-            var deploymentResultModels = _requestsPersistentSource.GetDeploymentResultsForRequest(requestId);
+            var deploymentResultModels = _requestsPersistentSource.GetDeploymentResultsForRequest(requestId).ToList();
+            var persistedLogsByResultId = deploymentResultModels.ToDictionary(r => r.Id, r => r.Log);
+            foreach (var result in deploymentResultModels)
+            {
+                result.Log = null;
+            }
 
             _deploymentLogService.EnrichDeploymentResultsWithLogs(deploymentResultModels, 3); // take only first 3 log lines per result
+
+            foreach (var result in deploymentResultModels)
+            {
+                if (persistedLogsByResultId.TryGetValue(result.Id, out var persistedLog))
+                {
+                    result.Log = MergeOpenSearchAndPersistedLog(result.Log, persistedLog);
+                }
+            }
 
             return Ok(deploymentResultModels);
         }
@@ -67,8 +80,27 @@ namespace Dorc.Api.Controllers
             }
 
             var log = _deploymentLogService.GetLogsForSingleResult(requestId, resultId);
+            return Ok(MergeOpenSearchAndPersistedLog(log, deploymentResult.Log));
+        }
 
-            return Ok(log);
+        private static string? MergeOpenSearchAndPersistedLog(string? openSearchLog, string? persistedLog)
+        {
+            const string openSearchUnavailableSentinel = "No logs in the OpenSearch or it is unavailable.";
+            bool hasPersisted = !string.IsNullOrWhiteSpace(persistedLog);
+            bool hasOpenSearch = !string.IsNullOrWhiteSpace(openSearchLog)
+                && (!hasPersisted || !string.Equals(openSearchLog, openSearchUnavailableSentinel, StringComparison.Ordinal));
+
+            if (!hasOpenSearch && hasPersisted)
+            {
+                return persistedLog;
+            }
+
+            if (hasOpenSearch && hasPersisted && !openSearchLog!.Contains(persistedLog!.Trim(), StringComparison.Ordinal))
+            {
+                return openSearchLog + System.Environment.NewLine + persistedLog;
+            }
+
+            return openSearchLog;
         }
     }
 }

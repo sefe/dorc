@@ -647,5 +647,215 @@ namespace Dorc.Api.Tests.Controllers
                 .Do(_ => throw new ArgumentException("Cycle detected"));
             Assert.IsFalse(detailsController.SetParentForEnvironment(20, 10).Result);
         }
+
+        [TestMethod]
+        public void NonAdminCannotChangeExecutionIdentityEvenIfEnvironmentOwnerOrPowerUser()
+        {
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(false);
+            _rolePrivilegesChecker.IsPowerUser(_user).Returns(true);
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "Payments").Returns(true);
+
+            var result = Assert.IsInstanceOfType<ObjectResult>(_controller.PutExecutionIdentity(
+                12,
+                new EnvironmentExecutionIdentityApiModel
+                {
+                    ExecutionIdentityReference = "payments-prod"
+                }));
+            Assert.AreEqual(StatusCodes.Status403Forbidden, result.StatusCode);
+            _environmentsPersistentSource.DidNotReceive().SetExecutionIdentityReference(
+                Arg.Any<int>(),
+                Arg.Any<string>(),
+                Arg.Any<IPrincipal>());
+        }
+
+        [TestMethod]
+        [DataRow(0)]
+        [DataRow(-5)]
+        public void PutExecutionIdentityRejectsNonPositiveEnvironmentId(int invalidId)
+        {
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
+
+            var result = Assert.IsInstanceOfType<ObjectResult>(_controller.PutExecutionIdentity(
+                invalidId,
+                new EnvironmentExecutionIdentityApiModel
+                {
+                    ExecutionIdentityReference = "payments-prod"
+                }));
+            Assert.AreEqual(StatusCodes.Status400BadRequest, result.StatusCode);
+            _environmentsPersistentSource.DidNotReceiveWithAnyArgs().SetExecutionIdentityReference(
+                default,
+                default,
+                default!);
+        }
+
+        [TestMethod]
+        public void GenericEnvironmentUpdateDoesNotUseExecutionIdentityPersistencePath()
+        {
+            var model = new EnvironmentApiModel
+            {
+                EnvironmentId = 12,
+                EnvironmentName = "Payments",
+                ExecutionIdentityReference = "attempted-bypass"
+            };
+            _environmentsPersistentSource.GetEnvironment(12, _user)
+                .Returns(new EnvironmentApiModel { EnvironmentId = 12, EnvironmentName = "Payments" });
+            _securityPrivilegesChecker.CanModifyEnvironment(_user, "Payments").Returns(true);
+            _environmentsPersistentSource.UpdateEnvironment(model, _user).Returns(model);
+
+            var result = Assert.IsInstanceOfType<ObjectResult>(_controller.Put(model));
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
+            _environmentsPersistentSource.Received(1).UpdateEnvironment(model, _user);
+            _environmentsPersistentSource.DidNotReceive().SetExecutionIdentityReference(
+                Arg.Any<int>(),
+                Arg.Any<string?>(),
+                Arg.Any<IPrincipal>());
+        }
+
+        [TestMethod]
+        public void AdminCanChangeExecutionIdentityThroughDedicatedEndpointAndReceivesCallerAwareProjection()
+        {
+            var rawPersisted = new EnvironmentApiModel
+            {
+                EnvironmentId = 12,
+                EnvironmentName = "Payments",
+                ExecutionIdentityReference = "payments-prod",
+                UserEditable = false,
+                IsOwner = false
+            };
+            var projected = new EnvironmentApiModel
+            {
+                EnvironmentId = 12,
+                EnvironmentName = "Payments",
+                EnvironmentIsProd = true,
+                ExecutionIdentityReference = "payments-prod",
+                UserEditable = true,
+                IsOwner = true,
+                ParentId = 1,
+                ParentEnvironment = new EnvironmentApiModel { EnvironmentId = 1, EnvironmentName = "ProdRoot" }
+            };
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
+            _environmentsPersistentSource.SetExecutionIdentityReference(12, "payments-prod", _user)
+                .Returns(rawPersisted);
+            _environmentsPersistentSource.GetEnvironment(12, _user)
+                .Returns(projected);
+
+            var result = Assert.IsInstanceOfType<ObjectResult>(_controller.PutExecutionIdentity(
+                12,
+                new EnvironmentExecutionIdentityApiModel
+                {
+                    ExecutionIdentityReference = "payments-prod"
+                }));
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
+            Assert.AreSame(projected, result.Value);
+            Assert.IsTrue(((EnvironmentApiModel)result.Value!).UserEditable);
+            Assert.IsNotNull(((EnvironmentApiModel)result.Value!).ParentEnvironment);
+            _environmentsPersistentSource.Received(1).SetExecutionIdentityReference(12, "payments-prod", _user);
+            _environmentsPersistentSource.Received(1).GetEnvironment(12, _user);
+        }
+
+        [TestMethod]
+        public void PutExecutionIdentityReturnsNotFoundWhenReloadedProjectionIsNull()
+        {
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
+            _environmentsPersistentSource.SetExecutionIdentityReference(12, "payments-prod", _user)
+                .Returns(new EnvironmentApiModel { EnvironmentId = 12, EnvironmentName = "Payments" });
+            _environmentsPersistentSource.GetEnvironment(12, _user)
+                .Returns((EnvironmentApiModel)null!);
+
+            var result = Assert.IsInstanceOfType<ObjectResult>(_controller.PutExecutionIdentity(
+                12,
+                new EnvironmentExecutionIdentityApiModel
+                {
+                    ExecutionIdentityReference = "payments-prod"
+                }));
+            Assert.AreEqual(StatusCodes.Status404NotFound, result.StatusCode);
+        }
+
+        [TestMethod]
+        public void InvalidExecutionIdentityReferenceReturnsBadRequest()
+        {
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
+            _environmentsPersistentSource
+                .When(source => source.SetExecutionIdentityReference(12, "../secret", _user))
+                .Do(_ => throw new ArgumentException("Invalid execution identity reference."));
+
+            var result = Assert.IsInstanceOfType<ObjectResult>(_controller.PutExecutionIdentity(
+                12,
+                new EnvironmentExecutionIdentityApiModel
+                {
+                    ExecutionIdentityReference = "../secret"
+                }));
+            Assert.AreEqual(StatusCodes.Status400BadRequest, result.StatusCode);
+        }
+
+        [TestMethod]
+        [DataRow("{}")]
+        [DataRow("{\"typo\":\"payments-prod\"}")]
+        public void PutExecutionIdentityRejectsBodyWhenExecutionIdentityReferencePropertyIsOmitted(string rawJson)
+        {
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
+            Assert.ThrowsExactly<System.Text.Json.JsonException>(() =>
+                System.Text.Json.JsonSerializer.Deserialize<EnvironmentExecutionIdentityApiModel>(rawJson));
+
+            var result = Assert.IsInstanceOfType<ObjectResult>(
+                _controller.PutExecutionIdentity(12, new EnvironmentExecutionIdentityApiModel()));
+            Assert.AreEqual(StatusCodes.Status400BadRequest, result.StatusCode);
+            _environmentsPersistentSource.DidNotReceiveWithAnyArgs().SetExecutionIdentityReference(
+                default,
+                default,
+                default!);
+        }
+
+        [TestMethod]
+        public void MissingEnvironmentForExecutionIdentityReturnsNotFound()
+        {
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
+            _environmentsPersistentSource
+                .When(source => source.SetExecutionIdentityReference(404, "payments-prod", _user))
+                .Do(_ => throw new KeyNotFoundException("Environment with ID 404 was not found."));
+
+            var result = Assert.IsInstanceOfType<ObjectResult>(_controller.PutExecutionIdentity(
+                404,
+                new EnvironmentExecutionIdentityApiModel
+                {
+                    ExecutionIdentityReference = "payments-prod"
+                }));
+            Assert.AreEqual(StatusCodes.Status404NotFound, result.StatusCode);
+        }
+
+        [TestMethod]
+        public void ResultStatusesGetComponentsPreservesAndMergesPersistedRefusalLogsInPreviewMode()
+        {
+            var requestsSource = Substitute.For<IRequestsPersistentSource>();
+            var logService = Substitute.For<Dorc.OpenSearchData.Sources.Interfaces.IDeploymentLogService>();
+            requestsSource.GetRequestForUser(77, _user).Returns(new DeploymentRequestApiModel { Id = 77 });
+            requestsSource.GetDeploymentResultsForRequest(77).Returns(_ => new List<DeploymentResultApiModel>
+            {
+                new() { Id = 1, RequestId = 77, Log = "Refused: missing named identity." },
+                new() { Id = 2, RequestId = 77, Log = "Refused after plan." },
+                new() { Id = 3, RequestId = 77, Log = "Refused when OpenSearch down." }
+            });
+
+            logService.When(s => s.EnrichDeploymentResultsWithLogs(Arg.Any<IEnumerable<DeploymentResultApiModel>>(), 3))
+                .Do(callInfo =>
+                {
+                    var items = callInfo.Arg<IEnumerable<DeploymentResultApiModel>>().ToList();
+                    // Item 1: no OpenSearch logs (leaves Log null)
+                    items[1].Log = "[plan] line 1";
+                    items[2].Log = "No logs in the OpenSearch or it is unavailable.";
+                });
+
+            var controller = new ResultStatusesController(requestsSource, logService)
+            {
+                ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = _user } }
+            };
+
+            var okResult = Assert.IsInstanceOfType<OkObjectResult>(controller.GetComponents(77));
+            var returned = Assert.IsInstanceOfType<IEnumerable<DeploymentResultApiModel>>(okResult.Value).ToList();
+
+            Assert.AreEqual("Refused: missing named identity.", returned[0].Log);
+            Assert.AreEqual("[plan] line 1" + System.Environment.NewLine + "Refused after plan.", returned[1].Log);
+            Assert.AreEqual("Refused when OpenSearch down.", returned[2].Log);
+        }
     }
 }

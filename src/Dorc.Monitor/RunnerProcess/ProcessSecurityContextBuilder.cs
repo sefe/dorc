@@ -45,7 +45,8 @@ namespace Dorc.Monitor.RunnerProcess
                 throw new Exception("Runner process SecurityContext can't be anonymous. 'UserName' should be specified.");
             }
 
-            if (string.IsNullOrEmpty(this.Domain))
+            bool userNameSpecifiesAuthority = this.UserName.Contains('\\') || this.UserName.Contains('@');
+            if (!userNameSpecifiesAuthority && string.IsNullOrEmpty(this.Domain))
             {
                 throw new Exception("Runner process SecurityContext can't be anonymous. 'Domain' should be specified.");
             }

@@ -1,26 +1,46 @@
+using System.Data;
 ﻿using Dorc.ApiModel;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace Dorc.PersistentData.Sources
 {
     public class ConfigValuesPersistentSource : IConfigValuesPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
+        private readonly IScriptScopeConfigValues? _scriptScopeConfigValues;
         private IPropertyEncryptor _propertyEncrypt;
 
         public ConfigValuesPersistentSource(IDeploymentContextFactory contextFactory,
             IPropertyEncryptor propertyEncrypt)
+            : this(contextFactory, propertyEncrypt, null)
+        {
+        }
+
+        public ConfigValuesPersistentSource(
+            IDeploymentContextFactory contextFactory,
+            IPropertyEncryptor propertyEncrypt,
+            IScriptScopeConfigValues? scriptScopeConfigValues)
         {
             _propertyEncrypt = propertyEncrypt;
             _contextFactory = contextFactory;
+            _scriptScopeConfigValues = scriptScopeConfigValues;
         }
 
         public string GetConfigValue(string key, string defaultValue = null)
         {
             using var context = _contextFactory.GetContext();
-            var configValue = context.ConfigValues.SingleOrDefault(x => x.Key == key);
+            var matchingValues = context.ConfigValues.Where(x => x.Key == key).Take(2).ToList();
+            if (matchingValues.Count > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Multiple configuration values match key '{key}'.");
+            }
+
+            var configValue = matchingValues.Count == 1 ? matchingValues[0] : null;
 
             if (configValue != null)
             {
@@ -33,7 +53,14 @@ namespace Dorc.PersistentData.Sources
         public string? GetNonSecureConfigValue(string key)
         {
             using var context = _contextFactory.GetContext();
-            var configValue = context.ConfigValues.SingleOrDefault(x => x.Key == key);
+            var matchingValues = context.ConfigValues.Where(x => x.Key == key).Take(2).ToList();
+            if (matchingValues.Count > 1)
+            {
+                throw new InvalidOperationException(
+                    $"Multiple configuration values match key '{key}'.");
+            }
+
+            var configValue = matchingValues.Count == 1 ? matchingValues[0] : null;
 
             if (configValue == null)
                 return null;
@@ -53,7 +80,10 @@ namespace Dorc.PersistentData.Sources
 
             foreach (var configValue in allConfigValues)
             {
-                if (configValue.Secure && decryptSecure)
+                if (configValue.Secure
+                    && decryptSecure
+                    && configValue.VisibleToScripts
+                    && !IsWithheldFromScripts(configValue.Key))
                 {
                     configValue.Value = _propertyEncrypt.DecryptValue(configValue.Value);
                 }
@@ -82,113 +112,199 @@ namespace Dorc.PersistentData.Sources
         /// Only one property changes per request (Secure OR IsForProd OR Value).
         public ConfigValueApiModel UpdateConfigValue(ConfigValueApiModel model)
         {
-            using var context = _contextFactory.GetContext();
-            var configValue = context.ConfigValues
-                .FirstOrDefault(pv => pv.Id == model.Id)
-                ?? throw new KeyNotFoundException($"Config value with Id={model.Id} not found.");
-
-            // Get current value in plain text (decrypt if Secure) for comparison and restoring when Secure is toggled off
-            string oldPlain = configValue.Secure && !string.IsNullOrEmpty(configValue.Value)
-                ? _propertyEncrypt.DecryptValue(configValue.Value)
-                  ?? throw new ApplicationException($"Failed to decrypt secure value for Id={configValue.Id}")
-                : configValue.Value ?? string.Empty;
-
-            // 1) If Secure changed encrypt/decrypt value and align visibility classification:
-            //    non-secure values are always visible to scripts; securing an existing value
-            //    preserves its current classification unless the caller explicitly states VisibleToScripts.
-            if (configValue.Secure != model.Secure)
+            lock (CredentialKeyMutationLock)
             {
-                configValue.Secure = model.Secure;
-                if (model.Secure)
+                using var context = _contextFactory.GetContext();
+                return ExecuteInSerializableTransaction(context, () =>
                 {
-                    if (model.Value == null)
-                        throw new ArgumentException("Value required when Secure=true.");
-                    configValue.Value = _propertyEncrypt.EncryptValue(model.Value);
-                    if (model.VisibleToScripts.HasValue)
+                    var configValue = context.ConfigValues
+                        .FirstOrDefault(pv => pv.Id == model.Id)
+                        ?? throw new KeyNotFoundException($"Config value with Id={model.Id} not found.");
+
+                    // Get current value in plain text (decrypt if Secure) for comparison and restoring when Secure is toggled off
+                    string oldPlain = configValue.Secure && !string.IsNullOrEmpty(configValue.Value)
+                        ? _propertyEncrypt.DecryptValue(configValue.Value)
+                          ?? throw new ApplicationException($"Failed to decrypt secure value for Id={configValue.Id}")
+                        : configValue.Value ?? string.Empty;
+
+                    // 1) If Secure changed encrypt/decrypt value and align visibility classification:
+                    //    non-secure values are always visible to scripts; securing an existing value
+                    //    preserves its current classification unless the caller explicitly states VisibleToScripts.
+                    if (configValue.Secure != model.Secure)
+                    {
+                        if (!model.Secure && IsDeploymentPasswordKey(configValue.Key))
+                        {
+                            throw new ArgumentException(
+                                $"Deployment password configuration key '{configValue.Key}' must remain Secure = true.");
+                        }
+
+                        configValue.Secure = model.Secure;
+                        if (model.Secure)
+                        {
+                            if (model.Value == null)
+                                throw new ArgumentException("Value required when Secure=true.");
+                            configValue.Value = _propertyEncrypt.EncryptValue(model.Value);
+                            if (model.VisibleToScripts.HasValue)
+                            {
+                                configValue.VisibleToScripts = model.VisibleToScripts.Value;
+                            }
+                        }
+
+                        else
+                        {
+                            configValue.Value = oldPlain;
+                            configValue.VisibleToScripts = true;
+                        }
+                    }
+                    else if (!configValue.Secure && IsDeploymentPasswordKey(configValue.Key))
+                    {
+                        throw new ArgumentException(
+                            $"Deployment password configuration key '{configValue.Key}' must be stored with Secure = true.");
+                    }
+
+                    // 2) Else if IsForProd changed update the flag
+                    else if (configValue.IsForProd.GetValueOrDefault() != model.IsForProd.GetValueOrDefault())
+                    {
+                        var targetIsForProd = model.IsForProd ?? false;
+                        var duplicateExists = IsDeploymentCredentialKey(configValue.Key)
+                            ? context.ConfigValues.Any(pv => pv.Id != configValue.Id && pv.Key == configValue.Key)
+                            : context.ConfigValues.Any(pv =>
+                                pv.Id != configValue.Id &&
+                                pv.Key == configValue.Key &&
+                                (pv.IsForProd ?? false) == targetIsForProd);
+
+                        if (duplicateExists)
+                        {
+                            throw new ArgumentException(
+                                $"A config value with the key '{configValue.Key}' and IsForProd = {targetIsForProd} already exists");
+                        }
+
+                        configValue.IsForProd = model.IsForProd;
+                        if (configValue.Secure && model.VisibleToScripts.HasValue)
+                        {
+                            configValue.VisibleToScripts = model.VisibleToScripts.Value;
+                        }
+                    }
+
+                    // 3) Else if the script visibility is stated and changed on a secure value, update it.
+                    // Placed before Value so that toggling visibility on a value whose text is unchanged
+                    // is not mistaken for a no-op. A model that leaves the field out is not asking for a
+                    // change - without that, a client written before the classification existed would hide
+                    // every visible value it edited and lose the edit it meant to make.
+                    else if (configValue.Secure && model.VisibleToScripts.HasValue && configValue.VisibleToScripts != model.VisibleToScripts.Value)
                     {
                         configValue.VisibleToScripts = model.VisibleToScripts.Value;
                     }
-                }
 
-                else
-                {
-                    configValue.Value = oldPlain;
-                    configValue.VisibleToScripts = true;
-                }
+                    // 4) Else if Value changed update (encrypt if Secure)
+                    else if (model.Value != null && !string.Equals(model.Value, oldPlain, StringComparison.Ordinal))
+                    {
+                        configValue.Value = configValue.Secure
+                            ? _propertyEncrypt.EncryptValue(model.Value)
+                            : model.Value;
+                        if (configValue.Secure && model.VisibleToScripts.HasValue)
+                        {
+                            configValue.VisibleToScripts = model.VisibleToScripts.Value;
+                        }
+                    }
+
+                    context.SaveChanges();
+                    return MapToConfigValueApiModel(configValue);
+                });
             }
-
-            // 2) Else if IsForProd changed update the flag
-            else if (configValue.IsForProd.GetValueOrDefault() != model.IsForProd.GetValueOrDefault())
-            {
-                configValue.IsForProd = model.IsForProd;
-                if (configValue.Secure && model.VisibleToScripts.HasValue)
-                {
-                    configValue.VisibleToScripts = model.VisibleToScripts.Value;
-                }
-            }
-
-            // 3) Else if the script visibility is stated and changed on a secure value, update it.
-            // Placed before Value so that toggling visibility on a value whose text is unchanged
-            // is not mistaken for a no-op. A model that leaves the field out is not asking for a
-            // change - without that, a client written before the classification existed would hide
-            // every visible value it edited and lose the edit it meant to make.
-            else if (configValue.Secure && model.VisibleToScripts.HasValue && configValue.VisibleToScripts != model.VisibleToScripts.Value)
-            {
-                configValue.VisibleToScripts = model.VisibleToScripts.Value;
-            }
-
-            // 4) Else if Value changed update (encrypt if Secure)
-            else if (model.Value != null && !string.Equals(model.Value, oldPlain, StringComparison.Ordinal))
-            {
-                configValue.Value = configValue.Secure
-                    ? _propertyEncrypt.EncryptValue(model.Value)
-                    : model.Value;
-                if (configValue.Secure && model.VisibleToScripts.HasValue)
-                {
-                    configValue.VisibleToScripts = model.VisibleToScripts.Value;
-                }
-            }
-
-            context.SaveChanges();
-            return MapToConfigValueApiModel(configValue);
         }
+
+        private static readonly object CredentialKeyMutationLock = new();
 
         public ConfigValueApiModel? Add(ConfigValueApiModel model)
         {
+            if (IsDeploymentCredentialKey(model?.Key))
+            {
+                lock (CredentialKeyMutationLock)
+                {
+                    return AddCore(model!);
+                }
+            }
+
+            return AddCore(model!);
+        }
+
+        private ConfigValueApiModel? AddCore(ConfigValueApiModel model)
+        {
+            if (IsDeploymentPasswordKey(model.Key) && !model.Secure)
+            {
+                throw new ArgumentException(
+                    $"Deployment password configuration key '{model.Key}' must be stored with Secure = true.");
+            }
+
             using var context = _contextFactory.GetContext();
-
-            var existingConfigValue = context.ConfigValues
-                .FirstOrDefault(pv =>
-                    pv.Key == model.Key &&
-                    (pv.IsForProd ?? false) == (model.IsForProd ?? false));
-
-            if (existingConfigValue != null)
+            return ExecuteInSerializableTransaction(context, () =>
             {
-                throw new ArgumentException($"A config value with the key '{model.Key}' and IsForProd = {(model.IsForProd ?? false)} already exists");
+                if (IsDeploymentCredentialKey(model.Key))
+                {
+                    var existingCredentialKey = context.ConfigValues
+                        .FirstOrDefault(pv => pv.Key == model.Key);
+                    if (existingCredentialKey != null)
+                    {
+                        throw new ArgumentException(
+                            $"A deployment credential config value with the key '{model.Key}' already exists; deployment credential keys must be unique across IsForProd.");
+                    }
+                }
+
+                var existingConfigValue = context.ConfigValues
+                    .FirstOrDefault(pv =>
+                        pv.Key == model.Key &&
+                        (pv.IsForProd ?? false) == (model.IsForProd ?? false));
+
+                if (existingConfigValue != null)
+                {
+                    throw new ArgumentException($"A config value with the key '{model.Key}' and IsForProd = {(model.IsForProd ?? false)} already exists");
+                }
+
+                var configValue = new ConfigValue
+                {
+                    Key = model.Key,
+                    Value = model.Value,
+                    Secure = model.Secure,
+                    IsForProd = model.IsForProd,
+
+                    // A new secure value is hidden from scripts unless its creator says otherwise.
+                    // Existing values default the other way, in the column default, so that adding
+                    // the classification changes no deployment's behaviour - the asymmetry is the
+                    // point, and it is what lets this ship without an estate-wide inventory first.
+                    VisibleToScripts = !model.Secure || model.VisibleToScripts.GetValueOrDefault()
+                };
+
+                if (model.Secure)
+                {
+                    configValue.Value = _propertyEncrypt.EncryptValue(configValue.Value);
+                }
+
+                context.ConfigValues.Add(configValue);
+                context.SaveChanges();
+                return MapToConfigValueApiModel(configValue);
+            });
+        }
+
+        private bool IsWithheldFromScripts(string? key) =>
+            _scriptScopeConfigValues?.IsWithheld(key) ?? ScriptScopeConfigValues.IsDefaultWithheld(key);
+
+        private static T ExecuteInSerializableTransaction<T>(IDeploymentContext context, Func<T> operation)
+        {
+            if (context is DeploymentContext dbContext && dbContext.Database.IsRelational())
+            {
+                var strategy = dbContext.Database.CreateExecutionStrategy();
+                return strategy.Execute(() =>
+                {
+                    dbContext.ChangeTracker.Clear();
+                    using var transaction = dbContext.Database.BeginTransaction(IsolationLevel.Serializable);
+                    var result = operation();
+                    transaction.Commit();
+                    return result;
+                });
             }
 
-            var configValue = new ConfigValue
-            {
-                Key = model.Key,
-                Value = model.Value,
-                Secure = model.Secure,
-                IsForProd = model.IsForProd,
-
-                // A new secure value is hidden from scripts unless its creator says otherwise.
-                // Existing values default the other way, in the column default, so that adding
-                // the classification changes no deployment's behaviour - the asymmetry is the
-                // point, and it is what lets this ship without an estate-wide inventory first.
-                VisibleToScripts = !model.Secure || model.VisibleToScripts.GetValueOrDefault()
-            };
-
-            if (model.Secure)
-            {
-                configValue.Value = _propertyEncrypt.EncryptValue(configValue.Value);
-            }
-
-            context.ConfigValues.Add(configValue);
-            context.SaveChanges();
-            return MapToConfigValueApiModel(configValue);
+            return operation();
         }
 
         private static ConfigValueApiModel MapToConfigValueApiModel(ConfigValue configValue)
@@ -202,6 +318,34 @@ namespace Dorc.PersistentData.Sources
                 IsForProd = configValue.IsForProd,
                 VisibleToScripts = configValue.VisibleToScripts
             };
+        }
+
+        private static bool IsDeploymentCredentialKey(string? key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return false;
+            }
+
+            var trimmed = key.Trim();
+            return trimmed.StartsWith("DORC_Deploy_", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(trimmed, "DORC_ProdDeployUsername", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(trimmed, "DORC_ProdDeployPassword", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(trimmed, "DORC_NonProdDeployUsername", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(trimmed, "DORC_NonProdDeployPassword", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsDeploymentPasswordKey(string? key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return false;
+            }
+
+            var trimmed = key.Trim();
+            return string.Equals(trimmed, "DORC_ProdDeployPassword", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(trimmed, "DORC_NonProdDeployPassword", StringComparison.OrdinalIgnoreCase)
+                || ScriptScopeConfigValues.IsNamedDeployPasswordKey(trimmed);
         }
     }
 }

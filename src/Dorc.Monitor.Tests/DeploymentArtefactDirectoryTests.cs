@@ -165,13 +165,48 @@ namespace Dorc.Monitor.Tests
         {
             var planDirectory = TerraformPlanStorage.EnsureRestricted(
                 _scratch,
+                42,
                 new ScriptGroupReaderIdentity(domain: null, CurrentAccountName),
                 Substitute.For<ILogger>());
 
-            Assert.AreEqual(Path.Join(_scratch, "terraform-plans"), planDirectory);
+            var planStorageRoot = Path.Join(_scratch, "terraform-plans");
+            Assert.AreEqual(Path.Join(planStorageRoot, "42"), planDirectory);
+            Assert.IsTrue(IsProtected(planStorageRoot));
+            Assert.IsEmpty(RulesFor(planStorageRoot, Everyone));
             Assert.IsTrue(IsProtected(planDirectory));
             Assert.IsEmpty(RulesFor(planDirectory, Everyone));
             Assert.IsNotEmpty(RulesFor(planDirectory, CurrentUser));
+        }
+
+        [TestMethod]
+        public void ConcurrentPlanDispatchesIsolatePerResultDirectoriesWithoutOverwritingSiblingOrRootAcl()
+        {
+            var firstSid = new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, null);
+            var secondSid = new SecurityIdentifier(WellKnownSidType.LocalServiceSid, null);
+            var firstAccount = ((NTAccount)firstSid.Translate(typeof(NTAccount))).Value;
+            var secondAccount = ((NTAccount)secondSid.Translate(typeof(NTAccount))).Value;
+
+            var firstDirectory = TerraformPlanStorage.EnsureRestricted(
+                _scratch,
+                101,
+                new ScriptGroupReaderIdentity(domain: null, firstAccount),
+                Substitute.For<ILogger>());
+
+            var secondDirectory = TerraformPlanStorage.EnsureRestricted(
+                _scratch,
+                102,
+                new ScriptGroupReaderIdentity(domain: null, secondAccount),
+                Substitute.For<ILogger>());
+
+            var planStorageRoot = Path.Join(_scratch, "terraform-plans");
+            Assert.IsEmpty(RulesFor(planStorageRoot, firstSid));
+            Assert.IsEmpty(RulesFor(planStorageRoot, secondSid));
+
+            Assert.IsNotEmpty(RulesFor(firstDirectory, firstSid));
+            Assert.IsEmpty(RulesFor(firstDirectory, secondSid));
+
+            Assert.IsNotEmpty(RulesFor(secondDirectory, secondSid));
+            Assert.IsEmpty(RulesFor(secondDirectory, firstSid));
         }
 
         /// <summary>
@@ -187,6 +222,7 @@ namespace Dorc.Monitor.Tests
 
             var planDirectory = TerraformPlanStorage.EnsureRestricted(
                 _scratch,
+                42,
                 new ScriptGroupReaderIdentity("NO-SUCH-DOMAIN", $"no-such-account-{Guid.NewGuid():N}"),
                 logger);
 
@@ -205,6 +241,7 @@ namespace Dorc.Monitor.Tests
 
             var planDirectory = TerraformPlanStorage.EnsureRestricted(
                 _scratch,
+                42,
                 new ScriptGroupReaderIdentity(domain: null, everyoneAccountName),
                 Substitute.For<ILogger>());
 

@@ -45,6 +45,8 @@ namespace Dorc.Monitor
             int environmentId,
             bool isProductionEnvironment,
             string environmentName,
+            string? executionIdentityReference,
+            RequestExecutionIdentityAdoption identityAdoption,
             string scriptRoot,
             IDictionary<string, VariableValue> commonProperties,
             CancellationToken cancellationToken)
@@ -72,6 +74,7 @@ namespace Dorc.Monitor
 
             var deploymentResultStatus = DeploymentResultStatus.StatusNotSet;
             StringBuilder componentResultLogBuilder = new StringBuilder();
+            bool resultLogAlreadyPersisted = false;
 
             try
             {
@@ -99,6 +102,8 @@ namespace Dorc.Monitor
                             requestId,
                             isProductionRequest,
                             environmentName,
+                            executionIdentityReference,
+                            identityAdoption,
                             componentResultLogBuilder,
                             terreformOperation,
                             cancellationToken);
@@ -143,9 +148,12 @@ namespace Dorc.Monitor
                             _logger.LogWarning(warningMessage);
                             componentResultLogBuilder.AppendLine(warningMessage);
 
+                            var warningLog = componentResultLogBuilder.ToString();
                             requestsPersistentSource.UpdateResultLog(
                                 deploymentResult,
-                                componentResultLogBuilder.ToString());
+                                warningLog);
+                            deploymentResult.Log = warningLog;
+                            resultLogAlreadyPersisted = true;
                             requestsPersistentSource.UpdateResultStatus(
                                 deploymentResult,
                                 deploymentResultStatus);
@@ -173,6 +181,8 @@ namespace Dorc.Monitor
                                      deploymentResult.Id,
                                      isProductionRequest,
                                      environmentName,
+                                     executionIdentityReference,
+                                     identityAdoption,
                                      componentResultLogBuilder,
                                      cancellationToken);
 
@@ -206,7 +216,16 @@ namespace Dorc.Monitor
             }
             finally
             {
-                deploymentResult.Log = componentResultLogBuilder.ToString();
+                if (!resultLogAlreadyPersisted && componentResultLogBuilder.Length > 0)
+                {
+                    var appendedLog = componentResultLogBuilder.ToString();
+                    if (!requestsPersistentSource.AppendResultLog(deploymentResult, appendedLog))
+                    {
+                        deploymentResult.Log = string.IsNullOrEmpty(deploymentResult.Log)
+                            ? appendedLog
+                            : deploymentResult.Log + Environment.NewLine + appendedLog;
+                    }
+                }
                 requestsPersistentSource.UpdateResultStatus(
                     deploymentResult,
                     deploymentResultStatus);

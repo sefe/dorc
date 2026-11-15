@@ -55,6 +55,7 @@ namespace Dorc.Api.Tests
 
             _contextFactory.GetContext().Returns(_context);
             _claimsPrincipalReader.GetUserFullDomainName(_user).Returns("testuser@domain.com");
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
         }
 
         [TestMethod]
@@ -412,7 +413,8 @@ namespace Dorc.Api.Tests
                 Id = 500,
                 Component = liveComponent,
                 DeploymentRequest = request,
-                Status = "Failed"
+                Status = "Failed",
+                Log = "Deployment refused: execution identity 'payments-prod' could not be resolved."
             };
             var results = new List<DeploymentResult> { existingResult };
             var requestAttempts = new List<DeploymentRequestAttempt>();
@@ -430,18 +432,22 @@ namespace Dorc.Api.Tests
 
             var requestsSource = new RequestsPersistentSource(_contextFactory, _claimsPrincipalReader);
 
-            // 1. ArchiveCurrentAttempt stores the pinned ComponentName rather than the live renamed Component.Name
+            // 1. ArchiveCurrentAttempt stores the pinned ComponentName and persisted pre-Runner Log
             requestsSource.ArchiveCurrentAttempt(77);
             Assert.HasCount(1, resultAttempts);
             Assert.AreEqual("OriginalJobName", resultAttempts[0].ComponentName);
+            Assert.AreEqual("Deployment refused: execution identity 'payments-prod' could not be resolved.", resultAttempts[0].Log);
+            var attempts = requestsSource.GetAttemptsForRequest(77).ToList();
+            Assert.AreEqual("Deployment refused: execution identity 'payments-prod' could not be resolved.", attempts[0].ComponentResults[0].Log);
 
-            // 2. Even if an older attempt row in DB had the live name stored, GetArchivedDeploymentResult returns the pinned name and SHA
+            // 2. Even if an older attempt row in DB had the live name stored, GetArchivedDeploymentResult returns the pinned name, SHA, and Log
             resultAttempts[0].ComponentName = "RenamedJobName";
             resultAttempts[0].DeploymentRequestAttempt = requestAttempts[0];
             var archived = requestsSource.GetArchivedDeploymentResult(500);
             Assert.IsNotNull(archived);
             Assert.AreEqual("OriginalJobName", archived.ComponentName);
             Assert.AreEqual(new string('b', 64), archived.DefinitionRevision);
+            Assert.AreEqual("Deployment refused: execution identity 'payments-prod' could not be resolved.", archived.Log);
 
             // 3. CreateDeploymentResult on restart uses pinned IsEnabled (true) and pinned ComponentName ("OriginalJobName")
             results.Clear();
@@ -968,6 +974,200 @@ namespace Dorc.Api.Tests
             Assert.IsTrue(searched.Items.Where(i => i.PropertyValueScope == "EnvAllow").All(i => i.UserEditable));
             Assert.IsTrue(searched.Items.Where(i => i.PropertyValueScope == "EnvDeny").All(i => !i.UserEditable));
             Assert.IsTrue(searched.Items.Where(i => i.Secure).All(i => i.PropertyValue == string.Empty));
+        }
+
+        [TestMethod]
+        public void SetExecutionIdentityReference_UpdatesEnvironmentAndRecordsHistory()
+        {
+            var environment = new Environment
+            {
+                Id = 7,
+                Name = "Payments",
+                ExecutionIdentityReference = "shared-prod"
+            };
+            var environments = new List<Environment> { environment };
+            var histories = new List<EnvironmentHistory>();
+            var environmentsDbSet = DbContextMock.GetQueryableMockDbSet(environments);
+            var historiesDbSet = DbContextMock.GetQueryableMockDbSet(histories);
+            _context.Environments.Returns(environmentsDbSet);
+            _context.EnvironmentHistories.Returns(historiesDbSet);
+
+            var result = _environmentsPersistentSource.SetExecutionIdentityReference(
+                7,
+                "payments-prod",
+                _user);
+
+            Assert.AreEqual("payments-prod", environment.ExecutionIdentityReference);
+            Assert.AreEqual("payments-prod", result.ExecutionIdentityReference);
+            Assert.AreEqual(1, histories.Count);
+            Assert.AreEqual("shared-prod", histories[0].FromValue);
+            Assert.AreEqual("payments-prod", histories[0].ToValue);
+            Assert.AreEqual("Execution Identity Update", histories[0].UpdateType);
+            Assert.AreEqual("testuser@domain.com", histories[0].UpdatedBy);
+            _context.Received(1).SaveChanges();
+
+            var allLoggedMessages = _logger.ReceivedCalls()
+                .Where(call => call.GetMethodInfo().Name == nameof(ILogger.Log))
+                .Select(call => (Level: (LogLevel)call.GetArguments()[0]!, Message: call.GetArguments()[2]?.ToString() ?? string.Empty))
+                .ToList();
+            var infoMessages = allLoggedMessages
+                .Where(entry => entry.Level == LogLevel.Information)
+                .Select(entry => entry.Message)
+                .ToList();
+            Assert.AreEqual(1, infoMessages.Count);
+            StringAssert.Contains(infoMessages[0], "Payments");
+            StringAssert.Contains(infoMessages[0], "payments-prod");
+            Assert.IsFalse(
+                allLoggedMessages.Any(entry => entry.Message.Contains("testuser@domain.com", StringComparison.OrdinalIgnoreCase)),
+                "Application logs must not expose user email/PII; durable audit attribution belongs in EnvironmentHistory.");
+        }
+
+        [TestMethod]
+        public void SetExecutionIdentityReference_EmptyReferenceClearsAndAudits()
+        {
+            var environment = new Environment
+            {
+                Id = 7,
+                Name = "Payments",
+                ExecutionIdentityReference = "payments-prod"
+            };
+            var histories = new List<EnvironmentHistory>();
+            var environmentsDbSet =
+                DbContextMock.GetQueryableMockDbSet(new List<Environment> { environment });
+            var historiesDbSet = DbContextMock.GetQueryableMockDbSet(histories);
+            _context.Environments.Returns(environmentsDbSet);
+            _context.EnvironmentHistories.Returns(historiesDbSet);
+
+            _environmentsPersistentSource.SetExecutionIdentityReference(7, string.Empty, _user);
+
+            Assert.IsNull(environment.ExecutionIdentityReference);
+            Assert.AreEqual("payments-prod", histories.Single().FromValue);
+            Assert.AreEqual(string.Empty, histories.Single().ToValue);
+            StringAssert.Contains(histories.Single().Details, "cleared");
+        }
+
+        [TestMethod]
+        [DataRow(" ")]
+        [DataRow("../secret")]
+        [DataRow("contains/slash")]
+        [DataRow("contains space")]
+        [DataRow("payments\n")]
+        [DataRow("payments\r\n")]
+        [DataRow("pay\nments")]
+        [DataRow("\npayments")]
+        public void SetExecutionIdentityReference_RejectsInvalidReference(string reference)
+        {
+            Assert.ThrowsExactly<ArgumentException>(() =>
+                _environmentsPersistentSource.SetExecutionIdentityReference(7, reference, _user));
+
+            _context.DidNotReceive().SaveChanges();
+        }
+
+        [TestMethod]
+        public void SetExecutionIdentityReference_RejectsReferenceLongerThanDatabaseColumn()
+        {
+            Assert.ThrowsExactly<ArgumentException>(() =>
+                _environmentsPersistentSource.SetExecutionIdentityReference(
+                    7,
+                    new string('a', 129),
+                    _user));
+        }
+
+        [TestMethod]
+        public void SetExecutionIdentityReference_RejectsMissingEnvironment()
+        {
+            var environmentsDbSet =
+                DbContextMock.GetQueryableMockDbSet(new List<Environment>());
+            _context.Environments.Returns(environmentsDbSet);
+
+            Assert.ThrowsExactly<KeyNotFoundException>(() =>
+                _environmentsPersistentSource.SetExecutionIdentityReference(404, "payments-prod", _user));
+        }
+
+        [TestMethod]
+        public void SetExecutionIdentityReference_RejectsNonAdministrator()
+        {
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(false);
+            _contextFactory.ClearReceivedCalls();
+
+            Assert.ThrowsExactly<UnauthorizedAccessException>(() =>
+                _environmentsPersistentSource.SetExecutionIdentityReference(7, "payments-prod", _user));
+
+            _contextFactory.DidNotReceive().GetContext();
+        }
+
+        [TestMethod]
+        public void SetExecutionIdentityReference_FollowedByAddHistoryWithEmptyBackup_PreservesRestoredFromBackup()
+        {
+            var environment = new Environment
+            {
+                Id = 7,
+                Name = "Payments",
+                RestoredFromBackup = "PROD_20261101.bak"
+            };
+            var unbackedEnvironment = new Environment
+            {
+                Id = 8,
+                Name = "Greenfield",
+                RestoredFromBackup = null
+            };
+            var environments = new List<Environment> { environment, unbackedEnvironment };
+            var histories = new List<EnvironmentHistory>();
+            _context.Environments.Returns(_ => DbContextMock.GetQueryableMockDbSet(environments));
+            _context.EnvironmentHistories.Returns(_ => DbContextMock.GetQueryableMockDbSet(histories));
+
+            _environmentsPersistentSource.SetExecutionIdentityReference(7, "payments-prod", _user);
+            _environmentsPersistentSource.SetExecutionIdentityReference(8, "greenfield-dev", _user);
+
+            EnvironmentHistoryPersistentSource.AddHistory(
+                environment,
+                string.Empty,
+                "Environment added to project PaymentsApp",
+                "testuser@domain.com",
+                "Add Environment Mapping To Project",
+                _context);
+
+            var historySource = new EnvironmentHistoryPersistentSource(
+                Substitute.For<ILogger<EnvironmentHistoryPersistentSource>>(),
+                _contextFactory);
+            Assert.IsTrue(historySource.UpdateHistory(
+                "Payments",
+                string.Empty,
+                "Manual comment",
+                "testuser@domain.com",
+                "Comment"));
+            Assert.IsTrue(historySource.UpdateHistory(
+                "Greenfield",
+                string.Empty,
+                "Manual comment",
+                "testuser@domain.com",
+                "Comment"));
+
+            Assert.AreEqual("PROD_20261101.bak", environment.RestoredFromBackup);
+            Assert.AreEqual("PROD_20261101.bak", histories[2].FromValue);
+            Assert.AreEqual("PROD_20261101.bak", histories[2].ToValue);
+            Assert.AreEqual("PROD_20261101.bak", histories[3].FromValue);
+            Assert.AreEqual("PROD_20261101.bak", histories[3].ToValue);
+
+            Assert.AreEqual(string.Empty, unbackedEnvironment.RestoredFromBackup);
+            Assert.AreEqual(string.Empty, histories[4].FromValue);
+            Assert.AreEqual(string.Empty, histories[4].ToValue);
+
+            Assert.ThrowsExactly<ArgumentException>(() =>
+                historySource.UpdateHistory(
+                    "Payments",
+                    string.Empty,
+                    "Forged identity entry",
+                    "admin@domain.com",
+                    "Execution Identity Update"));
+            Assert.ThrowsExactly<ArgumentException>(() =>
+                historySource.UpdateHistory(
+                    "Payments",
+                    string.Empty,
+                    "Forged identity entry",
+                    "admin@domain.com",
+                    "  execution identity update  "));
+            Assert.AreEqual(5, histories.Count);
         }
     }
 }

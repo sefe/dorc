@@ -87,6 +87,8 @@ namespace Dorc.Monitor
             int requestId,
             bool isProduction,
             string environmentName,
+            string? executionIdentityReference,
+            RequestExecutionIdentityAdoption identityAdoption,
             StringBuilder resultLogBuilder,
             TerraformRunnerOperations terreformOperation,
             CancellationToken cancellationToken)
@@ -94,7 +96,36 @@ namespace Dorc.Monitor
             cancellationToken.ThrowIfCancellationRequested();
 
             logger.LogInformation("Dispatching Terraform component {Component} ({ComponentId}), result {ResultId}, environment {Environment}.",
-                component.ComponentName, component.ComponentId, deploymentResult.Id, environmentName);
+                LogText.SingleLine(component.ComponentName), component.ComponentId, deploymentResult.Id, LogText.SingleLine(environmentName));
+
+            // See ScriptDispatcher: one resolution point rather than a copy per dispatch path.
+            // Environment-keyed. An environment naming its own execution identity deploys under
+            // it; one that does not falls back to the tier default and behaves exactly as before,
+            // so migration proceeds environment by environment rather than as a flag day.
+            using var credential = identityAdoption.Resolve(
+                _credentialSource,
+                isProduction ? DeploymentTier.Production : DeploymentTier.NonProduction,
+                executionIdentityReference,
+                cancellationToken);
+
+            if (credential == null)
+            {
+                var refusalMessage = RequestExecutionIdentityAdoption.FormatRefusalMessage(
+                    environmentName,
+                    executionIdentityReference,
+                    _credentialSource.Description);
+                logger.LogError(
+                    "No deployment credential is available for environment '{EnvironmentName}'."
+                    + " Credentials are read from {Source}.",
+                    LogText.SingleLine(environmentName),
+                    _credentialSource.Description);
+                resultLogBuilder?.AppendLine(refusalMessage);
+
+                isScriptExecutionSuccessful = false;
+                return isScriptExecutionSuccessful;
+            }
+
+            var processAccountName = credential.UserName;
 
             // The request is loaded before the guard because the project name
             // is part of the state identity: environments are shared across
@@ -145,30 +176,6 @@ namespace Dorc.Monitor
 
             isScriptExecutionSuccessful = true;
 
-            // See ScriptDispatcher: one resolution point rather than a copy per dispatch path.
-            var tier = isProduction ? DeploymentTier.Production : DeploymentTier.NonProduction;
-            using var credential = _credentialSource is VaultDeploymentCredentialSource or ConfigValueDeploymentCredentialSource || cancellationToken.CanBeCanceled
-                ? _credentialSource.Resolve(tier, cancellationToken)
-                    ?? (!cancellationToken.IsCancellationRequested
-                        && _credentialSource is not (VaultDeploymentCredentialSource or ConfigValueDeploymentCredentialSource)
-                            ? _credentialSource.Resolve(tier)
-                            : null)
-                : _credentialSource.Resolve(tier);
-
-            if (credential == null)
-            {
-                logger.LogError(
-                    "No deployment credential is available for environment '{EnvironmentName}'."
-                    + " Credentials are read from {Source}.",
-                    environmentName,
-                    _credentialSource.Description);
-
-                isScriptExecutionSuccessful = false;
-                return isScriptExecutionSuccessful;
-            }
-
-            var processAccountName = credential.UserName;
-
             var scriptGroup = BuildScriptGroup(
                 component.ScriptPath,
                 properties,
@@ -200,6 +207,7 @@ namespace Dorc.Monitor
                 // context rather than assumed to be the Monitor's own identity.
                 var readerIdentity = new ScriptGroupReaderIdentity(domainName, processAccountName);
                 var stagedFiles = new List<string>();
+                string? planStorageDir = null;
 
                 try
                 {
@@ -218,11 +226,12 @@ namespace Dorc.Monitor
                     _requestsPersistentSource.UpdateUncLogPath(requestId, uncLogPath);
 
                     // The plan and its human-readable rendering carry the variable values the
-                    // configuration was rendered with. They are staged in a directory that
-                    // admits the Monitor, SYSTEM, Administrators and the account the Runner
+                    // configuration was rendered with. They are staged in a per-result directory
+                    // that admits the Monitor, SYSTEM, Administrators and the account the Runner
                     // will write them as - and nobody else on the host.
-                    var planStorageDir = TerraformPlanStorage.EnsureRestricted(
+                    planStorageDir = TerraformPlanStorage.EnsureRestricted(
                         DorcProgramData.Root,
+                        deploymentResult.Id,
                         readerIdentity,
                         logger);
                     var terraformPlanFileName = deploymentResult.Id.CreateTerraformPlanBlobName();
@@ -467,6 +476,7 @@ namespace Dorc.Monitor
                     // cancellation paths as much as the successful one.
                     _scriptGroupPipeServer.Expire(startedScriptGroupPipeName);
                     foreach (var file in stagedFiles) TryDeleteFile(file);
+                    TerraformPlanStorage.CleanupResultDirectory(planStorageDir, DorcProgramData.Root, logger);
                 }
 
             }

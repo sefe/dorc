@@ -53,7 +53,7 @@ namespace Dorc.Api.Tests.Controllers
             settings.GetConfigurationDomainNameIntra().Returns("CORP");
 
             var credentialSource = Substitute.For<IDeploymentCredentialSource>();
-            credentialSource.Resolve(DeploymentTier.NonProduction).Returns((DeploymentCredential?)null);
+            credentialSource.Resolve(DeploymentTier.NonProduction, null).Returns((DeploymentCredential?)null);
 
             var controller = CreateController(
                 databases: databases,
@@ -73,9 +73,47 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsFalse(body.Result);
             StringAssert.Contains(body.Message, "Unable to retrieve DOrc Login details");
 
-            credentialSource.Received(1).Resolve(DeploymentTier.NonProduction);
+            credentialSource.Received(1).Resolve(DeploymentTier.NonProduction, null);
             configValues.DidNotReceiveWithAnyArgs().GetConfigValue(default!);
             sqlReset.DidNotReceiveWithAnyArgs().ResetSqlUserPassword(default!, default!);
+        }
+
+        [TestMethod]
+        public void Put_ResolvesBoundEnvironmentExecutionIdentityReferenceThroughCredentialSource()
+        {
+            var environments = Substitute.For<IEnvironmentsPersistentSource>();
+            environments.GetEnvironment("DEV-PAYMENTS", Arg.Any<ClaimsPrincipal>())
+                .Returns(new EnvironmentApiModel
+                {
+                    EnvironmentId = 15,
+                    EnvironmentName = "DEV-PAYMENTS",
+                    EnvironmentIsProd = false,
+                    ExecutionIdentityReference = "payments-nonprod"
+                });
+
+            var appDb = new DatabaseApiModel { Id = 45, Name = "PaymentsDb", ServerName = "sql02.corp.local" };
+            var databases = Substitute.For<IDatabasesPersistentSource>();
+            databases.GetApplicationDatabaseForEnvFilter("app_user", "App", "DEV-PAYMENTS").Returns(appDb);
+            databases.GetDatabasesForEnvId(15).Returns(new[] { appDb });
+            databases.GetEnvironmentNamesForDatabaseId(45).Returns(new[] { "DEV-PAYMENTS" });
+
+            var privileges = Substitute.For<ISecurityPrivilegesChecker>();
+            privileges.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "DEV-PAYMENTS").Returns(true);
+
+            var credentialSource = Substitute.For<IDeploymentCredentialSource>();
+            credentialSource.Resolve(DeploymentTier.NonProduction, "payments-nonprod").Returns((DeploymentCredential?)null);
+
+            var controller = CreateController(
+                databases: databases,
+                environments: environments,
+                privileges: privileges,
+                credentialSource: credentialSource);
+
+            var actionResult = Assert.IsInstanceOfType<OkObjectResult>(controller.Put("App", "DEV-PAYMENTS", "app_user"));
+            var body = Assert.IsInstanceOfType<ApiBoolResult>(actionResult.Value);
+            Assert.IsFalse(body.Result);
+            credentialSource.Received(1).Resolve(DeploymentTier.NonProduction, "payments-nonprod");
+            credentialSource.DidNotReceive().Resolve(DeploymentTier.NonProduction, null);
         }
 
         [TestMethod]
@@ -93,7 +131,15 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(NotFoundObjectResult));
             var notFoundResult = (NotFoundObjectResult)result;
             Assert.AreEqual(StatusCodes.Status404NotFound, notFoundResult.StatusCode);
+            AssertCredentialNotResolved(credentialSource);
+        }
+
+        private static void AssertCredentialNotResolved(IDeploymentCredentialSource credentialSource)
+        {
             credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
+            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default, default(string?));
+            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default, default(System.Threading.CancellationToken));
+            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default, default(string?), default(System.Threading.CancellationToken));
         }
 
         [TestMethod]
@@ -128,7 +174,7 @@ namespace Dorc.Api.Tests.Controllers
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
             databases.DidNotReceiveWithAnyArgs().GetApplicationDatabaseForEnvFilter(default!, default!, default!);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
+            AssertCredentialNotResolved(credentialSource);
             sqlReset.DidNotReceiveWithAnyArgs().ResetSqlUserPassword(default!, default!);
         }
 
@@ -159,7 +205,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
+            AssertCredentialNotResolved(credentialSource);
         }
 
         [TestMethod]
@@ -194,7 +240,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
+            AssertCredentialNotResolved(credentialSource);
         }
 
         [TestMethod]
@@ -232,7 +278,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
+            AssertCredentialNotResolved(credentialSource);
         }
 
         [TestMethod]
@@ -288,7 +334,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
+            AssertCredentialNotResolved(credentialSource);
             sqlReset.DidNotReceiveWithAnyArgs().ResetSqlUserPassword(default!, default!);
         }
 
@@ -327,7 +373,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
+            AssertCredentialNotResolved(credentialSource);
             sqlReset.DidNotReceiveWithAnyArgs().ResetSqlUserPassword(default!, default!);
         }
 
@@ -375,7 +421,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(result, typeof(ObjectResult));
             var objectResult = (ObjectResult)result;
             Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
-            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
+            AssertCredentialNotResolved(credentialSource);
             sqlReset.DidNotReceiveWithAnyArgs().ResetSqlUserPassword(default!, default!);
         }
 
@@ -416,7 +462,7 @@ namespace Dorc.Api.Tests.Controllers
 
             var resolvedCredential = DeploymentCredential.FromPlainText("svc-nonprod", "nonprod-pass");
             var credentialSource = Substitute.For<IDeploymentCredentialSource>();
-            credentialSource.Resolve(DeploymentTier.NonProduction).Returns(resolvedCredential);
+            credentialSource.Resolve(DeploymentTier.NonProduction, null).Returns(resolvedCredential);
 
             var controller = CreateController(
                 databases: databases,
@@ -435,7 +481,7 @@ namespace Dorc.Api.Tests.Controllers
             var body = (ApiBoolResult)okResult.Value;
             Assert.IsTrue(body.Result);
 
-            credentialSource.Received(1).Resolve(DeploymentTier.NonProduction);
+            credentialSource.Received(1).Resolve(DeploymentTier.NonProduction, null);
             sqlReset.Received(1).ResetSqlUserPassword("sql01-nonprod.corp.local", "app_user");
             Assert.ThrowsExactly<ObjectDisposedException>(() => _ = resolvedCredential.Password.Length);
         }
