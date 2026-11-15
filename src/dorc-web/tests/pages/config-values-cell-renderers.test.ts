@@ -1196,6 +1196,130 @@ describe('page-config-values-list editable cell renderers', () => {
       visibilitySpy.mockRestore();
     }
   });
+
+  it('ignores out-of-order older full-list refresh responses while still unlocking every settled row', async () => {
+    const initialRows: ConfigValueApiModel[] = [
+      {
+        Id: 41,
+        Key: 'FirstRow',
+        Value: 'enc:1',
+        Secure: true,
+        IsForProd: false,
+        VisibleToScripts: false
+      },
+      {
+        Id: 42,
+        Key: 'SecondRow',
+        Value: 'enc:2',
+        Secure: true,
+        IsForProd: false,
+        VisibleToScripts: false
+      }
+    ];
+
+    const refreshSubjects: Array<Subject<ConfigValueApiModel[]>> = [];
+    let getCallCount = 0;
+    const getSpy = vi
+      .spyOn(RefDataConfigApi.prototype, 'refDataConfigGet')
+      .mockImplementation(() => {
+        getCallCount += 1;
+        if (getCallCount === 1) {
+          return of(initialRows) as never;
+        }
+        const subject = new Subject<ConfigValueApiModel[]>();
+        refreshSubjects.push(subject);
+        return subject.asObservable() as never;
+      });
+    const rolesSpy = vi
+      .spyOn(RefDataRolesApi.prototype, 'refDataRolesGet')
+      .mockReturnValue(of(['Admin']) as never);
+    const visibilitySpy = vi
+      .spyOn(RefDataConfigApi.prototype, 'refDataConfigIdScriptVisibilityPut')
+      .mockImplementation(({ id, configValueScriptVisibilityApiModel }) =>
+        of({
+          Id: id,
+          Key: id === 41 ? 'FirstRow' : 'SecondRow',
+          Value: id === 41 ? 'enc:1' : 'enc:2',
+          Secure: true,
+          IsForProd: false,
+          VisibleToScripts: Boolean(
+            configValueScriptVisibilityApiModel?.VisibleToScripts
+          )
+        }) as never
+      );
+    const putSpy = vi
+      .spyOn(RefDataConfigApi.prototype, 'refDataConfigPut')
+      .mockImplementation(({ configValueApiModel }) =>
+        of(configValueApiModel) as never
+      );
+
+    try {
+      const el = await fixture<
+        HTMLElement & {
+          _narrowScreen: boolean;
+          configValues: ConfigValueApiModel[];
+          updatingConfigIds: ReadonlySet<number>;
+          updateConfigItemScriptVisibility(
+            id: number | undefined,
+            visibleToScripts: boolean
+          ): void;
+          updateConfigItem(item: ConfigValueApiModel): void;
+          updateComplete: Promise<void>;
+        }
+      >(html`<page-config-values-list></page-config-values-list>`);
+      await settle();
+
+      // Trigger update on row 41 -> starts refreshSubjects[0]
+      el.updateConfigItem({ ...initialRows[0], IsForProd: true });
+      // Trigger visibility toggle on row 42 -> starts refreshSubjects[1]
+      el.updateConfigItemScriptVisibility(initialRows[1].Id, true);
+      await settle();
+
+      expect(refreshSubjects.length).to.equal(2);
+      expect(el.updatingConfigIds.has(41), 'row 41 locked').to.equal(true);
+      expect(el.updatingConfigIds.has(42), 'row 42 locked').to.equal(true);
+
+      // Newer refresh (refreshSubjects[1]) completes FIRST with both updates applied.
+      refreshSubjects[1].next([
+        { ...initialRows[0], IsForProd: true },
+        { ...initialRows[1], VisibleToScripts: true }
+      ]);
+      refreshSubjects[1].complete();
+      await el.updateComplete;
+      await settle();
+
+      expect(el.updatingConfigIds.has(42), 'row 42 unlocked').to.equal(false);
+      expect(el.updatingConfigIds.has(41), 'row 41 still locked').to.equal(
+        true
+      );
+      expect(
+        el.configValues.find(r => r.Id === 42)?.VisibleToScripts
+      ).to.equal(true);
+
+      // Older refresh (refreshSubjects[0]) arrives LATE with stale VisibleToScripts=false for row 42.
+      refreshSubjects[0].next([
+        { ...initialRows[0], IsForProd: true },
+        { ...initialRows[1], VisibleToScripts: false }
+      ]);
+      refreshSubjects[0].complete();
+      await el.updateComplete;
+      await settle();
+
+      expect(
+        el.updatingConfigIds.has(41),
+        'row 41 unlocked when older refresh settles'
+      ).to.equal(false);
+      expect(
+        el.configValues.find(r => r.Id === 42)?.VisibleToScripts,
+        'stale refresh must not overwrite newer VisibleToScripts classification'
+      ).to.equal(true);
+    } finally {
+      getSpy.mockRestore();
+      rolesSpy.mockRestore();
+      visibilitySpy.mockRestore();
+      putSpy.mockRestore();
+    }
+  });
 });
 
 describe('add-config-value script visibility control', () => {

@@ -59,6 +59,10 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
 
   private loading = true;
 
+  private refreshRequestSeq = 0;
+
+  private latestAppliedRefreshSeq = 0;
+
   constructor() {
     super();
     this.getConfigValuesList();
@@ -98,10 +102,14 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
   private getConfigValuesList(onSettled?: () => void) {
     const settleCallback =
       typeof onSettled === 'function' ? onSettled : undefined;
+    const requestSeq = ++this.refreshRequestSeq;
     const api = new RefDataConfigApi(dorcApiConfiguration);
     api.refDataConfigGet().subscribe({
       next: (data: ConfigValueApiModel[]) => {
-        this.setConfigValues(data);
+        if (requestSeq >= this.latestAppliedRefreshSeq) {
+          this.latestAppliedRefreshSeq = requestSeq;
+          this.setConfigValues(data);
+        }
         settleCallback?.();
       },
       error: (err: any) => {
