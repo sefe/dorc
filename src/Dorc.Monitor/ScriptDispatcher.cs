@@ -918,14 +918,14 @@ namespace Dorc.Monitor
             var pinnedDirectories = new List<SafeFileHandle>(relativeSegments.Length);
             try
             {
-                var rootHandle = ReparseFreeHandles.OpenPinnedDirectoryHandle(rootFull);
+                var rootHandle = ReparseFreeHandles.OpenWriteExcludingDirectoryHandle(rootFull);
                 pinnedDirectories.Add(rootHandle);
                 var canonicalCurrent = ReparseFreeHandles.GetCanonicalPath(rootHandle, rootFull);
 
                 for (var i = 0; i < relativeSegments.Length - 1; i++)
                 {
                     var nextDirectoryPath = Path.Join(canonicalCurrent, relativeSegments[i]);
-                    var childDirectoryHandle = ReparseFreeHandles.OpenPinnedDirectoryHandle(nextDirectoryPath);
+                    var childDirectoryHandle = ReparseFreeHandles.OpenWriteExcludingDirectoryHandle(nextDirectoryPath);
                     pinnedDirectories.Add(childDirectoryHandle);
 
                     var childCanonical = ReparseFreeHandles.GetCanonicalPath(childDirectoryHandle, nextDirectoryPath);

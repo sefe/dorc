@@ -576,5 +576,57 @@ namespace Dorc.Monitor.Tests
             Assert.IsNotNull(provider.GetRequiredService<IScriptsPersistentSource>());
             Assert.IsNotNull(provider.GetRequiredService<IScriptDispatcher>());
         }
+
+        [TestMethod]
+        public void ReportMode_SkipsBaselineCaptureWhenParentDirectoryIsHeldOpenForWrite()
+        {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
+            _settings.GetScriptPathEnforcementEnabled().Returns(false);
+            _settings.GetScriptContentVerificationMode()
+                .Returns(ScriptContentVerificationMode.Report);
+
+            var childDir = Path.Join(_scriptRoot, "write-held-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(childDir);
+            var candidateScript = Path.Join(childDir, "Deploy.ps1");
+            File.WriteAllText(candidateScript, "Write-Host 'write-held'");
+
+            try
+            {
+                using var directoryWriteHandle = Dorc.Monitor.Security.ReparseFreeHandles.OpenRawHandle(
+                    childDir,
+                    Dorc.Monitor.Security.ReparseFreeHandles.GenericWrite,
+                    Dorc.Monitor.Security.ReparseFreeHandles.FileShareRead
+                        | Dorc.Monitor.Security.ReparseFreeHandles.FileShareWrite,
+                    Dorc.Monitor.Security.ReparseFreeHandles.OpenExisting,
+                    out var openError);
+                Assert.IsFalse(directoryWriteHandle.IsInvalid, $"Expected directory write open to succeed (Win32 error {openError}).");
+
+                var group = DispatchAndCaptureGroup(new ScriptApiModel
+                {
+                    Id = 89,
+                    Path = candidateScript,
+                    PowerShellVersionNumber = "7.4",
+                    Revision = "rev-write-held-dir",
+                    ContentHash = null
+                });
+
+                _scripts.DidNotReceiveWithAnyArgs()
+                    .RecordContentHashIfUnrecorded(default, default!, default!);
+                _scripts.DidNotReceiveWithAnyArgs()
+                    .RecordContentHashIfUnrecorded(default, default!, default!, default!);
+                Assert.IsNull(group.ScriptProperties.Single().ExpectedContentHash);
+            }
+            finally
+            {
+                if (Directory.Exists(childDir))
+                {
+                    Directory.Delete(childDir, recursive: true);
+                }
+            }
+        }
     }
 }
