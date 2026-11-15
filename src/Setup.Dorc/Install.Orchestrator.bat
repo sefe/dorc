@@ -5,6 +5,10 @@ popd
 set MYDIR=%CD%
 echo Directory of this batch fil: %MYDIR%
 
+REM ALLOWED.ARTEFACT.HOSTS and ALLOWED.TERRAFORM.SOURCE.HOSTS must be JSON arrays of host
+REM names, e.g. "[""tfs.corp.example.com"", ""dev.azure.com""]". A bare host name is written
+REM into the configuration as a string, which the services reject at startup.
+
 call msiexec /i "%MYDIR%\Setup.Dorc.msi" ^
 SERVICE.IDENTITY="" ^
 SERVICE.PASSWORD="" ^
@@ -40,6 +44,8 @@ TEAMS.TENANT.ID="" ^
 TEAMS.SERVICE.URL="https://smba.trafficmanager.net/uk/" ^
 TEAMS.DORC.UI.BASE.URL="http://localhost:8888" ^
 TEAMS.NOTIFY.ON.STATUSES="Completed,Failed,Errored" ^
+ALLOWED.ARTEFACT.HOSTS="[]" ^
+ALLOWED.TERRAFORM.SOURCE.HOSTS="[]" ^
 /qb /L*v "%MYDIR%\Setup.Dorc.log"
 
 echo Returncode: %ERRORLEVEL%

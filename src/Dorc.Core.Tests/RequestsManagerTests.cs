@@ -1,7 +1,9 @@
 using Dorc.ApiModel;
 using Dorc.Core.BuildServer;
 using Dorc.Core.Models;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 
@@ -16,6 +18,7 @@ namespace Dorc.Core.Tests
         private IEnvironmentsPersistentSource _environmentsPds = null!;
         private IBuildServerClientFactory _buildServerClientFactory = null!;
         private IBuildServerClient _mockBuildClient = null!;
+        private ISourceHostAllowList _sourceHosts = null!;
 
         [TestInitialize]
         public void Setup()
@@ -28,12 +31,24 @@ namespace Dorc.Core.Tests
             _buildServerClientFactory = Substitute.For<IBuildServerClientFactory>();
             _mockBuildClient = Substitute.For<IBuildServerClient>();
             _buildServerClientFactory.Create(Arg.Any<SourceControlType>()).Returns(_mockBuildClient);
+            _sourceHosts = BuildAllowList();
         }
 
-        private RequestsManager CreateSut()
+        private RequestsManager CreateSut(ISourceHostAllowList? sourceHosts = null)
         {
             return new RequestsManager(_loggerFactory, _projectsPds, _componentsPds,
-                _environmentsPds, _buildServerClientFactory);
+                _environmentsPds, _buildServerClientFactory, sourceHosts ?? _sourceHosts);
+        }
+
+        private static ISourceHostAllowList BuildAllowList(params string[] artefactHosts)
+        {
+            var entries = new Dictionary<string, string?>();
+            for (var i = 0; i < artefactHosts.Length; i++)
+            {
+                entries[$"{SourceHostAllowList.ArtefactHostsSetting}:{i}"] = artefactHosts[i];
+            }
+
+            return new SourceHostAllowList(new ConfigurationBuilder().AddInMemoryCollection(entries).Build());
         }
 
         // --- GetBuildDefinitions ---
@@ -292,6 +307,7 @@ namespace Dorc.Core.Tests
                 .Returns("https://dev.azure.com/org/proj/_apis/build/builds/100/artifacts?artifactName=drop");
 
             _mockBuildClient.TryReadArtifactFileTextAsync(
+                project.ArtefactsUrl,
                 Arg.Any<string>(),
                 "bundle.json")
                 .Returns(@"{
@@ -331,6 +347,7 @@ namespace Dorc.Core.Tests
                 .Returns("https://dev.azure.com/org/proj/_apis/build/builds/100/artifacts?artifactName=drop");
 
             _mockBuildClient.TryReadArtifactFileTextAsync(
+                project.ArtefactsUrl,
                 Arg.Any<string>(),
                 "bundle.json")
                 .Returns(@"{
@@ -348,6 +365,48 @@ namespace Dorc.Core.Tests
                     "https://dev.azure.com/org/proj/_apis/build/Builds/100"));
 
             StringAssert.Contains(ex.Message, "UnknownComp");
+        }
+
+        [TestMethod]
+        [DataRow(@"\\attacker.corp\drops")]
+        [DataRow(@"\\?\UNC\attacker.corp\drops")]
+        [DataRow(@"\\attacker.corp@SSL@443\DavWWWRoot\drops")]
+        public async Task GetBuildsAsync_RemoteUncFileShareFailsClosedWhenAllowListUnconfiguredOrDisallowed(string artefactsUrl)
+        {
+            _projectsPds.GetProject(1).Returns(new ProjectApiModel
+            {
+                ProjectId = 1,
+                ProjectName = "UncProj",
+                ArtefactsUrl = artefactsUrl,
+                SourceControlType = SourceControlType.FileShare
+            });
+
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                CreateSut(BuildAllowList()).GetBuildsAsync(1, "dev", "any"));
+
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                CreateSut(BuildAllowList("trusted.corp")).GetBuildsAsync(1, "dev", "any"));
+        }
+
+        [TestMethod]
+        [DataRow(@"\\attacker.corp\drops\bundle.json")]
+        [DataRow(@"\\?\UNC\attacker.corp\drops\bundle.json")]
+        [DataRow(@"\\attacker.corp@SSL@443\drops\bundle.json")]
+        public async Task GetBundleComponentsAsync_RemoteUncFileShareFailsClosedWhenUnconfiguredOrDisallowed(string buildUrl)
+        {
+            _projectsPds.GetProject(1).Returns(new ProjectApiModel
+            {
+                ProjectId = 1,
+                ProjectName = "UncBundleProj",
+                ArtefactsUrl = @"\\attacker.corp\drops",
+                SourceControlType = SourceControlType.FileShare
+            });
+
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                CreateSut(BuildAllowList()).GetBundleComponentsAsync(1, "Bundle", buildUrl));
+
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                CreateSut(BuildAllowList("trusted.corp")).GetBundleComponentsAsync(1, "Bundle", buildUrl));
         }
     }
 }

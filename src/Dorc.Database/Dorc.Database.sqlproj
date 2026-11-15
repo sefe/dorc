@@ -63,4 +63,23 @@
   <ItemGroup>
     <RefactorLog Include="Dorc.Database.refactorlog" />
   </ItemGroup>
+  <!-- MSBuild.Sdk.SqlProj 4.2.0 ships DacpacTool binaries for net8.0, net9.0, and net10.0.
+       When invoked from a newer .NET SDK host (such as .NET 11 on ubuntu-latest), select the
+       highest installed supported Microsoft.NETCore.App runtime so DacpacTool still executes. -->
+  <Target Name="SelectSupportedDacpacToolTfm"
+          BeforeTargets="ValidateEnvironment"
+          Condition="'$(DacpacToolExe)' == '' And $([MSBuild]::VersionGreaterThan('$(BundledNETCoreAppTargetFrameworkVersion)', '10.0'))">
+    <ItemGroup>
+      <_InstalledNet10Runtimes Include="$(NetCoreRoot)shared/Microsoft.NETCore.App/10.*/Microsoft.NETCore.App.deps.json" />
+      <_InstalledNet9Runtimes Include="$(NetCoreRoot)shared/Microsoft.NETCore.App/9.*/Microsoft.NETCore.App.deps.json" />
+      <_InstalledNet8Runtimes Include="$(NetCoreRoot)shared/Microsoft.NETCore.App/8.*/Microsoft.NETCore.App.deps.json" />
+    </ItemGroup>
+    <PropertyGroup>
+      <_FallbackDacpacTfm Condition="'@(_InstalledNet8Runtimes)' != ''">net8.0</_FallbackDacpacTfm>
+      <_FallbackDacpacTfm Condition="'@(_InstalledNet9Runtimes)' != ''">net9.0</_FallbackDacpacTfm>
+      <_FallbackDacpacTfm Condition="'@(_InstalledNet10Runtimes)' != ''">net10.0</_FallbackDacpacTfm>
+      <_CandidateDacpacToolExe Condition="'$(_FallbackDacpacTfm)' != ''">$([MSBuild]::NormalizePath('$(NuGetPackageRoot)', 'msbuild.sdk.sqlproj', '4.2.0', 'tools', '$(_FallbackDacpacTfm)', 'DacpacTool.dll'))</_CandidateDacpacToolExe>
+      <DacpacToolExe Condition="'$(_CandidateDacpacToolExe)' != '' And Exists('$(_CandidateDacpacToolExe)')">$(_CandidateDacpacToolExe)</DacpacToolExe>
+    </PropertyGroup>
+  </Target>
 </Project>

@@ -212,7 +212,9 @@ builder.Services.AddHttpClient("GitHubActions", client =>
     client.DefaultRequestHeaders.Add("User-Agent", "DOrc-Monitor");
     client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
     client.Timeout = TimeSpan.FromSeconds(300);
-}).AddHttpMessageHandler<GitHubRetryHandler>();
+})
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false })
+    .AddHttpMessageHandler<GitHubRetryHandler>();
 builder.Services.AddTransient<IGitHubArtifactDownloader, GitHubArtifactDownloader>();
 
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>();

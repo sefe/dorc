@@ -1,9 +1,12 @@
-﻿using System.IO.Compression;
+using System.IO.Compression;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.RegularExpressions;
+using Dorc.ApiModel;
 using Dorc.Core.Models;
+using Dorc.Core.Security;
 using Microsoft.Extensions.Logging;
+using Dorc.PersistentData.Security;
 using Microsoft.Extensions.Configuration;
 using Org.OpenAPITools.Api;
 using Org.OpenAPITools.Client;
@@ -16,7 +19,9 @@ namespace Dorc.Core.AzureDevOpsServer
     public class AzureDevOpsServerWebClient : IAzureDevOpsServerWebClient
     {
         private readonly string _serverUrl;
+        private readonly string _configuredAzureEndpointUrl;
         private readonly ILogger _log;
+        private readonly Func<bool, HttpMessageHandler>? _httpHandlerFactory;
         private const string ApiVersion = "6.0";
 
         // Build-filtering patterns come from project configuration
@@ -27,7 +32,10 @@ namespace Dorc.Core.AzureDevOpsServer
         // diagnosably instead.
         private static readonly TimeSpan RegexMatchTimeout = TimeSpan.FromSeconds(5);
         private readonly IAuthTokenGenerator _authTokenGenerator;
-        private static readonly IConfigurationSection AppSettings = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings");
+        private static readonly IConfigurationSection AppSettings = new ConfigurationBuilder()
+            .AddJsonFile("appsettings.json", optional: true)
+            .Build()
+            .GetSection("AppSettings");
 
         // The Client ID is used by the application to uniquely identify itself to Azure AD.
         // The Tenant is the name or Id of the Azure AD tenant in which this application is registered.
@@ -38,15 +46,37 @@ namespace Dorc.Core.AzureDevOpsServer
         private static string secret = AppSettings["AadSecret"];
         private static string[] scopes = { AppSettings["AadScopes"] };
         private static string azureEndpointUrl = AppSettings["AzureEndpoint"] ?? "dev.azure.com";
-        
 
-        public AzureDevOpsServerWebClient(string serverUrl, ILogger<AzureDevOpsServerWebClient> log)
+        private readonly ISourceHostAllowList _sourceHosts;
+
+        public AzureDevOpsServerWebClient(
+            string serverUrl,
+            ILogger<AzureDevOpsServerWebClient> log,
+            ISourceHostAllowList sourceHosts)
+            : this(
+                serverUrl,
+                azureEndpointUrl,
+                AuthTokenGeneratorFactory.GetAuthTokenGenerator(new AadConnectionSettings(clientId, scopes, secret, tenant)),
+                log,
+                sourceHosts,
+                null)
         {
-            var aadConnectionSettings = new AadConnectionSettings(clientId, scopes, secret, tenant);
+        }
+
+        internal AzureDevOpsServerWebClient(
+            string serverUrl,
+            string configuredAzureEndpointUrl,
+            IAuthTokenGenerator authTokenGenerator,
+            ILogger log,
+            ISourceHostAllowList sourceHosts,
+            Func<bool, HttpMessageHandler>? httpHandlerFactory = null)
+        {
             _log = log;
             _serverUrl = serverUrl;
-            // Ideally for speed of queries we only want to retrieve the connection settings once at instantiation time.
-            _authTokenGenerator = AuthTokenGeneratorFactory.GetAuthTokenGenerator(aadConnectionSettings);
+            _configuredAzureEndpointUrl = configuredAzureEndpointUrl;
+            _sourceHosts = sourceHosts ?? throw new ArgumentNullException(nameof(sourceHosts));
+            _authTokenGenerator = authTokenGenerator ?? throw new ArgumentNullException(nameof(authTokenGenerator));
+            _httpHandlerFactory = httpHandlerFactory;
         }
 
         public List<BuildDefinitionReference> GetBuildDefinitionsForProjects(string collection, string adosProjects, string projectRegex)
@@ -91,28 +121,96 @@ namespace Dorc.Core.AzureDevOpsServer
         }
 
         /// <summary>
-        /// Builds the configuration and API client for one Azure DevOps
-        /// endpoint. Azure DevOps Services authenticates with an AAD token;
-        /// an on-premises Azure DevOps Server takes the process's Windows
-        /// credentials instead. The client carries the converter that unwraps
-        /// Azure DevOps's count/value list envelope, so every API must be
-        /// constructed from it.
+        /// Builds the configuration and API client for one Azure DevOps endpoint.
+        ///
+        /// The endpoint is derived from project configuration, so credentials are selected only
+        /// after comparing parsed hosts and applying the source-host allow-list. The client also
+        /// carries the converter that unwraps Azure DevOps's count/value list envelope.
         /// </summary>
-        private (Org.OpenAPITools.Client.Configuration Configuration, ApiClient Client) ConnectTo(string azureEndpoint)
+        private (Org.OpenAPITools.Client.Configuration Configuration, ApiClient Client) ConnectTo(
+           string azureEndpoint)
         {
-            var configuration = azureEndpoint.Contains(azureEndpointUrl)
-                ? new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    AccessToken = _authTokenGenerator.GetToken()
-                }
-                : new Org.OpenAPITools.Client.Configuration
-                {
-                    BasePath = azureEndpoint,
-                    UseDefaultCredentials = true
-                };
+           Org.OpenAPITools.Client.Configuration configuration;
 
-            return (configuration, AzureDevOpsApiClientFactory.Create(configuration.BasePath));
+           if (IsConfiguredAzureEndpoint(azureEndpoint))
+           {
+               RequireHttpsAzureEndpoint(azureEndpoint);
+               configuration = new Org.OpenAPITools.Client.Configuration
+               {
+                   BasePath = azureEndpoint,
+                   AccessToken = _authTokenGenerator.GetToken()
+               };
+           }
+           else
+           {
+               RequireDefaultCredentialsPermitted(azureEndpoint);
+               configuration = new Org.OpenAPITools.Client.Configuration
+               {
+                   BasePath = azureEndpoint,
+                   UseDefaultCredentials = true,
+               };
+           }
+
+           return (configuration, AzureDevOpsApiClientFactory.Create(configuration.BasePath, _httpHandlerFactory));
+        }
+
+        internal bool IsConfiguredAzureEndpoint(string azureEndpoint)
+        {
+            // AzureEndpoint is configured as a bare host ("dev.azure.com") by default but may be
+            // written as a URL, so it is reduced to a host before comparing. Subdomains of the
+            // configured host are the same service reached through another name -
+            // myorg.visualstudio.com, vsrm.dev.azure.com, pkgs.dev.azure.com - and take the same
+            // AAD token, so the comparison is host-or-subdomain on the parsed authority, never
+            // a substring of the URL text.
+            var configured = SourceHost.Of(_configuredAzureEndpointUrl) ?? _configuredAzureEndpointUrl?.Trim();
+            if (string.IsNullOrWhiteSpace(configured))
+            {
+                return false;
+            }
+
+            if (SourceHost.Is(azureEndpoint, configured))
+            {
+                return true;
+            }
+
+            return string.Equals(configured, "dev.azure.com", StringComparison.OrdinalIgnoreCase)
+                && SourceHost.Is(azureEndpoint, "visualstudio.com");
+        }
+
+        private static void RequireHttpsAzureEndpoint(string azureEndpoint)
+        {
+            if (!Uri.TryCreate(azureEndpoint, UriKind.Absolute, out var uri) ||
+                !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to send Azure DevOps bearer token to '{azureEndpoint}': HTTPS is required.");
+            }
+        }
+
+        private void RequireDefaultCredentialsPermitted(string azureEndpoint)
+        {
+            if (_sourceHosts.IsArtefactSourceUnconfigured)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present default Windows credentials because no artefact host "
+                    + $"allow-list is configured ('{SourceHostAllowList.ArtefactHostsSetting}').");
+            }
+
+            var decision = _sourceHosts.CheckArtefactSource(azureEndpoint);
+            if (decision == null || !decision.Allowed)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present default Windows credentials to '{azureEndpoint}', because {decision?.Reason ?? "host is not permitted"}");
+            }
+        }
+
+        private static void RequireSameOriginWithConfiguredEndpoint(string candidateUrl, string configuredOriginUrl)
+        {
+            if (!SourceHost.HasSameOrigin(candidateUrl, configuredOriginUrl))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present default Windows credentials to '{candidateUrl}': origin '{SourceHost.OriginOf(candidateUrl) ?? "<none>"}' does not match configured endpoint origin '{SourceHost.OriginOf(configuredOriginUrl) ?? "<none>"}'.");
+            }
         }
 
         private static bool IsBuildDefinitionCompletedSuccessfully(BuildDefinitionReference buildDefinition)
@@ -262,8 +360,9 @@ namespace Dorc.Core.AzureDevOpsServer
             if (string.IsNullOrWhiteSpace(sanitizedFileName))
                 return null;
 
-            if (artifactDownloadUrl.StartsWith("file", StringComparison.OrdinalIgnoreCase) ||
-                artifactDownloadUrl.StartsWith(@"\\", StringComparison.Ordinal))
+            if (!artifactDownloadUrl.StartsWith("http", StringComparison.OrdinalIgnoreCase) &&
+                (artifactDownloadUrl.StartsWith("file", StringComparison.OrdinalIgnoreCase) ||
+                 SourceHost.IsRemoteOrUnc(artifactDownloadUrl)))
             {
                 if (artifactDownloadUrl.Contains("..", StringComparison.Ordinal) ||
                     fileName.Contains("..", StringComparison.Ordinal) ||
@@ -271,6 +370,17 @@ namespace Dorc.Core.AzureDevOpsServer
                     fileName.Contains('\\', StringComparison.Ordinal))
                 {
                     return null;
+                }
+
+                if (SourceHost.IsRemoteOrUnc(artifactDownloadUrl))
+                {
+                    if (!SourceHost.TryExtractRemoteHost(artifactDownloadUrl, out _))
+                    {
+                        throw new InvalidOperationException(
+                            $"Refusing to present default Windows credentials to '{artifactDownloadUrl}': remote or UNC authority could not be verified.");
+                    }
+
+                    RequireDefaultCredentialsPermitted(artifactDownloadUrl);
                 }
 
                 var localPath = Security.PathConfinement.Canonicalise(artifactDownloadUrl);
@@ -299,24 +409,63 @@ namespace Dorc.Core.AzureDevOpsServer
                 return null;
             }
 
-            using var handler = new HttpClientHandler();
-            var isCloudAdo = downloadUri.Host.Contains(azureEndpointUrl, StringComparison.OrdinalIgnoreCase);
-            if (!isCloudAdo)
+            var isCandidateCloudAdo = IsConfiguredAzureEndpoint(artifactDownloadUrl);
+            if (isCandidateCloudAdo && (string.IsNullOrWhiteSpace(_serverUrl) || SourceHost.OriginOf(_serverUrl) == null))
             {
-                handler.UseDefaultCredentials = true;
+                throw new InvalidOperationException(
+                    $"Refusing to send Azure DevOps bearer token to '{artifactDownloadUrl}': configured endpoint origin '{_serverUrl ?? "<none>"}' is missing or invalid.");
             }
 
-            using var httpClient = new HttpClient(handler);
+            var isCloudAdo = isCandidateCloudAdo && IsConfiguredAzureEndpoint(_serverUrl);
+            AuthenticationHeaderValue? authorization = null;
+            Action<Uri>? onRedirect = null;
+
             if (isCloudAdo)
             {
+                RequireHttpsAzureEndpoint(_serverUrl);
+                RequireHttpsAzureEndpoint(artifactDownloadUrl);
                 var token = _authTokenGenerator.GetToken();
                 if (!string.IsNullOrEmpty(token))
                 {
-                    httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+                    authorization = new AuthenticationHeaderValue("Bearer", token);
                 }
             }
+            else
+            {
+                if (_sourceHosts.IsArtefactSourceUnconfigured)
+                {
+                    throw new InvalidOperationException(
+                        $"Refusing to present default Windows credentials because no artefact host "
+                        + $"allow-list is configured ('{SourceHostAllowList.ArtefactHostsSetting}').");
+                }
 
-            using var response = await httpClient.GetAsync(downloadUri, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+                if (string.IsNullOrWhiteSpace(_serverUrl) || SourceHost.OriginOf(_serverUrl) == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Refusing to present default Windows credentials to '{artifactDownloadUrl}': configured endpoint origin '{_serverUrl ?? "<none>"}' is missing or invalid.");
+                }
+
+                RequireDefaultCredentialsPermitted(_serverUrl);
+                RequireDefaultCredentialsPermitted(artifactDownloadUrl);
+                RequireSameOriginWithConfiguredEndpoint(artifactDownloadUrl, _serverUrl);
+                onRedirect = nextUri => RequireSameOriginWithConfiguredEndpoint(nextUri.AbsoluteUri, _serverUrl);
+            }
+
+            var handler = _httpHandlerFactory != null
+                ? _httpHandlerFactory(!isCloudAdo)
+                : new HttpClientHandler
+                {
+                    UseDefaultCredentials = !isCloudAdo,
+                    AllowAutoRedirect = false
+                };
+
+            using var httpClient = new HttpClient(handler, disposeHandler: _httpHandlerFactory == null);
+            using var response = await OriginBoundHttpSender.GetAsync(
+                httpClient,
+                downloadUri,
+                authorization,
+                HttpCompletionOption.ResponseHeadersRead,
+                onRedirect: onRedirect).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
             {
                 _log.LogWarning("Failed to download Azure DevOps artifact (HTTP {StatusCode}).", (int)response.StatusCode);

@@ -473,7 +473,9 @@ builder.Services.AddHttpClient("GitHubActions", client =>
     client.DefaultRequestHeaders.UserAgent.Add(new System.Net.Http.Headers.ProductInfoHeaderValue("DORC", "1.0"));
     client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
     client.Timeout = TimeSpan.FromSeconds(30);
-}).AddHttpMessageHandler<GitHubRetryHandler>();
+})
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false })
+    .AddHttpMessageHandler<GitHubRetryHandler>();
 builder.Services.AddTransient<IConfigurationRoot>(_ => configBuilder);
 builder.Services.AddTransient<IConfigurationSettings, ConfigurationSettings>(_ => configurationSettings);
 builder.Services.AddTransient<IAzureStorageAccountWorker, AzureStorageAccountWorker>();

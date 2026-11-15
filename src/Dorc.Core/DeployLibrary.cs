@@ -8,6 +8,7 @@ using Dorc.Core.Events;
 using Dorc.Core.Exceptions;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
@@ -27,6 +28,7 @@ namespace Dorc.Core
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
         private readonly IBuildServerClientFactory _buildServerClientFactory;
+        private readonly ISourceHostAllowList _sourceHosts;
 
         public DeployLibrary(IProjectsPersistentSource projectsPersistentSource,
             IComponentsPersistentSource componentsPersistentSource,
@@ -36,9 +38,11 @@ namespace Dorc.Core
             IRequestsPersistentSource requestsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
             IDeploymentEventsPublisher deploymentEventsPublisher,
-            IBuildServerClientFactory buildServerClientFactory
+            IBuildServerClientFactory buildServerClientFactory,
+            ISourceHostAllowList sourceHosts
             )
         {
+            _sourceHosts = sourceHosts;
             _requestsPersistentSource = requestsPersistentSource;
             _loggerFactory = loggerFactory;
             _environmentsPersistentSource = environmentsPersistentSource;
@@ -246,16 +250,46 @@ namespace Dorc.Core
                     project.ArtefactsBuildRegex,
                     createRequest.BuildDefinitionName,
                     buildInfo?.BuildUri ?? createRequest.BuildUrl).ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(buildDetail.DropLocation)
+                    && !buildDetail.DropLocation.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                    && !buildDetail.DropLocation.StartsWith("dorc-gh://", StringComparison.OrdinalIgnoreCase))
+                {
+                    RequirePermittedRemoteArtefactPath(buildDetail.DropLocation, "drop location");
+                }
                 buildDetail.Project = project.ProjectName;
             }
-            else if (!string.IsNullOrEmpty(project.ArtefactsUrl) &&
-                     (project.ArtefactsUrl.StartsWith("file") || project.ArtefactsUrl.StartsWith(@"\\")))
+            else if (IsFileShareProject(project) || IsFileBasedUrl(project.ArtefactsUrl) || IsFileBasedUrl(createRequest.BuildUrl))
             {
-                buildDetail.DropLocation = new Uri(createRequest.BuildUrl).LocalPath;
+                RequirePermittedRemoteArtefactPath(createRequest.BuildUrl, "build URL");
+
+                var permittedRoots = Security.PathConfinement.SplitRoots(project.ArtefactsUrl).ToList();
+                if (permittedRoots.Count == 0 || !Security.PathConfinement.IsWithinAny(createRequest.BuildUrl, permittedRoots))
+                {
+                    throw new InvalidOperationException(
+                        $"The build location is outside the artefacts location configured for project '{project.ProjectName}'.");
+                }
+
+                foreach (var root in permittedRoots.Where(root => Security.PathConfinement.IsWithin(createRequest.BuildUrl, root)))
+                {
+                    RequirePermittedRemoteArtefactPath(root, "project artefact root");
+                }
+
+                var normalizedBuildUrl = SourceHost.NormalizeExtendedUnc(createRequest.BuildUrl);
+                buildDetail.DropLocation = Uri.TryCreate(normalizedBuildUrl, UriKind.Absolute, out var buildUri) && buildUri.IsFile
+                    ? buildUri.LocalPath
+                    : normalizedBuildUrl;
+                RequirePermittedRemoteArtefactPath(buildDetail.DropLocation, "drop location");
                 buildDetail.BuildNumber = Path.GetFileName(buildDetail.DropLocation);
             }
             else
             {
+                if (!string.IsNullOrWhiteSpace(createRequest.DropFolder)
+                    && !createRequest.DropFolder.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+                    && !createRequest.DropFolder.StartsWith("dorc-gh://", StringComparison.OrdinalIgnoreCase))
+                {
+                    RequirePermittedRemoteArtefactPath(createRequest.DropFolder, "drop location");
+                }
+
                 buildDetail.DropLocation = createRequest.DropFolder;
             }
 
@@ -354,12 +388,21 @@ namespace Dorc.Core
             if (isBuildServer)
             {
                 buildClient = _buildServerClientFactory.Create(project.SourceControlType);
-                bundleJson = await buildClient.TryReadArtifactFileTextAsync(bundleBuildDetail.DropLocation, "bundle.json")
+                bundleJson = await buildClient.TryReadArtifactFileTextAsync(
+                        project.ArtefactsUrl ?? string.Empty,
+                        bundleBuildDetail.DropLocation,
+                        "bundle.json")
                     .ConfigureAwait(false);
             }
             else if (isFileShare)
             {
                 var permittedRoots = Security.PathConfinement.SplitRoots(project.ArtefactsUrl).ToList();
+                foreach (var root in permittedRoots)
+                {
+                    RequirePermittedRemoteArtefactPath(root, "project artefact root");
+                }
+                RequirePermittedRemoteArtefactPath(bundleBuildDetail.DropLocation, "bundle drop folder");
+
                 if (permittedRoots.Count == 0 ||
                     !Security.PathConfinement.IsWithinAny(bundleBuildDetail.DropLocation, permittedRoots))
                 {
@@ -530,7 +573,37 @@ namespace Dorc.Core
         }
 
         private static bool IsFileBasedUrl(string? url)
-            => !string.IsNullOrEmpty(url) && (url.StartsWith("file", StringComparison.OrdinalIgnoreCase) || url.StartsWith(@"\\", StringComparison.Ordinal));
+            => !string.IsNullOrEmpty(url)
+               && !url.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+               && !url.StartsWith("dorc-gh://", StringComparison.OrdinalIgnoreCase)
+               && (url.StartsWith("file", StringComparison.OrdinalIgnoreCase) || SourceHost.IsRemoteOrUnc(url));
+
+        private void RequirePermittedRemoteArtefactPath(string? path, string context)
+        {
+            if (!SourceHost.IsRemoteOrUnc(path))
+            {
+                return;
+            }
+
+            if (!SourceHost.TryExtractRemoteHost(path, out _))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to access remote {context} '{path}': remote or UNC authority could not be verified.");
+            }
+
+            if (_sourceHosts.IsArtefactSourceUnconfigured)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present default Windows credentials because no artefact host allow-list is configured ('{SourceHostAllowList.ArtefactHostsSetting}').");
+            }
+
+            var decision = _sourceHosts.CheckArtefactSource(path);
+            if (decision == null || !decision.Allowed)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present default Windows credentials to '{path}', because {decision?.Reason ?? "host is not permitted"}");
+            }
+        }
 
         private static bool IsBuildServerProject(ProjectApiModel project)
             => project.SourceControlType == SourceControlType.GitHub ||

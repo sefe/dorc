@@ -17,13 +17,25 @@ namespace Dorc.TerraformRunner.CodeSources
     {
         private readonly string azureBaseUrl = "https://dev.azure.com";
         private readonly IRunnerLogger _logger;
+        private readonly HttpMessageHandler? _httpMessageHandler;
+        private readonly string? _stagingDirectory;
         private const string DefaultArtifactTypePriority = "filepath,Container,PipelineArtifact";
 
         public TerraformSourceType SourceType => TerraformSourceType.AzureArtifact;
 
         public AzureArtifactCodeSourceProvider(IRunnerLogger logger)
+            : this(logger, null, null)
+        {
+        }
+
+        internal AzureArtifactCodeSourceProvider(
+            IRunnerLogger logger,
+            HttpMessageHandler? httpMessageHandler,
+            string? stagingDirectory = null)
         {
             _logger = logger;
+            _httpMessageHandler = httpMessageHandler;
+            _stagingDirectory = stagingDirectory;
         }
 
         public async Task ProvisionCodeAsync(ScriptGroup scriptGroup, string workingDir, CancellationToken cancellationToken)
@@ -34,6 +46,7 @@ namespace Dorc.TerraformRunner.CodeSources
 
             if (isFilePathSpecified)
             {
+                ValidateFileShareHost(scriptGroup.ScriptsLocation, scriptGroup.AllowedArtefactHosts);
                 downloaded = await DownloadFromFileAsync(new Uri(scriptGroup.ScriptsLocation), workingDir, cancellationToken);
             }
             else
@@ -128,6 +141,7 @@ namespace Dorc.TerraformRunner.CodeSources
                                 artifact.Resource.DownloadUrl,
                                 workingDir,
                                 scriptGroup.AzureBearerToken,
+                                scriptGroup.AllowedArtefactHosts,
                                 cancellationToken
                             );
                         }
@@ -143,6 +157,10 @@ namespace Dorc.TerraformRunner.CodeSources
                         }                       
                     }
                 }
+                catch (InvalidOperationException)
+                {
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     _logger.FileLogger.LogError(ex, $"Failed to download Azure artifact: {ex.Message}");
@@ -153,10 +171,11 @@ namespace Dorc.TerraformRunner.CodeSources
             return downloaded;
         }
 
-        private async Task<bool> DownloadFromUrlAsync(
+        internal async Task<bool> DownloadFromUrlAsync(
             string downloadUrl,
             string workingDir,
             string bearerToken,
+            IList<string>? allowedArtefactHosts,
             CancellationToken cancellationToken)
         {
             _logger.FileLogger.LogInformation($"Downloading artifact from Url {downloadUrl}");
@@ -176,6 +195,7 @@ namespace Dorc.TerraformRunner.CodeSources
             // Handle file:// URLs
             if (uri.Scheme.Equals("file", StringComparison.OrdinalIgnoreCase))
             {
+                ValidateFileShareHost(downloadUrl, allowedArtefactHosts);
                 return await DownloadFromFileAsync(uri, workingDir, cancellationToken);
             }
 
@@ -183,6 +203,7 @@ namespace Dorc.TerraformRunner.CodeSources
             if (uri.Scheme.Equals("http", StringComparison.OrdinalIgnoreCase) || 
                 uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
             {
+                ValidateArtifactDownloadUrl(downloadUrl, allowedArtefactHosts);
                 return await DownloadFromHttpAsync(downloadUrl, workingDir, bearerToken, cancellationToken);
             }
 
@@ -238,22 +259,28 @@ namespace Dorc.TerraformRunner.CodeSources
             string bearerToken,
             CancellationToken cancellationToken)
         {
-            using var httpClient = new HttpClient();
-            if (!string.IsNullOrEmpty(bearerToken))
-            {
-                httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", bearerToken);
-            }
+            var handler = _httpMessageHandler ?? new HttpClientHandler { AllowAutoRedirect = false };
+            using var httpClient = new HttpClient(handler, disposeHandler: _httpMessageHandler == null);
+            var authorization = !string.IsNullOrEmpty(bearerToken)
+                ? new AuthenticationHeaderValue("Bearer", bearerToken)
+                : null;
 
             _logger.Information($"Downloading artifact from URL: {downloadUrl}");
 
-            var response = await httpClient.GetAsync(downloadUrl, cancellationToken);
+            using var response = await OriginBoundHttpSender.GetAsync(
+                httpClient,
+                new Uri(downloadUrl),
+                authorization,
+                cancellationToken: cancellationToken);
             response.EnsureSuccessStatusCode();
 
             // Determine if it's a ZIP file based on content type or URL
             var contentType = response.Content.Headers.ContentType?.MediaType;
             if (contentType == "application/zip" || downloadUrl.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
             {
-                var tempZipFile = Path.Join(DorcProgramData.Root, $"artifact-{Guid.NewGuid()}.zip");
+                var stagingRoot = _stagingDirectory ?? DorcProgramData.Root;
+                Directory.CreateDirectory(stagingRoot);
+                var tempZipFile = Path.Join(stagingRoot, $"artifact-{Guid.NewGuid()}.zip");
                 try
                 {
                     using (var fileStream = File.Create(tempZipFile))
@@ -284,6 +311,96 @@ namespace Dorc.TerraformRunner.CodeSources
 
                 return true;
             }
+        }
+
+        internal static void ValidateArtifactDownloadUrl(string downloadUrl, IList<string>? allowedArtefactHosts = null)
+        {
+            if (!Uri.TryCreate(downloadUrl, UriKind.Absolute, out var uri) ||
+                !string.Equals(uri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to send Azure DevOps bearer token to '{downloadUrl}': HTTPS is required.");
+            }
+
+            var isAzureDevOps = SourceHost.Is(downloadUrl, "dev.azure.com")
+                || SourceHost.Is(downloadUrl, "visualstudio.com");
+            if (!isAzureDevOps)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to send Azure DevOps bearer token to '{downloadUrl}': host '{uri.Host}' is not an Azure DevOps authority.");
+            }
+
+            if (allowedArtefactHosts != null && allowedArtefactHosts.Count > 0)
+            {
+                var permitted = IsHostInAllowList(downloadUrl, allowedArtefactHosts)
+                    || AllowsAzureDevOpsCloud(allowedArtefactHosts);
+                if (!permitted)
+                {
+                    throw new InvalidOperationException(
+                        $"Refusing to download Azure DevOps artifact from '{downloadUrl}': host '{uri.Host}' is not permitted by the configured artefact host allow-list.");
+                }
+            }
+        }
+
+        private static void ValidateFileShareHost(string fileUrl, IList<string>? allowedArtefactHosts)
+        {
+            if (!SourceHost.IsRemoteOrUnc(fileUrl))
+            {
+                return;
+            }
+
+            if (!SourceHost.TryExtractRemoteHost(fileUrl, out var host) ||
+                allowedArtefactHosts == null ||
+                allowedArtefactHosts.Count == 0 ||
+                !IsExactHostInAllowList(host, allowedArtefactHosts))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to read Azure DevOps file-share artifact from '{fileUrl}': host '{host ?? "<unrecognised>"}' is not in the configured artefact host allow-list.");
+            }
+        }
+
+        private static bool IsExactHostInAllowList(string host, IList<string> allowedHosts)
+        {
+            for (var i = 0; i < allowedHosts.Count; i++)
+            {
+                var entry = allowedHosts[i]?.Trim();
+                if (!string.IsNullOrEmpty(entry) && string.Equals(host, entry, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool IsHostInAllowList(string url, IList<string> allowedHosts)
+        {
+            for (var i = 0; i < allowedHosts.Count; i++)
+            {
+                var entry = allowedHosts[i]?.Trim().TrimStart('.');
+                if (!string.IsNullOrEmpty(entry) && SourceHost.Is(url, entry))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool AllowsAzureDevOpsCloud(IList<string> allowedHosts)
+        {
+            for (var i = 0; i < allowedHosts.Count; i++)
+            {
+                var entry = allowedHosts[i]?.Trim().TrimStart('.');
+                if (!string.IsNullOrEmpty(entry) &&
+                    (SourceHost.Is("https://" + entry, "dev.azure.com")
+                     || SourceHost.Is("https://" + entry, "visualstudio.com")))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

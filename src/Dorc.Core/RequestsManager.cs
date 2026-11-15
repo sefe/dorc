@@ -3,6 +3,7 @@ using Dorc.ApiModel;
 using Dorc.Core.BuildServer;
 using Dorc.Core.Interfaces;
 using Dorc.Core.Models;
+using Dorc.PersistentData.Security;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 
@@ -15,17 +16,20 @@ namespace Dorc.Core
         private readonly IComponentsPersistentSource _componentsPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IBuildServerClientFactory _buildServerClientFactory;
+        private readonly ISourceHostAllowList _sourceHosts;
 
         public RequestsManager(ILoggerFactory loggerFactory,
             IProjectsPersistentSource projectsPersistentSource, IComponentsPersistentSource componentsPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            IBuildServerClientFactory buildServerClientFactory)
+            IBuildServerClientFactory buildServerClientFactory,
+            ISourceHostAllowList sourceHosts)
         {
             _environmentsPersistentSource = environmentsPersistentSource;
             _componentsPersistentSource = componentsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
             _logger = loggerFactory.CreateLogger<RequestsManager>();
             _buildServerClientFactory = buildServerClientFactory;
+            _sourceHosts = sourceHosts;
         }
 
         public IEnumerable<DeployableComponent> GetComponents(int? projectId, int? parentId)
@@ -153,16 +157,24 @@ namespace Dorc.Core
             try
             {
                 var result = new List<DeployableArtefact>();
-                var folderUri = new Uri(project.ArtefactsUrl);
-                var folder = folderUri.LocalPath;
-                var builds = Directory.EnumerateDirectories(folder)
-                    .Select(f => new DeployableArtefact
-                    {
-                        Id = f,
-                        Name = Path.GetFileName(f),
-                        Date = File.GetLastWriteTime(f)
-                    });
-                result.AddRange(builds);
+                foreach (var rawPath in Security.PathConfinement.SplitRoots(project.ArtefactsUrl))
+                {
+                    RequirePermittedRemoteArtefactPath(rawPath, "artefact share");
+
+                    var normalizedPath = SourceHost.NormalizeExtendedUnc(rawPath);
+                    var folder = Uri.TryCreate(normalizedPath, UriKind.Absolute, out var folderUri) && folderUri.IsFile
+                        ? folderUri.LocalPath
+                        : normalizedPath;
+
+                    var builds = Directory.EnumerateDirectories(folder)
+                        .Select(f => new DeployableArtefact
+                        {
+                            Id = f,
+                            Name = Path.GetFileName(f),
+                            Date = File.GetLastWriteTime(f)
+                        });
+                    result.AddRange(builds);
+                }
 
                 return result;
             }
@@ -175,7 +187,10 @@ namespace Dorc.Core
         }
 
         private static bool IsFileBasedUrl(string? url)
-            => !string.IsNullOrEmpty(url) && (url.StartsWith("file") || url.StartsWith(@"\\"));
+            => !string.IsNullOrEmpty(url)
+               && !url.StartsWith("http", StringComparison.OrdinalIgnoreCase)
+               && !url.StartsWith("dorc-gh://", StringComparison.OrdinalIgnoreCase)
+               && (url.StartsWith("file", StringComparison.OrdinalIgnoreCase) || SourceHost.IsRemoteOrUnc(url));
 
         // Project classification routes by SourceControlType primarily, falling back to URL shape
         // only when the type is the legacy AzureDevOps default (0). Routing by URL alone would
@@ -243,16 +258,25 @@ namespace Dorc.Core
                 if (string.IsNullOrWhiteSpace(dropLocation))
                     return Array.Empty<string>();
 
-                bundleJson = await buildClient.TryReadArtifactFileTextAsync(dropLocation, "bundle.json")
+                bundleJson = await buildClient.TryReadArtifactFileTextAsync(
+                        project.ArtefactsUrl ?? string.Empty,
+                        dropLocation,
+                        "bundle.json")
                     .ConfigureAwait(false);
             }
             else if (IsFileShareProject(project))
             {
                 var permittedRoots = Security.PathConfinement.SplitRoots(project.ArtefactsUrl).ToList();
-                var localPath = buildUrl.StartsWith("file:", StringComparison.OrdinalIgnoreCase) &&
-                                Uri.TryCreate(buildUrl, UriKind.Absolute, out var fileUri)
+                if (SourceHost.IsRemoteOrUnc(buildUrl))
+                {
+                    RequirePermittedRemoteArtefactPath(buildUrl, "bundle build URL");
+                }
+
+                var normalizedBuildUrl = SourceHost.NormalizeExtendedUnc(buildUrl);
+                var localPath = normalizedBuildUrl.StartsWith("file:", StringComparison.OrdinalIgnoreCase) &&
+                                Uri.TryCreate(normalizedBuildUrl, UriKind.Absolute, out var fileUri)
                     ? fileUri.LocalPath
-                    : buildUrl;
+                    : normalizedBuildUrl;
 
                 if (permittedRoots.Count == 0 || !Security.PathConfinement.IsWithinAny(localPath, permittedRoots))
                     return Array.Empty<string>();
@@ -260,6 +284,8 @@ namespace Dorc.Core
                 var canonicalDrop = Security.PathConfinement.Canonicalise(localPath);
                 if (string.IsNullOrWhiteSpace(canonicalDrop) || canonicalDrop.Contains("..", StringComparison.Ordinal))
                     return Array.Empty<string>();
+
+                RequirePermittedRemoteArtefactPath(canonicalDrop, "bundle drop folder");
 
                 var dirPath = canonicalDrop.EndsWith(@"\bundle.json", StringComparison.OrdinalIgnoreCase)
                     ? Path.GetDirectoryName(canonicalDrop)
@@ -310,6 +336,33 @@ namespace Dorc.Core
             }
 
             return bundleComponents;
+        }
+
+        private void RequirePermittedRemoteArtefactPath(string? path, string context)
+        {
+            if (!SourceHost.IsRemoteOrUnc(path))
+            {
+                return;
+            }
+
+            if (!SourceHost.TryExtractRemoteHost(path, out _))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to access remote {context} '{path}': remote or UNC authority could not be verified.");
+            }
+
+            if (_sourceHosts.IsArtefactSourceUnconfigured)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present default Windows credentials to remote {context} '{path}' because no artefact host allow-list is configured ('{SourceHostAllowList.ArtefactHostsSetting}').");
+            }
+
+            var decision = _sourceHosts.CheckArtefactSource(path);
+            if (decision == null || !decision.Allowed)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present default Windows credentials to remote {context} '{path}', because {decision?.Reason ?? "host is not permitted"}");
+            }
         }
     }
 }

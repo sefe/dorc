@@ -21,11 +21,24 @@ namespace Dorc.TerraformRunner.CodeSources
             // path-traversal source.
             var canonicalSource = Path.GetFullPath(sourceDir);
             var canonicalDest = Path.GetFullPath(destDir);
+            RejectIfReparsePoint(canonicalSource);
             await CopyCanonicalisedAsync(canonicalSource, canonicalDest, cancellationToken);
+        }
+
+        private static void RejectIfReparsePoint(string entryPath)
+        {
+            var attributes = File.GetAttributes(entryPath);
+            if ((attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to copy reparse point '{entryPath}' from artifact/source directory.");
+            }
         }
 
         private static async Task CopyCanonicalisedAsync(string sourceDir, string destDir, CancellationToken cancellationToken)
         {
+            RejectIfReparsePoint(sourceDir);
+
             if (!Directory.Exists(destDir))
             {
                 Directory.CreateDirectory(destDir);
@@ -34,6 +47,7 @@ namespace Dorc.TerraformRunner.CodeSources
             foreach (var file in Directory.GetFiles(sourceDir))
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                RejectIfReparsePoint(file);
                 var fileName = Path.GetFileName(file);
                 if (Path.IsPathRooted(fileName))
                 {
@@ -47,6 +61,7 @@ namespace Dorc.TerraformRunner.CodeSources
             foreach (var directory in Directory.GetDirectories(sourceDir))
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                RejectIfReparsePoint(directory);
                 var dirName = Path.GetFileName(directory);
                 if (Path.IsPathRooted(dirName))
                 {

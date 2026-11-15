@@ -42,7 +42,8 @@ namespace Dorc.Api.Tests
         private DeployableBuildFactory CreateFactory()
         {
             return new DeployableBuildFactory(_mockedFileSystemHelper, _mockedLoggerFactory,
-                _mockedProjectsPds, _mockedDeployLibrary, _mockedReqPs, _mockedGitHubDeployableBuildFactory);
+                _mockedProjectsPds, _mockedDeployLibrary, _mockedReqPs, _mockedGitHubDeployableBuildFactory,
+                Substitute.For<Dorc.PersistentData.Security.ISourceHostAllowList>());
         }
 
         [TestMethod]

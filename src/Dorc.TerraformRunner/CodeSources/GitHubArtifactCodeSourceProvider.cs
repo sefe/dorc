@@ -15,6 +15,7 @@ namespace Dorc.TerraformRunner.CodeSources
     {
         private readonly IRunnerLogger _logger;
         private readonly IHttpClientFactory? _httpClientFactory;
+        private readonly string? _stagingDirectory;
 
         /// <summary>
         /// Default GitHub API hostnames that are always allowed.
@@ -35,9 +36,18 @@ namespace Dorc.TerraformRunner.CodeSources
         private const long MaxArtifactBytes = 2L * 1024 * 1024 * 1024;
 
         public GitHubArtifactCodeSourceProvider(IRunnerLogger logger, IHttpClientFactory? httpClientFactory = null)
+            : this(logger, httpClientFactory, null)
+        {
+        }
+
+        internal GitHubArtifactCodeSourceProvider(
+            IRunnerLogger logger,
+            IHttpClientFactory? httpClientFactory,
+            string? stagingDirectory)
         {
             _logger = logger;
             _httpClientFactory = httpClientFactory;
+            _stagingDirectory = stagingDirectory;
         }
 
         private static async Task CopyWithLimitAsync(HttpContent content, Stream destination, long maxBytes, CancellationToken cancellationToken)
@@ -91,8 +101,10 @@ namespace Dorc.TerraformRunner.CodeSources
             // Validate the API base URL to prevent SSRF. Enterprise hosts are accepted
             // because the upstream Monitor/API already validated them via IGitHubHostValidator.
             ValidateApiBaseHost(apiBase);
+            ValidatePermittedArtefactHost(apiBase, scriptGroup.AllowedArtefactHosts);
 
-            using var httpClient = CreateHttpClient(scriptGroup.GitHubToken);
+            using var httpClient = CreateHttpClient();
+            var authorization = new AuthenticationHeaderValue("Bearer", scriptGroup.GitHubToken);
 
             // Encode owner/repo so a value containing '?', '#', or '/' (which can survive the
             // serialise → ScriptGroup file → deserialise round-trip from TerraformSourceConfigurator)
@@ -101,7 +113,11 @@ namespace Dorc.TerraformRunner.CodeSources
                 $"{apiBase}/repos/{Uri.EscapeDataString(scriptGroup.GitHubOwner)}" +
                 $"/{Uri.EscapeDataString(scriptGroup.GitHubRepo)}" +
                 $"/actions/runs/{scriptGroup.GitHubRunId}/artifacts";
-            using var response = await httpClient.GetAsync(artifactsUrl, cancellationToken);
+            using var response = await OriginBoundHttpSender.GetAsync(
+                httpClient,
+                new Uri(artifactsUrl),
+                authorization,
+                cancellationToken: cancellationToken);
             response.EnsureSuccessStatusCode();
 
             var json = await response.Content.ReadAsStringAsync(cancellationToken);
@@ -127,18 +143,33 @@ namespace Dorc.TerraformRunner.CodeSources
                 "drop".Equals(a.Name, StringComparison.OrdinalIgnoreCase)) ?? artifactsResponse.Artifacts[0];
             var downloadUrl = artifact.ArchiveDownloadUrl;
 
+            if (string.IsNullOrWhiteSpace(downloadUrl))
+            {
+                throw new InvalidOperationException(
+                    $"Artifact '{artifact.Name}' for GitHub Actions run {scriptGroup.GitHubRunId} has no archive_download_url.");
+            }
+
             // SSRF defence in depth: archive_download_url comes from the JSON body of the previous
             // request, not from a configured value. A compromised or spoofed upstream could swap
-            // the host. The bearer token is attached by CreateHttpClient(), so re-validate the
-            // host before issuing the request — same check the Dorc.Core side already performs.
+            // the host or port. Re-validate the host and exact configured API origin before
+            // presenting the bearer token, and strip Authorization across any cross-origin 302
+            // archive redirect via OriginBoundHttpSender.
             ValidateApiBaseHost(downloadUrl);
+            ValidatePermittedArtefactHost(downloadUrl, scriptGroup.AllowedArtefactHosts);
+            ValidateSameOriginWithApiBase(downloadUrl, apiBase);
 
             _logger.Information($"Downloading artifact '{artifact.Name}'");
 
-            using var downloadResponse = await httpClient.GetAsync(downloadUrl, cancellationToken);
+            using var downloadResponse = await OriginBoundHttpSender.GetAsync(
+                httpClient,
+                new Uri(downloadUrl),
+                authorization,
+                cancellationToken: cancellationToken);
             downloadResponse.EnsureSuccessStatusCode();
 
-            var tempZipFile = Path.Join(DorcProgramData.Root, $"gh-artifact-{Guid.NewGuid()}.zip");
+            var stagingRoot = _stagingDirectory ?? DorcProgramData.Root;
+            Directory.CreateDirectory(stagingRoot);
+            var tempZipFile = Path.Join(stagingRoot, $"gh-artifact-{Guid.NewGuid()}.zip");
             try
             {
                 using (var fileStream = File.Create(tempZipFile))
@@ -163,23 +194,59 @@ namespace Dorc.TerraformRunner.CodeSources
             }
         }
 
-        private HttpClient CreateHttpClient(string token)
+        private HttpClient CreateHttpClient()
         {
             HttpClient client;
             if (_httpClientFactory != null)
             {
                 client = _httpClientFactory.CreateClient("GitHubActions");
+                client.DefaultRequestHeaders.Authorization = null;
             }
             else
             {
-                client = new HttpClient();
+                client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
                 client.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("DORC", "1.0"));
                 client.DefaultRequestHeaders.Add("X-GitHub-Api-Version", "2022-11-28");
                 client.Timeout = TimeSpan.FromMinutes(5);
             }
-            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
             return client;
+        }
+
+        private static void ValidatePermittedArtefactHost(string url, IList<string>? allowedArtefactHosts)
+        {
+            if (allowedArtefactHosts == null || allowedArtefactHosts.Count == 0)
+            {
+                return;
+            }
+
+            for (var i = 0; i < allowedArtefactHosts.Count; i++)
+            {
+                var entry = allowedArtefactHosts[i]?.Trim().TrimStart('.');
+                if (!string.IsNullOrEmpty(entry) && SourceHost.Is(url, entry))
+                {
+                    return;
+                }
+            }
+
+            throw new InvalidOperationException(
+                $"Refusing to present GitHub token to '{url}': host '{SourceHost.Of(url) ?? "<none>"}' is not in the configured artefact host allow-list.");
+        }
+
+        private static void ValidateSameOriginWithApiBase(string downloadUrl, string apiBase)
+        {
+            if (!Uri.TryCreate(downloadUrl, UriKind.Absolute, out var downloadUri)
+                || !Uri.TryCreate(apiBase, UriKind.Absolute, out var apiBaseUri)
+                || !string.IsNullOrEmpty(downloadUri.UserInfo)
+                || !string.Equals(downloadUri.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(downloadUri.Scheme, apiBaseUri.Scheme, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(downloadUri.DnsSafeHost, apiBaseUri.DnsSafeHost, StringComparison.OrdinalIgnoreCase)
+                || downloadUri.Port != apiBaseUri.Port
+                || !SourceHost.HasSameOrigin(downloadUrl, apiBase))
+            {
+                throw new InvalidOperationException(
+                    $"Refusing to present GitHub token to '{downloadUrl}': origin '{SourceHost.OriginOf(downloadUrl) ?? "<none>"}' does not match configured GitHub API origin '{SourceHost.OriginOf(apiBase) ?? "<none>"}'.");
+            }
         }
 
         /// <summary>

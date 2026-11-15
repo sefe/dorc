@@ -78,7 +78,8 @@ namespace Dorc.Monitor.Tests.Notifications
                 Substitute.For<IPropertyEvaluator>(),
                 mockEventsPublisher,
                 mockNotificationSink,
-                mockGitHubArtifactDownloader);
+                mockGitHubArtifactDownloader,
+                Substitute.For<Dorc.PersistentData.Security.ISourceHostAllowList>());
         }
 
         private static RequestToProcessDto CreateRequest(List<ComponentApiModel> components)
