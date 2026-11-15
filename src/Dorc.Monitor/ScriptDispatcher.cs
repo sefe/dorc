@@ -854,7 +854,7 @@ namespace Dorc.Monitor
             return authoritativeBaseline;
         }
 
-        private static bool TryPrepareConfinedBaselineTarget(
+        internal static bool TryPrepareConfinedBaselineTarget(
             string candidatePath,
             string rootPath,
             out string rootFull,
@@ -876,9 +876,10 @@ namespace Dorc.Monitor
 
             try
             {
-                rootFull = Path.GetFullPath(rootPath)
-                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                var rootPrefix = rootFull + Path.DirectorySeparatorChar;
+                rootFull = Path.TrimEndingDirectorySeparator(Path.GetFullPath(rootPath));
+                var rootPrefix = Path.EndsInDirectorySeparator(rootFull)
+                    ? rootFull
+                    : rootFull + Path.DirectorySeparatorChar;
                 var dirFull = Path.GetFullPath(directoryPath);
                 var targetFull = Path.GetFullPath(Path.Combine(dirFull, fileName));
                 var comparison = OperatingSystem.IsWindows()
@@ -928,7 +929,7 @@ namespace Dorc.Monitor
                     pinnedDirectories.Add(childDirectoryHandle);
 
                     var childCanonical = ReparseFreeHandles.GetCanonicalPath(childDirectoryHandle, nextDirectoryPath);
-                    if (!string.Equals(childCanonical, nextDirectoryPath, StringComparison.OrdinalIgnoreCase))
+                    if (!string.Equals(Path.GetDirectoryName(childCanonical), canonicalCurrent, StringComparison.OrdinalIgnoreCase))
                     {
                         throw new IOException(
                             $"Refusing to baseline beneath '{nextDirectoryPath}' because its canonical path resolved to '{childCanonical}'.");
@@ -964,7 +965,7 @@ namespace Dorc.Monitor
                     ReparseFreeHandles.VerifySingleLinkRegularFile(fileHandle, expectedLeafCanonical);
 
                     var actualLeafCanonical = ReparseFreeHandles.GetCanonicalPath(fileHandle, expectedLeafCanonical);
-                    if (!string.Equals(actualLeafCanonical, expectedLeafCanonical, StringComparison.OrdinalIgnoreCase))
+                    if (!string.Equals(Path.GetDirectoryName(actualLeafCanonical), canonicalCurrent, StringComparison.OrdinalIgnoreCase))
                     {
                         throw new IOException(
                             $"Refusing to baseline '{expectedLeafCanonical}' because its canonical path resolved to '{actualLeafCanonical}'.");

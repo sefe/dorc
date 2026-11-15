@@ -93,7 +93,7 @@ namespace Dorc.Monitor.Tests
             }
         }
 
-        private ScriptGroup DispatchAndCaptureGroup(ScriptApiModel script)
+        private ScriptGroup DispatchAndCaptureGroup(ScriptApiModel script, string? scriptRootOverride = null)
         {
             ScriptGroup? published = null;
             _pipeServer
@@ -117,7 +117,7 @@ namespace Dorc.Monitor.Tests
             try
             {
                 dispatcher.Dispatch(
-                    _scriptRoot,
+                    scriptRootOverride ?? _scriptRoot,
                     script,
                     new Dictionary<string, VariableValue>(),
                     requestId: 42,
@@ -480,6 +480,60 @@ namespace Dorc.Monitor.Tests
             })!;
             process.WaitForExit();
             Assert.AreEqual(0, process.ExitCode, $"Failed to create test directory junction '{linkPath}'.");
+        }
+
+        [TestMethod]
+        public void PreservesFilesystemRootSeparatorWhenScriptRootIsDriveOrVolumeRoot()
+        {
+            var volumeRoot = Path.GetPathRoot(_scriptFile)!;
+            Assert.IsTrue(
+                ScriptDispatcher.TryPrepareConfinedBaselineTarget(
+                    _scriptFile,
+                    volumeRoot,
+                    out var rootFull,
+                    out var relativeSegments));
+            Assert.AreEqual(volumeRoot, rootFull);
+            Assert.IsTrue(Path.EndsInDirectorySeparator(rootFull));
+            Assert.AreEqual("Deploy.ps1", relativeSegments[^1]);
+
+            var decoyCwd = Path.Join(
+                AppContext.BaseDirectory,
+                "dorc-decoy-cwd",
+                Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(decoyCwd);
+            var originalCwd = Environment.CurrentDirectory;
+            try
+            {
+                File.WriteAllText(Path.Join(decoyCwd, "Deploy.ps1"), "Write-Host 'decoy-cwd'");
+                Environment.CurrentDirectory = decoyCwd;
+
+                var expected = ScriptContentHash.ComputeFromFile(_scriptFile);
+                var group = DispatchAndCaptureGroup(
+                    new ScriptApiModel
+                    {
+                        Id = 88,
+                        Path = _scriptFile,
+                        PowerShellVersionNumber = "7.4",
+                        Revision = "rev-volume-root",
+                        ContentHash = null
+                    },
+                    scriptRootOverride: volumeRoot);
+
+                _scripts.Received(1).RecordContentHashIfUnrecorded(
+                    88,
+                    _scriptFile,
+                    expected,
+                    Arg.Any<IPrincipal>());
+                Assert.AreEqual(expected, group.ScriptProperties.Single().ExpectedContentHash);
+            }
+            finally
+            {
+                Environment.CurrentDirectory = originalCwd;
+                if (Directory.Exists(decoyCwd))
+                {
+                    Directory.Delete(decoyCwd, recursive: true);
+                }
+            }
         }
 
         [TestMethod]
