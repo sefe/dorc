@@ -169,6 +169,33 @@ namespace Dorc.Api.Tests.Sources
         }
 
         [TestMethod]
+        public void OlderClientUpdatingSecureValueWithoutClassificationPreservesVisibilityAndEncrypts()
+        {
+            _stored.Add(new ConfigValue
+            {
+                Id = 18,
+                Key = "ExistingVisibleSecret",
+                Value = "enc:old-secret",
+                Secure = true,
+                VisibleToScripts = true
+            });
+
+            var updated = _source.UpdateConfigValue(new ConfigValueApiModel
+            {
+                Id = 18,
+                Key = "ExistingVisibleSecret",
+                Value = "rotated-secret",
+                Secure = true,
+                VisibleToScripts = null
+            });
+
+            Assert.IsTrue(_stored.Single().VisibleToScripts);
+            Assert.AreEqual("enc:rotated-secret", _stored.Single().Value);
+            Assert.IsTrue(updated.VisibleToScripts);
+            _context.Received(1).SaveChanges();
+        }
+
+        [TestMethod]
         public void TheClassificationIsReportedBackToCallers()
         {
             var hidden = new ConfigValue
