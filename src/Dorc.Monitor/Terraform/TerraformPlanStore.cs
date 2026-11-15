@@ -996,7 +996,7 @@ namespace Dorc.Monitor.Terraform
                                 continue;
                             }
 
-                            if (DeleteDirectorySafely(subDirectory.FullName))
+                            if (DeleteDirectorySafely(subDirectory.FullName, skipIfPinnedByPeer: true))
                             {
                                 removed++;
                             }
@@ -1309,14 +1309,16 @@ namespace Dorc.Monitor.Terraform
         private bool DeleteDirectorySafely(
             string directoryPath,
             FileIdentity? expectedDirectoryIdentity = null,
-            Action? releasePinBeforeFinalDelete = null)
+            Action? releasePinBeforeFinalDelete = null,
+            bool skipIfPinnedByPeer = false)
         {
             if (OperatingSystem.IsWindows())
             {
                 return DeleteDirectorySafelyWindows(
                     directoryPath,
                     expectedDirectoryIdentity,
-                    releasePinBeforeFinalDelete);
+                    releasePinBeforeFinalDelete,
+                    skipIfPinnedByPeer);
             }
 
             releasePinBeforeFinalDelete?.Invoke();
@@ -1327,17 +1329,26 @@ namespace Dorc.Monitor.Terraform
         private bool DeleteDirectorySafelyWindows(
             string directoryPath,
             FileIdentity? expectedDirectoryIdentity = null,
-            Action? releasePinBeforeFinalDelete = null)
+            Action? releasePinBeforeFinalDelete = null,
+            bool skipIfPinnedByPeer = false)
         {
             string canonicalDir;
             FileIdentity directoryIdentity;
-            var dirHandle = ReparseFreeHandles.OpenRawHandle(
-                directoryPath,
-                ReparseFreeHandles.FileListDirectory
+            // When sweeping top-level orphans (skipIfPinnedByPeer == true), request Delete access
+            // without FileShareDelete so another Monitor process's active pinned handle (opened
+            // with FileShareRead only) immediately raises ERROR_SHARING_VIOLATION before any child
+            // file inside a live deployment's plan directory is modified or deleted. Keep
+            // FileShareRead only (no FileShareWrite) so open write handles on subdirectories fail
+            // closed with IOException during Expire().
+            var desiredAccess = ReparseFreeHandles.FileListDirectory
                 | ReparseFreeHandles.FileReadAttributes
                 | ReparseFreeHandles.FileWriteAttributes
                 | ReparseFreeHandles.ReadControl
-                | ReparseFreeHandles.WriteDac,
+                | ReparseFreeHandles.WriteDac
+                | (skipIfPinnedByPeer ? ReparseFreeHandles.Delete : 0u);
+            var dirHandle = ReparseFreeHandles.OpenRawHandle(
+                directoryPath,
+                desiredAccess,
                 ReparseFreeHandles.FileShareRead,
                 ReparseFreeHandles.OpenExisting,
                 out var openError);
@@ -1348,6 +1359,11 @@ namespace Dorc.Monitor.Terraform
                     if (openError is ReparseFreeHandles.ErrorFileNotFound or ReparseFreeHandles.ErrorPathNotFound)
                     {
                         return true;
+                    }
+
+                    if (skipIfPinnedByPeer && openError == ReparseFreeHandles.ErrorSharingViolation)
+                    {
+                        return false;
                     }
 
                     throw ReparseFreeHandles.CreateWin32IoException(

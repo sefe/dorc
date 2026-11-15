@@ -153,10 +153,41 @@ namespace Dorc.Core.BuildServer
                 throw new IOException($"Refusing to stage GitHub artifact under reparse point '{baseDir}'.");
             }
 
-            var security = BuildRestrictedArtifactDirectorySecurity();
+            if (File.Exists(tempDir) || Directory.Exists(tempDir))
+            {
+                throw new IOException($"Refusing to stage GitHub artifact into pre-existing path '{tempDir}'.");
+            }
+
+            // Remote/UNC staging folders rely on share and NTFS permissions configured for the
+            // Monitor + Runner hosts; PendingRequestProcessor.RestrictExtractedArtifactDrop skips
+            // UNC paths, so applying a local-host-only protected DACL here would lock out distinct
+            // non-admin Runner service accounts.
+            if (ApiModel.SourceHost.IsRemoteOrUnc(baseDir))
+            {
+                Directory.CreateDirectory(tempDir);
+                return;
+            }
+
+            var security = BuildRestrictedArtifactDirectorySecurity(out var privilegedOwners);
             if (!Directory.Exists(baseDir))
             {
                 security.CreateDirectory(baseDir);
+            }
+
+            var baseDirInfo = new DirectoryInfo(baseDir);
+            if ((baseDirInfo.Attributes & FileAttributes.ReparsePoint) != 0)
+            {
+                throw new IOException($"Refusing to stage GitHub artifact under reparse point '{baseDir}'.");
+            }
+
+            var ownerSid = baseDirInfo
+                .GetAccessControl(System.Security.AccessControl.AccessControlSections.Owner)
+                .GetOwner(typeof(System.Security.Principal.SecurityIdentifier))
+                as System.Security.Principal.SecurityIdentifier;
+            if (ownerSid == null || !privilegedOwners.Contains(ownerSid))
+            {
+                throw new IOException(
+                    $"Refusing to stage GitHub artifact under '{baseDir}' because its NTFS owner '{ownerSid?.Value ?? "<unknown>"}' is not a privileged account.");
             }
 
             if (File.Exists(tempDir) || Directory.Exists(tempDir))
@@ -168,10 +199,12 @@ namespace Dorc.Core.BuildServer
         }
 
         [System.Runtime.Versioning.SupportedOSPlatform("windows")]
-        private static System.Security.AccessControl.DirectorySecurity BuildRestrictedArtifactDirectorySecurity()
+        private static System.Security.AccessControl.DirectorySecurity BuildRestrictedArtifactDirectorySecurity(
+            out HashSet<System.Security.Principal.SecurityIdentifier> privilegedOwners)
         {
             var security = new System.Security.AccessControl.DirectorySecurity();
             security.SetAccessRuleProtection(isProtected: true, preserveInheritance: false);
+            privilegedOwners = new HashSet<System.Security.Principal.SecurityIdentifier>();
 
             const System.Security.AccessControl.InheritanceFlags inherit =
                 System.Security.AccessControl.InheritanceFlags.ContainerInherit
@@ -180,6 +213,7 @@ namespace Dorc.Core.BuildServer
             using var currentIdentity = System.Security.Principal.WindowsIdentity.GetCurrent();
             if (currentIdentity.User != null)
             {
+                privilegedOwners.Add(currentIdentity.User);
                 security.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
                     currentIdentity.User,
                     System.Security.AccessControl.FileSystemRights.FullControl,
@@ -188,15 +222,23 @@ namespace Dorc.Core.BuildServer
                     System.Security.AccessControl.AccessControlType.Allow));
             }
 
+            var localSystemSid = new System.Security.Principal.SecurityIdentifier(
+                System.Security.Principal.WellKnownSidType.LocalSystemSid,
+                null);
+            privilegedOwners.Add(localSystemSid);
             security.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
-                new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.LocalSystemSid, null),
+                localSystemSid,
                 System.Security.AccessControl.FileSystemRights.FullControl,
                 inherit,
                 System.Security.AccessControl.PropagationFlags.None,
                 System.Security.AccessControl.AccessControlType.Allow));
 
+            var builtinAdminsSid = new System.Security.Principal.SecurityIdentifier(
+                System.Security.Principal.WellKnownSidType.BuiltinAdministratorsSid,
+                null);
+            privilegedOwners.Add(builtinAdminsSid);
             security.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
-                new System.Security.Principal.SecurityIdentifier(System.Security.Principal.WellKnownSidType.BuiltinAdministratorsSid, null),
+                builtinAdminsSid,
                 System.Security.AccessControl.FileSystemRights.FullControl,
                 inherit,
                 System.Security.AccessControl.PropagationFlags.None,
