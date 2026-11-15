@@ -167,14 +167,24 @@ namespace Dorc.Core.Tests
         [DataRow("   ")]
         [DataRow("Not Found")]
         [DataRow("not found")]
-        public void RefusesWhenPrincipalIdentifierIsMissingWhitespaceOrSentinelAndDisposesSecret(string invalidUserName)
+        public void RefusesWhenPrincipalIdentifierIsMissingWhitespaceOrSentinelWithoutQueryingVerificationSecret(string invalidUserName)
         {
-            var candidateSecret = DeploymentCredential.ToSecureString("prod-secret");
             _secrets.GetPrincipalIdentifierByItemId("prod-user-item", Arg.Any<string>()).Returns(invalidUserName);
-            _secrets.GetSecureSecret("prod-pass-item", Arg.Any<string>()).Returns(candidateSecret);
 
             Assert.IsNull(_source.Resolve(DeploymentTier.Production));
-            Assert.ThrowsExactly<ObjectDisposedException>(() => _ = candidateSecret.Length);
+            _secrets.DidNotReceiveWithAnyArgs().GetSecureSecret(default!, default!);
+        }
+
+        [TestMethod]
+        public void Resolve_PropagatesCallerCancellationTokenAndThrowsWhenCanceled()
+        {
+            using var cts = new System.Threading.CancellationTokenSource();
+            cts.Cancel();
+
+            Assert.ThrowsExactly<OperationCanceledException>(() =>
+                _source.Resolve(DeploymentTier.Production, cts.Token));
+            _secrets.DidNotReceiveWithAnyArgs().GetPrincipalIdentifierByItemId(default!, default!);
+            _secrets.DidNotReceiveWithAnyArgs().GetSecureSecret(default!, default!);
         }
 
         [TestMethod]
@@ -833,7 +843,9 @@ namespace Dorc.Core.Tests
         [DataRow(@"sql01.corp.local\INST01")]
         [DataRow("sql01.corp.local,1433")]
         [DataRow("tcp:sql01.corp.local,1433")]
-        [DataRow("(local)")]
+        [DataRow(@"np:\\sql01.corp.local\pipe\sql\query")]
+        [DataRow(@"np:\\sql01.corp.local\pipe\MSSQL$INST01\sql\query")]
+        [DataRow(@"(local)")]
         [DataRow(@"(local)\INST01")]
         [DataRow(@".\INST01")]
         public void BuildConnectionString_UsesSqlConnectionStringBuilderForValidServer(string serverName)
@@ -861,13 +873,23 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        public void BuildAlterLoginStatement_QuotesIdentifierAndLiteralForValidSqlLogin()
+        [DataRow("app_user-01.svc", "ALTER LOGIN [app_user-01.svc] WITH PASSWORD = N'app_user-01.svc'")]
+        [DataRow("app&service", "ALTER LOGIN [app&service] WITH PASSWORD = N'app&service'")]
+        [DataRow("app(service)", "ALTER LOGIN [app(service)] WITH PASSWORD = N'app(service)'")]
+        [DataRow("app service", "ALTER LOGIN [app service] WITH PASSWORD = N'app service'")]
+        [DataRow("app'service", "ALTER LOGIN [app'service] WITH PASSWORD = N'app''service'")]
+        public void BuildAlterLoginStatement_QuotesIdentifierAndLiteralForValidSqlLogin(
+            string loginName,
+            string expectedStatement)
         {
-            string statement = SqlUserPasswordReset.BuildAlterLoginStatement("app_user-01.svc");
+            string statement = SqlUserPasswordReset.BuildAlterLoginStatement(loginName);
 
-            Assert.AreEqual(
-                "ALTER LOGIN [app_user-01.svc] WITH PASSWORD = N'app_user-01.svc'",
-                statement);
+            Assert.AreEqual(expectedStatement, statement);
+
+            using var connection = new SqlConnection();
+            using var command = SqlUserPasswordReset.CreateAlterLoginCommand(connection, loginName);
+            Assert.AreEqual(loginName, command.Parameters["@loginName"].Value);
+            Assert.AreEqual(loginName, command.Parameters["@newPassword"].Value);
         }
 
         [TestMethod]
@@ -894,10 +916,13 @@ namespace Dorc.Core.Tests
         [TestMethod]
         [DataRow("")]
         [DataRow("   ")]
+        [DataRow(" leading_space")]
+        [DataRow("trailing_space ")]
         [DataRow("app'] WITH CHECK_POLICY=OFF; --")]
         [DataRow("sa] ENABLE; --")]
         [DataRow("user;DROP LOGIN [sa]")]
-        [DataRow("user name")]
+        [DataRow("user\tname")]
+        [DataRow("user\r\nname")]
         [DataRow("[app_user]")]
         public void BuildAlterLoginStatement_RejectsSqlInjectionPayloads(string maliciousUsername)
         {

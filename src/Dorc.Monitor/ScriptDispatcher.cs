@@ -76,8 +76,14 @@ namespace Dorc.Monitor
             // probe and the password reset controller. Four independent copies of the same four
             // key names and the same production boolean is four places for a security decision
             // to drift.
-            using var credential = _credentialSource.Resolve(
-                isProduction ? DeploymentTier.Production : DeploymentTier.NonProduction);
+            var tier = isProduction ? DeploymentTier.Production : DeploymentTier.NonProduction;
+            using var credential = _credentialSource is VaultDeploymentCredentialSource or ConfigValueDeploymentCredentialSource || cancellationToken.CanBeCanceled
+                ? _credentialSource.Resolve(tier, cancellationToken)
+                    ?? (!cancellationToken.IsCancellationRequested
+                        && _credentialSource is not (VaultDeploymentCredentialSource or ConfigValueDeploymentCredentialSource)
+                            ? _credentialSource.Resolve(tier)
+                            : null)
+                : _credentialSource.Resolve(tier);
 
             if (credential == null)
             {

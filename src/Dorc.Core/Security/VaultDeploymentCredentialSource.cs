@@ -38,8 +38,13 @@ namespace Dorc.Core.Security
 
         public string Description => "the secrets vault";
 
-        public DeploymentCredential? Resolve(DeploymentTier tier)
+        public DeploymentCredential? Resolve(DeploymentTier tier) =>
+            Resolve(tier, CancellationToken.None);
+
+        public DeploymentCredential? Resolve(DeploymentTier tier, CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var principalItemId = _configuration.GetDeploymentCredentialItemId(tier, false);
             var verificationItemId = _configuration.GetDeploymentCredentialItemId(tier, true);
 
@@ -58,31 +63,43 @@ namespace Dorc.Core.Security
                 return null;
             }
 
-            var principalIdentifier = _vaultReader.GetPrincipalIdentifierByItemId(
-                principalItemId.Trim(),
-                $"{tier} deployment principal");
+            var principalLabel = $"{tier} deployment principal";
+            var principalIdentifier = _vaultReader is Dorc.Core.Secrets.OnePasswordSecretsReader || cancellationToken.CanBeCanceled
+                ? _vaultReader.GetPrincipalIdentifierByItemId(principalItemId.Trim(), principalLabel, cancellationToken)
+                : _vaultReader.GetPrincipalIdentifierByItemId(principalItemId.Trim(), principalLabel);
+
+            if (IsAbsentPrincipalIdentifier(principalIdentifier))
+            {
+                _logger.LogError(
+                    "No {Tier} deployment credential could be retrieved from {Source}."
+                    + " The username item returned nothing; skipping verification item lookup.",
+                    tier,
+                    Description);
+
+                return null;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             SecureString? verificationValue = null;
             try
             {
-                verificationValue = _vaultReader.GetSecureSecret(
-                    verificationItemId.Trim(),
-                    $"{tier} deployment verification");
+                var verificationLabel = $"{tier} deployment verification";
+                verificationValue = _vaultReader is Dorc.Core.Secrets.OnePasswordSecretsReader || cancellationToken.CanBeCanceled
+                    ? _vaultReader.GetSecureSecret(verificationItemId.Trim(), verificationLabel, cancellationToken)
+                    : _vaultReader.GetSecureSecret(verificationItemId.Trim(), verificationLabel);
 
-                bool principalAbsent = IsAbsentPrincipalIdentifier(principalIdentifier);
                 bool verificationAbsent = IsAbsentVerificationValue(verificationValue);
 
-                if (principalAbsent || verificationAbsent)
+                if (verificationAbsent)
                 {
                     verificationValue?.Dispose();
                     _logger.LogError(
                         "No {Tier} deployment credential could be retrieved from {Source}."
-                        + " The username item returned {UserNameState} and the verification item returned"
-                        + " {VerificationState}.",
+                        + " The username item returned a value and the verification item returned"
+                        + " nothing.",
                         tier,
-                        Description,
-                        principalAbsent ? "nothing" : "a value",
-                        verificationAbsent ? "nothing" : "a value");
+                        Description);
 
                     return null;
                 }

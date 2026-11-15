@@ -271,13 +271,19 @@ credential entry in step 4 before running verification).
    **Do not** write to `deploy.ConfigValue` directly — the value is encrypted at rest and a direct
    write stores plaintext — **do not** insert a second `IsForProd` row for any of the four
    single-row operator keys (`ConfigValuesPersistentSource.GetConfigValue` queries by `Key` with
-   `SingleOrDefault`), and **do not** update a deployment password in `ConfigValue` when the vault
-   source is active (that changes an inactive copy and leaves deployments using the stale vault
-   value). When rotating an account that also backs a saved Windows service logon identity (in
-   particular `DORC_NonProdDeployPassword`, which `Setup.Dorc.msi.json` maps to the non-production
-   Monitor service logon, and any production Monitor host sharing a rotated account), update the
-   saved Windows service credentials and deployment configuration on every affected host and verify
-   controlled service restarts before proceeding.
+   `SingleOrDefault`), and **do not** treat updating a deployment password in `ConfigValue` alone
+   as rotating the active runtime credential when `DeploymentCredentialsFromVault` is `true`
+   (runtime deployments, daemon probes, and password resets read the 1Password item, so leaving the
+   vault item unchanged leaves runtime authentication on the old password). When rotating an
+   account that also backs a saved Windows service logon identity (in particular
+   `DORC_NonProdDeployPassword`, which `src/Setup.Dorc/Setup.Dorc.msi.json` maps to
+   `SVC.PASSWORDNONPROD` for the non-production Monitor service logon, and any production Monitor
+   host sharing a rotated account), update the saved Windows service credentials and deployment
+   configuration on every affected host, verify controlled service restarts before proceeding, and
+   if the MSI installer pipeline still consumes `DORC_NonProdDeployPassword` from `ConfigValue`
+   during service upgrades before service-logon and deployment inputs are decoupled, keep that
+   `ConfigValue` synchronized with the rotated service-logon password after updating the vault so a
+   subsequent MSI upgrade cannot overwrite the service logon with a stale password.
 5. Run the controlled verification checks and deployment(s) for the rotated population before
    resuming ordinary deployment work or proceeding to the next population:
    - For a **single-row operator key** (`DORC_ProdDeployPassword`, `DORC_NonProdDeployPassword`,

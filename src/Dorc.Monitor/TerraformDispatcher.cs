@@ -146,8 +146,14 @@ namespace Dorc.Monitor
             isScriptExecutionSuccessful = true;
 
             // See ScriptDispatcher: one resolution point rather than a copy per dispatch path.
-            using var credential = _credentialSource.Resolve(
-                isProduction ? DeploymentTier.Production : DeploymentTier.NonProduction);
+            var tier = isProduction ? DeploymentTier.Production : DeploymentTier.NonProduction;
+            using var credential = _credentialSource is VaultDeploymentCredentialSource or ConfigValueDeploymentCredentialSource || cancellationToken.CanBeCanceled
+                ? _credentialSource.Resolve(tier, cancellationToken)
+                    ?? (!cancellationToken.IsCancellationRequested
+                        && _credentialSource is not (VaultDeploymentCredentialSource or ConfigValueDeploymentCredentialSource)
+                            ? _credentialSource.Resolve(tier)
+                            : null)
+                : _credentialSource.Resolve(tier);
 
             if (credential == null)
             {

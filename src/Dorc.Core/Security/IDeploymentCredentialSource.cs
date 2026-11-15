@@ -26,6 +26,12 @@ namespace Dorc.Core.Security
         DeploymentCredential? Resolve(DeploymentTier tier);
 
         /// <summary>
+        /// Resolves the credential for this tier while propagating caller cancellation.
+        /// </summary>
+        DeploymentCredential? Resolve(DeploymentTier tier, System.Threading.CancellationToken cancellationToken) =>
+            Resolve(tier);
+
+        /// <summary>
         /// Where this implementation reads from, for logging. Which source is in force is
         /// otherwise invisible, and a deployment failing to authenticate is a great deal easier
         /// to diagnose when the log says where the credential was looked for.

@@ -9,8 +9,8 @@ namespace Dorc.Core
 {
     public class SqlUserPasswordReset : ISqlUserPasswordReset
     {
-        private const string ServerNamePattern = @"^(?:tcp:)?(?:\(local\)|[a-zA-Z0-9._\-]+)(?:\\[a-zA-Z0-9_$#\-]+)?(?:,[0-9]{1,5})?$";
-        private const string SqlLoginIdentifierPattern = @"^[a-zA-Z0-9_][a-zA-Z0-9_.\-]{0,127}$";
+        private const string ServerNamePattern = @"^(?:(?:(?:tcp|np|lpc):)?(?:\(local\)|[a-zA-Z0-9._\-]+)(?:\\[a-zA-Z0-9_$#\-]+)?(?:,[0-9]{1,5})?|(?:np:)?\\\\(?:\(local\)|[a-zA-Z0-9._\-]+)\\pipe\\[a-zA-Z0-9_.$#\-]+(?:\\[a-zA-Z0-9_.$#\-]+)*)$";
+        private const string SqlLoginIdentifierPattern = @"^[a-zA-Z0-9_.\-' ()&]{1,128}$";
         internal const string AlterLoginParameterizedSql =
             "DECLARE @stmt nvarchar(600) = N'ALTER LOGIN ' + QUOTENAME(@loginName, '[') + N' WITH PASSWORD = N' + QUOTENAME(@newPassword, ''''); IF @stmt IS NULL THROW 50000, 'Invalid SQL login parameter.', 1; EXEC sys.sp_executesql @stmt;";
         private readonly ILogger _logger;
@@ -80,8 +80,10 @@ namespace Dorc.Core
         internal static void ValidateSqlLoginIdentifier(string username)
         {
             if (string.IsNullOrWhiteSpace(username)
-                || username.Any(ch => char.IsWhiteSpace(ch) || char.IsControl(ch))
-                || !Regex.IsMatch(username, SqlLoginIdentifierPattern))
+                || char.IsWhiteSpace(username[0])
+                || char.IsWhiteSpace(username[^1])
+                || username.Any(ch => char.IsControl(ch) || (char.IsWhiteSpace(ch) && ch != ' '))
+                || !Regex.IsMatch(username, SqlLoginIdentifierPattern, RegexOptions.CultureInvariant))
             {
                 throw new ArgumentException("SQL login name contains invalid characters.", nameof(username));
             }

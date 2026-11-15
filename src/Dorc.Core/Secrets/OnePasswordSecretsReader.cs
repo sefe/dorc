@@ -75,8 +75,16 @@ namespace Dorc.Core.Secrets
             return GetSecretByItemId(itemId ?? string.Empty, "DORC API entry");
         }
 
-        public SecureString GetSecureSecret(string itemId, string entryLabel)
+        public SecureString GetSecureSecret(string itemId, string entryLabel) =>
+            GetSecureSecret(itemId, entryLabel, CancellationToken.None);
+
+        public SecureString GetSecureSecret(
+            string itemId,
+            string entryLabel,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (_onePasswordClient == null || string.IsNullOrWhiteSpace(_vaultId) || string.IsNullOrWhiteSpace(itemId))
             {
                 return DeploymentCredential.ToSecureString(string.Empty);
@@ -84,7 +92,14 @@ namespace Dorc.Core.Secrets
 
             try
             {
-                return _onePasswordClient.GetSecureSecretAsync(_vaultId, itemId.Trim()).GetAwaiter().GetResult();
+                return _onePasswordClient
+                    .GetSecureSecretAsync(_vaultId, itemId.Trim(), cancellationToken)
+                    .GetAwaiter()
+                    .GetResult();
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (HttpRequestException ex)
             {
@@ -122,8 +137,16 @@ namespace Dorc.Core.Secrets
             return DeploymentCredential.ToSecureString(string.Empty);
         }
 
-        public string GetPrincipalIdentifierByItemId(string itemId, string entryLabel)
+        public string GetPrincipalIdentifierByItemId(string itemId, string entryLabel) =>
+            GetPrincipalIdentifierByItemId(itemId, entryLabel, CancellationToken.None);
+
+        public string GetPrincipalIdentifierByItemId(
+            string itemId,
+            string entryLabel,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             if (_onePasswordClient == null || string.IsNullOrWhiteSpace(_vaultId) || string.IsNullOrWhiteSpace(itemId))
             {
                 return string.Empty;
@@ -133,9 +156,17 @@ namespace Dorc.Core.Secrets
             {
                 bool allowFallbackField = !SharesVaultEntryWithTierVerification(itemId);
                 return _onePasswordClient
-                    .GetPrincipalIdentifierAsync(_vaultId, itemId.Trim(), allowFallbackField: allowFallbackField)
+                    .GetPrincipalIdentifierAsync(
+                        _vaultId,
+                        itemId.Trim(),
+                        allowFallbackField: allowFallbackField,
+                        cancellationToken: cancellationToken)
                     .GetAwaiter()
                     .GetResult();
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
             }
             catch (HttpRequestException ex)
             {

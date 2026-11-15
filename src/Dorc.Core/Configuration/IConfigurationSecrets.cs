@@ -46,6 +46,16 @@ namespace Dorc.Core.Configuration
         string GetPrincipalIdentifierByItemId(string itemId, string entryLabel);
 
         /// <summary>
+        /// Gets a non-secret principal identifier (username) by its vault item identifier while
+        /// propagating caller cancellation into underlying vault requests.
+        /// </summary>
+        string GetPrincipalIdentifierByItemId(
+            string itemId,
+            string entryLabel,
+            System.Threading.CancellationToken cancellationToken) =>
+            GetPrincipalIdentifierByItemId(itemId, entryLabel);
+
+        /// <summary>
         /// Gets a secret intended for password authentication as a read-only
         /// <see cref="SecureString"/> that the caller owns and must dispose.
         /// </summary>
@@ -58,5 +68,16 @@ namespace Dorc.Core.Configuration
         /// the boundary where non-string handling stops.
         /// </remarks>
         SecureString GetSecureSecret(string itemId, string entryLabel);
+
+        /// <summary>
+        /// Gets a secret intended for password authentication as a read-only
+        /// <see cref="SecureString"/> while propagating caller cancellation into underlying vault
+        /// requests.
+        /// </summary>
+        SecureString GetSecureSecret(
+            string itemId,
+            string entryLabel,
+            System.Threading.CancellationToken cancellationToken) =>
+            GetSecureSecret(itemId, entryLabel);
     }
 } 

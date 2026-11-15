@@ -240,6 +240,10 @@ namespace Dorc.Api.Tests.Controllers
         [DataRow("sql-mixed.corp.local", "  sql-mixed  ")]
         [DataRow("(local)", "localhost")]
         [DataRow(@"sql-mixed.corp.local\MSSQLSERVER", "sql-mixed.corp.local,1433")]
+        [DataRow(@"np:\\sql-mixed.corp.local\pipe\sql\query", "tcp:sql-mixed.corp.local")]
+        [DataRow(@"np:\\sql-mixed\pipe\MSSQL$INST01\sql\query", @"sql-mixed\INST01")]
+        [DataRow(@"\\sql-mixed.corp.local\pipe\CustomSqlPipe", @"sql-mixed.corp.local\INST02")]
+        [DataRow("sql-mixed.corp.local", @"\\sql-unparseable\bad")]
         public void Put_ReturnsForbiddenWhenSqlServerInstanceAlsoHostsDistinctDatabaseMappedToProduction(
             string nonProdServerName,
             string prodSiblingServerName)
@@ -452,6 +456,10 @@ namespace Dorc.Api.Tests.Controllers
         [DataRow(@"sql01.corp.local\INST_DEV", @"sql01.corp.local\INST_PROD", false)]
         [DataRow("sql01.corp.local", @"sql01.corp.local\INST_PROD", false)]
         [DataRow("sql01.dev.local", "sql01.prod.local", false)]
+        [DataRow(@"np:\\sql01.corp.local\pipe\sql\query", "tcp:sql01.corp.local", true)]
+        [DataRow(@"np:\\sql01\pipe\MSSQL$INST01\sql\query", @"sql01\INST01", true)]
+        [DataRow(@"np:\\sql01\pipe\MSSQL$INST01\sql\query", @"sql01\INST02", false)]
+        [DataRow(@"\\sql01\pipe\CustomAliasPipe", @"sql01\INST02", true)]
         public void SqlServerInstancesMatch_NormalizesHostProtocolPortAndInstanceScope(
             string left,
             string right,

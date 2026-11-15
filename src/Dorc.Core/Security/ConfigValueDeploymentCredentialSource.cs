@@ -32,8 +32,15 @@ namespace Dorc.Core.Security
 
         public string Description => "DOrc configuration values";
 
-        public DeploymentCredential? Resolve(DeploymentTier tier)
+        public DeploymentCredential? Resolve(DeploymentTier tier) =>
+            Resolve(tier, System.Threading.CancellationToken.None);
+
+        public DeploymentCredential? Resolve(
+            DeploymentTier tier,
+            System.Threading.CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
+
             var userNameKey = tier == DeploymentTier.Production
                 ? ProductionUserNameKey
                 : NonProductionUserNameKey;

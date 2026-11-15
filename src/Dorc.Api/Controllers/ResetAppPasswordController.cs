@@ -127,7 +127,7 @@ namespace Dorc.Api.Controllers
             EnvironmentApiModel environment,
             string username)
         {
-            if (db.Id <= 0 || string.IsNullOrWhiteSpace(db.ServerName))
+            if (db.Id <= 0 || !DatabasesPersistentSource.CanParseSqlServerEndpoint(db.ServerName))
             {
                 return false;
             }
@@ -147,7 +147,8 @@ namespace Dorc.Api.Controllers
             var instanceDatabases = (_databasesPersistentSource.GetDatabasesForServerName(db.ServerName)
                     ?? Enumerable.Empty<DatabaseApiModel>())
                 .Where(candidate => candidate != null
-                    && DatabasesPersistentSource.SqlServerInstancesMatch(candidate.ServerName, db.ServerName))
+                    && (!DatabasesPersistentSource.CanParseSqlServerEndpoint(candidate.ServerName)
+                        || DatabasesPersistentSource.SqlServerInstancesMatch(candidate.ServerName, db.ServerName)))
                 .Append(db)
                 .ToList();
 
@@ -156,7 +157,7 @@ namespace Dorc.Api.Controllers
 
             foreach (var instanceDb in instanceDatabases)
             {
-                if (instanceDb.Id <= 0)
+                if (instanceDb.Id <= 0 || !DatabasesPersistentSource.CanParseSqlServerEndpoint(instanceDb.ServerName))
                 {
                     return false;
                 }
@@ -171,7 +172,8 @@ namespace Dorc.Api.Controllers
             var loginDatabasesOnInstance = (_databasesPersistentSource.GetDatabasesForServerAndLogin(db.ServerName, username)
                     ?? Enumerable.Empty<DatabaseApiModel>())
                 .Where(candidate => candidate != null
-                    && DatabasesPersistentSource.SqlServerInstancesMatch(candidate.ServerName, db.ServerName))
+                    && (!DatabasesPersistentSource.CanParseSqlServerEndpoint(candidate.ServerName)
+                        || DatabasesPersistentSource.SqlServerInstancesMatch(candidate.ServerName, db.ServerName)))
                 .Append(db)
                 .GroupBy(candidate => candidate.Id)
                 .Select(group => group.First())
@@ -179,7 +181,7 @@ namespace Dorc.Api.Controllers
 
             foreach (var loginDb in loginDatabasesOnInstance)
             {
-                if (loginDb.Id <= 0)
+                if (loginDb.Id <= 0 || !DatabasesPersistentSource.CanParseSqlServerEndpoint(loginDb.ServerName))
                 {
                     return false;
                 }
