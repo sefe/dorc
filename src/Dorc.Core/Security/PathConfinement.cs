@@ -39,23 +39,46 @@ namespace Dorc.Core.Security
             }
 
             var value = pathOrUri.Trim();
+            if (HasNonFileUriScheme(value))
+            {
+                return null;
+            }
+
+            // Configured roots are frequently recorded as file:// URIs while the values
+            // compared against them are plain UNC or local paths. Only file: URIs undergo
+            // URI parsing and percent-decoding; plain filesystem and UNC paths are never
+            // percent-decoded by Windows or SMB, so decoding '%' there would create a
+            // parser differential against downstream LocalPath / Win32 consumers.
+            if (value.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!TryConvertFileUriToLocalPath(value, out var converted))
+                {
+                    return null;
+                }
+
+                value = converted;
+            }
+            else
+            {
+                if (ContainsPlainPathAmbiguousPercentSequence(value))
+                {
+                    return null;
+                }
+
+                if (SourceHost.IsRemoteOrUnc(value) && !SourceHost.TryExtractRemoteHost(value, out _))
+                {
+                    return null;
+                }
+
+                value = SourceHost.NormalizeExtendedUnc(value);
+            }
+
             if (SourceHost.IsRemoteOrUnc(value) && !SourceHost.TryExtractRemoteHost(value, out _))
             {
                 return null;
             }
 
             value = SourceHost.NormalizeExtendedUnc(value);
-
-            // Configured roots are frequently recorded as file:// URIs while the values
-            // compared against them are plain UNC or local paths. Reduce both to a path.
-            if (Uri.TryCreate(value, UriKind.Absolute, out var uri) && uri.IsFile)
-            {
-                // LocalPath is platform-dependent for UNC, so rebuild from the components.
-                value = string.IsNullOrEmpty(uri.Host)
-                    ? Uri.UnescapeDataString(uri.AbsolutePath)
-                    : @"\\" + uri.Host + Uri.UnescapeDataString(uri.AbsolutePath);
-            }
-
             value = value.Replace('/', '\\');
 
             var root = ExtractRoot(value, out var remainder);
@@ -84,6 +107,12 @@ namespace Dorc.Core.Security
 
                     segments.RemoveAt(segments.Count - 1);
                     continue;
+                }
+
+                if (segment.Contains(':'))
+                {
+                    // Colon in a non-root segment names a device or alternate data stream.
+                    return null;
                 }
 
                 segments.Add(segment);
@@ -125,9 +154,15 @@ namespace Dorc.Core.Security
                 return @"\\" + parts[0] + '\\' + parts[1];
             }
 
-            // Drive: X:\ or X:
+            // Drive: X:\ or bare X:
             if (value.Length >= 2 && char.IsLetter(value[0]) && value[1] == ':')
             {
+                if (value.Length > 2 && value[2] != '\\')
+                {
+                    // Drive-relative (e.g. C:relative\x.ps1), not anchored.
+                    return null;
+                }
+
                 remainder = value.Length > 2 ? value[2..] : string.Empty;
                 return value[..2].ToUpperInvariant();
             }
@@ -141,6 +176,227 @@ namespace Dorc.Core.Security
 
             return null;
         }
+
+        private static bool HasNonFileUriScheme(string value)
+        {
+            var colonIndex = value.IndexOf(':');
+            if (colonIndex <= 0)
+            {
+                return false;
+            }
+
+            if (!char.IsLetter(value[0]))
+            {
+                return false;
+            }
+
+            for (var i = 1; i < colonIndex; i++)
+            {
+                var ch = value[i];
+                if (!char.IsLetterOrDigit(ch) && ch != '+' && ch != '-' && ch != '.')
+                {
+                    return false;
+                }
+            }
+
+            var scheme = value[..colonIndex];
+            if (string.Equals(scheme, "file", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            // Single-letter 'X:\...' (including repeated separators 'X:\\...') and 'X:/sub' are
+            // Windows drive paths, whereas 'X://...' is a single-letter URI authority scheme and
+            // must be rejected.
+            if (scheme.Length == 1)
+            {
+                return value.Length >= colonIndex + 3
+                    && value[colonIndex + 1] == '/'
+                    && value[colonIndex + 2] == '/';
+            }
+
+            return true;
+        }
+
+        private static bool TryConvertFileUriToLocalPath(string fileUriText, out string localPath)
+        {
+            localPath = string.Empty;
+
+            if (ContainsForbiddenFileUriPercentSequence(fileUriText))
+            {
+                return false;
+            }
+
+            if (SourceHost.IsRemoteOrUnc(fileUriText) && !SourceHost.TryExtractRemoteHost(fileUriText, out _))
+            {
+                return false;
+            }
+
+            var normalized = SourceHost.NormalizeExtendedUnc(fileUriText);
+
+            // Extended UNC file: URIs (e.g. file://\\?\UNC\server\share\path) reduce directly
+            // to \\server\share\path; reject URI escapes/query/fragment and '..' before accepting.
+            if (!normalized.StartsWith("file:", StringComparison.OrdinalIgnoreCase))
+            {
+                if (fileUriText.Contains('%') || fileUriText.Contains('?') && !ContainsOnlyExtendedUncMarkerQuestionMark(fileUriText) || fileUriText.Contains('#'))
+                {
+                    return false;
+                }
+
+                if (HasDotDotSegment(fileUriText["file:".Length..]) || HasDotDotSegment(normalized))
+                {
+                    return false;
+                }
+
+                localPath = normalized;
+                return true;
+            }
+
+            if (!Uri.TryCreate(normalized, UriKind.Absolute, out var fileUri)
+                || !string.Equals(fileUri.Scheme, Uri.UriSchemeFile, StringComparison.OrdinalIgnoreCase)
+                || !fileUri.IsFile)
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrEmpty(fileUri.Query) || !string.IsNullOrEmpty(fileUri.Fragment))
+            {
+                return false;
+            }
+
+            // Reject '..' segments in the raw URI before System.Uri collapses or clamps them.
+            var rawAfterScheme = fileUri.OriginalString["file:".Length..];
+            var unescapedAfterScheme = Uri.UnescapeDataString(rawAfterScheme);
+            if (HasDotDotSegment(rawAfterScheme) || HasDotDotSegment(unescapedAfterScheme))
+            {
+                return false;
+            }
+
+            var resolved = fileUri.LocalPath;
+            if (string.IsNullOrWhiteSpace(resolved))
+            {
+                return false;
+            }
+
+            // On non-Windows hosts System.Uri.LocalPath retains a leading '/' before a drive
+            // letter (e.g. '/C:/drops/app' for 'file:///C:/drops/app'); strip it so canonical
+            // output matches Windows LocalPath ('C:\drops\app') identically on every host OS.
+            if (string.IsNullOrEmpty(fileUri.Host)
+                && resolved.Length >= 3
+                && resolved[0] == '/'
+                && char.IsLetter(resolved[1])
+                && resolved[2] == ':'
+                && (resolved.Length == 3 || IsSlash(resolved[3])))
+            {
+                resolved = resolved[1..];
+            }
+
+            localPath = resolved;
+            return true;
+        }
+
+        private static bool ContainsForbiddenFileUriPercentSequence(string fileUriText)
+        {
+            if (fileUriText.Contains("%2f", StringComparison.OrdinalIgnoreCase)
+                || fileUriText.Contains("%5c", StringComparison.OrdinalIgnoreCase)
+                || fileUriText.Contains("%2e", StringComparison.OrdinalIgnoreCase)
+                || fileUriText.Contains("%25", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (!fileUriText.Contains('%'))
+            {
+                return false;
+            }
+
+            var once = Uri.UnescapeDataString(fileUriText);
+            var twice = Uri.UnescapeDataString(once);
+            return !string.Equals(once, twice, StringComparison.Ordinal);
+        }
+
+        /// <summary>
+        /// Plain UNC and DOS paths are literal to Win32/SMB, whereas System.Uri implicitly
+        /// parses them as file: URIs and percent-decodes all 66 RFC 3986 unreserved octets
+        /// (%2D, %2E, %30-%39, %41-%5A, %5F, %61-%7A, %7E). Reject those sequences (plus
+        /// encoded path separators) on plain paths so Win32 and Uri consumers cannot diverge.
+        /// </summary>
+        private static bool ContainsPlainPathAmbiguousPercentSequence(string path)
+        {
+            for (var i = 0; i <= path.Length - 3; i++)
+            {
+                if (path[i] != '%')
+                {
+                    continue;
+                }
+
+                if (!TryParseHexByte(path[i + 1], path[i + 2], out var b))
+                {
+                    continue;
+                }
+
+                var ch = (char)b;
+                if ((ch >= 'A' && ch <= 'Z')
+                    || (ch >= 'a' && ch <= 'z')
+                    || (ch >= '0' && ch <= '9')
+                    || ch == '-'
+                    || ch == '.'
+                    || ch == '_'
+                    || ch == '~'
+                    || ch == '/'
+                    || ch == '\\')
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool ContainsOnlyExtendedUncMarkerQuestionMark(string fileUriText)
+        {
+            // An extended-UNC prefix contains exactly one '?' right before '\UNC\' or '/UNC/'.
+            var first = fileUriText.IndexOf('?');
+            if (first < 0 || fileUriText.IndexOf('?', first + 1) >= 0)
+            {
+                return false;
+            }
+
+            var rest = fileUriText[(first + 1)..];
+            return rest.StartsWith(@"\UNC\", StringComparison.OrdinalIgnoreCase)
+                || rest.StartsWith("/UNC/", StringComparison.OrdinalIgnoreCase)
+                || rest.StartsWith(@"\UNC/", StringComparison.OrdinalIgnoreCase)
+                || rest.StartsWith(@"/UNC\", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool TryParseHexByte(char high, char low, out byte value)
+        {
+            value = 0;
+            var hi = HexDigitValue(high);
+            var lo = HexDigitValue(low);
+            if (hi < 0 || lo < 0)
+            {
+                return false;
+            }
+
+            value = (byte)((hi << 4) | lo);
+            return true;
+        }
+
+        private static int HexDigitValue(char ch) => ch switch
+        {
+            >= '0' and <= '9' => ch - '0',
+            >= 'a' and <= 'f' => ch - 'a' + 10,
+            >= 'A' and <= 'F' => ch - 'A' + 10,
+            _ => -1
+        };
+
+        private static bool HasDotDotSegment(string path)
+        {
+            return path.Split('/', '\\').Any(segment => segment.Trim() == "..");
+        }
+
+        private static bool IsSlash(char ch) => ch == '/' || ch == '\\';
 
         /// <summary>
         /// Whether <paramref name="candidate"/> is <paramref name="root"/> itself or lies
@@ -190,6 +446,53 @@ namespace Dorc.Core.Security
 
             return delimitedRoots
                 .Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        }
+
+        /// <summary>
+        /// Normalizes Windows/UNC separator slashes to backslashes while preserving local POSIX
+        /// paths (single leading <c>/</c>) on non-Windows hosts so filesystem checks and
+        /// <c>DropLocation</c> / <c>Path.GetFileName</c> do not corrupt POSIX paths into
+        /// backslash-containing relative filenames.
+        /// </summary>
+        public static string NormalizeLocalOrUncPath(string path) =>
+            NormalizeLocalOrUncPath(path, OperatingSystem.IsWindows());
+
+        public static string NormalizeLocalOrUncPath(string path, bool isWindowsHost)
+        {
+            if (string.IsNullOrEmpty(path))
+            {
+                return path;
+            }
+
+            if (!isWindowsHost && path[0] == '/' && (path.Length == 1 || path[1] != '/'))
+            {
+                return path;
+            }
+
+            return path.Replace('/', '\\');
+        }
+
+        public static string ExtractBuildLeafName(string dropLocation) =>
+            ExtractBuildLeafName(dropLocation, OperatingSystem.IsWindows());
+
+        public static string ExtractBuildLeafName(string dropLocation, bool isWindowsHost)
+        {
+            if (string.IsNullOrEmpty(dropLocation))
+            {
+                return string.Empty;
+            }
+
+            if (!isWindowsHost
+                && (dropLocation.StartsWith(@"\\", StringComparison.Ordinal)
+                    || (dropLocation.Length >= 3
+                        && char.IsLetter(dropLocation[0])
+                        && dropLocation[1] == ':'
+                        && dropLocation[2] == '\\')))
+            {
+                return Path.GetFileName(dropLocation.Replace('\\', '/'));
+            }
+
+            return Path.GetFileName(dropLocation);
         }
     }
 }

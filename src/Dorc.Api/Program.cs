@@ -95,7 +95,7 @@ var configBuilder = new ConfigurationBuilder()
     .AddJsonFile("loggerSettings.json", optional:false, reloadOnChange: true)
     .Build();
 
-var configurationSettings = new ConfigurationSettings(configBuilder);
+var configurationSettings = new ConfigurationSettings(builder.Configuration);
 
 #region Logging Configuration
 builder.Logging.ClearProviders();
