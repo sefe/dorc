@@ -578,6 +578,56 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual(0, source.GetDatabasesForServerName(@"sql99\NONE,1444").Count());
         }
 
+        [TestMethod]
+        public void Put_ReturnsForbiddenWithoutResolvingCredentialWhenTargetDatabaseIsPostgreSql()
+        {
+            var environments = Substitute.For<IEnvironmentsPersistentSource>();
+            environments.GetEnvironment("DEV-ENV", Arg.Any<ClaimsPrincipal>())
+                .Returns(new EnvironmentApiModel
+                {
+                    EnvironmentId = 12,
+                    EnvironmentName = "DEV-ENV",
+                    EnvironmentIsProd = false
+                });
+            environments.EnvironmentIsProd("DEV-ENV").Returns(false);
+
+            var privileges = Substitute.For<ISecurityPrivilegesChecker>();
+            privileges.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "DEV-ENV").Returns(true);
+
+            var postgresDb = new DatabaseApiModel
+            {
+                Id = 91,
+                Name = "AppPgDb",
+                ServerName = "dbhost01.corp.local",
+                DatabaseType = DatabaseType.PostgreSql
+            };
+
+            var databases = Substitute.For<IDatabasesPersistentSource>();
+            databases.GetApplicationDatabaseForEnvFilter("app_user", "App", "DEV-ENV").Returns(postgresDb);
+            databases.GetDatabasesForEnvId(12).Returns(new[] { postgresDb });
+            databases.GetDatabasesForServerName("dbhost01.corp.local").Returns(Array.Empty<DatabaseApiModel>());
+            databases.GetDatabasesForServerAndLogin("dbhost01.corp.local", "app_user").Returns(Array.Empty<DatabaseApiModel>());
+            databases.GetEnvironmentNamesForDatabaseId(91).Returns(new[] { "DEV-ENV" });
+
+            var credentialSource = Substitute.For<IDeploymentCredentialSource>();
+            var sqlReset = Substitute.For<ISqlUserPasswordReset>();
+
+            var controller = CreateController(
+                databases: databases,
+                environments: environments,
+                sqlReset: sqlReset,
+                privileges: privileges,
+                credentialSource: credentialSource);
+
+            var result = controller.Put("App", "DEV-ENV", "app_user");
+
+            Assert.IsInstanceOfType(result, typeof(ObjectResult));
+            var objectResult = (ObjectResult)result;
+            Assert.AreEqual(StatusCodes.Status403Forbidden, objectResult.StatusCode);
+            credentialSource.DidNotReceiveWithAnyArgs().Resolve(default);
+            sqlReset.DidNotReceiveWithAnyArgs().ResetSqlUserPassword(default!, default!);
+        }
+
         private static ResetAppPasswordController CreateController(
             IDatabasesPersistentSource? databases = null,
             IEnvironmentsPersistentSource? environments = null,

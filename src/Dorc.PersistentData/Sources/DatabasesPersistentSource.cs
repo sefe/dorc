@@ -784,8 +784,12 @@ namespace Dorc.PersistentData.Sources
                     .Include(eu => eu.Database).ThenInclude(d => d.TagLinks)
                     .Include(eu => eu.User)
                     .Where(eu =>
-                        dbIds.Contains(eu.Database.Id) && eu.User.LoginId.Equals(username) &&
-                        eu.User.LoginType.Equals(envFilter)).Select(eu => eu.Database).FirstOrDefault();
+                        dbIds.Contains(eu.Database.Id)
+                        && eu.Database.DatabaseType == DatabaseType.SqlServer
+                        && eu.User.LoginId.Equals(username)
+                        && eu.User.LoginType.Equals(envFilter))
+                    .Select(eu => eu.Database)
+                    .FirstOrDefault();
 
                 return MapToDatabaseApiModel(database);
             }

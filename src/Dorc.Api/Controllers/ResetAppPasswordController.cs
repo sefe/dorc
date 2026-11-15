@@ -127,7 +127,9 @@ namespace Dorc.Api.Controllers
             EnvironmentApiModel environment,
             string username)
         {
-            if (db.Id <= 0 || !DatabasesPersistentSource.CanParseSqlServerEndpoint(db.ServerName))
+            if (db.Id <= 0
+                || (db.DatabaseType ?? DatabaseType.SqlServer) != DatabaseType.SqlServer
+                || !DatabasesPersistentSource.CanParseSqlServerEndpoint(db.ServerName))
             {
                 return false;
             }
@@ -137,6 +139,7 @@ namespace Dorc.Api.Controllers
 
             bool attachedToRequestedEnvironment = attachedDatabases.Any(attached =>
                 attached.Id == db.Id
+                && (attached.DatabaseType ?? DatabaseType.SqlServer) == DatabaseType.SqlServer
                 && DatabasesPersistentSource.SqlServerInstancesMatch(attached.ServerName, db.ServerName));
 
             if (!attachedToRequestedEnvironment)

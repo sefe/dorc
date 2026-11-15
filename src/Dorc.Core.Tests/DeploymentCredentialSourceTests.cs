@@ -53,6 +53,7 @@ namespace Dorc.Core.Tests
 
             Assert.AreEqual("svc-prod", credential!.UserName);
             Assert.IsTrue(credential.IsComplete);
+            Assert.AreEqual("prod-secret", OnePasswordVaultCredentialResolutionTests.ReadSecureString(credential.Password));
         }
 
         [TestMethod]
@@ -62,6 +63,7 @@ namespace Dorc.Core.Tests
 
             Assert.AreEqual("svc-nonprod", credential!.UserName);
             Assert.IsTrue(credential.IsComplete);
+            Assert.AreEqual("nonprod-secret", OnePasswordVaultCredentialResolutionTests.ReadSecureString(credential.Password));
         }
 
         /// <summary>
@@ -133,6 +135,7 @@ namespace Dorc.Core.Tests
 
             Assert.AreEqual("svc-prod", credential!.UserName);
             Assert.IsTrue(credential.IsComplete);
+            Assert.AreEqual("prod-secret", OnePasswordVaultCredentialResolutionTests.ReadSecureString(credential.Password));
             _secrets.DidNotReceive().GetSecretByItemId(Arg.Any<string>(), Arg.Any<string>());
         }
 
@@ -229,6 +232,10 @@ namespace Dorc.Core.Tests
             Assert.AreEqual(fromConfig!.UserName, fromVault!.UserName);
             Assert.IsTrue(fromConfig.IsComplete);
             Assert.IsTrue(fromVault.IsComplete);
+            Assert.AreEqual("prod-secret", OnePasswordVaultCredentialResolutionTests.ReadSecureString(fromConfig.Password));
+            Assert.AreEqual(
+                OnePasswordVaultCredentialResolutionTests.ReadSecureString(fromConfig.Password),
+                OnePasswordVaultCredentialResolutionTests.ReadSecureString(fromVault.Password));
         }
     }
 
@@ -525,7 +532,7 @@ namespace Dorc.Core.Tests
             return new VaultTestHarness(source, httpClient, handler);
         }
 
-        private static string ReadSecureString(SecureString secret)
+        internal static string ReadSecureString(SecureString secret)
         {
             IntPtr bstr = IntPtr.Zero;
             try

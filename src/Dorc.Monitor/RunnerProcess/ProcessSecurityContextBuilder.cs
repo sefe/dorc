@@ -86,9 +86,10 @@ namespace Dorc.Monitor.RunnerProcess
 
         private SafeAccessTokenHandle LogOn(string userName, string domain, SecureString password)
         {
+            SafeAccessTokenHandle? token = null;
             try
             {
-                var token = WindowsLogon.LogOn(
+                token = WindowsLogon.LogOn(
                     userName, domain, password, LogonType.NetworkCleartext, LogonProvider.Default);
 
                 // Named from the token Windows issued, not from the configured credential: the
@@ -99,12 +100,18 @@ namespace Dorc.Monitor.RunnerProcess
                     this.logger.LogInformation("Logon succeeded for account '{Account}'.", identity.Name);
                 }
 
-                return token;
+                var acquiredToken = token;
+                token = null;
+                return acquiredToken;
             }
             catch (Win32Exception ex)
             {
                 this.logger.LogError($"LogonUser failed with win32 error: {ex.NativeErrorCode}");
                 throw new Exception($"Cannot process request under account {userName}", ex);
+            }
+            finally
+            {
+                token?.Dispose();
             }
         }
 
