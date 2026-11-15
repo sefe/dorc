@@ -109,6 +109,11 @@ namespace Dorc.Core.VariableResolution
                         return literal.ToString();
                     }
 
+                    if (character is '\r' or '\n')
+                    {
+                        throw Refuse("raw line terminators are not permitted inside string literals; use \\r or \\n.");
+                    }
+
                     if (character != '\\')
                     {
                         literal.Append(character);

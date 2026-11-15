@@ -276,6 +276,16 @@ namespace Dorc.Core.Tests
                 "PropertyExpressionEvaluator log disclosed the property value.");
         }
 
+        [TestMethod]
+        public void RawLineTerminatorsInsideStringLiteralsAreRefusedWhileEscapedSequencesRemainSupported()
+        {
+            Refuse("\"line1\nline2\".ToUpper()");
+            Refuse("\"line1\rline2\".ToUpper()");
+            Refuse("\"value\".Replace(\"a\nb\",\"x\")");
+
+            Assert.AreEqual("LINE1\r\nLINE2", Evaluate("\"line1\\r\\nline2\".ToUpper()"));
+        }
+
         /// <summary>
         /// The dependency is gone, not merely unused. Asserted against the production
         /// assembly's own reference list rather than by inspecting a project file, so it stays
