@@ -676,42 +676,60 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             {
                 using (var context = contextFactory.GetContext())
                 {
-                    var environment = context.Environments.SingleOrDefault(e => e.Id == environmentId);
-                    if (environment == null)
+                    EnvironmentApiModel ApplyUpdate()
                     {
-                        throw new KeyNotFoundException($"Environment with ID {environmentId} was not found.");
-                    }
+                        var environment = context.Environments.SingleOrDefault(e => e.Id == environmentId);
+                        if (environment == null)
+                        {
+                            throw new KeyNotFoundException($"Environment with ID {environmentId} was not found.");
+                        }
 
-                    var oldReference = environment.ExecutionIdentityReference;
-                    if (string.Equals(oldReference, normalizedReference, StringComparison.Ordinal))
-                    {
+                        var oldReference = environment.ExecutionIdentityReference;
+                        if (string.Equals(oldReference, normalizedReference, StringComparison.Ordinal))
+                        {
+                            return MapToEnvironmentApiModel(environment);
+                        }
+
+                        var username = _claimsPrincipalReader.GetUserFullDomainName(user);
+                        var summary = normalizedReference == null
+                            ? $"Execution identity reference cleared from environment '{environment.Name}'."
+                            : $"Execution identity reference for environment '{environment.Name}' set to '{normalizedReference}'.";
+
+                        EnvironmentHistoryPersistentSource.AddHistoryAction(
+                            environment,
+                            oldReference ?? string.Empty,
+                            normalizedReference ?? string.Empty,
+                            username,
+                            "Execution Identity Update",
+                            summary,
+                            context);
+
+                        environment.ExecutionIdentityReference = normalizedReference;
+                        context.SaveChanges();
+
+                        logger.LogInformation(
+                            "Execution identity reference for environment '{EnvironmentName}' (Id: {EnvironmentId}) updated to '{IdentityReference}'.",
+                            LogText.SingleLine(environment.Name),
+                            environment.Id,
+                            LogText.SingleLine(normalizedReference ?? "<tier-default>"));
+
                         return MapToEnvironmentApiModel(environment);
                     }
 
-                    var username = _claimsPrincipalReader.GetUserFullDomainName(user);
-                    var summary = normalizedReference == null
-                        ? $"Execution identity reference cleared from environment '{environment.Name}'."
-                        : $"Execution identity reference for environment '{environment.Name}' set to '{normalizedReference}'.";
+                    if (context is DeploymentContext dbContext && dbContext.Database.IsRelational())
+                    {
+                        var strategy = dbContext.Database.CreateExecutionStrategy();
+                        return strategy.Execute(() =>
+                        {
+                            dbContext.ChangeTracker.Clear();
+                            using var transaction = dbContext.Database.BeginTransaction(System.Data.IsolationLevel.Serializable);
+                            var result = ApplyUpdate();
+                            transaction.Commit();
+                            return result;
+                        });
+                    }
 
-                    EnvironmentHistoryPersistentSource.AddHistoryAction(
-                        environment,
-                        oldReference ?? string.Empty,
-                        normalizedReference ?? string.Empty,
-                        username,
-                        "Execution Identity Update",
-                        summary,
-                        context);
-
-                    environment.ExecutionIdentityReference = normalizedReference;
-                    context.SaveChanges();
-
-                    logger.LogInformation(
-                        "Execution identity reference for environment '{EnvironmentName}' (Id: {EnvironmentId}) updated to '{IdentityReference}'.",
-                        LogText.SingleLine(environment.Name),
-                        environment.Id,
-                        LogText.SingleLine(normalizedReference ?? "<tier-default>"));
-
-                    return MapToEnvironmentApiModel(environment);
+                    return ApplyUpdate();
                 }
             }
         }

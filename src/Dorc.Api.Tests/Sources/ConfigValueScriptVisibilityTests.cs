@@ -341,5 +341,61 @@ namespace Dorc.Api.Tests.Sources
                 IsForProd = true
             }));
         }
+
+        [TestMethod]
+        public void GetAllConfigValues_DecryptSecure_DecryptsNonWithheldCredentialKeysAndSkipsWithheldKeys()
+        {
+            _stored.AddRange(new[]
+            {
+                new ConfigValue
+                {
+                    Id = 31,
+                    Key = "DORC_NonProdDeployPassword",
+                    Value = "enc:nonprod-secret",
+                    Secure = true,
+                    VisibleToScripts = true
+                },
+                new ConfigValue
+                {
+                    Id = 32,
+                    Key = "DORC_Deploy_payments_Username",
+                    Value = "enc:svc-payments",
+                    Secure = true,
+                    VisibleToScripts = true
+                },
+                new ConfigValue
+                {
+                    Id = 33,
+                    Key = "DORC_ProdDeployPassword",
+                    Value = "enc:prod-secret",
+                    Secure = true,
+                    VisibleToScripts = true
+                },
+                new ConfigValue
+                {
+                    Id = 34,
+                    Key = "DORC_Deploy_payments_Password",
+                    Value = "enc:payments-secret",
+                    Secure = true,
+                    VisibleToScripts = true
+                }
+            });
+
+            var encryptor = Substitute.For<IPropertyEncryptor>();
+            encryptor.DecryptValue(Arg.Any<string>())
+                .Returns(call => call.Arg<string>().Substring("enc:".Length));
+            _context.GetAllConfigValues().Returns(_stored);
+            var contextFactory = Substitute.For<IDeploymentContextFactory>();
+            contextFactory.GetContext().Returns(_context);
+            var sourceWithDecrypt = new ConfigValuesPersistentSource(contextFactory, encryptor);
+
+            var results = sourceWithDecrypt.GetAllConfigValues(decryptSecure: true)
+                .ToDictionary(cv => cv.Key, cv => cv.Value);
+
+            Assert.AreEqual("nonprod-secret", results["DORC_NonProdDeployPassword"]);
+            Assert.AreEqual("svc-payments", results["DORC_Deploy_payments_Username"]);
+            Assert.AreEqual("enc:prod-secret", results["DORC_ProdDeployPassword"]);
+            Assert.AreEqual("enc:payments-secret", results["DORC_Deploy_payments_Password"]);
+        }
     }
 }

@@ -208,6 +208,18 @@ namespace Dorc.PersistentData.Security
             return withheld.Contains(trimmed) || IsNamedDeployPasswordKey(trimmed);
         }
 
+        public static bool IsDefaultWithheld(string? key)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                return false;
+            }
+
+            var trimmed = key.Trim();
+            return OperatorOnlyKeys.Contains(trimmed, StringComparer.OrdinalIgnoreCase)
+                || IsNamedDeployPasswordKey(trimmed);
+        }
+
         private static bool IsNamedDeployPasswordKey(string trimmed) =>
             trimmed.StartsWith(NamedDeployKeyPrefix, StringComparison.OrdinalIgnoreCase)
             && trimmed.EndsWith(NamedDeployPasswordSuffix, StringComparison.OrdinalIgnoreCase)
