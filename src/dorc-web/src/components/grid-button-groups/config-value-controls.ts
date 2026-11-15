@@ -42,7 +42,7 @@ export class ConfigValueControls extends LitElement {
   @state() private localDraft:
     (ConfigValueEditDraft & { id: number | undefined }) | undefined = undefined;
 
-  @state() private saving = false;
+  @state() private savingIds = new Set<number>();
 
   private get activeDraft(): ConfigValueEditDraft | undefined {
     const secure = Boolean(this.value?.Secure);
@@ -73,8 +73,12 @@ export class ConfigValueControls extends LitElement {
     return this.activeDraft === undefined;
   }
 
+  private get isSavingCurrentRow(): boolean {
+    return this.value?.Id != null && this.savingIds.has(this.value.Id);
+  }
+
   private get isBusy(): boolean {
-    return this.disabled || this.saving;
+    return this.disabled || this.isSavingCurrentRow;
   }
 
   static get styles() {
@@ -281,7 +285,7 @@ export class ConfigValueControls extends LitElement {
   }
 
   _cancelClick() {
-    if (this.saving) return;
+    if (this.isBusy) return;
     this.exitEditMode();
   }
 
@@ -303,7 +307,9 @@ export class ConfigValueControls extends LitElement {
       return;
     }
 
-    this.saving = true;
+    const nextSavingOnStart = new Set(this.savingIds);
+    nextSavingOnStart.add(id);
+    this.savingIds = nextSavingOnStart;
     this.dispatchEvent(
       new CustomEvent('config-value-save-started', {
         detail: { id },
@@ -324,11 +330,15 @@ export class ConfigValueControls extends LitElement {
       })
       .subscribe({
         next: () => {
-          this.saving = false;
+          const nextSaving = new Set(this.savingIds);
+          nextSaving.delete(id);
+          this.savingIds = nextSaving;
           if (this.value?.Id === id) {
             this.exitEditMode();
           } else {
-            this.localDraft = undefined;
+            if (this.localDraft?.id === id) {
+              this.localDraft = undefined;
+            }
             this.dispatchEvent(
               new CustomEvent('config-value-draft-changed', {
                 detail: { id, draft: undefined },
@@ -347,7 +357,9 @@ export class ConfigValueControls extends LitElement {
         },
         error: (err: any) => {
           console.error('Failed to save config value', err);
-          this.saving = false;
+          const nextSaving = new Set(this.savingIds);
+          nextSaving.delete(id);
+          this.savingIds = nextSaving;
           this.dispatchEvent(
             new CustomEvent('config-value-save-failed', {
               detail: { id },

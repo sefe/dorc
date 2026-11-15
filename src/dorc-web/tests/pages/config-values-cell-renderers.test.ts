@@ -616,6 +616,82 @@ describe('page-config-values-list editable cell renderers', () => {
     }
   });
 
+  it('scopes in-flight saving busy state by row Id when config-value-controls is recycled', async () => {
+    const putSubject = new Subject<ConfigValueApiModel>();
+    const putSpy = vi
+      .spyOn(RefDataConfigApi.prototype, 'refDataConfigPut')
+      .mockImplementation(() => putSubject.asObservable() as never);
+
+    try {
+      const rowA: ConfigValueApiModel = {
+        Id: 101,
+        Key: 'RowA',
+        Value: 'old-a',
+        Secure: false,
+        IsForProd: false,
+        VisibleToScripts: true
+      };
+      const rowB: ConfigValueApiModel = {
+        Id: 202,
+        Key: 'RowB',
+        Value: 'old-b',
+        Secure: false,
+        IsForProd: false,
+        VisibleToScripts: true
+      };
+
+      const controls = await fixture<
+        HTMLElement & {
+          value: ConfigValueApiModel;
+          _editClick(): void;
+          _saveClick(): void;
+        }
+      >(html`<config-value-controls .value="${rowA}"></config-value-controls>`);
+      await settle();
+
+      controls._editClick();
+      const inputA = controls.shadowRoot?.querySelector(
+        '#propValue101'
+      ) as HTMLElement & { value: string };
+      inputA.value = 'new-a';
+      inputA.dispatchEvent(new Event('input', { bubbles: true }));
+      controls._saveClick();
+      await settle();
+
+      const saveBtnForRowA = controls.shadowRoot?.querySelector(
+        'vaadin-button[aria-label="Save"]'
+      ) as HTMLElement & { disabled?: boolean };
+      expect(saveBtnForRowA.hasAttribute('disabled')).to.be.true;
+
+      // Simulate virtualized grid recycling this element to rowB while rowA's PUT is still in flight.
+      controls.value = rowB;
+      await settle();
+
+      const editBtnForRowB = controls.shadowRoot?.querySelector(
+        '#edit'
+      ) as HTMLElement & { disabled?: boolean };
+      expect(
+        editBtnForRowB.hasAttribute('disabled'),
+        'recycled rowB must remain interactive while rowA save is in flight'
+      ).to.be.false;
+
+      // Recycling back to rowA still reflects rowA's in-flight save until it completes.
+      controls.value = rowA;
+      await settle();
+      expect(saveBtnForRowA.hasAttribute('disabled')).to.be.true;
+
+      putSubject.next({ ...rowA, Value: 'new-a' });
+      putSubject.complete();
+      await settle();
+      expect(
+        editBtnForRowB.hasAttribute('disabled'),
+        'completed save clears rowA busy state'
+      ).to.be.false;
+    } finally {
+      putSpy.mockRestore();
+    }
+  });
+
   it('does not submit refreshed ciphertext when editing a secure row, toggling Visible To Scripts, and clicking Save without typing', async () => {
     let storedVisibleToScripts = false;
     const putPayloads: ConfigValueApiModel[] = [];
