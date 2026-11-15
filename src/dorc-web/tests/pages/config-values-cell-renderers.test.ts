@@ -152,9 +152,28 @@ describe('page-config-values-list editable cell renderers', () => {
 
   it('does not persist when VisibleToScripts is set programmatically', async () => {
     const updated: ConfigValue[] = [];
+    const visibilityUpdates: Array<{
+      id: number | undefined;
+      visibleToScripts: boolean;
+    }> = [];
     (
-      page as unknown as { updateConfigItem(v: ConfigValue): void }
+      page as unknown as {
+        updateConfigItem(v: ConfigValue): void;
+        updateConfigItemScriptVisibility(
+          id: number | undefined,
+          visibleToScripts: boolean
+        ): void;
+      }
     ).updateConfigItem = v => updated.push(v);
+    (
+      page as unknown as {
+        updateConfigItemScriptVisibility(
+          id: number | undefined,
+          visibleToScripts: boolean
+        ): void;
+      }
+    ).updateConfigItemScriptVisibility = (id, visibleToScripts) =>
+      visibilityUpdates.push({ id, visibleToScripts });
 
     render(
       page.isVisibleToScriptsRenderer({
@@ -174,6 +193,10 @@ describe('page-config-values-list editable cell renderers', () => {
     await settle();
 
     expect(updated, 'no update from a non-gesture change').to.deep.equal([]);
+    expect(
+      visibilityUpdates,
+      'no script-visibility update from a non-gesture change'
+    ).to.deep.equal([]);
   });
 
   it('persists a real click on IsForProd with Value and VisibleToScripts omitted', async () => {
@@ -350,42 +373,89 @@ describe('page-config-values-list editable cell renderers', () => {
     expect(await renderVisibility(false, true)).to.equal(true);
   });
 
-  it('persists a real script visibility change with Value omitted to avoid ciphertext re-encryption', async () => {
-    const updated: ConfigValue[] = [];
-    (
-      page as unknown as { updateConfigItem(v: ConfigValue): void }
-    ).updateConfigItem = v => updated.push(v);
+  it('persists a real script visibility change through the visibility-only endpoint without sending stale classifications', async () => {
+    const visibilityCalls: Array<{
+      id: number;
+      VisibleToScripts: boolean | undefined;
+    }> = [];
+    const visibilitySpy = vi
+      .spyOn(RefDataConfigApi.prototype, 'refDataConfigIdScriptVisibilityPut')
+      .mockImplementation(({ id, configValueScriptVisibilityApiModel }) => {
+        visibilityCalls.push({
+          id,
+          VisibleToScripts:
+            configValueScriptVisibilityApiModel?.VisibleToScripts
+        });
+        return of({
+          Id: id,
+          Key: 'SomeAccountPassword',
+          Value: 'enc:ciphertext',
+          Secure: true,
+          IsForProd: true,
+          VisibleToScripts:
+            configValueScriptVisibilityApiModel?.VisibleToScripts
+        }) as never;
+      });
+    const fullPutSpy = vi.spyOn(RefDataConfigApi.prototype, 'refDataConfigPut');
+    const getSpy = vi
+      .spyOn(RefDataConfigApi.prototype, 'refDataConfigGet')
+      .mockReturnValue(of([]) as never);
 
-    const original: ConfigValue = {
-      Id: 1,
-      Key: 'SomeAccountPassword',
-      Value: 'enc:ciphertext',
-      Secure: true,
-      IsForProd: true,
-      VisibleToScripts: false
-    };
-    render(page.isVisibleToScriptsRenderer(original) as never, host);
-    await settle();
-    const checkbox = host.querySelector('vaadin-checkbox') as HTMLElement;
-    expect(checkbox.getAttribute('title') ?? '').to.include(
-      'Reserved DOrc operating credentials'
-    );
-    (checkbox.querySelector('input') as HTMLInputElement | undefined)?.click();
-    await settle();
+    try {
+      const original: ConfigValue = {
+        Id: 1,
+        Key: 'SomeAccountPassword',
+        Value: 'enc:ciphertext',
+        Secure: true,
+        IsForProd: false,
+        VisibleToScripts: false
+      };
+      render(page.isVisibleToScriptsRenderer(original) as never, host);
+      await settle();
+      const checkbox = host.querySelector('vaadin-checkbox') as HTMLElement;
+      expect(checkbox.getAttribute('title') ?? '').to.include(
+        'Reserved DOrc operating credentials'
+      );
+      (
+        checkbox.querySelector('input') as HTMLInputElement | undefined
+      )?.click();
+      await settle();
 
-    expect(updated).to.deep.equal([
-      {
-        ...original,
-        Value: undefined,
-        VisibleToScripts: true
-      }
-    ]);
+      expect(visibilityCalls).to.deep.equal([
+        {
+          id: 1,
+          VisibleToScripts: true
+        }
+      ]);
+      expect(
+        fullPutSpy.mock.calls.length,
+        'full row PUT must not be called for a visibility-only toggle'
+      ).to.equal(0);
+    } finally {
+      visibilitySpy.mockRestore();
+      fullPutSpy.mockRestore();
+      getSpy.mockRestore();
+    }
   });
 
   it('disables all checkboxes for an in-flight row update and ignores concurrent toggles until refresh settles', async () => {
     const putSubject = new Subject<ConfigValueApiModel>();
+    const visibilityCalls: Array<{
+      id: number;
+      VisibleToScripts: boolean | undefined;
+    }> = [];
     const putCalls: ConfigValueApiModel[] = [];
 
+    const visibilitySpy = vi
+      .spyOn(RefDataConfigApi.prototype, 'refDataConfigIdScriptVisibilityPut')
+      .mockImplementation(({ id, configValueScriptVisibilityApiModel }) => {
+        visibilityCalls.push({
+          id,
+          VisibleToScripts:
+            configValueScriptVisibilityApiModel?.VisibleToScripts
+        });
+        return putSubject.asObservable() as never;
+      });
     const putSpy = vi
       .spyOn(RefDataConfigApi.prototype, 'refDataConfigPut')
       .mockImplementation(({ configValueApiModel }) => {
@@ -447,7 +517,10 @@ describe('page-config-values-list editable cell renderers', () => {
       )?.click();
       await settle();
 
-      expect(putCalls.length, 'initial PUT dispatched').to.equal(1);
+      expect(
+        visibilityCalls.length,
+        'initial script-visibility PUT dispatched'
+      ).to.equal(1);
 
       // Re-render row 1 and row 2 cells with updated reactive state.
       render(page.isSecuredRenderer(row1) as never, host);
@@ -482,7 +555,7 @@ describe('page-config-values-list editable cell renderers', () => {
       (
         page as unknown as { updateConfigItem(v: ConfigValue): void }
       ).updateConfigItem({ ...row1, IsForProd: true });
-      expect(putCalls.length, 'duplicate row 1 PUT suppressed').to.equal(1);
+      expect(putCalls.length, 'duplicate row 1 PUT suppressed').to.equal(0);
 
       // Complete the PUT; refresh runs synchronously via of([...]) and clears the lock.
       putSubject.next({ ...row1, VisibleToScripts: true });
@@ -497,6 +570,7 @@ describe('page-config-values-list editable cell renderers', () => {
       ).to.equal(false);
     } finally {
       hostOther.remove();
+      visibilitySpy.mockRestore();
       putSpy.mockRestore();
       getSpy.mockRestore();
     }
@@ -694,6 +768,10 @@ describe('page-config-values-list editable cell renderers', () => {
 
   it('does not submit refreshed ciphertext when editing a secure row, toggling Visible To Scripts, and clicking Save without typing', async () => {
     let storedVisibleToScripts = false;
+    const visibilityPayloads: Array<{
+      id: number;
+      VisibleToScripts: boolean | undefined;
+    }> = [];
     const putPayloads: ConfigValueApiModel[] = [];
 
     const getSpy = vi
@@ -714,16 +792,31 @@ describe('page-config-values-list editable cell renderers', () => {
     const rolesSpy = vi
       .spyOn(RefDataRolesApi.prototype, 'refDataRolesGet')
       .mockReturnValue(of(['Admin']) as never);
+    const visibilitySpy = vi
+      .spyOn(RefDataConfigApi.prototype, 'refDataConfigIdScriptVisibilityPut')
+      .mockImplementation(({ id, configValueScriptVisibilityApiModel }) => {
+        visibilityPayloads.push({
+          id,
+          VisibleToScripts:
+            configValueScriptVisibilityApiModel?.VisibleToScripts
+        });
+        storedVisibleToScripts = Boolean(
+          configValueScriptVisibilityApiModel?.VisibleToScripts
+        );
+        return of({
+          Id: id,
+          Key: 'ServiceAccountSecret',
+          Value: 'enc:ciphertext-from-api',
+          Secure: true,
+          IsForProd: true,
+          VisibleToScripts: storedVisibleToScripts
+        }) as never;
+      });
     const putSpy = vi
       .spyOn(RefDataConfigApi.prototype, 'refDataConfigPut')
       .mockImplementation(({ configValueApiModel }) => {
         if (configValueApiModel) {
           putPayloads.push({ ...configValueApiModel });
-          if (configValueApiModel.VisibleToScripts !== undefined) {
-            storedVisibleToScripts = Boolean(
-              configValueApiModel.VisibleToScripts
-            );
-          }
         }
         return of(configValueApiModel) as never;
       });
@@ -777,15 +870,16 @@ describe('page-config-values-list editable cell renderers', () => {
       await el.updateComplete;
       await settle();
 
-      expect(putPayloads.length, 'only the toggle PUT ran').to.equal(1);
-      expect(putPayloads[0]).to.deep.equal({
-        Id: 21,
-        Key: 'ServiceAccountSecret',
-        Value: undefined,
-        Secure: true,
-        IsForProd: true,
-        VisibleToScripts: true
-      });
+      expect(
+        visibilityPayloads,
+        'only the visibility-specific PUT ran'
+      ).to.deep.equal([
+        {
+          id: 21,
+          VisibleToScripts: true
+        }
+      ]);
+      expect(putPayloads.length, 'no full row PUT ran on toggle').to.equal(0);
       expect(
         controls().value.Value,
         'refreshed row carries ciphertext from API'
@@ -809,7 +903,7 @@ describe('page-config-values-list editable cell renderers', () => {
       expect(
         putPayloads.length,
         'clicking Save without typing a secret does not submit ciphertext'
-      ).to.equal(1);
+      ).to.equal(0);
       expect(controls().saveHidden, 'exited edit mode cleanly').to.equal(true);
       expect(
         passwordField().value,
@@ -822,6 +916,7 @@ describe('page-config-values-list editable cell renderers', () => {
     } finally {
       getSpy.mockRestore();
       rolesSpy.mockRestore();
+      visibilitySpy.mockRestore();
       putSpy.mockRestore();
     }
   });
@@ -829,6 +924,10 @@ describe('page-config-values-list editable cell renderers', () => {
   it('preserves a typed secret draft across Visible To Scripts refresh and submits only the typed plaintext on Save', async () => {
     let storedVisibleToScripts = false;
     let storedCiphertext = 'enc:initial-ciphertext';
+    const visibilityPayloads: Array<{
+      id: number;
+      VisibleToScripts: boolean | undefined;
+    }> = [];
     const putPayloads: ConfigValueApiModel[] = [];
 
     const getSpy = vi
@@ -849,16 +948,31 @@ describe('page-config-values-list editable cell renderers', () => {
     const rolesSpy = vi
       .spyOn(RefDataRolesApi.prototype, 'refDataRolesGet')
       .mockReturnValue(of(['Admin']) as never);
+    const visibilitySpy = vi
+      .spyOn(RefDataConfigApi.prototype, 'refDataConfigIdScriptVisibilityPut')
+      .mockImplementation(({ id, configValueScriptVisibilityApiModel }) => {
+        visibilityPayloads.push({
+          id,
+          VisibleToScripts:
+            configValueScriptVisibilityApiModel?.VisibleToScripts
+        });
+        storedVisibleToScripts = Boolean(
+          configValueScriptVisibilityApiModel?.VisibleToScripts
+        );
+        return of({
+          Id: id,
+          Key: 'DatabasePassword',
+          Value: storedCiphertext,
+          Secure: true,
+          IsForProd: false,
+          VisibleToScripts: storedVisibleToScripts
+        }) as never;
+      });
     const putSpy = vi
       .spyOn(RefDataConfigApi.prototype, 'refDataConfigPut')
       .mockImplementation(({ configValueApiModel }) => {
         if (configValueApiModel) {
           putPayloads.push({ ...configValueApiModel });
-          if (configValueApiModel.VisibleToScripts !== undefined) {
-            storedVisibleToScripts = Boolean(
-              configValueApiModel.VisibleToScripts
-            );
-          }
           if (configValueApiModel.Value !== undefined) {
             storedCiphertext = `enc:${configValueApiModel.Value}`;
           }
@@ -928,15 +1042,13 @@ describe('page-config-values-list editable cell renderers', () => {
       await el.updateComplete;
       await settle();
 
-      expect(putPayloads).to.deep.equal([
+      expect(visibilityPayloads).to.deep.equal([
         {
-          Id: 22,
-          Key: 'DatabasePassword',
-          Value: undefined,
-          Secure: true,
-          IsForProd: false,
+          id: 22,
           VisibleToScripts: true
-        },
+        }
+      ]);
+      expect(putPayloads).to.deep.equal([
         {
           Id: 22,
           Key: 'DatabasePassword',
@@ -960,6 +1072,7 @@ describe('page-config-values-list editable cell renderers', () => {
     } finally {
       getSpy.mockRestore();
       rolesSpy.mockRestore();
+      visibilitySpy.mockRestore();
       putSpy.mockRestore();
     }
   });
@@ -967,7 +1080,10 @@ describe('page-config-values-list editable cell renderers', () => {
   it('falls back gracefully on an invalid search regex like "[" so toggling Visible To Scripts refreshes and unlocks cleanly', async () => {
     let storedVisibleToScripts = false;
     const putSubject = new Subject<ConfigValueApiModel>();
-    const putPayloads: ConfigValueApiModel[] = [];
+    const visibilityPayloads: Array<{
+      id: number;
+      VisibleToScripts: boolean | undefined;
+    }> = [];
 
     const currentRows = (): ConfigValueApiModel[] => [
       {
@@ -994,17 +1110,17 @@ describe('page-config-values-list editable cell renderers', () => {
     const rolesSpy = vi
       .spyOn(RefDataRolesApi.prototype, 'refDataRolesGet')
       .mockReturnValue(of(['Admin']) as never);
-    const putSpy = vi
-      .spyOn(RefDataConfigApi.prototype, 'refDataConfigPut')
-      .mockImplementation(({ configValueApiModel }) => {
-        if (configValueApiModel) {
-          putPayloads.push({ ...configValueApiModel });
-          if (configValueApiModel.VisibleToScripts !== undefined) {
-            storedVisibleToScripts = Boolean(
-              configValueApiModel.VisibleToScripts
-            );
-          }
-        }
+    const visibilitySpy = vi
+      .spyOn(RefDataConfigApi.prototype, 'refDataConfigIdScriptVisibilityPut')
+      .mockImplementation(({ id, configValueScriptVisibilityApiModel }) => {
+        visibilityPayloads.push({
+          id,
+          VisibleToScripts:
+            configValueScriptVisibilityApiModel?.VisibleToScripts
+        });
+        storedVisibleToScripts = Boolean(
+          configValueScriptVisibilityApiModel?.VisibleToScripts
+        );
         return putSubject.asObservable() as never;
       });
 
@@ -1050,13 +1166,9 @@ describe('page-config-values-list editable cell renderers', () => {
       await el.updateComplete;
       await settle();
 
-      expect(putPayloads).to.deep.equal([
+      expect(visibilityPayloads).to.deep.equal([
         {
-          Id: 31,
-          Key: 'Bracket[0]Secret',
-          Value: undefined,
-          Secure: true,
-          IsForProd: false,
+          id: 31,
           VisibleToScripts: true
         }
       ]);
@@ -1081,7 +1193,7 @@ describe('page-config-values-list editable cell renderers', () => {
     } finally {
       getSpy.mockRestore();
       rolesSpy.mockRestore();
-      putSpy.mockRestore();
+      visibilitySpy.mockRestore();
     }
   });
 });

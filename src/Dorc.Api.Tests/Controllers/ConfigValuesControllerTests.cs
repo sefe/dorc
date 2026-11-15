@@ -95,8 +95,45 @@ namespace Dorc.Api.Tests.Controllers
 
             Assert.IsInstanceOfType<ForbidResult>(_refDataConfigController.Post(model));
             Assert.IsInstanceOfType<ForbidResult>(_refDataConfigController.Put(7, model));
+            Assert.IsInstanceOfType<ForbidResult>(_refDataConfigController.PutScriptVisibility(
+                7,
+                new ConfigValueScriptVisibilityApiModel { VisibleToScripts = true }));
             _configValues.DidNotReceiveWithAnyArgs().Add(default!);
             _configValues.DidNotReceiveWithAnyArgs().UpdateConfigValue(default!);
+            _configValues.DidNotReceiveWithAnyArgs().UpdateConfigValueScriptVisibility(default, default);
+        }
+
+        [TestMethod]
+        public void RefDataConfig_PutScriptVisibility_AdminUpdatesOnlyVisibilityAndMapsNotFoundOrBadRequest()
+        {
+            _roleChecker.IsAdmin(Arg.Any<IPrincipal>()).Returns(true);
+            var updated = new ConfigValueApiModel
+            {
+                Id = 7,
+                Key = "SomeSecret",
+                Value = "enc:secret",
+                Secure = true,
+                IsForProd = true,
+                VisibleToScripts = false
+            };
+            _configValues.UpdateConfigValueScriptVisibility(7, false).Returns(updated);
+
+            var ok = (OkObjectResult)_refDataConfigController.PutScriptVisibility(
+                7,
+                new ConfigValueScriptVisibilityApiModel { VisibleToScripts = false });
+            Assert.AreSame(updated, ok.Value);
+
+            _configValues.UpdateConfigValueScriptVisibility(999, true)
+                .Returns<ConfigValueApiModel>(_ => throw new KeyNotFoundException("missing"));
+            Assert.IsInstanceOfType<NotFoundObjectResult>(_refDataConfigController.PutScriptVisibility(
+                999,
+                new ConfigValueScriptVisibilityApiModel { VisibleToScripts = true }));
+
+            _configValues.UpdateConfigValueScriptVisibility(8, false)
+                .Returns<ConfigValueApiModel>(_ => throw new ArgumentException("non-secure"));
+            Assert.IsInstanceOfType<BadRequestObjectResult>(_refDataConfigController.PutScriptVisibility(
+                8,
+                new ConfigValueScriptVisibilityApiModel { VisibleToScripts = false }));
         }
     }
 }

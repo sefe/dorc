@@ -97,6 +97,7 @@ models/ComponentApiModelTemplateApiModel.ts
 models/ComponentAuditApiModel.ts
 models/ComponentType.ts
 models/ConfigValueApiModel.ts
+models/ConfigValueScriptVisibilityApiModel.ts
 models/ContainerApiModel.ts
 models/CopyEnvBuildDto.ts
 models/CopyEnvBuildResponseDto.ts

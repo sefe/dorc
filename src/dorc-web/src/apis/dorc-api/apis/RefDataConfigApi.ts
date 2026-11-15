@@ -13,14 +13,20 @@
 
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
-import { BaseAPI } from '../runtime';
+import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
 import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     ConfigValueApiModel,
+    ConfigValueScriptVisibilityApiModel,
 } from '../models';
 
 export interface RefDataConfigDeleteRequest {
     id?: number;
+}
+
+export interface RefDataConfigIdScriptVisibilityPutRequest {
+    id: number;
+    configValueScriptVisibilityApiModel?: ConfigValueScriptVisibilityApiModel;
 }
 
 export interface RefDataConfigPostRequest {
@@ -84,6 +90,32 @@ export class RefDataConfigApi extends BaseAPI {
             url: '/RefDataConfig',
             method: 'GET',
             headers,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    refDataConfigIdScriptVisibilityPut({ id, configValueScriptVisibilityApiModel }: RefDataConfigIdScriptVisibilityPutRequest): Observable<ConfigValueApiModel>
+    refDataConfigIdScriptVisibilityPut({ id, configValueScriptVisibilityApiModel }: RefDataConfigIdScriptVisibilityPutRequest, opts?: OperationOpts): Observable<AjaxResponse<ConfigValueApiModel>>
+    refDataConfigIdScriptVisibilityPut({ id, configValueScriptVisibilityApiModel }: RefDataConfigIdScriptVisibilityPutRequest, opts?: OperationOpts): Observable<ConfigValueApiModel | AjaxResponse<ConfigValueApiModel>> {
+        throwIfNullOrUndefined(id, 'id', 'refDataConfigIdScriptVisibilityPut');
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<ConfigValueApiModel>({
+            url: '/RefDataConfig/{id}/script-visibility'.replace('{id}', encodeURI(id)),
+            method: 'PUT',
+            headers,
+            body: configValueScriptVisibilityApiModel,
         }, opts?.responseOpts);
     };
 

@@ -156,6 +156,43 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
     });
   }
 
+  private updateConfigItemScriptVisibility(
+    id: number | undefined,
+    visibleToScripts: boolean
+  ): void {
+    const api = new RefDataConfigApi(dorcApiConfiguration);
+
+    if (id == null) {
+      console.error(
+        'Missing Id on ConfigValueApiModel when updating script visibility'
+      );
+      return;
+    }
+
+    if (this.updatingConfigIds.has(id)) {
+      return;
+    }
+
+    this.setRowUpdating(id, true);
+
+    api
+      .refDataConfigIdScriptVisibilityPut({
+        id,
+        configValueScriptVisibilityApiModel: {
+          VisibleToScripts: visibleToScripts
+        }
+      })
+      .subscribe({
+        next: () => {
+          this.getConfigValuesList(() => this.setRowUpdating(id, false));
+        },
+        error: (err: any) => {
+          console.error('Script visibility update failed', err);
+          this.getConfigValuesList(() => this.setRowUpdating(id, false));
+        }
+      });
+  }
+
   static get styles() {
     return css`
       :host {
@@ -526,11 +563,10 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
       .checked="${live(Boolean(configValue.VisibleToScripts))}"
       @change="${(e: Event) => {
         if (this.isRowUpdating(configValue)) return;
-        this.updateConfigItem({
-          ...configValue,
-          Value: undefined,
-          VisibleToScripts: (e.currentTarget as Checkbox).checked
-        });
+        this.updateConfigItemScriptVisibility(
+          configValue.Id,
+          (e.currentTarget as Checkbox).checked
+        );
       }}"
     ></vaadin-checkbox>`;
   }

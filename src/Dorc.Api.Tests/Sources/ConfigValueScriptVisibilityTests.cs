@@ -437,5 +437,40 @@ namespace Dorc.Api.Tests.Sources
                 IsForProd = true
             }));
         }
+
+        [TestMethod]
+        public void UpdateConfigValueScriptVisibility_UpdatesOnlyVisibilityAndPreservesConcurrentTierAndSecret()
+        {
+            _stored.Add(new ConfigValue
+            {
+                Id = 51,
+                Key = "SharedSecret",
+                Value = "enc:untouched-secret",
+                Secure = true,
+                IsForProd = true,
+                VisibleToScripts = true
+            });
+            _stored.Add(new ConfigValue
+            {
+                Id = 52,
+                Key = "PlainSetting",
+                Value = "plain",
+                Secure = false,
+                IsForProd = false,
+                VisibleToScripts = true
+            });
+
+            var updated = _source.UpdateConfigValueScriptVisibility(51, visibleToScripts: false);
+
+            var persisted = _stored.Single(cv => cv.Id == 51);
+            Assert.IsFalse(persisted.VisibleToScripts);
+            Assert.AreEqual(true, persisted.IsForProd, "Visibility-only update must not overwrite concurrent IsForProd changes.");
+            Assert.AreEqual("enc:untouched-secret", persisted.Value);
+            Assert.IsFalse(updated.VisibleToScripts);
+            Assert.AreEqual(true, updated.IsForProd);
+
+            Assert.ThrowsExactly<ArgumentException>(() => _source.UpdateConfigValueScriptVisibility(52, visibleToScripts: false));
+            Assert.ThrowsExactly<KeyNotFoundException>(() => _source.UpdateConfigValueScriptVisibility(999, visibleToScripts: true));
+        }
     }
 }

@@ -214,6 +214,31 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public ConfigValueApiModel UpdateConfigValueScriptVisibility(int configValueId, bool visibleToScripts)
+        {
+            lock (CredentialKeyMutationLock)
+            {
+                using var context = _contextFactory.GetContext();
+                return ExecuteInSerializableTransaction(context, () =>
+                {
+                    var configValue = context.ConfigValues.FirstOrDefault(pv => pv.Id == configValueId);
+                    if (configValue == null)
+                    {
+                        throw new KeyNotFoundException($"Config value with Id {configValueId} was not found.");
+                    }
+
+                    if (!configValue.Secure)
+                    {
+                        throw new ArgumentException("Script visibility can only be changed on secure configuration values.");
+                    }
+
+                    configValue.VisibleToScripts = visibleToScripts;
+                    context.SaveChanges();
+                    return MapToConfigValueApiModel(configValue);
+                });
+            }
+        }
+
         private static readonly object CredentialKeyMutationLock = new();
 
         public ConfigValueApiModel? Add(ConfigValueApiModel model)
