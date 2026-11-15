@@ -10,11 +10,11 @@
     -- (File.ReadAllText -> Encoding.UTF8.GetBytes) the runner is expected to execute, matching
     -- PowerShellExecutionReceipt.TextSha256 (lower-cased).
     --
-    -- NULL means unrecorded, which is the state every existing row is in and is never itself a
-    -- refusal: a script executed for the first time after this shipped has no recorded hash
-    -- through nobody's fault. The deployment path records one on first use and verifies against
-    -- it thereafter, so what this detects is CHANGE after recording - which is the attack, the
-    -- share being written to and every subsequent deployment executing the altered script.
+    -- NULL means unrecorded (the initial state of existing rows and of rows whose Path was
+    -- edited). Behavior depends on ScriptContentVerificationMode (SPEC S-018 §2.3): in Off and
+    -- Report modes, NULL is not refused and Report records the observed hash on first use; in
+    -- Enforce mode, NULL is refused without automatic capture so unbaselined or path-reset
+    -- scripts must be explicitly recorded before dispatch.
     --
     -- Text rather than BINARY(32) because it is compared, displayed and set over an API far more
     -- often than it is stored, and a promotion pipeline recording one is handing over hex.
