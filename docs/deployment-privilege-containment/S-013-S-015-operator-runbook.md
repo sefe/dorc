@@ -47,7 +47,23 @@ and the difference decides whether this step is complete.
 
 ### Find the current call sites
 
-Run against both script folders — production and System Test. Read-only.
+Reconcile the scan locations before scanning: the two standard share folders below cover only
+scripts under those roots, whereas `IS-deployment-privilege-containment.md` (S-016) records three
+active script rows resolving outside `ScriptRoot` (plus JSON-path rows requiring manual review), and
+S-017 still permits off-share execution while `AppSettings:EnforceScriptPathConfinement` remains in
+report mode. Scanning only the two share folders therefore cannot prove every live consumer has
+migrated — withholding `DORC_NonProdDeployPassword` would break any unscanned off-share consumer.
+
+Before declaring S-013 complete:
+
+1. Confirm every deployed `AppSettings:ScriptRoot` across production and non-production Monitor
+   hosts and include any additional roots in `$roots`.
+2. Run `S-016-off-share-script-paths.sql` (including manual inspection of the JSON-path worklist)
+   and either **remediate** the off-share rows first (relocating them onto the gated share or
+   disabling dead components per S-016) or include every active off-share script path/directory in
+   `$offSharePaths` below so no live execution location goes unscanned.
+
+Run against all reconciled script roots and any remaining active off-share script paths. Read-only.
 
 ```powershell
 # The four keys whose consumption gates the denylist.
@@ -58,14 +74,29 @@ $keys = @(
     'DorcApiAccessPassword'
 )
 
+# Reconcile against every deployed Monitor AppSettings:ScriptRoot value.
 $roots = @(
     '\\itss.global\prod\GLO\APP\DORC\Scripts\Scripts.PR',
     '\\itss.global\prod\GLO\APP\DORC\Scripts\Scripts.ST'
 )
 
+# Populate from S-016-off-share-script-paths.sql (direct off-share rows + inspected JSON-path rows)
+# for any active component not yet relocated onto $roots or disabled under S-016.
+$offSharePaths = @(
+    # e.g. '\\fileserver\share\path\to\off-share-script.ps1'
+)
+
 foreach ($root in $roots) {
     Write-Host "=== $root ==="
     Get-ChildItem -Path $root -Recurse -Include *.ps1,*.psm1 -ErrorAction Stop |
+        Select-String -Pattern ($keys -join '|') -ErrorAction Stop |
+        Select-Object Path, LineNumber, Line |
+        Format-List
+}
+
+foreach ($scriptPath in $offSharePaths) {
+    Write-Host "=== Off-share: $scriptPath ==="
+    Get-Item -LiteralPath $scriptPath -ErrorAction Stop |
         Select-String -Pattern ($keys -join '|') -ErrorAction Stop |
         Select-Object Path, LineNumber, Line |
         Format-List
@@ -109,9 +140,14 @@ S-018, `PUT /RefDataScripts/{id}/content-hash`) before dispatching edited script
 
 ### Verification
 
+- Every off-share row identified by `S-016-off-share-script-paths.sql` (including inspected
+  JSON-path rows) has either been remediated under S-016 (repointed onto a scanned `ScriptRoot` or
+  disabled) or explicitly included in `$offSharePaths` and scanned while S-017 remains in report
+  mode.
 - Each migrated script deploys successfully.
-- Re-running the `-ErrorAction Stop` scans above (without `-List`) across both script roots
-  completes with zero enumeration/read errors and confirms:
+- Re-running the `-ErrorAction Stop` scans above (without `-List`) across all reconciled
+  `$roots` **and** any remaining active `$offSharePaths` completes with zero enumeration/read
+  errors and confirms:
   - **Zero** remaining reads from the injected variable scope on any line of any file for the
     **four operator keys** (`DORC_ProdDeployPassword`, `DORC_NonProdDeployPassword` — including
     the truncated `DORC_NonProdDeployPassw` pattern — `DORC_WebDeployPassword`, and
