@@ -67,7 +67,8 @@ foreach ($root in $roots) {
     Write-Host "=== $root ==="
     Get-ChildItem -Path $root -Recurse -Include *.ps1,*.psm1 -ErrorAction Stop |
         Select-String -Pattern ($keys -join '|') -ErrorAction Stop |
-        Select-Object Path, LineNumber, Line
+        Select-Object Path, LineNumber, Line |
+        Format-List
 }
 ```
 
@@ -101,9 +102,10 @@ rather than editing the `.ps1` file in place on the share, supply the current co
 impact preconditions required by `DeploymentDefinitions`: every `PUT /RefDataScripts/edit` call
 unconditionally requires `Revision`, `ConfirmImpact = true`, and the exact complete
 `AffectedProjectIds` list (including when a `Script` row is used by only a single project), and
-`PUT /RefData` requires the project's current `Revision`. If S-018 script content verification
-has already been switched to `Enforce` mode on the instance, re-record the updated file's baseline
-via `PUT /RefDataScripts/{id}/content-hash` before dispatching.
+`PUT /RefData` requires the project's current `Revision`. Note for future releases once S-018
+script content verification is deployed and switched to `Enforce` mode (not implemented at this
+point in the sequence): follow the deployed release's documented baseline-update procedure (in
+S-018, `PUT /RefDataScripts/{id}/content-hash`) before dispatching edited scripts.
 
 ### Verification
 
@@ -201,13 +203,18 @@ individually (if two `ConfigValue` rows share the same underlying directory/serv
 pause and drain consumers across both populations in step 1 and update **every** corresponding
 `ConfigValue` row in step 3 before running verification).
 
-1. **Pause new deployment work and drain affected in-flight consumers** before rotating the
-   account. Rotating while deployments are active can cause authentication failures (and directory
-   account lockouts): in-flight requests retain script-facing secrets already captured by
-   `PendingRequestProcessor.SetUpConfigValuesAsProperties`, and any request or component dispatch
-   starting between target rotation (step 2) and the DOrc `ConfigValue` update (step 3) receives
-   the old value. (The earlier drain in S-013 covers only the host restart, not each rotation.)
-   Keep ordinary deployment work paused until all corresponding `ConfigValue` rows for that
+1. **Pause new deployment work and drain all affected authentication consumers** before rotating
+   the account — including `DaemonStatusProbe` service status/discovery/control calls (which
+   authenticate with the deployment credentials) and `ResetAppPasswordController` SQL password
+   reset requests (which authenticate with the non-production deployment credential), while
+   preserving administrative DOrc UI/API access to update configuration in step 3. Rotating while
+   deployments, daemon probes, or password resets are active can cause authentication failures and
+   directory account lockouts: in-flight requests retain script-facing secrets already captured by
+   `PendingRequestProcessor.SetUpConfigValuesAsProperties`, and any deployment dispatch, daemon
+   probe, or SQL password reset executing between target rotation (step 2) and the DOrc
+   `ConfigValue` update (step 3) submits the old password. (The earlier drain in S-013 covers only
+   the host restart, not each rotation.) Keep ordinary deployment work, daemon status/control
+   activity, and SQL password resets paused until all corresponding `ConfigValue` rows for that
    account are updated and the controlled verification deployment(s) in step 4 succeed.
 2. Rotate the target account password or client secret in the directory / identity store.
 3. Update every corresponding `ConfigValue` row (`IsForProd = 0`, `IsForProd = 1`, or the single
