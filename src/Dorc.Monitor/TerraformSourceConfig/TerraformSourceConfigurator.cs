@@ -287,9 +287,13 @@ namespace Dorc.Monitor.TerraformSourceConfig
             var anchoredSubRoots = subEntries
                 .Where(s => PathConfinement.Canonicalise(s) != null)
                 .ToList();
-            var relativeSubPaths = subEntries
-                .Where(s => PathConfinement.Canonicalise(s) == null && ScriptPathConfinement.Check(s).Allowed)
+            var unanchoredSubEntries = subEntries
+                .Where(s => PathConfinement.Canonicalise(s) == null)
                 .ToList();
+            var relativeSubPaths = unanchoredSubEntries
+                .Where(s => ScriptPathConfinement.Check(s).Allowed)
+                .ToList();
+            var rejectedAllRelativeSubPaths = unanchoredSubEntries.Count > 0 && relativeSubPaths.Count == 0;
 
             var allowedRoots = new List<string>();
             allowedRoots.AddRange(anchoredSubRoots);
@@ -310,7 +314,7 @@ namespace Dorc.Monitor.TerraformSourceConfig
                         }
                     }
                 }
-                else
+                else if (!rejectedAllRelativeSubPaths)
                 {
                     allowedRoots.AddRange(urlRoots);
                 }

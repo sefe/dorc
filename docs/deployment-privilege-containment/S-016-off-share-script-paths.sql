@@ -105,10 +105,10 @@ Classified AS (
                 WHEN LTRIM(s.EffectivePath) LIKE N'\%'
                   OR LTRIM(s.EffectivePath) LIKE N'/%'                              THEN 'absolute: rooted'
                 WHEN LTRIM(s.EffectivePath) LIKE N'[A-Za-z]:%'                      THEN 'absolute: drive-qualified (verify under ScriptRoot or rewrite relative)'
-                WHEN REPLACE(LTRIM(RTRIM(s.EffectivePath)), N'/', N'\') = N'..'
-                  OR REPLACE(LTRIM(RTRIM(s.EffectivePath)), N'/', N'\') LIKE N'..\%'
-                  OR REPLACE(LTRIM(RTRIM(s.EffectivePath)), N'/', N'\') LIKE N'%\..'
-                  OR REPLACE(LTRIM(RTRIM(s.EffectivePath)), N'/', N'\') LIKE N'%\..\%'
+                WHEN EXISTS (
+                        SELECT 1
+                        FROM STRING_SPLIT(REPLACE(s.EffectivePath, N'/', N'\'), N'\')
+                        WHERE LTRIM(RTRIM([value])) = N'..')
                   OR LOWER(s.EffectivePath) LIKE N'%~%2e~%2e%' ESCAPE N'~'          THEN 'traversal'
                 WHEN LOWER(s.EffectivePath) LIKE N'%$dropfolder%'
                   OR LOWER(s.EffectivePath) LIKE N'%${dropfolder}%'
@@ -186,10 +186,10 @@ Verdicts AS (
                 WHEN LTRIM(EffectivePath) LIKE N'\%'
                   OR LTRIM(EffectivePath) LIKE N'/%'                            THEN 'absolute: rooted'
                 WHEN LTRIM(EffectivePath) LIKE N'[A-Za-z]:%'                    THEN 'absolute: drive-qualified (verify under ScriptRoot or rewrite relative)'
-                WHEN REPLACE(LTRIM(RTRIM(EffectivePath)), N'/', N'\') = N'..'
-                  OR REPLACE(LTRIM(RTRIM(EffectivePath)), N'/', N'\') LIKE N'..\%'
-                  OR REPLACE(LTRIM(RTRIM(EffectivePath)), N'/', N'\') LIKE N'%\..'
-                  OR REPLACE(LTRIM(RTRIM(EffectivePath)), N'/', N'\') LIKE N'%\..\%'
+                WHEN EXISTS (
+                        SELECT 1
+                        FROM STRING_SPLIT(REPLACE(EffectivePath, N'/', N'\'), N'\')
+                        WHERE LTRIM(RTRIM([value])) = N'..')
                   OR LOWER(EffectivePath) LIKE N'%~%2e~%2e%' ESCAPE N'~'        THEN 'traversal'
                 WHEN LOWER(EffectivePath) LIKE N'%$dropfolder%'
                   OR LOWER(EffectivePath) LIKE N'%${dropfolder}%'
@@ -298,10 +298,10 @@ WHERE       (s.IsPathJSON = 1 AND (COALESCE(ISJSON(s.StoredPath), 0) = 0
          OR LTRIM(s.EffectivePath) LIKE N'\%'
          OR LTRIM(s.EffectivePath) LIKE N'/%'
          OR LTRIM(s.EffectivePath) LIKE N'[A-Za-z]:%'
-         OR REPLACE(LTRIM(RTRIM(s.EffectivePath)), N'/', N'\') = N'..'
-         OR REPLACE(LTRIM(RTRIM(s.EffectivePath)), N'/', N'\') LIKE N'..\%'
-         OR REPLACE(LTRIM(RTRIM(s.EffectivePath)), N'/', N'\') LIKE N'%\..'
-         OR REPLACE(LTRIM(RTRIM(s.EffectivePath)), N'/', N'\') LIKE N'%\..\%'
+         OR EXISTS (
+                SELECT 1
+                FROM STRING_SPLIT(REPLACE(s.EffectivePath, N'/', N'\'), N'\')
+                WHERE LTRIM(RTRIM([value])) = N'..')
          OR LOWER(s.EffectivePath) LIKE N'%~%2e~%2e%' ESCAPE N'~'
          OR LOWER(s.EffectivePath) LIKE N'%$dropfolder%'
          OR LOWER(s.EffectivePath) LIKE N'%${dropfolder}%'
@@ -542,10 +542,10 @@ FlaggedSnapshots AS (
                         WHEN LTRIM(s.FrozenEffectiveScriptPath) LIKE N'\%'
                           OR LTRIM(s.FrozenEffectiveScriptPath) LIKE N'/%' THEN 'frozen PowerShell snapshot: rooted path (drain or cancel & resubmit)'
                         WHEN LTRIM(s.FrozenEffectiveScriptPath) LIKE N'[A-Za-z]:%' THEN 'frozen PowerShell snapshot: drive-qualified path (verify under ScriptRoot or cancel & resubmit)'
-                        WHEN REPLACE(LTRIM(RTRIM(s.FrozenEffectiveScriptPath)), N'/', N'\') = N'..'
-                          OR REPLACE(LTRIM(RTRIM(s.FrozenEffectiveScriptPath)), N'/', N'\') LIKE N'..\%'
-                          OR REPLACE(LTRIM(RTRIM(s.FrozenEffectiveScriptPath)), N'/', N'\') LIKE N'%\..'
-                          OR REPLACE(LTRIM(RTRIM(s.FrozenEffectiveScriptPath)), N'/', N'\') LIKE N'%\..\%'
+                        WHEN EXISTS (
+                                SELECT 1
+                                FROM STRING_SPLIT(REPLACE(s.FrozenEffectiveScriptPath, N'/', N'\'), N'\')
+                                WHERE LTRIM(RTRIM([value])) = N'..')
                           OR LOWER(s.FrozenEffectiveScriptPath) LIKE N'%~%2e~%2e%' ESCAPE N'~' THEN 'frozen PowerShell snapshot: traversal (cancel & resubmit)'
                         WHEN LOWER(s.FrozenEffectiveScriptPath) LIKE N'%$dropfolder%'
                           OR LOWER(s.FrozenEffectiveScriptPath) LIKE N'%${dropfolder}%'
@@ -559,10 +559,10 @@ FlaggedSnapshots AS (
                 WHEN s.ComponentType = 1 AND s.TerraformSourceType = 0 THEN
                     CASE
                         WHEN s.FrozenComponentScriptPath IS NULL OR LTRIM(RTRIM(s.FrozenComponentScriptPath)) = '' THEN 'frozen SharedFolder snapshot: empty path'
-                        WHEN REPLACE(LTRIM(RTRIM(s.FrozenComponentScriptPath)), N'/', N'\') = N'..'
-                          OR REPLACE(LTRIM(RTRIM(s.FrozenComponentScriptPath)), N'/', N'\') LIKE N'..\%'
-                          OR REPLACE(LTRIM(RTRIM(s.FrozenComponentScriptPath)), N'/', N'\') LIKE N'%\..'
-                          OR REPLACE(LTRIM(RTRIM(s.FrozenComponentScriptPath)), N'/', N'\') LIKE N'%\..\%'
+                        WHEN EXISTS (
+                                SELECT 1
+                                FROM STRING_SPLIT(REPLACE(s.FrozenComponentScriptPath, N'/', N'\'), N'\')
+                                WHERE LTRIM(RTRIM([value])) = N'..')
                           OR PATINDEX(N'%[%][0-9A-Fa-f][0-9A-Fa-f]%', s.FrozenComponentScriptPath) > 0 THEN 'frozen SharedFolder snapshot: traversal or percent-encoded sequence'
                         WHEN s.FrozenTerraformSubPath IS NOT NULL
                          AND LTRIM(RTRIM(s.FrozenTerraformSubPath)) <> ''
@@ -570,17 +570,17 @@ FlaggedSnapshots AS (
                            OR LTRIM(s.FrozenTerraformSubPath) LIKE N'/%'
                            OR LTRIM(s.FrozenTerraformSubPath) LIKE N'[A-Za-z]:%'
                            OR s.FrozenTerraformSubPath LIKE N'%:%'
-                           OR REPLACE(LTRIM(RTRIM(s.FrozenTerraformSubPath)), N'/', N'\') = N'..'
-                           OR REPLACE(LTRIM(RTRIM(s.FrozenTerraformSubPath)), N'/', N'\') LIKE N'..\%'
-                           OR REPLACE(LTRIM(RTRIM(s.FrozenTerraformSubPath)), N'/', N'\') LIKE N'%\..'
-                           OR REPLACE(LTRIM(RTRIM(s.FrozenTerraformSubPath)), N'/', N'\') LIKE N'%\..\%'
+                           OR EXISTS (
+                                SELECT 1
+                                FROM STRING_SPLIT(REPLACE(s.FrozenTerraformSubPath, N'/', N'\'), N'\')
+                                WHERE LTRIM(RTRIM([value])) = N'..')
                            OR PATINDEX(N'%[%][0-9A-Fa-f][0-9A-Fa-f]%', s.FrozenTerraformSubPath) > 0) THEN 'frozen SharedFolder snapshot: unconfined TerraformSubPath'
                         WHEN LTRIM(s.FrozenComponentScriptPath) NOT LIKE N'\\%'
                          AND LTRIM(s.FrozenComponentScriptPath) NOT LIKE N'//%'
                          AND LTRIM(s.FrozenComponentScriptPath) NOT LIKE N'[A-Za-z]:\%'
                          AND LTRIM(s.FrozenComponentScriptPath) NOT LIKE N'[A-Za-z]:/%'
                          AND LOWER(LTRIM(s.FrozenComponentScriptPath)) NOT LIKE N'file://%' THEN 'frozen SharedFolder snapshot: relative path (not anchored)'
-                        ELSE NULL
+                        ELSE 'frozen SharedFolder snapshot: anchored path (verify under frozen ProjectJson roots or drain before enabling enforcement)'
                     END
                 ELSE NULL
             END AS SnapshotIssue

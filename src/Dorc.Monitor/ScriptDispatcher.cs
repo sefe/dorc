@@ -590,6 +590,11 @@ namespace Dorc.Monitor
                 failureReason = "it is marked as a JSON script path but is not valid JSON.";
                 return false;
             }
+            catch (ArgumentException)
+            {
+                failureReason = "it is a JSON script path with duplicate JSON property names.";
+                return false;
+            }
         }
 
         private void Report(bool enforcing, string? scriptPath, string scriptsLocation, string reason)
