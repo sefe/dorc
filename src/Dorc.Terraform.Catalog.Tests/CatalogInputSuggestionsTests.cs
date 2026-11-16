@@ -161,6 +161,11 @@ namespace Dorc.Terraform.Catalog.Tests
             Assert.AreEqual("pp", CatalogInputSuggestions.EnvironmentTier(overridePp, out var overrideReason));
             StringAssert.Contains(overrideReason, "preprod");
 
+            foreach (var ffEnv in new[] { "APP FF 01", "APP FIXONFAIL 01", "APP FOF 01" })
+            {
+                Assert.AreEqual("ff", CatalogInputSuggestions.EnvironmentTier(Ctx(ffEnv), out _));
+            }
+
             // Explicit ephemeral override on prod environment is rejected and falls back to pr.
             var invalidProdOverride = new CatalogInputSuggestions.Context("Billing", true, "tr", "app", IsEphemeral: false, ExplicitTierOverride: "eph");
             Assert.AreEqual("pr", CatalogInputSuggestions.EnvironmentTier(invalidProdOverride, out var prodOverrideReason));

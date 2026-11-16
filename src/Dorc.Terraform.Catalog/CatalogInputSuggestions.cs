@@ -76,7 +76,7 @@ namespace Dorc.Terraform.Catalog
                 ["it"] = "it", ["int"] = "it", ["integration"] = "it",
                 ["ut"] = "ut", ["uat"] = "ut",
                 ["pp"] = "pp", ["preprod"] = "pp", ["pre"] = "pp", ["staging"] = "pp", ["stg"] = "pp",
-                ["ff"] = "ff",
+                ["ff"] = "ff", ["fixonfail"] = "ff", ["fof"] = "ff",
                 ["pr"] = "pr", ["prod"] = "pr", ["production"] = "pr", ["prd"] = "pr", ["live"] = "pr",
                 ["dr"] = "dr",
             };

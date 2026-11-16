@@ -45,7 +45,7 @@ export interface WizardTierCardInfo {
   tier: string;
   title: string;
   strategyBadge: string;
-  strategyType: 'shared' | 'dedicated' | 'perf';
+  strategyType: 'shared' | 'dedicated' | 'preprod';
   summary: string;
   specs: string[];
 }
@@ -83,7 +83,20 @@ export const WIZARD_TIER_CARDS: WizardTierCardInfo[] = [
     strategyBadge: 'Dedicated Non-Prod Services',
     strategyType: 'dedicated',
     summary:
-      'Dedicated non-production databases and multi-partition messaging for functional and integration testing.',
+      'Dedicated non-production databases and multi-partition messaging for functional and QA testing.',
+    specs: [
+      'create_service = true (Aiven startup-4)',
+      'traveler-non-prod Kafka (3 partitions / 24h retention)',
+      '1000 RU/s Cosmos / Standard SKU'
+    ]
+  },
+  {
+    tier: 'it',
+    title: 'Integration (it)',
+    strategyBadge: 'Dedicated Non-Prod Services',
+    strategyType: 'dedicated',
+    summary:
+      'Dedicated non-production services and multi-partition messaging for cross-system integration environments.',
     specs: [
       'create_service = true (Aiven startup-4)',
       'traveler-non-prod Kafka (3 partitions / 24h retention)',
@@ -105,11 +118,24 @@ export const WIZARD_TIER_CARDS: WizardTierCardInfo[] = [
   },
   {
     tier: 'pp',
-    title: 'Perf / Benchmark (pp)',
-    strategyBadge: 'Perf / Load Benchmark',
-    strategyType: 'perf',
+    title: 'Pre-Prod (pp)',
+    strategyBadge: 'Pre-Prod Dedicated Sizing',
+    strategyType: 'preprod',
     summary:
-      'Production-like sizing with isolated resource group and high-throughput partitions for load benchmarking.',
+      'Pre-production sizing with isolated resource group, dedicated services, and production-like throughput for pre-release validation.',
+    specs: [
+      'create_service = true (business-8 / business-16)',
+      'traveler-non-prod Kafka (6 partitions / 7d retention)',
+      '4000 RU/s Cosmos / Premium SKU'
+    ]
+  },
+  {
+    tier: 'ff',
+    title: 'Fix-on-Fail (ff)',
+    strategyBadge: 'Pre-Prod Dedicated Sizing',
+    strategyType: 'preprod',
+    summary:
+      'Production-mirrored non-prod sizing with isolated resource group and dedicated services for fix-on-fail reproduction and hotfix verification.',
     specs: [
       'create_service = true (business-8 / business-16)',
       'traveler-non-prod Kafka (6 partitions / 7d retention)',
@@ -530,7 +556,7 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
         border: 1px solid #fcd34d;
       }
 
-      .strategy-perf {
+      .strategy-preprod {
         background: #fce7f3;
         color: #9d174d;
         border: 1px solid #f9a8d4;
@@ -1783,7 +1809,7 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
 
                       <vaadin-combo-box
                         label="Default Tier"
-                        .items=${['ephemeral', 'dv', 'qa', 'ut', 'pp']}
+                        .items=${['ephemeral', 'dv', 'qa', 'it', 'ut', 'pp', 'ff']}
                         .value=${this.builderDefaultTier}
                         @value-changed=${(
                           e: CustomEvent<{ value: string }>
@@ -2100,7 +2126,7 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
                   ? 'strategy-shared'
                   : card.strategyType === 'dedicated'
                     ? 'strategy-dedicated'
-                    : 'strategy-perf';
+                    : 'strategy-preprod';
               return html`
                 <button
                   type="button"

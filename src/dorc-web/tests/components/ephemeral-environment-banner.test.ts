@@ -95,12 +95,14 @@ describe('EphemeralEnvironmentBanner', () => {
     const tierPill = el.shadowRoot!.querySelector('.pill-tier')!;
     expect(tierPill.classList.contains('tier-shared')).to.equal(true);
 
-    // Switch through tiers: dv, qa, ut, pp, custom
+    // Switch through tiers: dv, qa, it, ut, pp, ff, custom
     for (const [tier, expectedClass] of [
       ['dv', 'tier-shared'],
       ['qa', 'tier-dedicated'],
+      ['it', 'tier-dedicated'],
       ['ut', 'tier-dedicated'],
-      ['pp', 'tier-perf'],
+      ['pp', 'tier-preprod'],
+      ['ff', 'tier-preprod'],
       ['custom-tier', '']
     ] as const) {
       el.environment = { ...env, EnvironmentTier: tier };
@@ -108,6 +110,16 @@ describe('EphemeralEnvironmentBanner', () => {
       const pill = el.shadowRoot!.querySelector('.pill-tier')!;
       if (expectedClass) {
         expect(pill.classList.contains(expectedClass)).to.equal(true);
+        if (tier === 'it') {
+          expect(pill.getAttribute('title')).to.contain('Integration (it)');
+        }
+        if (tier === 'pp') {
+          expect(pill.getAttribute('title')).to.contain('Pre-Prod (pp)');
+          expect(pill.getAttribute('title')).not.to.contain('Perf');
+        }
+        if (tier === 'ff') {
+          expect(pill.getAttribute('title')).to.contain('Fix-on-Fail (ff)');
+        }
       } else {
         expect(pill.textContent?.trim()).to.equal('custom-tier');
       }

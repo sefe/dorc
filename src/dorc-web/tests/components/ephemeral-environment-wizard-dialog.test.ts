@@ -239,6 +239,33 @@ describe('EphemeralEnvironmentWizardDialog', () => {
 
     const dialog = el.shadowRoot!.querySelector('vaadin-dialog')!;
 
+    // Select Integration (it), Pre-Prod (pp), and Fix-on-Fail (ff) tier cards -> verifies tier labeling and auto-generated slugs
+    const itCard = findButton(dialog, 'Integration (it)');
+    expect(itCard.querySelector('.strategy-dedicated')).not.to.equal(null);
+    itCard.click();
+    await el.updateComplete;
+    expect(
+      (el as unknown as { environmentName: string }).environmentName
+    ).to.match(/^traveler-it-eph-/);
+
+    const ppCard = findButton(dialog, 'Pre-Prod (pp)');
+    expect(ppCard.textContent).to.contain('Pre-Prod Dedicated Sizing');
+    expect(ppCard.textContent).not.to.contain('Perf');
+    expect(ppCard.querySelector('.strategy-preprod')).not.to.equal(null);
+    ppCard.click();
+    await el.updateComplete;
+    expect(
+      (el as unknown as { environmentName: string }).environmentName
+    ).to.match(/^traveler-pp-eph-/);
+
+    const ffCard = findButton(dialog, 'Fix-on-Fail (ff)');
+    expect(ffCard.querySelector('.strategy-preprod')).not.to.equal(null);
+    ffCard.click();
+    await el.updateComplete;
+    expect(
+      (el as unknown as { environmentName: string }).environmentName
+    ).to.match(/^traveler-ff-eph-/);
+
     // Select QA tier card -> invalidates stale preview and disables Spin Up until preview resolves
     const qaCard = findButton(dialog, 'QA (qa)');
     qaCard.click();

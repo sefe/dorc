@@ -51,6 +51,12 @@ export const TIER_PROFILES_META: Record<string, TierProfileBadgeMeta> = {
     isolationSummary:
       'Dedicated Non-Prod Services (create_service = true, startup-4, traveler-non-prod Kafka 3p/24h, 1000 RU/s / Standard SKU)'
   },
+  it: {
+    code: 'it',
+    label: 'Integration (it)',
+    isolationSummary:
+      'Dedicated Non-Prod Services (create_service = true, startup-4, traveler-non-prod Kafka 3p/24h, 1000 RU/s / Standard SKU)'
+  },
   ut: {
     code: 'ut',
     label: 'UAT (ut)',
@@ -59,9 +65,15 @@ export const TIER_PROFILES_META: Record<string, TierProfileBadgeMeta> = {
   },
   pp: {
     code: 'pp',
-    label: 'Perf / Load (pp)',
+    label: 'Pre-Prod (pp)',
     isolationSummary:
-      'Perf / Load Benchmark (create_service = true, business-8/16, traveler-non-prod Kafka 6p/7d, 4000 RU/s / Premium SKU)'
+      'Pre-Prod Dedicated Sizing (create_service = true, isolated RG, business-8/16, traveler-non-prod Kafka 6p/7d, 4000 RU/s / Premium SKU)'
+  },
+  ff: {
+    code: 'ff',
+    label: 'Fix-on-Fail (ff)',
+    isolationSummary:
+      'Fix-on-Fail Dedicated Sizing (create_service = true, isolated RG, business-8/16, traveler-non-prod Kafka 6p/7d, 4000 RU/s / Premium SKU)'
   }
 };
 
@@ -208,7 +220,7 @@ export class EphemeralEnvironmentBanner extends LitElement {
         border-color: #fcd34d;
       }
 
-      .pill-tier.tier-perf {
+      .pill-tier.tier-preprod {
         background: #fce7f3;
         color: #9d174d;
         border-color: #f9a8d4;
@@ -606,11 +618,11 @@ export class EphemeralEnvironmentBanner extends LitElement {
     if (normalized === 'ephemeral' || normalized === 'dv') {
       return 'tier-shared';
     }
-    if (normalized === 'qa' || normalized === 'ut') {
+    if (normalized === 'qa' || normalized === 'it' || normalized === 'ut') {
       return 'tier-dedicated';
     }
-    if (normalized === 'pp') {
-      return 'tier-perf';
+    if (normalized === 'pp' || normalized === 'ff') {
+      return 'tier-preprod';
     }
     return '';
   }
@@ -1131,7 +1143,7 @@ export class EphemeralEnvironmentBanner extends LitElement {
       </span>
       <span
         class="pill pill-tier ${tierClass}"
-        title=${tierMeta.isolationSummary}
+        title="${tierMeta.label} — ${tierMeta.isolationSummary}"
       >
         ${tierMeta.code}
       </span>
