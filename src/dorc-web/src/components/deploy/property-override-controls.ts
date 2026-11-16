@@ -5,7 +5,7 @@ import '@vaadin/icons/vaadin-icons';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { RequestProperty } from '../../apis/dorc-api/index.js';
-import '../../icons/iron-icons.js';
+import '../../icons/dorc-icons.js';
 import '@vaadin/tooltip';
 
 @customElement('property-override-controls')
@@ -33,7 +33,7 @@ export class PropertyOverrideControls extends LitElement {
           text="Remove Property Override"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="icons:delete"
+          icon="dorc:trash"
           style="color: var(--dorc-error-color)"
         ></vaadin-icon>
       </vaadin-button>

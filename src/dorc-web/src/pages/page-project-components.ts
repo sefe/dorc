@@ -7,7 +7,6 @@ import { ComboBoxSelectedItemChangedEvent } from '@vaadin/combo-box';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-column';
-import '../icons/iron-icons';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
@@ -26,10 +25,7 @@ import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import '@vaadin/grid/vaadin-grid-column';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import '../components/project-workspace-nav';
-import {
-  renderShaBadge,
-  shaBadgeStyles
-} from '../components/dorc-sha-badge';
+import { renderShaBadge, shaBadgeStyles } from '../components/dorc-sha-badge';
 
 interface ComponentDeploymentInfo extends ComponentApiModel {
   Children?: ComponentDeploymentInfo[] | null;

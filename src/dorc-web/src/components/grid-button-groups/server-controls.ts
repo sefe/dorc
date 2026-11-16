@@ -6,7 +6,7 @@ import '@vaadin/icon';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { styleMap } from 'lit/directives/style-map.js';
-import '../../icons/iron-icons.js';
+import '../../icons/dorc-icons.js';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import { ErrorNotification } from '../notifications/error-notification';
 import {
@@ -134,7 +134,7 @@ export class ServerControls extends LitElement {
                 text="Delete server"
               ></vaadin-tooltip>
               <vaadin-icon
-                icon="icons:delete"
+                icon="dorc:trash"
                 style=${styleMap(unlinkStyles)}
               ></vaadin-icon>
             </vaadin-button>`

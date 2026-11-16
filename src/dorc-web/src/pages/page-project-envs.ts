@@ -3,6 +3,7 @@ import '../components/dorc-spinner';
 import '@vaadin/button';
 import '@vaadin/icons';
 import '@vaadin/icon';
+import '../icons/dorc-icons.js';
 import '@vaadin/vertical-layout';
 import '@vaadin/horizontal-layout';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -235,7 +236,7 @@ export class PageProjectEnvs extends PageElement {
                   text="Attach Environment"
                 ></vaadin-tooltip>
                 <vaadin-icon
-                  icon="icons:link"
+                  icon="dorc:link"
                   style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>

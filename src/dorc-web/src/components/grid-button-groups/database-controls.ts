@@ -6,7 +6,7 @@ import '@vaadin/icon';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { styleMap } from 'lit/directives/style-map.js';
-import '../../icons/iron-icons.js';
+import '../../icons/dorc-icons.js';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import {
   ApiBoolResult,
@@ -94,7 +94,7 @@ export class DatabaseControls extends LitElement {
       >
         <vaadin-tooltip slot="tooltip" text="Delete database"></vaadin-tooltip>
         <vaadin-icon
-          icon="icons:delete"
+          icon="dorc:trash"
           style=${styleMap(unlinkStyles)}
         ></vaadin-icon>
       </vaadin-button>

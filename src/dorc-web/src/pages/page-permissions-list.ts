@@ -7,7 +7,7 @@ import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
-import '../icons/iron-icons.js';
+import '../icons/dorc-icons.js';
 import '@vaadin/vaadin-lumo-styles/icons.js';
 import '../components/add-edit-server';
 import '@vaadin/dialog';
@@ -195,7 +195,7 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
     >
       <vaadin-tooltip slot="tooltip" text="Delete Permission"></vaadin-tooltip>
       <vaadin-icon
-        icon="icons:delete"
+        icon="dorc:trash"
         style="color: var(--dorc-error-color);"
       ></vaadin-icon>
     </vaadin-button>
