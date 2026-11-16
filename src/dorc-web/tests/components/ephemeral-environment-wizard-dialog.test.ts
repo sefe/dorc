@@ -239,14 +239,35 @@ describe('EphemeralEnvironmentWizardDialog', () => {
 
     const dialog = el.shadowRoot!.querySelector('vaadin-dialog')!;
 
-    // Select Integration (it), Pre-Prod (pp), and Fix-on-Fail (ff) tier cards -> verifies tier labeling and auto-generated slugs
-    const itCard = findButton(dialog, 'Integration (it)');
+    // Select Temporary Use (xx), Non-Prod (np), Integration (it / in), Pre-Prod (pp), and Fix-on-Fail (ff) tier cards
+    const xxCard = findButton(dialog, 'Temporary Use (xx)');
+    expect(xxCard.querySelector('.strategy-shared')).not.to.equal(null);
+    xxCard.click();
+    await el.updateComplete;
+    expect(
+      (el as unknown as { environmentName: string }).environmentName
+    ).to.match(/^traveler-xx-eph-/);
+
+    const npCard = findButton(dialog, 'Non-Prod (np)');
+    expect(npCard.querySelector('.strategy-dedicated')).not.to.equal(null);
+    npCard.click();
+    await el.updateComplete;
+    expect(
+      (el as unknown as { environmentName: string }).environmentName
+    ).to.match(/^traveler-np-eph-/);
+
+    const itCard = findButton(dialog, 'Integration (it');
     expect(itCard.querySelector('.strategy-dedicated')).not.to.equal(null);
     itCard.click();
     await el.updateComplete;
     expect(
       (el as unknown as { environmentName: string }).environmentName
     ).to.match(/^traveler-it-eph-/);
+
+    // Selecting 'in' on a template highlights the Integration (it / in) card as well
+    (el as unknown as { selectedTier: string }).selectedTier = 'in';
+    await el.updateComplete;
+    expect(itCard.getAttribute('aria-checked')).to.equal('true');
 
     const ppCard = findButton(dialog, 'Pre-Prod (pp)');
     expect(ppCard.textContent).to.contain('Pre-Prod Dedicated Sizing');

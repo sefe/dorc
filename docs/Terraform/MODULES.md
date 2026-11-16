@@ -225,13 +225,13 @@ Suggestions come from the project and the selected environment:
 | Input name (or `suggest:` hint)              | Suggested value                                                                 |
 | -------------------------------------------- | ------------------------------------------------------------------------------- |
 | `dorc_environment`                           | Environment name lower-cased, limited to `[a-z0-9_-]` (matches module normalisation). |
-| `environment_tier`, `env_tier`               | Tier token from the environment name (`dv`, `qa`, `it`, `ut`, `pp`, `ff`, `pr`, `dr`); `pr`/`dv` by prod flag otherwise. |
+| `environment_tier`, `env_tier`               | Two-character SEFE IT Standard v1.1 tier token (`xx`, `dv`, `qa`, `it`, `in`, `ut`, `np`, `pp`, `ff`, `pr`, `dr`), mapping `ephemeral` to `xx` (with `dv` fallback when manifest `allowedValues` omits `xx`); `pr`/`dv` by prod flag otherwise. Note: `tr` is reserved for the Trading business vertical and is not matched as a tier token. |
 | `is_prod`                                    | Environment production flag.                                                    |
 | `cloud_name`                                 | `custom-sefe-{prod,nprod}-workload-azure-uksouth`.                              |
-| `termination_protection`, `service_termination_protection` | `false` for `dv`, otherwise `true`.                               |
+| `termination_protection`, `service_termination_protection` | `false` for `dv`/`xx`/ephemeral, otherwise `true`.                |
 | `business_vertical`                          | Project **Business vertical** (two letters), else `tr`.                         |
 | `origin`, `application_code`, `app_code`     | Project **Application code** (three characters); none if unset.                 |
-| `scope`                                      | `tst` for `dv`, otherwise `gbl`.                                                |
+| `scope`                                      | `tst` for `dv`/`xx`/ephemeral, otherwise `gbl`.                                 |
 | `location`                                   | `uksouth`.                                                                      |
 
 Set the project codes under Projects > edit, or Project Ref Data > Project

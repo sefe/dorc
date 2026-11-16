@@ -987,11 +987,14 @@ namespace Dorc.Api.Tests.Controllers
                     new EphemeralEnvironmentProvisionRequestApiModel { ProjectId = 10, TemplateId = 406, EnvironmentName = "eph-1" },
                     CancellationToken.None));
 
-            // Blocked prod tier
-            Assert.IsInstanceOfType<BadRequestObjectResult>(
-                await _controller.Provision(
-                    new EphemeralEnvironmentProvisionRequestApiModel { ProjectId = 10, EnvironmentName = "eph-1", EnvironmentTier = "pr" },
-                    CancellationToken.None));
+            // Blocked prod or Trading-vertical ("tr") tier
+            foreach (var blockedTier in new[] { "pr", "tr" })
+            {
+                Assert.IsInstanceOfType<BadRequestObjectResult>(
+                    await _controller.Provision(
+                        new EphemeralEnvironmentProvisionRequestApiModel { ProjectId = 10, EnvironmentName = "eph-1", EnvironmentTier = blockedTier },
+                        CancellationToken.None));
+            }
 
             // Missing, prod, or unauthorized base environment
             _environmentsPersistentSource.GetEnvironment(50, _user).Returns((EnvironmentApiModel?)null);

@@ -31,6 +31,17 @@ namespace Dorc.Terraform.Catalog.Tests
         [DataRow("APP QA 01", false, "qa")]
         [DataRow("FFS DV 04", false, "dv")]
         [DataRow("Endur UT 14", false, "ut")]
+        [DataRow("Endur CONS 01", false, "ut")]
+        [DataRow("Endur CN 02", false, "ut")]
+        [DataRow("APP IN 01", false, "in")]
+        [DataRow("APP IT 01", false, "it")]
+        [DataRow("APP NP 01", false, "np")]
+        [DataRow("APP NON-PROD 01", false, "np")]
+        [DataRow("APP NONPROD 01", false, "np")]
+        [DataRow("APP NPROD 01", false, "np")]
+        [DataRow("APP XX 01", false, "xx")]
+        [DataRow("APP SANDBOX", false, "xx")]
+        [DataRow("APP SBX 01", false, "xx")]
         [DataRow("APP PREPROD", false, "pp")]
         [DataRow("APP PP", false, "pp")]
         [DataRow("APP Prod", true, "pr")]
@@ -48,6 +59,10 @@ namespace Dorc.Terraform.Catalog.Tests
         {
             Assert.AreEqual("pr", CatalogInputSuggestions.EnvironmentTier(Ctx("Billing", isProd: true), out _));
             Assert.AreEqual("dv", CatalogInputSuggestions.EnvironmentTier(Ctx("Billing", isProd: false), out _));
+
+            // "tr" is reserved for the Trading business vertical and must not misclassify prod/non-prod environments as a tier.
+            Assert.AreEqual("pr", CatalogInputSuggestions.EnvironmentTier(Ctx("TR 01", isProd: true), out _));
+            Assert.AreEqual("dv", CatalogInputSuggestions.EnvironmentTier(Ctx("TR 01", isProd: false), out _));
         }
 
         [TestMethod]
@@ -116,10 +131,22 @@ namespace Dorc.Terraform.Catalog.Tests
         [TestMethod]
         public void SuggestionsRespectManifestConstraints()
         {
-            // kafka-topic 2.1.0 only allows dv/ut/qa/pp/pr: a derived "dr" is dropped rather than offered.
+            // kafka-topic 2.1.0 only allows dv/ut/qa/pp/pr: a derived "dr" is dropped rather than offered,
+            // while temporary tiers ("ephemeral" / "xx") fall back to "dv" when "xx" is absent from allowedValues.
             var tierParam = Param("environment_tier", allowedValues: new[] { "dv", "ut", "qa", "pp", "pr" });
             Assert.AreEqual("qa", CatalogInputSuggestions.For(tierParam, Ctx("APP QA 01"))!.Value);
             Assert.IsNull(CatalogInputSuggestions.For(tierParam, Ctx("APP DR", isProd: true)));
+            Assert.AreEqual("dv", CatalogInputSuggestions.For(tierParam, Ctx("APP EPH 01"))!.Value);
+            Assert.AreEqual("dv", CatalogInputSuggestions.For(tierParam, Ctx("APP XX 01"))!.Value);
+
+            // When unconstrained or when "xx" is permitted, "ephemeral" maps to the 2-char SEFE standard code "xx".
+            var twoCharPatternParam = Param("environment_tier", pattern: "^[a-z]{2}$");
+            Assert.AreEqual("xx", CatalogInputSuggestions.For(twoCharPatternParam, Ctx("APP EPH 01"))!.Value);
+            Assert.AreEqual("xx", CatalogInputSuggestions.For(twoCharPatternParam, Ctx("APP XX 01"))!.Value);
+            var xxAllowedParam = Param("environment_tier", allowedValues: new[] { "xx", "dv", "qa" });
+            Assert.AreEqual("xx", CatalogInputSuggestions.For(xxAllowedParam, Ctx("APP EPH 01"))!.Value);
+            var noFallbackAllowedParam = Param("environment_tier", allowedValues: new[] { "qa", "pp" });
+            Assert.IsNull(CatalogInputSuggestions.For(noFallbackAllowedParam, Ctx("APP EPH 01")));
 
             Assert.IsNull(CatalogInputSuggestions.For(Param("origin", pattern: "^[a-z]{3}$"), Ctx("X", app: "ab1")));
         }
@@ -143,9 +170,13 @@ namespace Dorc.Terraform.Catalog.Tests
                 StringAssert.Contains(tokenReason, envName);
             }
 
-            // Production environment ignores ephemeral token and falls back to pr.
+            // Production environment ignores ephemeral, xx, np, and English "in" tokens and falls back to pr.
             Assert.AreEqual("pr", CatalogInputSuggestions.EnvironmentTier(Ctx("APP EPH PROD", isProd: true), out _));
             Assert.AreEqual("pr", CatalogInputSuggestions.EnvironmentTier(Ctx("APP EPH 99", isProd: true), out _));
+            Assert.AreEqual("pr", CatalogInputSuggestions.EnvironmentTier(Ctx("APP XX PROD", isProd: true), out _));
+            Assert.AreEqual("pr", CatalogInputSuggestions.EnvironmentTier(Ctx("APP NON-PROD", isProd: true), out _));
+            Assert.AreEqual("pr", CatalogInputSuggestions.EnvironmentTier(Ctx("Sign In Prod", isProd: true), out _));
+            Assert.AreEqual("it", CatalogInputSuggestions.EnvironmentTier(Ctx("Sign In Integration", isProd: true), out _));
 
             // IsEphemeral flag without tier token in name resolves to ephemeral when non-prod.
             var ephFlagged = new CatalogInputSuggestions.Context("PR-4821", false, "tr", "app", IsEphemeral: true);
@@ -156,20 +187,27 @@ namespace Dorc.Terraform.Catalog.Tests
             var ephQa = new CatalogInputSuggestions.Context("APP QA PR-4821", false, "tr", "app", IsEphemeral: true);
             Assert.AreEqual("qa", CatalogInputSuggestions.EnvironmentTier(ephQa, out _));
 
-            // Explicit tier override takes precedence when valid.
+            // Explicit tier override takes precedence when valid (including compound non-prod token).
             var overridePp = new CatalogInputSuggestions.Context("PR-4821", false, "tr", "app", IsEphemeral: true, ExplicitTierOverride: " preprod ");
             Assert.AreEqual("pp", CatalogInputSuggestions.EnvironmentTier(overridePp, out var overrideReason));
             StringAssert.Contains(overrideReason, "preprod");
+            var overrideNonProd = new CatalogInputSuggestions.Context("PR-4821", false, "tr", "app", IsEphemeral: true, ExplicitTierOverride: " non-prod ");
+            Assert.AreEqual("np", CatalogInputSuggestions.EnvironmentTier(overrideNonProd, out _));
+            var overrideNonPrefix = new CatalogInputSuggestions.Context("PR-4821", false, "tr", "app", IsEphemeral: true, ExplicitTierOverride: "nonsense");
+            Assert.AreEqual("ephemeral", CatalogInputSuggestions.EnvironmentTier(overrideNonPrefix, out _));
 
             foreach (var ffEnv in new[] { "APP FF 01", "APP FIXONFAIL 01", "APP FOF 01" })
             {
                 Assert.AreEqual("ff", CatalogInputSuggestions.EnvironmentTier(Ctx(ffEnv), out _));
             }
 
-            // Explicit ephemeral override on prod environment is rejected and falls back to pr.
-            var invalidProdOverride = new CatalogInputSuggestions.Context("Billing", true, "tr", "app", IsEphemeral: false, ExplicitTierOverride: "eph");
-            Assert.AreEqual("pr", CatalogInputSuggestions.EnvironmentTier(invalidProdOverride, out var prodOverrideReason));
-            StringAssert.Contains(prodOverrideReason, "falling back to \"pr\"");
+            // Explicit ephemeral/xx/np override on prod environment is rejected and falls back to pr.
+            foreach (var disallowedOnProd in new[] { "eph", "xx", "np" })
+            {
+                var invalidProdOverride = new CatalogInputSuggestions.Context("Billing", true, "tr", "app", IsEphemeral: false, ExplicitTierOverride: disallowedOnProd);
+                Assert.AreEqual("pr", CatalogInputSuggestions.EnvironmentTier(invalidProdOverride, out var prodOverrideReason));
+                StringAssert.Contains(prodOverrideReason, "falling back to \"pr\"");
+            }
 
             // Unknown explicit tier override falls back to normal token/flag detection.
             var unknownOverride = new CatalogInputSuggestions.Context("APP UT 01", false, "tr", "app", ExplicitTierOverride: "unknown_tier");
@@ -189,10 +227,13 @@ namespace Dorc.Terraform.Catalog.Tests
             Assert.AreEqual("false", CatalogInputSuggestions.For(Param("termination_protection"), ephProd)!.Value);
             Assert.AreEqual("false", CatalogInputSuggestions.For(Param("service_termination_protection"), ephProd)!.Value);
 
-            // Non-ephemeral context on ephemeral tier (from token) also disables termination protection and uses tst scope.
+            // Non-ephemeral context on ephemeral or xx tier (from token) also disables termination protection and uses tst scope.
             var tokenEph = Ctx("APP EPH 01");
             Assert.AreEqual("false", CatalogInputSuggestions.For(Param("termination_protection"), tokenEph)!.Value);
             Assert.AreEqual("tst", CatalogInputSuggestions.For(Param("scope"), tokenEph)!.Value);
+            var tokenXx = Ctx("APP XX 01");
+            Assert.AreEqual("false", CatalogInputSuggestions.For(Param("termination_protection"), tokenXx)!.Value);
+            Assert.AreEqual("tst", CatalogInputSuggestions.For(Param("scope"), tokenXx)!.Value);
         }
 
         [TestMethod]
@@ -239,6 +280,18 @@ namespace Dorc.Terraform.Catalog.Tests
             Assert.AreEqual("true", qaInputs["create_service"]);
             Assert.AreEqual("startup-4", qaInputs["plan"]);
             Assert.AreEqual("true", qaInputs["termination_protection"]);
+
+            foreach (var midEnv in new[] { "APP IN 01", "APP NP 01" })
+            {
+                var midInputs = CatalogInputSuggestions.ResolveTierWeightedInputs(pgManifest, Ctx(midEnv));
+                Assert.AreEqual("true", midInputs["create_service"]);
+                Assert.AreEqual("startup-4", midInputs["plan"]);
+            }
+
+            var xxInputs = CatalogInputSuggestions.ResolveTierWeightedInputs(pgManifest, Ctx("APP XX 01"));
+            Assert.AreEqual("false", xxInputs["create_service"]);
+            Assert.AreEqual("startup-4", xxInputs["plan"]);
+            Assert.AreEqual("false", xxInputs["termination_protection"]);
 
             var utCtx = new CatalogInputSuggestions.Context("APP UT 01", false, "tr", "Endur");
             var utInputs = CatalogInputSuggestions.ResolveTierWeightedInputs(pgManifest, utCtx);
@@ -304,10 +357,28 @@ namespace Dorc.Terraform.Catalog.Tests
             Assert.AreEqual("true", ppInputs["termination_protection"]);
 
             var prInputs = CatalogInputSuggestions.ResolveTierWeightedInputs(kafkaManifest, Ctx("APP PR 01", isProd: true));
-            Assert.AreEqual("traveler-prod", prInputs["service_name"]);
+            Assert.AreEqual("traveler-production", prInputs["service_name"]);
             Assert.AreEqual("6", prInputs["partitions"]);
             Assert.AreEqual("604800000", prInputs["retention_ms"]);
             Assert.AreEqual("true", prInputs["termination_protection"]);
+
+            // Respects manifest allowed_values when choosing between "traveler-production" and legacy "traveler-prod"
+            var legacyProdParam = Param("service_name", allowedValues: new[] { "traveler-prod", "traveler-non-prod" });
+            Assert.AreEqual(
+                "traveler-prod",
+                TierSizingProfileResolver.SuggestServiceName(legacyProdParam, Ctx("APP PR 01", isProd: true) with { ModuleName = "kafka-topic" })!.Value);
+            var v21ProdParam = Param("service_name", allowedValues: new[] { "traveler-production", "traveler-non-prod", "traveler-unstable-dev" });
+            Assert.AreEqual(
+                "traveler-production",
+                TierSizingProfileResolver.SuggestServiceName(v21ProdParam, Ctx("APP PR 01", isProd: true) with { ModuleName = "kafka-topic" })!.Value);
+
+            foreach (var midEnv in new[] { "APP IN 01", "APP NP 01" })
+            {
+                var midKafkaInputs = CatalogInputSuggestions.ResolveTierWeightedInputs(kafkaManifest, Ctx(midEnv));
+                Assert.AreEqual("traveler-non-prod", midKafkaInputs["service_name"]);
+                Assert.AreEqual("3", midKafkaInputs["partitions"]);
+                Assert.AreEqual("86400000", midKafkaInputs["retention_ms"]);
+            }
 
             // Non-Kafka modules (e.g. postgresql-database or empty module name) do not receive Kafka service_name suggestions
             Assert.IsNull(TierSizingProfileResolver.TrySuggestForParameter(
@@ -348,7 +419,7 @@ namespace Dorc.Terraform.Catalog.Tests
             Assert.AreEqual("400", ephCosmos["throughput"]);
             Assert.AreEqual("Basic", ephCosmos["sku"]);
             Assert.AreEqual("false", ephCosmos["create_resource_group"]);
-            Assert.AreEqual("cosmos-billing-pr-42", ephCosmos["cosmosdb_account_name"]);
+            Assert.AreEqual("cosno-xx-billing-pr-42", ephCosmos["cosmosdb_account_name"]);
 
             var qaCosmos = CatalogInputSuggestions.ResolveTierWeightedInputs(
                 cosmosManifest,
@@ -356,6 +427,15 @@ namespace Dorc.Terraform.Catalog.Tests
             Assert.AreEqual("1000", qaCosmos["throughput"]);
             Assert.AreEqual("Standard", qaCosmos["sku"]);
             Assert.AreEqual("false", qaCosmos["create_resource_group"]);
+
+            foreach (var midEnv in new[] { "APP IN 01", "APP NP 01" })
+            {
+                var midCosmos = CatalogInputSuggestions.ResolveTierWeightedInputs(
+                    cosmosManifest,
+                    new CatalogInputSuggestions.Context(midEnv, false, "tr", "billing"));
+                Assert.AreEqual("1000", midCosmos["throughput"]);
+                Assert.AreEqual("Standard", midCosmos["sku"]);
+            }
 
             var ppCosmos = CatalogInputSuggestions.ResolveTierWeightedInputs(
                 cosmosManifest,
@@ -380,28 +460,29 @@ namespace Dorc.Terraform.Catalog.Tests
             Assert.AreEqual("Standard", storageInputs["sku"]);
             var stName = storageInputs["storage_account_name"]!;
             Assert.IsTrue(stName.Length <= 24);
+            StringAssert.StartsWith(stName, "saxx");
             Assert.IsTrue(stName.All(c => char.IsAsciiLetterLower(c) || char.IsAsciiDigit(c)));
 
-            // Key vault <= 24 alphanumeric/hyphen chars, no trailing hyphen.
+            // Key vault <= 24 alphanumeric/hyphen chars, no trailing hyphen, SEFE Naming v1.5 "akv-<env>-..." prefix.
             var kvName = TierSizingProfileResolver.FormatResourceName(
                 "key-vault", "key_vault_name", "VeryLongApplicationCode", "Ephemeral-Branch-With-Hyphens---");
             Assert.IsTrue(kvName.Length <= 24);
             Assert.IsFalse(kvName.EndsWith('-'));
-            StringAssert.StartsWith(kvName, "kv-");
+            StringAssert.StartsWith(kvName, "akv-xx-");
 
             var kvShortEnv = TierSizingProfileResolver.FormatResourceName(
                 null, "vault_name", "abcdefgh", "prefix----------");
             Assert.IsTrue(kvShortEnv.Length <= 24);
-            StringAssert.StartsWith(kvShortEnv, "kv-abcdefgh-preix-");
+            StringAssert.StartsWith(kvShortEnv, "akv-dv-abcfgh-prx-");
 
             // Non-alphanumeric applicationCode fallback ("app") for storage-account and key-vault
             var stFallbackApp = TierSizingProfileResolver.FormatResourceName(
                 "storage-account", "storage_account_name", "---", "env");
-            StringAssert.StartsWith(stFallbackApp, "stappenv");
-            Assert.AreNotEqual("stappenv", stFallbackApp);
+            StringAssert.StartsWith(stFallbackApp, "sadvappenv");
+            Assert.AreNotEqual("sadvappenv", stFallbackApp);
             var kvFallbackApp = TierSizingProfileResolver.FormatResourceName(
                 "key-vault", "key_vault_name", "---", "env");
-            StringAssert.StartsWith(kvFallbackApp, "kv-app-env-");
+            StringAssert.StartsWith(kvFallbackApp, "akv-dv-app-env-");
 
             // Collision resistance: long environment names with identical suffixes or prefixes produce distinct names.
             var stPr89 = TierSizingProfileResolver.FormatResourceName(
@@ -430,34 +511,40 @@ namespace Dorc.Terraform.Catalog.Tests
 
             var kvByKeyVaultParam = TierSizingProfileResolver.FormatResourceName(
                 null, "key_vault_name", "app", "dv-01");
-            Assert.AreEqual("kv-app-dv-01", kvByKeyVaultParam);
+            Assert.AreEqual("akv-dv-app-dv-01", kvByKeyVaultParam);
+            Assert.AreEqual(
+                "akv-xx-app-pr-01",
+                TierSizingProfileResolver.FormatResourceName("key-vault", "key_vault_name", "app", "pr-01", "ephemeral"));
+            Assert.AreEqual(
+                "akv-dv-app-dv-01",
+                TierSizingProfileResolver.FormatResourceName("key-vault", "key_vault_name", "app", "dv-01", "unknown_tier"));
 
-            // Service bus, redis, cosmos, storage, and fallback resource prefixes.
-            Assert.AreEqual("cosmos-app-dv-01", TierSizingProfileResolver.FormatResourceName(null, "cosmosdb_account_name", null, "DV-01"));
-            Assert.AreEqual("stappdv01", TierSizingProfileResolver.FormatResourceName(null, "storage_account_name", "app", "DV01"));
-            Assert.AreEqual("sb-app-dv-01", TierSizingProfileResolver.FormatResourceName("service-bus", "namespace_name", null, "DV-01"));
-            Assert.AreEqual("sb-app-dv-01", TierSizingProfileResolver.FormatResourceName(null, "namespace_name", null, "DV-01"));
-            StringAssert.StartsWith(TierSizingProfileResolver.FormatResourceName(null, "servicebus_namespace_name", "!!!", "DV-01"), "sb-app-dv-01-");
-            StringAssert.StartsWith(TierSizingProfileResolver.FormatResourceName("redis-cache", "redis_name", " ", "!!!"), "redis-app-env-");
-            StringAssert.StartsWith(TierSizingProfileResolver.FormatResourceName("redis-cache", "redis_name", " ", "   "), "redis-app-env-");
-            Assert.AreEqual("redis-app-env", TierSizingProfileResolver.FormatResourceName("redis-cache", "redis_name", " ", "env"));
-            Assert.AreEqual("redis-app-dv-01", TierSizingProfileResolver.FormatResourceName(null, "redis_name", null, "DV-01"));
-            Assert.AreEqual("redis-app-dv-01", TierSizingProfileResolver.FormatResourceName(null, "cache_name", null, "DV-01"));
-            Assert.AreEqual("res-app-dv-01", TierSizingProfileResolver.FormatResourceName("custom-mod", "resource_name", null, "DV-01"));
+            // Service bus (sbn), redis, cosmos (cosno), storage (sa), and fallback resource prefixes per SEFE Naming v1.5.
+            Assert.AreEqual("cosno-dv-app-dv-01", TierSizingProfileResolver.FormatResourceName(null, "cosmosdb_account_name", null, "DV-01"));
+            Assert.AreEqual("sadvappdv01", TierSizingProfileResolver.FormatResourceName(null, "storage_account_name", "app", "DV01"));
+            Assert.AreEqual("sbn-dv-app-dv-01", TierSizingProfileResolver.FormatResourceName("service-bus", "namespace_name", null, "DV-01"));
+            Assert.AreEqual("sbn-dv-app-dv-01", TierSizingProfileResolver.FormatResourceName(null, "namespace_name", null, "DV-01"));
+            StringAssert.StartsWith(TierSizingProfileResolver.FormatResourceName(null, "servicebus_namespace_name", "!!!", "DV-01"), "sbn-dv-app-dv-01-");
+            StringAssert.StartsWith(TierSizingProfileResolver.FormatResourceName("redis-cache", "redis_name", " ", "!!!"), "redis-dv-app-env-");
+            StringAssert.StartsWith(TierSizingProfileResolver.FormatResourceName("redis-cache", "redis_name", " ", "   "), "redis-dv-app-env-");
+            Assert.AreEqual("redis-dv-app-env", TierSizingProfileResolver.FormatResourceName("redis-cache", "redis_name", " ", "env"));
+            Assert.AreEqual("redis-dv-app-dv-01", TierSizingProfileResolver.FormatResourceName(null, "redis_name", null, "DV-01"));
+            Assert.AreEqual("redis-dv-app-dv-01", TierSizingProfileResolver.FormatResourceName(null, "cache_name", null, "DV-01"));
+            Assert.AreEqual("res-dv-app-dv-01", TierSizingProfileResolver.FormatResourceName("custom-mod", "resource_name", null, "DV-01"));
             Assert.AreEqual("app_env", TierSizingProfileResolver.FormatDatabaseName(null, "env"));
             StringAssert.StartsWith(TierSizingProfileResolver.FormatDatabaseName(null, "   "), "app_env_");
             StringAssert.StartsWith(TierSizingProfileResolver.FormatDatabaseName("!!!", "---"), "app_env_");
             StringAssert.StartsWith(TierSizingProfileResolver.FormatDatabaseName("app", "___"), "app_env_");
-            Assert.AreEqual("stappenv", TierSizingProfileResolver.FormatResourceName("storage-account", "storage_account_name", "app", "env"));
-            StringAssert.StartsWith(TierSizingProfileResolver.FormatResourceName("storage-account", "storage_account_name", "app", "___"), "stappenv");
+            Assert.AreEqual("sadvappenv", TierSizingProfileResolver.FormatResourceName("storage-account", "storage_account_name", "app", "env"));
+            StringAssert.StartsWith(TierSizingProfileResolver.FormatResourceName("storage-account", "storage_account_name", "app", "___"), "sadvappenv");
             Assert.AreNotEqual(
                 TierSizingProfileResolver.FormatResourceName("storage-account", "storage_account_name", "app", "env"),
                 TierSizingProfileResolver.FormatResourceName("storage-account", "storage_account_name", "app", "---"));
             Assert.AreNotEqual(
                 TierSizingProfileResolver.FormatResourceName("storage-account", "storage_account_name", "app", "___"),
                 TierSizingProfileResolver.FormatResourceName("storage-account", "storage_account_name", "app", "---"));
-            StringAssert.StartsWith(TierSizingProfileResolver.FormatResourceName("key-vault", "key_vault_name", "app", "___"), "kv-app-env-");
-            StringAssert.StartsWith(TierSizingProfileResolver.FormatResourceName("cosmosdb", "cosmosdb_account_name", "app", "___"), "cosmos-app-env-");
+            StringAssert.StartsWith(TierSizingProfileResolver.FormatResourceName("key-vault", "key_vault_name", "app", "___"), "akv-dv-app-env-");
+            StringAssert.StartsWith(TierSizingProfileResolver.FormatResourceName("cosmosdb", "cosmosdb_account_name", "app", "___"), "cosno-dv-app-env-");
 
             // Underscore, space, hyphen, and alphanumeric collision avoidance & max length truncation across database, storage, key-vault, cosmos, service-bus
             var dbNames = new[]
@@ -517,7 +604,7 @@ namespace Dorc.Terraform.Catalog.Tests
                 "endur_pr_42_a_b4a1",
                 TierSizingProfileResolver.FormatDatabaseName("endur", "pr-42-a-b4a1"));
             Assert.AreEqual(
-                "kv-app-pr-42-a-b4",
+                "akv-pr-app-pr-42-a-b4",
                 TierSizingProfileResolver.FormatResourceName("key-vault", "key_vault_name", "app", "pr-42-a-b4"));
             Assert.AreNotEqual(
                 TierSizingProfileResolver.FormatResourceName("storage-account", "storage_account_name", "endur", "pr-42"),

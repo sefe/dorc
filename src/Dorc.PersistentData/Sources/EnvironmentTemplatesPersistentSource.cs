@@ -13,6 +13,8 @@ namespace Dorc.PersistentData.Sources
         {
             "pr",
             "dr",
+            "prd",
+            "live",
             "prod",
             "production"
         };

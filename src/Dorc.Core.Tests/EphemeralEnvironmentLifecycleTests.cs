@@ -489,6 +489,8 @@ namespace Dorc.Core.Tests
             Assert.Throws<ArgumentException>(() => sut.CreateTemplate(new EnvironmentTemplateApiModel { Name = "T", ProjectId = 1, DefaultTtlMinutes = 100, MaxTtlMinutes = 50 }, "user"));
             Assert.Throws<ArgumentException>(() => sut.CreateTemplate(new EnvironmentTemplateApiModel { Name = "T", ProjectId = 1, DefaultTtlMinutes = 100, MaxTtlMinutes = 10081 }, "user"));
             Assert.Throws<ArgumentException>(() => sut.CreateTemplate(new EnvironmentTemplateApiModel { Name = "T", ProjectId = 1, DefaultTier = "prod" }, "user"));
+            Assert.Throws<ArgumentException>(() => sut.CreateTemplate(new EnvironmentTemplateApiModel { Name = "T", ProjectId = 1, DefaultTier = "prd" }, "user"));
+            Assert.Throws<ArgumentException>(() => sut.CreateTemplate(new EnvironmentTemplateApiModel { Name = "T", ProjectId = 1, DefaultTier = "live" }, "user"));
             Assert.Throws<ArgumentException>(() => sut.CreateTemplate(new EnvironmentTemplateApiModel { Name = "T", ProjectId = 1, BaseEnvironmentId = 999 }, "user"));
             Assert.Throws<ArgumentException>(() => sut.CreateTemplate(new EnvironmentTemplateApiModel { Name = "T", ProjectId = 1, BaseEnvironmentId = 11 }, "user"));
             Assert.Throws<ArgumentException>(() => sut.CreateTemplate(new EnvironmentTemplateApiModel { Name = "T", ProjectId = 1, TierParameterOverridesJson = "{not-json" }, "user"));

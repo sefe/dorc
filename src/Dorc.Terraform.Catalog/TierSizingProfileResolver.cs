@@ -52,7 +52,7 @@ namespace Dorc.Terraform.Catalog
                 [CatalogInputSuggestions.Hints.RetentionMs] = static (_, context) => SuggestRetentionMs(context),
                 [CatalogInputSuggestions.Hints.Throughput] = static (_, context) => SuggestThroughput(context),
                 [CatalogInputSuggestions.Hints.Plan] = static (_, context) => SuggestPlan(context),
-                [CatalogInputSuggestions.Hints.ServiceName] = static (_, context) => SuggestServiceName(context),
+                [CatalogInputSuggestions.Hints.ServiceName] = static (parameter, context) => SuggestServiceName(parameter, context),
                 [CatalogInputSuggestions.Hints.DatabaseName] = static (_, context) => SuggestDatabaseName(context),
                 [CatalogInputSuggestions.Hints.Sku] = static (parameter, context) => SuggestSku(parameter, context),
                 [CatalogInputSuggestions.Hints.ResourceName] = static (parameter, context) => SuggestResourceName(parameter, context),
@@ -157,7 +157,7 @@ namespace Dorc.Terraform.Catalog
             var isClickHouse = string.Equals(context.ModuleName, "clickhouse-database", StringComparison.OrdinalIgnoreCase);
 
             string plan;
-            if (IsLowTier(tier) || tier is "qa" or "it")
+            if (IsLowTier(tier) || tier is "qa" or "it" or "in" or "np")
             {
                 plan = "startup-4";
             }
@@ -175,7 +175,9 @@ namespace Dorc.Terraform.Catalog
                 $"Tier-weighted plan \"{plan}\" for tier \"{tier}\".");
         }
 
-        public static CatalogInputSuggestions.Suggestion? SuggestServiceName(CatalogInputSuggestions.Context context)
+        public static CatalogInputSuggestions.Suggestion? SuggestServiceName(
+            TerraformTemplateParameter parameter,
+            CatalogInputSuggestions.Context context)
         {
             if (string.IsNullOrWhiteSpace(context.ModuleName)
                 || !context.ModuleName.Contains("kafka", StringComparison.OrdinalIgnoreCase))
@@ -191,7 +193,10 @@ namespace Dorc.Terraform.Catalog
             }
             else if (tier is "pr" or "dr")
             {
-                serviceName = "traveler-prod";
+                var prodCandidates = new[] { "traveler-production", "traveler-prod" };
+                serviceName = parameter.AllowedValues is { Count: > 0 }
+                    ? SelectAllowedCandidate(parameter.AllowedValues, prodCandidates)
+                    : prodCandidates[0];
             }
             else
             {
@@ -211,7 +216,7 @@ namespace Dorc.Terraform.Catalog
             {
                 partitions = "1";
             }
-            else if (tier is "qa" or "it" or "ut")
+            else if (tier is "qa" or "it" or "in" or "np" or "ut")
             {
                 partitions = "3";
             }
@@ -233,7 +238,7 @@ namespace Dorc.Terraform.Catalog
             {
                 retention = "3600000";
             }
-            else if (tier is "qa" or "it" or "ut")
+            else if (tier is "qa" or "it" or "in" or "np" or "ut")
             {
                 retention = "86400000";
             }
@@ -255,7 +260,7 @@ namespace Dorc.Terraform.Catalog
             {
                 throughput = "400";
             }
-            else if (tier is "qa" or "it" or "ut")
+            else if (tier is "qa" or "it" or "in" or "np" or "ut")
             {
                 throughput = "1000";
             }
@@ -283,7 +288,7 @@ namespace Dorc.Terraform.Catalog
                     ? new[] { "Standard", "Basic" }
                     : new[] { "Basic", "Standard" };
             }
-            else if (tier is "qa" or "it" or "ut")
+            else if (tier is "qa" or "it" or "in" or "np" or "ut")
             {
                 candidates = new[] { "Standard", "Basic", "Premium" };
             }
@@ -323,11 +328,14 @@ namespace Dorc.Terraform.Catalog
             TerraformTemplateParameter parameter,
             CatalogInputSuggestions.Context context)
         {
+            var tierCode = CatalogInputSuggestions.ToTwoCharTierCode(
+                CatalogInputSuggestions.EnvironmentTier(context, out _));
             var name = FormatResourceName(
                 context.ModuleName,
                 parameter.Name,
                 ResolveApplicationKey(context),
-                context.EnvironmentName);
+                context.EnvironmentName,
+                tierCode);
             return new CatalogInputSuggestions.Suggestion(
                 name,
                 $"Environment-suffixed resource name for \"{context.EnvironmentName}\".");
@@ -382,15 +390,17 @@ namespace Dorc.Terraform.Catalog
             string? moduleName,
             string parameterName,
             string? applicationCode,
-            string environmentName)
+            string environmentName,
+            string? environmentTier = null)
         {
+            var tier2 = ResolveResourceTierToken(environmentTier, environmentName);
             var rawAppKey = string.IsNullOrWhiteSpace(applicationCode)
                 ? "app"
                 : applicationCode.Trim().ToLowerInvariant();
             var rawEnvKey = string.IsNullOrWhiteSpace(environmentName)
                 ? string.Empty
                 : environmentName.Trim().ToLowerInvariant();
-            var rawCompositeKey = $"{rawAppKey}:{rawEnvKey}";
+            var rawCompositeKey = $"{tier2}:{rawAppKey}:{rawEnvKey}";
 
             var isStorageAccount = string.Equals(moduleName, "storage-account", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(parameterName, "storage_account_name", StringComparison.OrdinalIgnoreCase);
@@ -400,7 +410,7 @@ namespace Dorc.Terraform.Catalog
                 var envAlnum = NormalizeAlphanumeric(environmentName, "env");
                 var hasLossyApp = appAlnum.Length > 8 || !string.Equals(rawAppKey, appAlnum, StringComparison.Ordinal);
                 if (appAlnum.Length > 8) appAlnum = CompressHeadTail(appAlnum, 8);
-                var maxEnvLen = 24 - 2 - appAlnum.Length;
+                var maxEnvLen = 24 - 4 - appAlnum.Length;
                 var hasLossyEnv = envAlnum.Length > maxEnvLen || !string.Equals(rawEnvKey, envAlnum, StringComparison.Ordinal) || EndsWithCompactHex6(envAlnum);
                 if (hasLossyApp || hasLossyEnv)
                 {
@@ -408,7 +418,7 @@ namespace Dorc.Terraform.Catalog
                     var prefixSlice = CompressHeadTail(envAlnum, maxEnvLen - 6);
                     envAlnum = $"{prefixSlice}{hash6}";
                 }
-                return $"st{appAlnum}{envAlnum}";
+                return $"sa{tier2}{appAlnum}{envAlnum}";
             }
 
             var isKeyVault = string.Equals(moduleName, "key-vault", StringComparison.OrdinalIgnoreCase)
@@ -418,9 +428,9 @@ namespace Dorc.Terraform.Catalog
             {
                 var appAlnum = NormalizeAlphanumeric(applicationCode, "app");
                 var envSlug = NormalizeHyphenSlug(environmentName, "env");
-                var hasLossyApp = appAlnum.Length > 8 || !string.Equals(rawAppKey, appAlnum, StringComparison.Ordinal);
-                if (appAlnum.Length > 8) appAlnum = CompressHeadTail(appAlnum, 8);
-                var maxEnvLen = 24 - 4 - appAlnum.Length;
+                var hasLossyApp = appAlnum.Length > 6 || !string.Equals(rawAppKey, appAlnum, StringComparison.Ordinal);
+                if (appAlnum.Length > 6) appAlnum = CompressHeadTail(appAlnum, 6);
+                var maxEnvLen = 24 - 8 - appAlnum.Length;
                 var hasLossyEnv = envSlug.Length > maxEnvLen || !string.Equals(rawEnvKey, envSlug, StringComparison.Ordinal) || EndsWithDelimitedHex6(envSlug, '-');
                 if (hasLossyApp || hasLossyEnv)
                 {
@@ -428,7 +438,7 @@ namespace Dorc.Terraform.Catalog
                     var envPrefix = CompressHeadTail(envSlug, maxEnvLen - 7).Trim('-');
                     envSlug = $"{envPrefix}-{hash6}";
                 }
-                return $"kv-{appAlnum}-{envSlug}";
+                return $"akv-{tier2}-{appAlnum}-{envSlug}";
             }
 
             var prefix = ResolveResourcePrefix(moduleName, parameterName);
@@ -436,8 +446,8 @@ namespace Dorc.Terraform.Catalog
             var envToken = NormalizeHyphenSlug(environmentName, "env");
             var hasLossyAppToken = appToken.Length > 12 || !string.Equals(rawAppKey, appToken, StringComparison.Ordinal);
             if (appToken.Length > 12) appToken = CompressHeadTail(appToken, 12);
-            var maxTotalLen = prefix == "cosmos" ? 44 : 50;
-            var maxEnvTokenLen = maxTotalLen - prefix.Length - appToken.Length - 2;
+            var maxTotalLen = prefix == "cosno" ? 44 : 50;
+            var maxEnvTokenLen = maxTotalLen - prefix.Length - tier2.Length - appToken.Length - 3;
             var hasLossyEnvToken = envToken.Length > maxEnvTokenLen || !string.Equals(rawEnvKey, envToken, StringComparison.Ordinal) || EndsWithDelimitedHex6(envToken, '-');
             if (hasLossyAppToken || hasLossyEnvToken)
             {
@@ -445,7 +455,26 @@ namespace Dorc.Terraform.Catalog
                 var envPrefix = CompressHeadTail(envToken, maxEnvTokenLen - 7).Trim('-');
                 envToken = $"{envPrefix}-{hash6}";
             }
-            return $"{prefix}-{appToken}-{envToken}";
+            return $"{prefix}-{tier2}-{appToken}-{envToken}";
+        }
+
+        private static string ResolveResourceTierToken(string? explicitTier, string environmentName)
+        {
+            if (!string.IsNullOrWhiteSpace(explicitTier))
+            {
+                var tier = CatalogInputSuggestions.EnvironmentTier(
+                    new CatalogInputSuggestions.Context(string.Empty, false, null, null, ExplicitTierOverride: explicitTier),
+                    out var reason);
+                if (reason.StartsWith("From explicit tier override", StringComparison.Ordinal))
+                {
+                    return CatalogInputSuggestions.ToTwoCharTierCode(tier);
+                }
+            }
+
+            return CatalogInputSuggestions.ToTwoCharTierCode(
+                CatalogInputSuggestions.EnvironmentTier(
+                    new CatalogInputSuggestions.Context(environmentName, false, null, null),
+                    out _));
         }
 
         private static string ResolveResourcePrefix(string? moduleName, string parameterName)
@@ -453,14 +482,14 @@ namespace Dorc.Terraform.Catalog
             if (string.Equals(moduleName, "cosmosdb", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(parameterName, "cosmosdb_account_name", StringComparison.OrdinalIgnoreCase))
             {
-                return "cosmos";
+                return "cosno";
             }
 
             if (string.Equals(moduleName, "service-bus", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(parameterName, "namespace_name", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(parameterName, "servicebus_namespace_name", StringComparison.OrdinalIgnoreCase))
             {
-                return "sb";
+                return "sbn";
             }
 
             if (string.Equals(moduleName, "redis-cache", StringComparison.OrdinalIgnoreCase)
@@ -473,7 +502,7 @@ namespace Dorc.Terraform.Catalog
             return "res";
         }
 
-        private static bool IsLowTier(string tier) => tier is "ephemeral" or "dv";
+        private static bool IsLowTier(string tier) => tier is "ephemeral" or "xx" or "dv";
 
         private static string SelectAllowedCandidate(
             IReadOnlyList<string> allowedValues,

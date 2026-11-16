@@ -20,7 +20,7 @@ namespace Dorc.Api.Controllers
     {
         private static readonly HashSet<string> AllowedNonProdTiers = new(StringComparer.OrdinalIgnoreCase)
         {
-            "ephemeral", "dv", "qa", "it", "ut", "pp", "ff"
+            "ephemeral", "xx", "dv", "qa", "it", "in", "ut", "np", "pp", "ff"
         };
 
         private static readonly HashSet<string> BlockedProdTiers = new(StringComparer.OrdinalIgnoreCase)

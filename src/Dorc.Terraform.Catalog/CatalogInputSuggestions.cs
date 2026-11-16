@@ -63,18 +63,22 @@ namespace Dorc.Terraform.Catalog
         public sealed record Suggestion(string Value, string Reason);
 
         private static readonly Regex NonSlugCharacters = new("[^a-z0-9_-]+", RegexOptions.Compiled);
-        private static readonly Regex Tokens = new("[a-z]+|[0-9]+", RegexOptions.Compiled);
+        private static readonly Regex Tokens = new(@"non[-_\s]+prod|[a-z]+|[0-9]+", RegexOptions.Compiled);
 
-        // Group IT environment tiers plus the aliases operators actually use in
-        // DOrc environment names (e.g. "APP PREPROD", "APP Prod", "APP QA 01").
+        // SEFE Group IT Standard v1.1 environment tiers (616730423) plus the aliases
+        // operators use in DOrc environment names. Note: "tr" is intentionally omitted
+        // because DOrc / Trading IT use "tr" as the Trading business vertical code.
         private static readonly IReadOnlyDictionary<string, string> TierAliases =
             new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["ephemeral"] = "ephemeral", ["eph"] = "ephemeral", ["temp"] = "ephemeral", ["temporary"] = "ephemeral",
+                ["xx"] = "xx", ["sandbox"] = "xx", ["sbx"] = "xx",
                 ["dv"] = "dv", ["dev"] = "dv", ["development"] = "dv",
                 ["qa"] = "qa", ["test"] = "qa", ["systest"] = "qa", ["st"] = "qa",
                 ["it"] = "it", ["int"] = "it", ["integration"] = "it",
-                ["ut"] = "ut", ["uat"] = "ut",
+                ["in"] = "in",
+                ["ut"] = "ut", ["uat"] = "ut", ["cons"] = "ut", ["cn"] = "ut",
+                ["np"] = "np", ["nonprod"] = "np", ["nprod"] = "np",
                 ["pp"] = "pp", ["preprod"] = "pp", ["pre"] = "pp", ["staging"] = "pp", ["stg"] = "pp",
                 ["ff"] = "ff", ["fixonfail"] = "ff", ["fof"] = "ff",
                 ["pr"] = "pr", ["prod"] = "pr", ["production"] = "pr", ["prd"] = "pr", ["live"] = "pr",
@@ -108,9 +112,28 @@ namespace Dorc.Terraform.Catalog
                     var slug = FormatDorcEnvironmentSlug(context.EnvironmentName, context.IsEphemeral);
                     return slug.Length == 0 ? null : new Suggestion(slug, $"DOrc environment \"{context.EnvironmentName}\".");
                 },
-                [Hints.EnvironmentTier] = static (_, context) =>
+                [Hints.EnvironmentTier] = static (parameter, context) =>
                 {
                     var tier = EnvironmentTier(context, out var reason);
+                    if (tier is "ephemeral" or "xx")
+                    {
+                        if (parameter.AllowedValues is { Count: > 0 }
+                            && !parameter.AllowedValues.Contains("xx", StringComparer.Ordinal)
+                            && parameter.AllowedValues.Contains("dv", StringComparer.Ordinal))
+                        {
+                            return new Suggestion(
+                                "dv",
+                                $"{reason} Mapped temporary tier \"{tier}\" to \"dv\" to satisfy manifest allowed values.");
+                        }
+
+                        if (tier == "ephemeral")
+                        {
+                            return new Suggestion(
+                                "xx",
+                                $"{reason} Mapped to 2-character temporary tier code \"xx\".");
+                        }
+                    }
+
                     return new Suggestion(tier, reason);
                 },
                 [Hints.IsProd] = static (_, context) =>
@@ -130,7 +153,7 @@ namespace Dorc.Terraform.Catalog
                         return new Suggestion("false", "Ephemeral environments always disable termination protection.");
                     }
                     var tier = EnvironmentTier(context, out string _);
-                    return tier is "dv" or "ephemeral"
+                    return tier is "dv" or "ephemeral" or "xx"
                         ? new Suggestion("false", "Development tier resources are expected to be rebuilt freely.")
                         : new Suggestion("true", $"Protect {tier.ToUpperInvariant()} tier resources from accidental destroy.");
                 },
@@ -145,7 +168,7 @@ namespace Dorc.Terraform.Catalog
                 [Hints.Scope] = static (_, context) =>
                 {
                     var tier = EnvironmentTier(context, out string _);
-                    return tier is "dv" or "ephemeral"
+                    return tier is "dv" or "ephemeral" or "xx"
                         ? new Suggestion("tst", "Development tier topics default to the test scope.")
                         : new Suggestion("gbl", "Global scope unless the topic is local or user-specific.");
                 },
@@ -231,6 +254,9 @@ namespace Dorc.Terraform.Catalog
             return slug;
         }
 
+        public static string ToTwoCharTierCode(string tier) =>
+            string.Equals(tier, "ephemeral", StringComparison.OrdinalIgnoreCase) ? "xx" : tier;
+
         /// <summary>
         /// Environment tier derived from explicit tier overrides, tokens in the
         /// environment name (e.g. "APP QA 01" → qa, "APP PREPROD" → pp), or the
@@ -241,11 +267,16 @@ namespace Dorc.Terraform.Catalog
             if (!string.IsNullOrWhiteSpace(context.ExplicitTierOverride))
             {
                 var overrideToken = context.ExplicitTierOverride.Trim().ToLowerInvariant();
+                if (CompoundNonProdToken(overrideToken))
+                {
+                    overrideToken = "nonprod";
+                }
+
                 if (TierAliases.TryGetValue(overrideToken, out var overrideTier))
                 {
-                    if (overrideTier == "ephemeral" && context.EnvironmentIsProd)
+                    if (overrideTier is "ephemeral" or "xx" or "np" && context.EnvironmentIsProd)
                     {
-                        reason = $"Explicit tier override \"{context.ExplicitTierOverride}\" cannot set ephemeral tier on production environment \"{context.EnvironmentName}\"; falling back to \"pr\".";
+                        reason = $"Explicit tier override \"{context.ExplicitTierOverride}\" cannot set non-production tier on production environment \"{context.EnvironmentName}\"; falling back to \"pr\".";
                         return "pr";
                     }
                     reason = $"From explicit tier override \"{context.ExplicitTierOverride}\" for environment \"{context.EnvironmentName}\".";
@@ -255,9 +286,11 @@ namespace Dorc.Terraform.Catalog
 
             foreach (Match token in Tokens.Matches(context.EnvironmentName.ToLowerInvariant()))
             {
-                if (TierAliases.TryGetValue(token.Value, out var tier))
+                var rawToken = token.Value;
+                var lookupToken = CompoundNonProdToken(rawToken) ? "nonprod" : rawToken;
+                if (TierAliases.TryGetValue(lookupToken, out var tier))
                 {
-                    if (tier == "ephemeral" && context.EnvironmentIsProd)
+                    if ((tier is "ephemeral" or "xx" or "np" || lookupToken == "in") && context.EnvironmentIsProd)
                     {
                         continue;
                     }
@@ -265,7 +298,7 @@ namespace Dorc.Terraform.Catalog
                     {
                         continue;
                     }
-                    reason = $"From \"{token.Value.ToUpperInvariant()}\" in environment name \"{context.EnvironmentName}\".";
+                    reason = $"From \"{rawToken.ToUpperInvariant()}\" in environment name \"{context.EnvironmentName}\".";
                     return tier;
                 }
             }
@@ -281,6 +314,9 @@ namespace Dorc.Terraform.Catalog
                 : $"Environment \"{context.EnvironmentName}\" is not flagged production.";
             return context.EnvironmentIsProd ? "pr" : "dv";
         }
+
+        private static bool CompoundNonProdToken(string token) =>
+            token.Length > 3 && token.StartsWith("non", StringComparison.Ordinal) && token.EndsWith("prod", StringComparison.Ordinal);
 
         private static bool ShouldUseTierSizingSuggestions(Context context) =>
             context.IsEphemeral

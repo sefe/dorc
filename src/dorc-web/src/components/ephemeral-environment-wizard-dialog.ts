@@ -57,7 +57,20 @@ export const WIZARD_TIER_CARDS: WizardTierCardInfo[] = [
     strategyBadge: 'Shared Host Services',
     strategyType: 'shared',
     summary:
-      'Fastest spin-up (~30s). Reuses shared non-prod host clusters with isolated schemas, topics, and databases.',
+      'Fastest spin-up (~30s). Reuses shared non-prod host clusters with isolated schemas, topics, and databases (2-char code xx).',
+    specs: [
+      'create_service = false (shared Aiven PG/CH)',
+      'traveler-unstable-dev Kafka (1 partition / 1h retention)',
+      '400 RU/s Cosmos / Basic SKU'
+    ]
+  },
+  {
+    tier: 'xx',
+    title: 'Temporary Use (xx)',
+    strategyBadge: 'Shared Host Services',
+    strategyType: 'shared',
+    summary:
+      'SEFE Standard v1.1 temporary / sandbox PoC tier backed by shared host services and timeboxed resources.',
     specs: [
       'create_service = false (shared Aiven PG/CH)',
       'traveler-unstable-dev Kafka (1 partition / 1h retention)',
@@ -92,11 +105,24 @@ export const WIZARD_TIER_CARDS: WizardTierCardInfo[] = [
   },
   {
     tier: 'it',
-    title: 'Integration (it)',
+    title: 'Integration (it / in)',
     strategyBadge: 'Dedicated Non-Prod Services',
     strategyType: 'dedicated',
     summary:
       'Dedicated non-production services and multi-partition messaging for cross-system integration environments.',
+    specs: [
+      'create_service = true (Aiven startup-4)',
+      'traveler-non-prod Kafka (3 partitions / 24h retention)',
+      '1000 RU/s Cosmos / Standard SKU'
+    ]
+  },
+  {
+    tier: 'np',
+    title: 'Non-Prod (np)',
+    strategyBadge: 'Dedicated Non-Prod Services',
+    strategyType: 'dedicated',
+    summary:
+      'Combined SEFE non-production tier for services sharing a unified non-prod environment footprint.',
     specs: [
       'create_service = true (Aiven startup-4)',
       'traveler-non-prod Kafka (3 partitions / 24h retention)',
@@ -1809,7 +1835,18 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
 
                       <vaadin-combo-box
                         label="Default Tier"
-                        .items=${['ephemeral', 'dv', 'qa', 'it', 'ut', 'pp', 'ff']}
+                        .items=${[
+                          'ephemeral',
+                          'xx',
+                          'dv',
+                          'qa',
+                          'it',
+                          'in',
+                          'ut',
+                          'np',
+                          'pp',
+                          'ff'
+                        ]}
                         .value=${this.builderDefaultTier}
                         @value-changed=${(
                           e: CustomEvent<{ value: string }>
@@ -2120,7 +2157,9 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
             aria-label="Tier Sizing Profile"
           >
             ${WIZARD_TIER_CARDS.map(card => {
-              const isSelected = this.selectedTier === card.tier;
+              const isSelected =
+                this.selectedTier === card.tier ||
+                (card.tier === 'it' && this.selectedTier === 'in');
               const pillClass =
                 card.strategyType === 'shared'
                   ? 'strategy-shared'

@@ -39,6 +39,12 @@ export const TIER_PROFILES_META: Record<string, TierProfileBadgeMeta> = {
     isolationSummary:
       'Shared Host Services (create_service = false, shared Aiven PG/CH, traveler-unstable-dev Kafka 1p/1h, 400 RU/s / Basic SKU)'
   },
+  xx: {
+    code: 'xx',
+    label: 'Temporary Use (xx)',
+    isolationSummary:
+      'Shared Host Services (create_service = false, shared Aiven PG/CH, traveler-unstable-dev Kafka 1p/1h, 400 RU/s / Basic SKU)'
+  },
   dv: {
     code: 'dv',
     label: 'Dev (dv)',
@@ -54,6 +60,18 @@ export const TIER_PROFILES_META: Record<string, TierProfileBadgeMeta> = {
   it: {
     code: 'it',
     label: 'Integration (it)',
+    isolationSummary:
+      'Dedicated Non-Prod Services (create_service = true, startup-4, traveler-non-prod Kafka 3p/24h, 1000 RU/s / Standard SKU)'
+  },
+  in: {
+    code: 'in',
+    label: 'Integration (in)',
+    isolationSummary:
+      'Dedicated Non-Prod Services (create_service = true, startup-4, traveler-non-prod Kafka 3p/24h, 1000 RU/s / Standard SKU)'
+  },
+  np: {
+    code: 'np',
+    label: 'Non-Prod (np)',
     isolationSummary:
       'Dedicated Non-Prod Services (create_service = true, startup-4, traveler-non-prod Kafka 3p/24h, 1000 RU/s / Standard SKU)'
   },
@@ -615,10 +633,20 @@ export class EphemeralEnvironmentBanner extends LitElement {
 
   private getTierClass(tierCode: string): string {
     const normalized = tierCode.toLowerCase();
-    if (normalized === 'ephemeral' || normalized === 'dv') {
+    if (
+      normalized === 'ephemeral' ||
+      normalized === 'xx' ||
+      normalized === 'dv'
+    ) {
       return 'tier-shared';
     }
-    if (normalized === 'qa' || normalized === 'it' || normalized === 'ut') {
+    if (
+      normalized === 'qa' ||
+      normalized === 'it' ||
+      normalized === 'in' ||
+      normalized === 'np' ||
+      normalized === 'ut'
+    ) {
       return 'tier-dedicated';
     }
     if (normalized === 'pp' || normalized === 'ff') {
