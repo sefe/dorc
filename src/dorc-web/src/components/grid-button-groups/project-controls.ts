@@ -3,7 +3,7 @@ import '@vaadin/button';
 import '@vaadin/icon';
 import '@vaadin/icons';
 import '@vaadin/vaadin-lumo-styles/icons.js';
-import '../../icons/iron-icons.js';
+import '../../icons/dorc-icons.js';
 import { navigate } from '../../router/router';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -232,7 +232,7 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
       actions.push({
         text: 'Delete Project',
         eventName: 'delete-project',
-        icon: 'icons:delete',
+        icon: 'dorc:trash',
         detail: () => ({ Project: this.project }),
         isDelete: true
       });

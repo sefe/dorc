@@ -26,7 +26,7 @@ import { AddEditAccessControl } from '../add-edit-access-control';
 import GlobalCache from '../../global-cache';
 import { ResetAppPasswordBehalf } from '../reset-app-password-behalf';
 import '../reset-app-password-behalf';
-import '../../icons/iron-icons.js';
+import '../../icons/dorc-icons.js';
 import '../dorc-spinner';
 import { SuccessNotification } from '../notifications/success-notification';
 import { ErrorNotification } from '../notifications/error-notification';
@@ -159,7 +159,7 @@ export class EnvControlCenter extends PageEnvBase {
               ) || this.isDeletingEnvironment
             }"
           >
-            <vaadin-icon icon="icons:delete" slot="prefix"></vaadin-icon>${
+            <vaadin-icon icon="dorc:trash" slot="prefix"></vaadin-icon>${
               this.isDeletingEnvironment
                 ? 'Deleting Environment...'
                 : 'Delete Environment...'
@@ -170,7 +170,10 @@ export class EnvControlCenter extends PageEnvBase {
             ?disabled="${this.environment === undefined}"
             @click="${this.openEnvHistory}"
           >
-            <vaadin-icon slot="prefix" icon="icons:history"></vaadin-icon
+            <vaadin-icon
+              slot="prefix"
+              icon="dorc:environment-history"
+            ></vaadin-icon
             >Environment History</vaadin-button
           >
           <vaadin-button

@@ -6,7 +6,7 @@ import '@vaadin/button';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/vaadin-lumo-styles/icons.js';
-import '../icons/iron-icons.js';
+import '../icons/dorc-icons.js';
 import '@vaadin/confirm-dialog';
 import '@vaadin/text-field';
 import '@vaadin/dialog';
@@ -356,7 +356,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
       >
         <vaadin-tooltip slot="tooltip" text="Delete daemon"></vaadin-tooltip>
         <vaadin-icon
-          icon="icons:delete"
+          icon="dorc:trash"
           style="color: var(--dorc-error-color)"
         ></vaadin-icon>
       </vaadin-button>

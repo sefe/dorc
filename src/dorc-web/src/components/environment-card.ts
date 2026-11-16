@@ -5,10 +5,9 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { EnvironmentApiModel } from '../apis/dorc-api';
 import { RefDataProjectEnvironmentMappingsApi } from '../apis/dorc-api';
-import '../icons/hardware-icons.js';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
-import '../icons/iron-icons.js';
+import '../icons/dorc-icons.js';
 import { AccessControlType } from '../apis/dorc-api';
 import '@vaadin/button';
 import '@vaadin/horizontal-layout';
@@ -115,7 +114,7 @@ export class EnvironmentCard extends LitElement {
                 text="Environment Details"
               ></vaadin-tooltip>
               <vaadin-icon
-                icon="hardware:developer-board"
+                icon="dorc:environment-details"
                 style="color: var(--dorc-link-color)"
               ></vaadin-icon>
             </vaadin-button>
@@ -131,7 +130,7 @@ export class EnvironmentCard extends LitElement {
                 text="Environment History"
               ></vaadin-tooltip>
               <vaadin-icon
-                icon="icons:history"
+                icon="dorc:environment-history"
                 style="color: var(--dorc-link-color)"
               ></vaadin-icon>
             </vaadin-button>

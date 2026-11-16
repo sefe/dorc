@@ -3,7 +3,6 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
-import '../icons/iron-icons.js';
 import '@yaireo/tagify';
 
 @customElement('tags-input')

@@ -16,6 +16,7 @@ import {
 import { styleMap } from 'lit/directives/style-map.js';
 import { EnvPageTabNames } from '../pages/page-environment';
 import '@vaadin/tooltip';
+import '../icons/dorc-icons.js';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('attached-env-tenants')
@@ -78,7 +79,7 @@ export class AttachedEnvTenants extends LitElement {
           text="Open Environment Details for ${environment?.EnvironmentName}"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="hardware:developer-board"
+          icon="dorc:environment-details"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>

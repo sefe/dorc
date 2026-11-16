@@ -6,7 +6,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { AccessControlApiModel } from '../../apis/dorc-api';
-import '../../icons/iron-icons.js';
+import '../../icons/dorc-icons.js';
 import '@vaadin/tooltip';
 
 @customElement('access-control-controls')
@@ -48,10 +48,7 @@ export class AccessControlControls extends LitElement {
         ?disabled="${this.disabled}"
       >
         <vaadin-tooltip slot="tooltip" text="Remove Access"></vaadin-tooltip>
-        <vaadin-icon
-          icon="icons:delete"
-          style=${styleMap(styles)}
-        ></vaadin-icon>
+        <vaadin-icon icon="dorc:trash" style=${styleMap(styles)}></vaadin-icon>
       </vaadin-button>
     `;
   }

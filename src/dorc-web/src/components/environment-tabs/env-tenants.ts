@@ -10,6 +10,7 @@ import { PageEnvBase } from './page-env-base.ts';
 import { css, PropertyValues } from 'lit';
 import { EnvPageTabNames } from '../../pages/page-environment.ts';
 import '@vaadin/tooltip';
+import '../../icons/dorc-icons.js';
 
 @customElement('env-tenants')
 export class EnvTenants extends PageEnvBase {
@@ -67,7 +68,7 @@ export class EnvTenants extends PageEnvBase {
                     text="Open Environment Details for ${this.environment?.ParentEnvironment?.EnvironmentName}"
                   ></vaadin-tooltip>
                   <vaadin-icon
-                    icon="hardware:developer-board"
+                    icon="dorc:environment-details"
                     style="color: var(--dorc-link-color)"
                   ></vaadin-icon>
                 </vaadin-button>

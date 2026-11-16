@@ -10,8 +10,7 @@ import { css, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { ConfigValueApiModel, RefDataConfigApi } from '../../apis/dorc-api';
-import '../../icons/editor-icons.js';
-import '../../icons/iron-icons.js';
+import '../../icons/dorc-icons.js';
 import '@vaadin/text-field';
 import '@vaadin/tooltip';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
@@ -86,7 +85,7 @@ export class ConfigValueControls extends LitElement {
       >
         <vaadin-tooltip slot="tooltip" text="Edit"></vaadin-tooltip>
         <vaadin-icon
-          icon="editor:mode-edit"
+          icon="dorc:edit"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
@@ -111,7 +110,7 @@ export class ConfigValueControls extends LitElement {
       >
         <vaadin-tooltip slot="tooltip" text="Delete Value"></vaadin-tooltip>
         <vaadin-icon
-          icon="icons:clear"
+          icon="dorc:trash"
           style="color: var(--dorc-error-color)"
         ></vaadin-icon>
       </vaadin-button>

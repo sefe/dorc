@@ -15,7 +15,7 @@ import '../components/add-user-or-group/add-user-or-group';
 import { UserApiModel } from '../apis/dorc-api';
 import { RefDataUsersApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
-import '../icons/hardware-icons.js';
+import '../icons/dorc-icons.js';
 import { ref } from 'lit/directives/ref.js';
 import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
@@ -159,7 +159,7 @@ export class PageUsersList extends PageElement {
   renderLoginType(user: UserApiModel) {
     if (user.LoginType?.toLowerCase() === 'windows') {
       return html`<vaadin-icon
-        icon="hardware:desktop-windows"
+        icon="dorc:login-windows"
         style="color: var(--dorc-link-color)"
       ></vaadin-icon>`;
     }

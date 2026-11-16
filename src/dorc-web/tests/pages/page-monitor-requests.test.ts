@@ -28,8 +28,6 @@ vi.mock('@vaadin/notification', () => ({
 
 // Internal component side-effect registrations
 vi.mock('../../src/components/grid-button-groups/request-controls', () => ({}));
-vi.mock('../../src/icons/iron-icons.js', () => ({}));
-vi.mock('../../src/icons/custom-icons.js', () => ({}));
 vi.mock('../../src/components/notifications/error-notification', () => ({
   ErrorNotification: class {
     constructor() {

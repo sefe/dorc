@@ -13,8 +13,7 @@ import { styleMap } from 'lit/directives/style-map.js';
 import { PropertyValuesApi } from '../../apis/dorc-api';
 import type { PropertyValueDto } from '../../apis/dorc-api';
 import { Response } from '../../apis/dorc-api';
-import '../../icons/editor-icons.js';
-import '../../icons/iron-icons.js';
+import '../../icons/dorc-icons.js';
 import { Notification } from '@vaadin/notification';
 import '@vaadin/text-field';
 import '@vaadin/tooltip';
@@ -104,7 +103,7 @@ export class VariableValueControls extends LitElement {
       >
         <vaadin-tooltip slot="tooltip" text="Edit"></vaadin-tooltip>
         <vaadin-icon
-          icon="editor:mode-edit"
+          icon="dorc:edit"
           style=${styleMap(editStyles)}
         ></vaadin-icon>
       </vaadin-button>
@@ -130,7 +129,7 @@ export class VariableValueControls extends LitElement {
       >
         <vaadin-tooltip slot="tooltip" text="Delete Value"></vaadin-tooltip>
         <vaadin-icon
-          icon="icons:clear"
+          icon="dorc:trash"
           style=${styleMap(deleteStyles)}
         ></vaadin-icon>
       </vaadin-button>
