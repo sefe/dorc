@@ -19,7 +19,7 @@ export class PageNotFound extends PageElementNotFound {
     return html`
       <section>
         <img
-          src="/hegsie_white_background_cartoon_dork_code_markdown_simple_icon__9a6a1001-ed80-4ed7-a62a-ffee1e55b4d6.png"
+          src="/modern-dorc-not-found.webp"
           alt="Page not found"
           style="height: 300px; padding: 3px"
         />

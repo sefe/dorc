@@ -226,8 +226,8 @@ namespace Dorc.Core.Tests
         {
             _projectsPds.GetComponentsForProject(1).Returns(new List<ComponentApiModel>
             {
-                new() { ComponentId = 10, ComponentName = "CompA", ParentId = 0, ScriptPath = "s.ps1", Children = new List<ComponentApiModel>() },
-                new() { ComponentId = 20, ComponentName = "CompB", ParentId = 0, ScriptPath = "s2.ps1", Children = new List<ComponentApiModel>() }
+                new() { ComponentId = 10, ComponentName = "CompA", ParentId = 0, ScriptPath = "s.ps1", IsEnabled = true, Children = new List<ComponentApiModel>() },
+                new() { ComponentId = 20, ComponentName = "CompB", ParentId = 0, ScriptPath = "s2.ps1", IsEnabled = false, Children = new List<ComponentApiModel>() }
             });
 
             var sut = CreateSut();
@@ -235,7 +235,119 @@ namespace Dorc.Core.Tests
 
             Assert.AreEqual(2, result.Count);
             Assert.AreEqual("CompA", result[0].Name);
+            Assert.IsTrue(result[0].IsEnabled);
             Assert.AreEqual("CompB", result[1].Name);
+            Assert.IsFalse(result[1].IsEnabled);
+        }
+
+        [TestMethod]
+        public void GetComponents_WithParentId_PreservesIsEnabled()
+        {
+            _projectsPds.GetComponentsForProject(1).Returns(new List<ComponentApiModel>
+            {
+                new() { ComponentId = 10, ComponentName = "Parent", ParentId = 0, IsEnabled = true, Children = new List<ComponentApiModel>() },
+                new() { ComponentId = 11, ComponentName = "EnabledChild", ParentId = 10, IsEnabled = true, Children = new List<ComponentApiModel>() },
+                new() { ComponentId = 12, ComponentName = "DisabledChild", ParentId = 10, IsEnabled = false, Children = new List<ComponentApiModel>() }
+            });
+
+            var sut = CreateSut();
+            var result = sut.GetComponents(1, 10).ToList();
+
+            Assert.AreEqual(2, result.Count);
+            Assert.AreEqual("DisabledChild", result[0].Name);
+            Assert.IsFalse(result[0].IsEnabled);
+            Assert.AreEqual("EnabledChild", result[1].Name);
+            Assert.IsTrue(result[1].IsEnabled);
+        }
+
+        // --- GetBundleComponentsAsync ---
+
+        [TestMethod]
+        public async Task GetBundleComponentsAsync_NonBundleBuild_ReturnsEmpty()
+        {
+            var sut = CreateSut();
+            var result = await sut.GetBundleComponentsAsync(1, "ETRMs; StandardBuild", "https://dev.azure.com/org/proj/_apis/build/Builds/100");
+            Assert.AreEqual(0, result.Count);
+        }
+
+        [TestMethod]
+        public async Task GetBundleComponentsAsync_ValidBundle_ReturnsValidatedComponents()
+        {
+            var project = new ProjectApiModel
+            {
+                ProjectId = 1,
+                ProjectName = "SampleProject",
+                ArtefactsUrl = "https://dev.azure.com/org",
+                SourceControlType = SourceControlType.AzureDevOps
+            };
+            _projectsPds.GetProject(1).Returns(project);
+            _projectsPds.GetComponentsForProject(1).Returns(new List<ComponentApiModel>
+            {
+                new() { ComponentId = 10, ComponentName = "ComponentA" },
+                new() { ComponentId = 20, ComponentName = "ComponentB" }
+            });
+
+            _mockBuildClient.GetBuildArtifactDownloadUrlAsync(
+                Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns("https://dev.azure.com/org/proj/_apis/build/builds/100/artifacts?artifactName=drop");
+
+            _mockBuildClient.TryReadArtifactFileTextAsync(
+                Arg.Any<string>(),
+                "bundle.json")
+                .Returns(@"{
+                    ""items"": [
+                        { ""BuildDefinition"": ""DefA"", ""Component"": ""ComponentA"", ""Build"": ""Build_1"" },
+                        { ""BuildDefinition"": ""DefB"", ""Component"": ""ComponentB"", ""Build"": ""Build_2"" }
+                    ]
+                }");
+
+            var sut = CreateSut();
+            var result = await sut.GetBundleComponentsAsync(
+                1,
+                "Folder; SampleApp.Bundle",
+                "https://dev.azure.com/org/proj/_apis/build/Builds/100");
+
+            CollectionAssert.AreEqual(new[] { "ComponentA", "ComponentB" }, result.ToArray());
+        }
+
+        [TestMethod]
+        public async Task GetBundleComponentsAsync_MissingProjectComponent_ThrowsInvalidOperationException()
+        {
+            var project = new ProjectApiModel
+            {
+                ProjectId = 1,
+                ProjectName = "SampleProject",
+                ArtefactsUrl = "https://dev.azure.com/org",
+                SourceControlType = SourceControlType.AzureDevOps
+            };
+            _projectsPds.GetProject(1).Returns(project);
+            _projectsPds.GetComponentsForProject(1).Returns(new List<ComponentApiModel>
+            {
+                new() { ComponentId = 10, ComponentName = "ComponentA" }
+            });
+
+            _mockBuildClient.GetBuildArtifactDownloadUrlAsync(
+                Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns("https://dev.azure.com/org/proj/_apis/build/builds/100/artifacts?artifactName=drop");
+
+            _mockBuildClient.TryReadArtifactFileTextAsync(
+                Arg.Any<string>(),
+                "bundle.json")
+                .Returns(@"{
+                    ""items"": [
+                        { ""BuildDefinition"": ""DefA"", ""Component"": ""ComponentA"", ""Build"": ""Build_1"" },
+                        { ""BuildDefinition"": ""DefB"", ""Component"": ""UnknownComp"", ""Build"": ""Build_2"" }
+                    ]
+                }");
+
+            var sut = CreateSut();
+            var ex = await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                sut.GetBundleComponentsAsync(
+                    1,
+                    "Folder; SampleApp.Bundle",
+                    "https://dev.azure.com/org/proj/_apis/build/Builds/100"));
+
+            StringAssert.Contains(ex.Message, "UnknownComp");
         }
     }
 }

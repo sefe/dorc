@@ -17,25 +17,25 @@
  */
 export interface DatabaseAccessImportRequest {
     /**
-     * @type {{ [key: string]: string; }}
+     * @type {{ [key: string]: string | null; }}
      * @memberof DatabaseAccessImportRequest
      */
-    RoleMappings: { [key: string]: string; };
+    RoleMappings: { [key: string]: string | null; };
     /**
-     * @type {{ [key: string]: string; }}
+     * @type {{ [key: string]: string | null; }}
      * @memberof DatabaseAccessImportRequest
      */
-    DirectoryMappings: { [key: string]: string; };
-    /**
-     * @type {Array<number>}
-     * @memberof DatabaseAccessImportRequest
-     */
-    ExcludedLegacyUserIds?: Array<number>;
+    DirectoryMappings: { [key: string]: string | null; };
     /**
      * @type {Array<number>}
      * @memberof DatabaseAccessImportRequest
      */
-    ApprovedDbOwnerLegacyUserIds?: Array<number>;
+    ExcludedLegacyUserIds?: Array<number> | null;
+    /**
+     * @type {Array<number>}
+     * @memberof DatabaseAccessImportRequest
+     */
+    ApprovedDbOwnerLegacyUserIds?: Array<number> | null;
     /**
      * @type {string}
      * @memberof DatabaseAccessImportRequest

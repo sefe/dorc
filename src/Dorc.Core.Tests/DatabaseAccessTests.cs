@@ -523,4 +523,36 @@ public class DatabaseAccessTests
         Assert.IsTrue(context.Model.FindEntityType(typeof(DatabaseAccessConfiguration))!.FindProperty("Revision")!.IsConcurrencyToken);
         Assert.IsNull(context.Model.FindEntityType(typeof(User)));
     }
+
+    [TestMethod]
+    public void ProviderForMapsEachDatabaseEngineAndRejectsMismatchedDatabaseTypes()
+    {
+        Assert.AreEqual("sql-server", DatabaseAccessPlanner.ProviderFor(DatabaseType.SqlServer));
+        Assert.AreEqual("cosmos-db", DatabaseAccessPlanner.ProviderFor(DatabaseType.CosmosDb));
+        Assert.AreEqual("clickhouse", DatabaseAccessPlanner.ProviderFor(DatabaseType.ClickHouse));
+        Assert.AreEqual("postgresql", DatabaseAccessPlanner.ProviderFor(DatabaseType.PostgreSql));
+
+        var factory = Substitute.For<IDeploymentContextFactory>();
+        var deploymentContext = Substitute.For<IDeploymentContext>();
+        var pgSet = Substitute.For<DbSet<Database>, IQueryable<Database>>();
+        var data = new[] { new Database { Id = 9, Name = "analytics", ServerName = "proj/pg", DatabaseType = DatabaseType.PostgreSql } }.AsQueryable();
+        ((IQueryable<Database>)pgSet).Provider.Returns(data.Provider);
+        ((IQueryable<Database>)pgSet).Expression.Returns(data.Expression);
+        ((IQueryable<Database>)pgSet).ElementType.Returns(data.ElementType);
+        ((IQueryable<Database>)pgSet).GetEnumerator().Returns(_ => data.GetEnumerator());
+        deploymentContext.Databases.Returns(pgSet);
+        factory.GetContext().Returns(deploymentContext);
+
+        var service = new DatabaseAccessService(
+            new Dorc.PersistentData.Sources.DatabaseAccessStore(factory),
+            factory,
+            new DatabaseAccessProviders([new SqlServerDatabaseAccessProvider()]),
+            new DatabaseAccessDirectory(Substitute.For<IActiveDirectorySearcher>()),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<DatabaseAccessService>.Instance);
+
+        Assert.ThrowsExactly<NotSupportedException>(() =>
+            service.Save(9, new DatabaseAccessState { DatabaseId = 9, Provider = "postgresql" }, "actor"));
+        Assert.ThrowsExactly<ArgumentException>(() =>
+            service.Save(9, new DatabaseAccessState { DatabaseId = 9, Provider = "sql-server" }, "actor"));
+    }
 }

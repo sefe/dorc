@@ -408,6 +408,13 @@
         },
         {
           "AccountNameProperty": "",
+          "IsPath": true,
+          "IsSecure": false,
+          "Name": "DORC_TERRAFORM_CATALOG_MANIFESTS_DIRECTORY",
+          "Value": "C:/DOrc/TerraformCatalog/stock-modules-manifests/"
+        },
+        {
+          "AccountNameProperty": "",
           "IsPath": false,
           "IsSecure": false,
           "Name": "KAFKA_ENABLED",

@@ -112,6 +112,18 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public bool UpdateDatabaseType(int databaseId, DatabaseType databaseType)
+        {
+            using var context = _contextFactory.GetContext();
+            var database = context.Databases.Find(databaseId);
+            if (database == null)
+                return false;
+
+            database.DatabaseType = databaseType;
+            context.SaveChanges();
+            return true;
+        }
+
         public DatabaseApiModel? GetDatabaseByTag(string envName, string tag)
         {
             using (var context = _contextFactory.GetContext())
@@ -121,11 +133,12 @@ namespace Dorc.PersistentData.Sources
                 // in memory would compare Ordinal, and this overload would then
                 // disagree with the DatabaseTagMatch-based one on whether 'endur'
                 // finds a database tagged 'Endur'.
-                var dbDetails = context.Databases
+                var matches = context.Databases
                     .Include(d => d.TagLinks)
                     .Where(d => d.Environments.Any(e => e.Name == envName))
                     .Where(DatabaseTagMatch.HasTag(tag))
-                    .SingleOrDefault();
+                    .ToList();
+                var dbDetails = RequireAtMostOneDatabaseByTag(matches, envName, tag);
                 return dbDetails != null ? MapToDatabaseApiModel(dbDetails) : null;
             }
         }
@@ -184,14 +197,31 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var endurDb = context.Databases
+                var matches = context.Databases
                     .Include(d => d.Environments)
                     .Include(d => d.TagLinks)
                     .Include(d => d.Group)
                     .Where(DatabaseTagMatch.HasTag(tag))
-                    .SingleOrDefault(d => d.Environments.FirstOrDefault().Name == environment.EnvironmentName);
+                    .Where(d => d.Environments.Any(e => e.Name == environment.EnvironmentName))
+                    .ToList();
+                var endurDb = RequireAtMostOneDatabaseByTag(matches, environment.EnvironmentName, tag);
                 return endurDb != null ? MapToDatabaseApiModel(endurDb) : null;
             }
+        }
+
+        private static Database? RequireAtMostOneDatabaseByTag(IReadOnlyList<Database> matches, string envName, string tag)
+        {
+            if (matches.Count == 0)
+                return null;
+            if (matches.Count == 1)
+                return matches[0];
+
+            var conflicting = string.Join(", ", matches.Select(d =>
+                string.IsNullOrWhiteSpace(d.ServerName)
+                    ? $"'{d.Name}'"
+                    : $"'{d.Name}' on '{d.ServerName}'"));
+            throw new InvalidOperationException(
+                $"Environment '{envName}' has multiple databases tagged '{tag}' ({conflicting}). Ensure at most one database on the environment carries the '{tag}' tag.");
         }
 
         public IEnumerable<DatabaseApiModel> GetDatabasesForEnvId(int environmentId)
@@ -357,6 +387,7 @@ namespace Dorc.PersistentData.Sources
                         Name = s.Name,
                         Tags = s.TagLinks.Select(t => t.Tag).ToArray(),
                         ServerName = s.ServerName,
+                        DatabaseType = s.DatabaseType,
                         AdGroup = s.Group?.Name,
                         ArrayName = s.ArrayName,
                         EnvironmentNames = s.Environments.Select(ed => ed.Name).ToList(),
@@ -435,6 +466,7 @@ namespace Dorc.PersistentData.Sources
 
                 existingDatabase.Name = database.Name;
                 existingDatabase.ServerName = database.ServerName;
+                existingDatabase.DatabaseType = database.DatabaseType ?? existingDatabase.DatabaseType;
                 existingDatabase.ArrayName = database.ArrayName;
                 SyncTagLinks(existingDatabase, database.Tags);
 
@@ -462,6 +494,7 @@ namespace Dorc.PersistentData.Sources
                 Id = db.Id,
                 Name = db.Name,
                 ServerName = db.ServerName,
+                DatabaseType = db.DatabaseType ?? DatabaseType.SqlServer,
                 Tags = TagString.Join(db.Tags),
                 TagLinks = TagString.Normalize(db.Tags)
                     .Select(t => new DatabaseTag { Tag = t }).ToList(),
@@ -481,6 +514,7 @@ namespace Dorc.PersistentData.Sources
                 Name = db.Name,
                 Tags = db.TagLinks != null ? db.TagLinks.Select(t => t.Tag).ToArray() : System.Array.Empty<string>(),
                 ServerName = db.ServerName,
+                DatabaseType = db.DatabaseType,
                 ArrayName = db.ArrayName,
                 EnvironmentNames = db.Environments != null ? db.Environments.Select(e => e.Name).ToList() : new List<string>()
             };

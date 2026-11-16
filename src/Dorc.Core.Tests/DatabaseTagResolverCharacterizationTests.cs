@@ -34,7 +34,17 @@ namespace Dorc.Core.Tests
             daemons.GetDaemonsForServer(Arg.Any<int>()).Returns(Array.Empty<DaemonApiModel>());
             databasesSource.GetDatabasesForEnvironmentName(Arg.Any<string>()).Returns(databases);
 
-            var resolver = new VariableScopeOptionsResolver(properties, servers, daemons, databasesSource, userPerms);
+            // Component sources stubbed empty: component emission is conditional,
+            // so empty sources keep the characterized call-set unchanged.
+            var containers = Substitute.For<IContainersPersistentSource>();
+            containers.GetForEnvironmentId(Arg.Any<int>()).Returns(Array.Empty<ContainerApiModel>());
+            var cloudResources = Substitute.For<ICloudResourcesPersistentSource>();
+            cloudResources.GetForEnvironmentId(Arg.Any<int>()).Returns(Array.Empty<CloudResourceApiModel>());
+            var apiRegistrations = Substitute.For<IApiRegistrationsPersistentSource>();
+            apiRegistrations.GetForEnvironmentId(Arg.Any<int>()).Returns(Array.Empty<ApiRegistrationApiModel>());
+
+            var resolver = new VariableScopeOptionsResolver(properties, servers, daemons, databasesSource, userPerms,
+                containers, cloudResources, apiRegistrations);
             var calls = new List<string>();
             var values = new Dictionary<string, VariableValue?>();
             var variableResolver = Substitute.For<IVariableResolver>();
@@ -296,14 +306,32 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void DuplicateWholeType_AtFixedLookups_Throws()
         {
-            // Kept behaviour: SingleOrDefault throws when two databases in one
-            // environment share the looked-up type. S-003 must NOT flip this.
+            // Kept behaviour: fixed singleton tag lookups throw when two databases in one
+            // environment share the looked-up type, with an actionable message naming the
+            // environment, tag, conflicting databases, and affected variables.
             var (resolver, variableResolver, _, _) = CreateResolver(
                 new DatabaseApiModel { Id = 1, Name = "R1", Tags = new[] { "Endur Reporting" }, ServerName = "s1" },
-                new DatabaseApiModel { Id = 2, Name = "R2", Tags = new[] { "Endur Reporting" }, ServerName = "s2" });
+                new DatabaseApiModel { Id = 2, Name = "R2", Tags = new[] { "Endur Reporting" }, ServerName = "" });
 
-            Assert.Throws<InvalidOperationException>(
+            var reportingEx = Assert.Throws<InvalidOperationException>(
                 () => resolver.SetPropertyValues(variableResolver, Environment42()));
+            StringAssert.Contains(reportingEx.Message, "Endur DV 10");
+            StringAssert.Contains(reportingEx.Message, "'Endur Reporting'");
+            StringAssert.Contains(reportingEx.Message, "'R1' on 's1'");
+            StringAssert.Contains(reportingEx.Message, "'R2'");
+            StringAssert.Contains(reportingEx.Message, "ReportingDatabaseName");
+
+            var (extResolver, extVariableResolver, _, _) = CreateResolver(
+                new DatabaseApiModel { Id = 3, Name = "E1", Tags = new[] { "Endur External" }, ServerName = "s1" },
+                new DatabaseApiModel { Id = 4, Name = "E2", Tags = new[] { "Endur External" }, ServerName = "s2" });
+
+            var externalEx = Assert.Throws<InvalidOperationException>(
+                () => extResolver.SetPropertyValues(extVariableResolver, Environment42()));
+            StringAssert.Contains(externalEx.Message, "Endur DV 10");
+            StringAssert.Contains(externalEx.Message, "'Endur External'");
+            StringAssert.Contains(externalEx.Message, "'E1' on 's1'");
+            StringAssert.Contains(externalEx.Message, "'E2' on 's2'");
+            StringAssert.Contains(externalEx.Message, "ExternalDatabaseName");
         }
     }
 }

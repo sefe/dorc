@@ -18,9 +18,14 @@ import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     ApiBoolResult,
     DatabaseApiModel,
+    DatabaseRelatedResourcesApiModel,
     GetDatabaseApiModelListResponseDto,
     PagedDataOperators,
 } from '../models';
+
+export interface RefDataDatabasesByEnvIdEnvIdGetRequest {
+    envId: number;
+}
 
 export interface RefDataDatabasesByPagePutRequest {
     page?: number;
@@ -55,10 +60,40 @@ export interface RefDataDatabasesPutRequest {
     databaseApiModel?: DatabaseApiModel;
 }
 
+export interface RefDataDatabasesRelatedResourcesGetRequest {
+    id?: number;
+    name?: string;
+    server?: string;
+}
+
 /**
  * no description
  */
 export class RefDataDatabasesApi extends BaseAPI {
+
+    /**
+     */
+    refDataDatabasesByEnvIdEnvIdGet({ envId }: RefDataDatabasesByEnvIdEnvIdGetRequest): Observable<Array<DatabaseApiModel>>
+    refDataDatabasesByEnvIdEnvIdGet({ envId }: RefDataDatabasesByEnvIdEnvIdGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<DatabaseApiModel>>>
+    refDataDatabasesByEnvIdEnvIdGet({ envId }: RefDataDatabasesByEnvIdEnvIdGetRequest, opts?: OperationOpts): Observable<Array<DatabaseApiModel> | AjaxResponse<Array<DatabaseApiModel>>> {
+        throwIfNullOrUndefined(envId, 'envId', 'refDataDatabasesByEnvIdEnvIdGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<Array<DatabaseApiModel>>({
+            url: '/RefDataDatabases/ByEnvId/{envId}'.replace('{envId}', encodeURI(envId)),
+            method: 'GET',
+            headers,
+        }, opts?.responseOpts);
+    };
 
     /**
      */
@@ -275,6 +310,36 @@ export class RefDataDatabasesApi extends BaseAPI {
             headers,
             query,
             body: databaseApiModel,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    refDataDatabasesRelatedResourcesGet({ id, name, server }: RefDataDatabasesRelatedResourcesGetRequest): Observable<DatabaseRelatedResourcesApiModel>
+    refDataDatabasesRelatedResourcesGet({ id, name, server }: RefDataDatabasesRelatedResourcesGetRequest, opts?: OperationOpts): Observable<AjaxResponse<DatabaseRelatedResourcesApiModel>>
+    refDataDatabasesRelatedResourcesGet({ id, name, server }: RefDataDatabasesRelatedResourcesGetRequest, opts?: OperationOpts): Observable<DatabaseRelatedResourcesApiModel | AjaxResponse<DatabaseRelatedResourcesApiModel>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (id != null) { query['id'] = id; }
+        if (name != null) { query['name'] = name; }
+        if (server != null) { query['server'] = server; }
+
+        return this.request<DatabaseRelatedResourcesApiModel>({
+            url: '/RefDataDatabases/RelatedResources',
+            method: 'GET',
+            headers,
+            query,
         }, opts?.responseOpts);
     };
 

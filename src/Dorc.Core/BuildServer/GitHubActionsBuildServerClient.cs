@@ -417,5 +417,38 @@ namespace Dorc.Core.BuildServer
                 $"Cannot parse owner/repo from URL: {serverUrl}. " +
                 "Expected format: https://api.github.com/repos/{{owner}}/{{repo}}");
         }
+
+        public async Task<string?> TryReadArtifactFileTextAsync(string artifactDownloadUrl, string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(artifactDownloadUrl) || string.IsNullOrWhiteSpace(fileName))
+                return null;
+
+            var sanitizedFileName = Path.GetFileName(fileName);
+            if (string.IsNullOrWhiteSpace(sanitizedFileName))
+                return null;
+
+            if (!Uri.TryCreate(artifactDownloadUrl, UriKind.Absolute, out var downloadUri) ||
+                (downloadUri.Scheme != Uri.UriSchemeHttp && downloadUri.Scheme != Uri.UriSchemeHttps))
+            {
+                return null;
+            }
+
+            _hostValidator.ValidateHost(downloadUri.Host);
+
+            using var client = CreateHttpClient();
+            using var response = await client.GetAsync(downloadUri, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogWarning("Failed to download GitHub Actions artifact (HTTP {StatusCode}).", (int)response.StatusCode);
+                return null;
+            }
+
+            await using var responseStream = await response.Content.ReadAsStreamAsync().ConfigureAwait(false);
+            using var memoryStream = new MemoryStream();
+            await responseStream.CopyToAsync(memoryStream).ConfigureAwait(false);
+            memoryStream.Position = 0;
+
+            return AzureDevOpsServer.AzureDevOpsServerWebClient.TryExtractTextFromZipOrRawStream(memoryStream, sanitizedFileName);
+        }
     }
 }

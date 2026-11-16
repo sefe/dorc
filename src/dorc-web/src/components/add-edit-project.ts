@@ -16,10 +16,8 @@ import { RefDataProjectsApi } from '../apis/dorc-api';
 import type { ProjectApiModel } from '../apis/dorc-api';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
-
 @customElement('add-edit-project')
 export class AddEditProject extends LitElement {
-
   private readonly maxFieldLength = 512;
 
   @property({ type: Object })
@@ -38,8 +36,22 @@ export class AddEditProject extends LitElement {
     this.setTextField('proj-azure', this._project.ArtefactsSubPaths ?? '');
     this.setTextField('proj-regex', this._project.ArtefactsBuildRegex ?? '');
     this.setTextField('proj-leanix-url', this._project.LeanIXUrl ?? '');
-    this.setTextField('proj-terraform-git-url', this._project.TerraformGitRepoUrl ?? '');
+    this.setTextField(
+      'proj-business-vertical',
+      this._project.BusinessVertical ?? ''
+    );
+    this.setTextField(
+      'proj-application-code',
+      this._project.ApplicationCode ?? ''
+    );
+    this.setTextField(
+      'proj-terraform-git-url',
+      this._project.TerraformGitRepoUrl ?? ''
+    );
 
+    this._checkName(this._project.ProjectName ?? '');
+    this._validateUrlForProvider();
+    this._inputValueChanged();
     this.requestUpdate('project', oldVal);
   }
 
@@ -52,14 +64,17 @@ export class AddEditProject extends LitElement {
   }
 
   private get urlLabel(): string {
-    if (this.isFileShare) return 'File Share Path (e.g., file://server/share/builds)';
-    if (this.isGitHub) return 'GitHub API URL (e.g., https://api.github.com/repos/owner/repo)';
+    if (this.isFileShare)
+      return 'File Share Path (e.g., file://server/share/builds)';
+    if (this.isGitHub)
+      return 'GitHub API URL (e.g., https://api.github.com/repos/owner/repo)';
     return 'Azure DevOps Server URL';
   }
 
   private get subPathsLabel(): string {
     if (this.isFileShare) return 'Sub-paths (semicolon-separated)';
-    if (this.isGitHub) return 'GitHub Workflow Files (semicolon-separated, e.g., build.yml;deploy.yml)';
+    if (this.isGitHub)
+      return 'GitHub Workflow Files (semicolon-separated, e.g., build.yml;deploy.yml)';
     return 'Azure DevOps Server Project';
   }
 
@@ -88,6 +103,7 @@ export class AddEditProject extends LitElement {
     this._projects = value;
     if (this._projects !== undefined)
       this.allProjNames = this._projects.map(proj => proj.ProjectName ?? '');
+    this._checkName(this._project?.ProjectName ?? '');
     this.requestUpdate('projects', oldVal);
   }
 
@@ -108,6 +124,8 @@ export class AddEditProject extends LitElement {
   private isNameValid = false;
 
   private isBusy = false;
+
+  @state() private urlErrorMessage = '';
 
   @property() ErrorMessage = '';
 
@@ -184,6 +202,7 @@ export class AddEditProject extends LitElement {
           this.subPathsLabel,
           this.buildRegexLabel,
           this.ErrorMessage,
+          this.urlErrorMessage,
           this.canSubmit
         ])}
       ></vaadin-dialog>
@@ -199,110 +218,146 @@ export class AddEditProject extends LitElement {
       ArtefactsSubPaths: '',
       ArtefactsUrl: '',
       LeanIXUrl: '',
+      BusinessVertical: '',
+      ApplicationCode: '',
       SourceControlType: 'AzureDevOps' as any
     };
   }
 
   private renderProjectForm = () => html`
-
-        <vaadin-vertical-layout>
-          <p style="margin: 0 0 8px 0; color: var(--lumo-secondary-text-color); font-size: var(--lumo-font-size-s);">
-            Projects can only be updated by Admins or users with write access.
-          </p>
-          <vaadin-text-field
-            id="proj-name"
-            style="width: 490px;"
-            label="Name"
-            required
-            min-length="5"
-            value="${this._project?.ProjectName ?? ''}"
-            @value-changed="${this._projNameValueChanged}"
-          ></vaadin-text-field>
-          <vaadin-text-field
-            id="proj-desc"
-            style="width: 490px;"
-            label="Description"
-            value="${this._project?.ProjectDescription ?? ''}"
-            @value-changed="${this._descriptionChanged}"
-          ></vaadin-text-field>
-          <vaadin-combo-box
-            id="proj-source-control"
-            style="width: 490px;"
-            label="Source Control Type"
-            .items="${[
-              { label: 'Azure DevOps', value: 'AzureDevOps' },
-              { label: 'GitHub', value: 'GitHub' },
-              { label: 'File Share', value: 'FileShare' }
-            ]}"
-            item-label-path="label"
-            item-value-path="value"
-            .value="${String(this._project?.SourceControlType ?? 'AzureDevOps')}"
-            @value-changed="${this._sourceControlTypeChanged}"
-          ></vaadin-combo-box>
-          <vaadin-text-field
-            id="proj-url"
-            style="width: 490px;"
-            label="${this.urlLabel}"
-            maxlength="${this.maxFieldLength}"
-            title="Maximum length: ${this.maxFieldLength} symbols"
-            required
-            pattern="^((https?|file):\\/\\/(.*)|\\\\\\\\(.*))"
-            value="${this._project?.ArtefactsUrl ?? ''}"
-            @value-changed="${this._artefactsUrlChanged}"
-          ></vaadin-text-field>
-          ${this.showSubPaths ? html`
-          <vaadin-text-field
-            id="proj-azure"
-            style="width: 490px;"
-            label="${this.subPathsLabel}"
-            maxlength="${this.maxFieldLength}"
-            title="Maximum length: ${this.maxFieldLength} symbols"
-            required
-            min-length="6"
-            value="${this._project?.ArtefactsSubPaths ?? ''}"
-            @value-changed="${this._artefactsSubPathsChanged}"
-          ></vaadin-text-field>` : html``}
-          ${this.showBuildRegex ? html`
-          <vaadin-text-field
-            id="proj-regex"
-            style="width: 490px;"
-            label="${this.buildRegexLabel}"
-            value="${this._project?.ArtefactsBuildRegex ?? ''}"
-            @value-changed="${this._buildDefinitionRegexChanged}"
-          ></vaadin-text-field>` : html``}
-          <vaadin-text-field
-            id="proj-leanix-url"
-            style="width: 490px;"
-            label="LeanIX URL"
-            maxlength="${this.maxFieldLength}"
-            title="Maximum length: ${this.maxFieldLength} symbols"
-            value="${this._project?.LeanIXUrl ?? ''}"
-            @value-changed="${this._leanIxUrlChanged}"
-            helper-text="LeanIX workspace URL (e.g., https://.../factSheets)">
-          </vaadin-text-field>
-          <vaadin-text-field
-            id="proj-terraform-git-url"
-            style="width: 490px;"
-            label="Terraform Git Repository URL"
-            maxlength="${this.maxFieldLength}"
-            title="Maximum length: ${this.maxFieldLength} symbols"
-            value="${this._project?.TerraformGitRepoUrl ?? ''}"
-            @value-changed="${this._terraformGitRepoUrlChanged}"
-            helper-text="Git repository URL for Terraform code (e.g., https://github.com/org/repo.git)"
-          ></vaadin-text-field>
-          <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
-          <vaadin-horizontal-layout style="margin-right: 30px">
-            <vaadin-button
-              style="margin: 2px"
-              .disabled="${!this.canSubmit}"
-              @click="${this._submit}"
-              >Save
-            </vaadin-button>
-            <vaadin-button @click="${this.Reset}" style="margin: 2px"
-              >Clear
-            </vaadin-button>
-          </vaadin-horizontal-layout>
-        </vaadin-vertical-layout>
+    <vaadin-vertical-layout>
+      <p
+        style="margin: 0 0 8px 0; color: var(--lumo-secondary-text-color); font-size: var(--lumo-font-size-s);"
+      >
+        Projects can only be updated by Admins or users with write access.
+      </p>
+      <vaadin-text-field
+        id="proj-name"
+        style="width: 490px;"
+        label="Name"
+        required
+        min-length="5"
+        value="${this._project?.ProjectName ?? ''}"
+        @value-changed="${this._projNameValueChanged}"
+      ></vaadin-text-field>
+      <vaadin-text-field
+        id="proj-desc"
+        style="width: 490px;"
+        label="Description"
+        value="${this._project?.ProjectDescription ?? ''}"
+        @value-changed="${this._descriptionChanged}"
+      ></vaadin-text-field>
+      <vaadin-combo-box
+        id="proj-source-control"
+        style="width: 490px;"
+        label="Source Control Type"
+        .items="${[
+          { label: 'Azure DevOps', value: 'AzureDevOps' },
+          { label: 'GitHub', value: 'GitHub' },
+          { label: 'File Share', value: 'FileShare' }
+        ]}"
+        item-label-path="label"
+        item-value-path="value"
+        .value="${String(this._project?.SourceControlType ?? 'AzureDevOps')}"
+        @value-changed="${this._sourceControlTypeChanged}"
+      ></vaadin-combo-box>
+      <vaadin-text-field
+        id="proj-url"
+        style="width: 490px;"
+        label="${this.urlLabel}"
+        maxlength="${this.maxFieldLength}"
+        title="Maximum length: ${this.maxFieldLength} symbols"
+        required
+        pattern="^((https?|file):\\/\\/(.*)|\\\\\\\\(.*))"
+        value="${this._project?.ArtefactsUrl ?? ''}"
+        .invalid="${!!this.urlErrorMessage}"
+        .errorMessage="${this.urlErrorMessage}"
+        @value-changed="${this._artefactsUrlChanged}"
+      ></vaadin-text-field>
+      ${
+        this.showSubPaths
+          ? html` <vaadin-text-field
+              id="proj-azure"
+              style="width: 490px;"
+              label="${this.subPathsLabel}"
+              maxlength="${this.maxFieldLength}"
+              title="Maximum length: ${this.maxFieldLength} symbols"
+              required
+              min-length="6"
+              value="${this._project?.ArtefactsSubPaths ?? ''}"
+              @value-changed="${this._artefactsSubPathsChanged}"
+            ></vaadin-text-field>`
+          : html``
+      }
+      ${
+        this.showBuildRegex
+          ? html` <vaadin-text-field
+              id="proj-regex"
+              style="width: 490px;"
+              label="${this.buildRegexLabel}"
+              value="${this._project?.ArtefactsBuildRegex ?? ''}"
+              @value-changed="${this._buildDefinitionRegexChanged}"
+            ></vaadin-text-field>`
+          : html``
+      }
+      <vaadin-text-field
+        id="proj-leanix-url"
+        style="width: 490px;"
+        label="LeanIX URL"
+        maxlength="${this.maxFieldLength}"
+        title="Maximum length: ${this.maxFieldLength} symbols"
+        value="${this._project?.LeanIXUrl ?? ''}"
+        @value-changed="${this._leanIxUrlChanged}"
+        helper-text="LeanIX workspace URL (e.g., https://.../factSheets)"
+      >
+      </vaadin-text-field>
+      <vaadin-horizontal-layout style="width: 490px; gap: var(--lumo-space-m);">
+        <vaadin-text-field
+          id="proj-business-vertical"
+          style="flex: 1;"
+          label="Business vertical"
+          maxlength="2"
+          pattern="[A-Za-z]{2}"
+          allowed-char-pattern="[A-Za-z]"
+          value="${this._project?.BusinessVertical ?? ''}"
+          @value-changed="${this._businessVerticalChanged}"
+          helper-text="Two-letter code from the Kafka naming standard (e.g. tr). Suggests business_vertical for catalog modules."
+        ></vaadin-text-field>
+        <vaadin-text-field
+          id="proj-application-code"
+          style="flex: 1;"
+          label="Application code"
+          maxlength="3"
+          pattern="[A-Za-z0-9]{3}"
+          allowed-char-pattern="[A-Za-z0-9]"
+          value="${this._project?.ApplicationCode ?? ''}"
+          @value-changed="${this._applicationCodeChanged}"
+          helper-text="Three-character IT application code (e.g. gma). Suggests the origin segment for catalog modules."
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+      <vaadin-text-field
+        id="proj-terraform-git-url"
+        style="width: 490px;"
+        label="Terraform Git Repository URL"
+        maxlength="${this.maxFieldLength}"
+        title="Maximum length: ${this.maxFieldLength} symbols"
+        value="${this._project?.TerraformGitRepoUrl ?? ''}"
+        @value-changed="${this._terraformGitRepoUrlChanged}"
+        helper-text="Git repository URL for Terraform code (e.g., https://github.com/org/repo.git)"
+      ></vaadin-text-field>
+      <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
+      <vaadin-horizontal-layout style="margin-right: 30px">
+        <vaadin-button
+          style="margin: 2px"
+          .disabled="${!this.canSubmit}"
+          @click="${this._submit}"
+          >Save
+        </vaadin-button>
+        <vaadin-button @click="${this.Reset}" style="margin: 2px"
+          >Clear
+        </vaadin-button>
+      </vaadin-horizontal-layout>
+    </vaadin-vertical-layout>
   `;
 
   public open() {
@@ -324,6 +379,7 @@ export class AddEditProject extends LitElement {
       this._project.ProjectName = this._project.ProjectName.trim();
 
       this._checkName(this._project.ProjectName);
+      this._inputValueChanged();
     }
   }
 
@@ -388,6 +444,24 @@ export class AddEditProject extends LitElement {
     }
   }
 
+  _businessVerticalChanged(data: any) {
+    if (this._project !== undefined && data.target !== undefined) {
+      const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
+      model.BusinessVertical = (data.target.value ?? '').toLowerCase();
+      this._project = model;
+      this._inputValueChanged();
+    }
+  }
+
+  _applicationCodeChanged(data: any) {
+    if (this._project !== undefined && data.target !== undefined) {
+      const model: ProjectApiModel = JSON.parse(JSON.stringify(this._project));
+      model.ApplicationCode = (data.target.value ?? '').toLowerCase();
+      this._project = model;
+      this._inputValueChanged();
+    }
+  }
+
   _sourceControlTypeChanged(data: any) {
     if (this._project !== undefined && data.target !== undefined) {
       const newValue = data.target.value;
@@ -396,24 +470,29 @@ export class AddEditProject extends LitElement {
       model.SourceControlType = newValue as any;
       this._project = model;
       this._validateUrlForProvider();
+      this._inputValueChanged();
       this.requestUpdate();
     }
   }
 
   private _validateUrlForProvider() {
-    const urlField = this.shadowRoot?.getElementById('proj-url') as TextField;
-    if (!urlField) return;
-
+    const urlField = this.shadowRoot?.getElementById('proj-url') as
+      TextField | undefined;
     const url = (this._project?.ArtefactsUrl ?? '').trim();
     const provider = String(this._project?.SourceControlType ?? 'AzureDevOps');
 
     if (!url) {
-      urlField.errorMessage = '';
-      urlField.invalid = false;
+      this.urlErrorMessage = '';
+      if (urlField) {
+        urlField.errorMessage = '';
+        urlField.invalid = false;
+      }
+      this._canSubmit();
       return;
     }
 
-    const isFileUrl = url.toLowerCase().startsWith('file:') || url.startsWith('\\\\');
+    const isFileUrl =
+      url.toLowerCase().startsWith('file:') || url.startsWith('\\\\');
 
     let hostname = '';
     if (!isFileUrl) {
@@ -421,37 +500,52 @@ export class AddEditProject extends LitElement {
         hostname = new URL(url).hostname.toLowerCase();
       } catch {
         // Not a valid URL yet — skip validation until it is
-        urlField.errorMessage = '';
-        urlField.invalid = false;
+        this.urlErrorMessage = '';
+        if (urlField) {
+          urlField.errorMessage = '';
+          urlField.invalid = false;
+        }
+        this._canSubmit();
         return;
       }
     }
 
-    const isGitHubHost = hostname === 'github.com' || hostname.endsWith('.github.com');
-    const isDevOpsHost = hostname === 'dev.azure.com' || hostname.endsWith('.dev.azure.com') ||
-      hostname === 'visualstudio.com' || hostname.endsWith('.visualstudio.com') ||
+    const isGitHubHost =
+      hostname === 'github.com' || hostname.endsWith('.github.com');
+    const isDevOpsHost =
+      hostname === 'dev.azure.com' ||
+      hostname.endsWith('.dev.azure.com') ||
+      hostname === 'visualstudio.com' ||
+      hostname.endsWith('.visualstudio.com') ||
       // TFS-style on-prem hosts typically look like `tfs.<corp-domain>` or
       // `tfs<N>.<corp-domain>`; `.endsWith('.tfs.')` can never match because
       // a hostname never ends with a trailing dot. Use a substring / prefix
       // check so common on-prem conventions are recognised.
-      hostname === 'tfs' || hostname.startsWith('tfs.') || hostname.includes('.tfs.');
+      hostname === 'tfs' ||
+      hostname.startsWith('tfs.') ||
+      hostname.includes('.tfs.');
 
     let error = '';
 
     if (provider === 'GitHub' && !isGitHubHost && !isFileUrl) {
       if (isDevOpsHost) {
-        error = 'This looks like an Azure DevOps URL. Change the provider or use a GitHub API URL.';
+        error =
+          'This looks like an Azure DevOps URL. Change the provider or use a GitHub API URL.';
       }
     } else if (provider === 'AzureDevOps' && isGitHubHost) {
-      error = 'This looks like a GitHub URL. Change the provider to GitHub or use an Azure DevOps URL.';
+      error =
+        'This looks like a GitHub URL. Change the provider to GitHub or use an Azure DevOps URL.';
     } else if (provider === 'FileShare' && !isFileUrl) {
       if (isGitHubHost || isDevOpsHost) {
         error = 'FileShare projects require a file:// path, not a web URL.';
       }
     }
 
-    urlField.errorMessage = error;
-    urlField.invalid = !!error;
+    this.urlErrorMessage = error;
+    if (urlField) {
+      urlField.errorMessage = error;
+      urlField.invalid = !!error;
+    }
     this._canSubmit();
   }
 
@@ -499,9 +593,11 @@ export class AddEditProject extends LitElement {
   }
 
   _canSubmit() {
-    const urlField = this.shadowRoot?.getElementById('proj-url') as TextField;
-    const urlValid = !urlField?.invalid;
-    this.canSubmit = this.projValid && this.isNameValid && urlValid && !this.isBusy;
+    const urlField = this.shadowRoot?.getElementById('proj-url') as
+      TextField | undefined;
+    const urlValid = !this.urlErrorMessage && !urlField?.invalid;
+    this.canSubmit =
+      this.projValid && this.isNameValid && urlValid && !this.isBusy;
   }
 
   _submit() {

@@ -397,6 +397,7 @@ export class DatabaseAccessPanel extends LitElement {
           if (
             this.view === 'migrate' &&
             this.desired &&
+            this.isProviderSupported &&
             !this.readonly &&
             this.isConnected &&
             this.databaseId === selectedDatabaseId
@@ -405,6 +406,13 @@ export class DatabaseAccessPanel extends LitElement {
         }
       });
     }
+  }
+
+  private get isProviderSupported() {
+    return (
+      !this.desired ||
+      (this.status?.Providers ?? []).includes(this.desired.Provider)
+    );
   }
 
   disconnectedCallback() {
@@ -1990,17 +1998,23 @@ export class DatabaseAccessPanel extends LitElement {
                     ${this.status?.Limitations.join(' ')}
                   </p>
                   ${
-                    this.view === 'all'
-                      ? html`<section class="workflow-step">
-                            ${this.renderLegacyImport(disabled)}
-                            ${this.renderDesiredStateEditor(disabled)}
-                          </section>
-                          ${this.renderAudit()}`
-                      : this.view === 'migrate'
-                        ? this.renderLegacyImport(disabled)
-                        : this.view === 'permissions'
-                          ? this.renderDesiredStateEditor(disabled)
-                          : this.renderAudit()
+                    !this.isProviderSupported
+                      ? html`<div class="notice" role="status">
+                            <p>Database access management is not yet supported for provider <code>${this.desired.Provider}</code>.</p>
+                            <p class="description">Supported providers: ${this.status?.Providers.join(', ') || 'none'}.</p>
+                          </div>
+                          ${this.view === 'audit' ? this.renderAudit() : nothing}`
+                      : this.view === 'all'
+                        ? html`<section class="workflow-step">
+                              ${this.renderLegacyImport(disabled)}
+                              ${this.renderDesiredStateEditor(disabled)}
+                            </section>
+                            ${this.renderAudit()}`
+                        : this.view === 'migrate'
+                          ? this.renderLegacyImport(disabled)
+                          : this.view === 'permissions'
+                            ? this.renderDesiredStateEditor(disabled)
+                            : this.renderAudit()
                   }
                 `
               : nothing

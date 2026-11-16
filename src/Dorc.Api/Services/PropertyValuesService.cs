@@ -57,26 +57,36 @@ namespace Dorc.Api.Services
 
             if (!canReadSecrets && !String.IsNullOrEmpty(environmentName))
             {
-                if (result.Any() && result.All(propertyValueDto => propertyValueDto.Property.Secure))
+                if (!String.IsNullOrEmpty(propertyName) && result.Any() && result.All(propertyValueDto => propertyValueDto.Property.Secure))
                     throw new NonEnoughRightsException($"User {username} doesn't have \"ReadSecrets\" permission to read secured properties");
-
-                result.Where(propertyValueDto => propertyValueDto.Property.Secure).ForEach(propertyValueDto =>
-                {
-                    propertyValueDto.Value = String.Empty;
-                });
             }
 
-            if (canReadSecrets)
+            var canReadTargetSecrets = string.IsNullOrEmpty(environmentName) || canReadSecrets;
+            foreach (var propertyValueDto in result.Where(propertyValueDto => propertyValueDto.Property.Secure))
             {
-                foreach (var propertyValueDto in result.Where(propertyValueDto => propertyValueDto.Property.Secure))
+                var canReadSourceSecrets = string.IsNullOrEmpty(propertyValueDto.PropertyValueFilter) ||
+                                           string.Equals(propertyValueDto.PropertyValueFilter, environmentName, StringComparison.OrdinalIgnoreCase)
+                    ? canReadSecrets
+                    : _securityPrivilegesChecker.CanReadSecrets(user, propertyValueDto.PropertyValueFilter);
+
+                if (canReadTargetSecrets && canReadSourceSecrets)
                 {
                     propertyValueDto.Value = _propertyEncryptor.DecryptValue(propertyValueDto.Value);
+                }
+                else
+                {
+                    propertyValueDto.Value = String.Empty;
                 }
             }
 
             if (_rolePrivilegesChecker.IsAdmin(user))
             {
                 result.ForEach(value => value.UserEditable = true);
+            }
+            else if (_rolePrivilegesChecker.IsPowerUser(user))
+            {
+                result.Where(value => string.IsNullOrEmpty(value.PropertyValueFilter))
+                    .ForEach(value => value.UserEditable = true);
             }
 
             return result;
@@ -226,6 +236,11 @@ namespace Dorc.Api.Services
                         newVariableValue.PropertyValueFilter, string.Empty, newVariableValue.Value,
                         username, "Insert");
 
+                    if (propertyApiModel.Secure && !_securityPrivilegesChecker.CanReadSecrets(user, propertyValueDto.PropertyValueFilter))
+                    {
+                        propertyValueDto.Value = string.Empty;
+                    }
+
                     result.Add(new Response { Item = propertyValueDto, Status = "success" });
                 }
                 catch (Exception e)
@@ -303,6 +318,11 @@ namespace Dorc.Api.Services
                         dbPropertyValueModel.Id, dbPropertyValueModel.Property.Name,
                         dbPropertyValueModel.PropertyValueFilter, dbPropertyValueModel.Value, propertyValueToUpdate,
                         username, "Update");
+
+                    if (propertyApiModel.Secure && !_securityPrivilegesChecker.CanReadSecrets(user, propertyValueDto.PropertyValueFilter))
+                    {
+                        propertyValueDto.Value = string.Empty;
+                    }
 
                     result.Add(new Response { Item = propertyValueDto, Status = "success" });
                 }

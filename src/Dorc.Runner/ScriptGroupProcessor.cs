@@ -33,7 +33,7 @@ namespace Dorc.Runner
                 throw new Exception("ScriptGroup is not initialized.");
             }
 
-            var scriptRunner = new PowerShellScriptRunner(this.logger);
+            var scriptRunner = new PowerShellScriptRunner(this.logger, scriptGroupProperties);
             int sumResult = 0;
             foreach (var scriptProps in scriptGroupProperties.ScriptProperties)
             {

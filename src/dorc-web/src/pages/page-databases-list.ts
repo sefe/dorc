@@ -45,6 +45,7 @@ import { ErrorNotification } from '../components/notifications/error-notificatio
 import { ref } from 'lit/directives/ref.js';
 import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { renderDatabaseType } from '../helpers/database-type';
 
 const name = 'Name';
 const tags = 'Tags';
@@ -74,6 +75,8 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
   nameFilter: string = '';
   tagsFilter: string = '';
   serverNameFilter: string = '';
+
+  private databaseTypeRenderer = renderDatabaseType;
 
   static get styles() {
     return css`
@@ -203,6 +206,13 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
           flex-grow='0'
         ></vaadin-grid-column>
         <vaadin-grid-column
+          ${columnBodyRenderer(this.databaseTypeRenderer, [])}
+          header="Type"
+          width="64px"
+          flex-grow="0"
+          text-align="center"
+        ></vaadin-grid-column>
+        <vaadin-grid-column
           ${columnBodyRenderer(this.tagsRenderer, [])}
           resizable
           ${columnHeaderRenderer(this.appTagsHeaderRenderer, [])}
@@ -229,7 +239,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         class='cover'
         style='z-index: 2; height: 400px'
         ?hidden='${!this.noResults}'
-        src='/hegsie_white_background_cartoon_geek_code_simple_icon_searching_12343b57-9c4e-45c6-b2f3-7765e8596718.png'
+        src='/modern-dorc-searching.webp'
         alt='No Results Found'
       />
     `;
@@ -524,18 +534,18 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         style="width: 120px"
         theme="small"
         @value-changed="${(e: CustomEvent) => {
-            const textField = e.target as TextField;
-            this.dispatchEvent(
-              new CustomEvent('searching-databases-started', {
-                detail: {
-                  field: tags,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
+          const textField = e.target as TextField;
+          this.dispatchEvent(
+            new CustomEvent('searching-databases-started', {
+              detail: {
+                field: tags,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
       ></vaadin-text-field> `;
   }
 

@@ -30,7 +30,7 @@ public sealed class DatabaseAccessStore(IDeploymentContextFactory factory)
         catch { context.Dispose(); throw; }
     }
 
-    public static DatabaseAccessState Read(DatabaseAccessContext context, int databaseId)
+    public static DatabaseAccessState Read(DatabaseAccessContext context, int databaseId, string defaultProvider = "sql-server")
     {
         var configuration = context.Set<DatabaseAccessConfiguration>().SingleOrDefault(x => x.DatabaseId == databaseId);
         var principals = (from link in context.Set<DatabaseAccessDatabasePrincipal>().AsNoTracking()
@@ -47,7 +47,7 @@ public sealed class DatabaseAccessStore(IDeploymentContextFactory factory)
         var roleNames = roles.ToDictionary(r => r.Id, r => r.Name);
         return new()
         {
-            DatabaseId = databaseId, Provider = configuration?.Provider ?? "sql-server", Revision = configuration?.Revision ?? 0,
+            DatabaseId = databaseId, Provider = configuration?.Provider ?? defaultProvider, Revision = configuration?.Revision ?? 0,
             Principals = principals.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
                 .Select(x => new DatabaseAccessPrincipal { Name = x.Name, Kind = x.Kind, LoginName = x.LoginName, DirectoryId = x.DirectoryId, Present = x.Present, LegacyUserId = x.LegacyUserId }).ToList(),
             Roles = roles.OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase)

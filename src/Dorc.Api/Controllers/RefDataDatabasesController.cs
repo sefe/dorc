@@ -74,6 +74,19 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
+        ///     Returns databases attached to an environment
+        /// </summary>
+        /// <param name="envId">Environment id</param>
+        /// <returns>List of DatabaseApiModel</returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<DatabaseApiModel>))]
+        [HttpGet]
+        [Route("ByEnvId/{envId}")]
+        public IActionResult GetByEnvId(int envId)
+        {
+            return Ok(_databasesPersistentSource.GetDatabasesForEnvId(envId).ToList());
+        }
+
+        /// <summary>
         ///     Return database details by environment name and database tag
         /// </summary>
         /// <param name="envName">Environment name</param>
@@ -94,10 +107,17 @@ namespace Dorc.Api.Controllers
 
             // Trim at the boundary so the EF delimiter pattern and the in-memory
             // tokenizer see the same needle (S-001..S-003 gate F-3).
-            var database = _databasesPersistentSource.GetDatabaseByTag(envName, tag.Trim());
-            if (database == null)
-                return NotFound($"No database tagged '{tag}' found for environment '{envName}'.");
-            return Ok(database);
+            try
+            {
+                var database = _databasesPersistentSource.GetDatabaseByTag(envName, tag.Trim());
+                if (database == null)
+                    return NotFound($"No database tagged '{tag}' found for environment '{envName}'.");
+                return Ok(database);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         /// <summary>

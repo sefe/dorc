@@ -1,10 +1,11 @@
-﻿using System;
+using System;
 using System.IO.Pipes;
 using System.Linq;
 using System.Security.Principal;
 using System.Text.Json;
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.TerraformRunner.Logging;
 using Microsoft.Extensions.Logging;
 
 namespace Dorc.TerraformRunner.Pipes

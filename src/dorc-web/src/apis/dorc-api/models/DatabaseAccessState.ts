@@ -56,5 +56,5 @@ export interface DatabaseAccessState {
      * @type {Array<number>}
      * @memberof DatabaseAccessState
      */
-    ExcludedLegacyUserIds?: Array<number>;
+    ExcludedLegacyUserIds?: Array<number> | null;
 }

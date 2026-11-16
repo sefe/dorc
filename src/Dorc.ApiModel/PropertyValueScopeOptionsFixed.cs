@@ -30,5 +30,13 @@
         public static string ServerNames => "ServerNames_";
         public static string RefDataApiUrl => "RefDataApiUrl";
 
+        // Environment component collections (emitted only when items are attached)
+        public static string EnvironmentContainers => "EnvironmentContainers";
+        public static string EnvironmentCloudResources => "EnvironmentCloudResources";
+        public static string EnvironmentApiRegistrations => "EnvironmentApiRegistrations";
+        public static string ContainerNames => "ContainerNames_";
+        public static string CloudResourceNames => "CloudResourceNames_";
+        public static string ApiRegistrationNames => "ApiRegistrationNames_";
+
     }
 }

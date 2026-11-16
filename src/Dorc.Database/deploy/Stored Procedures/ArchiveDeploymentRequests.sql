@@ -35,7 +35,11 @@ BEGIN
 			SELECT @BatchStartID = ISNULL(MAX(Id), 0) FROM @BatchIDs;
 
 			BEGIN TRANSACTION;
-            -- Archive EnvironmentComponentStatus data related to DeploymentRequest
+			-- Remove DeploymentRequestAttempt rows (DeploymentResultAttempt cascades from DeploymentRequestAttempt)
+			DELETE FROM [deploy].[DeploymentRequestAttempt]
+			WHERE DeploymentRequestId IN (SELECT Id FROM @BatchIDs);
+
+			-- Archive EnvironmentComponentStatus data related to DeploymentRequest
             DELETE FROM [deploy].[EnvironmentComponentStatus]
             OUTPUT DELETED.* INTO [archive].[EnvironmentComponentStatus]
             WHERE DeploymentRequestId IN (SELECT Id FROM @BatchIDs);

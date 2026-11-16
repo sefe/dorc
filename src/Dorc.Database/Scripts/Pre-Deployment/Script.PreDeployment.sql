@@ -13,3 +13,4 @@
 :r ./StashDatabaseIdentityValue.sql
 :r ./StageServicesForMigration.sql
 :r ./StageDatabaseAccessForNormalisation.sql
+:r ./AddCancelledFieldsToArchiveDeploymentRequests.sql

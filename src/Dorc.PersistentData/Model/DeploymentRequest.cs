@@ -25,6 +25,8 @@ namespace Dorc.PersistentData.Model
 
         public string Status { get; set; }
 
+        public Guid? TerraformBackendRetiredByChangeId { get; set; }
+
         public ICollection<DeploymentResult>? DeploymentResults { get; set; }
 
         public ICollection<DeploymentRequestProcess>? DeploymentRequestProcesses { get; set; }

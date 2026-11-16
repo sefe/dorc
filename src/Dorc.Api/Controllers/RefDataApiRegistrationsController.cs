@@ -1,0 +1,326 @@
+using System.Text.Json;
+using Dorc.ApiModel;
+using Dorc.Core.Interfaces;
+using Dorc.Core.Security;
+using Dorc.PersistentData;
+using Dorc.PersistentData.Model;
+using Dorc.PersistentData.Sources;
+using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
+
+namespace Dorc.Api.Controllers
+{
+    [Authorize]
+    [ApiController]
+    [Route("[controller]")]
+    public sealed class RefDataApiRegistrationsController : ControllerBase
+    {
+        private static readonly JsonSerializerOptions _auditJsonOptions = new() { WriteIndented = true };
+
+        private readonly IApiRegistrationsPersistentSource _apiRegistrationsPersistentSource;
+        private readonly IApiRegistrationAuditPersistentSource _apiRegistrationAuditPersistentSource;
+        private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
+        private readonly SharedResourceAccessPolicy _accessPolicy;
+        private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+
+        public RefDataApiRegistrationsController(
+            IApiRegistrationsPersistentSource apiRegistrationsPersistentSource,
+            IApiRegistrationAuditPersistentSource apiRegistrationAuditPersistentSource,
+            IEnvironmentsPersistentSource environmentsPersistentSource,
+            IRolePrivilegesChecker rolePrivilegesChecker,
+            ISecurityPrivilegesChecker securityPrivilegesChecker,
+            IClaimsPrincipalReader claimsPrincipalReader)
+        {
+            _apiRegistrationsPersistentSource = apiRegistrationsPersistentSource;
+            _apiRegistrationAuditPersistentSource = apiRegistrationAuditPersistentSource;
+            _environmentsPersistentSource = environmentsPersistentSource;
+            _accessPolicy = new SharedResourceAccessPolicy(rolePrivilegesChecker, securityPrivilegesChecker);
+            _claimsPrincipalReader = claimsPrincipalReader;
+        }
+
+        /// <summary>
+        /// Get all API registration definitions
+        /// </summary>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<ApiRegistrationApiModel>))]
+        [HttpGet]
+        public IActionResult Get()
+        {
+            return Ok(_apiRegistrationsPersistentSource.GetAll().Select(WithCapabilities).ToList());
+        }
+
+        /// <summary>
+        /// Get API registration by id
+        /// </summary>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiRegistrationApiModel))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
+        [HttpGet]
+        [Route("ById/{id}")]
+        public IActionResult GetById(int id)
+        {
+            var apiRegistration = _apiRegistrationsPersistentSource.GetById(id);
+            if (apiRegistration == null)
+                return NotFound($"API registration with id {id} not found");
+            return Ok(WithCapabilities(apiRegistration));
+        }
+
+        /// <summary>
+        /// Get API registrations attached to an environment
+        /// </summary>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<ApiRegistrationApiModel>))]
+        [HttpGet]
+        [Route("ByEnvId/{envId}")]
+        public IActionResult GetByEnvId(int envId)
+        {
+            return Ok(_apiRegistrationsPersistentSource.GetForEnvironmentId(envId).Select(WithCapabilities).ToList());
+        }
+
+        [HttpGet("Capabilities/{envId}")]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(SharedResourceCapabilities))]
+        public IActionResult Capabilities(int envId)
+        {
+            var environment = _environmentsPersistentSource.GetEnvironment(envId, User);
+            if (environment == null)
+                return NotFound($"Environment with id {envId} not found");
+            return Ok(new SharedResourceCapabilities
+            {
+                CanCreateDefinition = _accessPolicy.CanCreateDefinition(User),
+                CanManageMembership = _accessPolicy.CanManageMembership(User, environment.EnvironmentName)
+            });
+        }
+
+        /// <summary>
+        /// Create new API registration definition
+        /// </summary>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiRegistrationApiModel))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status409Conflict, Type = typeof(string))]
+        [HttpPost]
+        public IActionResult Post([FromBody] ApiRegistrationApiModel model)
+            => _apiRegistrationsPersistentSource.ExecuteMutation<IActionResult>(() =>
+        {
+            if (!_accessPolicy.CanCreateDefinition(User))
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    "API registrations can only be created by PowerUsers or Admins!");
+
+            if (_apiRegistrationsPersistentSource.GetByName(model.Name) != null)
+                return Conflict($"An API registration with the name {model.Name} already exists!");
+
+            var created = _apiRegistrationsPersistentSource.Add(model);
+
+            _apiRegistrationAuditPersistentSource.InsertApiRegistrationAudit(
+                _claimsPrincipalReader.GetUserFullDomainName(User),
+                ActionType.Create,
+                created.Id,
+                fromValue: null,
+                toValue: JsonSerializer.Serialize(created, _auditJsonOptions));
+
+            return Ok(created);
+        });
+
+        /// <summary>
+        /// Update API registration definition
+        /// </summary>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiRegistrationApiModel))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status409Conflict, Type = typeof(string))]
+        [HttpPut]
+        [Route("{id}")]
+        public IActionResult Put(int id, [FromBody] ApiRegistrationApiModel model)
+            => _apiRegistrationsPersistentSource.ExecuteMutation<IActionResult>(() =>
+        {
+            var forbidden = CheckWritePermissionForItem(id, "modify");
+            if (forbidden != null)
+                return forbidden;
+
+            var before = _apiRegistrationsPersistentSource.GetById(id);
+            if (before == null)
+                return NotFound($"API registration with id {id} not found");
+            if (model.Revision != before.Revision)
+                return Conflict("The API registration definition has changed. Reload it before saving.");
+
+            var sameName = _apiRegistrationsPersistentSource.GetByName(model.Name);
+            if (sameName != null && sameName.Id != id)
+                return Conflict($"An API registration with the name {model.Name} already exists!");
+
+            var updated = _apiRegistrationsPersistentSource.Update(id, model);
+            if (updated == null)
+                return NotFound($"API registration with id {id} not found");
+
+            _apiRegistrationAuditPersistentSource.InsertApiRegistrationAudit(
+                _claimsPrincipalReader.GetUserFullDomainName(User),
+                ActionType.Update,
+                id,
+                fromValue: JsonSerializer.Serialize(before, _auditJsonOptions),
+                toValue: JsonSerializer.Serialize(updated, _auditJsonOptions));
+
+            return Ok(updated);
+        });
+
+        [HttpPut("{id}/tags")]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiRegistrationApiModel))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status409Conflict, Type = typeof(string))]
+        public IActionResult PutTags(int id, [FromBody] ResourceTagsUpdate model)
+            => _apiRegistrationsPersistentSource.ExecuteMutation<IActionResult>(() =>
+        {
+            var forbidden = CheckWritePermissionForItem(id, "modify");
+            if (forbidden != null)
+                return forbidden;
+            var before = _apiRegistrationsPersistentSource.GetById(id);
+            if (before == null)
+                return NotFound($"API registration with id {id} not found");
+            if (before.Tags != model.ExpectedTags)
+                return Conflict("The API registration tags have changed. Reload them before saving.");
+            var updated = _apiRegistrationsPersistentSource.UpdateTags(id, model.Tags);
+            _apiRegistrationAuditPersistentSource.InsertApiRegistrationAudit(
+                _claimsPrincipalReader.GetUserFullDomainName(User), ActionType.Update, id,
+                JsonSerializer.Serialize(before, _auditJsonOptions), JsonSerializer.Serialize(updated, _auditJsonOptions));
+            return Ok(updated);
+        });
+
+        /// <summary>
+        /// Delete API registration definition
+        /// </summary>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiBoolResult))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
+        [HttpDelete]
+        [Route("{id}")]
+        public IActionResult Delete(int id)
+            => _apiRegistrationsPersistentSource.ExecuteMutation<IActionResult>(() =>
+        {
+            var forbidden = CheckWritePermissionForItem(id, "delete");
+            if (forbidden != null)
+                return forbidden;
+
+            var before = _apiRegistrationsPersistentSource.GetById(id);
+            if (before == null)
+                return NotFound($"API registration with id {id} not found");
+
+            var result = _apiRegistrationsPersistentSource.Delete(id);
+            if (!result)
+                return NotFound($"API registration with id {id} not found");
+
+            _apiRegistrationAuditPersistentSource.InsertApiRegistrationAudit(
+                _claimsPrincipalReader.GetUserFullDomainName(User),
+                ActionType.Delete,
+                id,
+                fromValue: JsonSerializer.Serialize(before, _auditJsonOptions),
+                toValue: null);
+
+            return Ok(new ApiBoolResult { Result = true });
+        });
+
+        /// <summary>
+        /// Attach API registration to an environment
+        /// </summary>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiBoolResult))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status409Conflict, Type = typeof(string))]
+        [HttpPut]
+        [Route("{id}/environments/{envId}")]
+        public IActionResult Attach(int id, int envId)
+            => _apiRegistrationsPersistentSource.ExecuteMutation<IActionResult>(() =>
+        {
+            var (environment, error) = CheckWritePermissionForEnvironment(envId, "attach to");
+            if (error != null)
+                return error;
+
+            var outcome = _apiRegistrationsPersistentSource.AttachToEnvironment(id, envId);
+            switch (outcome)
+            {
+                case EnvironmentAttachmentOutcome.ItemNotFound:
+                    return NotFound($"API registration with id {id} not found");
+                case EnvironmentAttachmentOutcome.EnvironmentNotFound:
+                    return NotFound($"Environment with id {envId} not found");
+                case EnvironmentAttachmentOutcome.AlreadyAttached:
+                    return Conflict("API registration is already attached to this environment");
+                case EnvironmentAttachmentOutcome.Attached:
+                    _apiRegistrationAuditPersistentSource.InsertApiRegistrationAudit(
+                        _claimsPrincipalReader.GetUserFullDomainName(User),
+                        ActionType.Attach,
+                        id,
+                        fromValue: null,
+                        toValue: $"Attached to environment '{environment!.EnvironmentName}'");
+                    return Ok(new ApiBoolResult { Result = true });
+                default:
+                    throw new InvalidOperationException($"Unexpected attach outcome: {outcome}");
+            }
+        });
+
+        /// <summary>
+        /// Detach API registration from an environment
+        /// </summary>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(ApiBoolResult))]
+        [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status409Conflict, Type = typeof(string))]
+        [HttpDelete]
+        [Route("{id}/environments/{envId}")]
+        public IActionResult Detach(int id, int envId)
+            => _apiRegistrationsPersistentSource.ExecuteMutation<IActionResult>(() =>
+        {
+            var (environment, error) = CheckWritePermissionForEnvironment(envId, "detach from");
+            if (error != null)
+                return error;
+
+            var outcome = _apiRegistrationsPersistentSource.DetachFromEnvironment(id, envId);
+            switch (outcome)
+            {
+                case EnvironmentAttachmentOutcome.ItemNotFound:
+                    return NotFound($"API registration with id {id} not found");
+                case EnvironmentAttachmentOutcome.NotAttached:
+                    return Conflict("API registration is not attached to this environment");
+                case EnvironmentAttachmentOutcome.Detached:
+                    _apiRegistrationAuditPersistentSource.InsertApiRegistrationAudit(
+                        _claimsPrincipalReader.GetUserFullDomainName(User),
+                        ActionType.Detach,
+                        id,
+                        fromValue: $"Attached to environment '{environment!.EnvironmentName}'",
+                        toValue: null);
+                    return Ok(new ApiBoolResult { Result = true });
+                default:
+                    throw new InvalidOperationException($"Unexpected detach outcome: {outcome}");
+            }
+        });
+
+        private ApiRegistrationApiModel WithCapabilities(ApiRegistrationApiModel model)
+        {
+            model.CanEditDefinition = _accessPolicy.DefinitionAccess(User, model.EnvironmentNames).IsAllowed;
+            return model;
+        }
+
+        // Update/Delete gating (HLPS §5.3): environment-write on every mapped
+        // environment; items mapped to no environment fall back to PowerUser/Admin.
+        private IActionResult? CheckWritePermissionForItem(int id, string action)
+        {
+            var environmentNames = _apiRegistrationsPersistentSource.GetEnvironmentNamesForId(id).ToList();
+
+            var access = _accessPolicy.DefinitionAccess(User, environmentNames);
+            if (access.IsAllowed)
+                return null;
+            return StatusCode(StatusCodes.Status403Forbidden, access.DeniedEnvironment == null
+                ? $"Unattached API registrations can only be {action}d by PowerUsers or Admins!"
+                : $"You need write permission on environment '{access.DeniedEnvironment}' to {action} this API registration");
+        }
+
+        private (EnvironmentApiModel? Environment, IActionResult? Error) CheckWritePermissionForEnvironment(
+            int envId, string action)
+        {
+            var environment = _environmentsPersistentSource.GetEnvironment(envId, User);
+            if (environment == null)
+                return (null, NotFound($"Environment with id {envId} not found"));
+
+            if (!_accessPolicy.CanManageMembership(User, environment.EnvironmentName))
+                return (environment, StatusCode(StatusCodes.Status403Forbidden,
+                    $"You need write permission on environment '{environment.EnvironmentName}' to {action} it"));
+
+            return (environment, null);
+        }
+    }
+}

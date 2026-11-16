@@ -60,7 +60,17 @@ namespace Dorc.Api.Controllers
             if (environment is not null)
             {
                 EnrichEnvironmentOwnerEmails(environment);
-                _variableScopeOptionsResolver.SetPropertyValues(_variableResolver, environment);
+                try
+                {
+                    _variableScopeOptionsResolver.SetPropertyValues(_variableResolver, environment);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    _logger.LogWarning(ex,
+                        "Unable to resolve scope options for environment ID {EnvironmentId}.",
+                        environment.EnvironmentId);
+                    return BadRequest(ex.Message);
+                }
             }
 
             var props = _variableResolver.LocalProperties();

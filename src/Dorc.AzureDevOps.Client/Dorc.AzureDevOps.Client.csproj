@@ -5,7 +5,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Azure.Identity" Version="1.17.0" />
+    <PackageReference Include="Azure.Core" Version="1.59.0" />
+    <PackageReference Include="Azure.Identity" Version="1.21.0" />
+    <PackageReference Include="Microsoft.Identity.Client" Version="4.84.2" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Dorc.AzureDevOps\src\Org.OpenAPITools\Org.OpenAPITools.csproj" />

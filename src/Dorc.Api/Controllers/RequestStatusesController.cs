@@ -43,12 +43,13 @@ namespace Dorc.Api.Controllers
                     page, operators, User);
 
                 var isAdmin = _rolePrivilegesChecker.IsAdmin(User);
-                if (!isAdmin)
-                    return StatusCode(StatusCodes.Status200OK, requestStatusesListResponseDto);
-
                 foreach (var prop in requestStatusesListResponseDto.Items)
                 {
-                    prop.UserEditable = true;
+                    // Emission-boundary redaction only: the stored payload
+                    // keeps cleartext for the Monitor/runner.
+                    prop.RequestDetails = RequestPropertyRedaction.RedactRequestDetailsXml(prop.RequestDetails);
+                    if (isAdmin)
+                        prop.UserEditable = true;
                 }
 
                 return StatusCode(StatusCodes.Status200OK, requestStatusesListResponseDto);
@@ -99,6 +100,10 @@ namespace Dorc.Api.Controllers
             {
                 return StatusCode(StatusCodes.Status404NotFound, $"The request with id {requestId} is not found.");
             }
+
+            // Emission-boundary redaction only: the stored payload keeps
+            // cleartext for the Monitor/runner.
+            result.RequestDetails = RequestPropertyRedaction.RedactRequestDetailsXml(result.RequestDetails);
 
             var isAdmin = _rolePrivilegesChecker.IsAdmin(User);
             if (isAdmin)

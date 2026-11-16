@@ -366,11 +366,12 @@ namespace Dorc.PersistentData.Sources
                                    (from env in context.Environments
                                     join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
                                     where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid))
-                                    select ac.Allow).ToList()
+                                    select new { ac.Allow, ac.Deny }).ToList()
+                               let hasDeny = permissions.Any(p => p.Deny != 0)
                                let hasPermission =
-                                   permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
+                                   !hasDeny && permissions.Any(p => (p.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
                                let isOwner =
-                                   permissions.Any(p => (p & (int)(AccessLevel.Owner)) != 0)
+                                   !hasDeny && permissions.Any(p => (p.Allow & (int)(AccessLevel.Owner)) != 0)
                                where propertyFilter.Name == "environment" && propertyValueFilter.Value == scope.EnvironmentName
                                select new FlatPropertyValueApiModel
                                {
@@ -378,7 +379,7 @@ namespace Dorc.PersistentData.Sources
                                    Property = property.Name,
                                    PropertyValueScope = propertyValueFilter.Value,
                                    PropertyValueScopeId = propertyValueFilter.Id,
-                                   PropertyValue = propertyValue.Value,
+                                   PropertyValue = property.Secure ? string.Empty : propertyValue.Value,
                                    PropertyValueId = propertyValue.Id,
                                    Secure = property.Secure,
                                    IsArray = property.IsArray,
@@ -403,7 +404,7 @@ namespace Dorc.PersistentData.Sources
                                      Property = property.Name,
                                      PropertyValueScope = null,
                                      PropertyValueScopeId = -1,
-                                     PropertyValue = propertyValue.Value,
+                                     PropertyValue = property.Secure ? string.Empty : propertyValue.Value,
                                      PropertyValueId = propertyValue.Id,
                                      Secure = property.Secure,
                                      IsArray = property.IsArray,
@@ -428,7 +429,7 @@ namespace Dorc.PersistentData.Sources
                                                  Property = property.Name,
                                                  PropertyValueScope = propertyValueFilter.Value,
                                                  PropertyValueScopeId = propertyValueFilter.Id,
-                                                 PropertyValue = propertyValue.Value,
+                                                 PropertyValue = property.Secure ? string.Empty : propertyValue.Value,
                                                  PropertyValueId = propertyValue.Id,
                                                  Secure = property.Secure,
                                                  IsArray = property.IsArray,
@@ -539,18 +540,19 @@ namespace Dorc.PersistentData.Sources
                                        (from env in context.Environments
                                         join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
                                         where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid))
-                                        select ac.Allow).ToList()
+                                        select new { ac.Allow, ac.Deny }).ToList()
+                                   let hasDeny = permissions.Any(p => p.Deny != 0)
                                    let hasPermission =
-                                       permissions.Any(p => (p & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
+                                       !hasDeny && permissions.Any(p => (p.Allow & (int)(AccessLevel.Write | AccessLevel.Owner)) != 0)
                                    let isOwner =
-                                       permissions.Any(p => (p & (int)(AccessLevel.Owner)) != 0)
+                                       !hasDeny && permissions.Any(p => (p.Allow & (int)(AccessLevel.Owner)) != 0)
                                    select new FlatPropertyValueApiModel
                                    {
                                        PropertyId = property.Id,
                                        Property = property.Name,
                                        PropertyValueScope = propertyValueFilter.Value,
                                        PropertyValueScopeId = propertyValueFilter.Id,
-                                       PropertyValue = propertyValue.Value,
+                                       PropertyValue = property.Secure ? string.Empty : propertyValue.Value,
                                        PropertyValueId = propertyValue.Id,
                                        Secure = property.Secure,
                                        IsArray = property.IsArray,
@@ -568,7 +570,7 @@ namespace Dorc.PersistentData.Sources
                                      Property = property.Name,
                                      PropertyValueScope = null,
                                      PropertyValueScopeId = -1,
-                                     PropertyValue = propertyValue.Value,
+                                     PropertyValue = property.Secure ? string.Empty : propertyValue.Value,
                                      PropertyValueId = propertyValue.Id,
                                      Secure = property.Secure,
                                      IsArray = property.IsArray,

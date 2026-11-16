@@ -162,4 +162,38 @@ describe('confirmPrompt', () => {
 
     expect(withBreaks).to.be.greaterThan(withSpaces);
   });
+
+  it('renders a prominent warning banner with a warning icon when warning options are passed', async () => {
+    void confirmPrompt('Restart job 42?', {
+      header: 'Restart deployment',
+      warningTitle:
+        "Warning: restart doesn't use latest version of component(s)",
+      warningMessage:
+        "This restarts the deploy exactly as it was when first created, ignoring any recent changes to project's components.",
+      warningActionHint:
+        'To deploy recent updates create a new deployment job instead.'
+    });
+    await settle();
+
+    const dialog = openDialog();
+    const banner = dialog?.querySelector(
+      '.confirm-prompt-warning'
+    ) as HTMLElement | null;
+    expect(banner).to.not.equal(null);
+    expect(banner?.getAttribute('role')).to.equal('alert');
+    expect(banner?.previousElementSibling?.textContent).to.equal(
+      'Restart job 42?'
+    );
+    const icon = banner?.querySelector(
+      'vaadin-icon[icon="vaadin:warning"]'
+    ) as HTMLElement | null;
+    expect(icon).to.not.equal(null);
+    expect(icon?.style.width).to.equal('21px');
+    expect(banner?.textContent).to.contain(
+      "Warning: restart doesn't use latest version of component(s)"
+    );
+    expect(banner?.textContent).to.contain(
+      'To deploy recent updates create a new deployment job instead.'
+    );
+  });
 });

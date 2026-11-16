@@ -1794,4 +1794,32 @@ describe('Database access side-by-side panel', () => {
     expect(mocks.importPreview.mock.calls).to.have.length(1);
     expect(mocks.import.mock.calls).to.have.length(0);
   });
+
+  it('renders an unsupported-provider notice and skips auto-preparing legacy import for non-SQL-Server databases', async () => {
+    mocks.get.mockReturnValue(
+      of({
+        ...empty,
+        Provider: 'postgresql'
+      })
+    );
+    const panel = await fixture<DatabaseAccessPanel>(
+      html`<database-access-panel
+        .envId=${10}
+        .readonly=${false}
+        .databases=${[{ Id: 1, Name: 'analytics', ServerName: 'proj/pg' }]}
+        .selectedDatabaseId=${1}
+        .view=${'migrate'}
+      ></database-access-panel>`
+    );
+    await vi.waitFor(() =>
+      expect(panel.shadowRoot!.textContent).to.contain(
+        'Database access management is not yet supported for provider'
+      )
+    );
+    expect(panel.shadowRoot!.textContent).to.contain('postgresql');
+    expect(panel.shadowRoot!.querySelector('#grant-access')).to.equal(null);
+    expect(panel.shadowRoot!.querySelector('#legacy-import')).to.equal(null);
+    expect(mocks.legacy.mock.calls).to.have.length(0);
+    expect(mocks.importPreview.mock.calls).to.have.length(0);
+  });
 });

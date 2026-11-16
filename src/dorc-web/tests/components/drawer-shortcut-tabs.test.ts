@@ -77,7 +77,9 @@ describe('Drawer shortcut tabs — P0 regressions', () => {
     it('does not throw when the environment has no shortcut', async () => {
       const navbar = await mountNavbar(container);
       const event = new CustomEvent('close-env-detail', {
-        detail: { Environment: { EnvironmentId: 999, EnvironmentName: 'Absent' } }
+        detail: {
+          Environment: { EnvironmentId: 999, EnvironmentName: 'Absent' }
+        }
       });
 
       expect(() => navbar.closeEnvDetail(event)).to.not.throw();
@@ -137,7 +139,8 @@ describe('Drawer shortcut tabs — P0 regressions', () => {
     // unchanged — only where the control lives has moved.
     const closeControlOf = (el: Element): Element => {
       const control = el.querySelector('.shortcut-close');
-      if (!control) throw new Error('component rendered without a close control');
+      if (!control)
+        throw new Error('component rendered without a close control');
       return control;
     };
 
@@ -248,7 +251,9 @@ describe('Drawer shortcut tabs — P0 regressions', () => {
       (HTMLElement & { selected: number }) | null;
     expect(tabs?.selected).to.be.greaterThan(-1);
     expect(
-      tabs?.children[tabs.selected]?.querySelector('env-detail-tab')
+      tabs
+        ?.querySelectorAll('vaadin-tab')
+        [tabs.selected]?.querySelector('env-detail-tab')
     ).to.not.equal(null);
     drawerShortcuts.clear();
   });
@@ -356,7 +361,9 @@ describe('D-05: opening project environments must not mutate the caller model', 
     const tabs = navbar?.shadowRoot?.getElementById('tabs') as
       (HTMLElement & { selected: number }) | null;
     expect(
-      tabs?.children[tabs.selected]?.querySelector('env-detail-tab')
+      tabs
+        ?.querySelectorAll('vaadin-tab')
+        [tabs.selected]?.querySelector('env-detail-tab')
     ).to.not.equal(null);
   });
 });

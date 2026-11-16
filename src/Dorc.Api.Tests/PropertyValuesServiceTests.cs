@@ -1123,5 +1123,232 @@ namespace Dorc.Api.Tests
                 Assert.Fail(e.Message);
             }
         }
+
+        [TestMethod]
+        public void GetPropertyValues_InheritedSecureValuesAndPowerUserGlobalEditable_CoverAllBranches()
+        {
+            var mockedApiSecurityService = Substitute.For<ISecurityPrivilegesChecker>();
+            var mockedPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
+            var mockedEnvironmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
+            var mockedPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
+            var mockedAuditsPersistentSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
+            var mockedPrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
+            var mockedPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
+            var mockedLog = new MockedLog<PropertyValuesService>();
+            var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+            mockedClaimsPrincipalReader.GetSidsForUser(Arg.Any<IPrincipal>()).Returns(new List<string> { "sid-1" });
+
+            mockedEnvironmentsPersistentSource.GetEnvironment("ChildEnv", Arg.Any<IPrincipal>())
+                .Returns(new EnvironmentApiModel { EnvironmentName = "ChildEnv" });
+
+            mockedPropertyValuesPersistentSource
+                .GetPropertyValuesForUser(Arg.Any<string?>(), Arg.Any<string?>(), Arg.Any<string>(), Arg.Any<string>())
+                .Returns(_ => new[]
+                {
+                    new PropertyValueDto
+                    {
+                        Property = new PropertyApiModel { Name = "ChildSecret", Secure = true },
+                        PropertyValueFilter = "ChildEnv",
+                        Value = "enc-child"
+                    },
+                    new PropertyValueDto
+                    {
+                        Property = new PropertyApiModel { Name = "ParentDeniedSecret", Secure = true },
+                        PropertyValueFilter = "ParentDeniedEnv",
+                        Value = "enc-parent-denied"
+                    },
+                    new PropertyValueDto
+                    {
+                        Property = new PropertyApiModel { Name = "ParentAllowedSecret", Secure = true },
+                        PropertyValueFilter = "ParentAllowedEnv",
+                        Value = "enc-parent-allowed"
+                    },
+                    new PropertyValueDto
+                    {
+                        Property = new PropertyApiModel { Name = "GlobalSecret", Secure = true },
+                        PropertyValueFilter = null,
+                        Value = "enc-global",
+                        UserEditable = false
+                    }
+                });
+
+            mockedApiSecurityService.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), "ChildEnv").Returns(true);
+            mockedApiSecurityService.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), "ParentDeniedEnv").Returns(false);
+            mockedApiSecurityService.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), "ParentAllowedEnv").Returns(true);
+
+            mockedPropertyEncryptor.DecryptValue("enc-child").Returns("dec-child");
+            mockedPropertyEncryptor.DecryptValue("enc-parent-allowed").Returns("dec-parent-allowed");
+            mockedPropertyEncryptor.DecryptValue("enc-global").Returns("dec-global");
+
+            mockedPrivilegesChecker.IsAdmin(Arg.Any<ClaimsPrincipal>()).Returns(false);
+            mockedPrivilegesChecker.IsPowerUser(Arg.Any<ClaimsPrincipal>()).Returns(true);
+
+            var testService = new PropertyValuesService(
+                mockedApiSecurityService,
+                mockedPropertyEncryptor,
+                mockedPropertiesPersistentSource,
+                mockedEnvironmentsPersistentSource,
+                mockedPropertyValuesPersistentSource,
+                mockedAuditsPersistentSource,
+                mockedPrivilegesChecker,
+                mockedLog,
+                mockedClaimsPrincipalReader);
+
+            var user = new ClaimsPrincipal(new ClaimsIdentity("TestAuth"));
+            var results = testService.GetPropertyValues(null, "ChildEnv", user).ToList();
+
+            Assert.AreEqual("dec-child", results[0].Value);
+            Assert.AreEqual(string.Empty, results[1].Value); // Masked because user lacks ReadSecrets on ParentDeniedEnv
+            Assert.AreEqual("dec-parent-allowed", results[2].Value);
+            Assert.AreEqual("dec-global", results[3].Value);
+
+            // PowerUser gets UserEditable = true on global (null/empty filter), but not on scoped filter
+            Assert.IsFalse(results[0].UserEditable);
+            Assert.IsTrue(results[3].UserEditable);
+
+            // Listing all properties for an environment when ALL properties are Secure and caller lacks ReadSecrets returns masked values without throwing
+            mockedApiSecurityService.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), "ChildEnv").Returns(false);
+            var allSecureWithoutReadSecrets = testService.GetPropertyValues(string.Empty, "ChildEnv", user).ToList();
+            Assert.HasCount(4, allSecureWithoutReadSecrets);
+            Assert.IsTrue(allSecureWithoutReadSecrets.All(p => p.Value == string.Empty));
+
+            // Querying by propertyName without environmentName checks CanReadSecrets per PropertyValueFilter
+            var byPropWithoutEnv = testService.GetPropertyValues("ChildSecret", null, user).ToList();
+            Assert.AreEqual(string.Empty, byPropWithoutEnv[0].Value); // ChildEnv -> CanReadSecrets false
+            Assert.AreEqual(string.Empty, byPropWithoutEnv[1].Value); // ParentDeniedEnv -> CanReadSecrets false
+            Assert.AreEqual("dec-parent-allowed", byPropWithoutEnv[2].Value); // ParentAllowedEnv -> CanReadSecrets true
+            Assert.AreEqual(string.Empty, byPropWithoutEnv[3].Value); // Global -> CanReadSecrets(null) false
+
+            // Admin gets UserEditable = true on all properties
+            mockedPrivilegesChecker.IsAdmin(Arg.Any<ClaimsPrincipal>()).Returns(true);
+            var adminResults = testService.GetPropertyValues(null, "ChildEnv", user).ToList();
+            Assert.IsTrue(adminResults.All(p => p.UserEditable));
+        }
+
+        [TestMethod]
+        public void PostAndPutPropertyValues_WriteWithoutReadSecrets_MasksReturnedSecretValueUnlessCanReadSecrets()
+        {
+            var mockedApiSecurityService = Substitute.For<ISecurityPrivilegesChecker>();
+            var mockedPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
+            var mockedEnvironmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
+            var mockedPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
+            var mockedAuditsPersistentSource = Substitute.For<IPropertyValuesAuditPersistentSource>();
+            var mockedPrivilegesChecker = Substitute.For<IRolePrivilegesChecker>();
+            var mockedPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
+            var mockedLog = new MockedLog<PropertyValuesService>();
+            var mockedClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+
+            var user = new ClaimsPrincipal(new ClaimsIdentity("TestAuth"));
+            mockedEnvironmentsPersistentSource.GetEnvironment("DevEnv", user)
+                .Returns(new EnvironmentApiModel { EnvironmentId = 10, EnvironmentName = "DevEnv", UserEditable = true });
+            mockedEnvironmentsPersistentSource.GetEnvironment("DevEnv")
+                .Returns(new EnvironmentApiModel { EnvironmentId = 10, EnvironmentName = "DevEnv", UserEditable = true });
+
+            mockedApiSecurityService.CanModifyPropertyValue(user, "DevEnv").Returns(true);
+            mockedPropertiesPersistentSource.GetProperty("SecretProp")
+                .Returns(new PropertyApiModel { Id = 1, Name = "SecretProp", Secure = true });
+            mockedPropertyEncryptor.DecryptValue(Arg.Any<string>()).Returns("decrypted-secret");
+
+            var testService = new PropertyValuesService(
+                mockedApiSecurityService,
+                mockedPropertyEncryptor,
+                mockedPropertiesPersistentSource,
+                mockedEnvironmentsPersistentSource,
+                mockedPropertyValuesPersistentSource,
+                mockedAuditsPersistentSource,
+                mockedPrivilegesChecker,
+                mockedLog,
+                mockedClaimsPrincipalReader);
+
+            // 1. POST without ReadSecrets -> succeeds, but returned Item.Value is masked to string.Empty
+            mockedApiSecurityService.CanReadSecrets(user, "DevEnv").Returns(false);
+            mockedPropertyValuesPersistentSource.GetPropertyValuesByName("SecretProp")
+                .Returns(Array.Empty<PropertyValueDto>());
+            mockedPropertyValuesPersistentSource.AddPropertyValue(Arg.Any<PropertyValueDto>())
+                .Returns(new PropertyValueDto
+                {
+                    Id = 101,
+                    Property = new PropertyApiModel { Id = 1, Name = "SecretProp", Secure = true },
+                    PropertyValueFilter = "DevEnv",
+                    Value = "cipher-text"
+                });
+
+            var postNoRead = testService.PostPropertyValues(new List<PropertyValueDto>
+            {
+                new PropertyValueDto
+                {
+                    Property = new PropertyApiModel { Name = "SecretProp", Secure = true },
+                    PropertyValueFilter = "DevEnv",
+                    Value = "super-secret"
+                }
+            }, user).Single();
+            Assert.AreEqual("success", postNoRead.Status);
+            Assert.AreEqual(string.Empty, ((PropertyValueDto)postNoRead.Item).Value);
+
+            // 2. POST with ReadSecrets -> succeeds and preserves unmasked value
+            mockedApiSecurityService.CanReadSecrets(user, "DevEnv").Returns(true);
+            var postWithRead = testService.PostPropertyValues(new List<PropertyValueDto>
+            {
+                new PropertyValueDto
+                {
+                    Property = new PropertyApiModel { Name = "SecretProp", Secure = true },
+                    PropertyValueFilter = "DevEnv",
+                    Value = "super-secret"
+                }
+            }, user).Single();
+            Assert.AreEqual("success", postWithRead.Status);
+            Assert.AreEqual("super-secret", ((PropertyValueDto)postWithRead.Item).Value);
+
+            // 3. PUT without ReadSecrets -> succeeds, but returned Item.Value is masked to string.Empty
+            mockedApiSecurityService.CanReadSecrets(user, "DevEnv").Returns(false);
+            mockedPropertyValuesPersistentSource.GetPropertyValuesByName("SecretProp")
+                .Returns(new[]
+                {
+                    new PropertyValueDto
+                    {
+                        Id = 101,
+                        Property = new PropertyApiModel { Id = 1, Name = "SecretProp", Secure = true },
+                        PropertyValueFilter = "DevEnv",
+                        PropertyValueFilterId = 55,
+                        Value = "old-cipher"
+                    }
+                });
+            mockedPropertyValuesPersistentSource.UpdatePropertyValue(101, "updated-secret")
+                .Returns(new PropertyValueDto
+                {
+                    Id = 101,
+                    Property = new PropertyApiModel { Id = 1, Name = "SecretProp", Secure = true },
+                    PropertyValueFilter = "DevEnv",
+                    Value = "new-cipher"
+                });
+
+            var putNoRead = testService.PutPropertyValues(new List<PropertyValueDto>
+            {
+                new PropertyValueDto
+                {
+                    Id = 101,
+                    Property = new PropertyApiModel { Name = "SecretProp", Secure = true },
+                    PropertyValueFilter = "DevEnv",
+                    Value = "updated-secret"
+                }
+            }, user).Single();
+            Assert.AreEqual("success", putNoRead.Status);
+            Assert.AreEqual(string.Empty, ((PropertyValueDto)putNoRead.Item).Value);
+
+            // 4. PUT with ReadSecrets -> succeeds and preserves unmasked value
+            mockedApiSecurityService.CanReadSecrets(user, "DevEnv").Returns(true);
+            var putWithRead = testService.PutPropertyValues(new List<PropertyValueDto>
+            {
+                new PropertyValueDto
+                {
+                    Id = 101,
+                    Property = new PropertyApiModel { Name = "SecretProp", Secure = true },
+                    PropertyValueFilter = "DevEnv",
+                    Value = "updated-secret"
+                }
+            }, user).Single();
+            Assert.AreEqual("success", putWithRead.Status);
+            Assert.AreEqual("updated-secret", ((PropertyValueDto)putWithRead.Item).Value);
+        }
     }
 }

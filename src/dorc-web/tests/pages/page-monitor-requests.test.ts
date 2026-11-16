@@ -565,4 +565,87 @@ describe('PageMonitorRequests', () => {
       expect(text).toContain('3.1.4');
     });
   });
+
+  // -------------------------------------------------------
+  // Id, Status column layout and monitor toolbar
+  // -------------------------------------------------------
+  describe('Id, Status column layout and monitor toolbar', () => {
+    it('renders compact Id header without connection status indicator', () => {
+      const root = document.createElement('div');
+      render(el.idHeaderRenderer(), root);
+
+      expect(root.querySelector('connection-status-indicator')).toBeNull();
+      const sorter = root.querySelector('vaadin-grid-sorter');
+      expect(sorter?.getAttribute('path')).toBe('Id');
+      const input = root.querySelector('vaadin-text-field') as HTMLElement;
+      expect(input?.getAttribute('placeholder')).toBe('Id');
+      expect(input?.style.width).toBe('75px');
+    });
+
+    it('renders Status filter in statusHeaderRenderer without connection status indicator', () => {
+      const root = document.createElement('div');
+      render(el.statusHeaderRenderer(), root);
+
+      expect(root.querySelector('connection-status-indicator')).toBeNull();
+      const input = root.querySelector('vaadin-text-field');
+      expect(input?.getAttribute('placeholder')).toBe('Status');
+    });
+
+    it('renders connection-status-indicator strip above the grid', async () => {
+      el.autoRefresh = true;
+      await el.updateComplete;
+
+      const indicator = el.shadowRoot?.querySelector(
+        'connection-status-indicator'
+      ) as any;
+      expect(indicator).not.toBeNull();
+      expect(indicator?.autoRefresh).toBe(true);
+
+      el.autoRefresh = false;
+      await el.updateComplete;
+
+      expect(indicator?.autoRefresh).toBe(false);
+    });
+
+    it('pairs status text and request-controls inside statusRenderer and removes separate controls column', () => {
+      const root = document.createElement('div');
+      const item = {
+        Id: 2085274,
+        Status: 'Completed',
+        UserEditable: true
+      };
+
+      render((el as any).statusRenderer(item), root);
+
+      const statusCell = root.querySelector('.status-cell');
+      expect(statusCell).not.toBeNull();
+      expect(statusCell?.querySelector('.status-text')?.textContent).toBe(
+        'Completed'
+      );
+      const controls = statusCell?.querySelector('request-controls') as any;
+      expect(controls).not.toBeNull();
+      expect(controls.requestId).toBe(2085274);
+      expect(controls.canRestart).toBe(true);
+
+      const columns = el.shadowRoot?.querySelectorAll(
+        '#grid > vaadin-grid-column'
+      );
+      expect(columns?.length).toBe(6);
+    });
+
+    it('enforces a minimum width on .status-cell and recalculates column widths after loading so all 4 control buttons fit', async () => {
+      const cssText = PageMonitorRequests.styles
+        .map((s: any) => s.cssText ?? '')
+        .join('');
+      expect(cssText).toContain('min-width: 245px');
+
+      const grid = el.shadowRoot?.querySelector('#grid') as any;
+      grid.recalculateColumnWidths = vi.fn();
+
+      (el as any).monitorRequestsLoaded();
+      await new Promise(resolve => requestAnimationFrame(resolve));
+
+      expect(grid.recalculateColumnWidths).toHaveBeenCalled();
+    });
+  });
 });

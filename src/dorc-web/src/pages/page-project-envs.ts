@@ -19,6 +19,7 @@ import {
 } from '../apis/dorc-api';
 import '../components/attach-environment';
 import '../components/environment-card.ts';
+import '../components/project-workspace-nav';
 import { EnvironmentApiModel, ProjectApiModel } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
@@ -182,6 +183,11 @@ export class PageProjectEnvs extends PageElement {
 
   render() {
     return html`
+      <project-workspace-nav
+        .projectId=${this.projectData?.ProjectId}
+        .projectName=${this.project ?? this.projectData?.ProjectName ?? ''}
+        activeTab="environments"
+      ></project-workspace-nav>
       <dorc-spinner ?hidden="${!this.loading}"></dorc-spinner>
       <add-edit-access-control
         id="add-edit-access-control"

@@ -39,6 +39,9 @@ import '../components/hegs-json-viewer';
 import { HegsJsonViewer } from '../components/hegs-json-viewer';
 import '@vaadin/grid/vaadin-grid-sorter';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { Notification } from '@vaadin/notification';
+import { confirmPrompt } from '../components/confirm-prompt';
+import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 
 const variableName = 'Name';
 const variablePath = 'Path';
@@ -88,6 +91,8 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
   // columns gate on it through canEditScripts(), and an undecorated field
   // cannot drive the update they need.
   @state() public userRoles: string[] = [];
+  @state() private editing = false;
+  @state() private error = '';
 
   @property({ type: Boolean }) loading = true;
 
@@ -110,13 +115,47 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     return css`
       :host {
         display: flex;
+        flex-direction: column;
         width: 100%;
         overflow: hidden;
         height: 100%;
       }
+      /* Same density as the Monitor grid: fill the remaining column height
+         below the banner instead of 100% of the host, which pushed the last
+         rows under the bottom edge, and drop the vertical cell padding. */
       vaadin-grid#grid {
         --divider-color: var(--dorc-border-color);
-        height: 100%;
+        flex: 1;
+        min-height: 0;
+      }
+      vaadin-grid-cell-content {
+        padding-top: 0;
+        padding-bottom: 0;
+        margin: 0;
+      }
+      /* The Path JSON used to render at "small" inside a column that shared
+         its width with PS Version, so it scrolled sideways in a few lines of
+         tiny text. Give it the cell width and the grid's own text size. */
+      .path-json {
+        display: block;
+        width: 100%;
+        margin: var(--lumo-space-xs) 0;
+        font-size: var(--lumo-font-size-s);
+        line-height: var(--lumo-line-height-s);
+        white-space: normal;
+        overflow-wrap: anywhere;
+        --indent-size: 1em;
+      }
+      .definitions-link {
+        padding: var(--lumo-space-s);
+        color: var(--dorc-text-secondary-strong);
+      }
+      .definitions-link a {
+        color: var(--dorc-link-color);
+      }
+      .error {
+        padding: var(--lumo-space-s);
+        color: var(--lumo-error-text-color);
       }
       .project-tag {
         font-size: var(--lumo-font-size-s);
@@ -237,6 +276,12 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
 
   render() {
     return html`
+      <div class="definitions-link">
+        <a href="/deployment-definitions">Deployment definitions</a> includes
+        PowerShell and all Terraform sources. This legacy view also retains
+        scripts without a component.
+      </div>
+      ${this.error ? html`<div class="error" role="alert">${this.error}</div>` : ''}
       <dorc-spinner
         style="--dorc-spinner-z-index: 1000"
         ?hidden="${!(this.loading || this.searching || this.rolesLoading)}"
@@ -259,7 +304,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
                 resizable
                 width="80px"
                 flex-grow="0"
-                ${columnBodyRenderer(this.enabledRenderer, [this.userRoles])}
+                ${columnBodyRenderer(this.enabledRenderer, [this.userRoles, this.editing])}
               >
               </vaadin-grid-column>
               <vaadin-grid-column
@@ -267,15 +312,15 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
                 header="Script Name"
                 resizable
                 ${columnHeaderRenderer(this.nameHeaderRenderer, [])}
-                width="500px"
-                flex-grow="0"
+                width="260px"
+                flex-grow="1"
               >
               </vaadin-grid-column>
               <vaadin-grid-column
                 path="ProjectNames"
                 header="Projects"
                 resizable
-                width="200px"
+                width="180px"
                 flex-grow="0"
                 ${columnBodyRenderer(this.projectNamesRenderer, [])}
                 ${columnHeaderRenderer(this.projectNamesHeaderRenderer, [])}
@@ -286,7 +331,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
                 path="NonProdOnly"
                 header="Non Prod Only"
                 resizable
-                width="150px"
+                width="130px"
                 flex-grow="0"
                 ${columnBodyRenderer(this.nonProdRenderer, [])}
                 ?hidden="${this._narrowScreen}"
@@ -295,6 +340,8 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
                 path="Path"
                 header="Path"
                 resizable
+                width="320px"
+                flex-grow="2"
                 ${columnBodyRenderer(this._jsonRenderer, [])}
                 ${columnHeaderRenderer(this.pathHeaderRenderer, [])}
                 ?hidden="${this._narrowScreen}"
@@ -303,9 +350,12 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
                 path="PowerShellVersionNumber"
                 header="PS Version"
                 resizable
+                width="140px"
+                flex-grow="0"
                 ${columnBodyRenderer(this.psVersionRenderer, [
                   this.powerShellVersions,
-                  this.userRoles
+                  this.userRoles,
+                  this.editing
                 ])}
                 ?hidden="${this._narrowScreen}"
               ></vaadin-grid-column>
@@ -407,13 +457,12 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
   // is given. `change` only fires on a user gesture.
   enabledRenderer(script: ScriptApiModel) {
     return html`<vaadin-checkbox
-      ?disabled="${!this.canEditScripts()}"
+      ?disabled="${!this.canEditScripts() || this.editing || script.CanEdit === false}"
       .checked="${live(script.IsEnabled as boolean)}"
       @change="${(e: Event) => {
         const checked = (e.currentTarget as Checkbox).checked;
         if (script.IsEnabled === checked) return;
-        script.IsEnabled = checked;
-        this.saveScript(script, `IsEnabled set to ${script.IsEnabled}`);
+        void this.saveScript({ ...script, IsEnabled: checked });
       }}"
     ></vaadin-checkbox>`;
   }
@@ -422,12 +471,11 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     return html`<vaadin-combo-box
       .items="${this.powerShellVersions}"
       .value="${live(script.PowerShellVersionNumber ?? '')}"
-      ?disabled="${!this.canEditScripts()}"
+      ?disabled="${!this.canEditScripts() || this.editing || script.CanEdit === false}"
       @change="${(e: Event) => {
         const value = (e.currentTarget as ComboBox).value;
         if (!value || script.PowerShellVersionNumber === value) return;
-        script.PowerShellVersionNumber = value;
-        this.saveScript(script, `PowerShellVersionNumber set to ${value}`);
+        void this.saveScript({ ...script, PowerShellVersionNumber: value });
       }}"
     ></vaadin-combo-box>`;
   }
@@ -439,12 +487,51 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     );
   }
 
-  private saveScript(script: ScriptApiModel, what: string) {
+  private async saveScript(script: ScriptApiModel) {
+    if (this.editing || !this.canEditScripts()) return;
+    const grid = this.grid;
+    this.editing = true;
+    this.error = '';
+    const projects = script.ProjectNames?.join(', ') || 'No project consumers';
+    if (
+      !(await confirmPrompt(
+        `Update ${script.Name} globally?\n\nAffected projects: ${projects}.\n\nEvery consuming definition is revised together. Existing submitted requests retain their original configuration.`,
+        {
+          header: 'Shared script impact',
+          confirmText: 'Confirm shared edit',
+          confirmTheme: 'primary'
+        }
+      ))
+    ) {
+      this.editing = false;
+      grid?.clearCache();
+      return;
+    }
     new RefDataScriptsApi(dorcApiConfiguration)
-      .refDataScriptsEditPut({ scriptApiModel: script })
+      .refDataScriptsEditPut({
+        scriptApiModel: { ...script, ConfirmImpact: true }
+      })
       .subscribe({
-        next: (data: boolean) =>
-          console.log(`script with id ${script.Id} ${what} result ${data}`)
+        next: (data: boolean) => {
+          this.editing = false;
+          grid?.clearCache();
+          if (!data) {
+            this.error =
+              'The script update was not accepted. Reload and review the current revision.';
+            return;
+          }
+          Notification.show(
+            'Shared script updated and definition revisions recorded.',
+            { theme: 'success', position: 'bottom-end', duration: 5000 }
+          );
+        },
+        error: error => {
+          this.editing = false;
+          this.error =
+            retrieveErrorMessage(error) ||
+            'Could not save the shared script. Reload to review its revision and affected projects.';
+          grid?.clearCache();
+        }
       });
   }
 
@@ -455,7 +542,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     // The viewer is configured through a method, so `ref` fires exactly when
     // the element exists rather than querying it back out of the cell.
     return html`<hegs-json-viewer
-      style="font-size: small"
+      class="path-json"
       ${ref(showJson(script.Path))}
     ></hegs-json-viewer>`;
   }

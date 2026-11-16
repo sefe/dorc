@@ -18,14 +18,23 @@ namespace Dorc.Api.Controllers
         private readonly ISecurityPrivilegesChecker _apiSecurityService;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
+        private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
 
         public PropertiesController(IPropertiesService propertiesService, ISecurityPrivilegesChecker apiSecurityService,
-            IRolePrivilegesChecker rolePrivilegesChecker, IPropertyValuesPersistentSource propertyValuesPersistentSource)
+            IRolePrivilegesChecker rolePrivilegesChecker, IPropertyValuesPersistentSource propertyValuesPersistentSource,
+            IEnvironmentsPersistentSource environmentsPersistentSource)
         {
             _propertiesService = propertiesService;
             _apiSecurityService = apiSecurityService;
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
+            _environmentsPersistentSource = environmentsPersistentSource;
+        }
+
+        private bool CanCreateProperty()
+        {
+            return _apiSecurityService.CanModifyProperty(User) ||
+                   (_environmentsPersistentSource.GetEnvironments(User)?.Any(e => e.UserEditable) ?? false);
         }
 
         /// <summary>
@@ -82,7 +91,7 @@ namespace Dorc.Api.Controllers
         [Produces(typeof(IEnumerable<Response>))]
         public IActionResult PostProperties(IEnumerable<PropertyApiModel> properties)
         {
-            if (_apiSecurityService.CanModifyProperty(User))
+            if (CanCreateProperty())
             {
                 return Ok(_propertiesService.PostProperties(properties, User));
             }
@@ -99,7 +108,7 @@ namespace Dorc.Api.Controllers
         [Produces(typeof(IEnumerable<Response>))]
         public IActionResult ImportProperties(IEnumerable<PropertyImportCsvDto> propertiesToImport)
         {
-            if (_apiSecurityService.CanModifyProperty(User))
+            if (CanCreateProperty())
             {
                 return Ok(_propertiesService.ImportProperties(propertiesToImport, User));
             }

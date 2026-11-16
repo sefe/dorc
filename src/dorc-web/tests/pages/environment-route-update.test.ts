@@ -12,6 +12,12 @@ import type { PageEnvironmentComponents } from '../../src/pages/page-environment
 import type { EnvDatabases } from '../../src/components/environment-tabs/env-databases';
 import type { EnvServers } from '../../src/components/environment-tabs/env-servers';
 import { PageEnvBase } from '../../src/components/environment-tabs/page-env-base';
+import {
+  DatabaseAccessApi,
+  DatabaseType,
+  RefDataDatabaseUsersApi
+} from '../../src/apis/dorc-api';
+import { of } from 'rxjs';
 import { router } from '../../src/router/router';
 
 describe('environment route updates', () => {
@@ -117,6 +123,56 @@ describe('environment route updates', () => {
       ) as HTMLElement & { opened: boolean; headerTitle: string };
       expect(dialog.opened).to.equal(true);
       expect(dialog.headerTitle).to.equal('Database permissions - SQL01 / App');
+    });
+
+    it('skips database access migration probes for non-SQL-Server databases', async () => {
+      const statusSpy = vi
+        .spyOn(DatabaseAccessApi.prototype, 'databaseAccessStatus')
+        .mockReturnValue(of({ Enabled: true, Providers: ['sql-server'] }) as any);
+      const getSpy = vi
+        .spyOn(DatabaseAccessApi.prototype, 'databaseAccessGet')
+        .mockReturnValue(of({ Principals: [] }) as any);
+      const legacySpy = vi
+        .spyOn(
+          RefDataDatabaseUsersApi.prototype,
+          'refDataDatabaseUsersGetDbUsersPermissionsGet'
+        )
+        .mockReturnValue(of([]) as any);
+
+      const databases = await fixture<EnvDatabases>(
+        html`<env-databases
+          .environment=${{ EnvironmentId: 10, IsOwner: true } as any}
+          .databases=${[
+            {
+              Id: 1,
+              Name: 'pg-db',
+              ServerName: 'proj/pg',
+              DatabaseType: DatabaseType.PostgreSql
+            },
+            {
+              Id: 2,
+              Name: 'cosmos-db',
+              ServerName: 'cosmos-acct',
+              DatabaseType: DatabaseType.CosmosDb
+            },
+            {
+              Id: 3,
+              Name: 'sql-db',
+              ServerName: 'SQL01',
+              DatabaseType: DatabaseType.SqlServer
+            }
+          ]}
+        ></env-databases>`
+      );
+
+      await vi.waitFor(() => expect(statusSpy.mock.calls).to.have.length(1));
+      expect(statusSpy.mock.calls[0][0]).to.deep.equal({
+        envId: 10,
+        databaseId: 3
+      });
+      expect(getSpy.mock.calls).to.have.length(1);
+      expect(legacySpy.mock.calls).to.have.length(1);
+      expect(databases).to.exist;
     });
 
     it('keeps the servers grid within the space below the component tabs', async () => {

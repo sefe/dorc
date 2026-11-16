@@ -1,0 +1,101 @@
+name: terraform-modules-ci
+
+# Module source lives in the private Azure DevOps repository
+# https://dev.azure.com/sefe/Deployment%20Orchestrator/_git/dorc-terraform-modules
+# (its own fmt/validate/tflint/secret-output gates run there). This workflow
+# keeps the gates for what remains in this repo: the catalog manifests and the
+# docs/Terraform example project.
+
+on:
+  pull_request:
+    paths:
+      - 'docs/Terraform/**'
+      - 'src/Tools.TerraformLint/**'
+      - 'src/Dorc.Terraform.Catalog*/**'
+      - '.github/workflows/terraform-modules-ci.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/Terraform/**'
+      - 'src/Tools.TerraformLint/**'
+      - 'src/Dorc.Terraform.Catalog*/**'
+      - '.github/workflows/terraform-modules-ci.yml'
+
+permissions:
+  contents: read
+
+env:
+  TF_VERSION: '1.7.5'
+
+jobs:
+  fmt:
+    name: terraform fmt -check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: terraform fmt -check -recursive
+        run: terraform fmt -check -recursive docs/Terraform/examples
+
+  validate:
+    name: terraform validate
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module:
+          - docs/Terraform/examples/terraform-project
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: terraform init -backend=false
+        working-directory: ${{ matrix.module }}
+        # init -backend=false avoids needing real Azure credentials in CI;
+        # provider binaries still download from the registry. The example
+        # fetches the stock module from the private Azure DevOps repo at a
+        # pinned tag, which needs a read-only Code (Read) PAT in the
+        # TERRAFORM_MODULES_ADO_PAT secret. Without it, module fetching is
+        # skipped so this public repo's CI still runs for forks and the
+        # remaining steps validate what they can.
+        env:
+          TERRAFORM_MODULES_ADO_PAT: ${{ secrets.TERRAFORM_MODULES_ADO_PAT }}
+        run: |
+          if [ -z "$TERRAFORM_MODULES_ADO_PAT" ]; then
+            echo "::notice::TERRAFORM_MODULES_ADO_PAT not set; skipping module fetch and validate for ${{ matrix.module }}."
+            echo "skip_validate=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          git config --global url."https://pat:${TERRAFORM_MODULES_ADO_PAT}@dev.azure.com/".insteadOf "https://dev.azure.com/"
+          terraform init -backend=false
+      - name: terraform validate
+        if: env.skip_validate != 'true'
+        working-directory: ${{ matrix.module }}
+        run: terraform validate
+
+  terraform-lint-and-catalog:
+    name: lint tool self-test and catalog tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@3e891b0cb619bf60e2c25674b222b8940e2c1c25 # v4.1.0
+        with:
+          dotnet-version: '8.0.x'
+      - name: build
+        run: dotnet build src/Tools.TerraformLint/Tools.TerraformLint.csproj -c Release --nologo
+      - name: self-test (release retention, immutability, sensitive-name and suggest-hint rules)
+        run: dotnet src/Tools.TerraformLint/bin/Release/net8.0/Tools.TerraformLint.dll --self-test
+      - name: catalog library tests
+        # Published-manifest regression tests are inconclusive here because the
+        # manifests live in the private repository; they run in its pipeline.
+        run: dotnet test src/Dorc.Terraform.Catalog.Tests/Dorc.Terraform.Catalog.Tests.csproj -c Release --nologo

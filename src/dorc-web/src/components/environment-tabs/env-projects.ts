@@ -1,6 +1,8 @@
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import '@vaadin/icon';
+import '@vaadin/icons/vaadin-icons';
 import { css } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -48,7 +50,24 @@ export class EnvProjects extends PageEnvBase {
         display: block;
         height: 100%;
       }
-
+      .summary-bar {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-s);
+        font-weight: 400;
+      }
+      .summary-bar vaadin-icon {
+        color: var(--dorc-link-color);
+      }
+      .count-badge {
+        background-color: var(--dorc-link-color);
+        color: var(--dorc-bg-primary);
+        border-radius: 1em;
+        font-size: var(--lumo-font-size-xs);
+        font-weight: 600;
+        padding: 0 var(--lumo-space-s);
+        line-height: 1.6;
+      }
       @media (max-width: 768px) {
         .projects {
           grid-template-columns: 1fr;
@@ -61,12 +80,24 @@ export class EnvProjects extends PageEnvBase {
     return html`
       <vaadin-details
         opened
-        summary="Mapped Projects"
-        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; margin: 0px;"
+        style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-right: 4px; margin: 0px; box-sizing: border-box;"
       >
+        <vaadin-details-summary slot="summary">
+          <div class="summary-bar">
+            <vaadin-icon icon="vaadin:archives" theme="small"></vaadin-icon>
+            Mapped Projects
+            <span class="count-badge"
+              >${this.envContent?.MappedProjects?.length ?? 0}</span
+            >
+          </div>
+        </vaadin-details-summary>
         <div class="projects">
           ${this.envContent?.MappedProjects?.map(
-            proj => html`<project-card .project="${proj}"></project-card>`
+            proj =>
+              html`<project-card
+                .project="${proj}"
+                .catalogHref=${`/module-catalog?project=${encodeURIComponent(proj.ProjectName ?? '')}&environment=${encodeURIComponent(this.environment?.EnvironmentName ?? this.environmentName)}`}
+              ></project-card>`
           )}
         </div>
       </vaadin-details>

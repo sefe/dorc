@@ -45,10 +45,10 @@ export interface DatabaseAccessImportPreview {
      * @type {Array<DatabaseAccessImportExclusion>}
      * @memberof DatabaseAccessImportPreview
      */
-    ExcludedAccounts?: Array<DatabaseAccessImportExclusion>;
+    ExcludedAccounts?: Array<DatabaseAccessImportExclusion> | null;
     /**
      * @type {Array<number>}
      * @memberof DatabaseAccessImportPreview
      */
-    ApprovedDbOwnerLegacyUserIds?: Array<number>;
+    ApprovedDbOwnerLegacyUserIds?: Array<number> | null;
 }

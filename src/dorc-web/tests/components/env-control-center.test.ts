@@ -100,4 +100,32 @@ describe('EnvControlCenter delete status', () => {
     ).to.equal(true);
     expect(el.shadowRoot!.querySelector('.delete-progress')).to.equal(null);
   });
+
+  it('includes plain-string error-alert results in the error notification message', async () => {
+    const el = await fixture<EnvControlCenter>(
+      html`<env-control-center></env-control-center>`
+    );
+    await el.updateComplete;
+
+    const mlpDialog = el.shadowRoot!.querySelector(
+      '#make-like-prod-dialog'
+    ) as HTMLElement;
+    mlpDialog.dispatchEvent(
+      new CustomEvent('error-alert', {
+        detail: {
+          description: 'Unable to queue Bundle Request:',
+          result:
+            "Only an Owner of environment 'Endur DV 10' (current owner: Jane Doe) or a DOrc Admin can queue a Bundle Request."
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
+
+    const notification = el.shadowRoot!.querySelector('error-notification');
+    expect(notification).to.not.equal(null);
+    expect(notification!.getAttribute('errorMessage')).to.equal(
+      "Unable to queue Bundle Request: Only an Owner of environment 'Endur DV 10' (current owner: Jane Doe) or a DOrc Admin can queue a Bundle Request."
+    );
+  });
 });

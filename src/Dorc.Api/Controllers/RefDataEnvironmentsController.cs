@@ -92,6 +92,10 @@ namespace Dorc.Api.Controllers
                         return StatusCode(StatusCodes.Status403Forbidden,
                             "Production Environments can only be created by Admins!");
 
+                    if (content.ParentId.HasValue)
+                        return StatusCode(StatusCodes.Status400BadRequest,
+                            "Parent environment cannot be set during creation. Use the SetParentForEnvironment endpoint instead.");
+
                     var env = environmentsPersistentSource.CreateEnvironment(content, User);
                     return StatusCode(StatusCodes.Status200OK, env.EnvironmentId > 0 ? env : new EnvironmentApiModel());
                 }
@@ -137,12 +141,87 @@ namespace Dorc.Api.Controllers
         /// <param name="content"></param>
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(EnvironmentApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
         [HttpPut]
         public IActionResult Put([FromBody] EnvironmentApiModel content)
         {
-            if (!_securityPrivilegesChecker.CanModifyEnvironment(User, content.EnvironmentName))
-                return StatusCode(StatusCodes.Status403Forbidden, "User does not have sufficient privileges to write environment " + content.EnvironmentName);
+            if (content.EnvironmentId <= 0)
+                return StatusCode(StatusCodes.Status400BadRequest, "Invalid environment Id specified!");
+
+            var existingEnv = environmentsPersistentSource.GetEnvironment(content.EnvironmentId, User);
+            if (existingEnv == null)
+                return StatusCode(StatusCodes.Status404NotFound, $"Environment with ID {content.EnvironmentId} not found.");
+
+            if (!_securityPrivilegesChecker.CanModifyEnvironment(User, existingEnv.EnvironmentName))
+                return StatusCode(StatusCodes.Status403Forbidden, "User does not have sufficient privileges to write environment " + existingEnv.EnvironmentName);
+
+            if (existingEnv.EnvironmentIsProd != content.EnvironmentIsProd && !_rolePrivilegesChecker.IsAdmin(User))
+                return StatusCode(StatusCodes.Status403Forbidden, "Only Admins can change the Production status of an environment!");
+
+            if (existingEnv.EnvironmentSecure != content.EnvironmentSecure &&
+                !_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, existingEnv.EnvironmentName))
+                return StatusCode(StatusCodes.Status403Forbidden, "Only an Environment Owner or Admin can change the Secure status of an environment!");
+
+            if (!string.Equals(existingEnv.EnvironmentName, content.EnvironmentName, StringComparison.OrdinalIgnoreCase) &&
+                !_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, existingEnv.EnvironmentName))
+                return StatusCode(StatusCodes.Status403Forbidden, "Only an Environment Owner or Admin can rename an environment!");
+
+            if (existingEnv.ParentId != content.ParentId)
+            {
+                if (!_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, existingEnv.EnvironmentName))
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        $"Only an Owner of '{existingEnv.EnvironmentName}' or an Admin can change its parent environment!");
+
+                if (existingEnv.EnvironmentIsProd && !_rolePrivilegesChecker.IsAdmin(User))
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        "Only Admins can attach or detach Production environments in a hierarchy!");
+
+                if (existingEnv.ParentId.HasValue)
+                {
+                    var existingParent = environmentsPersistentSource.GetEnvironment(existingEnv.ParentId.Value, User);
+                    if (existingParent != null)
+                    {
+                        if (!_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, existingParent.EnvironmentName))
+                            return StatusCode(StatusCodes.Status403Forbidden,
+                                $"Only an Owner of parent environment '{existingParent.EnvironmentName}' or an Admin can detach a child environment from it!");
+
+                        if (existingParent.EnvironmentIsProd && !_rolePrivilegesChecker.IsAdmin(User))
+                            return StatusCode(StatusCodes.Status403Forbidden,
+                                "Only Admins can attach or detach Production environments in a hierarchy!");
+                    }
+                }
+
+                if (content.ParentId.HasValue)
+                {
+                    var parentEnvironment = environmentsPersistentSource.GetEnvironment(content.ParentId.Value, User);
+                    if (parentEnvironment == null)
+                        return StatusCode(StatusCodes.Status400BadRequest, "Parent environment not found.");
+
+                    if (!_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, parentEnvironment.EnvironmentName))
+                        return StatusCode(StatusCodes.Status403Forbidden,
+                            $"Only an Owner of parent environment '{parentEnvironment.EnvironmentName}' or an Admin can attach a child environment to it!");
+
+                    if (parentEnvironment.EnvironmentIsProd && !_rolePrivilegesChecker.IsAdmin(User))
+                        return StatusCode(StatusCodes.Status403Forbidden,
+                            "Only Admins can attach or detach Production environments in a hierarchy!");
+
+                    if ((parentEnvironment.EnvironmentIsProd || parentEnvironment.EnvironmentSecure) &&
+                        !_securityPrivilegesChecker.CanReadSecrets(User, parentEnvironment.EnvironmentName))
+                        return StatusCode(StatusCodes.Status403Forbidden,
+                            $"Attaching a child environment to parent '{parentEnvironment.EnvironmentName}' requires Read Secrets permission on the parent environment!");
+                }
+
+                try
+                {
+                    environmentsPersistentSource.SetParentForEnvironment(content.ParentId, existingEnv.EnvironmentId, User);
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(StatusCodes.Status400BadRequest, ex.Message);
+                }
+            }
 
             var env = environmentsPersistentSource.UpdateEnvironment(content, User);
             return StatusCode(StatusCodes.Status200OK, env);
@@ -162,18 +241,38 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                // Check permissions: only Admin, PowerUser, or Owner of source environment can clone
-                if (!(_rolePrivilegesChecker.IsPowerUser(User) || _rolePrivilegesChecker.IsAdmin(User)))
-                {
-                    // Not admin/poweruser - check if owner of source environment
-                    var sourceEnv = environmentsPersistentSource.GetEnvironment(request.SourceEnvironmentId, User);
-                    if (sourceEnv == null)
-                        return StatusCode(StatusCodes.Status400BadRequest,
-                            $"Source environment with ID {request.SourceEnvironmentId} not found.");
+                var sourceEnv = environmentsPersistentSource.GetEnvironment(request.SourceEnvironmentId, User);
+                if (sourceEnv == null)
+                    return StatusCode(StatusCodes.Status400BadRequest,
+                        $"Source environment with ID {request.SourceEnvironmentId} not found.");
 
-                    if (!_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, sourceEnv.EnvironmentName))
-                        return StatusCode(StatusCodes.Status403Forbidden,
-                            "Only Admin, PowerUser, or Environment Owner can clone an environment.");
+                // Check permissions: only Admin, PowerUser, or Owner of source environment can clone
+                if (!(_rolePrivilegesChecker.IsPowerUser(User) ||
+                      _rolePrivilegesChecker.IsAdmin(User) ||
+                      _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, sourceEnv.EnvironmentName)))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        "Only Admin, PowerUser, or Environment Owner can clone an environment.");
+                }
+
+                // Security Covenant 1: Non-Admins cannot copy infrastructure mappings from Production environments
+                var copiesInfrastructureMappings = request.CopyServerMappings ||
+                                                   request.CopyDatabaseMappings ||
+                                                   request.CopyContainerMappings ||
+                                                   request.CopyCloudResourceMappings ||
+                                                   request.CopyApiRegistrationMappings;
+                if (sourceEnv.EnvironmentIsProd && copiesInfrastructureMappings && !_rolePrivilegesChecker.IsAdmin(User))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        "Only Admins can copy infrastructure mappings (servers, databases, containers, cloud resources, or API registrations) from a Production environment.");
+                }
+
+                // Security Covenant 2: Copying scoped variable values requires explicit Read Secrets permission on the source environment
+                if (request.CopyPropertyValues &&
+                    !_securityPrivilegesChecker.CanReadSecrets(User, sourceEnv.EnvironmentName))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        $"Copying variable values from environment '{sourceEnv.EnvironmentName}' requires Read Secrets permission on the source environment.");
                 }
 
                 var clonedEnv = environmentsPersistentSource.CloneEnvironment(request, User);

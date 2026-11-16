@@ -8,10 +8,13 @@ const appConfigStub = {
   authenticationScheme: 'NotSet'
 };
 
-const signedInUserHolder: { value: { access_token: string; expired: boolean } | null } = {
+const signedInUserHolder: {
+  value: { access_token: string; expired: boolean } | null;
+} = {
   value: null
 };
 const signInSpy = vi.fn();
+const recoverExpiredSessionSpy = vi.fn().mockResolvedValue(true);
 
 vi.mock('../../src/app-config', () => ({
   appConfig: appConfigStub,
@@ -26,20 +29,21 @@ vi.mock('../../src/services/Account/OAuthService', () => ({
         get signedInUser() {
           return signedInUserHolder.value;
         },
-        signIn: signInSpy
+        signIn: signInSpy,
+        recoverExpiredSession: recoverExpiredSessionSpy
       };
     }
   }
 }));
 
-const { dorcApiConfiguration, resetSignInStateForTests } = await import(
-  '../../src/services/dorc-api-configuration'
-);
+const { dorcApiConfiguration, resetSignInStateForTests } =
+  await import('../../src/services/dorc-api-configuration');
 const { RefDataProjectsApi } = await import('../../src/apis/dorc-api');
 
 describe('dorcApiConfiguration', () => {
   beforeEach(() => {
     signInSpy.mockClear();
+    recoverExpiredSessionSpy.mockClear();
     // Module-level state that outlives a single test: without this a test
     // that trips the latch silently changes the meaning of later ones.
     resetSignInStateForTests();
@@ -67,27 +71,30 @@ describe('dorcApiConfiguration', () => {
     // Resolve from the interceptor itself: the request is aborted rather than
     // allowed onto the network, so the observable never settles and awaiting
     // it would simply time out.
-    const sent = new Promise<{ url: string; withCredentials: boolean }>(resolve => {
-      XMLHttpRequest.prototype.open = function patchedOpen(
-        this: XMLHttpRequest & { __url?: string },
-        method: string,
-        url: string
-      ) {
-        this.__url = url;
-        return (originalOpen as unknown as (m: string, u: string) => void).call(
-          this,
-          method,
-          url
-        );
-      } as typeof XMLHttpRequest.prototype.open;
+    const sent = new Promise<{ url: string; withCredentials: boolean }>(
+      resolve => {
+        XMLHttpRequest.prototype.open = function patchedOpen(
+          this: XMLHttpRequest & { __url?: string },
+          method: string,
+          url: string
+        ) {
+          this.__url = url;
+          return (
+            originalOpen as unknown as (m: string, u: string) => void
+          ).call(this, method, url);
+        } as typeof XMLHttpRequest.prototype.open;
 
-      XMLHttpRequest.prototype.send = function patchedSend(
-        this: XMLHttpRequest & { __url?: string }
-      ) {
-        resolve({ url: this.__url ?? '', withCredentials: this.withCredentials });
-        this.abort();
-      } as typeof XMLHttpRequest.prototype.send;
-    });
+        XMLHttpRequest.prototype.send = function patchedSend(
+          this: XMLHttpRequest & { __url?: string }
+        ) {
+          resolve({
+            url: this.__url ?? '',
+            withCredentials: this.withCredentials
+          });
+          this.abort();
+        } as typeof XMLHttpRequest.prototype.send;
+      }
+    );
 
     try {
       const api = new RefDataProjectsApi(dorcApiConfiguration);
@@ -99,7 +106,10 @@ describe('dorcApiConfiguration', () => {
       const observed = await Promise.race([
         sent,
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('no XHR was sent within 5s')), 5_000)
+          setTimeout(
+            () => reject(new Error('no XHR was sent within 5s')),
+            5_000
+          )
         )
       ]);
 
@@ -113,7 +123,9 @@ describe('dorcApiConfiguration', () => {
 
   it('reads the base URL at request time, not at module load', () => {
     appConfigStub.dorcApi = 'https://changed.example.test';
-    expect(dorcApiConfiguration.basePath).to.equal('https://changed.example.test');
+    expect(dorcApiConfiguration.basePath).to.equal(
+      'https://changed.example.test'
+    );
   });
 
   it('supplies no bearer token when the scheme is not OAuth', () => {
@@ -137,8 +149,11 @@ describe('dorcApiConfiguration', () => {
     appConfigStub.authenticationScheme = 'OAuth';
     signedInUserHolder.value = { access_token: 'stale', expired: true };
 
-    expect(dorcApiConfiguration.accessToken!('oauth2')).to.equal('Bearer stale');
+    expect(dorcApiConfiguration.accessToken!('oauth2')).to.equal(
+      'Bearer stale'
+    );
     expect(signInSpy).not.toHaveBeenCalled();
+    expect(recoverExpiredSessionSpy).toHaveBeenCalledTimes(1);
   });
 
   it('starts sign-in once when there is no session, however many requests fire', () => {
@@ -151,5 +166,74 @@ describe('dorcApiConfiguration', () => {
     token('oauth2');
 
     expect(signInSpy).toHaveBeenCalledTimes(1);
+  });
+
+  // A tab left open past token expiry used to fire its next request with the
+  // stale token and surface "Session has expired" even though silent renewal
+  // succeeded moments later. The request must wait for renewal and carry the
+  // renewed token instead.
+  it('holds a request made with an expired token until renewal completes and sends the renewed token', async () => {
+    appConfigStub.authenticationScheme = 'OAuth';
+    signedInUserHolder.value = { access_token: 'stale', expired: true };
+
+    let finishRenewal!: () => void;
+    recoverExpiredSessionSpy.mockImplementationOnce(
+      () =>
+        new Promise<boolean>(resolve => {
+          finishRenewal = () => {
+            signedInUserHolder.value = {
+              access_token: 'fresh',
+              expired: false
+            };
+            resolve(true);
+          };
+        })
+    );
+
+    const originalSend = XMLHttpRequest.prototype.send;
+    const originalSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+    const sentHeaders: Record<string, string> = {};
+    let sendCount = 0;
+    const sent = new Promise<void>(resolve => {
+      XMLHttpRequest.prototype.setRequestHeader = function patchedSetHeader(
+        this: XMLHttpRequest,
+        name: string,
+        value: string
+      ) {
+        sentHeaders[name.toLowerCase()] = value;
+        return originalSetRequestHeader.call(this, name, value);
+      };
+      XMLHttpRequest.prototype.send = function patchedSend(
+        this: XMLHttpRequest
+      ) {
+        sendCount++;
+        resolve();
+        this.abort();
+      } as typeof XMLHttpRequest.prototype.send;
+    });
+
+    try {
+      new RefDataProjectsApi(dorcApiConfiguration)
+        .refDataProjectsGet()
+        .subscribe({ next: () => {}, error: () => {} });
+      await new Promise(resolve => setTimeout(resolve, 20));
+      expect(sendCount, 'request must wait for renewal').to.equal(0);
+
+      finishRenewal();
+      await Promise.race([
+        sent,
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error('no XHR was sent within 5s')),
+            5_000
+          )
+        )
+      ]);
+
+      expect(sentHeaders['authorization']).to.equal('Bearer fresh');
+    } finally {
+      XMLHttpRequest.prototype.send = originalSend;
+      XMLHttpRequest.prototype.setRequestHeader = originalSetRequestHeader;
+    }
   });
 });

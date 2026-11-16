@@ -29,6 +29,9 @@ namespace Tests.Acceptance.DatabaseTests
                 "All four legacy database rows should survive the move");
             Assert.AreEqual(0, ExecuteScalarInt("SELECT ISNULL(OBJECT_ID('dbo.[DATABASE]', 'U'), 0)"),
                 "dbo.DATABASE should be gone once transferred to the deploy schema");
+            Assert.AreEqual(1, ExecuteScalarInt(
+                "SELECT COUNT(*) FROM [deploy].[Database] WHERE [Id] = 10 AND [ArrayName] = N'legacy-array'"),
+                "The legacy Array_Name column must be renamed without dropping its values");
 
             // Multi-tag values become one row per tag, and the tags are the ones that
             // went in. Counting alone would pass just as happily on mangled text —

@@ -30,6 +30,10 @@ export interface ApiPropertyValuesGetRequest {
     environmentName?: string;
 }
 
+export interface ApiPropertyValuesNonSecureExportGetRequest {
+    environmentName?: string;
+}
+
 export interface ApiPropertyValuesPostRequest {
     propertyValueDto?: Array<PropertyValueDto>;
 }
@@ -48,6 +52,10 @@ export interface PropertyValuesDeleteRequest {
 
 export interface PropertyValuesGetRequest {
     propertyName?: string;
+    environmentName?: string;
+}
+
+export interface PropertyValuesNonSecureExportGetRequest {
     environmentName?: string;
 }
 
@@ -116,6 +124,34 @@ export class PropertyValuesApi extends BaseAPI {
 
         return this.request<Array<PropertyValueDto>>({
             url: '/api/PropertyValues',
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    apiPropertyValuesNonSecureExportGet({ environmentName }: ApiPropertyValuesNonSecureExportGetRequest): Observable<void>
+    apiPropertyValuesNonSecureExportGet({ environmentName }: ApiPropertyValuesNonSecureExportGetRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
+    apiPropertyValuesNonSecureExportGet({ environmentName }: ApiPropertyValuesNonSecureExportGetRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (environmentName != null) { query['environmentName'] = environmentName; }
+
+        return this.request<void>({
+            url: '/api/PropertyValues/non-secure-export',
             method: 'GET',
             headers,
             query,
@@ -248,6 +284,34 @@ export class PropertyValuesApi extends BaseAPI {
 
         return this.request<Array<PropertyValueDto>>({
             url: '/PropertyValues',
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    propertyValuesNonSecureExportGet({ environmentName }: PropertyValuesNonSecureExportGetRequest): Observable<void>
+    propertyValuesNonSecureExportGet({ environmentName }: PropertyValuesNonSecureExportGetRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>>
+    propertyValuesNonSecureExportGet({ environmentName }: PropertyValuesNonSecureExportGetRequest, opts?: OperationOpts): Observable<void | AjaxResponse<void>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (environmentName != null) { query['environmentName'] = environmentName; }
+
+        return this.request<void>({
+            url: '/PropertyValues/non-secure-export',
             method: 'GET',
             headers,
             query,

@@ -9,13 +9,13 @@ Captures the procedure for delivering and verifying SASL/SCRAM-SHA-256 credentia
 | Field | Value |
 |---|---|
 | Target environment | Aiven for Apache Kafka — non-prod (dev tier) |
-| Cluster identifier | `traveler-unstable-dev-trading-traveler.e.aivencloud.com` (Aiven shared service — see secret-store reference) |
-| Broker port | 26427 |
-| Schema registry endpoint | `https://traveler-unstable-dev-trading-traveler.e.aivencloud.com:26419` (Karapace-compatible) |
+| Cluster identifier | `<service>-<project>.aivencloud.com` (Aiven shared service — see secret-store reference) |
+| Broker port | per the Aiven service connection info |
+| Schema registry endpoint | `https://<service>-<project>.aivencloud.com:<schema-registry-port>` (Karapace-compatible) |
 | Auth mechanism | `SASL_SSL` + `SCRAM-SHA-256` |
-| Service-account identity | `SVC-DV-GBL-DOPS-DORC` (username is case-sensitive; Aiven stores it upper-case) |
+| Service-account identity | `<service-account>` (username is case-sensitive; Aiven stores it upper-case) |
 | CA certificate | Delivered as `ca.pem` (placed at `C:\src\dorc\ca.pem` on verifying developer workstation; `.gitignore` covers `*.pem` to prevent accidental commit) |
-| Secret-store location | SEFE secret store — password under the `svc-dv-gbl-dops-dorc` Aiven service record |
+| Secret-store location | SEFE secret store — password under the DOrc Aiven service-account record |
 
 ## Delivery
 
@@ -32,4 +32,4 @@ Captures the procedure for delivering and verifying SASL/SCRAM-SHA-256 credentia
 | Broker metadata fetch | **OK.** 3 brokers observable (ids 31 / 32 / 33), 91 topics visible to this service account. |
 | Schema registry reachable | **OK.** Karapace-compatible `/subjects` returned 16 pre-existing subjects (none DOrc — all trades / Trading.Core.Sample / Trading.Power.Dlc — expected at this stage). |
 | Test message produced | Not in this verification (metadata-only probe; subsequent integration tests produce real messages). |
-| Notes | Initial probe with lower-case username (`svc-dv-gbl-dops-dorc`) failed at SASL auth; Aiven stores the username case-sensitively as upper-case `SVC-DV-GBL-DOPS-DORC`. Future config / docs use the upper-case form. |
+| Notes | Initial probe with a lower-case username failed at SASL auth; Aiven stores the username case-sensitively (upper-case here). Future config / docs use the upper-case form. |

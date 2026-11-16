@@ -27,6 +27,10 @@ export interface RefDataServersAppServersByEnvNameGetRequest {
     envName?: string;
 }
 
+export interface RefDataServersByEnvIdEnvIdGetRequest {
+    envId: number;
+}
+
 export interface RefDataServersByIdIdGetRequest {
     id: number;
 }
@@ -89,6 +93,30 @@ export class RefDataServersApi extends BaseAPI {
             method: 'GET',
             headers,
             query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    refDataServersByEnvIdEnvIdGet({ envId }: RefDataServersByEnvIdEnvIdGetRequest): Observable<Array<ServerApiModel>>
+    refDataServersByEnvIdEnvIdGet({ envId }: RefDataServersByEnvIdEnvIdGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<ServerApiModel>>>
+    refDataServersByEnvIdEnvIdGet({ envId }: RefDataServersByEnvIdEnvIdGetRequest, opts?: OperationOpts): Observable<Array<ServerApiModel> | AjaxResponse<Array<ServerApiModel>>> {
+        throwIfNullOrUndefined(envId, 'envId', 'refDataServersByEnvIdEnvIdGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<Array<ServerApiModel>>({
+            url: '/RefDataServers/ByEnvId/{envId}'.replace('{envId}', encodeURI(envId)),
+            method: 'GET',
+            headers,
         }, opts?.responseOpts);
     };
 

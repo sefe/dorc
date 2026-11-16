@@ -33,6 +33,12 @@ export interface RequestBuildsGetRequest {
     buildDefinitionName?: string;
 }
 
+export interface RequestBundleComponentsGetRequest {
+    projectId?: number;
+    buildDefinitionName?: string;
+    buildUrl?: string;
+}
+
 export interface RequestCancelPutRequest {
     requestId?: number;
 }
@@ -128,6 +134,36 @@ export class RequestApi extends BaseAPI {
 
         return this.request<Array<DeployArtefactDto>>({
             url: '/Request/Builds',
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    requestBundleComponentsGet({ projectId, buildDefinitionName, buildUrl }: RequestBundleComponentsGetRequest): Observable<Array<string>>
+    requestBundleComponentsGet({ projectId, buildDefinitionName, buildUrl }: RequestBundleComponentsGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<string>>>
+    requestBundleComponentsGet({ projectId, buildDefinitionName, buildUrl }: RequestBundleComponentsGetRequest, opts?: OperationOpts): Observable<Array<string> | AjaxResponse<Array<string>>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (projectId != null) { query['projectId'] = projectId; }
+        if (buildDefinitionName != null) { query['buildDefinitionName'] = buildDefinitionName; }
+        if (buildUrl != null) { query['buildUrl'] = buildUrl; }
+
+        return this.request<Array<string>>({
+            url: '/Request/BundleComponents',
             method: 'GET',
             headers,
             query,

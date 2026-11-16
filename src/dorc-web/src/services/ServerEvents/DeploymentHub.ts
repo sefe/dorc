@@ -19,11 +19,19 @@ export class DeploymentHub {
         .withUrl(url, {
           accessTokenFactory: () => {
             const user = oauthServiceContainer.service.signedInUser;
-            if (user) return user.access_token;
-            // Fallback: attempt to load user asynchronously
+            if (user && !user.expired) return user.access_token;
+            // Fallback: attempt to load or renew user asynchronously
             return new Promise<string>(resolve => {
               oauthServiceContainer.service.getUser().subscribe(u => {
-                resolve(u?.access_token ?? '');
+                if (u && !u.expired) {
+                  resolve(u.access_token);
+                  return;
+                }
+                void oauthServiceContainer.service
+                  .recoverExpiredSession()
+                  .then(renewed =>
+                    resolve(renewed?.access_token ?? u?.access_token ?? '')
+                  );
               });
             });
           }

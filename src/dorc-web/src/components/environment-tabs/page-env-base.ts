@@ -14,6 +14,7 @@ import { ErrorNotification } from '../notifications/error-notification';
 import '../notifications/error-notification';
 import { EnvironmentContentBuildsApiModelExtended } from '../model-extensions/EnvironmentContentBuildsApiModelExtended';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
+import { retrieveErrorMessage } from '../../helpers/errorMessage-retriever';
 
 @customElement('page-env-base')
 export class PageEnvBase extends LitElement {
@@ -236,23 +237,31 @@ export class PageEnvBase extends LitElement {
   protected onErrorAlert(event: CustomEvent) {
     const notification = new ErrorNotification();
 
-    let msg: string;
     if (event && event.detail) {
-      if (
-        event.detail.result &&
-        event.detail.result.ExceptionMessage !== undefined
-      )
-        msg = `${event.detail.description} - ${
-          event.detail.result.ExceptionMessage
-        }`;
-      else if (
-        event.detail.result &&
-        event.detail.result.response !== undefined
-      )
-        msg = `${event.detail.description} - ${event.detail.result.response}`;
-      else if (event.detail.result && event.detail.result.Message !== undefined)
-        msg = `${event.detail.description} - ${event.detail.result.Message}`;
-      else msg = event.detail.description;
+      const description = String(event.detail.description ?? '').trim();
+      const result = event.detail.result;
+      let detailMsg = '';
+
+      if (typeof result === 'string') {
+        detailMsg = result.trim();
+      } else if (result && typeof result === 'object') {
+        if (result.ExceptionMessage !== undefined) {
+          detailMsg = String(result.ExceptionMessage).trim();
+        } else if (result.response !== undefined) {
+          detailMsg = retrieveErrorMessage(result, '').trim();
+        } else if (result.Message !== undefined) {
+          detailMsg = String(result.Message).trim();
+        } else {
+          detailMsg = retrieveErrorMessage(result, '').trim();
+        }
+      }
+
+      let msg = description;
+      if (detailMsg) {
+        msg = description.endsWith(':')
+          ? `${description} ${detailMsg}`
+          : `${description} - ${detailMsg}`;
+      }
 
       notification.setAttribute('errorMessage', msg);
       this.shadowRoot?.appendChild(notification);

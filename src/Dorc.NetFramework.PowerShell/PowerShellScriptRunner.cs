@@ -8,6 +8,7 @@ using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Runner.Logger;
 using Newtonsoft.Json;
 using Microsoft.Extensions.Logging;
+using Dorc.ApiModel;
 
 namespace Dorc.NetFramework.PowerShell
 {
@@ -15,13 +16,17 @@ namespace Dorc.NetFramework.PowerShell
     {
         private readonly IRunnerLogger logger;
         private int deploymentResultId;
+        private readonly ScriptGroup evidenceContract;
+        private int ordinal;
 
         public StringWriter OutputObjects { get; private set; }
 
-        public PowerShellScriptRunner(IRunnerLogger logger, int deploymentResultId)
+        public PowerShellScriptRunner(IRunnerLogger logger, int deploymentResultId, ScriptGroup evidenceContract = null)
         {
             this.logger = logger;
             this.deploymentResultId = deploymentResultId;
+            this.evidenceContract = evidenceContract;
+            ordinal = evidenceContract?.EvidenceOrdinalOffset ?? 0;
         }
 
         public void Run(string scriptsLocation,
@@ -59,7 +64,15 @@ namespace Dorc.NetFramework.PowerShell
                                 powerShell.AddCommand("Set-Location").AddParameter("Path", scriptsLocation);
                             }
 
-                            powerShell.AddScript(File.ReadAllText(scriptName));
+                            var input = new PowerShellInput(scriptName, evidenceContract?.PowerShellEvidenceDirectory,
+                                evidenceContract?.DefinitionRequestId ?? 0, deploymentResultId,
+                                evidenceContract?.DefinitionRevision, ordinal++, evidenceContract?.PowerShellVersionNumber,
+                                runspace.Version.ToString());
+                            powerShell.AddScript(input.Text);
+                            powerShell.InvocationStateChanged += (_, state) =>
+                            {
+                                if (state.InvocationStateInfo.State == PSInvocationState.Running) input.InvocationObserved();
+                            };
                             logger.FileLogger.LogInformation($"Adding Script for execution '{scriptName}'.");
 
                             // create a data collection for standard output
@@ -81,6 +94,7 @@ namespace Dorc.NetFramework.PowerShell
                             {
                                 logger.FileLogger.LogInformation($"Execution of the powershell Script {scriptName} is beginning");
                                 powerShell.Invoke(null, outputCollection);
+                                input.Completed();
                                 logger.FileLogger.LogInformation($" Execution of the powershell Script {scriptName} has completed");
                             }
                             catch (Exception exception)

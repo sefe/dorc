@@ -11,11 +11,23 @@ public sealed class DatabaseAccessService(
     DatabaseAccessStore store, IDeploymentContextFactory factory, DatabaseAccessProviders providers,
     DatabaseAccessDirectory directory, ILogger<DatabaseAccessService> logger)
 {
-    private DatabaseAccessTarget Target(int id)
+    private Database DatabaseRecord(int id)
     {
         using var context = factory.GetContext();
-        var db = context.Databases.SingleOrDefault(d => d.Id == id) ?? throw new ArgumentException("Database no longer exists.");
+        return context.Databases.SingleOrDefault(d => d.Id == id)
+            ?? throw new ArgumentException("Database no longer exists.");
+    }
+
+    private DatabaseAccessTarget Target(int id, Database? db = null)
+    {
+        db ??= DatabaseRecord(id);
         return new(id, db.ServerName ?? "", db.Name ?? "");
+    }
+
+    private DatabaseAccessState ReadState(DatabaseAccessContext context, int id, Database? db = null)
+    {
+        db ??= DatabaseRecord(id);
+        return DatabaseAccessStore.Read(context, id, DatabaseAccessPlanner.ProviderFor(db.DatabaseType));
     }
 
     private void ValidateDirectory(DatabaseAccessState state)
@@ -28,10 +40,18 @@ public sealed class DatabaseAccessService(
         }
     }
 
+    private static void EnsureProviderMatchesDatabaseType(string provider, Database db)
+    {
+        var expectedProvider = DatabaseAccessPlanner.ProviderFor(db.DatabaseType);
+        if (provider != expectedProvider)
+            throw new ArgumentException($"Database provider '{provider}' does not match database type '{expectedProvider}'.");
+    }
+
     public DatabaseAccessState Get(int id)
     {
+        var db = DatabaseRecord(id);
         using var context = store.Open(id);
-        return DatabaseAccessStore.Read(context, id);
+        return ReadState(context, id, db);
     }
 
     public DatabaseAccessState Save(int id, DatabaseAccessState desired, string actor)
@@ -39,9 +59,12 @@ public sealed class DatabaseAccessService(
         if (desired.DatabaseId != id) throw new ArgumentException("Database ID does not match the route.");
         DatabaseAccessPlanner.Validate(desired);
         providers.Resolve(desired.Provider);
+        var db = DatabaseRecord(id);
+        EnsureProviderMatchesDatabaseType(desired.Provider, db);
         ValidateDirectory(desired);
         using var context = store.Open(id);
-        var current = DatabaseAccessStore.Read(context, id);
+        var current = ReadState(context, id, db);
+        EnsureProviderMatchesDatabaseType(current.Provider, db);
         ValidateTransition(current, desired);
         return DatabaseAccessStore.Save(context, desired, actor, "Save");
     }
@@ -87,25 +110,31 @@ public sealed class DatabaseAccessService(
 
     public DatabaseAccessPreview Preview(int id)
     {
+        var db = DatabaseRecord(id);
         using var context = store.Open(id);
-        var state = DatabaseAccessStore.Read(context, id);
+        var state = ReadState(context, id, db);
+        EnsureProviderMatchesDatabaseType(state.Provider, db);
         ValidateDirectory(state);
-        return providers.Resolve(state.Provider).Preview(Target(id), state);
+        return providers.Resolve(state.Provider).Preview(Target(id, db), state);
     }
 
     public List<string> SqlLogins(int id)
     {
+        var db = DatabaseRecord(id);
         using var context = store.Open(id);
-        var state = DatabaseAccessStore.Read(context, id);
-        return providers.Resolve(state.Provider).SqlLogins(Target(id));
+        var state = ReadState(context, id, db);
+        EnsureProviderMatchesDatabaseType(state.Provider, db);
+        return providers.Resolve(state.Provider).SqlLogins(Target(id, db));
     }
 
     public DatabaseAccessPreview Apply(int id, string token, string actor)
     {
+        var db = DatabaseRecord(id);
         using var context = store.Open(id);
-        var state = DatabaseAccessStore.Read(context, id);
+        var state = ReadState(context, id, db);
+        EnsureProviderMatchesDatabaseType(state.Provider, db);
         ValidateDirectory(state);
-        var target = Target(id);
+        var target = Target(id, db);
         var provider = providers.Resolve(state.Provider);
         var before = provider.Preview(target, state);
         if (before.Token != token || before.Errors.Count > 0)
@@ -134,8 +163,11 @@ public sealed class DatabaseAccessService(
 
     public DatabaseAccessImportPreview Import(int id, DatabaseAccessImportRequest request, bool apply, string actor)
     {
+        var db = DatabaseRecord(id);
         using var context = store.Open(id);
-        var current = DatabaseAccessStore.Read(context, id);
+        var current = ReadState(context, id, db);
+        EnsureProviderMatchesDatabaseType(current.Provider, db);
+        providers.Resolve(current.Provider);
         using var legacy = factory.GetContext();
         var source = (from map in legacy.EnvironmentUsers
                       join user in legacy.Users on map.UserId equals user.Id

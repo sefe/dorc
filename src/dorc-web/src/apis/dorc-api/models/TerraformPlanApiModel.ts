@@ -11,6 +11,11 @@
  * Do not edit the class manually.
  */
 
+import type {
+    TerraformDeploymentOutcomeApiModel,
+    TerraformDeploymentReceiptApiModel,
+} from './';
+
 /**
  * @export
  * @interface TerraformPlanApiModel
@@ -30,15 +35,40 @@ export interface TerraformPlanApiModel {
      * @type {string}
      * @memberof TerraformPlanApiModel
      */
-    BlobUrl?: string | null;
-    /**
-     * @type {string}
-     * @memberof TerraformPlanApiModel
-     */
-    CreatedAt?: string;
+    CreatedAt?: string | null;
     /**
      * @type {string}
      * @memberof TerraformPlanApiModel
      */
     Status?: string | null;
+    /**
+     * @type {string}
+     * @memberof TerraformPlanApiModel
+     */
+    PlanContentSha256: string;
+    /**
+     * @type {TerraformDeploymentReceiptApiModel}
+     * @memberof TerraformPlanApiModel
+     */
+    Receipt?: TerraformDeploymentReceiptApiModel;
+    /**
+     * @type {string}
+     * @memberof TerraformPlanApiModel
+     */
+    ApprovedBy?: string | null;
+    /**
+     * @type {string}
+     * @memberof TerraformPlanApiModel
+     */
+    ApprovedAt?: string | null;
+    /**
+     * @type {boolean}
+     * @memberof TerraformPlanApiModel
+     */
+    IsHistorical?: boolean;
+    /**
+     * @type {TerraformDeploymentOutcomeApiModel}
+     * @memberof TerraformPlanApiModel
+     */
+    Outcome?: TerraformDeploymentOutcomeApiModel;
 }

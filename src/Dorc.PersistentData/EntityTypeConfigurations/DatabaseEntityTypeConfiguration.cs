@@ -23,6 +23,10 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
             builder.Property(e => e.Name).HasMaxLength(50);
             builder.Property(e => e.Tags).HasMaxLength(TagLimits.MaxTagStringLength);
             builder.Property(e => e.ServerName).HasMaxLength(50);
+            builder.Property(e => e.DatabaseType)
+                .HasConversion<string>()
+                .HasMaxLength(32)
+                .HasDefaultValue(DatabaseType.SqlServer);
 
             builder.HasOne(d => d.Group).WithMany(p => p.Databases).HasForeignKey(d => d.GroupId);
 

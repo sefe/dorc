@@ -68,13 +68,11 @@ namespace Dorc.PersistentData.Sources
             {
                 var existingAccessControl = context.AccessControls.Find(accessControl.Id);
 
-                if (existingAccessControl == null) return null;
+                if (existingAccessControl == null || existingAccessControl.ObjectId != objectId) return null;
 
                 var oldPermissions = existingAccessControl.Allow;
                 var oldName = existingAccessControl.Name;
 
-                existingAccessControl.Pid = accessControl.Pid;
-                existingAccessControl.Sid = accessControl.Sid;
                 existingAccessControl.Name = accessControl.Name;
                 existingAccessControl.Allow = accessControl.Allow;
                 existingAccessControl.Deny = accessControl.Deny;
@@ -108,7 +106,7 @@ namespace Dorc.PersistentData.Sources
             {
                 var existingAccessControl = context.AccessControls.Find(id);
 
-                if (existingAccessControl == null) return Guid.Empty;
+                if (existingAccessControl == null || existingAccessControl.ObjectId != objectId) return Guid.Empty;
 
                 var deletedGuid = existingAccessControl.ObjectId;
 

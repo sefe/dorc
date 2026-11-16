@@ -32,6 +32,15 @@ namespace Dorc.TerraformRunner
         private static async Task Main(string[] args)
         {
             bool result = false;
+            using var cancellation = new CancellationTokenSource();
+            ConsoleCancelEventHandler cancelHandler = (_, e) =>
+            {
+                e.Cancel = true;
+                cancellation.Cancel();
+            };
+            Console.CancelKeyPress += cancelHandler;
+            using var stopWatching = new CancellationTokenSource();
+            Task? cancellationWatcher = null;
 
             try
             {
@@ -63,6 +72,8 @@ namespace Dorc.TerraformRunner
                 }
 
                 options = arguments.Value;
+                cancellationWatcher = WatchCancellationAsync(options.PlanFilePath + ".cancel",
+                    cancellation, stopWatching.Token);
                 var loggerRegistry = new LoggerRegistry();
                 var config = new ConfigurationBuilder()
                     .AddJsonFile("appsettings.json")
@@ -102,14 +113,42 @@ namespace Dorc.TerraformRunner
                 else
                     scriptGroupReader = new ScriptGroupPipeClient(fileLogger, options.ServerSid);
 
-                var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader);
-                switch (options.TerrafromRunnerOperation)
+                // Catalog binding for the runner. The manifests directory
+                // is configurable via Terraform:Catalog:ManifestsDirectory
+                // (delivered at install time from the private
+                // dorc-terraform-modules repository) and defaults to a
+                // sibling directory next to the runner exe when unset.
+                var configuredManifestsDir = config.GetSection("Terraform:Catalog")["ManifestsDirectory"];
+                var catalogManifestsDir = string.IsNullOrWhiteSpace(configuredManifestsDir)
+                    ? System.IO.Path.Join(AppContext.BaseDirectory, "stock-modules-manifests")
+                    : configuredManifestsDir;
+                // Route the catalog's manifest-rejection warnings (its only
+                // diagnostic channel) into the runner's file log; NullLogger
+                // would silently swallow the reason a manifest on disk fails
+                // to resolve.
+                var templateCatalog = new Dorc.Terraform.Catalog.GitTemplateCatalog(
+                    catalogManifestsDir,
+                    new Dorc.TerraformRunner.Logging.TypedLoggerAdapter<Dorc.Terraform.Catalog.GitTemplateCatalog>(fileLogger));
+
+                // Bootstrap-only default subscription for catalog deployments
+                // whose environment designates no subscription (no
+                // 'Subscription' cloud resource and no TerraformSubscriptionId
+                // property - fresh projects/environments not yet fully
+                // configured). For DOrc instances this should be the shared
+                // dev subscription ID per the organisation's subscription
+                // standard.
+                var defaultSubscriptionId = config.GetSection("Terraform")["DefaultSubscriptionId"];
+
+                var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader, templateCatalog,
+                    new Dorc.TerraformRunner.CodeSources.TerraformCodeSourceProviderFactory(runnerLogger, templateCatalog),
+                    defaultSubscriptionId);
+                switch (options.TerraformRunnerOperation)
                 {
-                    case TerrafromRunnerOperations.CreatePlan:
-                        result = await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, CancellationToken.None);
+                    case TerraformRunnerOperations.CreatePlan:
+                        result = await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, options.LockFilePath, cancellation.Token);
                         break;
-                    case TerrafromRunnerOperations.ApplyPlan:
-                        result = await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, CancellationToken.None);
+                    case TerraformRunnerOperations.ApplyPlan:
+                        result = await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, options.LockFilePath, options.AppliedResourcesFilePath, options.SourceArchiveFilePath, cancellation.Token);
                         break;
                 }
             }
@@ -120,14 +159,33 @@ namespace Dorc.TerraformRunner
             }
             finally
             {
-                Exit(result ? 0 : 1);
+                Console.CancelKeyPress -= cancelHandler;
+                stopWatching.Cancel();
+                if (cancellationWatcher is not null) await cancellationWatcher;
+                Exit(result && !cancellation.IsCancellationRequested ? 0 : 1);
             }
+        }
+
+        internal static async Task WatchCancellationAsync(string markerPath,
+            CancellationTokenSource operation, CancellationToken stopWatching)
+        {
+            try
+            {
+                while (!stopWatching.IsCancellationRequested)
+                {
+                    if (File.Exists(markerPath))
+                    {
+                        operation.Cancel();
+                        return;
+                    }
+                    await Task.Delay(200, stopWatching);
+                }
+            }
+            catch (OperationCanceledException) when (stopWatching.IsCancellationRequested) { }
         }
 
         static void FinalizeProgram()
         {
-            Thread.Sleep(10000);
-
             runnerLogger?.FileLogger.LogInformation(RunnerConstants.StandardStreamEndString);
             runnerLogger?.FlushLogMessages();
         }

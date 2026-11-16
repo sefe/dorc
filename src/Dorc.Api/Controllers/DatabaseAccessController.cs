@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
 using Dorc.Core.DatabaseAccess;
@@ -8,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace Dorc.Api.Controllers;
 
@@ -21,6 +23,7 @@ public sealed class DatabaseAccessController(
 {
     private bool Enabled => configuration.GetValue("DatabaseAccess:Enabled", true);
 
+    [SwaggerOperation(OperationId = "databaseAccessStatus")]
     [HttpGet("status")]
     public ActionResult<DatabaseAccessStatus> Status(int envId, int databaseId) =>
         Execute(envId, databaseId, false, () => new DatabaseAccessStatus
@@ -32,48 +35,59 @@ public sealed class DatabaseAccessController(
             Limitations = ["Existing server logins only; no password/server-login provisioning.", "db_owner memberships require explicit legacy import approval from an owner or administrator of every attached environment; protected role definitions and other protected roles remain blocked.", "AD-backed SQL Server logins require Windows SID references."]
         }, requireEnabled: false);
 
+    [SwaggerOperation(OperationId = "databaseAccessGet")]
     [HttpGet]
     public ActionResult<DatabaseAccessState> Get(int envId, int databaseId) =>
         Execute(envId, databaseId, false, () => service.Get(databaseId));
 
+    [SwaggerOperation(OperationId = "databaseAccessSave")]
     [HttpPut]
-    public ActionResult<DatabaseAccessState> Save(int envId, int databaseId, [FromBody] DatabaseAccessState state) =>
+    public ActionResult<DatabaseAccessState> Save(int envId, int databaseId, [FromBody, Required] DatabaseAccessState state) =>
         Execute(envId, databaseId, true, () => service.Save(databaseId, state, Actor));
 
+    [SwaggerOperation(OperationId = "databaseAccessPreview")]
     [HttpPost("preview")]
     public ActionResult<DatabaseAccessPreview> Preview(int envId, int databaseId) =>
         Execute(envId, databaseId, true, () => service.Preview(databaseId));
 
+    [SwaggerOperation(OperationId = "databaseAccessApply")]
     [HttpPost("apply")]
-    public ActionResult<DatabaseAccessPreview> Apply(int envId, int databaseId, [FromBody] DatabaseAccessConfirmation confirmation) =>
+    public ActionResult<DatabaseAccessPreview> Apply(int envId, int databaseId, [FromBody, Required] DatabaseAccessConfirmation confirmation) =>
         Execute(envId, databaseId, true, () => service.Apply(databaseId, confirmation.Token, Actor));
 
+    [SwaggerOperation(OperationId = "databaseAccessSqlLogins")]
     [HttpGet("logins")]
     public ActionResult<List<string>> SqlLogins(int envId, int databaseId) =>
         Execute(envId, databaseId, false, () => service.SqlLogins(databaseId));
 
+    [SwaggerOperation(OperationId = "databaseAccessDirectory")]
     [HttpGet("directory")]
-    public ActionResult<List<DatabaseAccessDirectoryIdentity>> SearchDirectory(int envId, int databaseId, [FromQuery] string search) =>
+    public ActionResult<List<DatabaseAccessDirectoryIdentity>> SearchDirectory(int envId, int databaseId, [FromQuery, Required] string search) =>
         Execute(envId, databaseId, false, () => directory.Search(search));
 
+    [SwaggerOperation(OperationId = "databaseAccessResolve")]
     [HttpGet("directory/resolve")]
-    public ActionResult<DatabaseAccessDirectoryIdentity> ResolveDirectory(int envId, int databaseId, [FromQuery] string id) =>
+    public ActionResult<DatabaseAccessDirectoryIdentity> ResolveDirectory(int envId, int databaseId, [FromQuery, Required] string id) =>
         Execute(envId, databaseId, false, () => directory.Resolve(id));
 
+    [SwaggerOperation(OperationId = "databaseAccessLookup")]
     [HttpGet("directory/lookup")]
-    public ActionResult<DatabaseAccessDirectoryIdentity> LookupDirectory(int envId, int databaseId, [FromQuery] string accountName) =>
+    public ActionResult<DatabaseAccessDirectoryIdentity> LookupDirectory(int envId, int databaseId, [FromQuery, Required] string accountName) =>
         Execute(envId, databaseId, false, () => directory.Lookup(accountName));
 
+    [SwaggerOperation(OperationId = "databaseAccessImportPreview")]
     [HttpPost("import/preview")]
-    public ActionResult<DatabaseAccessImportPreview> PreviewImport(int envId, int databaseId, [FromBody] DatabaseAccessImportRequest request) =>
+    public ActionResult<DatabaseAccessImportPreview> PreviewImport(int envId, int databaseId, [FromBody, Required] DatabaseAccessImportRequest request) =>
         Execute(envId, databaseId, true, () => service.Import(databaseId, request, false, Actor),
             approveDbOwner: request.ApprovedDbOwnerLegacyUserIds?.Count > 0);
 
+    [SwaggerOperation(OperationId = "databaseAccessExecuteImport")]
     [HttpPost("import")]
-    public ActionResult<DatabaseAccessImportPreview> Import(int envId, int databaseId, [FromBody] DatabaseAccessImportRequest request) =>
+    public ActionResult<DatabaseAccessImportPreview> Import(int envId, int databaseId, [FromBody, Required] DatabaseAccessImportRequest request) =>
         Execute(envId, databaseId, true, () => service.Import(databaseId, request, true, Actor),
             approveDbOwner: request.ApprovedDbOwnerLegacyUserIds?.Count > 0);
 
+    [SwaggerOperation(OperationId = "databaseAccessAudit")]
     [HttpGet("audit")]
     public ActionResult<List<DatabaseAccessAuditApiModel>> Audit(int envId, int databaseId) =>
         Execute(envId, databaseId, false, () => service.Audit(databaseId));

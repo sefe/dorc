@@ -12,6 +12,15 @@ public static class DatabaseAccessPlanner
     public const string SqlServer = "sql-server";
     public static readonly StringComparer Names = StringComparer.OrdinalIgnoreCase;
 
+    public static string ProviderFor(DatabaseType databaseType) => databaseType switch
+    {
+        DatabaseType.SqlServer => SqlServer,
+        DatabaseType.CosmosDb => "cosmos-db",
+        DatabaseType.ClickHouse => "clickhouse",
+        DatabaseType.PostgreSql => "postgresql",
+        _ => throw new NotSupportedException($"Unsupported database type '{databaseType}'.")
+    };
+
     public static string Fingerprint(object value) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(value))));
 

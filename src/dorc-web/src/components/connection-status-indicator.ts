@@ -1,5 +1,5 @@
-import { LitElement, css, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { LitElement, PropertyValues, css, nothing } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { HubConnectionState } from '@microsoft/signalr';
 import '@vaadin/tooltip';
@@ -9,53 +9,244 @@ type IndicatorStatus = 'live' | 'paused' | 'reconnecting' | 'offline';
 /**
  * Connection Status Indicator
  *
- * Compact pill badge with a status dot reflecting the SignalR hub state:
- *  - Live         connected (auto refresh on in toggle mode), pulsing green dot
- *  - Paused       auto refresh switched off (toggle mode only), grey dot
- *  - Reconnecting connecting/reconnecting, pulsing amber dot
- *  - Offline      disconnected or errored, red dot
+ * Modern full-width status strip reflecting the SignalR hub state:
+ *  - Live         connected (auto refresh on): briefly shows "Live · Real-time updates active"
+ *                 with a pulsing green dot, then collapses into a 3px subtly animated green strip
+ *  - Paused       auto refresh switched off: expands to show status + Resume & Refresh buttons
+ *  - Reconnecting connecting/reconnecting: expands with pulsing amber dot + Pause & Refresh buttons
+ *  - Offline      disconnected or errored: expands with red dot + Pause & Refresh buttons
  *
- * Modes:
- *  - toggle: clickable pill that toggles auto refresh (emits 'toggle-auto-refresh')
- *  - icon: passive pill; hidden while Connected unless showWhenConnected is set
+ * Events emitted:
+ *  - 'toggle-auto-refresh' when the strip or Pause/Resume button is clicked
+ *  - 'refresh-requests' when the manual Refresh button is clicked
  */
 @customElement('connection-status-indicator')
 export class ConnectionStatusIndicator extends LitElement {
+  static LIVE_COLLAPSE_DELAY_MS = 3000;
+
   @property({ type: String }) state: string | undefined =
     HubConnectionState.Disconnected;
-  @property({ type: Boolean }) autoRefresh: boolean = false;
-  @property({ type: String }) mode: 'toggle' | 'icon' = 'icon';
-  /** When mode=icon, show the pill even if Connected */
-  @property({ type: Boolean }) showWhenConnected: boolean = false;
+  @property({ type: Boolean }) autoRefresh: boolean = true;
+
+  @state() private liveExpanded: boolean = false;
+  private prevStatus?: IndicatorStatus;
+  private collapseTimer?: ReturnType<typeof setTimeout>;
 
   static styles = css`
     :host {
-      display: inline-flex;
+      display: flex;
+      width: 100%;
+      flex-shrink: 0;
     }
 
-    .pill {
-      display: inline-flex;
+    .strip {
+      position: relative;
+      display: flex;
       align-items: center;
-      gap: 5px;
-      padding: 2px 8px;
-      border-radius: 999px;
-      border: 1px solid transparent;
+      gap: 12px;
+      width: 100%;
+      height: 28px;
+      padding: 0 12px;
+      box-sizing: border-box;
+      overflow: hidden;
       font-family: var(--lumo-font-family, sans-serif);
-      font-size: var(--lumo-font-size-xxs, 0.75rem);
+      font-size: 0.72rem;
       font-weight: 500;
-      line-height: 1.4;
-      letter-spacing: 0.02em;
+      line-height: 1;
+      letter-spacing: 0.015em;
       white-space: nowrap;
       user-select: none;
-      cursor: default;
+      border-bottom: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+      transition:
+        height 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+        background-color 0.3s ease,
+        border-color 0.3s ease;
     }
 
-    button.pill {
+    .strip-content {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      opacity: 1;
+      transform: translateY(0);
+      transition:
+        opacity 0.2s ease,
+        transform 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .strip.live.collapsed {
+      height: 3px;
+      padding: 0;
+      overflow: visible;
+      border-bottom-color: transparent;
+      background: linear-gradient(
+        90deg,
+        color-mix(
+            in srgb,
+            var(--dorc-success-text, #2ea043) 22%,
+            var(--dorc-bg-secondary, #1c2029)
+          )
+          0%,
+        color-mix(
+            in srgb,
+            var(--dorc-success-text, #2ea043) 35%,
+            var(--dorc-bg-secondary, #1c2029)
+          )
+          30%,
+        color-mix(in srgb, var(--dorc-success-text, #3fb950) 75%, #ffffff) 50%,
+        color-mix(
+            in srgb,
+            var(--dorc-success-text, #2ea043) 35%,
+            var(--dorc-bg-secondary, #1c2029)
+          )
+          70%,
+        color-mix(
+            in srgb,
+            var(--dorc-success-text, #2ea043) 22%,
+            var(--dorc-bg-secondary, #1c2029)
+          )
+          100%
+      );
+      background-size: 240% 100%;
+      animation: csi-strip-pulse 8s ease-in-out infinite;
+    }
+
+    .strip.live.collapsed .strip-content {
+      opacity: 0;
+      transform: translateY(-4px);
+      pointer-events: none;
+    }
+
+    .strip-live-trigger {
+      position: absolute;
+      inset: -3px 0 -5px 0;
+      width: 100%;
+      padding: 0;
+      margin: 0;
+      border: 0;
+      background: transparent;
       cursor: pointer;
     }
 
-    button.pill:hover {
-      filter: brightness(0.95);
+    .strip.live.collapsed:hover {
+      filter: brightness(1.25);
+    }
+
+    @keyframes csi-strip-pulse {
+      0%,
+      100% {
+        background-position: 120% 0;
+        opacity: 0.45;
+        box-shadow: 0 0 0 rgba(63, 185, 80, 0);
+      }
+      40%,
+      60% {
+        background-position: 50% 0;
+        opacity: 1;
+        box-shadow: 0 0 8px
+          color-mix(in srgb, var(--dorc-success-text, #3fb950) 65%, transparent);
+      }
+      85% {
+        background-position: -20% 0;
+        opacity: 0.55;
+        box-shadow: 0 0 2px
+          color-mix(in srgb, var(--dorc-success-text, #3fb950) 20%, transparent);
+      }
+    }
+
+    .strip.expanded.live {
+      color: var(--dorc-success-text, #2ea043);
+      background: color-mix(
+        in srgb,
+        var(--dorc-success-text, #2ea043) 14%,
+        var(--dorc-bg-secondary, #f5f6f8)
+      );
+    }
+
+    .strip.expanded.paused {
+      color: var(--dorc-text-secondary, #8b949e);
+      background: color-mix(
+        in srgb,
+        var(--dorc-text-secondary, #8b949e) 12%,
+        var(--dorc-bg-secondary, #f5f6f8)
+      );
+    }
+
+    .strip.expanded.reconnecting {
+      color: var(--dorc-warning-text, #d29922);
+      background: color-mix(
+        in srgb,
+        var(--dorc-warning-text, #d29922) 14%,
+        var(--dorc-bg-secondary, #f5f6f8)
+      );
+    }
+
+    .strip.expanded.offline {
+      color: var(--dorc-error-color, #f85149);
+      background: color-mix(
+        in srgb,
+        var(--dorc-error-color, #f85149) 14%,
+        var(--dorc-bg-secondary, #f5f6f8)
+      );
+    }
+
+    .strip-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-weight: 600;
+    }
+
+    .strip-subtext {
+      font-weight: 400;
+      opacity: 0.85;
+    }
+
+    .strip-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .strip-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      height: 19px;
+      padding: 0 8px;
+      margin: 0;
+      border-radius: 4px;
+      border: 1px solid color-mix(in srgb, currentColor 32%, transparent);
+      background: color-mix(in srgb, currentColor 10%, transparent);
+      color: inherit;
+      font-family: inherit;
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      transition:
+        background-color 0.15s ease,
+        border-color 0.15s ease;
+    }
+
+    .strip-btn:hover {
+      background: color-mix(in srgb, currentColor 20%, transparent);
+      border-color: color-mix(in srgb, currentColor 48%, transparent);
+    }
+
+    .strip-btn:active {
+      background: color-mix(in srgb, currentColor 26%, transparent);
+    }
+
+    .strip-btn svg {
+      width: 11px;
+      height: 11px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
     }
 
     .dot {
@@ -93,37 +284,59 @@ export class ConnectionStatusIndicator extends LitElement {
         animation: none;
         display: none;
       }
-    }
-
-    .live {
-      color: var(--dorc-success-text, #1a7a2e);
-      background: var(--dorc-success-bg, #b1ffb7);
-      border-color: color-mix(in srgb, currentColor 25%, transparent);
-    }
-
-    .paused {
-      color: var(--dorc-text-secondary, #747f8d);
-      background: var(--dorc-bg-tertiary, #eee);
-      border-color: color-mix(in srgb, currentColor 25%, transparent);
-    }
-
-    .reconnecting {
-      color: var(--dorc-warning-text, #856404);
-      background: var(--dorc-warning-bg, #fff3cd);
-      border-color: color-mix(in srgb, currentColor 25%, transparent);
-    }
-
-    .offline {
-      color: var(--dorc-error-color, #ff3131);
-      background: var(--dorc-failure-bg, #ffd9d9);
-      border-color: color-mix(in srgb, currentColor 25%, transparent);
+      .strip.live.collapsed {
+        animation: none;
+      }
     }
   `;
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this.clearCollapseTimer();
+  }
+
+  protected willUpdate(changedProperties: PropertyValues<this>) {
+    if (
+      changedProperties.has('state') ||
+      changedProperties.has('autoRefresh')
+    ) {
+      const currentStatus = this.status;
+      if (currentStatus !== this.prevStatus) {
+        this.clearCollapseTimer();
+        if (currentStatus === 'live') {
+          this.expandLive();
+        } else {
+          this.liveExpanded = false;
+        }
+        this.prevStatus = currentStatus;
+      }
+    }
+  }
+
+  private scheduleLiveCollapse() {
+    this.clearCollapseTimer();
+    this.collapseTimer = setTimeout(() => {
+      this.liveExpanded = false;
+    }, ConnectionStatusIndicator.LIVE_COLLAPSE_DELAY_MS);
+  }
+
+  private expandLive() {
+    if (this.status !== 'live') return;
+    this.liveExpanded = true;
+    this.scheduleLiveCollapse();
+  }
+
+  private clearCollapseTimer() {
+    if (this.collapseTimer !== undefined) {
+      clearTimeout(this.collapseTimer);
+      this.collapseTimer = undefined;
+    }
+  }
 
   private get status(): IndicatorStatus {
     // The user's explicit pause wins over connection churn: while paused the
     // connection is stopped deliberately, so don't show Reconnecting/Offline.
-    if (this.mode === 'toggle' && !this.autoRefresh) return 'paused';
+    if (!this.autoRefresh) return 'paused';
     if (
       this.state === HubConnectionState.Connecting ||
       this.state === HubConnectionState.Reconnecting
@@ -147,26 +360,39 @@ export class ConnectionStatusIndicator extends LitElement {
     }
   }
 
-  private get titleText() {
-    const state = `Connection: ${this.state}`;
-    if (this.mode === 'toggle') {
-      if (this.status === 'paused') {
-        return `Live updates paused (click to resume)\n${state}`;
-      }
-      if (this.status === 'reconnecting') {
-        return `Reconnecting - live updates will resume automatically\n${state}`;
-      }
-      if (this.status === 'offline') {
-        return `Connection lost - live updates unavailable\n${state}`;
-      }
-      return `Live updates on (click to pause)\n${state}`;
+  private get stripDetail() {
+    switch (this.status) {
+      case 'live':
+        return 'Real-time updates active';
+      case 'paused':
+        return 'Live updates paused';
+      case 'reconnecting':
+        return 'Attempting to reconnect…';
+      default:
+        return 'Connection lost — live updates unavailable';
     }
-    return state;
   }
 
-  private get pillClass() {
+  private get titleText() {
+    const state = `Connection: ${this.state}`;
+    if (this.status === 'paused') {
+      return `Live updates paused (click to resume)\n${state}`;
+    }
+    if (this.status === 'reconnecting') {
+      return `Reconnecting - live updates will resume automatically\n${state}`;
+    }
+    if (this.status === 'offline') {
+      return `Connection lost - live updates unavailable\n${state}`;
+    }
+    return `Live updates on (click to pause)\n${state}`;
+  }
+
+  private get stripClass() {
+    if (this.status === 'live' && !this.liveExpanded) {
+      return 'strip live collapsed';
+    }
     const pulse = this.status === 'live' || this.status === 'reconnecting';
-    return `pill ${this.status}${pulse ? ' pulse' : ''}`;
+    return `strip expanded ${this.status}${pulse ? ' pulse' : ''}`;
   }
 
   private toggle() {
@@ -175,31 +401,89 @@ export class ConnectionStatusIndicator extends LitElement {
     );
   }
 
-  render() {
-    if (this.mode === 'toggle') {
-      return html`
-        <button
-          type="button"
-          class="${this.pillClass}"
-          .title="${this.titleText}"
-          aria-pressed="${this.autoRefresh}"
-          @click="${this.toggle}"
-        >
-          <span class="dot"></span><span>${this.label}</span>
-        </button>
-      `;
+  private manualRefresh() {
+    if (this.status === 'live' && this.liveExpanded) {
+      this.scheduleLiveCollapse();
     }
-    if (!this.showWhenConnected && this.state === HubConnectionState.Connected)
-      return nothing;
+    this.dispatchEvent(
+      new CustomEvent('refresh-requests', {
+        detail: {},
+        bubbles: true,
+        composed: true
+      })
+    );
+  }
+
+  render() {
+    const isCollapsedLive = this.status === 'live' && !this.liveExpanded;
     return html`
-      <span
-        class="${this.pillClass}"
-        role="status"
-        .title="${this.titleText}"
-        aria-label="${this.label}"
-      >
-        <span class="dot"></span><span>${this.label}</span>
-      </span>
+      <div class="${this.stripClass}" role="region" aria-label="Live updates">
+        <div class="strip-content" aria-hidden="${isCollapsedLive}">
+          <span class="strip-status">
+            <span class="dot"></span>
+            <span>${this.label}</span>
+            <span class="strip-subtext">· ${this.stripDetail}</span>
+          </span>
+          <span class="strip-actions">
+            <button
+              type="button"
+              class="strip-btn strip-toggle"
+              .title="${this.titleText}"
+              aria-label="${this.label}"
+              aria-pressed="${this.autoRefresh}"
+              ?tabindex="${isCollapsedLive ? -1 : undefined}"
+              @click="${this.toggle}"
+            >
+              ${
+                this.autoRefresh
+                  ? html`
+                      <svg viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M5.5 3.5v9M10.5 3.5v9" />
+                      </svg>
+                      <span>Pause</span>
+                    `
+                  : html`
+                      <svg viewBox="0 0 16 16" aria-hidden="true">
+                        <polygon
+                          points="4.5,3 12.5,8 4.5,13"
+                          fill="currentColor"
+                          stroke="none"
+                        />
+                      </svg>
+                      <span>Resume</span>
+                    `
+              }
+            </button>
+            <button
+              type="button"
+              class="strip-btn strip-refresh"
+              aria-label="Manual refresh"
+              title="Manual refresh"
+              ?tabindex="${isCollapsedLive ? -1 : undefined}"
+              @click="${this.manualRefresh}"
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3" />
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </span>
+        </div>
+        ${
+          isCollapsedLive
+            ? html`
+                <button
+                  type="button"
+                  class="strip-live-trigger"
+                  title="Live updates active — click to expand controls"
+                  aria-label="Expand live status controls"
+                  aria-expanded="false"
+                  @click="${this.expandLive}"
+                ></button>
+              `
+            : nothing
+        }
+      </div>
     `;
   }
 }

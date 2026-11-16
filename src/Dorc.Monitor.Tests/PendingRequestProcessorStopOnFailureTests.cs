@@ -39,6 +39,9 @@ namespace Dorc.Monitor.Tests
             mockComponentProcessor = Substitute.For<IComponentProcessor>();
             mockVariableScopeOptionsResolver = Substitute.For<IVariableScopeOptionsResolver>();
             mockRequestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
+            mockRequestsPersistentSource.SetRequestStartStatus(
+                Arg.Any<DeploymentRequestApiModel>(), Arg.Any<DeploymentRequestStatus>(), Arg.Any<DateTimeOffset>())
+                .Returns(true);
             mockPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
             mockEnvironmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
             mockManageProjectsPersistentSource = Substitute.For<IManageProjectsPersistentSource>();
@@ -114,8 +117,8 @@ namespace Dorc.Monitor.Tests
 
         private void SetupOrderedComponents(List<ComponentApiModel> components)
         {
-            mockManageProjectsPersistentSource
-                .GetOrderedComponents(Arg.Any<IEnumerable<string>>())
+            mockRequestsPersistentSource
+                .GetSubmittedComponents(Arg.Any<int>())
                 .Returns(components);
 
             // Each component has a deployment result
@@ -160,7 +163,7 @@ namespace Dorc.Monitor.Tests
                 .Returns(true);
 
             // Act
-            sut.Execute(dto, CancellationToken.None, Substitute.For<ILoggerFactory>());
+            sut.Execute(dto, CancellationToken.None, mockLoggerFactory);
 
             // Assert - comp2 was never deployed because comp1 had StopOnFailure=true
             mockComponentProcessor.DidNotReceive().DeployComponent(
@@ -204,7 +207,7 @@ namespace Dorc.Monitor.Tests
                 .Returns(true);
 
             // Act
-            sut.Execute(dto, CancellationToken.None, Substitute.For<ILoggerFactory>());
+            sut.Execute(dto, CancellationToken.None, mockLoggerFactory);
 
             // Assert - comp2 WAS deployed because StopOnFailure=false
             mockComponentProcessor.Received().DeployComponent(
@@ -246,7 +249,7 @@ namespace Dorc.Monitor.Tests
                 .Returns(false);
 
             // Act
-            sut.Execute(dto, CancellationToken.None, Substitute.For<ILoggerFactory>());
+            sut.Execute(dto, CancellationToken.None, mockLoggerFactory);
 
             // Assert - pending result for comp2 was cancelled
             mockRequestsPersistentSource.Received().UpdateResultStatus(
@@ -274,7 +277,7 @@ namespace Dorc.Monitor.Tests
                 .Returns(x => throw new InvalidOperationException("Script failed"));
 
             // Act
-            sut.Execute(dto, CancellationToken.None, Substitute.For<ILoggerFactory>());
+            sut.Execute(dto, CancellationToken.None, mockLoggerFactory);
 
             // Assert - comp2 was never deployed
             mockComponentProcessor.DidNotReceive().DeployComponent(
@@ -285,6 +288,60 @@ namespace Dorc.Monitor.Tests
         }
 
         // -------- GitHub artifact cleanup path --------
+
+        [TestMethod]
+        public void Execute_ConfirmationResume_DoesNotDispatchUnapprovedOrCompletedSiblings()
+        {
+            var components = new List<ComponentApiModel>
+            {
+                new() { ComponentId = 1, ComponentName = "Approved", IsEnabled = true, ComponentType = ComponentType.Terraform },
+                new() { ComponentId = 2, ComponentName = "Unapproved", IsEnabled = true, ComponentType = ComponentType.Terraform },
+                new() { ComponentId = 3, ComponentName = "AlreadyComplete", IsEnabled = true, ComponentType = ComponentType.PowerShell }
+            };
+            SetupOrderedComponents(components);
+            mockRequestsPersistentSource.GetDeploymentResultsForRequest(100).Returns(new[]
+            {
+                new DeploymentResultApiModel { Id = 1, ComponentId = 1, RequestId = 100, Status = DeploymentResultStatus.Confirmed.ToString() },
+                new DeploymentResultApiModel { Id = 2, ComponentId = 2, RequestId = 100, Status = DeploymentResultStatus.WaitingConfirmation.ToString() },
+                new DeploymentResultApiModel { Id = 3, ComponentId = 3, RequestId = 100, Status = DeploymentResultStatus.Complete.ToString() }
+            });
+            mockComponentProcessor.DeployComponent(
+                components[0], Arg.Any<DeploymentResultApiModel>(),
+                Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
+                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>()).Returns(true);
+
+            sut.Execute(CreateRequest(components), CancellationToken.None, mockLoggerFactory);
+
+            mockComponentProcessor.Received(1).DeployComponent(
+                components[0], Arg.Any<DeploymentResultApiModel>(),
+                Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
+                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>());
+            Assert.AreEqual(1, mockComponentProcessor.ReceivedCalls()
+                .Count(call => call.GetMethodInfo().Name == nameof(IComponentProcessor.DeployComponent)));
+            mockRequestsPersistentSource.Received().SetRequestCompletionStatus(
+                100, DeploymentRequestStatus.WaitingConfirmation, Arg.Any<DateTimeOffset>(), Arg.Any<string?>());
+        }
+
+        [TestMethod]
+        public void Execute_WhenRequestChangedBeforeStart_DoesNotDispatchOrOverwriteStatus()
+        {
+            mockRequestsPersistentSource.SetRequestStartStatus(
+                Arg.Any<DeploymentRequestApiModel>(), Arg.Any<DeploymentRequestStatus>(), Arg.Any<DateTimeOffset>())
+                .Returns(false);
+            var components = new List<ComponentApiModel>
+            {
+                new() { ComponentId = 1, ComponentName = "Cancelled", IsEnabled = true }
+            };
+            SetupOrderedComponents(components);
+
+            sut.Execute(CreateRequest(components), CancellationToken.None, mockLoggerFactory);
+
+            Assert.IsFalse(mockComponentProcessor.ReceivedCalls().Any());
+            mockRequestsPersistentSource.DidNotReceiveWithAnyArgs()
+                .SetRequestCompletionStatus(default, default, default, default);
+        }
 
         [TestMethod]
         public void Execute_WithGitHubArtifactDropLocation_CleansUpResolvedPathAfterDeployment()
@@ -323,7 +380,7 @@ namespace Dorc.Monitor.Tests
                 });
 
             // Act
-            sut.Execute(dto, CancellationToken.None, Substitute.For<ILoggerFactory>());
+            sut.Execute(dto, CancellationToken.None, mockLoggerFactory);
 
             // Assert — the downloader was consulted for the URL, extraction
             // returned our fake path, and the finally block cleaned it up
@@ -367,7 +424,7 @@ namespace Dorc.Monitor.Tests
                 });
 
             // Act
-            sut.Execute(dto, CancellationToken.None, Substitute.For<ILoggerFactory>());
+            sut.Execute(dto, CancellationToken.None, mockLoggerFactory);
 
             // Assert — cleanup still fires even though deployment failed
             mockGitHubArtifactDownloader.Received(1).Cleanup(resolvedLocalPath);
@@ -393,7 +450,7 @@ namespace Dorc.Monitor.Tests
             var dto = CreateRequest(components); // DropLocation = "C:\\Drop"
 
             // Act
-            sut.Execute(dto, CancellationToken.None, Substitute.For<ILoggerFactory>());
+            sut.Execute(dto, CancellationToken.None, mockLoggerFactory);
 
             // Assert — downloader APIs never consulted for a non-UNC/non-URL drop
             mockGitHubArtifactDownloader.DidNotReceive().DownloadAndExtract(Arg.Any<string>());

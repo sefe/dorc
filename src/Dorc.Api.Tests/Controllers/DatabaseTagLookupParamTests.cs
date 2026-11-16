@@ -83,6 +83,21 @@ namespace Dorc.Api.Tests.Controllers
             source.Received(1).GetDatabaseByTag("Endur DV 10", "Endur");
         }
 
+        [TestMethod]
+        public void GetByTag_DuplicateTagOnEnvironment_ReturnsBadRequestWithMessage()
+        {
+            var (controller, source) = DatabasesController();
+            source
+                .When(s => s.GetDatabaseByTag("Endur DV 10", "Endur"))
+                .Do(_ => throw new InvalidOperationException(
+                    "Environment 'Endur DV 10' has multiple databases tagged 'Endur' ('D1' on 's1', 'D2' on 's2'). Ensure at most one database on the environment carries the 'Endur' tag."));
+
+            var result = controller.GetByTag("Endur DV 10", "Endur");
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
+            StringAssert.Contains((string)((BadRequestObjectResult)result).Value!, "multiple databases tagged 'Endur'");
+        }
+
         [DataTestMethod]
         [DataRow("")]
         [DataRow("   ")]

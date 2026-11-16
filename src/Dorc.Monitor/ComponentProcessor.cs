@@ -51,6 +51,23 @@ namespace Dorc.Monitor
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            if (deploymentResult.Status != DeploymentResultStatus.Pending.ToString() &&
+                !(component.ComponentType == ComponentType.Terraform &&
+                  deploymentResult.Status == DeploymentResultStatus.Confirmed.ToString()))
+                throw new InvalidOperationException(
+                    $"Component '{component.ComponentName}' cannot be dispatched in status '{deploymentResult.Status}'.");
+
+            var terraformOperation = deploymentResult.Status == DeploymentResultStatus.Confirmed.ToString()
+                ? TerraformRunnerOperations.ApplyPlan : TerraformRunnerOperations.CreatePlan;
+            if (component.ComponentType == ComponentType.Terraform &&
+                !requestsPersistentSource.UpdateResultStatus(
+                    deploymentResult,
+                    DeploymentResultStatus.Running,
+                    terraformOperation == TerraformRunnerOperations.ApplyPlan
+                        ? DeploymentResultStatus.Confirmed : DeploymentResultStatus.Pending))
+                throw new InvalidOperationException(
+                    $"Terraform component '{component.ComponentName}' changed status before dispatch.");
+
             _logger.LogInformation($"Deploying component with the name '{component.ComponentName}' and id '{component.ComponentId}' of type '{component.ComponentType}' (Enum Value: {(int)component.ComponentType}).");
 
             var deploymentResultStatus = DeploymentResultStatus.StatusNotSet;
@@ -67,15 +84,7 @@ namespace Dorc.Monitor
                     case ComponentType.Terraform:
                         _logger.LogInformation($"Processing Terraform component '{component.ComponentName}' - routing to TerraformDispatcher.");
 
-                        TerraformRunnerOperations terreformOperation = TerraformRunnerOperations.None;
-                        if (deploymentResult.Status.Equals(DeploymentResultStatus.Pending.Value))
-                            terreformOperation = TerraformRunnerOperations.CreatePlan;
-                        else if (deploymentResult.Status.Equals(DeploymentResultStatus.Confirmed.Value))
-                            terreformOperation = TerraformRunnerOperations.ApplyPlan;
-
-                        requestsPersistentSource.UpdateResultStatus(
-                            deploymentResult!,
-                            DeploymentResultStatus.Running);
+                        var terreformOperation = terraformOperation;
 
                         eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
                         {
@@ -123,7 +132,8 @@ namespace Dorc.Monitor
                             "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
 
                         // Handle PowerShell components
-                        var script = GetScripts(component.ComponentId);
+                        var script = requestsPersistentSource.GetSubmittedScript(requestId,
+                            component.ComponentId ?? throw new InvalidOperationException("Component ID is missing."));
 
                         if (isProductionEnvironment && script.NonProdOnly)
                         {
@@ -217,15 +227,5 @@ namespace Dorc.Monitor
             return deploymentResultStatus != DeploymentResultStatus.Failed;
         }
 
-        private ScriptApiModel GetScripts(
-            int? enabledComponentId)
-        {
-            if (!enabledComponentId.HasValue)
-            {
-                throw new InvalidOperationException("Component ID is not specified.");
-            }
-
-            return componentsPersistentSource.GetScripts(enabledComponentId.Value);
-        }
     }
 }

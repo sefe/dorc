@@ -28,20 +28,39 @@ export type OAuthServiceSettings = UserManagerSettings;
 export class OAuthService {
   private _mgr: UserManager;
   private _signedInUser: User | null = null;
+  private _silentRenewPromise: Promise<User | null> | null = null;
+  private _signInRedirectStarted = false;
 
   constructor(settings: OAuthServiceSettings) {
     this._mgr = new UserManager(settings);
+    if (settings.authority && settings.client_id) {
+      this.saveConfigurableSettings();
+    }
+    this._mgr.events.addUserLoaded(user => {
+      this._signedInUser = user;
+    });
+    this._mgr.events.addUserUnloaded(() => {
+      this._signedInUser = null;
+    });
     this._mgr.events.addAccessTokenExpiring(() => this.accessTokenExpiring());
+    this._mgr.events.addAccessTokenExpired(() => this.accessTokenExpired());
   }
 
   /**
    * Signs in a user to IdentityServer. Triggers a redirect of the current window to the authorization endpoint.
    */
   public signIn(): void {
+    if (this._signInRedirectStarted) {
+      return;
+    }
+    this._signInRedirectStarted = true;
     console.log('signin redirect');
-    localStorage.setItem("lastUrl", window.location.href);
+    localStorage.setItem('lastUrl', window.location.href);
     this.saveConfigurableSettings();
-    this._mgr.signinRedirect().catch(err => console.error(err));
+    this._mgr.signinRedirect().catch(err => {
+      this._signInRedirectStarted = false;
+      console.error(err);
+    });
   }
 
   private saveConfigurableSettings() {
@@ -50,7 +69,10 @@ export class OAuthService {
       client_id: this._mgr.settings.client_id,
       scope: this._mgr.settings.scope
     };
-    localStorage.setItem("idsrv.oauthsettings", JSON.stringify(configurableSettings));
+    localStorage.setItem(
+      'idsrv.oauthsettings',
+      JSON.stringify(configurableSettings)
+    );
   }
 
   /**
@@ -65,9 +87,15 @@ export class OAuthService {
           this._signedInUser = user;
         }
         console.log('signin response success');
-        localStorage.removeItem("idsrv.oauthsettings");
-        const lastUrl = localStorage.getItem("lastUrl") ?? '/';
-        localStorage.removeItem("lastUrl");
+        // Silent token renewal loads signin-callback.html inside a hidden iframe.
+        // oidc-client-ts posts the callback result to the parent frame during
+        // signinCallback(); navigating or clearing storage inside the iframe
+        // would clobber the parent session state.
+        if (window.self !== window.top) {
+          return;
+        }
+        const lastUrl = localStorage.getItem('lastUrl') ?? '/';
+        localStorage.removeItem('lastUrl');
         const exceptions = ['signin.html'];
         if (exceptions.some(exception => lastUrl.endsWith(exception))) {
           location.assign('/');
@@ -128,7 +156,7 @@ export class OAuthService {
       .signoutCallback()
       .then(() => {
         console.log('signout callback response success');
-        localStorage.removeItem("idsrv.oauthsettings");
+        localStorage.removeItem('idsrv.oauthsettings');
         // SC-17: shortcuts used to live in a cookie with an accidental 7-day TTL,
         // which was the only thing that ever pruned them. localStorage has no
         // expiry, so without this they would outlive the session indefinitely.
@@ -140,17 +168,61 @@ export class OAuthService {
   }
 
   /**
-   * Handle an expiration of `access_token` event by silently initiating a "Refresh Token flow"
+   * Silently renews the current session, deduplicating concurrent renewal calls.
    */
-  private accessTokenExpiring() {
-    console.log('token expiring');
-    this._mgr
+  public renewSession(): Promise<OAuthServiceUser | null> {
+    if (this._silentRenewPromise) {
+      return this._silentRenewPromise;
+    }
+    this.saveConfigurableSettings();
+    this._silentRenewPromise = this._mgr
       .signinSilent()
       .then(user => {
         this._signedInUser = user;
         console.log('silent renew success');
+        return user;
       })
-      .catch(err => console.log('silent renew error', err));
+      .catch(err => {
+        console.log('silent renew error', err);
+        return null;
+      })
+      .finally(() => {
+        this._silentRenewPromise = null;
+      });
+    return this._silentRenewPromise;
+  }
+
+  /**
+   * Attempts to silently renew an expired session and falls back to an
+   * interactive sign-in redirect when silent renewal cannot recover it.
+   */
+  public recoverExpiredSession(
+    onFallbackSignIn?: () => void
+  ): Promise<OAuthServiceUser | null> {
+    return this.renewSession().then(user => {
+      if (user && user.access_token && !user.expired) {
+        return user;
+      }
+      if (onFallbackSignIn) {
+        onFallbackSignIn();
+      } else {
+        this.signIn();
+      }
+      return null;
+    });
+  }
+
+  /**
+   * Handle an expiration of `access_token` event by silently initiating a "Refresh Token flow"
+   */
+  private accessTokenExpiring() {
+    console.log('token expiring');
+    void this.renewSession();
+  }
+
+  private accessTokenExpired() {
+    console.log('token expired');
+    void this.recoverExpiredSession();
   }
 }
 

@@ -101,4 +101,37 @@ describe('page-variables Secure toggle', () => {
     expect(page.properties?.[0].Secure, 'model untouched').toBe(true);
     page.remove();
   });
+
+  it('clears loadingScopeOptions and opens ErrorNotification when ScopeOptions fails', async () => {
+    const { throwError } = await import('rxjs');
+    const { PropertyValuesApi } = await import('../../src/apis/dorc-api');
+    const collisionMessage =
+      "Tags 'A B' and 'A_B' both produce deployment variable 'ServerNames_A_B'. Rename one tag before deployment.";
+    const scopeSpy = vi
+      .spyOn(PropertyValuesApi.prototype, 'propertyValuesScopeOptionsGet')
+      .mockReturnValue(
+        throwError(() => ({
+          status: 400,
+          response: collisionMessage
+        })) as any
+      );
+
+    try {
+      const { page } = await mount(false);
+      (page as any)._newVariableValueScopeChanged({
+        target: { value: 'Endur DV 10' }
+      } as unknown as CustomEvent);
+
+      expect(
+        (page as any).loadingScopeOptions,
+        'spinner flag cleared on error'
+      ).toBe(false);
+      const notification = page.shadowRoot?.querySelector('error-notification');
+      expect(notification).not.toBeNull();
+      expect(notification?.getAttribute('errorMessage')).toBe(collisionMessage);
+      page.remove();
+    } finally {
+      scopeSpy.mockRestore();
+    }
+  });
 });

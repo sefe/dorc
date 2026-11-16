@@ -34,6 +34,12 @@ const EMPTY_LOCATION: RouterLocation = {
   searchParams: new URLSearchParams()
 };
 
+/**
+ * Asked before an in-app navigation leaves the current page. Return `false`
+ * to keep the user where they are (for example, to protect unsaved edits).
+ */
+export type LeaveGuard = (target: URL) => boolean | Promise<boolean>;
+
 export class AppRouter {
   private resolver: RouteResolver | undefined;
 
@@ -43,10 +49,24 @@ export class AppRouter {
 
   private navigationSequence = 0;
 
+  private leaveGuard: LeaveGuard | undefined;
+
   /** The location of the most recently completed navigation. */
   location: RouterLocation = EMPTY_LOCATION;
 
   constructor(private readonly outletElement: HTMLElement | null) {}
+
+  /** Registers the guard consulted by `navigate`; only one is active at a time. */
+  setLeaveGuard(guard: LeaveGuard): void {
+    this.leaveGuard = guard;
+  }
+
+  /** Removes `guard` if it is still the active one. */
+  clearLeaveGuard(guard: LeaveGuard): void {
+    if (this.leaveGuard === guard) {
+      this.leaveGuard = undefined;
+    }
+  }
 
   /**
    * Installs the route table, renders the current URL, and starts listening for
@@ -111,6 +131,10 @@ export class AppRouter {
       window.location.pathname === url.pathname &&
       window.location.search === url.search &&
       window.location.hash === url.hash;
+
+    if (!unchanged && this.leaveGuard && !(await this.leaveGuard(url))) {
+      return;
+    }
 
     if (!unchanged) {
       if (options?.replace) {

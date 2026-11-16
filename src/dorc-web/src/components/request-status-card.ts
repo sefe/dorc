@@ -78,6 +78,7 @@ export class RequestStatusCard extends LitElement {
       'log-dialog-closed',
       this.logDialogClosed as EventListener
     );
+    this.addEventListener('refresh-requests', this.refresh as EventListener);
   }
 
   static get styles() {
@@ -88,10 +89,32 @@ export class RequestStatusCard extends LitElement {
       }
 
       .card-element {
-        padding: 10px;
-        box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
+        padding: 0;
+        overflow: hidden;
+        border-radius: 6px;
+        border: 1px solid var(--dorc-border-color, rgba(128, 128, 128, 0.2));
+        background: var(--dorc-bg-secondary);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
         height: fit-content;
         width: 100%;
+      }
+
+      .card-body {
+        padding: 10px 14px;
+      }
+
+      .card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 6px;
+      }
+
+      .card-header-left {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
       }
 
       .card-element__heading {
@@ -118,6 +141,31 @@ export class RequestStatusCard extends LitElement {
       .requested-titles {
         width: 100px;
       }
+
+      .request-error-banner {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 8px;
+        padding: 8px 12px;
+        border-radius: 4px;
+        border: 1px solid var(--dorc-error-color);
+        border-left-width: 4px;
+        background: var(--lumo-error-color-10pct, rgba(231, 76, 60, 0.08));
+        color: var(--dorc-text-primary);
+        font-size: var(--lumo-font-size-s);
+        line-height: 1.4;
+      }
+
+      .request-error-banner__message {
+        flex: 1 1 auto;
+        word-break: break-word;
+      }
+
+      .request-error-banner__action {
+        flex-shrink: 0;
+      }
     `;
   }
 
@@ -137,12 +185,14 @@ export class RequestStatusCard extends LitElement {
       </log-dialog>
 
       <div class="statistics-cards__item card-element">
-        <table>
-          <tr>
-            <td style="vertical-align: middle">
+        <connection-status-indicator
+          .state="${this.hubConnectionState}"
+          .autoRefresh="${this.autoRefresh}"
+        ></connection-status-indicator>
+        <div class="card-body">
+          <div class="card-header">
+            <div class="card-header-left">
               <h3 class="card-element__heading">${this.selectedProject}</h3>
-            </td>
-            <td style="vertical-align: middle">
               <vaadin-button
                 aria-label="Refresh Page"
                 theme="icon"
@@ -157,217 +207,235 @@ export class RequestStatusCard extends LitElement {
                   style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>
-            </td>
-            <td style="vertical-align: middle">
-              <connection-status-indicator
-                mode="toggle"
-                .state="${this.hubConnectionState}"
-                .autoRefresh="${this.autoRefresh}"
-              ></connection-status-indicator>
-            </td>
-            ${
-              this.deployRequest.Log !== null && this.deployRequest.Log !== '0'
-                ? html` <td style="vertical-align: middle">
-                    <vaadin-button
-                      aria-label="View Log"
-                      theme="icon"
-                      @click="${this.viewLog}"
-                    >
-                      <vaadin-tooltip
-                        slot="tooltip"
-                        text="View Log"
-                      ></vaadin-tooltip>
-                      <vaadin-icon
-                        icon="notification:sms-failed"
-                        style="color: var(--dorc-error-color)"
-                      ></vaadin-icon>
-                    </vaadin-button>
-                  </td>`
-                : html``
-            }
-          </tr>
-        </table>
-        <table>
-          <tr>
-            <td
-              class="requested-titles card-element__text"
-              style="width: 200px"
-            >
-              Environment:
-            </td>
-            <td>
-              <h4 class="card-element__text">
-                ${this.deployRequest?.EnvironmentName}
-                <vaadin-button
-                  aria-label="Open Environment Details for ${
-                    this.deployRequest?.EnvironmentName
-                  }"
-                  theme="icon"
-                  @click="${this.openEnvironmentDetails}"
-                >
-                  <vaadin-tooltip
-                    slot="tooltip"
-                    text="Open Environment Details for ${
-                      this.deployRequest?.EnvironmentName
-                    }"
-                  ></vaadin-tooltip>
-                  <vaadin-icon
-                    icon="hardware:developer-board"
-                    style="color: var(--dorc-link-color)"
-                  ></vaadin-icon>
-                </vaadin-button>
-              </h4>
-            </td>
-          </tr>
-          <tr>
-            <td class="requested-titles card-element__text">Status:</td>
-            <td>
-              <h4 class="card-element__text" style=${styleMap(statusStyles)}>
-                ${this.deployRequest?.Status}
-              </h4>
-            </td>
-          </tr>
-          <tr>
-            <td class="requested-titles card-element__text">Build Number:</td>
-            <td>
-              <h4 class="card-element__text">
-                ${
-                  this.buildNumberHref === ''
-                    ? html`${this.deployRequest?.BuildNumber}`
-                    : html` <a href="${this.buildNumberHref}" target="_blank"
-                        >${this.deployRequest?.BuildNumber}</a
-                      >`
-                }
-              </h4>
-            </td>
-          </tr>
-          <tr>
-            <td class="requested-titles card-element__text">Requested Time:</td>
-            <td>
-              <h4 class="card-element__text">
-                ${this.convertToDate(
-                  this.deployRequest?.RequestedTime !== null
-                    ? this.deployRequest?.RequestedTime
-                    : undefined
-                )}
-              </h4>
-            </td>
-          </tr>
-          <tr>
-            <td class="requested-titles card-element__text">Started Time:</td>
-            <td>
-              <h4 class="card-element__text">
-                ${this.convertToDate(
-                  this.deployRequest?.StartedTime !== null
-                    ? this.deployRequest?.StartedTime
-                    : undefined
-                )}
-              </h4>
-            </td>
-          </tr>
-          <tr>
-            <td class="requested-titles card-element__text">Completed Time:</td>
-            <td>
-              <h4 class="card-element__text">
-                ${this.convertToDate(
-                  this.deployRequest?.CompletedTime !== null
-                    ? this.deployRequest?.CompletedTime
-                    : undefined
-                )}
-              </h4>
-            </td>
-          </tr>
-          <tr>
-            <td class="requested-titles card-element__text">Submitted by:</td>
-            <td>
-              <h4 class="card-element__text">
-                ${this.deployRequest?.UserName}
-              </h4>
-            </td>
-          </tr>
-          ${
-            this.deployRequest?.Status == 'Cancelled' ||
-            this.deployRequest?.Status == 'Cancelling'
-              ? html`
-                  <tr>
-                    <td class="requested-titles card-element__text">
-                      Cancelled by:
-                    </td>
-                    <td>
-                      <h4 class="card-element__text">
-                        ${this.deployRequest?.CancelledBy}
-                      </h4>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td class="requested-titles card-element__text">
-                      Cancelled Time:
-                    </td>
-                    <td>
-                      <h4 class="card-element__text">
-                        ${this.convertToDate(
-                          this.deployRequest?.CancelledTime !== null
-                            ? this.deployRequest?.CancelledTime
-                            : undefined
-                        )}
-                      </h4>
-                    </td>
-                  </tr>
-                `
-              : html``
-          }
-          ${
-            this.deployRequest?.UncLogPath !== null
-              ? html` <tr>
-                  <td class="requested-titles card-element__text">Raw Log:</td>
-                  <td>
-                    <h4 class="card-element__text">
-                      ${this.deployRequest?.UncLogPath}
+              ${
+                this.deployRequest.Log !== null &&
+                this.deployRequest.Log !== '0'
+                  ? html`
                       <vaadin-button
-                        aria-label="Copy Path"
+                        aria-label="View Log"
                         theme="icon"
-                        @click="${this.copyRawLog}"
+                        @click="${this.viewLog}"
                       >
                         <vaadin-tooltip
                           slot="tooltip"
-                          text="Copy Path"
+                          text="View Log"
                         ></vaadin-tooltip>
                         <vaadin-icon
-                          icon="icons:content-copy"
-                          style="color: var(--dorc-link-color)"
+                          icon="notification:sms-failed"
+                          style="color: var(--dorc-error-color)"
                         ></vaadin-icon>
                       </vaadin-button>
-                    </h4>
-                  </td>
-                </tr>`
+                    `
+                  : html``
+              }
+            </div>
+            <request-controls
+              .requestId="${this.deployRequest.Id ?? 0}"
+              .cancelable="${
+                !!this.deployRequest.UserEditable &&
+                (this.deployRequest.Status === 'Running' ||
+                  this.deployRequest.Status === 'Requesting' ||
+                  this.deployRequest.Status === 'Pending' ||
+                  this.deployRequest.Status === 'Restarting' ||
+                  this.deployRequest.Status === 'Paused')
+              }"
+              .canRestart="${
+                !!this.deployRequest.UserEditable &&
+                this.deployRequest.Status !== 'Pending' &&
+                this.deployRequest.Status !== 'Paused'
+              }"
+              .canPause="${
+                !!this.deployRequest.UserEditable &&
+                this.deployRequest.Status === 'Pending'
+              }"
+              .canResume="${
+                !!this.deployRequest.UserEditable &&
+                this.deployRequest.Status === 'Paused'
+              }"
+            ></request-controls>
+          </div>
+          <table>
+            <tr>
+              <td
+                class="requested-titles card-element__text"
+                style="width: 200px"
+              >
+                Environment:
+              </td>
+              <td>
+                <h4 class="card-element__text">
+                  ${this.deployRequest?.EnvironmentName}
+                  <vaadin-button
+                    aria-label="Open Environment Details for ${
+                      this.deployRequest?.EnvironmentName
+                    }"
+                    theme="icon"
+                    @click="${this.openEnvironmentDetails}"
+                  >
+                    <vaadin-tooltip
+                      slot="tooltip"
+                      text="Open Environment Details for ${
+                        this.deployRequest?.EnvironmentName
+                      }"
+                    ></vaadin-tooltip>
+                    <vaadin-icon
+                      icon="hardware:developer-board"
+                      style="color: var(--dorc-link-color)"
+                    ></vaadin-icon>
+                  </vaadin-button>
+                </h4>
+              </td>
+            </tr>
+            <tr>
+              <td class="requested-titles card-element__text">Status:</td>
+              <td>
+                <h4 class="card-element__text" style=${styleMap(statusStyles)}>
+                  ${this.deployRequest?.Status}
+                </h4>
+              </td>
+            </tr>
+            <tr>
+              <td class="requested-titles card-element__text">Build Number:</td>
+              <td>
+                <h4 class="card-element__text">
+                  ${
+                    this.buildNumberHref === ''
+                      ? html`${this.deployRequest?.BuildNumber}`
+                      : html` <a href="${this.buildNumberHref}" target="_blank"
+                          >${this.deployRequest?.BuildNumber}</a
+                        >`
+                  }
+                </h4>
+              </td>
+            </tr>
+            <tr>
+              <td class="requested-titles card-element__text">
+                Requested Time:
+              </td>
+              <td>
+                <h4 class="card-element__text">
+                  ${this.convertToDate(
+                    this.deployRequest?.RequestedTime !== null
+                      ? this.deployRequest?.RequestedTime
+                      : undefined
+                  )}
+                </h4>
+              </td>
+            </tr>
+            <tr>
+              <td class="requested-titles card-element__text">Started Time:</td>
+              <td>
+                <h4 class="card-element__text">
+                  ${this.convertToDate(
+                    this.deployRequest?.StartedTime !== null
+                      ? this.deployRequest?.StartedTime
+                      : undefined
+                  )}
+                </h4>
+              </td>
+            </tr>
+            <tr>
+              <td class="requested-titles card-element__text">
+                Completed Time:
+              </td>
+              <td>
+                <h4 class="card-element__text">
+                  ${this.convertToDate(
+                    this.deployRequest?.CompletedTime !== null
+                      ? this.deployRequest?.CompletedTime
+                      : undefined
+                  )}
+                </h4>
+              </td>
+            </tr>
+            <tr>
+              <td class="requested-titles card-element__text">Submitted by:</td>
+              <td>
+                <h4 class="card-element__text">
+                  ${this.deployRequest?.UserName}
+                </h4>
+              </td>
+            </tr>
+            ${
+              this.deployRequest?.Status == 'Cancelled' ||
+              this.deployRequest?.Status == 'Cancelling'
+                ? html`
+                    <tr>
+                      <td class="requested-titles card-element__text">
+                        Cancelled by:
+                      </td>
+                      <td>
+                        <h4 class="card-element__text">
+                          ${this.deployRequest?.CancelledBy}
+                        </h4>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td class="requested-titles card-element__text">
+                        Cancelled Time:
+                      </td>
+                      <td>
+                        <h4 class="card-element__text">
+                          ${this.convertToDate(
+                            this.deployRequest?.CancelledTime !== null
+                              ? this.deployRequest?.CancelledTime
+                              : undefined
+                          )}
+                        </h4>
+                      </td>
+                    </tr>
+                  `
+                : html``
+            }
+            ${
+              this.deployRequest?.UncLogPath !== null
+                ? html` <tr>
+                    <td class="requested-titles card-element__text">
+                      Raw Log:
+                    </td>
+                    <td>
+                      <h4 class="card-element__text">
+                        ${this.deployRequest?.UncLogPath}
+                        <vaadin-button
+                          aria-label="Copy Path"
+                          theme="icon"
+                          @click="${this.copyRawLog}"
+                        >
+                          <vaadin-tooltip
+                            slot="tooltip"
+                            text="Copy Path"
+                          ></vaadin-tooltip>
+                          <vaadin-icon
+                            icon="icons:content-copy"
+                            style="color: var(--dorc-link-color)"
+                          ></vaadin-icon>
+                        </vaadin-button>
+                      </h4>
+                    </td>
+                  </tr>`
+                : html``
+            }
+          </table>
+          ${
+            this.hasRequestLog()
+              ? html`
+                  <div class="request-error-banner" role="alert">
+                    <div class="request-error-banner__message">
+                      <strong>Request Error:</strong>
+                      ${this.getRequestLogSummary()}
+                    </div>
+                    <vaadin-button
+                      class="request-error-banner__action"
+                      theme="small tertiary error"
+                      @click="${this.viewLog}"
+                    >
+                      View Full Log
+                    </vaadin-button>
+                  </div>
+                `
               : html``
           }
-        </table>
-        <request-controls
-          style="position: absolute; right: 15px; top: 65px;"
-          .requestId="${this.deployRequest.Id ?? 0}"
-          .cancelable="${
-            !!this.deployRequest.UserEditable &&
-            (this.deployRequest.Status === 'Running' ||
-              this.deployRequest.Status === 'Requesting' ||
-              this.deployRequest.Status === 'Pending' ||
-              this.deployRequest.Status === 'Restarting' ||
-              this.deployRequest.Status === 'Paused')
-          }"
-          .canRestart="${
-            !!this.deployRequest.UserEditable &&
-            this.deployRequest.Status !== 'Pending' &&
-            this.deployRequest.Status !== 'Paused'
-          }"
-          .canPause="${
-            !!this.deployRequest.UserEditable &&
-            this.deployRequest.Status === 'Pending'
-          }"
-          .canResume="${
-            !!this.deployRequest.UserEditable &&
-            this.deployRequest.Status === 'Paused'
-          }"
-        ></request-controls>
+        </div>
       </div>
     `;
   }
@@ -501,6 +569,27 @@ export class RequestStatusCard extends LitElement {
         composed: true
       })
     );
+  }
+
+  private hasRequestLog(): boolean {
+    const log = this.deployRequest?.Log?.trim();
+    return Boolean(log && log !== '0');
+  }
+
+  private getRequestLogSummary(): string {
+    const rawLog = this.deployRequest?.Log?.trim() ?? '';
+    if (!rawLog) {
+      return '';
+    }
+    const firstLine =
+      rawLog
+        .split(/\r?\n/)
+        .map(line => line.trim())
+        .find(line => line.length > 0) ?? rawLog;
+
+    return firstLine
+      .replace(/^Deployment execution failure\.\s*Exception:\s*/i, '')
+      .replace(/^Deployment execution failure:\s*/i, '');
   }
 
   private viewLog() {

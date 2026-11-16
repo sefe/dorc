@@ -153,7 +153,10 @@ export class EnvControlCenter extends PageEnvBase {
             title="Delete Environment &amp; Properties"
             @click="${this.deleteEnvironment}"
             ?disabled="${
-              !(this.isAdmin || this.isEnvOwner) || this.isDeletingEnvironment
+              !(
+                this.isAdmin ||
+                (this.isEnvOwner && !this.environment?.EnvironmentIsProd)
+              ) || this.isDeletingEnvironment
             }"
           >
             <vaadin-icon icon="icons:delete" slot="prefix"></vaadin-icon>${
@@ -186,6 +189,14 @@ export class EnvControlCenter extends PageEnvBase {
             id="mlp"
             title="Configure with predefined suite of requests"
             @click="${this.makeLikeProd}"
+            ?disabled="${
+              Boolean(this.environment?.EnvironmentIsProd) ||
+              !(
+                this.environment?.UserEditable ||
+                this.isEnvOwner ||
+                this.isAdmin
+              )
+            }"
           >
             <vaadin-icon icon="vaadin:compile" slot="prefix"></vaadin-icon
             >Bundle Request...</vaadin-button
@@ -197,7 +208,11 @@ export class EnvControlCenter extends PageEnvBase {
             ?hidden="${!this.isEndur}"
             .disabled="${
               this.environment?.EnvironmentIsProd ||
-              !(this.isEnvOwner || this.isAdmin)
+              !(
+                this.environment?.UserEditable ||
+                this.isEnvOwner ||
+                this.isAdmin
+              )
             }"
           >
             <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon>Reset

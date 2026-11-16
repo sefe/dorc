@@ -19,7 +19,7 @@ namespace Dorc.PersistentData.Sources
         Put
     }
 
-    public class ManageProjectsPersistentSource : IManageProjectsPersistentSource
+    public partial class ManageProjectsPersistentSource : IManageProjectsPersistentSource
     {
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
@@ -93,7 +93,7 @@ namespace Dorc.PersistentData.Sources
         // Shared filter/sort/page/project pipeline for the per-project and cross-project audit
         // queries. RefDataAudit.ProjectId is non-nullable in the EF model but the database column
         // permits NULL (FK has ON DELETE SET NULL), so a row whose project was deleted may surface
-        // with Project == null at runtime — guard the projection accordingly.
+        // with Project == null at runtime guard the projection accordingly.
         // The IDeploymentContext is required for the prior-Json lookup that powers the projects
         // audit page diff view: a correlated subquery is the cheapest way to fetch each row's
         // chronologically-prior same-project audit Json without N+1 round-trips or pulling the
@@ -185,7 +185,7 @@ namespace Dorc.PersistentData.Sources
 
             // For each row in the page, look up the chronologically-prior audit row's Json for
             // the same project. Implemented as a single EF query whose projection contains a
-            // correlated subquery — translates to one SQL statement with an OUTER APPLY (one
+            // correlated subquery translates to one SQL statement with an OUTER APPLY (one
             // round-trip total, regardless of page size). Skips rows with NULL ProjectId
             // (orphaned/project-deleted) since prior-lookup is meaningless for them.
             var pagedAuditIds = output.Items.Select(a => a.RefDataAuditId).ToList();
@@ -355,18 +355,7 @@ namespace Dorc.PersistentData.Sources
                             EF.Functions.Collate(apiComponent.ComponentName, DeploymentContext.CaseInsensitiveCollation));
                     if (duplicateComponent != null)
                     {
-                        if (duplicateComponent.Parent != null)
-                            duplicateComponent.Parent.Children.Remove(duplicateComponent);
-                        duplicateComponent.Name = Guid.NewGuid().ToString();
-                        duplicateComponent.Description = $"Changed via api on {DateTime.Now.ToShortDateString()}";
-                        duplicateComponent.Projects.Remove(context.Projects.First(p => p.Id == projectId));
-                        var script = duplicateComponent.Script;
-                        if (script != null)
-                        {
-                            script.Name = $"{script.Name} {duplicateComponent.Name}";
-                        }
-
-                        context.SaveChanges();
+                        throw new ArgumentException("A component with this name already exists. Reuse it or choose another name.");
                     }
 
                     var component = new Component
@@ -380,6 +369,8 @@ namespace Dorc.PersistentData.Sources
                         TerraformSourceType = apiComponent.TerraformSourceType,
                         TerraformGitBranch = apiComponent.TerraformGitBranch,
                         TerraformSubPath = apiComponent.TerraformSubPath,
+                        TerraformTemplateName = apiComponent.TerraformTemplateName,
+                        TerraformTemplateVersion = apiComponent.TerraformTemplateVersion,
                     };
 
                     // Only create Script entity for PowerShell components and Terraform with SharedFolder type
@@ -433,6 +424,13 @@ namespace Dorc.PersistentData.Sources
                     .First(x => x.Id == apiComponent.ComponentId);
 
                 var wasOrphaned = component.Projects.Count == 0;
+                if (component.TerraformSourceType == TerraformSourceType.Catalog &&
+                    (component.Name != apiComponent.ComponentName ||
+                     apiComponent.ComponentType != ComponentType.Terraform ||
+                     apiComponent.TerraformSourceType != TerraformSourceType.Catalog ||
+                     component.TerraformTemplateName != apiComponent.TerraformTemplateName ||
+                     component.TerraformTemplateVersion != apiComponent.TerraformTemplateVersion))
+                    throw new ArgumentException("Catalog identity and version cannot be changed through reference-data edits. Use the explicit module upgrade flow; renaming or source migration requires an operator-reviewed state procedure.");
 
                 if (wasOrphaned)
                     component.Projects.Add(
@@ -448,11 +446,14 @@ namespace Dorc.PersistentData.Sources
                 var hadScript = component.Script != null;
 
                 component.Name = apiComponent.ComponentName;
+                component.IsEnabled = apiComponent.IsEnabled;
                 component.StopOnFailure = apiComponent.StopOnFailure;
                 component.ComponentType = apiComponent.ComponentType;
                 component.TerraformSourceType = apiComponent.TerraformSourceType;
                 component.TerraformGitBranch = apiComponent.TerraformGitBranch;
                 component.TerraformSubPath = apiComponent.TerraformSubPath;
+                component.TerraformTemplateName = apiComponent.TerraformTemplateName;
+                component.TerraformTemplateVersion = apiComponent.TerraformTemplateVersion;
 
                 if (component.Parent == null && parentId != null)
                     component.Parent = context.Components.First(x => x.Id == parentId);
@@ -625,8 +626,7 @@ namespace Dorc.PersistentData.Sources
                     EF.Functions.Collate(apiComponent.ComponentName, DeploymentContext.CaseInsensitiveCollation));
             if (duplicateComponent != null)
             {
-                duplicateComponent.Name = Guid.NewGuid().ToString();
-                context.SaveChanges();
+                throw new ArgumentException("A component with this name already exists. Choose another name.");
             }
         }
 
@@ -652,13 +652,7 @@ namespace Dorc.PersistentData.Sources
                     }
 
                     component.Description = "ProjectId:" + projectId;
-                    foreach (var project in component.Projects.ToArray())
-                    {
-                        if (component.Parent is not null)
-                            component.Parent.Children.Remove(component);
-
-                        component.Projects.Remove(project);
-                    }
+                    component.Projects.Remove(component.Projects.Single(p => p.Id == projectId));
                 }
 
                 context.SaveChanges();
@@ -749,6 +743,8 @@ namespace Dorc.PersistentData.Sources
                     TerraformSourceType = comp.TerraformSourceType,
                     TerraformGitBranch = comp.TerraformGitBranch,
                     TerraformSubPath = comp.TerraformSubPath,
+                    TerraformTemplateName = comp.TerraformTemplateName,
+                    TerraformTemplateVersion = comp.TerraformTemplateVersion,
                     PSVersion = script.PowerShellVersionNumber
                 };
 
@@ -765,6 +761,8 @@ namespace Dorc.PersistentData.Sources
                 TerraformSourceType = comp.TerraformSourceType,
                 TerraformGitBranch = comp.TerraformGitBranch,
                 TerraformSubPath = comp.TerraformSubPath,
+                TerraformTemplateName = comp.TerraformTemplateName,
+                TerraformTemplateVersion = comp.TerraformTemplateVersion,
             };
         }
 
@@ -871,6 +869,8 @@ namespace Dorc.PersistentData.Sources
 
                 if (component == null)
                     return;
+                if (component.Id == apiComponent.ComponentId && component.Projects.Any(p => p.Id == projectId))
+                    return;
 
                 if (component.Projects.Count == 0)
                 {
@@ -913,6 +913,8 @@ namespace Dorc.PersistentData.Sources
                 var component = context.Components
                     .Include(c => c.Projects)
                     .FirstOrDefault(x => x.Id.Equals((int)apiComponent.ComponentId));
+                if (component != null && component.Projects.Any(p => p.Id == projectId))
+                    return;
 
                 if (component != null)
                     if (component.Projects.Count == 0 && component.Description != null)

@@ -50,5 +50,20 @@ export interface CloneEnvironmentRequest {
      * @type {boolean}
      * @memberof CloneEnvironmentRequest
      */
+    CopyContainerMappings?: boolean;
+    /**
+     * @type {boolean}
+     * @memberof CloneEnvironmentRequest
+     */
+    CopyCloudResourceMappings?: boolean;
+    /**
+     * @type {boolean}
+     * @memberof CloneEnvironmentRequest
+     */
+    CopyApiRegistrationMappings?: boolean;
+    /**
+     * @type {boolean}
+     * @memberof CloneEnvironmentRequest
+     */
     CopyAccessControls?: boolean;
 }

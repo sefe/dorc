@@ -42,7 +42,6 @@ export interface DaemonStatusPutRequest {
 export class DaemonStatusApi extends BaseAPI {
 
     /**
-     * Discover all daemons on environment servers and automatically create daemon-server mappings
      */
     daemonStatusDiscoverEnvNameGet({ envName }: DaemonStatusDiscoverEnvNameGetRequest): Observable<DiscoverDaemonsResult>
     daemonStatusDiscoverEnvNameGet({ envName }: DaemonStatusDiscoverEnvNameGetRequest, opts?: OperationOpts): Observable<AjaxResponse<DiscoverDaemonsResult>>

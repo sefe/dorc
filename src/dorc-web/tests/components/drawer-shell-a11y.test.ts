@@ -227,17 +227,21 @@ describe('P3: app shell accessibility', () => {
     });
   });
 
-  // ─── D-33 ───────────────────────────────────────────────────────────────
-  describe('SC-25: the mascot stays inside the header', () => {
-    it('is no taller than the header', async () => {
+  // ─── Mascot header sizing guard ─────────────────────────────────────────
+  // DO NOT change this test to assert mascot height <= header height!
+  // The 2048x2048 mascot PNG has ~13% transparent top and bottom padding around
+  // the character artwork. Setting `height: 65px; padding: 3px 0` centers the
+  // 71px box in the 50px header so the transparent margins sit outside the bar,
+  // rendering the visible character at ~48px with its bottom edge flush with the
+  // bottom of the 50px header bar.
+  describe('SC-25: the mascot aligns with the header', () => {
+    it('sizes the mascot at 65px so its visible bottom aligns with the 50px header bar', async () => {
       const app = await mountApp(container);
       const header = rootOf(app).getElementById('header')!;
       const mascot = rootOf(app).querySelector('.mascot') as HTMLElement;
 
-      expect(
-        mascot.getBoundingClientRect().height,
-        'mascot must not bleed past the header'
-      ).to.be.at.most(header.getBoundingClientRect().height);
+      expect(getComputedStyle(header).height).to.equal('50px');
+      expect(getComputedStyle(mascot).height).to.equal('65px');
     });
   });
 

@@ -15,6 +15,9 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
             builder
                 .HasOne(x => x.Script);
 
+            builder.Property(x => x.Name).HasMaxLength(64).IsRequired();
+            builder.HasIndex(x => x.Name).IsUnique().HasDatabaseName("IX_Component_Name");
+
             builder
                 .Property(x => x.ComponentType)
                 .HasConversion<int>();
@@ -26,10 +29,18 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
             builder
                 .Property(x => x.TerraformGitBranch)
                 .HasMaxLength(256);
-            
+
             builder
                 .Property(e => e.TerraformSubPath)
                 .HasMaxLength(512);
+
+            builder
+                .Property(x => x.TerraformTemplateName)
+                .HasMaxLength(256);
+
+            builder
+                .Property(x => x.TerraformTemplateVersion)
+                .HasMaxLength(64);
 
             builder
                 .HasOne(x => x.Parent)

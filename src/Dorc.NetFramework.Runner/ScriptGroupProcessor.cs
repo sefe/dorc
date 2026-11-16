@@ -41,7 +41,7 @@ namespace Dorc.NetFramework.Runner
 
                 logger.FileLogger.LogDebug("ScriptGroup is received.");
 
-                var scriptRunner = new PowerShellScriptRunner(logger, deploymentResultId);
+                var scriptRunner = new PowerShellScriptRunner(logger, deploymentResultId, scriptGroupProperties);
 
                 scriptRunner.Run(
                     scriptGroupProperties.ScriptsLocation,

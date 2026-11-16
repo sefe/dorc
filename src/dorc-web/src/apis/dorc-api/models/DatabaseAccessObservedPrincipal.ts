@@ -27,11 +27,6 @@ export interface DatabaseAccessObservedPrincipal {
      */
     Kind: string;
     /**
-     * @type {boolean}
-     * @memberof DatabaseAccessObservedPrincipal
-     */
-    Protected: boolean;
-    /**
      * @type {string}
      * @memberof DatabaseAccessObservedPrincipal
      */
@@ -41,4 +36,9 @@ export interface DatabaseAccessObservedPrincipal {
      * @memberof DatabaseAccessObservedPrincipal
      */
     DirectoryId?: string | null;
+    /**
+     * @type {boolean}
+     * @memberof DatabaseAccessObservedPrincipal
+     */
+    Protected: boolean;
 }

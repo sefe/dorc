@@ -7,6 +7,8 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
     <DefineConstants>Debug;TestsAcceptanceDir=$(TestsAcceptanceDir)</DefineConstants>
+    <!-- DacFx 170.x ships satellite/native payloads without valid Win32 language resources (e.g. zh-Hant), which trips ICE03 (Invalid Language Id). -->
+    <SuppressIces>ICE03</SuppressIces>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <DefineConstants>TestsAcceptanceDir=$(TestsAcceptanceDir)</DefineConstants>

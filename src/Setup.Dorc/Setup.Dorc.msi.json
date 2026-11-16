@@ -130,6 +130,10 @@
       "DeployProperty": "DORC_TERRAFORM_SEPARATE_APPROVER_REQUIRED"
     },
     {
+      "MSIParameter": "DORC.TERRAFORM.CATALOG.MANIFESTS.DIRECTORY",
+      "DeployProperty": "DORC_TERRAFORM_CATALOG_MANIFESTS_DIRECTORY"
+    },
+    {
       "MSIParameter": "DORC.OAUTH.AUTHORITY",
       "DeployProperty": "DORC_OAUTH_AUTHORITY"
     },

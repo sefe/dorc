@@ -608,5 +608,94 @@ namespace Dorc.Api.Tests.Controllers
             // Verify that UpdateRequestDetails was NOT called since AllRequestIds property already exists
             _requestsPersistentSource.DidNotReceive().UpdateRequestDetails(Arg.Any<int>(), Arg.Any<string>());
         }
+
+        [TestMethod]
+        public void Put_Returns403WithEnvironmentAndOwner_WhenUserHasNeitherWriteNorOwner()
+        {
+            var mlpRequest = new MakeLikeProdRequest
+            {
+                TargetEnv = "Endur DV 10",
+                DataBackup = "Live Snap",
+                BundleName = "EndurMLPMini",
+                BundleProperties = new List<RequestProperty>()
+            };
+
+            _environmentsPersistentSource.GetEnvironment("Endur DV 10")
+                .Returns(new EnvironmentApiModel
+                {
+                    EnvironmentName = "Endur DV 10",
+                    EnvironmentIsProd = false,
+                    Details = new EnvironmentDetailsApiModel
+                    {
+                        EnvironmentOwner = "Jane Doe"
+                    }
+                });
+            _securityPrivilegesChecker.CanModifyEnvironment(_user, "Endur DV 10").Returns(false);
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "Endur DV 10").Returns(false);
+
+            var result = _controller.Put(mlpRequest) as ObjectResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, result.StatusCode);
+            Assert.AreEqual(
+                "You do not have Write or Owner permission on environment 'Endur DV 10' (current owner: Jane Doe). Only an Environment Writer, Owner, or DOrc Admin can queue a Bundle Request.",
+                result.Value);
+        }
+
+        [TestMethod]
+        public void Put_AllowsBundleRequest_WhenUserHasWriteOnNonProdEnvironment()
+        {
+            var mlpRequest = new MakeLikeProdRequest
+            {
+                TargetEnv = "Endur DV 10",
+                DataBackup = "Live Snap",
+                BundleName = "EndurMLPMini",
+                BundleProperties = new List<RequestProperty>()
+            };
+
+            _environmentsPersistentSource.GetEnvironment("Endur DV 10")
+                .Returns(new EnvironmentApiModel
+                {
+                    EnvironmentName = "Endur DV 10",
+                    EnvironmentIsProd = false
+                });
+            _securityPrivilegesChecker.CanModifyEnvironment(_user, "Endur DV 10").Returns(true);
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "Endur DV 10").Returns(false);
+            _bundledRequestsPersistentSource.GetRequestsForBundle("EndurMLPMini").Returns(new List<BundledRequestsApiModel>());
+            _claimsPrincipalReader.GetUserEmail(_user).Returns("testuser@example.com");
+
+            var result = _controller.Put(mlpRequest) as OkObjectResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
+        }
+
+        [TestMethod]
+        public void Put_Returns403_WhenTargetEnvironmentIsProduction()
+        {
+            var mlpRequest = new MakeLikeProdRequest
+            {
+                TargetEnv = "Endur PROD",
+                DataBackup = "Live Snap",
+                BundleName = "EndurMLPMini",
+                BundleProperties = new List<RequestProperty>()
+            };
+
+            _environmentsPersistentSource.GetEnvironment("Endur PROD")
+                .Returns(new EnvironmentApiModel
+                {
+                    EnvironmentName = "Endur PROD",
+                    EnvironmentIsProd = true
+                });
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "Endur PROD").Returns(true);
+
+            var result = _controller.Put(mlpRequest) as ObjectResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, result.StatusCode);
+            Assert.AreEqual(
+                "Bundle Requests cannot be run against production environment 'Endur PROD'.",
+                result.Value);
+        }
     }
 }

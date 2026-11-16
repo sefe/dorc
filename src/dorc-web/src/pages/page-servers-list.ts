@@ -247,7 +247,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         class='cover'
         style='z-index: 2; height: 400px'
         ?hidden='${!this.noResults}'
-        src='/hegsie_white_background_cartoon_geek_code_simple_icon_searching_12343b57-9c4e-45c6-b2f3-7765e8596718.png'
+        src='/modern-dorc-searching.webp'
         alt='No Results Found'
       />
     `;
@@ -558,18 +558,18 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         style="width: 200px"
         theme="small"
         @value-changed="${(e: CustomEvent) => {
-            const textField = e.target as TextField;
-            this.dispatchEvent(
-              new CustomEvent('searching-servers-started', {
-                detail: {
-                  field: tags,
-                  value: textField?.value
-                },
-                bubbles: true,
-                composed: true
-              })
-            );
-          }}"
+          const textField = e.target as TextField;
+          this.dispatchEvent(
+            new CustomEvent('searching-servers-started', {
+              detail: {
+                field: tags,
+                value: textField?.value
+              },
+              bubbles: true,
+              composed: true
+            })
+          );
+        }}"
       ></vaadin-text-field> `;
   }
 

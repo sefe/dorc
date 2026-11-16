@@ -43,7 +43,17 @@ namespace Dorc.Core.Tests
             databases.GetDatabasesForEnvironmentName(Arg.Any<string>())
                 .Returns(Array.Empty<DatabaseApiModel>());
 
-            var resolver = new VariableScopeOptionsResolver(properties, servers, daemons, databases, userPerms);
+            // Component sources stubbed empty: component emission is conditional,
+            // so empty sources keep the characterized call-set unchanged.
+            var containers = Substitute.For<IContainersPersistentSource>();
+            containers.GetForEnvironmentId(Arg.Any<int>()).Returns(Array.Empty<ContainerApiModel>());
+            var cloudResources = Substitute.For<ICloudResourcesPersistentSource>();
+            cloudResources.GetForEnvironmentId(Arg.Any<int>()).Returns(Array.Empty<CloudResourceApiModel>());
+            var apiRegistrations = Substitute.For<IApiRegistrationsPersistentSource>();
+            apiRegistrations.GetForEnvironmentId(Arg.Any<int>()).Returns(Array.Empty<ApiRegistrationApiModel>());
+
+            var resolver = new VariableScopeOptionsResolver(properties, servers, daemons, databases, userPerms,
+                containers, cloudResources, apiRegistrations);
             var calls = new List<string>();
             var variableResolver = Substitute.For<IVariableResolver>();
             variableResolver

@@ -196,6 +196,8 @@ namespace Dorc.PersistentData.Sources
                     ObjectId = Guid.NewGuid(),
                     TerraformGitRepoUrl = apiProject.TerraformGitRepoUrl,
                     LeanIXUrl = apiProject.LeanIXUrl,
+                    BusinessVertical = ProjectNamingCodes.NormaliseBusinessVertical(apiProject.BusinessVertical),
+                    ApplicationCode = ProjectNamingCodes.NormaliseApplicationCode(apiProject.ApplicationCode),
                     SourceControlType = apiProject.SourceControlType,
                 };
 
@@ -243,6 +245,8 @@ namespace Dorc.PersistentData.Sources
                 currentProj.Description = newProjectDetails.ProjectDescription;
                 currentProj.TerraformGitRepoUrl = newProjectDetails.TerraformGitRepoUrl;
                 currentProj.LeanIXUrl = newProjectDetails.LeanIXUrl;
+                currentProj.BusinessVertical = ProjectNamingCodes.NormaliseBusinessVertical(newProjectDetails.BusinessVertical);
+                currentProj.ApplicationCode = ProjectNamingCodes.NormaliseApplicationCode(newProjectDetails.ApplicationCode);
                 currentProj.SourceControlType = newProjectDetails.SourceControlType;
 
                 if (ProjectArtifactsUriHttpValid(newProjectDetails) || ProjectArtifactsUriFileValid(newProjectDetails))
@@ -322,8 +326,14 @@ namespace Dorc.PersistentData.Sources
                 }
                 catch (Exception e)
                 {
-                    var errMsg = $"Unable to map environment '{environment}' to '{project}'";
-                    _logger.LogError(errMsg, e);
+                    var safeEnvironment = environment?
+                        .Replace("\r", string.Empty)
+                        .Replace("\n", string.Empty);
+                    var safeProject = project?
+                        .Replace("\r", string.Empty)
+                        .Replace("\n", string.Empty);
+                    var errMsg = $"Unable to map environment '{safeEnvironment}' to '{safeProject}'";
+                    _logger.LogError(e, "Unable to map environment '{Environment}' to '{Project}'", safeEnvironment, safeProject);
                     throw new ArgumentOutOfRangeException(errMsg, e);
                 }
             }
@@ -467,7 +477,11 @@ namespace Dorc.PersistentData.Sources
                 ArtefactsUrl = project.ArtefactsUrl,
                 ArtefactsBuildRegex = project.ArtefactsBuildRegex,
                 TerraformGitRepoUrl = project.TerraformGitRepoUrl,
+                TerraformStateBackends = System.Text.Json.JsonSerializer.Deserialize<List<TerraformStateBackendApiModel>>(
+                    project.TerraformStateBackendsJson ?? "[]"),
                 LeanIXUrl = project.LeanIXUrl,
+                BusinessVertical = project.BusinessVertical,
+                ApplicationCode = project.ApplicationCode,
                 SourceDatabase = project.SourceDatabase != null ? DatabasesPersistentSource.MapToDatabaseApiModel(project.SourceDatabase) : null,
                 SourceControlType = project.SourceControlType
             };

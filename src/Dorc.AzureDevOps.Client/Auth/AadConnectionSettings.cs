@@ -22,11 +22,10 @@ namespace Dorc.AzureDevOps.Client.Auth
         /// <param name="clientId"></param>
         /// <param name="scopes"></param>
         /// <param name="clientSecret"></param>
-        /// <param name="tenantId"></param>
+        /// <param name="tenantId">Entra tenant ID; configured at install time (AadTenant), never defaulted.</param>
         /// <exception cref="ArgumentNullException"></exception>
         public AadConnectionSettings(string clientId,
-            string[] scopes = null, string clientSecret=null, 
-            string tenantId= "213c2807-792f-48e1-924a-eac984ef3354")
+            string[] scopes, string clientSecret, string tenantId)
         {
             #region Validation
 
@@ -37,6 +36,10 @@ namespace Dorc.AzureDevOps.Client.Auth
             if (string.IsNullOrEmpty(clientSecret))
             {
                 throw new ArgumentNullException(nameof(clientSecret));
+            }
+            if (string.IsNullOrEmpty(tenantId))
+            {
+                throw new ArgumentNullException(nameof(tenantId));
             }
 
             #endregion
