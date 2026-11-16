@@ -432,15 +432,54 @@ public class TerraformReceiptCaptureTests
             Assert.IsTrue(dispatcher.Dispatch(
                 gitDestroyComp, result, props, 7, false, "eph-pr-1",
                 new StringBuilder(), TerraformRunnerOperations.CreateDestroyPlan, CancellationToken.None));
+            // Receipt 53 (Succeeded) followed by 54 (FailedOrUnknown) is an ambiguous partial apply requiring reconciliation
+            var ambiguousEx = Assert.ThrowsExactly<InvalidOperationException>(() => dispatcher.Dispatch(
+                catalogDestroyComp, result, props, 7, false, "eph-pr-1",
+                new StringBuilder(), TerraformRunnerOperations.CreateDestroyPlan, CancellationToken.None));
+            StringAssert.Contains(ambiguousEx.Message, "Reconcile Terraform state");
+            // RunningOrUnknown also requires reconciliation even without a prior confirmed apply
+            requests.GetTerraformDeploymentOutcome(54).Returns(new TerraformDeploymentOutcome { DeploymentResultId = 54, ApplyOutcome = "RunningOrUnknown" });
+            Assert.ThrowsExactly<InvalidOperationException>(() => dispatcher.Dispatch(
+                catalogDestroyComp, result, props, 7, false, "eph-pr-1",
+                new StringBuilder(), TerraformRunnerOperations.CreateDestroyPlan, CancellationToken.None));
+            // Retry cancelled before runner started (NotStarted) is ignored, preserving confirmed apply 53
+            requests.GetTerraformDeploymentOutcome(54).Returns(new TerraformDeploymentOutcome { DeploymentResultId = 54, ApplyOutcome = TerraformDeploymentOutcome.ApplyNotStarted });
             Assert.IsTrue(dispatcher.Dispatch(
                 catalogDestroyComp, result, props, 7, false, "eph-pr-1",
                 new StringBuilder(), TerraformRunnerOperations.CreateDestroyPlan, CancellationToken.None));
+            requests.GetTerraformDeploymentOutcome(54).Returns((TerraformDeploymentOutcome?)null);
             Assert.AreEqual("from-provision", capturedDestroyGroup!.CommonProperties["secret_token"].Value);
             Assert.AreEqual("unq-val", capturedDestroyGroup.CommonProperties["unqualified_prop"].Value);
             Assert.IsTrue(dispatcher.Dispatch(
                 component, result, props, 7, false, "eph-pr-1",
                 new StringBuilder(), TerraformRunnerOperations.CreateDestroyPlan, CancellationToken.None));
             StringAssert.Contains(capturedDestroyGroup!.ScriptsLocation, $"dorc-destroy-src-{resultId}-");
+
+            // Cancellation during pre-runner artifact download in ApplyPlan does NOT persist a RunningOrUnknown outcome row
+            using (var preRunnerCts = new CancellationTokenSource())
+            {
+                var preRunnerResult = new DeploymentResultApiModel { Id = 9991, RequestId = 7 };
+                var planBlob9991 = 9991.CreateTerraformPlanBlobName();
+                var srcBlob9991 = planBlob9991 + ".source.zip";
+                blobs[planBlob9991] = new byte[] { 1, 2, 3 };
+                blobs[srcBlob9991] = blobs[resultId.CreateTerraformPlanBlobName() + ".source.zip"];
+                requests.GetTerraformPlanApproval(9991).Returns(_ =>
+                {
+                    preRunnerCts.Cancel();
+                    return new TerraformPlanApproval
+                    {
+                        DeploymentResultId = 9991,
+                        DeploymentRequestId = 7,
+                        PlanSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(blobs[planBlob9991])).ToLowerInvariant(),
+                        PlanContentSha256 = string.Empty,
+                        SourceSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(blobs[srcBlob9991])).ToLowerInvariant()
+                    };
+                });
+                Assert.Throws<OperationCanceledException>(() => dispatcher.Dispatch(
+                    component, preRunnerResult, props, 7, false, "eph-pr-1",
+                    new StringBuilder(), TerraformRunnerOperations.ApplyPlan, preRunnerCts.Token));
+                requests.DidNotReceive().SaveTerraformDeploymentOutcome(Arg.Is<TerraformDeploymentOutcome>(o => o.DeploymentResultId == 9991));
+            }
 
             // Cover TryStagePriorAppliedSourceArchive when ArchiveOutcome == "Succeeded" (for SharedFolder with retained tfvars archive, AzureArtifact, GitHubArtifact, and download exception fallback)
             var tfvarsDir = Path.Join(Path.GetTempPath(), $"dorc-tfvars-test-{Guid.NewGuid():N}");

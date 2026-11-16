@@ -222,18 +222,32 @@ public partial class RequestsPersistentSource
     {
         var environmentId = context.Environments.Where(environment => environment.Name == request.Environment)
             .Select(environment => (int?)environment.Id).SingleOrDefault();
-        var pinnedReceiptsByComponent = context.TerraformDeploymentReceipts
+        var targetComponentIds = definitions.Select(d => d.ComponentId).ToHashSet();
+        var candidateReceipts = context.TerraformDeploymentReceipts
             .Where(r => r.EnvironmentName == request.Environment &&
+                        targetComponentIds.Contains(r.ComponentId) &&
                         (environmentId == null || r.EnvironmentId == null || r.EnvironmentId == environmentId) &&
                         (request.Project == null || request.Project == "" || r.ProjectName == null || r.ProjectName == "" || r.ProjectName == request.Project) &&
-                        r.Operation != "Destroy" &&
-                        (r.Operation == "Apply" || context.TerraformDeploymentOutcomes.Any(o => o.DeploymentResultId == r.DeploymentResultId)))
-            .ToList()
-            .GroupBy(r => r.ComponentId)
-            .ToDictionary(
-                g => g.Key,
-                g => g.OrderByDescending(r => r.DeploymentResultId)
-                      .First());
+                        r.Operation != "Destroy")
+            .ToList();
+        var candidateResultIds = candidateReceipts.Select(r => r.DeploymentResultId).ToHashSet();
+        var outcomesByResultId = candidateResultIds.Count > 0
+            ? context.TerraformDeploymentOutcomes
+                .Where(o => candidateResultIds.Contains(o.DeploymentResultId))
+                .Select(o => new { o.DeploymentResultId, o.ApplyOutcome })
+                .ToDictionary(o => o.DeploymentResultId, o => o.ApplyOutcome)
+            : new Dictionary<int, string>();
+
+        var pinnedReceiptsByComponent = new Dictionary<int, TerraformDeploymentReceipt>();
+        foreach (var group in candidateReceipts.GroupBy(r => r.ComponentId))
+        {
+            var selected = TerraformApplyReceiptSelection.SelectStateMutatingReceipt(
+                group.Select(r => (r, outcomesByResultId.GetValueOrDefault(r.DeploymentResultId))));
+            if (selected is not null)
+            {
+                pinnedReceiptsByComponent[group.Key] = selected;
+            }
+        }
 
         var snapshots = new List<CatalogRequestInputs>();
         foreach (var definition in definitions)

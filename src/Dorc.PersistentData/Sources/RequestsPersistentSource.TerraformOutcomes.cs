@@ -364,22 +364,24 @@ public partial class RequestsPersistentSource
             .Where(c => c.Name != null && c.Name != "")
             .ToDictionary(c => c.Id, c => c.Name!);
 
-        var selectedReceipts = context.TerraformDeploymentReceipts.AsNoTracking()
+        var candidateReceipts = context.TerraformDeploymentReceipts.AsNoTracking()
             .Where(r => r.EnvironmentId == environmentId &&
                         r.Operation != "Destroy" &&
                         (projectName == null || r.ProjectName == projectName))
-            .Select(r => new
-            {
-                Receipt = r,
-                IsApplied = r.Operation == "Apply" ||
-                            context.TerraformDeploymentOutcomes.Any(o => o.DeploymentResultId == r.DeploymentResultId)
-            })
-            .ToList()
-            .GroupBy(x => (x.Receipt.ProjectName, x.Receipt.ComponentId))
-            .Select(g => g
-                .OrderByDescending(x => x.IsApplied)
-                .ThenByDescending(x => x.Receipt.DeploymentResultId)
-                .First().Receipt)
+            .ToList();
+        var candidateResultIds = candidateReceipts.Select(r => r.DeploymentResultId).ToHashSet();
+        var outcomesByResultId = candidateResultIds.Count > 0
+            ? context.TerraformDeploymentOutcomes.AsNoTracking()
+                .Where(o => candidateResultIds.Contains(o.DeploymentResultId))
+                .Select(o => new { o.DeploymentResultId, o.ApplyOutcome })
+                .ToDictionary(o => o.DeploymentResultId, o => o.ApplyOutcome)
+            : new Dictionary<int, string>();
+
+        var selectedReceipts = candidateReceipts
+            .GroupBy(r => (r.ProjectName, r.ComponentId))
+            .Select(g => TerraformApplyReceiptSelection.SelectStateMutatingReceipt(
+                g.Select(r => (r, outcomesByResultId.GetValueOrDefault(r.DeploymentResultId))),
+                allowNeverRanFallback: true)!)
             .ToList();
         var receiptComponentMapByRequestId = new Dictionary<int, Dictionary<string, HashSet<string>>>();
         foreach (var r in selectedReceipts)
@@ -514,7 +516,10 @@ public partial class RequestsPersistentSource
                     r.DeploymentResultId,
                     r.DeploymentRequestId,
                     IsApplied = r.Operation == "Apply" ||
-                                context.TerraformDeploymentOutcomes.Any(o => o.DeploymentResultId == r.DeploymentResultId)
+                                context.TerraformDeploymentOutcomes.Any(o =>
+                                    o.DeploymentResultId == r.DeploymentResultId &&
+                                    o.ApplyOutcome != TerraformDeploymentOutcome.ApplyNotStarted &&
+                                    o.ApplyOutcome != "NotAttempted")
                 })
                 .ToList();
 
@@ -550,7 +555,10 @@ public partial class RequestsPersistentSource
                         (currentEnvironmentId == null || r.EnvironmentId == null || r.EnvironmentId == currentEnvironmentId) &&
                         r.Operation != "Destroy" &&
                         (r.Operation == "Apply" ||
-                         context.TerraformDeploymentOutcomes.Any(o => o.DeploymentResultId == r.DeploymentResultId)))
+                         context.TerraformDeploymentOutcomes.Any(o =>
+                             o.DeploymentResultId == r.DeploymentResultId &&
+                             o.ApplyOutcome != TerraformDeploymentOutcome.ApplyNotStarted &&
+                             o.ApplyOutcome != "NotAttempted")))
             .Select(r => r.DeploymentRequestId)
             .ToHashSet();
 

@@ -2199,6 +2199,64 @@ namespace Dorc.Core.Tests
             Assert.AreEqual("1.5.0", destroySnapshots[4].TemplateVersion);
             Assert.AreEqual("GitComp", destroySnapshots[4].TemplateName);
 
+            // Confirmed apply on 604 + retry 6100 cancelled before runner started (NotStarted / NotAttempted) preserves 604's inputs (0.9.5), whereas 6100 FailedOrUnknown / RunningOrUnknown requires reconciliation
+            receipts.Add(new TerraformDeploymentReceipt
+            {
+                DeploymentRequestId = 599,
+                DeploymentResultId = 6100,
+                EnvironmentId = 50,
+                EnvironmentName = "eph-50",
+                ProjectName = "Traveler",
+                ComponentId = 14,
+                ComponentName = "PinnedCatComp",
+                Operation = "Plan"
+            });
+            catalogRequestInputsList.Add(new CatalogRequestInputs
+            {
+                DeploymentRequestId = 599,
+                ComponentId = 14,
+                TemplateName = "azure-vnet-unapplied",
+                TemplateVersion = "9.9.9",
+                ConfigurationRevision = 9,
+                InputsJson = "{\"vnet_name\":\"unapplied-retry-vnet\"}"
+            });
+            outcomes.Add(new TerraformDeploymentOutcome { DeploymentResultId = 6100, ApplyOutcome = TerraformDeploymentOutcome.ApplyNotStarted });
+            var confirmedWithNotStartedRetry = RequestsPersistentSource.CaptureDestroyCatalogInputs(
+                context,
+                new DeploymentRequest { Environment = "eph-50", Project = "Traveler" },
+                destroyDefs);
+            Assert.AreEqual(5, confirmedWithNotStartedRetry.Count);
+            Assert.AreEqual("0.9.5", confirmedWithNotStartedRetry[0].TemplateVersion);
+            Assert.AreEqual("azure-vnet-pinned", confirmedWithNotStartedRetry[0].TemplateName);
+
+            outcomes.Single(o => o.DeploymentResultId == 6100).ApplyOutcome = "NotAttempted";
+            var confirmedWithNotAttemptedRetry = RequestsPersistentSource.CaptureDestroyCatalogInputs(
+                context,
+                new DeploymentRequest { Environment = "eph-50", Project = "Traveler" },
+                destroyDefs);
+            Assert.AreEqual("0.9.5", confirmedWithNotAttemptedRetry[0].TemplateVersion);
+
+            outcomes.Single(o => o.DeploymentResultId == 6100).ApplyOutcome = TerraformDeploymentOutcome.ApplyFailedOrUnknown;
+            var reconcileEx = Assert.Throws<InvalidOperationException>(() =>
+                RequestsPersistentSource.CaptureDestroyCatalogInputs(
+                    context,
+                    new DeploymentRequest { Environment = "eph-50", Project = "Traveler" },
+                    destroyDefs));
+            StringAssert.Contains(reconcileEx.Message, "Reconcile Terraform state");
+
+            outcomes.Single(o => o.DeploymentResultId == 6100).ApplyOutcome = TerraformDeploymentOutcome.ApplyRunningOrUnknown;
+            Assert.Throws<InvalidOperationException>(() =>
+                RequestsPersistentSource.CaptureDestroyCatalogInputs(
+                    context,
+                    new DeploymentRequest { Environment = "eph-50", Project = "Traveler" },
+                    destroyDefs));
+            receipts.RemoveAll(r => r.DeploymentResultId == 6100);
+            outcomes.RemoveAll(o => o.DeploymentResultId == 6100);
+            var neverRanFallback = TerraformApplyReceiptSelection.SelectStateMutatingReceipt(
+                new[] { (new TerraformDeploymentReceipt { DeploymentResultId = 1, Operation = "Plan" }, (string?)TerraformDeploymentOutcome.ApplyNotStarted) },
+                allowNeverRanFallback: true);
+            Assert.AreEqual(1, neverRanFallback?.DeploymentResultId);
+
             var noEnvSnapshots = RequestsPersistentSource.CaptureDestroyCatalogInputs(
                 context,
                 new DeploymentRequest { Environment = "missing-env" },
@@ -2680,6 +2738,8 @@ namespace Dorc.Core.Tests
             var factory = Substitute.For<IDeploymentContextFactory>();
             var context = Substitute.For<IDeploymentContext>();
             factory.GetContext().Returns(_ => context);
+            context.Environments.Returns(_ => (DbSet<Dorc.PersistentData.Model.Environment>)null!);
+            context.TerraformDeploymentReceipts.Returns(_ => (DbSet<TerraformDeploymentReceipt>)null!);
 
             // 1. Null EnvironmentTemplates DbSet exits safely
             context.EnvironmentTemplates.Returns(_ => (DbSet<EnvironmentTemplate>)null!);
@@ -2795,6 +2855,41 @@ namespace Dorc.Core.Tests
             Assert.AreEqual(1, unrelatedEnv.TemplateId);
             Assert.IsFalse(templates.Any(t => t.ProjectId == 77));
             Assert.IsFalse(projects.Any(p => p.Id == 77));
+
+            // 6. Active ephemeral environments with persisted Terraform receipts block project deletion even with no project templates or null EnvironmentTemplates
+            var templateLessEnv = new Dorc.PersistentData.Model.Environment
+            {
+                Id = 306,
+                Name = "eph-no-template",
+                IsEphemeral = true,
+                EphemeralState = EphemeralEnvironmentStates.Ready,
+                TemplateId = null
+            };
+            envs.Add(templateLessEnv);
+            var projectReceipts = new List<TerraformDeploymentReceipt>
+            {
+                new() { DeploymentResultId = 9001, ProjectId = 999, ProjectName = "OtherProj", EnvironmentId = 305, EnvironmentName = "other-env", Operation = "Plan" },
+                new() { DeploymentResultId = 9002, ProjectId = 77, ProjectName = "Proj77", EnvironmentId = 305, EnvironmentName = "other-env", Operation = "Destroy" },
+                new() { DeploymentResultId = 9003, ProjectId = 77, ProjectName = "", EnvironmentId = 305, EnvironmentName = "other-env", Operation = "Plan" },
+                new() { DeploymentResultId = 9004, ProjectId = null, ProjectName = "Proj77", EnvironmentId = null, EnvironmentName = "eph-no-template", Operation = "Plan" }
+            };
+            var projectReceiptsSet = CreateMockDbSet(projectReceipts);
+            context.TerraformDeploymentReceipts.Returns(_ => projectReceiptsSet);
+
+            // Blocked when project has 0 templates (templates.Count == 0)
+            var receiptConflict = Assert.Throws<InvalidOperationException>(() =>
+                EnvironmentTemplatesPersistentSource.PrepareProjectTemplatesForDeletion(context, 77, "Proj77"));
+            StringAssert.Contains(receiptConflict.Message, "eph-no-template, other-env");
+
+            // Also blocked when EnvironmentTemplates DbSet is null
+            context.EnvironmentTemplates.Returns(_ => (DbSet<EnvironmentTemplate>)null!);
+            var nullTemplatesReceiptConflict = Assert.Throws<InvalidOperationException>(() =>
+                EnvironmentTemplatesPersistentSource.PrepareProjectTemplatesForDeletion(context, 77, "Proj77"));
+            StringAssert.Contains(nullTemplatesReceiptConflict.Message, "eph-no-template, other-env");
+
+            // Once those active environments are torn down (or only other projects' receipts remain), deletion succeeds
+            projectReceipts.RemoveAll(r => r.DeploymentResultId is 9003 or 9004);
+            EnvironmentTemplatesPersistentSource.PrepareProjectTemplatesForDeletion(context, 77, "Proj77");
         }
     }
 }

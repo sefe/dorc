@@ -136,6 +136,47 @@ namespace Dorc.PersistentData.Sources
 
         internal static void PrepareProjectTemplatesForDeletion(IDeploymentContext context, int projectId, string projectName)
         {
+            if (context.Environments != null && context.TerraformDeploymentReceipts != null)
+            {
+                var activeEphemeralEnvs = context.Environments
+                    .Where(e => e.IsEphemeral && !string.Equals(e.EphemeralState, EphemeralEnvironmentStates.TornDown, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                if (activeEphemeralEnvs.Count > 0)
+                {
+                    var activeById = activeEphemeralEnvs.ToDictionary(e => e.Id, e => e.Name);
+                    var activeByName = activeEphemeralEnvs.ToDictionary(e => e.Name, e => e.Name, StringComparer.OrdinalIgnoreCase);
+                    var activeIds = activeById.Keys.ToHashSet();
+                    var activeNames = activeEphemeralEnvs.Select(e => e.Name).ToList();
+                    var candidateReceipts = context.TerraformDeploymentReceipts
+                        .Where(r => r.Operation != "Destroy" &&
+                                    ((r.EnvironmentId.HasValue && activeIds.Contains(r.EnvironmentId.Value)) ||
+                                     (!r.EnvironmentId.HasValue && activeNames.Contains(r.EnvironmentName))))
+                        .ToList();
+
+                    var activeReceiptEnvNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var receipt in candidateReceipts)
+                    {
+                        var matchesProject = receipt.ProjectId == projectId ||
+                            (!string.IsNullOrWhiteSpace(projectName) &&
+                             string.Equals(receipt.ProjectName, projectName, StringComparison.OrdinalIgnoreCase));
+                        if (!matchesProject)
+                            continue;
+
+                        var envName = receipt.EnvironmentId.HasValue
+                            ? activeById[receipt.EnvironmentId.Value]
+                            : activeByName[receipt.EnvironmentName];
+                        activeReceiptEnvNames.Add(envName);
+                    }
+
+                    if (activeReceiptEnvNames.Count > 0)
+                    {
+                        var envNames = string.Join(", ", activeReceiptEnvNames.OrderBy(n => n, StringComparer.OrdinalIgnoreCase));
+                        throw new InvalidOperationException(
+                            $"The project \"{projectName}\" cannot be deleted while its Terraform resources exist in active ephemeral environment(s): {envNames}. Tear down those environments before trying again.");
+                    }
+                }
+            }
+
             if (context.EnvironmentTemplates == null)
                 return;
 

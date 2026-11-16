@@ -300,11 +300,6 @@ namespace Dorc.Monitor
                         TerraformPlanArtifactIntegrity.Verify(
                             _requestsPersistentSource.GetTerraformPlanApproval(deploymentResult.Id),
                             requestId, deploymentResult.Id, terraformPlanFilePath, planSourceArchiveFilePath);
-                        postApplyOutcome = new Dorc.PersistentData.Model.TerraformDeploymentOutcome
-                        {
-                            DeploymentResultId = deploymentResult.Id
-                        };
-                        _requestsPersistentSource.SaveTerraformDeploymentOutcome(postApplyOutcome);
                         // The source snapshot includes the authoritative provider
                         // lock; never replace it with a separately downloaded file.
                     }
@@ -324,6 +319,15 @@ namespace Dorc.Monitor
                     try
                     {
                         cancellationToken.ThrowIfCancellationRequested();
+
+                        if (isApplyOperation)
+                        {
+                            postApplyOutcome = new Dorc.PersistentData.Model.TerraformDeploymentOutcome
+                            {
+                                DeploymentResultId = deploymentResult.Id
+                            };
+                            _requestsPersistentSource.SaveTerraformDeploymentOutcome(postApplyOutcome);
+                        }
 
                         uint resultCode;
                         try
@@ -928,15 +932,15 @@ namespace Dorc.Monitor
             string? projectName,
             int? componentId)
         {
-            return (_requestsPersistentSource.GetTerraformReceiptsForEnvironment(environmentName)
+            var candidates = (_requestsPersistentSource.GetTerraformReceiptsForEnvironment(environmentName)
                 ?? Array.Empty<Dorc.PersistentData.Model.TerraformDeploymentReceipt>())
                 .Where(r => r.ComponentId == componentId &&
                             r.Operation != "Destroy" &&
                             (targetEnvironmentId is null || r.EnvironmentId is null || r.EnvironmentId == targetEnvironmentId) &&
-                            string.Equals(r.ProjectName, projectName, StringComparison.OrdinalIgnoreCase) &&
-                            (r.Operation == "Apply" || _requestsPersistentSource.GetTerraformDeploymentOutcome(r.DeploymentResultId) is not null))
-                .OrderByDescending(r => r.DeploymentResultId)
-                .FirstOrDefault();
+                            string.Equals(r.ProjectName, projectName, StringComparison.OrdinalIgnoreCase))
+                .Select(r => (r, _requestsPersistentSource.GetTerraformDeploymentOutcome(r.DeploymentResultId)?.ApplyOutcome));
+
+            return Dorc.PersistentData.Model.TerraformApplyReceiptSelection.SelectStateMutatingReceipt(candidates);
         }
 
         internal static void ConfigurePlatformState(ScriptGroup scriptGroup, ProjectApiModel submittedProject,
