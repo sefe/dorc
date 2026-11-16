@@ -139,18 +139,20 @@ namespace Dorc.PersistentData.Sources
             if (context.Environments != null && context.TerraformDeploymentReceipts != null)
             {
                 var activeEphemeralEnvs = context.Environments
-                    .Where(e => e.IsEphemeral && !string.Equals(e.EphemeralState, EphemeralEnvironmentStates.TornDown, StringComparison.OrdinalIgnoreCase))
+                    .Where(e => e.IsEphemeral)
+                    .ToList()
+                    .Where(e => !string.Equals(e.EphemeralState, EphemeralEnvironmentStates.TornDown, StringComparison.OrdinalIgnoreCase))
                     .ToList();
                 if (activeEphemeralEnvs.Count > 0)
                 {
                     var activeById = activeEphemeralEnvs.ToDictionary(e => e.Id, e => e.Name);
                     var activeByName = activeEphemeralEnvs.ToDictionary(e => e.Name, e => e.Name, StringComparer.OrdinalIgnoreCase);
-                    var activeIds = activeById.Keys.ToHashSet();
+                    var activeIds = activeById.Keys.ToList();
                     var activeNames = activeEphemeralEnvs.Select(e => e.Name).ToList();
                     var candidateReceipts = context.TerraformDeploymentReceipts
                         .Where(r => r.Operation != "Destroy" &&
-                                    ((r.EnvironmentId.HasValue && activeIds.Contains(r.EnvironmentId.Value)) ||
-                                     (!r.EnvironmentId.HasValue && activeNames.Contains(r.EnvironmentName))))
+                                    ((r.EnvironmentId != null && activeIds.Contains(r.EnvironmentId.Value)) ||
+                                     (r.EnvironmentId == null && activeNames.Contains(r.EnvironmentName))))
                         .ToList();
 
                     var activeReceiptEnvNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);

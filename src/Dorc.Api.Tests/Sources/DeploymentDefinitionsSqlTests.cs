@@ -931,5 +931,56 @@ public class DeploymentDefinitionsSqlTests
         Assert.IsFalse(check.EnvironmentTemplates.Any(t => t.Id == usedTemplateId || t.Id == unusedTemplateId));
         Assert.IsNull(check.Environments.Single(e => e.Name == activeEphName).TemplateId);
         Assert.IsNull(check.Environments.Single(e => e.Name == tornDownEphName).TemplateId);
+
+        // Template-free project with active ephemeral Terraform receipt is also blocked until torn down
+        var receiptDoc = Create();
+        var receiptProjectId = receiptDoc.Project.ProjectId;
+        var receiptEphName = "eph-receipt-" + Guid.NewGuid().ToString("N")[..8];
+        var receiptResultId = Random.Shared.Next(900_000, 999_999);
+        using (var context = factory.GetContext())
+        {
+            var receiptEnv = new PersistentData.Model.Environment
+            {
+                Name = receiptEphName,
+                ObjectId = Guid.NewGuid(),
+                IsEphemeral = true,
+                EphemeralState = EphemeralEnvironmentStates.ProvisionFailed,
+                TemplateId = null
+            };
+            context.Environments.Add(receiptEnv);
+            context.SaveChanges();
+
+            context.TerraformDeploymentReceipts.Add(new TerraformDeploymentReceipt
+            {
+                DeploymentResultId = receiptResultId,
+                DeploymentRequestId = receiptResultId,
+                ProjectId = receiptProjectId,
+                ProjectName = receiptDoc.Project.ProjectName!,
+                EnvironmentId = receiptEnv.Id,
+                EnvironmentName = receiptEphName,
+                ComponentId = 1,
+                ComponentName = "tf-comp",
+                PlannedAt = DateTimeOffset.UtcNow,
+                PlanContentSha256 = new string('a', 64),
+                SourceSha256 = new string('b', 64),
+                PlanSha256 = new string('c', 64),
+                Operation = "Plan"
+            });
+            context.SaveChanges();
+        }
+
+        var receiptConflict = Assert.Throws<InvalidOperationException>(
+            () => definitions.DeleteProject(receiptProjectId, receiptDoc.Revision, "editor", _ => true));
+        StringAssert.Contains(receiptConflict.Message, receiptEphName);
+
+        using (var context = factory.GetContext())
+        {
+            context.Environments.Single(e => e.Name == receiptEphName).EphemeralState = EphemeralEnvironmentStates.TornDown;
+            context.SaveChanges();
+        }
+
+        definitions.DeleteProject(receiptProjectId, receiptDoc.Revision, "editor", _ => true);
+        using var checkReceiptProj = factory.GetContext();
+        Assert.IsFalse(checkReceiptProj.Projects.Any(p => p.Id == receiptProjectId));
     }
 }
