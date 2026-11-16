@@ -9,7 +9,9 @@ import {
 import { property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 
+import '@vaadin/icon';
 import { customElement } from 'lit/decorators.js';
+import '../icons/dorc-icons.js';
 
 /**
  * @since 1.0
@@ -315,22 +317,19 @@ export class HegsJsonViewer extends LitElement {
         display: inline-block;
       }
 
-      .collapsable:before {
+      .collapse-icon {
         display: inline-block;
-        color: var(--color);
-        font-size: 0.8em;
-        content: '▶';
-        line-height: 1em;
-        width: 1em;
-        height: 1em;
-        text-align: center;
-
+        width: 0.75em;
+        height: 0.75em;
+        margin-right: 0.2em;
+        vertical-align: -0.05em;
+        color: var(--property-color);
+        pointer-events: none;
         transition: transform 195ms ease-out;
         transform: rotate(90deg);
-        color: var(--property-color);
       }
 
-      .collapsable.collapsableCollapsed:before {
+      .collapsable.collapsableCollapsed .collapse-icon {
         transform: rotate(0);
       }
 
@@ -525,7 +524,15 @@ export class HegsJsonViewer extends LitElement {
                   !isPrimitive ? this.handlePropertyKeydown(nodePath) : null
                 }"
               >
-                ${key}:
+                ${
+                  !isPrimitive
+                    ? html`<vaadin-icon
+                        class="collapse-icon"
+                        icon="dorc:chevron-right"
+                        aria-hidden="true"
+                      ></vaadin-icon>`
+                    : nothing
+                }${key}:
               </span>
               ${this.renderNode(nodeData, nodePath)}
             </li>

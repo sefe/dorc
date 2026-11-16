@@ -40,7 +40,15 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
           }
           @click="${this.toggleChildren}"
           @keydown="${this.toggleChildren}"
-        ></span>
+          >${
+            hasChildren
+              ? html`<vaadin-icon
+                  icon=${this.open ? 'dorc:chevron-down' : 'dorc:chevron-right'}
+                  aria-hidden="true"
+                ></vaadin-icon>`
+              : nothing
+          }</span
+        >
 
         ${
           this.selectable
