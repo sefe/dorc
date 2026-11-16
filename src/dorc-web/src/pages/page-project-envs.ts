@@ -87,15 +87,17 @@ export class PageProjectEnvs extends PageElement {
       }
 
       .card-element {
-        padding: 10px;
+        padding: 10px 12px;
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
-        width: 300px;
+        width: 100%;
         min-height: 110px;
         height: 100%;
         display: flex;
         justify-content: space-between;
         gap: var(--lumo-space-s);
         box-sizing: border-box;
+        border-radius: 6px;
+        border: 1px solid var(--dorc-border-color);
       }
 
       @media (max-width: 768px) {
@@ -142,15 +144,47 @@ export class PageProjectEnvs extends PageElement {
         margin: 0;
         flex-shrink: 0;
         background-color: var(--dorc-bg-secondary);
-        width: 300px;
+        width: 100%;
         height: 100%;
+      }
+
+      .workspace-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        padding: 8px var(--lumo-space-m);
+        border-bottom: 1px solid var(--dorc-border-color);
+        background: var(--dorc-bg-primary);
+        flex-shrink: 0;
+      }
+
+      .workspace-toolbar-meta {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        font-size: var(--lumo-font-size-s);
+        color: var(--dorc-text-secondary);
+      }
+
+      .workspace-toolbar-actions {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .workspace-toolbar-actions vaadin-button {
+        padding: 0 var(--lumo-space-m);
       }
 
       .environments {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 300px));
-        gap: var(--lumo-space-xs);
-        padding: var(--lumo-space-xs) 0 0 var(--lumo-space-xs);
+        grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+        gap: var(--lumo-space-s);
+        padding: var(--lumo-space-s) var(--lumo-space-m);
         justify-content: flex-start;
         align-items: stretch;
         align-content: flex-start;
@@ -193,6 +227,44 @@ export class PageProjectEnvs extends PageElement {
         .projectName=${this.project ?? this.projectData?.ProjectName ?? ''}
         activeTab="environments"
       ></project-workspace-nav>
+      <div class="workspace-toolbar">
+        <div class="workspace-toolbar-meta">
+          <span>
+            <strong>${this.environments?.length ?? 0}</strong> mapped
+            environment${(this.environments?.length ?? 0) === 1 ? '' : 's'}
+          </span>
+          ${
+            (this.environments?.filter(e => e.IsEphemeral).length ?? 0) > 0
+              ? html`<span>
+                  •
+                  <strong
+                    >${
+                      this.environments?.filter(e => e.IsEphemeral).length
+                    }</strong
+                  >
+                  temporary ephemeral
+                </span>`
+              : ''
+          }
+        </div>
+        <div class="workspace-toolbar-actions">
+          <vaadin-button theme="small" @click="${this.openAttachEnv}">
+            <vaadin-icon
+              icon="icons:link"
+              slot="prefix"
+              style="color: var(--dorc-link-color)"
+            ></vaadin-icon>
+            Attach Environment
+          </vaadin-button>
+          <vaadin-button
+            theme="small primary"
+            @click="${this.openEphemeralWizard}"
+          >
+            <vaadin-icon icon="vaadin:stopwatch" slot="prefix"></vaadin-icon>
+            Spin Up Temporary Environment
+          </vaadin-button>
+        </div>
+      </div>
       <dorc-spinner ?hidden="${!this.loading}"></dorc-spinner>
       <add-edit-access-control
         id="add-edit-access-control"

@@ -228,30 +228,38 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
       .wizard-container {
         display: flex;
         flex-direction: column;
-        gap: 18px;
-        width: min(920px, 90vw);
-        max-height: 76vh;
-        overflow-y: auto;
-        padding: 4px 6px 12px 2px;
+        gap: 16px;
+        width: 100%;
+        min-width: 0;
+        padding: 2px 4px 8px 2px;
         box-sizing: border-box;
       }
 
       .section-card {
-        background: var(--dorc-bg-secondary, #ffffff);
-        border: 1px solid var(--dorc-border-color, #e5e7eb);
+        background: var(--dorc-bg-secondary, #f5f6f8);
+        border: 1px solid var(--dorc-border-color, #dde2e8);
         border-radius: 8px;
         padding: 14px 16px;
         display: flex;
         flex-direction: column;
         gap: 12px;
+        min-width: 0;
+        box-sizing: border-box;
       }
 
       .section-header {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 8px;
+        gap: 8px 12px;
         flex-wrap: wrap;
+      }
+
+      .section-actions {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 6px;
       }
 
       .section-title {
@@ -271,24 +279,114 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
         width: 22px;
         height: 22px;
         border-radius: 50%;
-        background: var(--lumo-primary-color);
+        background: var(--lumo-primary-color, #1676f3);
         color: var(--lumo-primary-contrast-color, #ffffff);
         font-size: 0.75rem;
         font-weight: 700;
+        flex-shrink: 0;
+      }
+
+      .inline-refresh-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        padding: 0;
+        margin: 0;
+        border: none;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--dorc-icon-interactive, #3f6ac4);
+        cursor: pointer;
+      }
+
+      .inline-refresh-btn:hover {
+        background: var(--lumo-contrast-10pct, rgba(0, 0, 0, 0.06));
+      }
+
+      .inline-refresh-btn vaadin-icon {
+        width: 15px;
+        height: 15px;
+      }
+
+      .form-grid-1 {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr);
+        gap: 12px;
+        align-items: start;
+        min-width: 0;
       }
 
       .form-grid-2 {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-        gap: 12px;
-        align-items: end;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+        gap: 12px 16px;
+        align-items: start;
+        min-width: 0;
       }
 
       .form-grid-3 {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 12px;
-        align-items: end;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+        gap: 12px 16px;
+        align-items: start;
+        min-width: 0;
+      }
+
+      .form-grid-1 > *,
+      .form-grid-2 > *,
+      .form-grid-3 > * {
+        width: 100%;
+        min-width: 0;
+      }
+
+      .blueprint-summary {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        padding: 10px 12px;
+        border-radius: 6px;
+        background: var(--dorc-bg-primary, #ffffff);
+        border: 1px solid var(--dorc-border-color, #dde2e8);
+        font-size: 0.8rem;
+      }
+
+      .blueprint-summary-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 6px 12px;
+      }
+
+      .blueprint-summary-title {
+        font-weight: 600;
+        color: var(--dorc-text-primary);
+      }
+
+      .blueprint-summary-desc {
+        color: var(--dorc-text-secondary-strong, var(--dorc-text-secondary));
+        line-height: 1.4;
+      }
+
+      .blueprint-meta-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .blueprint-meta-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        background: var(--lumo-contrast-5pct);
+        border: 1px solid var(--dorc-border-color, #dde2e8);
+        color: var(--dorc-text-primary);
+        font-size: 0.72rem;
+        font-weight: 600;
       }
 
       .info-banner {
@@ -336,13 +434,13 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
 
       .components-picker {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-        gap: 6px;
-        max-height: 165px;
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+        gap: 6px 10px;
+        max-height: 175px;
         overflow-y: auto;
-        padding: 8px;
+        padding: 8px 10px;
         border-radius: 6px;
-        background: var(--dorc-bg-secondary, #ffffff);
+        background: var(--dorc-bg-primary, #ffffff);
         border: 1px solid var(--dorc-border-color, #d1d5db);
       }
 
@@ -351,6 +449,7 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
         align-items: center;
         gap: 6px;
         font-size: 0.78rem;
+        min-width: 0;
       }
 
       .comp-type-tag {
@@ -359,13 +458,15 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
         border-radius: 4px;
         background: var(--lumo-contrast-10pct);
         color: var(--dorc-text-secondary);
+        flex-shrink: 0;
       }
 
       /* Tier Cards */
       .tier-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(245px, 1fr));
+        grid-template-columns: repeat(auto-fill, minmax(min(100%, 285px), 1fr));
         gap: 10px;
+        min-width: 0;
       }
 
       .tier-card {
@@ -375,9 +476,10 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
         padding: 12px;
         border-radius: 8px;
         border: 2px solid var(--dorc-border-color, #e5e7eb);
-        background: var(--dorc-bg-secondary, #ffffff);
+        background: var(--dorc-bg-primary, #ffffff);
         cursor: pointer;
         text-align: left;
+        min-width: 0;
         transition:
           border-color 0.15s ease,
           box-shadow 0.15s ease,
@@ -391,14 +493,15 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
       .tier-card.selected {
         border-color: var(--lumo-primary-color);
         background: var(--lumo-primary-color-10pct);
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
       }
 
       .tier-card-top {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 6px;
+        flex-wrap: wrap;
+        gap: 4px 6px;
       }
 
       .tier-card-title {
@@ -412,21 +515,25 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
         font-weight: 600;
         padding: 2px 7px;
         border-radius: 999px;
+        white-space: nowrap;
       }
 
       .strategy-shared {
         background: #e0f2fe;
         color: #0369a1;
+        border: 1px solid #7dd3fc;
       }
 
       .strategy-dedicated {
         background: #fef3c7;
         color: #92400e;
+        border: 1px solid #fcd34d;
       }
 
       .strategy-perf {
         background: #fce7f3;
         color: #9d174d;
+        border: 1px solid #f9a8d4;
       }
 
       .tier-card-desc {
@@ -462,7 +569,7 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
         padding: 5px 12px;
         border-radius: 999px;
         border: 1px solid var(--dorc-border-color, #d1d5db);
-        background: var(--dorc-bg-secondary, #ffffff);
+        background: var(--dorc-bg-primary, #ffffff);
         color: var(--dorc-text-primary, #111827);
         font-size: 0.8rem;
         font-weight: 600;
@@ -488,7 +595,8 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
         font-size: 0.8rem;
         padding: 8px 12px;
         border-radius: 6px;
-        background: var(--lumo-contrast-5pct);
+        background: var(--dorc-bg-primary, #ffffff);
+        border: 1px solid var(--dorc-border-color, #dde2e8);
         color: var(--dorc-text-primary);
       }
 
@@ -497,16 +605,18 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
         display: flex;
         flex-direction: column;
         gap: 12px;
+        min-width: 0;
       }
 
       .preview-comp-card {
         border: 1px solid var(--dorc-border-color, #e5e7eb);
         border-radius: 6px;
         padding: 10px 12px;
-        background: var(--lumo-contrast-5pct);
+        background: var(--dorc-bg-primary, #ffffff);
         display: flex;
         flex-direction: column;
         gap: 8px;
+        min-width: 0;
       }
 
       .preview-comp-header {
@@ -558,19 +668,31 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
       }
 
       .json-viewer-box {
-        background: var(--dorc-bg-secondary, #ffffff);
+        background: #2a2f3a;
         border: 1px solid var(--dorc-border-color, #e5e7eb);
         border-radius: 6px;
-        padding: 8px;
+        padding: 8px 10px;
         max-height: 240px;
         overflow: auto;
+        min-width: 0;
       }
 
       .kv-row {
         display: flex;
         align-items: flex-end;
-        gap: 8px;
+        gap: 8px 12px;
         flex-wrap: wrap;
+        min-width: 0;
+      }
+
+      .kv-row > vaadin-text-field,
+      .kv-row > vaadin-password-field {
+        flex: 1 1 200px;
+        min-width: 0;
+      }
+
+      .kv-row > vaadin-button {
+        margin-bottom: 4px;
       }
 
       .override-chips {
@@ -1475,7 +1597,7 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
               <span class="step-num">1</span>
               Project &amp; Blueprint Template
             </h3>
-            <div style="display: inline-flex; gap: 6px;">
+            <div class="section-actions">
               ${
                 this.selectedTemplate && this.templateBuilderMode === 'none'
                   ? html`
@@ -1570,6 +1692,69 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
             ></vaadin-combo-box>
           </div>
 
+          ${
+            this.selectedTemplate && this.templateBuilderMode === 'none'
+              ? html`
+                  <div class="blueprint-summary">
+                    <div class="blueprint-summary-top">
+                      <span class="blueprint-summary-title">
+                        ${this.selectedTemplate.Name}
+                      </span>
+                      <div class="blueprint-meta-chips">
+                        <span class="blueprint-meta-chip">
+                          Default Tier:
+                          ${(
+                            this.selectedTemplate.DefaultTier || 'ephemeral'
+                          ).toUpperCase()}
+                        </span>
+                        <span class="blueprint-meta-chip">
+                          Provision Components:
+                          ${
+                            (this.selectedTemplate.ProvisionComponentIds || [])
+                              .length
+                          }
+                        </span>
+                        <span class="blueprint-meta-chip">
+                          Validation Components:
+                          ${
+                            (this.selectedTemplate.ValidationComponentIds || [])
+                              .length
+                          }
+                        </span>
+                        <span class="blueprint-meta-chip">
+                          TTL Cap:
+                          ${this.selectedTemplate.MaxTtlMinutes || 1440}m
+                        </span>
+                      </div>
+                    </div>
+                    ${
+                      this.selectedTemplate.Description
+                        ? html`<span class="blueprint-summary-desc"
+                            >${this.selectedTemplate.Description}</span
+                          >`
+                        : nothing
+                    }
+                  </div>
+                `
+              : !this.templatesLoading &&
+                  !this.templatesLoadFailed &&
+                  this.selectedProject &&
+                  this.templates.length === 0 &&
+                  this.templateBuilderMode === 'none'
+                ? html`
+                    <div class="info-banner">
+                      <vaadin-icon icon="vaadin:info-circle"></vaadin-icon>
+                      <span>
+                        No Blueprint Templates are saved for
+                        <strong>${this.selectedProject.ProjectName}</strong>
+                        yet. Click <strong>New Blueprint Template</strong> above
+                        to save reusable components and tier overrides, or
+                        continue below using project defaults.
+                      </span>
+                    </div>
+                  `
+                : nothing
+          }
           ${
             this.templateBuilderMode !== 'none'
               ? html`
@@ -1831,28 +2016,29 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
           </div>
 
           <div class="form-grid-2">
-            <div style="display: flex; align-items: flex-end; gap: 6px;">
-              <vaadin-text-field
-                style="flex: 1;"
-                label="Ephemeral Environment Name"
-                helper-text="Auto-generated non-prod identifier ({project}-{tier}-eph-{short})"
-                required
-                .value=${this.environmentName}
-                @input=${(e: Event) => {
-                  const target = e.target as HTMLInputElement;
-                  this.environmentName = target.value;
-                  this.nameManuallyEdited = true;
-                  this.schedulePreviewRefresh();
-                }}
-              ></vaadin-text-field>
-              <vaadin-button
-                theme="icon"
+            <vaadin-text-field
+              label="Ephemeral Environment Name"
+              helper-text="Auto-generated non-prod identifier ({project}-{tier}-eph-{short})"
+              required
+              .value=${this.environmentName}
+              @input=${(e: Event) => {
+                const target = e.target as HTMLInputElement;
+                this.environmentName = target.value;
+                this.nameManuallyEdited = true;
+                this.schedulePreviewRefresh();
+              }}
+            >
+              <button
+                type="button"
+                slot="suffix"
+                class="inline-refresh-btn"
                 title="Regenerate short environment name"
+                aria-label="Regenerate short environment name"
                 @click=${this.regenerateEnvironmentName}
               >
                 <vaadin-icon icon="vaadin:refresh"></vaadin-icon>
-              </vaadin-button>
-            </div>
+              </button>
+            </vaadin-text-field>
 
             <vaadin-combo-box
               label="Base Environment (Non-Prod Parent)"
@@ -2158,7 +2344,7 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
               : html`
                   <div class="json-viewer-box">
                     <div
-                      style="font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: var(--dorc-text-secondary);"
+                      style="font-size: 0.78rem; font-weight: 600; margin-bottom: 6px; color: #cbd5e1;"
                     >
                       Tier Default Resolved Parameters
                       (${this.previewData?.EnvironmentTier || this.selectedTier})
@@ -2244,6 +2430,8 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
     return html`
       <vaadin-dialog
         aria-label="Spin Up Temporary Environment"
+        theme="wide"
+        draggable
         .opened=${this.opened}
         @opened-changed=${(e: CustomEvent<{ value: boolean }>) => {
           this.opened = e.detail.value;
@@ -2254,6 +2442,8 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
           this.selectedProject,
           this.nonProdEnvironments,
           this.templates,
+          this.templatesLoading,
+          this.templatesLoadFailed,
           this.selectedTemplate,
           this.projectComponents,
           this.templateBuilderMode,

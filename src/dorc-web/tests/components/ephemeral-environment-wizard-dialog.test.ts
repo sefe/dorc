@@ -1,6 +1,14 @@
 import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
-import { expect, fixture, html, settle } from '../_helpers';
+import { page } from 'vitest/browser';
+import {
+  contrastRatio,
+  expect,
+  fixture,
+  html,
+  setTheme,
+  settle
+} from '../_helpers';
 import type { Checkbox } from '@vaadin/checkbox';
 import type { NumberField } from '@vaadin/number-field';
 import type { TextField } from '@vaadin/text-field';
@@ -54,6 +62,7 @@ vi.mock('../../src/apis/dorc-api', async importOriginal => ({
   }
 }));
 
+await import('../../src/router/style-registrations');
 await import('../../src/components/ephemeral-environment-wizard-dialog');
 
 const sampleProjects: ProjectApiModel[] = [
@@ -636,5 +645,91 @@ describe('EphemeralEnvironmentWizardDialog', () => {
 
     el.close();
     expect(el.opened).to.equal(false);
+  });
+
+  it('uses wide dialog theme without horizontal clipping, aligns form rows on desktop, and renders blueprint summary and empty-state guidance in light and dark themes', async () => {
+    await page.viewport(1280, 900);
+    const el = await fixture<EphemeralEnvironmentWizardDialog>(html`
+      <ephemeral-environment-wizard-dialog></ephemeral-environment-wizard-dialog>
+    `);
+
+    el.open({ projectName: 'Traveler', baseEnvironmentId: 101 });
+    await settle(250);
+
+    const dialog = el.shadowRoot!.querySelector('vaadin-dialog')!;
+    expect(dialog.getAttribute('theme')).to.contain('wide');
+
+    const overlay = dialog.shadowRoot?.querySelector('vaadin-dialog-overlay');
+    const overlayPart = overlay?.shadowRoot?.querySelector(
+      '[part="overlay"]'
+    ) as HTMLElement | null;
+    const wizardContainer = dialog.querySelector(
+      '.wizard-container'
+    ) as HTMLElement;
+    expect(wizardContainer).not.to.equal(null);
+    expect(wizardContainer.scrollWidth).to.be.at.most(
+      wizardContainer.clientWidth + 2
+    );
+
+    if (overlayPart) {
+      const overlayRect = overlayPart.getBoundingClientRect();
+      expect(overlayRect.width).to.be.greaterThan(900);
+      const containerRect = wizardContainer.getBoundingClientRect();
+      expect(containerRect.right).to.be.at.most(overlayRect.right + 2);
+
+      const newTemplateBtn = findButton(dialog, 'New Blueprint Template');
+      expect(newTemplateBtn.getBoundingClientRect().right).to.be.at.most(
+        overlayRect.right + 2
+      );
+    }
+
+    // Step 2 input fields align horizontally at top despite wrapping helper text
+    const nameField = Array.from(
+      dialog.querySelectorAll('vaadin-text-field')
+    ).find(
+      f => f.getAttribute('label') === 'Ephemeral Environment Name'
+    ) as HTMLElement;
+    const baseEnvCombo = Array.from(
+      dialog.querySelectorAll('vaadin-combo-box')
+    ).find(
+      f => f.getAttribute('label') === 'Base Environment (Non-Prod Parent)'
+    ) as HTMLElement;
+    expect(
+      Math.abs(
+        nameField.getBoundingClientRect().top -
+          baseEnvCombo.getBoundingClientRect().top
+      )
+    ).to.be.at.most(2);
+
+    // Blueprint summary strip displays template metadata
+    const summary = dialog.querySelector('.blueprint-summary') as HTMLElement;
+    expect(summary).not.to.equal(null);
+    const normalizedSummary = summary.textContent?.replace(/\s+/g, ' ');
+    expect(normalizedSummary).to.contain('Traveler PR Blueprint');
+    expect(normalizedSummary).to.contain('Provision Components: 2');
+
+    // Verify WCAG contrast in both light and dark mode
+    for (const theme of ['light', 'dark'] as const) {
+      setTheme(theme);
+      await settle(30);
+      const sectionTitle = dialog.querySelector(
+        '.section-title'
+      ) as HTMLElement;
+      expect(
+        contrastRatio(sectionTitle, getComputedStyle(sectionTitle).color)
+      ).to.be.at.least(4.5);
+    }
+
+    // Empty-state callout when project has 0 blueprint templates
+    mocks.getTemplates.mockReturnValueOnce(of([]));
+    const billingProject = sampleProjects[1];
+    (
+      el as unknown as { selectProject: (p: ProjectApiModel) => void }
+    ).selectProject(billingProject);
+    await settle(250);
+    expect(dialog.querySelector('.blueprint-summary')).to.equal(null);
+    expect(dialog.textContent).to.contain(
+      'No Blueprint Templates are saved for'
+    );
   });
 });

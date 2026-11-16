@@ -87,12 +87,33 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
         height: 100%;
         overflow: hidden;
       }
+      .toolbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        padding: 6px 12px 4px 10px;
+        width: 100%;
+        box-sizing: border-box;
+        flex-shrink: 0;
+      }
+      .toolbar-search {
+        flex: 1 1 280px;
+        min-width: 200px;
+      }
+      .toolbar-actions {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding-top: 4px;
+      }
       vaadin-grid#grid {
         overflow: hidden;
         flex: 1;
         min-height: 0;
         --divider-color: var(--dorc-border-color);
-        margin-top: 60px;
       }
       vaadin-grid#grid::part(prod-not-secure) {
         background-color: var(--dorc-warning-bg);
@@ -103,24 +124,24 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
 
   render() {
     return html`
-      <div style="position: fixed; height: 60px; width: 100%; display: inline">
-        <vaadin-horizontal-layout>
-          <vaadin-text-field
-            style="padding-left: 5px; min-width: 50%; padding-right: 5px"
-            placeholder="Search"
-            @value-changed="${this.updateSearch}"
-            clear-button-visible
-            helper-text="Use | for multiple search terms"
-          >
-            <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
-          </vaadin-text-field>
+      <div class="toolbar">
+        <vaadin-text-field
+          class="toolbar-search"
+          placeholder="Search"
+          @value-changed="${this.updateSearch}"
+          clear-button-visible
+          helper-text="Use | for multiple search terms"
+        >
+          <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
+        </vaadin-text-field>
+        <div class="toolbar-actions">
           <vaadin-button
             title="Add Environment"
-            style="width: 220px; padding-left: 10px"
             @click="${this.addEnvironment}"
           >
             <vaadin-icon
               icon="vaadin:cube"
+              slot="prefix"
               style="color: var(--dorc-link-color)"
             ></vaadin-icon>
             Add Environment...
@@ -128,13 +149,12 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
           <vaadin-button
             theme="primary"
             title="Spin Up Temporary Environment"
-            style="margin-left: 8px"
             @click="${this.openEphemeralWizard}"
           >
             <vaadin-icon icon="vaadin:stopwatch" slot="prefix"></vaadin-icon>
             Spin Up Temporary Environment
           </vaadin-button>
-        </vaadin-horizontal-layout>
+        </div>
       </div>
 
       <ephemeral-environment-wizard-dialog

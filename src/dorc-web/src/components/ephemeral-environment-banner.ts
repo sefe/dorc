@@ -155,8 +155,9 @@ export class EphemeralEnvironmentBanner extends LitElement {
         display: inline-flex;
         align-items: center;
         flex-wrap: wrap;
-        gap: 4px;
+        gap: 4px 6px;
         vertical-align: middle;
+        max-width: 100%;
       }
 
       .pill {
@@ -280,8 +281,16 @@ export class EphemeralEnvironmentBanner extends LitElement {
         display: flex;
         flex-direction: column;
         gap: 12px;
-        min-width: 340px;
+        width: 100%;
         max-width: 480px;
+        min-width: 0;
+        box-sizing: border-box;
+      }
+
+      .dialog-content vaadin-number-field,
+      .dialog-content vaadin-text-field {
+        width: 100%;
+        min-width: 0;
       }
 
       .dialog-desc {

@@ -33,15 +33,18 @@ export class EnvironmentCard extends LitElement {
       }
 
       .card-element {
-        padding: 10px;
+        padding: 10px 12px;
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
-        width: 300px;
+        width: 100%;
         min-height: 110px;
         height: 100%;
         display: flex;
         justify-content: space-between;
         gap: var(--lumo-space-s);
         box-sizing: border-box;
+        background-color: var(--dorc-bg-secondary);
+        border-radius: 6px;
+        border: 1px solid var(--dorc-border-color);
       }
       @media (max-width: 768px) {
         .card-element {

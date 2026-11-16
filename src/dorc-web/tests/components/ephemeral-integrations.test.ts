@@ -474,5 +474,40 @@ describe('Ephemeral UI Integrations across Cards and Pages', () => {
       })
     );
     expect(mocks.getProjectEnvironments.mock.calls.length).to.be.greaterThan(0);
+
+    // Verify toolbar buttons stay inside host bounds when offset by a left navigation drawer
+    const layoutShell = await fixture<HTMLDivElement>(html`
+      <div style="width: 1160px; display: flex;">
+        <div style="width: 260px; flex-shrink: 0;"></div>
+        <div id="content-pane" style="flex: 1; min-width: 0; height: 500px;">
+          <page-environments-list></page-environments-list>
+        </div>
+      </div>
+    `);
+    const contentPane = layoutShell.querySelector(
+      '#content-pane'
+    ) as HTMLElement;
+    const hostedList = contentPane.querySelector(
+      'page-environments-list'
+    ) as PageEnvironmentsList;
+    await hostedList.updateComplete;
+    const spinBtn = Array.from(
+      hostedList.shadowRoot!.querySelectorAll('vaadin-button')
+    ).find(b =>
+      b.textContent?.includes('Spin Up Temporary Environment')
+    ) as HTMLElement;
+    expect(spinBtn).not.to.equal(undefined);
+    expect(spinBtn.getBoundingClientRect().right).to.be.at.most(
+      contentPane.getBoundingClientRect().right + 2
+    );
+
+    // Verify PageProjectEnvs workspace toolbar shows ephemeral count and Spin Up button
+    projEnvs.environments = [ephEnv];
+    await projEnvs.updateComplete;
+    const wsToolbar = projEnvs.shadowRoot!.querySelector('.workspace-toolbar');
+    expect(wsToolbar).not.to.equal(null);
+    const normalizedToolbarText = wsToolbar!.textContent?.replace(/\s+/g, ' ');
+    expect(normalizedToolbarText).to.contain('1 temporary ephemeral');
+    expect(normalizedToolbarText).to.contain('Spin Up Temporary Environment');
   });
 });
