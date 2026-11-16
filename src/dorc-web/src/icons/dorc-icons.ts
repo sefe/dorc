@@ -390,7 +390,7 @@ const DORC_ICON_DEFS: Record<DorcIconName, DorcIconDef> = {
   },
   resume: {
     viewBox: '0 0 16 16',
-    svg: '<path d="M2 1v14l10-7z"></path><path d="M12 1h2v14h-2v-14z"></path>'
+    svg: '<path d="M8 0c-4.4 0-8 3.6-8 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zM6 12v-8l6 4-6 4z"></path>'
   },
   pause: {
     viewBox: '0 0 16 16',
