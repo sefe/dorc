@@ -19,21 +19,23 @@ export const addHegsTreeNodeStyles = css`
     padding-left: 4px;
     padding-right: 4px;
   }
-  .node-preicon.collapsed,
-  .node-preicon.expanded {
-    padding-left: 0px;
-  }
   .node-preicon {
     padding-left: 18px;
   }
-  .node-preicon:before {
-    margin-right: 0px;
+  .node-preicon.collapsed,
+  .node-preicon.expanded {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    padding-left: 0px;
+    vertical-align: middle;
   }
-  .node-preicon.collapsed:before {
-    content: '\\23F5';
-  }
-  .node-preicon.expanded:before {
-    content: '\\23F7';
+  .node-preicon vaadin-icon {
+    width: 12px;
+    height: 12px;
+    color: currentColor;
+    pointer-events: none;
   }
   .node-preicon,
   .node-name {

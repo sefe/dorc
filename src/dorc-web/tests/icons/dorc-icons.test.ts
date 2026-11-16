@@ -1,5 +1,7 @@
 import { Iconset } from '@vaadin/icon/vaadin-iconset.js';
-import { describe, expect, it } from 'vitest';
+import { of } from 'rxjs';
+import { describe, expect, it, vi } from 'vitest';
+import { MetadataApi } from '../../src/apis/dorc-api';
 import {
   DORC_ICON_NAMES,
   dorcIcon,
@@ -209,5 +211,181 @@ describe('dorc:* canonical iconset registry', () => {
     expect(svg).not.toBeNull();
     expect(svg?.getAttribute('viewBox')).toBe('0 0 24 24');
     expect(svg?.querySelector('path')).not.toBeNull();
+  });
+});
+
+describe('Step 3 single-mechanism consolidation onto <vaadin-icon icon="dorc:*">', () => {
+  it('replaces dorc-navbar local inline iconset with dorc:scripts and dorc:variables', async () => {
+    const metadataSpy = vi
+      .spyOn(MetadataApi.prototype, 'metadataGet')
+      .mockReturnValue(of('1.0.0') as never);
+    try {
+      const { router } = await import('../../src/router/router.js');
+      const { routes } = await import('../../src/router/routes.js');
+      await (
+        router as unknown as {
+          setRoutes(r: unknown, skipRender?: boolean): Promise<unknown>;
+        }
+      ).setRoutes(routes, true);
+      await import('../../src/components/dorc-navbar.js');
+
+      const navbar = await fixture<HTMLElement>(
+        html`<dorc-navbar></dorc-navbar>`
+      );
+
+      expect(navbar.shadowRoot?.querySelector('vaadin-iconset')).toBeNull();
+      expect(
+        navbar.shadowRoot?.querySelectorAll('vaadin-icon[icon^="inline:"]')
+          .length
+      ).toBe(0);
+      expect(
+        navbar.shadowRoot?.querySelectorAll('vaadin-icon[icon="dorc:scripts"]')
+          .length
+      ).toBe(2);
+      expect(
+        navbar.shadowRoot?.querySelectorAll(
+          'vaadin-icon[icon="dorc:variables"]'
+        ).length
+      ).toBe(2);
+    } finally {
+      metadataSpy.mockRestore();
+    }
+  });
+
+  it('renders GitHub and Azure DevOps project source icons via dorc:* without hardcoded hex fills', async () => {
+    const { PageProjectsList } =
+      await import('../../src/pages/page-projects-list.js');
+    const { render } = await import('lit');
+
+    const host = document.createElement('div');
+    render(
+      PageProjectsList.prototype._sourceControlTypeRenderer({
+        SourceControlType: 'GitHub'
+      } as never),
+      host
+    );
+    const ghIcon = host.querySelector('vaadin-icon');
+    expect(ghIcon?.getAttribute('icon')).toBe('dorc:brand-github');
+    expect(host.querySelector('svg')).toBeNull();
+
+    render(
+      PageProjectsList.prototype._sourceControlTypeRenderer({
+        SourceControlType: 'AzureDevOps'
+      } as never),
+      host
+    );
+    const adoIcon = host.querySelector('vaadin-icon');
+    expect(adoIcon?.getAttribute('icon')).toBe('dorc:brand-azure-devops');
+    expect(adoIcon?.getAttribute('style')).toContain('var(--dorc-link-color)');
+    expect(host.innerHTML).not.toContain('#0078d4');
+  });
+
+  it('renders connection-status-indicator controls via dorc:pause, dorc:resume, and dorc:refresh', async () => {
+    await import('../../src/components/connection-status-indicator.js');
+    const indicator = await fixture<
+      HTMLElement & { autoRefresh: boolean; updateComplete: Promise<boolean> }
+    >(
+      html`<connection-status-indicator
+        state="Disconnected"
+        .autoRefresh=${true}
+      ></connection-status-indicator>`
+    );
+
+    expect(indicator.shadowRoot?.querySelector('svg')).toBeNull();
+    expect(
+      indicator.shadowRoot
+        ?.querySelector('.strip-toggle vaadin-icon')
+        ?.getAttribute('icon')
+    ).toBe('dorc:pause');
+    expect(
+      indicator.shadowRoot
+        ?.querySelector('.strip-refresh vaadin-icon')
+        ?.getAttribute('icon')
+    ).toBe('dorc:refresh');
+
+    indicator.autoRefresh = false;
+    await indicator.updateComplete;
+    expect(
+      indicator.shadowRoot
+        ?.querySelector('.strip-toggle vaadin-icon')
+        ?.getAttribute('icon')
+    ).toBe('dorc:resume');
+  });
+
+  it('renders vector dorc:chevron-* icons in hegs-tree-node and hegs-json-viewer instead of CSS Unicode triangles', async () => {
+    await import('../../src/components/deploy/component-tree/hegs-tree-node.js');
+    await import('../../src/components/hegs-json-viewer.js');
+
+    const parentNode = await fixture<
+      HTMLElement & { open: boolean; updateComplete: Promise<boolean> }
+    >(
+      html`<hegs-tree-node
+        .data=${{
+          id: 1,
+          name: 'Parent',
+          hasParent: false,
+          numOfChildren: 1,
+          children: [
+            {
+              id: 2,
+              name: 'Leaf',
+              hasParent: true,
+              numOfChildren: 0,
+              children: []
+            }
+          ]
+        }}
+      ></hegs-tree-node>`
+    );
+
+    expect(
+      parentNode.shadowRoot
+        ?.querySelector('.node-preicon vaadin-icon')
+        ?.getAttribute('icon')
+    ).toBe('dorc:chevron-right');
+
+    parentNode.open = true;
+    await parentNode.updateComplete;
+    expect(
+      parentNode.shadowRoot
+        ?.querySelector('.node-preicon vaadin-icon')
+        ?.getAttribute('icon')
+    ).toBe('dorc:chevron-down');
+
+    const leafNode = await fixture<HTMLElement>(
+      html`<hegs-tree-node
+        .data=${{
+          id: 2,
+          name: 'Leaf',
+          hasParent: true,
+          numOfChildren: 0,
+          children: []
+        }}
+      ></hegs-tree-node>`
+    );
+    expect(
+      leafNode.shadowRoot?.querySelector('.node-preicon vaadin-icon')
+    ).toBeNull();
+
+    const viewer = await fixture<HTMLElement>(
+      html`<hegs-json-viewer
+        >{"nested":{"leaf":42},"flat":"ok"}</hegs-json-viewer
+      >`
+    );
+    const nestedKey = viewer.shadowRoot?.querySelector(
+      'li[data-path="nested"] > span[part="key"]'
+    );
+    const flatKey = viewer.shadowRoot?.querySelector(
+      'li[data-path="flat"] > span[part="key"]'
+    );
+
+    expect(
+      nestedKey
+        ?.querySelector('vaadin-icon.collapse-icon')
+        ?.getAttribute('icon')
+    ).toBe('dorc:chevron-right');
+    expect(nestedKey?.textContent?.trim()).toBe('nested:');
+    expect(flatKey?.querySelector('vaadin-icon')).toBeNull();
+    expect(flatKey?.textContent?.trim()).toBe('flat:');
   });
 });

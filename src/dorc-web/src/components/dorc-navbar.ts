@@ -1,6 +1,6 @@
 import '@vaadin/icons/vaadin-icons';
-import '@vaadin/icons/vaadin-iconset.js';
 import '@vaadin/icon';
+import '../icons/dorc-icons.js';
 import '@vaadin/tabs';
 import { Tabs } from '@vaadin/tabs';
 import { Tab } from '@vaadin/tabs/vaadin-tab';
@@ -237,25 +237,6 @@ export class DorcNavbar extends LitElement {
 
   render() {
     return html`
-      <vaadin-iconset name="inline" size="24">
-        <svg>
-          <defs>
-            <g id="powershell-icon">
-              <path
-                d="M23.181 3.077c.568 0 .923.463.792 1.035l-3.659 15.981c-.13.572-.697 1.035-1.265 1.035H.819c-.568 0-.923-.463-.792-1.035L3.686 4.112c.13-.572.697-1.035 1.265-1.035h18.23zm-8.375 9.345c.251-.394.227-.905-.09-1.243L9.122 5.228c-.38-.405-1.037-.407-1.466-.004-.429.403-.468 1.057-.088 1.461l4.662 4.96v.11l-7.42 5.373c-.45.327-.533.977-.187 1.453.346.476.991.597 1.44.27l8.229-5.909c.28-.197.438-.366.514-.52zm-2.796 4.399a.928.928 0 0 0-.934.923c0 .51.418.923.934.923h4.433a.928.928 0 0 0 .934-.923.928.928 0 0 0-.934-.923H12.01z"
-              />
-            </g>
-            <g id="variables-icon">
-              <path
-                d="m 6.6666667,21.333333 a 4,4 0 0 1 -4,-4 V 6.6666667 a 4,4 0 0 1 4,-4 A 1.3333334,1.3333334 0 0 0 6.6666667,0 6.6666667,6.6666667 0 0 0 0,6.6666667 V 17.333333 A 6.6666667,6.6666667 0 0 0 6.6666667,24 a 1.3333335,1.3333335 0 0 0 0,-2.666667 z M 16.946667,16.946667 a 1.3333333,1.3333333 0 0 0 0,-1.893334 L 13.88,12 16.946667,8.9466667 A 1.3387891,1.3387891 0 0 0 15.053333,7.0533333 L 12,10.12 8.9466667,7.0533333 A 1.3387889,1.3387889 0 0 0 7.0533333,8.9466667 L 10.12,12 7.0533333,15.053333 a 1.3333333,1.3333333 0 0 0 0,1.893334 1.3333333,1.3333333 0 0 0 1.8933334,0 L 12,13.88 l 3.053333,3.066667 a 1.3333333,1.3333333 0 0 0 1.893334,0 z M 17.333333,0 a 1.3333333,1.3333333 0 0 0 0,2.6666667 4,4 0 0 1 4,4 V 17.333333 a 4,4 0 0 1 -4,4 1.3333335,1.3333335 0 0 0 0,2.666667 A 6.6666667,6.6666667 0 0 0 24,17.333333 V 6.6666667 A 6.6666667,6.6666667 0 0 0 17.333333,0 Z"
-                id="path611"
-                style="stroke-width:1.33333"
-              />
-            </g>
-          </defs>
-        </svg>
-      </vaadin-iconset>
-
       <vaadin-tabs
         orientation="vertical"
         id="tabs"
@@ -337,20 +318,14 @@ export class DorcNavbar extends LitElement {
         <vaadin-tab>
           <a href="${urlForName('scripts')}" title="Scripts">
             <div class="sub-item">
-              <vaadin-icon
-                icon="inline:powershell-icon"
-                theme="small"
-              ></vaadin-icon>
+              <vaadin-icon icon="dorc:scripts" theme="small"></vaadin-icon>
               Scripts
             </div>
           </a>
         </vaadin-tab>
         <vaadin-tab>
           <a href="${urlForName('variables')}">
-            <vaadin-icon
-              icon="inline:variables-icon"
-              theme="small"
-            ></vaadin-icon>
+            <vaadin-icon icon="dorc:variables" theme="small"></vaadin-icon>
             Variables
           </a>
         </vaadin-tab>
@@ -442,10 +417,7 @@ export class DorcNavbar extends LitElement {
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
           <a href="${urlForName('scripts-audit')}" title="Scripts Audit">
             <div class="sub-item">
-              <vaadin-icon
-                icon="inline:powershell-icon"
-                theme="small"
-              ></vaadin-icon>
+              <vaadin-icon icon="dorc:scripts" theme="small"></vaadin-icon>
               Scripts Audit
             </div>
           </a>
@@ -453,10 +425,7 @@ export class DorcNavbar extends LitElement {
         <vaadin-tab ?hidden="${!this.auditMenuExpanded}">
           <a href="${urlForName('variables-audit')}" title="Variables Audit">
             <div class="sub-item">
-              <vaadin-icon
-                icon="inline:variables-icon"
-                theme="small"
-              ></vaadin-icon>
+              <vaadin-icon icon="dorc:variables" theme="small"></vaadin-icon>
               Variables Audit
             </div>
           </a>

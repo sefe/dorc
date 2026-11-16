@@ -4,7 +4,7 @@ import '@vaadin/icon';
 import '@vaadin/text-field';
 import '@vaadin/tooltip';
 import { Notification } from '@vaadin/notification';
-import { css, html, nothing, svg } from 'lit';
+import { css, html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import {
   ComponentType,
@@ -21,7 +21,8 @@ import {
 } from '../helpers/generic-scripts';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import '../components/deploy-from-template-dialog';
-import { BRAND_ICON_PATHS, BrandIcon } from '../icons/brand-icons';
+import '../icons/dorc-icons.js';
+import type { DorcIconId } from '../icons/dorc-icons.js';
 import { DeployFromTemplateDialog } from '../components/deploy-from-template-dialog';
 
 type DetailTab = 'inputs' | 'outputs' | 'code';
@@ -78,23 +79,20 @@ const categoryVisual = (category?: string | null) =>
     tone: 'contrast'
   };
 
+type CatalogBrand =
+  'kafka' | 'clickhouse' | 'postgresql' | 'azure' | 'terraform';
+
 /**
- * Tint per brand mark so modules show the toolset they actually provision
+ * Icon + tint per brand mark so modules show the toolset they actually provision
  * instead of a generic category glyph.
  */
-const BRAND_TONES: Record<BrandIcon, string> = {
-  kafka: 'contrast',
-  clickhouse: 'warning',
-  postgresql: 'primary',
-  azure: 'primary',
-  terraform: 'contrast'
+const BRAND_ICONS: Record<CatalogBrand, { icon: DorcIconId; tone: string }> = {
+  kafka: { icon: 'dorc:brand-kafka', tone: 'contrast' },
+  clickhouse: { icon: 'dorc:brand-clickhouse', tone: 'warning' },
+  postgresql: { icon: 'dorc:brand-postgresql', tone: 'primary' },
+  azure: { icon: 'dorc:brand-azure', tone: 'primary' },
+  terraform: { icon: 'dorc:brand-terraform', tone: 'contrast' }
 };
-
-const brandIconSvg = (key: BrandIcon) => svg`<svg
-  class="brand-icon"
-  viewBox="0 0 24 24"
-  aria-hidden="true"
-><path d=${BRAND_ICON_PATHS[key]}></path></svg>`;
 
 /**
  * Picks the toolset's actual brand mark from the module's tags and required
@@ -105,7 +103,7 @@ const moduleVisual = (t: TerraformTemplateManifest) => {
   const providers = Object.keys(t.RequiredProviders ?? {}).map(p =>
     p.toLowerCase()
   );
-  let brand: BrandIcon | undefined;
+  let brand: CatalogBrand | undefined;
   if (tags.includes('kafka')) brand = 'kafka';
   else if (tags.includes('clickhouse')) brand = 'clickhouse';
   else if (tags.includes('postgresql') || tags.includes('postgres'))
@@ -113,13 +111,13 @@ const moduleVisual = (t: TerraformTemplateManifest) => {
   else if (tags.includes('azure') || providers.includes('azurerm'))
     brand = 'azure';
   else if (providers.length) brand = 'terraform';
-  if (brand) {
-    return { tone: BRAND_TONES[brand], body: brandIconSvg(brand) };
-  }
-  const fallback = categoryVisual(t.Category);
+  const visual = brand ? BRAND_ICONS[brand] : categoryVisual(t.Category);
   return {
-    tone: fallback.tone,
-    body: html`<vaadin-icon icon=${fallback.icon}></vaadin-icon>`
+    tone: visual.tone,
+    body: html`<vaadin-icon
+      icon=${visual.icon}
+      aria-hidden="true"
+    ></vaadin-icon>`
   };
 };
 
@@ -309,15 +307,6 @@ export class PageModuleCatalog extends PageElement {
         height: 22px;
       }
       .icon-tile.small vaadin-icon {
-        width: 18px;
-        height: 18px;
-      }
-      .icon-tile .brand-icon {
-        width: 22px;
-        height: 22px;
-        fill: currentColor;
-      }
-      .icon-tile.small .brand-icon {
         width: 18px;
         height: 18px;
       }
