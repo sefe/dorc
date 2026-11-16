@@ -19,12 +19,6 @@ namespace Dorc.Terraform.Catalog
             RegexOptions.CultureInvariant,
             RegexMatchTimeout);
 
-        private static readonly string[] EphemeralProtectionParameters =
-        {
-            "termination_protection",
-            "service_termination_protection",
-        };
-
         // Decimal.TryParse can succeed after rounding/underflow. Reject those
         // values so normalizing a property cannot change the Terraform input.
         public static bool TryParseNumberExact(string raw, out decimal value)
@@ -104,13 +98,25 @@ namespace Dorc.Terraform.Catalog
                 return result;
             }
 
-            foreach (var protectionName in EphemeralProtectionParameters)
+            foreach (var parameter in manifest.Parameters)
             {
-                if (manifest.Parameters.Any(p => string.Equals(p.Name, protectionName, StringComparison.OrdinalIgnoreCase))
-                    || result.ContainsKey(protectionName))
+                if (TierSizingProfileResolver.IsTerminationProtectionParameter(parameter.Name))
                 {
-                    result[protectionName] = "false";
+                    foreach (var staleKey in result.Keys
+                        .Where(k => string.Equals(k, parameter.Name, StringComparison.OrdinalIgnoreCase)
+                                    && !string.Equals(k, parameter.Name, StringComparison.Ordinal))
+                        .ToList())
+                    {
+                        result.Remove(staleKey);
+                    }
+
+                    result[parameter.Name] = "false";
                 }
+            }
+
+            foreach (var key in result.Keys.Where(TierSizingProfileResolver.IsTerminationProtectionParameter).ToList())
+            {
+                result[key] = "false";
             }
 
             return result;
@@ -129,15 +135,15 @@ namespace Dorc.Terraform.Catalog
                     "Ephemeral environments are never allowed when IsProd is true."));
             }
 
-            foreach (var protectionName in EphemeralProtectionParameters)
+            foreach (var entry in supplied)
             {
-                if (supplied.TryGetValue(protectionName, out var rawValue)
-                    && string.Equals(rawValue, "true", StringComparison.OrdinalIgnoreCase))
+                if (TierSizingProfileResolver.IsTerminationProtectionParameter(entry.Key)
+                    && string.Equals(entry.Value, "true", StringComparison.OrdinalIgnoreCase))
                 {
                     errors.Add(new ParameterValidationError(
-                        protectionName,
+                        entry.Key,
                         ParameterValidationErrorKind.NotAllowed,
-                        $"Ephemeral environments require termination_protection = false and service_termination_protection = false; '{protectionName}' cannot be true."));
+                        $"Ephemeral environments require termination_protection = false and service_termination_protection = false; '{entry.Key}' cannot be true."));
                 }
             }
         }

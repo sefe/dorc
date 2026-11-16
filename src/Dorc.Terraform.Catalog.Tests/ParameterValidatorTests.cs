@@ -395,6 +395,34 @@ namespace Dorc.Terraform.Catalog.Tests
             Assert.AreEqual("false", ephemeral["termination_protection"]);
             Assert.AreEqual("false", ephemeral["service_termination_protection"]);
 
+            // Preserves declared mixed-case parameter spelling (and normalizes differently-cased supplied keys)
+            // without leaving an undeclared duplicate key that would fail ordinal ValidateUnknown checks.
+            var mixedCaseManifest = Manifest(
+                Param("name"),
+                Param("Termination_Protection", TerraformParameterType.Bool, required: false));
+            var mixedCaseEnforced = validator.EnforceEphemeralInvariants(
+                mixedCaseManifest,
+                new Dictionary<string, string?> { ["name"] = "db1", ["termination_protection"] = "true" },
+                isEphemeral: true);
+            Assert.AreEqual("false", mixedCaseEnforced["Termination_Protection"]);
+            Assert.IsFalse(mixedCaseEnforced.ContainsKey("termination_protection"));
+            Assert.IsTrue(validator.Validate(mixedCaseManifest, mixedCaseEnforced, isEphemeral: true).IsValid);
+
+            var exactMixedCaseEnforced = validator.EnforceEphemeralInvariants(
+                mixedCaseManifest,
+                new Dictionary<string, string?> { ["name"] = "db1", ["Termination_Protection"] = "true" },
+                isEphemeral: true);
+            Assert.AreEqual("false", exactMixedCaseEnforced["Termination_Protection"]);
+            Assert.IsTrue(validator.Validate(mixedCaseManifest, exactMixedCaseEnforced, isEphemeral: true).IsValid);
+
+            var mixedCaseInvalid = validator.Validate(
+                mixedCaseManifest,
+                new Dictionary<string, string?> { ["name"] = "db1", ["Termination_Protection"] = "true" },
+                isEphemeral: true);
+            Assert.IsFalse(mixedCaseInvalid.IsValid);
+            Assert.IsTrue(mixedCaseInvalid.Errors.Any(e =>
+                e.ParameterName == "Termination_Protection" && e.Kind == ParameterValidationErrorKind.NotAllowed));
+
             // Manifest without protection parameters does not inject keys that weren't supplied.
             var minimalManifest = Manifest(Param("name"));
             var minimalResult = validator.EnforceEphemeralInvariants(
