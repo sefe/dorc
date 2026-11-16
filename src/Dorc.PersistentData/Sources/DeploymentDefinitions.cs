@@ -81,21 +81,25 @@ public sealed partial class DeploymentDefinitions(IDeploymentContextFactory fact
         using var strategyContext = factory.GetContext();
         strategyContext.Database.CreateExecutionStrategy().Execute(() =>
         {
-            using var context = factory.GetContext();
-            using var transaction = context.Database.BeginTransaction(IsolationLevel.Serializable);
-            var project = context.Projects.FromSqlRaw("SELECT * FROM [deploy].[Project] WITH (UPDLOCK,HOLDLOCK)")
-                .Include(p => p.Components).Include(p => p.Environments).SingleOrDefault(p => p.Id == projectId)
-                ?? throw new ProjectNotFoundException(projectId);
-            if (!canModify(projectId)) throw new UnauthorizedAccessException();
-            var before = Read(context, projectId);
-            RequireRevision(expectedRevision, before.Revision);
-            Record(context, before, new RefDataApiModel
-            { Project = before.Project, Components = [], Revision = Hash(before.Revision + ":deleted") }, actor, "Project.Delete");
-            project.Components.Clear();
-            project.Environments.Clear();
-            context.Projects.Remove(project);
-            context.SaveChanges();
-            transaction.Commit();
+            lock (EnvironmentTemplatesPersistentSource.TemplateReferenceSyncRoot)
+            {
+                using var context = factory.GetContext();
+                using var transaction = context.Database.BeginTransaction(IsolationLevel.Serializable);
+                var project = context.Projects.FromSqlRaw("SELECT * FROM [deploy].[Project] WITH (UPDLOCK,HOLDLOCK)")
+                    .Include(p => p.Components).Include(p => p.Environments).SingleOrDefault(p => p.Id == projectId)
+                    ?? throw new ProjectNotFoundException(projectId);
+                if (!canModify(projectId)) throw new UnauthorizedAccessException();
+                var before = Read(context, projectId);
+                RequireRevision(expectedRevision, before.Revision);
+                EnvironmentTemplatesPersistentSource.PrepareProjectTemplatesForDeletion(context, projectId, project.Name);
+                Record(context, before, new RefDataApiModel
+                { Project = before.Project, Components = [], Revision = Hash(before.Revision + ":deleted") }, actor, "Project.Delete");
+                project.Components.Clear();
+                project.Environments.Clear();
+                context.Projects.Remove(project);
+                context.SaveChanges();
+                transaction.Commit();
+            }
         });
     }
 

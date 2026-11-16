@@ -210,6 +210,10 @@ namespace Dorc.Api.Controllers
             {
                 return NotFound(ex.Message);
             }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(StatusCodes.Status409Conflict, ex.Message);
+            }
             catch (Exception)
             {
                 return StatusCode(StatusCodes.Status409Conflict,

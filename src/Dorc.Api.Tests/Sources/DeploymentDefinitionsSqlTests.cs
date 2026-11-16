@@ -852,4 +852,84 @@ public class DeploymentDefinitionsSqlTests
         Assert.IsTrue(definitions.Get(first.Project.ProjectId).Components[0].IsEnabled);
         Assert.IsFalse(definitions.Get(second.Project.ProjectId).Components[0].IsEnabled);
     }
+
+    [TestMethod]
+    public void DeleteProject_RemovesTemplatesAndBlocksActiveEphemeralEnvironments()
+    {
+        var document = Create();
+        var projectId = document.Project.ProjectId;
+        var activeEphName = "eph-active-" + Guid.NewGuid().ToString("N")[..8];
+        var tornDownEphName = "eph-torndown-" + Guid.NewGuid().ToString("N")[..8];
+        int usedTemplateId;
+        int unusedTemplateId;
+
+        using (var context = factory.GetContext())
+        {
+            var usedTemplate = new EnvironmentTemplate
+            {
+                ProjectId = projectId,
+                Name = "Used Blueprint",
+                DefaultTtlMinutes = 480,
+                MaxTtlMinutes = 1440,
+                CreatedBy = "editor",
+                CreatedAtUtc = DateTime.UtcNow,
+                UpdatedAtUtc = DateTime.UtcNow
+            };
+            var unusedTemplate = new EnvironmentTemplate
+            {
+                ProjectId = projectId,
+                Name = "Unused Blueprint",
+                DefaultTtlMinutes = 240,
+                MaxTtlMinutes = 720,
+                CreatedBy = "editor",
+                CreatedAtUtc = DateTime.UtcNow,
+                UpdatedAtUtc = DateTime.UtcNow
+            };
+            context.EnvironmentTemplates.AddRange(usedTemplate, unusedTemplate);
+            context.SaveChanges();
+            usedTemplateId = usedTemplate.Id;
+            unusedTemplateId = unusedTemplate.Id;
+
+            context.Environments.AddRange(
+                new PersistentData.Model.Environment
+                {
+                    Name = activeEphName,
+                    ObjectId = Guid.NewGuid(),
+                    IsEphemeral = true,
+                    EphemeralState = EphemeralEnvironmentStates.Ready,
+                    TemplateId = usedTemplateId
+                },
+                new PersistentData.Model.Environment
+                {
+                    Name = tornDownEphName,
+                    ObjectId = Guid.NewGuid(),
+                    IsEphemeral = true,
+                    EphemeralState = EphemeralEnvironmentStates.TornDown,
+                    TemplateId = usedTemplateId
+                });
+            context.SaveChanges();
+        }
+
+        var conflict = Assert.Throws<InvalidOperationException>(
+            () => definitions.DeleteProject(projectId, document.Revision, "editor", _ => true));
+        StringAssert.Contains(conflict.Message, activeEphName);
+
+        using (var context = factory.GetContext())
+        {
+            Assert.IsTrue(context.Projects.Any(p => p.Id == projectId));
+            Assert.AreEqual(2, context.EnvironmentTemplates.Count(t => t.ProjectId == projectId));
+
+            var activeEnv = context.Environments.Single(e => e.Name == activeEphName);
+            activeEnv.EphemeralState = EphemeralEnvironmentStates.TornDown;
+            context.SaveChanges();
+        }
+
+        definitions.DeleteProject(projectId, document.Revision, "editor", _ => true);
+
+        using var check = factory.GetContext();
+        Assert.IsFalse(check.Projects.Any(p => p.Id == projectId));
+        Assert.IsFalse(check.EnvironmentTemplates.Any(t => t.Id == usedTemplateId || t.Id == unusedTemplateId));
+        Assert.IsNull(check.Environments.Single(e => e.Name == activeEphName).TemplateId);
+        Assert.IsNull(check.Environments.Single(e => e.Name == tornDownEphName).TemplateId);
+    }
 }

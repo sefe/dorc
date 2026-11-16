@@ -132,6 +132,40 @@ namespace Dorc.PersistentData.Sources
 
         internal static readonly object TemplateReferenceSyncRoot = new();
 
+        internal static void PrepareProjectTemplatesForDeletion(IDeploymentContext context, int projectId, string projectName)
+        {
+            if (context.EnvironmentTemplates == null)
+                return;
+
+            var templates = context.EnvironmentTemplates.Where(t => t.ProjectId == projectId).ToList();
+            if (templates.Count == 0)
+                return;
+
+            if (context.Environments != null)
+            {
+                var templateIds = templates.Select(t => t.Id).ToHashSet();
+                var referencingEnvs = context.Environments
+                    .Where(e => e.TemplateId.HasValue && templateIds.Contains(e.TemplateId.Value))
+                    .ToList();
+                var activeEphemeralEnvs = referencingEnvs
+                    .Where(e => e.IsEphemeral && !string.Equals(e.EphemeralState, EphemeralEnvironmentStates.TornDown, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+                if (activeEphemeralEnvs.Count > 0)
+                {
+                    var envNames = string.Join(", ", activeEphemeralEnvs.Select(e => e.Name).OrderBy(n => n, StringComparer.OrdinalIgnoreCase));
+                    throw new InvalidOperationException(
+                        $"The project \"{projectName}\" cannot be deleted while its environment templates are referenced by active ephemeral environment(s): {envNames}. Tear down those environments before trying again.");
+                }
+
+                foreach (var env in referencingEnvs)
+                {
+                    env.TemplateId = null;
+                }
+            }
+
+            context.EnvironmentTemplates.RemoveRange(templates);
+        }
+
         public bool DeleteTemplate(int templateId)
         {
             lock (TemplateReferenceSyncRoot)

@@ -2671,5 +2671,128 @@ namespace Dorc.Core.Tests
             Assert.IsTrue(dbSource.DetachAndDeleteDatabaseIfOrphaned(50, 916));
             Assert.IsFalse(databases.Any(d => d.Id == 916));
         }
+
+        [TestMethod]
+        public void PrepareProjectTemplatesForDeletion_AndDeleteProject_CoverAllTemplateBranches()
+        {
+            var factory = Substitute.For<IDeploymentContextFactory>();
+            var context = Substitute.For<IDeploymentContext>();
+            factory.GetContext().Returns(_ => context);
+
+            // 1. Null EnvironmentTemplates DbSet exits safely
+            context.EnvironmentTemplates.Returns(_ => (DbSet<EnvironmentTemplate>)null!);
+            EnvironmentTemplatesPersistentSource.PrepareProjectTemplatesForDeletion(context, 77, "Proj77");
+
+            // 2. Empty templates for project exits safely
+            var templates = new List<EnvironmentTemplate>
+            {
+                new() { Id = 1, ProjectId = 999, Name = "OtherProjTemplate", CreatedBy = "tester" }
+            };
+            var templatesSet = CreateMockDbSet(templates);
+            templatesSet
+                .When(s => s.RemoveRange(Arg.Any<IEnumerable<EnvironmentTemplate>>()))
+                .Do(c =>
+                {
+                    foreach (var item in c.Arg<IEnumerable<EnvironmentTemplate>>().ToList())
+                        templates.Remove(item);
+                });
+            context.EnvironmentTemplates.Returns(_ => templatesSet);
+            EnvironmentTemplatesPersistentSource.PrepareProjectTemplatesForDeletion(context, 77, "Proj77");
+            Assert.AreEqual(1, templates.Count);
+
+            // 3. Matching template with null Environments DbSet removes templates safely
+            templates.Add(new EnvironmentTemplate { Id = 2, ProjectId = 77, Name = "NullEnvSetTemplate", CreatedBy = "tester" });
+            context.Environments.Returns(_ => (DbSet<Dorc.PersistentData.Model.Environment>)null!);
+            EnvironmentTemplatesPersistentSource.PrepareProjectTemplatesForDeletion(context, 77, "Proj77");
+            Assert.IsFalse(templates.Any(t => t.ProjectId == 77));
+
+            // 4. Active ephemeral environments referencing project templates block ProjectsPersistentSource.DeleteProject
+            var proj77 = new Project
+            {
+                Id = 77,
+                Name = "Proj77",
+                Components = new List<Component> { new() { Id = 10, Name = "Comp10" } },
+                Environments = new List<Dorc.PersistentData.Model.Environment>()
+            };
+            var projects = new List<Project> { proj77 };
+            var projectsSet = CreateMockDbSet(projects);
+            projectsSet.When(s => s.Remove(Arg.Any<Project>())).Do(c => projects.Remove(c.Arg<Project>()));
+            context.Projects.Returns(_ => projectsSet);
+
+            templates.Add(new EnvironmentTemplate { Id = 3, ProjectId = 77, Name = "ActiveTemplate", CreatedBy = "tester" });
+            templates.Add(new EnvironmentTemplate { Id = 4, ProjectId = 77, Name = "UnusedTemplate", CreatedBy = "tester" });
+            var activeEnvB = new Dorc.PersistentData.Model.Environment
+            {
+                Id = 301,
+                Name = "eph-zeta",
+                IsEphemeral = true,
+                EphemeralState = EphemeralEnvironmentStates.Ready,
+                TemplateId = 3
+            };
+            var activeEnvA = new Dorc.PersistentData.Model.Environment
+            {
+                Id = 302,
+                Name = "eph-alpha",
+                IsEphemeral = true,
+                EphemeralState = EphemeralEnvironmentStates.Provisioning,
+                TemplateId = 3
+            };
+            var tornDownEnv = new Dorc.PersistentData.Model.Environment
+            {
+                Id = 303,
+                Name = "eph-history",
+                IsEphemeral = true,
+                EphemeralState = EphemeralEnvironmentStates.TornDown,
+                TemplateId = 3
+            };
+            var nonEphemeralLinkedEnv = new Dorc.PersistentData.Model.Environment
+            {
+                Id = 304,
+                Name = "static-linked",
+                IsEphemeral = false,
+                TemplateId = 4
+            };
+            var unrelatedEnv = new Dorc.PersistentData.Model.Environment
+            {
+                Id = 305,
+                Name = "other-env",
+                IsEphemeral = true,
+                EphemeralState = EphemeralEnvironmentStates.Ready,
+                TemplateId = 1
+            };
+            proj77.Environments.Add(tornDownEnv);
+            var envs = new List<Dorc.PersistentData.Model.Environment>
+            {
+                activeEnvB, activeEnvA, tornDownEnv, nonEphemeralLinkedEnv, unrelatedEnv
+            };
+            var envsSet = CreateMockDbSet(envs);
+            context.Environments.Returns(_ => envsSet);
+
+            var projectsSource = new ProjectsPersistentSource(
+                factory,
+                Substitute.For<IEnvironmentsPersistentSource>(),
+                Substitute.For<Microsoft.Extensions.Logging.ILogger<ProjectsPersistentSource>>(),
+                Substitute.For<IClaimsPrincipalReader>(),
+                Substitute.For<Dorc.PersistentData.Security.ISourceHostAllowList>());
+            Assert.Throws<ArgumentException>(() => projectsSource.DeleteProject(404));
+
+            var conflict = Assert.Throws<InvalidOperationException>(() => projectsSource.DeleteProject(77));
+            StringAssert.Contains(conflict.Message, "eph-alpha, eph-zeta");
+            Assert.AreEqual(2, templates.Count(t => t.ProjectId == 77));
+            Assert.IsTrue(projects.Any(p => p.Id == 77));
+
+            // 5. Once active ephemeral environments are torn down, DeleteProject detaches TemplateId, removes templates, and deletes the project
+            activeEnvA.EphemeralState = EphemeralEnvironmentStates.TornDown;
+            activeEnvB.EphemeralState = EphemeralEnvironmentStates.TornDown;
+            projectsSource.DeleteProject(77);
+
+            Assert.IsNull(activeEnvA.TemplateId);
+            Assert.IsNull(activeEnvB.TemplateId);
+            Assert.IsNull(tornDownEnv.TemplateId);
+            Assert.IsNull(nonEphemeralLinkedEnv.TemplateId);
+            Assert.AreEqual(1, unrelatedEnv.TemplateId);
+            Assert.IsFalse(templates.Any(t => t.ProjectId == 77));
+            Assert.IsFalse(projects.Any(p => p.Id == 77));
+        }
     }
 }
