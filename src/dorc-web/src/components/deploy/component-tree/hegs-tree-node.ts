@@ -25,6 +25,9 @@ export class HegsTreeNode extends LitElement {
   @query('#deployment')
   private deploymentInput: HTMLInputElement | undefined;
 
+  @query('#actions .actions-trigger')
+  private actionsTrigger: HTMLElement | undefined;
+
   @state()
   protected _checked: boolean = false;
 
@@ -233,13 +236,113 @@ export class HegsTreeNode extends LitElement {
     return { expanded, collapsed: children };
   }
 
-  _toggleActions(event: Event) {
+  async _toggleActions(event: Event) {
     event.stopPropagation();
-    this.actionsOpen = !this.actionsOpen;
+    const nextOpen = !this.actionsOpen;
+    this.actionsOpen = nextOpen;
+    if (nextOpen) {
+      await this._focusActionItem(0);
+    }
+  }
+
+  async _onActionsTriggerKeyDown(event: KeyboardEvent) {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.actionsOpen = true;
+      await this._focusActionItem(event.key === 'ArrowUp' ? -1 : 0);
+    } else if (event.key === 'Escape' && this.actionsOpen) {
+      event.preventDefault();
+      event.stopPropagation();
+      this._closeActionsMenu(true);
+    }
+  }
+
+  _onActionsMenuKeyDown(event: KeyboardEvent) {
+    const items = this._getActionItems();
+    if (items.length === 0) {
+      return;
+    }
+    const active = this.shadowRoot?.activeElement as HTMLButtonElement | null;
+    const currentIndex = active ? items.indexOf(active) : -1;
+
+    switch (event.key) {
+      case 'ArrowDown': {
+        event.preventDefault();
+        event.stopPropagation();
+        const next = currentIndex >= 0 ? (currentIndex + 1) % items.length : 0;
+        items[next]?.focus();
+        break;
+      }
+      case 'ArrowUp': {
+        event.preventDefault();
+        event.stopPropagation();
+        const prev =
+          currentIndex >= 0
+            ? (currentIndex - 1 + items.length) % items.length
+            : items.length - 1;
+        items[prev]?.focus();
+        break;
+      }
+      case 'Home':
+        event.preventDefault();
+        event.stopPropagation();
+        items[0]?.focus();
+        break;
+      case 'End':
+        event.preventDefault();
+        event.stopPropagation();
+        items[items.length - 1]?.focus();
+        break;
+      case 'Escape':
+        event.preventDefault();
+        event.stopPropagation();
+        this._closeActionsMenu(true);
+        break;
+      case 'Tab':
+        this.actionsOpen = false;
+        break;
+    }
+  }
+
+  _onActionsFocusOut(event: FocusEvent) {
+    if (!this.actionsOpen) {
+      return;
+    }
+    const container = event.currentTarget as HTMLElement | null;
+    const nextTarget = event.relatedTarget as Node | null;
+    if (container && nextTarget && !container.contains(nextTarget)) {
+      this.actionsOpen = false;
+    }
+  }
+
+  private _getActionItems(): HTMLButtonElement[] {
+    return Array.from(
+      this.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        '.actions-menu button.action-item'
+      ) ?? []
+    );
+  }
+
+  private async _focusActionItem(index: number) {
+    await this.updateComplete;
+    const items = this._getActionItems();
+    if (items.length === 0) {
+      return;
+    }
+    const resolvedIndex = index < 0 ? items.length + index : index;
+    items[Math.max(0, Math.min(items.length - 1, resolvedIndex))]?.focus();
+  }
+
+  private _closeActionsMenu(restoreFocus: boolean) {
+    this.actionsOpen = false;
+    if (restoreFocus) {
+      this.actionsTrigger?.focus();
+    }
   }
 
   _actionClicked(action: TreeAction) {
-    this.actionsOpen = false;
+    this._closeActionsMenu(true);
     this.dispatchEvent(
       new CustomEvent(action.event, {
         detail: { node: this },

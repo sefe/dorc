@@ -466,8 +466,8 @@ describe('Step 4 semantic de-conflation across split action controls', () => {
   });
 });
 
-describe('Step 5 legacy icon button wrapper retirement', () => {
-  it('renders hegs-tree-node action trigger with vaadin-button + dorc:edit and dispatches action events', async () => {
+describe('Step 5 legacy icon button & Polymer component retirement', () => {
+  it('renders hegs-tree-node action menu with keyboard navigation, focus management, and action dispatch', async () => {
     await import('../../src/components/deploy/component-tree/hegs-tree-node.js');
 
     const treeNode = await fixture<
@@ -489,7 +489,10 @@ describe('Step 5 legacy icon button wrapper retirement', () => {
           indeterminate: false,
           children: []
         }}
-        .actions=${[{ label: 'Edit Step', event: 'edit-tree-step' }]}
+        .actions=${[
+          { label: 'Edit Step', event: 'edit-tree-step' },
+          { label: 'Clone Step', event: 'clone-tree-step' }
+        ]}
       ></hegs-tree-node>`
     );
 
@@ -507,21 +510,117 @@ describe('Step 5 legacy icon button wrapper retirement', () => {
 
     trigger?.click();
     await treeNode.updateComplete;
+    await new Promise(resolve => setTimeout(resolve, 0));
     expect(treeNode.actionsOpen).toBe(true);
+
+    const items = Array.from(
+      treeNode.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        '.actions-menu button.action-item[role="menuitem"]'
+      ) ?? []
+    );
+    expect(items.length).toBe(2);
+    expect(treeNode.shadowRoot?.activeElement).toBe(items[0]);
+
+    const menu = treeNode.shadowRoot?.querySelector<HTMLElement>(
+      '.actions-menu[role="menu"]'
+    );
+    menu?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true })
+    );
+    expect(treeNode.shadowRoot?.activeElement).toBe(items[1]);
+
+    menu?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Home', bubbles: true })
+    );
+    expect(treeNode.shadowRoot?.activeElement).toBe(items[0]);
+
+    menu?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'End', bubbles: true })
+    );
+    expect(treeNode.shadowRoot?.activeElement).toBe(items[1]);
+
+    menu?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+    );
+    await treeNode.updateComplete;
+    expect(treeNode.actionsOpen).toBe(false);
+
+    // Re-open with ArrowUp on trigger -> focuses last item
+    trigger?.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true })
+    );
+    await treeNode.updateComplete;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(treeNode.actionsOpen).toBe(true);
+
+    const reopenedItems = Array.from(
+      treeNode.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        '.actions-menu button.action-item[role="menuitem"]'
+      ) ?? []
+    );
+    expect(treeNode.shadowRoot?.activeElement).toBe(reopenedItems[1]);
 
     let firedDetail: unknown = null;
     treeNode.addEventListener('edit-tree-step', ((e: CustomEvent) => {
       firedDetail = e.detail;
     }) as EventListener);
 
-    const menuItem = treeNode.shadowRoot?.querySelector<HTMLButtonElement>(
-      '.actions-menu button.action-item'
-    );
-    expect(menuItem?.textContent?.trim()).toBe('Edit Step');
-    menuItem?.click();
+    expect(reopenedItems[0]?.textContent?.trim()).toBe('Edit Step');
+    reopenedItems[0]?.click();
     await treeNode.updateComplete;
 
     expect(firedDetail).toEqual({ node: treeNode });
     expect(treeNode.actionsOpen).toBe(false);
+  });
+
+  it('replaces unregistered <paper-listbox> and <paper-item> in edit-database-permissions and add-edit-database', async () => {
+    await import('../../src/components/edit-database-permissions.js');
+    await import('../../src/components/add-edit-database.js');
+
+    const editPerms = await fixture<
+      HTMLElement & {
+        userPermissionList: Array<{
+          Id: number;
+          User: string;
+          Role: string;
+          DbType: string;
+        }>;
+        readonly: boolean;
+        updateComplete: Promise<boolean>;
+      }
+    >(html`<edit-database-permissions></edit-database-permissions>`);
+    editPerms.readonly = false;
+    editPerms.userPermissionList = [
+      { Id: 7, User: 'svc_deploy', Role: 'db_owner', DbType: 'MSSQL' }
+    ];
+    await editPerms.updateComplete;
+
+    expect(editPerms.shadowRoot?.querySelector('paper-listbox')).toBeNull();
+    expect(editPerms.shadowRoot?.querySelector('paper-item')).toBeNull();
+    expect(
+      editPerms.shadowRoot?.querySelector('vaadin-list-box')
+    ).not.toBeNull();
+    expect(editPerms.shadowRoot?.querySelectorAll('vaadin-item').length).toBe(
+      1
+    );
+
+    const revokeBtn = editPerms.shadowRoot?.querySelector(
+      'vaadin-button[aria-label="Revoke permission"]'
+    );
+    expect(revokeBtn).not.toBeNull();
+    expect(revokeBtn?.querySelector('vaadin-icon')?.getAttribute('icon')).toBe(
+      'dorc:permission-revoke'
+    );
+
+    const addDb = await fixture<
+      HTMLElement & { infoMessage: string; updateComplete: Promise<boolean> }
+    >(html`<add-edit-database></add-edit-database>`);
+    addDb.infoMessage = 'Database already exists';
+    await addDb.updateComplete;
+
+    expect(addDb.shadowRoot?.querySelector('paper-item')).toBeNull();
+    const info = addDb.shadowRoot?.querySelector('.info-message');
+    expect(info?.textContent?.trim()).toBe('Database already exists');
+    expect(info?.getAttribute('style')).toContain('var(--dorc-error-color)');
   });
 });

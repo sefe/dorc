@@ -160,7 +160,12 @@ export class ServerDaemonMapping extends LitElement {
         <vaadin-tooltip slot="tooltip" text="Unmap daemon"></vaadin-tooltip>
         <vaadin-icon
           icon="dorc:unlink"
-          style="color: ${this.readonly ? 'grey' : '#FF3131'}"
+          aria-hidden="true"
+          style="color: ${
+            this.readonly
+              ? 'var(--dorc-text-secondary)'
+              : 'var(--dorc-error-color)'
+          }"
         ></vaadin-icon>
       </vaadin-button>
     `;

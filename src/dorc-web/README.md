@@ -106,7 +106,7 @@ All UI icons live in the single typed `<vaadin-iconset name="dorc" size="24">` r
 
 - Render icons exclusively with `<vaadin-icon icon="dorc:<name>">` (plus `import '@vaadin/icon';` in each component) or the typed `dorcIcon('<name>')` / `DorcIconId` exports for dynamic state maps.
 - Color icons via `currentColor` or `var(--dorc-*)` / `var(--lumo-*)` theme tokens so light and dark themes stay consistent; keep SVG definitions in `DORC_ICON_DEFS` monochrome without hardcoded hex fills or inner `id` attributes.
-- Do not add `@vaadin/icons`, Polymer `<paper-icon-button>` / `<iron-icon>`, Line Awesome classes, component-local `<vaadin-iconset>`, or inline `<svg>` markup. `npm run audit:icons` (wired into `npm run build` and `tools/gate-check.mjs`) enforces these invariants, including zero unreferenced icons in `DORC_ICON_NAMES`.
+- Do not add `@vaadin/icons`, `@polymer/*` packages, Polymer `<paper-*>` / `<iron-*>` elements, Line Awesome classes, component-local `<vaadin-iconset>`, or inline `<svg>` markup. `npm run audit:icons` (wired into `npm run build` and `tools/gate-check.mjs`) enforces these invariants, including runtime `@vaadin/icon` registration, theme-token-only icon colors, and zero unreferenced icons in `DORC_ICON_NAMES`.
 
 ### Build for Production
 

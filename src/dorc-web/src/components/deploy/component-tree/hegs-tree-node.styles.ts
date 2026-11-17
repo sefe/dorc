@@ -2,11 +2,8 @@ import { css } from 'lit';
 
 export const addHegsTreeNodeStyles = css`
   :host(.selected) > .node-container > .node-row {
-    background-color: var(
-      --paper-tree-selected-background-color,
-      rgba(200, 200, 200, 0.5)
-    );
-    color: var(--paper-tree-selected-color, inherit);
+    background-color: var(--dorc-chip-bg);
+    color: var(--dorc-chip-text);
   }
   :host(.selected) > .node-container > .node-row > #actions {
     display: inline-block;
