@@ -33,7 +33,7 @@ export class PropertyOverrideControls extends LitElement {
           text="Remove Property Override"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="dorc:trash"
+          icon="dorc:clear-value"
           style="color: var(--dorc-error-color)"
         ></vaadin-icon>
       </vaadin-button>

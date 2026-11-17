@@ -117,7 +117,7 @@ export class RequestControls extends LitElement {
             text="Restart Request"
           ></vaadin-tooltip>
           <vaadin-icon
-            icon="dorc:restart"
+            icon="dorc:rerun"
             style=${styleMap(restartStyles)}
           ></vaadin-icon>
         </vaadin-button>
