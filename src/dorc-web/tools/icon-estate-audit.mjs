@@ -23,7 +23,7 @@
  *   node tools/icon-estate-audit.mjs [--root <dir>]
  */
 
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
@@ -102,18 +102,7 @@ function* walk(dir) {
   }
 }
 
-function loadCanonicalIconNames(srcRoot) {
-  const localRegistry = join(srcRoot, 'icons', 'dorc-icons.ts');
-  const hasLocalRegistry = existsSync(localRegistry);
-  const registryPath = hasLocalRegistry
-    ? localRegistry
-    : join(ROOT, 'src', 'icons', 'dorc-icons.ts');
-
-  if (!existsSync(registryPath)) {
-    throw new Error(`Canonical icon registry not found at ${registryPath}`);
-  }
-
-  const text = readFileSync(registryPath, 'utf8');
+function parseCanonicalIconRegistry(registryPath, text) {
   const source = ts.createSourceFile(
     registryPath,
     text,
@@ -204,8 +193,6 @@ function loadCanonicalIconNames(srcRoot) {
   return {
     names,
     duplicates,
-    registryPath,
-    hasLocalRegistry,
     registrySvgProblems
   };
 }
@@ -219,13 +206,32 @@ function lineForMatch(source, node, matchIndex) {
   return source.getLineAndCharacterOfPosition(pos).line + 1;
 }
 
+const fileEntries = [];
+for (const file of walk(SRC)) {
+  fileEntries.push({
+    file,
+    relFromSrc: relative(SRC, file).replace(/\\/g, '/'),
+    text: readFileSync(file, 'utf8')
+  });
+}
+
+const localRegistryEntry = fileEntries.find(
+  entry => entry.relFromSrc === 'icons/dorc-icons.ts'
+);
+const hasLocalRegistry = Boolean(localRegistryEntry);
+const defaultRegistryPath = join(ROOT, 'src', 'icons', 'dorc-icons.ts');
+const registryPath = localRegistryEntry
+  ? localRegistryEntry.file
+  : defaultRegistryPath;
+const registryText = localRegistryEntry
+  ? localRegistryEntry.text
+  : readFileSync(defaultRegistryPath, 'utf8');
+
 const {
   names: canonicalNames,
   duplicates,
-  registryPath,
-  hasLocalRegistry,
   registrySvgProblems
-} = loadCanonicalIconNames(SRC);
+} = parseCanonicalIconRegistry(registryPath, registryText);
 
 let offenders = 0;
 let sites = 0;
@@ -255,10 +261,8 @@ if (hasLocalRegistry) {
 const filesImportingVaadinIcon = new Set();
 const filesRenderingVaadinIcon = [];
 
-for (const file of walk(SRC)) {
-  const relFromSrc = relative(SRC, file).replace(/\\/g, '/');
+for (const { file, relFromSrc, text } of fileEntries) {
   const isRegistryFile = relFromSrc === 'icons/dorc-icons.ts';
-  const text = readFileSync(file, 'utf8');
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
 
   const checkImportSpecifier = (specNode, specText) => {
@@ -373,12 +377,13 @@ for (const file of walk(SRC)) {
     }
 
     if (ts.isCallExpression(node)) {
+      const [firstArg] = node.arguments;
       if (
         node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-        node.arguments.length > 0 &&
-        ts.isStringLiteral(node.arguments[0])
+        firstArg &&
+        ts.isStringLiteral(firstArg)
       ) {
-        checkImportSpecifier(node.arguments[0], node.arguments[0].text);
+        checkImportSpecifier(firstArg, firstArg.text);
       }
 
       const calleeName = ts.isIdentifier(node.expression)
@@ -386,24 +391,23 @@ for (const file of walk(SRC)) {
         : ts.isPropertyAccessExpression(node.expression)
           ? node.expression.name.text
           : '';
-      if (calleeName === 'dorcIcon' && node.arguments.length > 0) {
-        const arg0 = node.arguments[0];
+      if (calleeName === 'dorcIcon' && firstArg) {
         if (
-          ts.isStringLiteral(arg0) ||
-          ts.isNoSubstitutionTemplateLiteral(arg0)
+          ts.isStringLiteral(firstArg) ||
+          ts.isNoSubstitutionTemplateLiteral(firstArg)
         ) {
-          if (!canonicalNames.has(arg0.text)) {
+          if (!canonicalNames.has(firstArg.text)) {
             report(
               file,
-              lineForMatch(source, arg0, 0),
-              `references unknown dorc icon "dorc:${arg0.text}" via dorcIcon() — add "${arg0.text}" to DORC_ICON_NAMES in src/icons/dorc-icons.ts or fix the typo`
+              lineForMatch(source, firstArg, 0),
+              `references unknown dorc icon "dorc:${firstArg.text}" via dorcIcon() — add "${firstArg.text}" to DORC_ICON_NAMES in src/icons/dorc-icons.ts or fix the typo`
             );
           } else {
             sites += 1;
             filesWithIcons.add(file);
-            usedCanonicalNames.add(arg0.text);
+            usedCanonicalNames.add(firstArg.text);
           }
-          // Skip normal string-literal visit on arg0 (which holds bare slug without `dorc:`)
+          // Skip normal string-literal visit on firstArg (which holds bare slug without `dorc:`)
           return;
         }
       }
