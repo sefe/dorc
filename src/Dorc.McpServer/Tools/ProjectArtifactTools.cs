@@ -75,7 +75,7 @@ public sealed class ProjectArtifactTools
 
     [McpServerTool(Name = "dorc_list_bundle_components", ReadOnly = true)]
     [Description("Lists bundle components for a project build definition and build URL.")]
-    public Task<McpToolOutcome<List<DeployComponentDto>>> ListBundleComponentsAsync(
+    public Task<McpToolOutcome<List<string>>> ListBundleComponentsAsync(
         [Description("Numeric project ID.")] int projectId,
         [Description("Optional build definition name.")] string? buildDefinitionName = null,
         [Description("Optional build URL.")] string? buildUrl = null,
@@ -92,7 +92,7 @@ public sealed class ProjectArtifactTools
             queryParts.Add($"buildUrl={Uri.EscapeDataString(buildUrl.Trim())}");
         }
 
-        return _apiGateway.GetAsync<List<DeployComponentDto>>(
+        return _apiGateway.GetAsync<List<string>>(
             $"Request/BundleComponents?{string.Join("&", queryParts)}",
             cancellationToken);
     }

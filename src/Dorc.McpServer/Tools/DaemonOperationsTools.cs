@@ -82,12 +82,37 @@ public sealed class DaemonOperationsTools
             return McpToolOutcome.Failure<string>(guardError);
         }
 
+        var trimmedEnv = environmentName.Trim();
+        var trimmedServer = (serverName ?? string.Empty).Trim();
+        var trimmedDaemon = (daemonName ?? string.Empty).Trim();
+
+        var statusesOutcome = await _apiGateway.GetAsync<List<DaemonStatusApiModel>>(
+            $"DaemonStatus/{Uri.EscapeDataString(trimmedEnv)}",
+            cancellationToken).ConfigureAwait(false);
+
+        if (!statusesOutcome.Succeeded || statusesOutcome.Data is null)
+        {
+            return McpToolOutcome.Failure<string>(
+                $"Operation 'dorc_change_daemon_status' could not retrieve mapped daemons for environment '{trimmedEnv}' (HTTP {statusesOutcome.HttpStatusCode?.ToString() ?? "error"}: {statusesOutcome.Error}).",
+                statusesOutcome.HttpStatusCode);
+        }
+
+        var isMapped = statusesOutcome.Data.Any(d =>
+            string.Equals(d.ServerName, trimmedServer, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(d.DaemonName, trimmedDaemon, StringComparison.OrdinalIgnoreCase));
+
+        if (!isMapped)
+        {
+            return McpToolOutcome.Failure<string>(
+                $"Daemon '{trimmedDaemon}' on server '{trimmedServer}' is not mapped to environment '{trimmedEnv}'.");
+        }
+
         var normalizedStatus = NormalizeStatusCase(requestedStatus.Trim());
         var model = new DaemonStatusApiModel
         {
-            EnvName = environmentName,
-            ServerName = serverName,
-            DaemonName = daemonName,
+            EnvName = trimmedEnv,
+            ServerName = trimmedServer,
+            DaemonName = trimmedDaemon,
             Status = normalizedStatus
         };
 

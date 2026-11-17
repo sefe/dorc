@@ -1,9 +1,10 @@
-using System.Diagnostics.CodeAnalysis;
 using Dorc.McpServer.Tools;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using ModelContextProtocol.Server;
 
 namespace Dorc.McpServer;
 
@@ -85,14 +86,29 @@ public static class DorcMcpHostConfiguration
         builder.Services.AddHttpClient<IOAuthTokenAcquirer, OAuthTokenAcquirer>();
         builder.Services.AddTransient<BearerTokenRefreshingHandler>();
 
-        builder.Services.AddHttpClient<IDorcApiGateway, DorcApiGateway>((sp, client) =>
+        var hasOAuthCredentials = !string.IsNullOrWhiteSpace(apiOptions.ClientId) ||
+                                  !string.IsNullOrWhiteSpace(apiOptions.ClientSecret);
+
+        var gatewayHttpBuilder = builder.Services.AddHttpClient<IDorcApiGateway, DorcApiGateway>((sp, client) =>
         {
             var opts = sp.GetRequiredService<DorcApiOptions>();
             if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
             {
                 client.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
             }
-        }).AddHttpMessageHandler<BearerTokenRefreshingHandler>();
+        });
+
+        if (hasOAuthCredentials)
+        {
+            gatewayHttpBuilder.AddHttpMessageHandler<BearerTokenRefreshingHandler>();
+        }
+        else
+        {
+            gatewayHttpBuilder.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                UseDefaultCredentials = true
+            });
+        }
 
         builder.Services
             .AddMcpServer()
@@ -103,6 +119,21 @@ public static class DorcMcpHostConfiguration
             .WithTools<PropertyResolutionTools>()
             .WithTools<TerraformCatalogTools>()
             .WithTools<DaemonOperationsTools>();
+
+        if (mcpOptions.ReadOnly)
+        {
+            builder.Services.PostConfigure<McpServerOptions>(options =>
+            {
+                var mutatingTools = options.ToolCollection!
+                    .Where(t => t.ProtocolTool.Annotations!.ReadOnlyHint != true)
+                    .ToList();
+
+                foreach (var tool in mutatingTools)
+                {
+                    options.ToolCollection!.Remove(tool);
+                }
+            });
+        }
 
         return builder;
     }

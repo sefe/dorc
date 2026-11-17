@@ -172,12 +172,12 @@ public sealed class McpToolGroupsTests
             .Returns(McpToolOutcome.Success(new List<DeployArtefactDto>()));
         Assert.IsTrue((await tools.ListBuildsAsync(1, " DEV ", " CI ")).Succeeded);
 
-        gateway.GetAsync<List<DeployComponentDto>>("Request/BundleComponents?projectId=1", Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Success(new List<DeployComponentDto>()));
+        gateway.GetAsync<List<string>>("Request/BundleComponents?projectId=1", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<string>()));
         Assert.IsTrue((await tools.ListBundleComponentsAsync(1, null, null)).Succeeded);
 
-        gateway.GetAsync<List<DeployComponentDto>>("Request/BundleComponents?projectId=1&buildDefinitionName=Def&buildUrl=http%3A%2F%2Fb", Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Success(new List<DeployComponentDto>()));
+        gateway.GetAsync<List<string>>("Request/BundleComponents?projectId=1&buildDefinitionName=Def&buildUrl=http%3A%2F%2Fb", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<string>()));
         Assert.IsTrue((await tools.ListBundleComponentsAsync(1, "Def", "http://b")).Succeeded);
 
         gateway.GetAsync<List<BundledRequestsApiModel>>("BundledRequests", Arg.Any<CancellationToken>())
@@ -397,6 +397,25 @@ public sealed class McpToolGroupsTests
 
         // Guard block
         Assert.IsFalse((await roTools.ChangeDaemonStatusAsync("DEV", "srv", "svc", "Starting")).Succeeded);
+
+        // DaemonStatus lookup failure (with and without status code)
+        gateway.GetAsync<List<DaemonStatusApiModel>>("DaemonStatus/ERR-ENV", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Failure<List<DaemonStatusApiModel>>("lookup failed", 500));
+        Assert.IsFalse((await tools.ChangeDaemonStatusAsync("ERR-ENV", "srv", "svc", "Starting")).Succeeded);
+
+        gateway.GetAsync<List<DaemonStatusApiModel>>("DaemonStatus/NULL-ENV", Arg.Any<CancellationToken>())
+            .Returns(new McpToolOutcome<List<DaemonStatusApiModel>>(true, null, "empty", null));
+        Assert.IsFalse((await tools.ChangeDaemonStatusAsync("NULL-ENV", "srv", "svc", "Starting")).Succeeded);
+
+        // Unmapped server or daemon
+        gateway.GetAsync<List<DaemonStatusApiModel>>("DaemonStatus/DEV", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<DaemonStatusApiModel>
+            {
+                new() { EnvName = "DEV", ServerName = "srv", DaemonName = "svc" }
+            }));
+        Assert.IsFalse((await tools.ChangeDaemonStatusAsync("DEV", "other-srv", "svc", "Starting")).Succeeded);
+        Assert.IsFalse((await tools.ChangeDaemonStatusAsync("DEV", "srv", "other-svc", "Starting")).Succeeded);
+        Assert.IsFalse((await tools.ChangeDaemonStatusAsync("DEV", null!, null!, "Starting")).Succeeded);
 
         // Valid statuses: starting, stopping, restarting
         gateway.PutStringResponseAsync("DaemonStatus", Arg.Any<DaemonStatusApiModel>(), Arg.Any<CancellationToken>())

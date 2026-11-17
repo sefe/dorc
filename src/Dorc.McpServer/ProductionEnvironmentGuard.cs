@@ -82,12 +82,59 @@ public sealed class ProductionEnvironmentGuard
             return $"Operation '{operationName}' could not find environment '{trimmedName}' to verify production status. Refusing to mutate when DORC_MCP_ALLOW_PROD=false.";
         }
 
-        if (matchingEnv.EnvironmentIsProd)
+        if (matchingEnv.EnvironmentIsProd || matchingEnv.EnvironmentSecure)
         {
-            return $"Operation '{operationName}' targeting production environment '{trimmedName}' (EnvironmentIsProd=true) is blocked because DORC_MCP_ALLOW_PROD=false.";
+            return $"Operation '{operationName}' targeting production or secure environment '{trimmedName}' (EnvironmentIsProd={matchingEnv.EnvironmentIsProd}, EnvironmentSecure={matchingEnv.EnvironmentSecure}) is blocked because DORC_MCP_ALLOW_PROD=false.";
         }
 
         return null;
+    }
+
+    public async Task<string?> CheckTerraformPlanMutationAllowedAsync(
+        string operationName,
+        int deploymentResultId,
+        string? callerEnvironmentName,
+        IDorcApiGateway apiGateway,
+        CancellationToken cancellationToken)
+    {
+        var readOnlyError = CheckMutationAllowed(operationName);
+        if (readOnlyError is not null)
+        {
+            return readOnlyError;
+        }
+
+        if (_options.AllowProd)
+        {
+            return null;
+        }
+
+        var planOutcome = await apiGateway.GetAsync<TerraformPlanApiModel>(
+            $"Terraform/plan/{deploymentResultId}",
+            cancellationToken).ConfigureAwait(false);
+
+        if (!planOutcome.Succeeded || planOutcome.Data is null)
+        {
+            return $"Operation '{operationName}' for deployment result {deploymentResultId} could not retrieve the Terraform plan to verify its target environment (HTTP {planOutcome.HttpStatusCode?.ToString() ?? "error"}: {planOutcome.Error}).";
+        }
+
+        var authoritativeEnv = planOutcome.Data.Receipt?.EnvironmentName;
+        if (string.IsNullOrWhiteSpace(authoritativeEnv))
+        {
+            return $"Operation '{operationName}' for deployment result {deploymentResultId} could not determine the authoritative environment from the Terraform plan receipt. Refusing to mutate when DORC_MCP_ALLOW_PROD=false.";
+        }
+
+        var trimmedAuthoritativeEnv = authoritativeEnv.Trim();
+        if (!string.IsNullOrWhiteSpace(callerEnvironmentName) &&
+            !string.Equals(callerEnvironmentName.Trim(), trimmedAuthoritativeEnv, StringComparison.OrdinalIgnoreCase))
+        {
+            return $"Operation '{operationName}' for deployment result {deploymentResultId} specified environment '{callerEnvironmentName.Trim()}', which does not match the Terraform plan's authoritative environment '{trimmedAuthoritativeEnv}'.";
+        }
+
+        return await CheckEnvironmentMutationAllowedAsync(
+            operationName,
+            trimmedAuthoritativeEnv,
+            apiGateway,
+            cancellationToken).ConfigureAwait(false);
     }
 
     public async Task<string?> CheckRequestMutationAllowedAsync(

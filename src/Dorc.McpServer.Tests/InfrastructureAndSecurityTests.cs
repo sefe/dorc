@@ -13,6 +13,7 @@ namespace Dorc.McpServer.Tests;
 internal sealed class StubHttpMessageHandler : HttpMessageHandler
 {
     private readonly Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> _responder;
+    private readonly List<HttpResponseMessage> _createdResponses = [];
 
     public StubHttpMessageHandler(Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> responder)
     {
@@ -24,7 +25,24 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         SentRequests.Add(request);
-        return await _responder(request, cancellationToken).ConfigureAwait(false);
+        var response = await _responder(request, cancellationToken).ConfigureAwait(false);
+        _createdResponses.Add(response);
+        return response;
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            foreach (var response in _createdResponses)
+            {
+                response.Dispose();
+            }
+
+            _createdResponses.Clear();
+        }
+
+        base.Dispose(disposing);
     }
 }
 
@@ -283,11 +301,16 @@ public sealed class InfrastructureAndSecurityTests
         // Environment has EnvironmentIsProd = true
         gateway.GetAsync<List<EnvironmentApiModel>>("RefDataEnvironments?env=LIVE-01", Arg.Any<CancellationToken>())
             .Returns(McpToolOutcome.Success(new List<EnvironmentApiModel> { new() { EnvironmentName = "LIVE-01", EnvironmentIsProd = true } }));
-        StringAssert.Contains(await nonProdGuard.CheckEnvironmentMutationAllowedAsync("op", "LIVE-01", gateway, CancellationToken.None), "EnvironmentIsProd=true");
+        StringAssert.Contains(await nonProdGuard.CheckEnvironmentMutationAllowedAsync("op", "LIVE-01", gateway, CancellationToken.None), "EnvironmentIsProd=True");
 
-        // Environment has EnvironmentIsProd = false -> allowed
+        // Environment has EnvironmentSecure = true
+        gateway.GetAsync<List<EnvironmentApiModel>>("RefDataEnvironments?env=SEC-01", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<EnvironmentApiModel> { new() { EnvironmentName = "SEC-01", EnvironmentIsProd = false, EnvironmentSecure = true } }));
+        StringAssert.Contains(await nonProdGuard.CheckEnvironmentMutationAllowedAsync("op", "SEC-01", gateway, CancellationToken.None), "EnvironmentSecure=True");
+
+        // Environment has EnvironmentIsProd = false and EnvironmentSecure = false -> allowed
         gateway.GetAsync<List<EnvironmentApiModel>>("RefDataEnvironments?env=DEV-01", Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Success(new List<EnvironmentApiModel> { new() { EnvironmentName = "DEV-01", EnvironmentIsProd = false } }));
+            .Returns(McpToolOutcome.Success(new List<EnvironmentApiModel> { new() { EnvironmentName = "DEV-01", EnvironmentIsProd = false, EnvironmentSecure = false } }));
         Assert.IsNull(await nonProdGuard.CheckEnvironmentMutationAllowedAsync("op", "DEV-01", gateway, CancellationToken.None));
 
         // Request mutation: request lookup fails (with and without status code)
@@ -303,55 +326,98 @@ public sealed class InfrastructureAndSecurityTests
         gateway.GetAsync<DeploymentRequestApiModel>("RequestStatuses?requestId=100", Arg.Any<CancellationToken>())
             .Returns(McpToolOutcome.Success(new DeploymentRequestApiModel { Id = 100, EnvironmentName = "DEV-01" }));
         Assert.IsNull(await nonProdGuard.CheckRequestMutationAllowedAsync("op", 100, gateway, CancellationToken.None));
+
+        // Terraform plan mutation checks:
+        StringAssert.Contains(await readOnlyGuard.CheckTerraformPlanMutationAllowedAsync("op", 1, "DEV-01", gateway, CancellationToken.None), "read-only mode");
+        Assert.IsNull(await allowProdGuard.CheckTerraformPlanMutationAllowedAsync("op", 1, "PROD", gateway, CancellationToken.None));
+
+        gateway.GetAsync<TerraformPlanApiModel>("Terraform/plan/404", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Failure<TerraformPlanApiModel>("missing", 404));
+        StringAssert.Contains(await nonProdGuard.CheckTerraformPlanMutationAllowedAsync("op", 404, "DEV-01", gateway, CancellationToken.None), "HTTP 404");
+
+        gateway.GetAsync<TerraformPlanApiModel>("Terraform/plan/405", Arg.Any<CancellationToken>())
+            .Returns(new McpToolOutcome<TerraformPlanApiModel>(true, null, "empty", null));
+        StringAssert.Contains(await nonProdGuard.CheckTerraformPlanMutationAllowedAsync("op", 405, "DEV-01", gateway, CancellationToken.None), "HTTP error");
+
+        gateway.GetAsync<TerraformPlanApiModel>("Terraform/plan/406", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new TerraformPlanApiModel { Receipt = null! }));
+        StringAssert.Contains(await nonProdGuard.CheckTerraformPlanMutationAllowedAsync("op", 406, "DEV-01", gateway, CancellationToken.None), "could not determine the authoritative environment");
+
+        gateway.GetAsync<TerraformPlanApiModel>("Terraform/plan/407", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new TerraformPlanApiModel { Receipt = new TerraformDeploymentReceiptApiModel { EnvironmentName = "  " } }));
+        StringAssert.Contains(await nonProdGuard.CheckTerraformPlanMutationAllowedAsync("op", 407, "DEV-01", gateway, CancellationToken.None), "could not determine the authoritative environment");
+
+        gateway.GetAsync<TerraformPlanApiModel>("Terraform/plan/408", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new TerraformPlanApiModel { Receipt = new TerraformDeploymentReceiptApiModel { EnvironmentName = "PROD-01" } }));
+        StringAssert.Contains(await nonProdGuard.CheckTerraformPlanMutationAllowedAsync("op", 408, "DEV-01", gateway, CancellationToken.None), "does not match the Terraform plan's authoritative environment");
+
+        gateway.GetAsync<TerraformPlanApiModel>("Terraform/plan/409", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new TerraformPlanApiModel { Receipt = new TerraformDeploymentReceiptApiModel { EnvironmentName = "DEV-01" } }));
+        Assert.IsNull(await nonProdGuard.CheckTerraformPlanMutationAllowedAsync("op", 409, "DEV-01", gateway, CancellationToken.None));
+        Assert.IsNull(await nonProdGuard.CheckTerraformPlanMutationAllowedAsync("op", 409, null, gateway, CancellationToken.None));
     }
 
     [TestMethod]
     public async Task OAuthTokenAcquirer_And_BearerHandler_CoverAllFlows()
     {
+        using var dummyHttpClient = new HttpClient();
         Assert.ThrowsExactly<ArgumentNullException>(() => new OAuthTokenAcquirer(null!, new DorcApiOptions()));
-        Assert.ThrowsExactly<ArgumentNullException>(() => new OAuthTokenAcquirer(new HttpClient(), null!));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new OAuthTokenAcquirer(dummyHttpClient, null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => new BearerTokenRefreshingHandler(null!));
 
         // Missing BaseUrl
-        using (var acquirerNoUrl = new OAuthTokenAcquirer(new HttpClient(), new DorcApiOptions()))
+        using (var acquirerNoUrl = new OAuthTokenAcquirer(dummyHttpClient, new DorcApiOptions()))
         {
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 acquirerNoUrl.GetAccessTokenAsync(false, CancellationToken.None));
         }
 
         // Missing ClientId / ClientSecret
-        using (var acquirerNoClient = new OAuthTokenAcquirer(new HttpClient(), new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "id", ClientSecret = "" }))
+        using (var acquirerNoClient = new OAuthTokenAcquirer(dummyHttpClient, new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "id", ClientSecret = "" }))
         {
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 acquirerNoClient.GetAccessTokenAsync(false, CancellationToken.None));
         }
 
-        using (var acquirerNoClientId = new OAuthTokenAcquirer(new HttpClient(), new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "", ClientSecret = "sec" }))
+        using (var acquirerNoClientId = new OAuthTokenAcquirer(dummyHttpClient, new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "", ClientSecret = "sec" }))
         {
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 acquirerNoClientId.GetAccessTokenAsync(false, CancellationToken.None));
         }
 
-        // Invalid /Metadata (missing Authority)
+        // Invalid /ApiConfig (missing OAuthAuthority and blank OAuthAuthority)
         using (var badMetaHandler = new StubHttpMessageHandler((_, _) =>
             Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
             {
                 Content = new StringContent("{}", Encoding.UTF8, "application/json")
             })))
-        using (var badMetaAcquirer = new OAuthTokenAcquirer(new HttpClient(badMetaHandler), new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "c", ClientSecret = "s" }))
+        using (var badMetaClient = new HttpClient(badMetaHandler))
+        using (var badMetaAcquirer = new OAuthTokenAcquirer(badMetaClient, new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "c", ClientSecret = "s" }))
         {
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 badMetaAcquirer.GetAccessTokenAsync(false, CancellationToken.None));
         }
 
+        using (var blankMetaHandler = new StubHttpMessageHandler((_, _) =>
+            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("{\"OAuthAuthority\":\"   \"}", Encoding.UTF8, "application/json")
+            })))
+        using (var blankMetaClient = new HttpClient(blankMetaHandler))
+        using (var blankMetaAcquirer = new OAuthTokenAcquirer(blankMetaClient, new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "c", ClientSecret = "s" }))
+        {
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                blankMetaAcquirer.GetAccessTokenAsync(false, CancellationToken.None));
+        }
+
         // Invalid discovery (missing token_endpoint)
         using (var badDiscHandler = new StubHttpMessageHandler((req, _) =>
         {
-            if (req.RequestUri!.AbsolutePath.EndsWith("/Metadata", StringComparison.Ordinal))
+            if (req.RequestUri!.AbsolutePath.EndsWith("/ApiConfig", StringComparison.Ordinal))
             {
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
                 {
-                    Content = new StringContent("{\"Authority\":\"https://idp.local\"}", Encoding.UTF8, "application/json")
+                    Content = new StringContent("{\"OAuthAuthority\":\"https://idp.local\"}", Encoding.UTF8, "application/json")
                 });
             }
 
@@ -360,7 +426,8 @@ public sealed class InfrastructureAndSecurityTests
                 Content = new StringContent("{}", Encoding.UTF8, "application/json")
             });
         }))
-        using (var badDiscAcquirer = new OAuthTokenAcquirer(new HttpClient(badDiscHandler), new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "c", ClientSecret = "s" }))
+        using (var badDiscClient = new HttpClient(badDiscHandler))
+        using (var badDiscAcquirer = new OAuthTokenAcquirer(badDiscClient, new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "c", ClientSecret = "s" }))
         {
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 badDiscAcquirer.GetAccessTokenAsync(false, CancellationToken.None));
@@ -369,11 +436,11 @@ public sealed class InfrastructureAndSecurityTests
         // Invalid token response (missing access_token)
         using (var badTokenHandler = new StubHttpMessageHandler((req, _) =>
         {
-            if (req.RequestUri!.AbsolutePath.EndsWith("/Metadata", StringComparison.Ordinal))
+            if (req.RequestUri!.AbsolutePath.EndsWith("/ApiConfig", StringComparison.Ordinal))
             {
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
                 {
-                    Content = new StringContent("{\"Authority\":\"https://idp.local\"}", Encoding.UTF8, "application/json")
+                    Content = new StringContent("{\"OAuthAuthority\":\"https://idp.local\"}", Encoding.UTF8, "application/json")
                 });
             }
 
@@ -390,7 +457,8 @@ public sealed class InfrastructureAndSecurityTests
                 Content = new StringContent("{}", Encoding.UTF8, "application/json")
             });
         }))
-        using (var badTokenAcquirer = new OAuthTokenAcquirer(new HttpClient(badTokenHandler), new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "c", ClientSecret = "s", Scope = "" }))
+        using (var badTokenClient = new HttpClient(badTokenHandler))
+        using (var badTokenAcquirer = new OAuthTokenAcquirer(badTokenClient, new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "c", ClientSecret = "s", Scope = "" }))
         {
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 badTokenAcquirer.GetAccessTokenAsync(false, CancellationToken.None));
@@ -401,11 +469,11 @@ public sealed class InfrastructureAndSecurityTests
         var fakeTime = new FakeTimeProvider();
         using var oauthHandler = new StubHttpMessageHandler((req, _) =>
         {
-            if (req.RequestUri!.AbsolutePath.EndsWith("/Metadata", StringComparison.Ordinal))
+            if (req.RequestUri!.AbsolutePath.EndsWith("/ApiConfig", StringComparison.Ordinal))
             {
                 return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
                 {
-                    Content = new StringContent("{\"Authority\":\"https://idp.local\"}", Encoding.UTF8, "application/json")
+                    Content = new StringContent("{\"OAuthAuthority\":\"https://idp.local\"}", Encoding.UTF8, "application/json")
                 });
             }
 
@@ -427,8 +495,9 @@ public sealed class InfrastructureAndSecurityTests
             });
         });
 
+        using var oauthHttpClient = new HttpClient(oauthHandler);
         using var acquirer = new OAuthTokenAcquirer(
-            new HttpClient(oauthHandler),
+            oauthHttpClient,
             new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "cid", ClientSecret = "csec", Scope = "dorc-api.manage" },
             fakeTime);
 
@@ -634,10 +703,29 @@ public sealed class InfrastructureAndSecurityTests
         Assert.IsTrue(defaultMcpOpts.ReadOnly);
         Assert.IsFalse(defaultMcpOpts.AllowProd);
 
-        // Test CreateHostBuilder with both non-empty and empty BaseUrl
-        using var hostWithUrl = DorcMcpHostConfiguration.CreateHostBuilder(["--DorcApi:BaseUrl=https://dorc.local"]).Build();
+        // Test CreateHostBuilder with both non-empty and empty BaseUrl, OAuth vs Windows credentials, and ReadOnly vs non-ReadOnly
+        using var hostWithUrl = DorcMcpHostConfiguration.CreateHostBuilder([
+            "--DorcApi:BaseUrl=https://dorc.local",
+            "--DorcApi:ClientId=cid",
+            "--DorcApi:ClientSecret=csec",
+            "--DorcMcp:ReadOnly=false"
+        ]).Build();
         var gatewayWithUrl = hostWithUrl.Services.GetRequiredService<IDorcApiGateway>();
         Assert.IsNotNull(gatewayWithUrl);
+        var writableTools = hostWithUrl.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<ModelContextProtocol.Server.McpServerOptions>>().Value.ToolCollection;
+        Assert.IsNotNull(writableTools);
+        Assert.IsTrue(writableTools.Any(t => t.ProtocolTool.Annotations?.ReadOnlyHint != true));
+
+        using var hostPartialOAuth = DorcMcpHostConfiguration.CreateHostBuilder([
+            "--DorcApi:BaseUrl=https://dorc.local",
+            "--DorcApi:ClientId=",
+            "--DorcApi:ClientSecret=csec",
+            "--DorcMcp:ReadOnly=true"
+        ]).Build();
+        Assert.IsNotNull(hostPartialOAuth.Services.GetRequiredService<IDorcApiGateway>());
+        var readOnlyTools = hostPartialOAuth.Services.GetRequiredService<Microsoft.Extensions.Options.IOptions<ModelContextProtocol.Server.McpServerOptions>>().Value.ToolCollection;
+        Assert.IsNotNull(readOnlyTools);
+        Assert.IsFalse(readOnlyTools.Any(t => t.ProtocolTool.Annotations?.ReadOnlyHint != true));
 
         using var hostWithoutUrl = DorcMcpHostConfiguration.CreateHostBuilder(["--DorcApi:BaseUrl="]).Build();
         var gatewayWithoutUrl = hostWithoutUrl.Services.GetRequiredService<IDorcApiGateway>();

@@ -95,8 +95,9 @@ public sealed class TerraformCatalogTools
             return McpToolOutcome.Failure<string>("planContentSha256 is required to confirm a Terraform plan.");
         }
 
-        var guardError = await _guard.CheckEnvironmentMutationAllowedAsync(
+        var guardError = await _guard.CheckTerraformPlanMutationAllowedAsync(
             "dorc_confirm_terraform_plan",
+            deploymentResultId,
             environmentName,
             _apiGateway,
             cancellationToken).ConfigureAwait(false);
@@ -119,8 +120,9 @@ public sealed class TerraformCatalogTools
         [Description("Target environment name for production guardrail verification.")] string environmentName,
         CancellationToken cancellationToken = default)
     {
-        var guardError = await _guard.CheckEnvironmentMutationAllowedAsync(
+        var guardError = await _guard.CheckTerraformPlanMutationAllowedAsync(
             "dorc_decline_terraform_plan",
+            deploymentResultId,
             environmentName,
             _apiGateway,
             cancellationToken).ConfigureAwait(false);

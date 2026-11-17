@@ -66,17 +66,17 @@ public sealed class OAuthTokenAcquirer : IOAuthTokenAcquirer, IDisposable
         }
 
         var baseUri = new Uri(_options.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
-        var metadataUri = new Uri(baseUri, "Metadata");
+        var apiConfigUri = new Uri(baseUri, "ApiConfig");
 
-        using var metadataResponse = await _httpClient.GetAsync(metadataUri, cancellationToken).ConfigureAwait(false);
-        metadataResponse.EnsureSuccessStatusCode();
+        using var apiConfigResponse = await _httpClient.GetAsync(apiConfigUri, cancellationToken).ConfigureAwait(false);
+        apiConfigResponse.EnsureSuccessStatusCode();
 
-        var metadataJson = await metadataResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-        using var metadataDoc = JsonDocument.Parse(metadataJson);
-        if (!metadataDoc.RootElement.TryGetProperty("Authority", out var authorityProp) ||
+        var apiConfigJson = await apiConfigResponse.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+        using var apiConfigDoc = JsonDocument.Parse(apiConfigJson);
+        if (!apiConfigDoc.RootElement.TryGetProperty("OAuthAuthority", out var authorityProp) ||
             string.IsNullOrWhiteSpace(authorityProp.GetString()))
         {
-            throw new InvalidOperationException("DOrc /Metadata response did not contain a valid 'Authority' property.");
+            throw new InvalidOperationException("DOrc /ApiConfig response did not contain a valid 'OAuthAuthority' property.");
         }
 
         var authorityBase = new Uri(authorityProp.GetString()!.TrimEnd('/') + "/", UriKind.Absolute);
