@@ -145,7 +145,7 @@ namespace Dorc.Core.VariableResolution
                 {
                     _variableScopeOptionsResolver.SetPropertyValues(scopeCollector, environment);
                 }
-                catch
+                catch (InvalidOperationException)
                 {
                     // Tag collision or missing details should not abort preview of other variables
                 }

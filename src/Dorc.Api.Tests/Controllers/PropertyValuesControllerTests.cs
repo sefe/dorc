@@ -279,8 +279,9 @@ namespace Dorc.Api.Tests.Controllers
         public void ResolvePreview_ValidatesRequestAndEnvironmentAuthorization_AndReturnsTraces()
         {
             // 1. Null request -> 400 BadRequest
-            var nullRes = _controller.ResolvePreview(null!) as BadRequestObjectResult;
-            Assert.IsNotNull(nullRes);
+            var nullActionResult = _controller.ResolvePreview(null!);
+            Assert.IsInstanceOfType(nullActionResult, typeof(BadRequestObjectResult));
+            var nullRes = (BadRequestObjectResult)nullActionResult;
             Assert.AreEqual(StatusCodes.Status400BadRequest, nullRes.StatusCode);
 
             // 2. Non-existent environment -> 400 BadRequest
@@ -290,8 +291,9 @@ namespace Dorc.Api.Tests.Controllers
                 EnvironmentName = "  MissingEnv  ",
                 PropertyNames = new List<string> { "PropA" }
             };
-            var missingEnvRes = _controller.ResolvePreview(missingEnvReq) as BadRequestObjectResult;
-            Assert.IsNotNull(missingEnvRes);
+            var missingEnvActionResult = _controller.ResolvePreview(missingEnvReq);
+            Assert.IsInstanceOfType(missingEnvActionResult, typeof(BadRequestObjectResult));
+            var missingEnvRes = (BadRequestObjectResult)missingEnvActionResult;
             Assert.AreEqual(StatusCodes.Status400BadRequest, missingEnvRes.StatusCode);
 
             // 3. Unauthorized environment (GetEnvironment returns null) -> 403 Forbidden
@@ -302,8 +304,9 @@ namespace Dorc.Api.Tests.Controllers
                 EnvironmentName = "RestrictedEnv",
                 PropertyNames = new List<string> { "PropA" }
             };
-            var restrictedRes = _controller.ResolvePreview(restrictedReq) as StatusCodeResult;
-            Assert.IsNotNull(restrictedRes);
+            var restrictedActionResult = _controller.ResolvePreview(restrictedReq);
+            Assert.IsInstanceOfType(restrictedActionResult, typeof(StatusCodeResult));
+            var restrictedRes = (StatusCodeResult)restrictedActionResult;
             Assert.AreEqual(StatusCodes.Status403Forbidden, restrictedRes.StatusCode);
 
             // 4. Authorized environment -> enriches owner emails and returns traces
@@ -329,8 +332,9 @@ namespace Dorc.Api.Tests.Controllers
                 EnvironmentName = "DevEnv",
                 PropertyNames = new List<string> { "PropA" }
             };
-            var validEnvRes = _controller.ResolvePreview(validEnvReq) as OkObjectResult;
-            Assert.IsNotNull(validEnvRes);
+            var validEnvActionResult = _controller.ResolvePreview(validEnvReq);
+            Assert.IsInstanceOfType(validEnvActionResult, typeof(OkObjectResult));
+            var validEnvRes = (OkObjectResult)validEnvActionResult;
             Assert.AreEqual(expectedTraces, validEnvRes.Value);
 
             // 5. Global-only preview (no environmentName) -> passes null environment to tracer
@@ -341,8 +345,9 @@ namespace Dorc.Api.Tests.Controllers
                 EnvironmentName = "",
                 PropertyNames = new List<string> { "PropA" }
             };
-            var globalRes = _controller.ResolvePreview(globalReq) as OkObjectResult;
-            Assert.IsNotNull(globalRes);
+            var globalActionResult = _controller.ResolvePreview(globalReq);
+            Assert.IsInstanceOfType(globalActionResult, typeof(OkObjectResult));
+            var globalRes = (OkObjectResult)globalActionResult;
             Assert.AreEqual(expectedTraces, globalRes.Value);
         }
     }
