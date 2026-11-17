@@ -21,24 +21,49 @@ public sealed class McpToolGroupsTests
         var tools = new DeploymentRequestTools(gateway, allowGuard);
         var roTools = new DeploymentRequestTools(gateway, readOnlyGuard);
 
-        // SearchDeploymentRequestsAsync with and without filters
+        // SearchDeploymentRequestsAsync with and without filters, plus RequestDetails XML redaction
+        var searchXmlWithSecret = "<DeploymentRequestDetail><Properties><PropertyPair><Name>DatabasePassword</Name><Value>unflagged-secret</Value></PropertyPair></Properties></DeploymentRequestDetail>";
         gateway.PutAsync<PagedDataOperators, GetRequestStatusesListResponseDto>(
                 "RequestStatuses?page=1&limit=100",
                 Arg.Any<PagedDataOperators>(),
                 Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Success(new GetRequestStatusesListResponseDto { TotalItems = 1 }));
+            .Returns(McpToolOutcome.Success(new GetRequestStatusesListResponseDto
+            {
+                TotalItems = 2,
+                Items =
+                [
+                    new DeploymentRequestApiModel { Id = 1, RequestDetails = searchXmlWithSecret },
+                    new DeploymentRequestApiModel { Id = 2, RequestDetails = string.Empty }
+                ]
+            }));
 
         var search1 = await tools.SearchDeploymentRequestsAsync(0, 200, "ProjA", "DEV", "Failed", "alice");
         Assert.IsTrue(search1.Succeeded);
+        Assert.IsFalse(search1.Data!.Items[0].RequestDetails.Contains("unflagged-secret", StringComparison.Ordinal));
+        StringAssert.Contains(search1.Data.Items[0].RequestDetails, SecretRedactor.RedactedMarker);
 
         gateway.PutAsync<PagedDataOperators, GetRequestStatusesListResponseDto>(
                 "RequestStatuses?page=2&limit=10",
                 Arg.Is<PagedDataOperators>(op => op.Filters.Count == 0),
                 Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Success(new GetRequestStatusesListResponseDto { TotalItems = 0 }));
+            .Returns(McpToolOutcome.Success(new GetRequestStatusesListResponseDto { TotalItems = 0, Items = null! }));
 
         var search2 = await tools.SearchDeploymentRequestsAsync(2, 10);
         Assert.IsTrue(search2.Succeeded);
+
+        gateway.PutAsync<PagedDataOperators, GetRequestStatusesListResponseDto>(
+                "RequestStatuses?page=3&limit=10",
+                Arg.Any<PagedDataOperators>(),
+                Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Failure<GetRequestStatusesListResponseDto>("err", 500));
+        Assert.IsFalse((await tools.SearchDeploymentRequestsAsync(3, 10)).Succeeded);
+
+        gateway.PutAsync<PagedDataOperators, GetRequestStatusesListResponseDto>(
+                "RequestStatuses?page=4&limit=10",
+                Arg.Any<PagedDataOperators>(),
+                Arg.Any<CancellationToken>())
+            .Returns(new McpToolOutcome<GetRequestStatusesListResponseDto>(true, null, null, 200));
+        Assert.IsTrue((await tools.SearchDeploymentRequestsAsync(4, 10)).Succeeded);
 
         // GetDeploymentRequestAsync: success with XML redaction, success with empty XML, and failure
         var xmlWithSecret = "<DeploymentRequestDetail><Properties><PropertyPair><Name>SecretKey</Name><Value>my-secret</Value><IsSensitive>true</IsSensitive></PropertyPair></Properties></DeploymentRequestDetail>";
@@ -90,7 +115,7 @@ public sealed class McpToolGroupsTests
             .Returns(McpToolOutcome.Failure<string>("missing", 404));
         Assert.IsFalse((await tools.GetDeploymentAttemptLogAsync(10, 31)).Succeeded);
 
-        // Request log: visibility check fails (with error and with null error), log fetch fails, log fetch succeeds
+        // Request log: visibility check fails (with error and with null error), or succeeds using Data.Log directly (with and without HttpStatusCode)
         gateway.GetAsync<DeploymentRequestApiModel>("RequestStatuses?requestId=90", Arg.Any<CancellationToken>())
             .Returns(McpToolOutcome.Failure<DeploymentRequestApiModel>("forbidden", 403));
         Assert.IsFalse((await tools.GetDeploymentRequestLogAsync(90)).Succeeded);
@@ -100,15 +125,11 @@ public sealed class McpToolGroupsTests
         StringAssert.Contains((await tools.GetDeploymentRequestLogAsync(91)).Error!, "not found");
 
         gateway.GetAsync<DeploymentRequestApiModel>("RequestStatuses?requestId=92", Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Success(new DeploymentRequestApiModel { Id = 92 }));
-        gateway.GetStringAsync("RequestStatuses/Log?requestId=92", Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Failure<string>("log error", 500));
-        Assert.IsFalse((await tools.GetDeploymentRequestLogAsync(92)).Succeeded);
+            .Returns(new McpToolOutcome<DeploymentRequestApiModel>(true, new DeploymentRequestApiModel { Id = 92, Log = "req-log-null-status" }, null, null));
+        Assert.AreEqual("req-log-null-status", (await tools.GetDeploymentRequestLogAsync(92)).Data);
 
         gateway.GetAsync<DeploymentRequestApiModel>("RequestStatuses?requestId=93", Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Success(new DeploymentRequestApiModel { Id = 93 }));
-        gateway.GetStringAsync("RequestStatuses/Log?requestId=93", Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Success("req-log-ok", 200));
+            .Returns(McpToolOutcome.Success(new DeploymentRequestApiModel { Id = 93, Log = "req-log-ok" }, 200));
         Assert.AreEqual("req-log-ok", (await tools.GetDeploymentRequestLogAsync(93)).Data);
 
         // Mutations: blocked by guard vs allowed

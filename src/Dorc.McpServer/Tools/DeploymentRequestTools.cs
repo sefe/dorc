@@ -49,10 +49,23 @@ public sealed class DeploymentRequestTools
             ]
         };
 
-        return await _apiGateway.PutAsync<PagedDataOperators, GetRequestStatusesListResponseDto>(
+        var outcome = await _apiGateway.PutAsync<PagedDataOperators, GetRequestStatusesListResponseDto>(
             $"RequestStatuses?page={safePage}&limit={safeLimit}",
             operators,
             cancellationToken).ConfigureAwait(false);
+
+        if (outcome.Succeeded && outcome.Data?.Items is not null)
+        {
+            foreach (var item in outcome.Data.Items)
+            {
+                if (!string.IsNullOrEmpty(item.RequestDetails))
+                {
+                    item.RequestDetails = SecretRedactor.RedactRequestDetailsXml(item.RequestDetails);
+                }
+            }
+        }
+
+        return outcome;
     }
 
     [McpServerTool(Name = "dorc_get_deployment_request", ReadOnly = true)]
@@ -67,7 +80,7 @@ public sealed class DeploymentRequestTools
 
         if (outcome.Succeeded && outcome.Data is not null && !string.IsNullOrEmpty(outcome.Data.RequestDetails))
         {
-            outcome.Data.RequestDetails = RequestPropertyRedaction.RedactRequestDetailsXml(outcome.Data.RequestDetails);
+            outcome.Data.RequestDetails = SecretRedactor.RedactRequestDetailsXml(outcome.Data.RequestDetails);
         }
 
         return outcome;
@@ -164,16 +177,9 @@ public sealed class DeploymentRequestTools
                 requestCheck.HttpStatusCode);
         }
 
-        var logOutcome = await _apiGateway.GetStringAsync(
-            $"RequestStatuses/Log?requestId={requestId}",
-            cancellationToken).ConfigureAwait(false);
-
-        if (!logOutcome.Succeeded)
-        {
-            return logOutcome;
-        }
-
-        return McpToolOutcome.Success(LogTruncator.TruncateTail(logOutcome.Data, maxCharacters), logOutcome.HttpStatusCode ?? 200);
+        return McpToolOutcome.Success(
+            LogTruncator.TruncateTail(requestCheck.Data.Log, maxCharacters),
+            requestCheck.HttpStatusCode ?? 200);
     }
 
     [McpServerTool(Name = "dorc_create_deployment_request", Destructive = true)]

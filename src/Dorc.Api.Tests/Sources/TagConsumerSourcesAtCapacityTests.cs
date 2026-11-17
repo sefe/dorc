@@ -98,5 +98,42 @@ namespace Dorc.Api.Tests.Sources
             Assert.AreEqual(1, result.Count);
             Assert.AreEqual("app01", result[0].Name);
         }
+
+        [TestMethod]
+        public void ServersSource_GetEnvContentAppServersForEnvId_IncludesServerEnvironments()
+        {
+            var contextFactory = Substitute.For<IDeploymentContextFactory>();
+            var context = Substitute.For<IDeploymentContext>();
+            contextFactory.GetContext().Returns(context);
+
+            var devEnv = new Environment { Id = 5, Name = "DV 01" };
+            var prodEnv = new Environment { Id = 6, Name = "PRD 01" };
+            var sharedServer = new Server
+            {
+                Id = 10,
+                Name = "app01",
+                OsName = "Windows",
+                TagLinks = ServerTagsFor(10, ["appserver"]),
+                Environments = new List<Environment> { devEnv, prodEnv }
+            };
+
+            var envSet = DbContextMock.GetQueryableMockDbSet(new List<Environment> { devEnv, prodEnv });
+            var serverSet = DbContextMock.GetQueryableMockDbSet(new List<Server> { sharedServer });
+            context.Environments.Returns(envSet);
+            context.Servers.Returns(serverSet);
+
+            var source = new ServersPersistentSource(
+                contextFactory,
+                Substitute.For<Dorc.PersistentData.IRolePrivilegesChecker>(),
+                Substitute.For<Dorc.PersistentData.IClaimsPrincipalReader>());
+
+            var missingResult = source.GetEnvContentAppServersForEnvId(999).ToList();
+            Assert.AreEqual(0, missingResult.Count);
+
+            var result = source.GetEnvContentAppServersForEnvId(5).ToList();
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual("app01", result[0].Name);
+            CollectionAssert.AreEquivalent(new[] { "DV 01", "PRD 01" }, result[0].EnvironmentNames.ToList());
+        }
     }
 }

@@ -1,4 +1,8 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using System.Xml;
+using System.Xml.Linq;
 using Dorc.ApiModel;
 
 namespace Dorc.McpServer;
@@ -150,7 +154,6 @@ public static class SecretRedactor
             return [];
         }
 
-        var options = DorcJsonSerialization.CreateOptions();
         var redacted = new List<BundledRequestsApiModel>();
 
         foreach (var item in items)
@@ -163,50 +166,124 @@ public static class SecretRedactor
                 Type = item.Type,
                 RequestName = item.RequestName,
                 Sequence = item.Sequence,
-                Request = RedactBundledRequestJson(item.Request, options)
+                Request = RedactBundledRequestJson(item.Request)
             });
         }
 
         return redacted;
     }
 
-    public static string? RedactBundledRequestJson(string? requestJson, System.Text.Json.JsonSerializerOptions? options = null)
+    public static string? RedactBundledRequestJson(string? requestJson)
     {
         if (string.IsNullOrWhiteSpace(requestJson))
         {
             return requestJson;
         }
 
-        var serializerOptions = options ?? DorcJsonSerialization.CreateOptions();
         try
         {
-            var dto = System.Text.Json.JsonSerializer.Deserialize<RequestDto>(requestJson, serializerOptions);
-            if (dto is null)
+            var rootNode = JsonNode.Parse(requestJson);
+            if (rootNode is not JsonObject rootObj)
             {
                 return RedactedMarker;
             }
 
-            if (dto.RequestProperties is not null)
+            foreach (var kvp in rootObj.ToList())
             {
-                dto.RequestProperties = dto.RequestProperties
-                    .Select(p =>
+                if (string.Equals(kvp.Key, "RequestProperties", StringComparison.OrdinalIgnoreCase) &&
+                    kvp.Value is JsonArray propsArray)
+                {
+                    foreach (var propNode in propsArray)
                     {
-                        var isSensitive = p.IsSensitive || IsLikelySensitiveName(p.PropertyName);
-                        return new RequestProperty
+                        if (propNode is not JsonObject propObj)
                         {
-                            PropertyName = p.PropertyName,
-                            PropertyValue = isSensitive ? RedactedMarker : p.PropertyValue,
-                            IsSensitive = p.IsSensitive
-                        };
-                    })
-                    .ToList();
+                            continue;
+                        }
+
+                        var propName = GetCaseInsensitiveProperty(propObj, "PropertyName")?.GetValue<string>();
+                        var isSensitiveNode = GetCaseInsensitiveProperty(propObj, "IsSensitive");
+                        var isSensitive = isSensitiveNode is not null &&
+                                          (isSensitiveNode.GetValueKind() == JsonValueKind.True ||
+                                           (isSensitiveNode.GetValueKind() == JsonValueKind.String &&
+                                            bool.TryParse(isSensitiveNode.GetValue<string>(), out var parsed) &&
+                                            parsed));
+
+                        if (isSensitive || IsLikelySensitiveName(propName))
+                        {
+                            SetCaseInsensitiveProperty(propObj, "PropertyValue", RedactedMarker);
+                        }
+                    }
+                }
             }
 
-            return System.Text.Json.JsonSerializer.Serialize(dto, serializerOptions);
+            return rootObj.ToJsonString();
         }
-        catch (System.Text.Json.JsonException)
+        catch (JsonException)
         {
             return RedactedMarker;
         }
+    }
+
+    public static string? RedactRequestDetailsXml(string? requestDetailsXml)
+    {
+        if (string.IsNullOrWhiteSpace(requestDetailsXml))
+        {
+            return requestDetailsXml;
+        }
+
+        try
+        {
+            var root = XElement.Parse(requestDetailsXml);
+            foreach (var propertyPair in root.Descendants("PropertyPair"))
+            {
+                var nameElement = propertyPair.Element("Name");
+                var sensitiveElement = propertyPair.Element("IsSensitive");
+                var isFlaggedSensitive = sensitiveElement is not null &&
+                                         bool.TryParse(sensitiveElement.Value, out var parsed) &&
+                                         parsed;
+
+                if (isFlaggedSensitive || IsLikelySensitiveName(nameElement?.Value))
+                {
+                    var valueElement = propertyPair.Element("Value");
+                    if (valueElement is not null)
+                    {
+                        valueElement.Value = RedactedMarker;
+                    }
+                }
+            }
+
+            return root.ToString(SaveOptions.DisableFormatting);
+        }
+        catch (XmlException)
+        {
+            return RedactedMarker;
+        }
+    }
+
+    private static JsonNode? GetCaseInsensitiveProperty(JsonObject obj, string propertyName)
+    {
+        foreach (var kvp in obj)
+        {
+            if (string.Equals(kvp.Key, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                return kvp.Value;
+            }
+        }
+
+        return null;
+    }
+
+    private static void SetCaseInsensitiveProperty(JsonObject obj, string propertyName, string value)
+    {
+        foreach (var kvp in obj.ToList())
+        {
+            if (string.Equals(kvp.Key, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                obj[kvp.Key] = value;
+                return;
+            }
+        }
+
+        obj[propertyName] = value;
     }
 }

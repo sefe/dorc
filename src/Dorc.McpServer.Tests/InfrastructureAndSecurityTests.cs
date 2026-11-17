@@ -282,11 +282,23 @@ public sealed class InfrastructureAndSecurityTests
         Assert.IsNull(SecretRedactor.RedactBundledRequestJson(null));
         Assert.AreEqual("   ", SecretRedactor.RedactBundledRequestJson("   "));
         Assert.AreEqual(SecretRedactor.RedactedMarker, SecretRedactor.RedactBundledRequestJson("null"));
+        Assert.AreEqual(SecretRedactor.RedactedMarker, SecretRedactor.RedactBundledRequestJson("[1,2,3]"));
         Assert.AreEqual(SecretRedactor.RedactedMarker, SecretRedactor.RedactBundledRequestJson("{not-valid-json"));
 
         var reqDtoWithNullPropsJson = "{\"Project\":\"P\",\"RequestProperties\":null}";
         var redactedNullProps = SecretRedactor.RedactBundledRequestJson(reqDtoWithNullPropsJson);
         StringAssert.Contains(redactedNullProps, "\"Project\":\"P\"");
+
+        var copyEnvBuildJson = "{\"SourceEnvironmentName\":\"PROD-01\",\"ProjectName\":\"Proj1\",\"Components\":[10,20]}";
+        var redactedCopyEnvBuild = SecretRedactor.RedactBundledRequestJson(copyEnvBuildJson);
+        StringAssert.Contains(redactedCopyEnvBuild, "\"SourceEnvironmentName\":\"PROD-01\"");
+        StringAssert.Contains(redactedCopyEnvBuild, "\"ProjectName\":\"Proj1\"");
+        StringAssert.Contains(redactedCopyEnvBuild, "[10,20]");
+
+        var edgeCasesPropsJson = "{\"RequestProperties\":[\"not-an-object\",{\"OtherProp\":123},{\"PropertyName\":\"ApiSecret\"},{\"PropertyName\":\"StringFlag\",\"PropertyValue\":\"sec-str\",\"IsSensitive\":\"true\"},{\"PropertyName\":\"FalseStrFlag\",\"PropertyValue\":\"pub-str\",\"IsSensitive\":\"false\"}]}";
+        var redactedEdgeCases = SecretRedactor.RedactBundledRequestJson(edgeCasesPropsJson);
+        Assert.IsFalse(redactedEdgeCases!.Contains("sec-str", StringComparison.Ordinal));
+        StringAssert.Contains(redactedEdgeCases, "pub-str");
 
         var bundleRequestDto = new RequestDto
         {
@@ -318,6 +330,25 @@ public sealed class InfrastructureAndSecurityTests
         Assert.IsFalse(redactedBundles[0].Request.Contains("flag-secret", StringComparison.Ordinal));
         Assert.IsFalse(redactedBundles[0].Request.Contains("name-secret", StringComparison.Ordinal));
         StringAssert.Contains(redactedBundles[0].Request, SecretRedactor.RedactedMarker);
+
+        // RequestDetails XML redaction
+        Assert.IsNull(SecretRedactor.RedactRequestDetailsXml(null));
+        Assert.AreEqual("   ", SecretRedactor.RedactRequestDetailsXml("   "));
+        Assert.AreEqual(SecretRedactor.RedactedMarker, SecretRedactor.RedactRequestDetailsXml("<unclosed"));
+
+        var xmlPayload =
+            "<DeploymentRequestDetail><Properties>" +
+            "<PropertyPair><Name>PublicSetting</Name><Value>visible-val</Value><IsSensitive>false</IsSensitive></PropertyPair>" +
+            "<PropertyPair><Name>FlaggedProp</Name><Value>flagged-secret</Value><IsSensitive>true</IsSensitive></PropertyPair>" +
+            "<PropertyPair><Name>DatabasePassword</Name><Value>legacy-unflagged-secret</Value></PropertyPair>" +
+            "<PropertyPair><Name>PasswordNoValue</Name><IsSensitive>true</IsSensitive></PropertyPair>" +
+            "<PropertyPair><Value>orphan-val</Value></PropertyPair>" +
+            "</Properties></DeploymentRequestDetail>";
+        var redactedXml = SecretRedactor.RedactRequestDetailsXml(xmlPayload);
+        StringAssert.Contains(redactedXml, "visible-val");
+        Assert.IsFalse(redactedXml!.Contains("flagged-secret", StringComparison.Ordinal));
+        Assert.IsFalse(redactedXml.Contains("legacy-unflagged-secret", StringComparison.Ordinal));
+        StringAssert.Contains(redactedXml, SecretRedactor.RedactedMarker);
     }
 
     [TestMethod]
