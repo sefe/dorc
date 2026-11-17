@@ -103,7 +103,9 @@ export class PageProjectRefData extends PageElement {
   @state() private loading = false;
   @state() private saving = false;
   @state() private error = '';
-  @state() private powerShellVersions: string[] = [];
+  @state() private powerShellVersions: string[] = [
+    ...FALLBACK_POWERSHELL_VERSIONS
+  ];
   @state() private jsonDirty = false;
   @state() private backendEnvironments: EnvironmentApiModel[] = [];
   @state() private backendEnvironmentError = '';
@@ -638,14 +640,15 @@ export class PageProjectRefData extends PageElement {
       .powerShellVersionsGet()
       .subscribe({
         next: versions => {
-          this.powerShellVersions = versions
+          const loaded = versions
             .map(version => version.Value)
             .filter((version): version is string => Boolean(version));
+          this.powerShellVersions = loaded.length
+            ? loaded
+            : [...FALLBACK_POWERSHELL_VERSIONS];
         },
-        error: error => {
-          this.error =
-            retrieveErrorMessage(error) ||
-            'Could not load supported PowerShell versions.';
+        error: () => {
+          this.powerShellVersions = [...FALLBACK_POWERSHELL_VERSIONS];
         }
       });
   }
@@ -1901,11 +1904,7 @@ export class PageProjectRefData extends PageElement {
                         ></vaadin-text-field>
                         <vaadin-combo-box
                           label="PowerShell version"
-                          .items=${
-                            this.powerShellVersions.length
-                              ? this.powerShellVersions
-                              : [...FALLBACK_POWERSHELL_VERSIONS]
-                          }
+                          .items=${this.powerShellVersions}
                           .value=${this.genericDialogPsVersion}
                           @change=${(event: Event) => {
                             this.genericDialogPsVersion =

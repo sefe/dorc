@@ -343,8 +343,7 @@ namespace Dorc.Monitor
         {
             string deploymentRunnerPath;
 
-            if (string.IsNullOrEmpty(powerShellVersionNumber)
-                || powerShellVersionNumber.Equals(PowerShellVersion.V5_1.ToVersionString()))     
+            if (string.Equals(powerShellVersionNumber, PowerShellVersion.V5_1.ToVersionString(), StringComparison.Ordinal))
             {
                 deploymentRunnerPath = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
                 .GetSection("AppSettings")["DotNetFrameworkDeploymentRunnerPath"]!;

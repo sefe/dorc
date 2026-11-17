@@ -39,6 +39,7 @@ const mocks = vi.hoisted(() => ({
   previewUpgrade: vi.fn(),
   upgrade: vi.fn(),
   cloudResources: vi.fn(),
+  definitions: vi.fn(),
   navigate: vi.fn()
 }));
 
@@ -56,6 +57,9 @@ vi.mock('../../src/apis/dorc-api', async importOriginal => ({
   },
   RefDataCloudResourcesApi: class {
     refDataCloudResourcesByEnvIdEnvIdGet = mocks.cloudResources;
+  },
+  DeploymentDefinitionsApi: class {
+    deploymentDefinitionsGet = mocks.definitions;
   },
   TerraformApi: class {
     terraformTemplateInstantiatePost = mocks.instantiate;
@@ -1212,6 +1216,101 @@ describe('module catalog discovery', () => {
     toggle();
     await settle();
     expect(host.shadowRoot!.querySelector('.detail')).to.equal(null);
+  });
+
+  it('defaults PowerShell scripts in the module catalog to v7 and preserves explicit v5.1 both with and without a project context', async () => {
+    mocks.definitions.mockReturnValue(
+      of({
+        Items: [
+          {
+            ProjectId: 7,
+            ProjectName: 'ExampleProject',
+            Component: {
+              ComponentId: 50,
+              ComponentName: 'Legacy Step',
+              ComponentType: ComponentType.PowerShell,
+              ScriptPath: 'legacy/step.ps1',
+              PSVersion: 'v5.1',
+              NonProdOnly: true,
+              StopOnFailure: false
+            }
+          },
+          {
+            ProjectId: 7,
+            ProjectName: 'ExampleProject',
+            Component: {
+              ComponentId: 51,
+              ComponentName: 'Default Step',
+              ComponentType: ComponentType.PowerShell,
+              ScriptPath: 'modern/step.ps1',
+              PSVersion: undefined,
+              NonProdOnly: false,
+              StopOnFailure: true
+            }
+          }
+        ],
+        TotalItems: 2
+      })
+    );
+
+    history.replaceState(
+      null,
+      '',
+      '/module-catalog?project=ExampleProject&projectId=7'
+    );
+    const withProject = await fixture<PageModuleCatalog>(
+      html`<page-module-catalog></page-module-catalog>`
+    );
+    await settle();
+    await click(withProject.shadowRoot!, 'PowerShell Scripts');
+    const linksWithProject = Array.from(
+      withProject.shadowRoot!.querySelectorAll<HTMLAnchorElement>(
+        '.card-actions a'
+      )
+    ).map(a => a.getAttribute('href') ?? '');
+    expect(
+      linksWithProject.some(
+        href =>
+          href.includes('addScriptName=Deploy%20MSI') &&
+          href.includes('addPsVersion=v7')
+      )
+    ).to.equal(true);
+    expect(
+      linksWithProject.some(
+        href =>
+          href.includes('addScriptName=Legacy%20Step') &&
+          href.includes('addPsVersion=v5.1')
+      )
+    ).to.equal(true);
+    expect(
+      linksWithProject.some(
+        href =>
+          href.includes('addScriptName=Default%20Step') &&
+          href.includes('addPsVersion=v7')
+      )
+    ).to.equal(true);
+    const pills = Array.from(
+      withProject.shadowRoot!.querySelectorAll('.pill')
+    ).map(el => el.textContent?.trim());
+    expect(pills).to.include('PS v5.1');
+    expect(pills).to.include('PS v7');
+    withProject.remove();
+
+    history.replaceState(null, '', '/module-catalog');
+    const withoutProject = await fixture<PageModuleCatalog>(
+      html`<page-module-catalog></page-module-catalog>`
+    );
+    await settle();
+    await click(withoutProject.shadowRoot!, 'PowerShell Scripts');
+    const linksWithoutProject = Array.from(
+      withoutProject.shadowRoot!.querySelectorAll<HTMLAnchorElement>(
+        '.card-actions a'
+      )
+    ).map(a => a.getAttribute('href') ?? '');
+    expect(linksWithoutProject.every(href => href === '/scripts')).to.equal(
+      true
+    );
+    history.replaceState(null, '', '/');
   });
 });
 

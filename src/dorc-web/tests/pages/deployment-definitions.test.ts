@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   projects: vi.fn(),
   deleteProject: vi.fn(),
   confirm: vi.fn(),
+  psVersions: vi.fn(),
   editor: { value: '', change: () => {} }
 }));
 vi.mock('../../src/components/confirm-prompt', () => ({
@@ -49,7 +50,7 @@ vi.mock('../../src/apis/dorc-api', async importOriginal => ({
     refDataPut = mocks.save;
   },
   PowerShellVersionsApi: class {
-    powerShellVersionsGet = () => of([{ Value: 'v5.1' }, { Value: 'v7' }]);
+    powerShellVersionsGet = mocks.psVersions;
   },
   RefDataProjectsApi: class {
     refDataProjectsGet = mocks.projects;
@@ -155,6 +156,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   history.replaceState(null, '', '/project-ref-data/7');
   mocks.get.mockReturnValue(of(reference()));
+  mocks.psVersions.mockReturnValue(of([{ Value: 'v5.1' }, { Value: 'v7' }]));
   mocks.save.mockImplementation(({ refDataApiModel }) =>
     of({ ...refDataApiModel, Revision: 'revision-2' })
   );
@@ -900,6 +902,8 @@ describe('definition history and discovery', () => {
 
     clickButton(page.shadowRoot!, 'Add child');
     await settle();
+    clickButton(page.shadowRoot!, 'Clone sibling');
+    await settle();
     clickButton(page.shadowRoot!, 'Add component');
     await settle();
 
@@ -910,6 +914,124 @@ describe('definition history and discovery', () => {
 
     const saved = mocks.save.mock.calls[0][0].refDataApiModel;
     expect(saved.Components[0].Children[0].PSVersion).to.equal('v7');
+    expect(saved.Components[0].Children[1].PSVersion).to.equal('v7');
     expect(saved.Components[1].PSVersion).to.equal('v7');
+  });
+
+  it('covers PowerShell version fallbacks on empty/error API responses, URL addScriptPath handoffs, and generic/catalog script fallbacks', async () => {
+    mocks.psVersions
+      .mockReturnValueOnce(of([]))
+      .mockReturnValueOnce(throwError(() => new Error('network error')));
+    mocks.definitions.mockReturnValue(
+      of({
+        Items: [
+          {
+            ProjectId: 7,
+            ProjectName: 'Payments',
+            Component: {
+              ComponentId: 43,
+              ComponentName: 'Unversioned Script',
+              ComponentType: ComponentType.PowerShell,
+              ScriptPath: 'common/unversioned.ps1',
+              PSVersion: undefined,
+              IsEnabled: true,
+              StopOnFailure: true,
+              NonProdOnly: false
+            }
+          }
+        ],
+        TotalItems: 1
+      })
+    );
+
+    // 1. Empty versions list + URL addScriptPath without addPsVersion (uses DEFAULT_POWERSHELL_VERSION)
+    history.replaceState(
+      null,
+      '',
+      '/project-ref-data/7?addScriptPath=common/url-default.ps1&addScriptName=UrlDefault'
+    );
+    const page1 = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+    const editor1 = page1.shadowRoot!.querySelector(
+      'deployment-definition-editor'
+    ) as HTMLElement & { powerShellVersions: string[] };
+    expect(editor1.powerShellVersions).to.deep.equal(['v5.1', 'v7']);
+    clickButton(page1.shadowRoot!, 'Clone sibling');
+    await settle();
+    page1.remove();
+
+    // 2. Error response on powerShellVersionsGet + URL addScriptPath with explicit addPsVersion=v5.1
+    history.replaceState(
+      null,
+      '',
+      '/project-ref-data/7?addScriptPath=common/url-v5.ps1&addScriptName=UrlExplicit&addPsVersion=v5.1'
+    );
+    const page2 = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+    const editor2 = page2.shadowRoot!.querySelector(
+      'deployment-definition-editor'
+    ) as HTMLElement & { powerShellVersions: string[] };
+    expect(editor2.powerShellVersions).to.deep.equal(['v5.1', 'v7']);
+
+    clickButton(page2.shadowRoot!, 'Script catalog');
+    await settle();
+    const dialog = page2.shadowRoot!.querySelector('.script-catalog-dialog')!;
+    expect(dialog.textContent).to.include('common/unversioned.ps1');
+    expect(dialog.textContent).to.include('(v7)');
+
+    const psCombo = [
+      ...dialog.querySelectorAll<
+        HTMLElement & { label: string; value: string }
+      >('vaadin-combo-box')
+    ].find(combo => combo.label === 'PowerShell version')!;
+    psCombo.value = 'v5.1';
+    psCombo.dispatchEvent(new Event('change'));
+    await settle();
+    psCombo.value = '';
+    psCombo.dispatchEvent(new Event('change'));
+    await settle();
+    (
+      page2 as unknown as { genericDialogPsVersion: string }
+    ).genericDialogPsVersion = '';
+
+    const msiField = [
+      ...dialog.querySelectorAll<TextField>('vaadin-text-field')
+    ].find(field => field.label === 'MSI file name (msiName)')!;
+    msiField.value = 'Fallback.Service.msi';
+    msiField.dispatchEvent(new Event('input'));
+    await settle();
+
+    clickButton(page2.shadowRoot!, 'Add "Deploy MSI Package" as sibling');
+    await settle();
+
+    clickButton(page2.shadowRoot!, 'Script catalog');
+    await settle();
+    clickButton(page2.shadowRoot!, 'Insert sibling');
+    await settle();
+
+    clickButton(page2.shadowRoot!, 'Review changes');
+    await settle();
+    clickButton(page2.shadowRoot!, 'Confirm save');
+    await settle();
+
+    const saved = mocks.save.mock.calls[0][0].refDataApiModel;
+    expect(saved.Components[1]).to.include({
+      ComponentName: 'UrlExplicit',
+      ScriptPath: 'common/url-v5.ps1',
+      PSVersion: 'v5.1'
+    });
+    expect(saved.Components[2]).to.include({
+      ComponentName: 'Deploy MSI',
+      PSVersion: 'v7'
+    });
+    expect(saved.Components[3]).to.include({
+      ComponentName: 'Unversioned Script',
+      ScriptPath: 'common/unversioned.ps1',
+      PSVersion: 'v7'
+    });
   });
 });
