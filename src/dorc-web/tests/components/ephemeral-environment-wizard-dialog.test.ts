@@ -9,7 +9,6 @@ import {
   setTheme,
   settle
 } from '../_helpers';
-import type { Checkbox } from '@vaadin/checkbox';
 import type { NumberField } from '@vaadin/number-field';
 import type { TextField } from '@vaadin/text-field';
 import type {
@@ -406,92 +405,44 @@ describe('EphemeralEnvironmentWizardDialog', () => {
     expect(spinUpBtn.disabled).to.equal(true);
   });
 
-  it('creates and edits Blueprint Templates in the inline Template Builder', async () => {
+  it('navigates to the Project Blueprints workspace tab and supports pre-selecting a template by templateId', async () => {
+    const secondTemplate: EnvironmentTemplateApiModel = {
+      ...sampleTemplate,
+      Id: 88,
+      Name: 'Traveler UT Dedicated Blueprint',
+      DefaultTier: 'ut',
+      DefaultTtlMinutes: 360
+    };
+    mocks.getTemplates.mockReturnValue(of([sampleTemplate, secondTemplate]));
+
     const el = await fixture<EphemeralEnvironmentWizardDialog>(html`
       <ephemeral-environment-wizard-dialog></ephemeral-environment-wizard-dialog>
     `);
 
-    el.open({ projectName: 'Traveler' });
+    el.open({
+      projectName: 'Traveler',
+      baseEnvironmentId: 101,
+      templateId: 88
+    });
     await settle(250);
 
     const dialog = el.shadowRoot!.querySelector('vaadin-dialog')!;
-
-    // Open Edit Blueprint Template
-    findButton(dialog, 'Edit Blueprint Template').click();
-    await el.updateComplete;
-    expect(dialog.querySelector('.builder-panel')).not.to.equal(null);
-
-    // Toggle provision & validation component checkboxes and add a tier override
-    const checkboxes = Array.from(
-      dialog.querySelectorAll('.builder-panel vaadin-checkbox')
-    ) as Checkbox[];
-    expect(checkboxes.length).to.be.greaterThan(0);
-    checkboxes[0].dispatchEvent(
-      new CustomEvent('checked-changed', { detail: { value: false } })
-    );
-    checkboxes[0].dispatchEvent(
-      new CustomEvent('checked-changed', { detail: { value: true } })
-    );
-    const valCheckbox = checkboxes[checkboxes.length - 1];
-    valCheckbox.dispatchEvent(
-      new CustomEvent('checked-changed', { detail: { value: false } })
-    );
-    valCheckbox.dispatchEvent(
-      new CustomEvent('checked-changed', { detail: { value: true } })
+    expect(
+      (el as unknown as { selectedTemplate?: EnvironmentTemplateApiModel })
+        .selectedTemplate?.Id
+    ).to.equal(88);
+    expect((el as unknown as { selectedTier: string }).selectedTier).to.equal(
+      'ut'
     );
 
-    const builderFields = Array.from(
-      dialog.querySelectorAll('.builder-panel vaadin-text-field')
-    ) as TextField[];
-    const overrideKeyField = builderFields.find(f =>
-      f.getAttribute('label')?.startsWith('Parameter Key')
-    )!;
-    const overrideValField = builderFields.find(
-      f => f.getAttribute('label') === 'Parameter Value'
-    )!;
-    overrideKeyField.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: 'aiven_plan' } })
+    const manageBtn = findButton(dialog, 'Manage Blueprints');
+    manageBtn.click();
+    await settle(50);
+
+    expect(el.opened).to.equal(false);
+    expect(mocks.navigate.mock.calls[0][0]).to.equal(
+      '/project-envs/Traveler/blueprints'
     );
-    overrideValField.dispatchEvent(
-      new CustomEvent('value-changed', { detail: { value: 'startup-4' } })
-    );
-    findButton(dialog, 'Set Override').click();
-    await el.updateComplete;
-
-    mocks.updateTemplate.mockReturnValueOnce(of(sampleTemplate));
-    findButton(dialog, 'Save Blueprint Template').click();
-    await settle();
-    expect(mocks.updateTemplate.mock.calls).to.have.length(1);
-
-    // Open New Blueprint Template and save via POST
-    findButton(dialog, 'New Blueprint Template').click();
-    await el.updateComplete;
-    mocks.createTemplate.mockReturnValueOnce(
-      of({ ...sampleTemplate, Id: 77, Name: 'New Blueprint' })
-    );
-    findButton(dialog, 'Save Blueprint Template').click();
-    await settle();
-    expect(mocks.createTemplate.mock.calls).to.have.length(1);
-
-    // Delete Blueprint Template (cancel, error, and success paths)
-    mocks.confirmPrompt.mockResolvedValueOnce(false);
-    findButton(dialog, 'Delete Blueprint Template').click();
-    await settle();
-    expect(mocks.deleteTemplate.mock.calls).to.have.length(0);
-
-    mocks.confirmPrompt.mockResolvedValueOnce(true);
-    mocks.deleteTemplate.mockReturnValueOnce(
-      throwError(() => new Error('Delete failed'))
-    );
-    findButton(dialog, 'Delete Blueprint Template').click();
-    await settle();
-    expect(mocks.deleteTemplate.mock.calls).to.have.length(1);
-
-    mocks.confirmPrompt.mockResolvedValueOnce(true);
-    mocks.deleteTemplate.mockReturnValueOnce(of(true));
-    findButton(dialog, 'Delete Blueprint Template').click();
-    await settle();
-    expect(mocks.deleteTemplate.mock.calls).to.have.length(2);
   });
 
   it('submits provisioning request, dispatches environment-created, and navigates to monitor page', async () => {
@@ -545,23 +496,13 @@ describe('EphemeralEnvironmentWizardDialog', () => {
     await settle(250);
 
     const internal = el as unknown as {
-      safeParseJsonObject: (raw: string) => Record<string, unknown>;
       selectProject: (p: ProjectApiModel | undefined) => void;
-      openEditTemplateBuilder: () => void;
-      cancelTemplateBuilder: () => void;
-      addBuilderTierOverride: () => void;
-      saveBlueprintTemplate: () => void;
       addAdhocOverride: () => void;
       submitProvision: () => void;
       selectedProject: ProjectApiModel | undefined;
       selectedTemplate: EnvironmentTemplateApiModel | undefined;
       environmentName: string;
-      builderName: string;
     };
-
-    expect(internal.safeParseJsonObject('')).to.deep.equal({});
-    expect(internal.safeParseJsonObject('{invalid')).to.deep.equal({});
-    expect(internal.safeParseJsonObject('null')).to.deep.equal({});
 
     // Cover isSensitiveOverrideKey branches (: prefix, mixed-case redacted preview key, empty key, previewLoading)
     const sensHelper = el as unknown as {
@@ -605,37 +546,9 @@ describe('EphemeralEnvironmentWizardDialog', () => {
     ).to.equal(true);
 
     // Empty override keys are no-ops
-    internal.addBuilderTierOverride();
     internal.addAdhocOverride();
 
-    // Builder component ordering preserves projectComponents hierarchy order and handles unlisted IDs
-    (
-      el as unknown as {
-        projectComponents: Array<{ ComponentId?: number }>;
-        builderProvisionComponentIds: number[];
-        toggleBuilderProvisionComponent: (id: number, checked: boolean) => void;
-      }
-    ).projectComponents = [
-      { ComponentId: 10 },
-      { ComponentId: 20 },
-      { ComponentId: undefined }
-    ];
-    (
-      el as unknown as { builderProvisionComponentIds: number[] }
-    ).builderProvisionComponentIds = [99, 20];
-    (
-      el as unknown as {
-        toggleBuilderProvisionComponent: (id: number, checked: boolean) => void;
-      }
-    ).toggleBuilderProvisionComponent(10, true);
-    expect(
-      (el as unknown as { builderProvisionComponentIds: number[] })
-        .builderProvisionComponentIds
-    ).to.deep.equal([10, 20, 99]);
-
-    // Validation guards on saveBlueprintTemplate and submitProvision
-    internal.builderName = '   ';
-    internal.saveBlueprintTemplate();
+    // Validation guard on submitProvision
     internal.environmentName = '   ';
     internal.submitProvision();
     // Clear selectedBaseEnvironmentId while template has BaseEnvironmentId -> getEffectiveBaseEnvironmentIdPayload returns 0
@@ -653,11 +566,6 @@ describe('EphemeralEnvironmentWizardDialog', () => {
       ).getEffectiveBaseEnvironmentIdPayload()
     ).to.equal(0);
     internal.selectedTemplate = undefined;
-    (
-      el as unknown as {
-        deleteBlueprintTemplate: () => void;
-      }
-    ).deleteBlueprintTemplate();
     expect(
       (
         el as unknown as {
@@ -667,7 +575,6 @@ describe('EphemeralEnvironmentWizardDialog', () => {
     ).to.equal(null);
     internal.selectProject(undefined);
     internal.submitProvision();
-    internal.openEditTemplateBuilder();
 
     // Fallback preview when ComponentPreviews is empty and error on preview/provision/load
     mocks.previewTierParameters.mockReturnValueOnce(
@@ -725,8 +632,8 @@ describe('EphemeralEnvironmentWizardDialog', () => {
       const containerRect = wizardContainer.getBoundingClientRect();
       expect(containerRect.right).to.be.at.most(overlayRect.right + 2);
 
-      const newTemplateBtn = findButton(dialog, 'New Blueprint Template');
-      expect(newTemplateBtn.getBoundingClientRect().right).to.be.at.most(
+      const manageBlueprintsBtn = findButton(dialog, 'Manage Blueprints');
+      expect(manageBlueprintsBtn.getBoundingClientRect().right).to.be.at.most(
         overlayRect.right + 2
       );
     }

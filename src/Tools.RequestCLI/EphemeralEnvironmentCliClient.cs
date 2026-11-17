@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -21,6 +22,12 @@ namespace Tools.RequestCLI
         private static readonly JsonSerializerOptions JsonOptions = new()
         {
             PropertyNameCaseInsensitive = true
+        };
+
+        private static readonly JsonSerializerOptions IndentedJsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            WriteIndented = true
         };
 
         private static readonly HashSet<string> TerminalFailureStatuses = new(StringComparer.OrdinalIgnoreCase)
@@ -70,7 +77,224 @@ namespace Tools.RequestCLI
                 return await ExecuteExtendTtlAsync(cliArgs, cancellationToken);
             }
 
+            if (cliArgs.Verb == EphemeralCliVerb.BlueprintList)
+            {
+                return await ExecuteBlueprintListAsync(cliArgs, cancellationToken);
+            }
+
+            if (cliArgs.Verb == EphemeralCliVerb.BlueprintExport)
+            {
+                return await ExecuteBlueprintExportAsync(cliArgs, cancellationToken);
+            }
+
+            if (cliArgs.Verb == EphemeralCliVerb.BlueprintApply)
+            {
+                return await ExecuteBlueprintApplyAsync(cliArgs, cancellationToken);
+            }
+
             return await ExecuteTeardownAsync(cliArgs, cancellationToken);
+        }
+
+        private async Task<int> ExecuteBlueprintListAsync(EphemeralCliArgs cliArgs, CancellationToken cancellationToken)
+        {
+            int projectId;
+            try
+            {
+                projectId = await ResolveProjectIdAsync(cliArgs.Project, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _output($"Error resolving project '{cliArgs.Project}': {ex.Message}");
+                return 1;
+            }
+
+            using var response = await _httpClient.GetAsync($"EphemeralEnvironments/templates?projectId={projectId}", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                _output($"Error listing blueprints for project '{cliArgs.Project}': {errorBody}");
+                return 1;
+            }
+
+            var templates = await response.Content.ReadFromJsonAsync<List<EnvironmentTemplateApiModel>>(JsonOptions, cancellationToken)
+                ?? new List<EnvironmentTemplateApiModel>();
+
+            if (templates.Count == 0)
+            {
+                _output($"No blueprints found for project '{cliArgs.Project}'.");
+                return 0;
+            }
+
+            foreach (var tmpl in templates)
+            {
+                var baseEnv = string.IsNullOrWhiteSpace(tmpl.BaseEnvironmentName) ? "none" : tmpl.BaseEnvironmentName;
+                var provCount = tmpl.ProvisionComponentIds?.Count ?? 0;
+                var valCount = tmpl.ValidationComponentIds?.Count ?? 0;
+                _output($"{tmpl.Name} | Tier: {tmpl.DefaultTier} | BaseEnv: {baseEnv} | TTL: {tmpl.DefaultTtlMinutes}/{tmpl.MaxTtlMinutes}m | Components: {provCount} provision, {valCount} validation");
+            }
+
+            return 0;
+        }
+
+        private async Task<int> ExecuteBlueprintExportAsync(EphemeralCliArgs cliArgs, CancellationToken cancellationToken)
+        {
+            int projectId;
+            int? templateId;
+            try
+            {
+                projectId = await ResolveProjectIdAsync(cliArgs.Project, cancellationToken);
+                templateId = await ResolveTemplateIdAsync(projectId, cliArgs.Template, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                _output($"Error resolving blueprint '{cliArgs.Template}' for project '{cliArgs.Project}': {ex.Message}");
+                return 1;
+            }
+
+            if (templateId is null)
+            {
+                _output($"Error exporting blueprint: template '{cliArgs.Template}' was not specified or found.");
+                return 1;
+            }
+
+            using var response = await _httpClient.GetAsync($"EphemeralEnvironments/templates/{templateId.Value}/export", cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                _output($"Error exporting blueprint '{cliArgs.Template}': {errorBody}");
+                return 1;
+            }
+
+            var definition = await response.Content.ReadFromJsonAsync<EnvironmentBlueprintDefinitionApiModel>(JsonOptions, cancellationToken);
+            if (definition is null)
+            {
+                _output($"Error exporting blueprint '{cliArgs.Template}': empty response.");
+                return 1;
+            }
+
+            var json = JsonSerializer.Serialize(definition, IndentedJsonOptions);
+            if (!string.IsNullOrWhiteSpace(cliArgs.FilePath))
+            {
+                var dir = Path.GetDirectoryName(Path.GetFullPath(cliArgs.FilePath));
+                if (!string.IsNullOrWhiteSpace(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+
+                await File.WriteAllTextAsync(cliArgs.FilePath, json, cancellationToken);
+                _output($"Exported blueprint '{definition.Name}' to '{cliArgs.FilePath}'.");
+            }
+            else
+            {
+                _output(json);
+            }
+
+            return 0;
+        }
+
+        private async Task<int> ExecuteBlueprintApplyAsync(EphemeralCliArgs cliArgs, CancellationToken cancellationToken)
+        {
+            if (!File.Exists(cliArgs.FilePath))
+            {
+                _output($"Error applying blueprint: file '{cliArgs.FilePath}' does not exist.");
+                return 1;
+            }
+
+            var rawJson = await File.ReadAllTextAsync(cliArgs.FilePath, cancellationToken);
+            EnvironmentBlueprintImportRequestApiModel importRequest;
+            try
+            {
+                importRequest = ParseBlueprintImportPayload(rawJson, cliArgs.Project);
+            }
+            catch (Exception ex)
+            {
+                _output($"Error parsing blueprint file '{cliArgs.FilePath}': {ex.Message}");
+                return 1;
+            }
+
+            if (importRequest is null || importRequest.Blueprints.Count == 0)
+            {
+                _output($"Error applying blueprint: no blueprint definitions found in '{cliArgs.FilePath}'.");
+                return 1;
+            }
+
+            using var response = await _httpClient.PostAsJsonAsync("EphemeralEnvironments/templates/import", importRequest, JsonOptions, cancellationToken);
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+                _output($"Error applying blueprints from '{cliArgs.FilePath}': {errorBody}");
+                return 1;
+            }
+
+            var importResponse = await response.Content.ReadFromJsonAsync<EnvironmentBlueprintImportResponseApiModel>(JsonOptions, cancellationToken);
+            if (importResponse is null)
+            {
+                _output("Error applying blueprints: empty response.");
+                return 1;
+            }
+
+            _output($"Applied {importResponse.ImportedTemplates.Count} blueprint(s) ({importResponse.CreatedCount} created, {importResponse.UpdatedCount} updated).");
+            return 0;
+        }
+
+        private static EnvironmentBlueprintImportRequestApiModel ParseBlueprintImportPayload(string rawJson, string cliProject)
+        {
+            using var doc = JsonDocument.Parse(rawJson);
+            var root = doc.RootElement;
+
+            var importRequest = new EnvironmentBlueprintImportRequestApiModel();
+            if (root.ValueKind == JsonValueKind.Array)
+            {
+                var list = JsonSerializer.Deserialize<List<EnvironmentBlueprintDefinitionApiModel>>(rawJson, JsonOptions)
+                    ?? new List<EnvironmentBlueprintDefinitionApiModel>();
+                importRequest.Blueprints = list;
+            }
+            else if (root.ValueKind == JsonValueKind.Object)
+            {
+                var hasBlueprintsProp = root.EnumerateObject()
+                    .Any(p => string.Equals(p.Name, "blueprints", StringComparison.OrdinalIgnoreCase) && p.Value.ValueKind == JsonValueKind.Array);
+
+                if (hasBlueprintsProp)
+                {
+                    importRequest = JsonSerializer.Deserialize<EnvironmentBlueprintImportRequestApiModel>(rawJson, JsonOptions)
+                        ?? new EnvironmentBlueprintImportRequestApiModel();
+                }
+                else
+                {
+                    var single = JsonSerializer.Deserialize<EnvironmentBlueprintDefinitionApiModel>(rawJson, JsonOptions);
+                    if (single is not null)
+                    {
+                        importRequest.Blueprints.Add(single);
+                    }
+                }
+            }
+            else
+            {
+                throw new InvalidOperationException("Expected a JSON object or JSON array of blueprint definitions.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(cliProject))
+            {
+                if (int.TryParse(cliProject, out var parsedProjectId) && parsedProjectId > 0)
+                {
+                    importRequest.ProjectId = parsedProjectId;
+                }
+                else
+                {
+                    importRequest.ProjectName = cliProject;
+                }
+            }
+            else if (string.IsNullOrWhiteSpace(importRequest.ProjectName) && importRequest.ProjectId is not > 0)
+            {
+                var firstProjectName = importRequest.Blueprints
+                    .FirstOrDefault(b => !string.IsNullOrWhiteSpace(b?.ProjectName))?.ProjectName;
+                if (!string.IsNullOrWhiteSpace(firstProjectName))
+                {
+                    importRequest.ProjectName = firstProjectName;
+                }
+            }
+
+            return importRequest;
         }
 
         private async Task<int> ExecuteExtendTtlAsync(EphemeralCliArgs cliArgs, CancellationToken cancellationToken)

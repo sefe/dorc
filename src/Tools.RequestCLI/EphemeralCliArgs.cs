@@ -7,7 +7,10 @@ namespace Tools.RequestCLI
     {
         Up,
         Down,
-        ExtendTtl
+        ExtendTtl,
+        BlueprintList,
+        BlueprintExport,
+        BlueprintApply
     }
 
     public sealed class EphemeralCliArgs
@@ -19,6 +22,7 @@ namespace Tools.RequestCLI
         public string Tier { get; private set; } = string.Empty;
         public int? TtlMinutes { get; private set; }
         public string BaseEnv { get; private set; } = string.Empty;
+        public string FilePath { get; private set; } = string.Empty;
         public Dictionary<string, string> Properties { get; } = new(StringComparer.OrdinalIgnoreCase);
         public string Reason { get; private set; } = string.Empty;
         public bool Block { get; private set; } = true;
@@ -39,9 +43,10 @@ namespace Tools.RequestCLI
         {
             if (args is null || args.Length < 2 || !string.Equals(args[0], "ephemeral", StringComparison.OrdinalIgnoreCase))
             {
-                throw new ArgumentException("Expected 'ephemeral up', 'ephemeral down', or 'ephemeral extend-ttl' command.", nameof(args));
+                throw new ArgumentException("Expected 'ephemeral up', 'ephemeral down', 'ephemeral extend-ttl', or 'ephemeral blueprint <list|export|apply>' command.", nameof(args));
             }
 
+            var optionStartIndex = 2;
             if (string.Equals(args[1], "up", StringComparison.OrdinalIgnoreCase))
             {
                 Verb = EphemeralCliVerb.Up;
@@ -54,18 +59,55 @@ namespace Tools.RequestCLI
             {
                 Verb = EphemeralCliVerb.ExtendTtl;
             }
+            else if (string.Equals(args[1], "blueprint-list", StringComparison.OrdinalIgnoreCase))
+            {
+                Verb = EphemeralCliVerb.BlueprintList;
+            }
+            else if (string.Equals(args[1], "blueprint-export", StringComparison.OrdinalIgnoreCase))
+            {
+                Verb = EphemeralCliVerb.BlueprintExport;
+            }
+            else if (string.Equals(args[1], "blueprint-apply", StringComparison.OrdinalIgnoreCase))
+            {
+                Verb = EphemeralCliVerb.BlueprintApply;
+            }
+            else if (string.Equals(args[1], "blueprint", StringComparison.OrdinalIgnoreCase))
+            {
+                if (args.Length < 3)
+                {
+                    throw new ArgumentException("Expected sub-command for 'ephemeral blueprint': 'list', 'export', or 'apply'.", nameof(args));
+                }
+
+                optionStartIndex = 3;
+                if (string.Equals(args[2], "list", StringComparison.OrdinalIgnoreCase))
+                {
+                    Verb = EphemeralCliVerb.BlueprintList;
+                }
+                else if (string.Equals(args[2], "export", StringComparison.OrdinalIgnoreCase))
+                {
+                    Verb = EphemeralCliVerb.BlueprintExport;
+                }
+                else if (string.Equals(args[2], "apply", StringComparison.OrdinalIgnoreCase))
+                {
+                    Verb = EphemeralCliVerb.BlueprintApply;
+                }
+                else
+                {
+                    throw new ArgumentException($"Unsupported blueprint sub-command '{args[2]}'. Expected 'list', 'export', or 'apply'.", nameof(args));
+                }
+            }
             else
             {
-                throw new ArgumentException($"Unsupported ephemeral verb '{args[1]}'. Expected 'up', 'down', or 'extend-ttl'.", nameof(args));
+                throw new ArgumentException($"Unsupported ephemeral verb '{args[1]}'. Expected 'up', 'down', 'extend-ttl', or 'blueprint'.", nameof(args));
             }
 
-            ParseOptions(args);
+            ParseOptions(args, optionStartIndex);
             Validate();
         }
 
-        private void ParseOptions(string[] args)
+        private void ParseOptions(string[] args, int startIndex)
         {
-            for (int i = 2; i < args.Length; i++)
+            for (int i = startIndex; i < args.Length; i++)
             {
                 var token = args[i];
                 if (string.Equals(token, "--no-wait", StringComparison.OrdinalIgnoreCase))
@@ -171,6 +213,10 @@ namespace Tools.RequestCLI
             {
                 BaseEnv = value;
             }
+            else if (key is "file" or "output")
+            {
+                FilePath = value;
+            }
             else if (key is "property" or "properties" or "prop")
             {
                 ParseProperties(value);
@@ -232,6 +278,34 @@ namespace Tools.RequestCLI
 
         private void Validate()
         {
+            if (Verb is EphemeralCliVerb.BlueprintList or EphemeralCliVerb.BlueprintExport or EphemeralCliVerb.BlueprintApply)
+            {
+                if (Verb == EphemeralCliVerb.BlueprintList && string.IsNullOrWhiteSpace(Project))
+                {
+                    throw new ArgumentException("Project (--project or /project:) is required for 'ephemeral blueprint list'.");
+                }
+
+                if (Verb == EphemeralCliVerb.BlueprintExport)
+                {
+                    if (string.IsNullOrWhiteSpace(Project))
+                    {
+                        throw new ArgumentException("Project (--project or /project:) is required for 'ephemeral blueprint export'.");
+                    }
+
+                    if (string.IsNullOrWhiteSpace(Template))
+                    {
+                        throw new ArgumentException("Template (--template or /template:) is required for 'ephemeral blueprint export'.");
+                    }
+                }
+
+                if (Verb == EphemeralCliVerb.BlueprintApply && string.IsNullOrWhiteSpace(FilePath))
+                {
+                    throw new ArgumentException("File path (--file or /file:) is required for 'ephemeral blueprint apply'.");
+                }
+
+                return;
+            }
+
             if (string.IsNullOrWhiteSpace(TargetEnv))
             {
                 throw new ArgumentException("Target environment (--target-env or /targetenv:) is required.");

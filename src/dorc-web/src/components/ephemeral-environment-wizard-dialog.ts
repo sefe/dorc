@@ -15,11 +15,9 @@ import '@vaadin/password-field';
 import '@vaadin/text-field';
 import { css, html, LitElement, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { createRef, ref, Ref } from 'lit/directives/ref.js';
+import { ref } from 'lit/directives/ref.js';
 import type { Subscription } from 'rxjs';
 import {
-  ComponentApiModel,
-  ComponentApiModelTemplateApiModel,
   EnvironmentApiModel,
   EnvironmentTemplateApiModel,
   EphemeralComponentParameterPreviewApiModel,
@@ -28,12 +26,10 @@ import {
   EphemeralEnvironmentsApi,
   EphemeralEnvironmentTierPreviewResponseApiModel,
   ProjectApiModel,
-  RefDataComponentsApi,
   RefDataEnvironmentsApi,
   RefDataProjectsApi
 } from '../apis/dorc-api';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
-import { confirmPrompt } from './confirm-prompt';
 import { navigate } from '../router/router';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import './hegs-json-viewer';
@@ -192,34 +188,6 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
 
   @state() private selectedTemplate: EnvironmentTemplateApiModel | undefined;
 
-  @state() private projectComponents: ComponentApiModel[] = [];
-
-  @state() private templateBuilderMode: 'none' | 'create' | 'edit' = 'none';
-
-  @state() private builderName = '';
-
-  @state() private builderDescription = '';
-
-  @state() private builderDefaultTier = 'ephemeral';
-
-  @state() private builderBaseEnvironmentId: number | null = null;
-
-  @state() private builderDefaultTtlMinutes = 240;
-
-  @state() private builderMaxTtlMinutes = 1440;
-
-  @state() private builderProvisionComponentIds: number[] = [];
-
-  @state() private builderValidationComponentIds: number[] = [];
-
-  @state() private builderTierOverridesJson = '{}';
-
-  @state() private builderOverrideKey = '';
-
-  @state() private builderOverrideValue = '';
-
-  @state() private builderSaving = false;
-
   @state() private environmentName = '';
 
   @state() private nameManuallyEdited = false;
@@ -265,11 +233,7 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
 
   private templatesSubscription?: Subscription;
 
-  private componentsSubscription?: Subscription;
-
   private previewRequestSeq = 0;
-
-  private builderJsonViewerRef: Ref<HegsJsonViewer> = createRef();
 
   static get styles() {
     return css`
@@ -793,14 +757,17 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
     `;
   }
 
-  public open(context?: { projectName?: string; baseEnvironmentId?: number }) {
+  public open(context?: {
+    projectName?: string;
+    baseEnvironmentId?: number;
+    templateId?: number;
+  }) {
     this.shortSuffix = this.generateShortSuffix();
     this.nameManuallyEdited = false;
     this.buildNum = '';
     this.buildUrl = '';
     this.buildText = '';
     this.previewError = '';
-    this.templateBuilderMode = 'none';
     this.opened = true;
 
     this.loadInitialData(context);
@@ -809,6 +776,17 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
   public close() {
     this.opened = false;
   }
+
+  private openBlueprintsWorkspace = () => {
+    const projectName = this.selectedProject?.ProjectName;
+    if (!projectName) {
+      return;
+    }
+    this.opened = false;
+    void navigate(
+      `/project-envs/${encodeURIComponent(projectName)}/blueprints`
+    );
+  };
 
   disconnectedCallback() {
     super.disconnectedCallback();
@@ -820,8 +798,6 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
     this.previewSubscription = undefined;
     this.templatesSubscription?.unsubscribe();
     this.templatesSubscription = undefined;
-    this.componentsSubscription?.unsubscribe();
-    this.componentsSubscription = undefined;
   }
 
   private showError(msg: string) {
@@ -874,6 +850,7 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
   private loadInitialData(context?: {
     projectName?: string;
     baseEnvironmentId?: number;
+    templateId?: number;
   }) {
     const projectsApi = new RefDataProjectsApi(dorcApiConfiguration);
     projectsApi.refDataProjectsGet().subscribe({
@@ -890,12 +867,12 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
               context.projectName?.toLowerCase()
           );
           if (match) {
-            this.selectProject(match);
+            this.selectProject(match, context.templateId);
             return;
           }
         }
         if (sorted.length > 0 && !this.selectedProject) {
-          this.selectProject(sorted[0]);
+          this.selectProject(sorted[0], context?.templateId);
         }
       },
       error: (err: unknown) => {
@@ -932,11 +909,12 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
     });
   }
 
-  private selectProject(project: ProjectApiModel | undefined) {
+  private selectProject(
+    project: ProjectApiModel | undefined,
+    selectTemplateId?: number
+  ) {
     this.templatesSubscription?.unsubscribe();
     this.templatesSubscription = undefined;
-    this.componentsSubscription?.unsubscribe();
-    this.componentsSubscription = undefined;
     this.previewSubscription?.unsubscribe();
     this.previewSubscription = undefined;
     if (this.previewDebounceTimer !== undefined) {
@@ -952,47 +930,13 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
     this.templates = [];
     this.templatesLoading = Boolean(project?.ProjectId);
     this.templatesLoadFailed = false;
-    this.projectComponents = [];
     this.maybeUpdateAutoEnvironmentName();
 
     if (!project?.ProjectId) {
       return;
     }
 
-    this.loadTemplatesForProject(project.ProjectId);
-
-    if (project.ProjectName) {
-      const compApi = new RefDataComponentsApi(dorcApiConfiguration);
-      this.componentsSubscription = compApi
-        .refDataComponentsGet({ id: project.ProjectName })
-        .subscribe({
-          next: (res: ComponentApiModelTemplateApiModel) => {
-            this.projectComponents = this.flattenComponents(res?.Items || []);
-          },
-          error: () => {
-            this.projectComponents = [];
-          }
-        });
-    }
-  }
-
-  private flattenComponents(items: ComponentApiModel[]): ComponentApiModel[] {
-    const acc: ComponentApiModel[] = [];
-    const seen = new Set<number>();
-
-    const walk = (nodes: ComponentApiModel[]) => {
-      for (const node of nodes) {
-        if (node.ComponentId && !seen.has(node.ComponentId)) {
-          seen.add(node.ComponentId);
-          acc.push(node);
-        }
-        if (node.Children && node.Children.length > 0) {
-          walk(node.Children);
-        }
-      }
-    };
-    walk(items);
-    return acc;
+    this.loadTemplatesForProject(project.ProjectId, selectTemplateId);
   }
 
   private loadTemplatesForProject(
@@ -1058,244 +1002,6 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
     }
     this.schedulePreviewRefresh(templateChanged);
   }
-
-  private openNewTemplateBuilder = () => {
-    this.templateBuilderMode = 'create';
-    this.builderName = `${this.selectedProject?.ProjectName || 'Service'} Ephemeral Blueprint`;
-    this.builderDescription =
-      'Non-prod temporary environment blueprint with tier-weighted sizing';
-    this.builderDefaultTier = this.selectedTier || 'ephemeral';
-    this.builderBaseEnvironmentId =
-      this.selectedBaseEnvironmentId ??
-      this.nonProdEnvironments[0]?.EnvironmentId ??
-      null;
-    this.builderDefaultTtlMinutes = 240;
-    this.builderMaxTtlMinutes = 1440;
-    this.builderProvisionComponentIds = this.projectComponents
-      .slice(0, 3)
-      .map(c => c.ComponentId!)
-      .filter(Boolean);
-    this.builderValidationComponentIds = [];
-    this.builderTierOverridesJson = JSON.stringify(
-      {
-        ephemeral: { create_service: 'false' },
-        qa: { create_service: 'true' }
-      },
-      null,
-      2
-    );
-  };
-
-  private openEditTemplateBuilder = () => {
-    const tpl = this.selectedTemplate;
-    if (!tpl) {
-      return;
-    }
-    this.templateBuilderMode = 'edit';
-    this.builderName = tpl.Name || '';
-    this.builderDescription = tpl.Description || '';
-    this.builderDefaultTier = (tpl.DefaultTier || 'ephemeral').toLowerCase();
-    this.builderBaseEnvironmentId = tpl.BaseEnvironmentId ?? null;
-    this.builderDefaultTtlMinutes = tpl.DefaultTtlMinutes ?? 240;
-    this.builderMaxTtlMinutes = tpl.MaxTtlMinutes ?? 1440;
-    this.builderProvisionComponentIds = [...(tpl.ProvisionComponentIds || [])];
-    this.builderValidationComponentIds = [
-      ...(tpl.ValidationComponentIds || [])
-    ];
-    this.builderTierOverridesJson = tpl.TierParameterOverridesJson || '{}';
-  };
-
-  private cancelTemplateBuilder = () => {
-    this.templateBuilderMode = 'none';
-  };
-
-  private orderBuilderComponentIds(ids: number[]): number[] {
-    const rankById = new Map<number, number>();
-    this.projectComponents.forEach((comp, idx) => {
-      if (comp.ComponentId) {
-        rankById.set(comp.ComponentId, idx);
-      }
-    });
-    return [...ids].sort(
-      (a, b) =>
-        (rankById.get(a) ?? Number.MAX_SAFE_INTEGER) -
-        (rankById.get(b) ?? Number.MAX_SAFE_INTEGER)
-    );
-  }
-
-  private toggleBuilderProvisionComponent(compId: number, checked: boolean) {
-    if (checked) {
-      if (!this.builderProvisionComponentIds.includes(compId)) {
-        this.builderProvisionComponentIds = this.orderBuilderComponentIds([
-          ...this.builderProvisionComponentIds,
-          compId
-        ]);
-      }
-    } else {
-      this.builderProvisionComponentIds =
-        this.builderProvisionComponentIds.filter(id => id !== compId);
-    }
-  }
-
-  private toggleBuilderValidationComponent(compId: number, checked: boolean) {
-    if (checked) {
-      if (!this.builderValidationComponentIds.includes(compId)) {
-        this.builderValidationComponentIds = this.orderBuilderComponentIds([
-          ...this.builderValidationComponentIds,
-          compId
-        ]);
-      }
-    } else {
-      this.builderValidationComponentIds =
-        this.builderValidationComponentIds.filter(id => id !== compId);
-    }
-  }
-
-  private addBuilderTierOverride = () => {
-    const key = this.builderOverrideKey.trim();
-    const val = this.builderOverrideValue.trim();
-    if (!key) {
-      return;
-    }
-    const parsed = this.safeParseJsonObject(this.builderTierOverridesJson);
-    const tierKey = this.builderDefaultTier || 'ephemeral';
-    const currentTierMap =
-      typeof parsed[tierKey] === 'object' && parsed[tierKey] !== null
-        ? (parsed[tierKey] as Record<string, string>)
-        : {};
-    parsed[tierKey] = {
-      ...currentTierMap,
-      [key]: val
-    };
-    this.builderTierOverridesJson = JSON.stringify(parsed, null, 2);
-    this.builderOverrideKey = '';
-    this.builderOverrideValue = '';
-    setTimeout(() => {
-      this.builderJsonViewerRef.value?.expandAll();
-    }, 0);
-  };
-
-  private safeParseJsonObject(raw: string): Record<string, unknown> {
-    if (!raw || !raw.trim()) {
-      return {};
-    }
-    try {
-      const obj = JSON.parse(raw);
-      return typeof obj === 'object' && obj !== null ? obj : {};
-    } catch {
-      return {};
-    }
-  }
-
-  private saveBlueprintTemplate = () => {
-    if (!this.selectedProject?.ProjectId || !this.builderName.trim()) {
-      this.showError('Project and Blueprint Template Name are required.');
-      return;
-    }
-
-    this.builderSaving = true;
-    const api = new EphemeralEnvironmentsApi(dorcApiConfiguration);
-    const payload: EnvironmentTemplateApiModel = {
-      Id:
-        this.templateBuilderMode === 'edit'
-          ? this.selectedTemplate?.Id
-          : undefined,
-      ProjectId: this.selectedProject.ProjectId,
-      ProjectName: this.selectedProject.ProjectName,
-      Name: this.builderName.trim(),
-      Description: this.builderDescription.trim() || null,
-      BaseEnvironmentId: this.builderBaseEnvironmentId,
-      DefaultTier: this.builderDefaultTier,
-      DefaultTtlMinutes: this.builderDefaultTtlMinutes,
-      MaxTtlMinutes: this.builderMaxTtlMinutes,
-      ProvisionComponentIds: this.builderProvisionComponentIds,
-      ValidationComponentIds: this.builderValidationComponentIds,
-      TierParameterOverridesJson: this.builderTierOverridesJson || '{}'
-    };
-
-    const request$ =
-      this.templateBuilderMode === 'edit' && this.selectedTemplate?.Id
-        ? api.ephemeralEnvironmentsTemplatesTemplateIdPut({
-            templateId: this.selectedTemplate.Id,
-            environmentTemplateApiModel: payload
-          })
-        : api.ephemeralEnvironmentsTemplatesPost({
-            environmentTemplateApiModel: payload
-          });
-
-    request$.subscribe({
-      next: (saved: EnvironmentTemplateApiModel) => {
-        this.builderSaving = false;
-        this.templateBuilderMode = 'none';
-        Notification.show(`Saved Blueprint Template '${saved.Name}'.`, {
-          theme: 'success',
-          position: 'bottom-start',
-          duration: 4000
-        });
-        if (this.selectedProject?.ProjectId) {
-          this.loadTemplatesForProject(
-            this.selectedProject.ProjectId,
-            saved.Id
-          );
-        }
-      },
-      error: (err: unknown) => {
-        this.builderSaving = false;
-        const msg = retrieveErrorMessage(
-          err,
-          'Failed to save Blueprint Template.'
-        );
-        this.showError(msg);
-      }
-    });
-  };
-
-  private deleteBlueprintTemplate = async () => {
-    const tpl = this.selectedTemplate;
-    const projectId = this.selectedProject?.ProjectId;
-    if (!tpl?.Id || !projectId) {
-      return;
-    }
-
-    const confirmed = await confirmPrompt(
-      `Delete Blueprint Template '${tpl.Name}'?`,
-      {
-        header: 'Delete Blueprint Template',
-        confirmText: 'Delete Template',
-        warningTitle: 'Project-wide Blueprint Deletion',
-        warningMessage:
-          'This removes the blueprint template from the project. Active ephemeral environments referencing this template will prevent deletion until torn down.'
-      }
-    );
-    if (!confirmed) {
-      return;
-    }
-
-    this.builderSaving = true;
-    const api = new EphemeralEnvironmentsApi(dorcApiConfiguration);
-    api
-      .ephemeralEnvironmentsTemplatesTemplateIdDelete({ templateId: tpl.Id })
-      .subscribe({
-        next: () => {
-          this.builderSaving = false;
-          this.selectedTemplate = undefined;
-          Notification.show(`Deleted Blueprint Template '${tpl.Name}'.`, {
-            theme: 'success',
-            position: 'bottom-start',
-            duration: 4000
-          });
-          this.loadTemplatesForProject(projectId);
-        },
-        error: (err: unknown) => {
-          this.builderSaving = false;
-          const msg = retrieveErrorMessage(
-            err,
-            'Failed to delete Blueprint Template.'
-          );
-          this.showError(msg);
-        }
-      });
-  };
 
   private selectTier(tier: string) {
     const tierChanged = this.selectedTier !== tier;
@@ -1635,9 +1341,6 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
     const expiryDate = new Date(Date.now() + this.ttlMinutes * 60 * 1000);
     const expiryUtcStr = expiryDate.toUTCString();
     const expiryLocalStr = expiryDate.toLocaleString();
-    const builderJsonParsed = this.safeParseJsonObject(
-      this.builderTierOverridesJson
-    );
     const componentPreviews = this.previewData?.ComponentPreviews || [];
 
     return html`
@@ -1650,57 +1353,14 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
               Project &amp; Blueprint Template
             </h3>
             <div class="section-actions">
-              ${
-                this.selectedTemplate && this.templateBuilderMode === 'none'
-                  ? html`
-                      <vaadin-button
-                        theme="small tertiary"
-                        @click=${this.openEditTemplateBuilder}
-                      >
-                        <vaadin-icon
-                          icon="vaadin:edit"
-                          slot="prefix"
-                        ></vaadin-icon>
-                        Edit Blueprint Template
-                      </vaadin-button>
-                      <vaadin-button
-                        id="delete-blueprint-template-btn"
-                        theme="small error tertiary"
-                        ?disabled=${this.builderSaving}
-                        @click=${this.deleteBlueprintTemplate}
-                      >
-                        <vaadin-icon
-                          icon="vaadin:trash"
-                          slot="prefix"
-                        ></vaadin-icon>
-                        Delete Blueprint Template
-                      </vaadin-button>
-                    `
-                  : nothing
-              }
-              ${
-                this.templateBuilderMode === 'none'
-                  ? html`
-                      <vaadin-button
-                        theme="small"
-                        @click=${this.openNewTemplateBuilder}
-                      >
-                        <vaadin-icon
-                          icon="vaadin:plus"
-                          slot="prefix"
-                        ></vaadin-icon>
-                        New Blueprint Template
-                      </vaadin-button>
-                    `
-                  : html`
-                      <vaadin-button
-                        theme="small tertiary"
-                        @click=${this.cancelTemplateBuilder}
-                      >
-                        Close Template Builder
-                      </vaadin-button>
-                    `
-              }
+              <vaadin-button
+                theme="small tertiary"
+                ?disabled=${!this.selectedProject?.ProjectName}
+                @click=${this.openBlueprintsWorkspace}
+              >
+                <vaadin-icon icon="vaadin:cubes" slot="prefix"></vaadin-icon>
+                Manage Blueprints
+              </vaadin-button>
             </div>
           </div>
 
@@ -1725,7 +1385,7 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
 
             <vaadin-combo-box
               label="Blueprint Template"
-              placeholder="Select a Blueprint Template (or create one)"
+              placeholder="Select a Blueprint Template"
               item-label-path="Name"
               item-value-path="Id"
               clear-button-visible
@@ -1745,7 +1405,7 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
           </div>
 
           ${
-            this.selectedTemplate && this.templateBuilderMode === 'none'
+            this.selectedTemplate
               ? html`
                   <div class="blueprint-summary">
                     <div class="blueprint-summary-top">
@@ -1791,281 +1451,20 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
               : !this.templatesLoading &&
                   !this.templatesLoadFailed &&
                   this.selectedProject &&
-                  this.templates.length === 0 &&
-                  this.templateBuilderMode === 'none'
+                  this.templates.length === 0
                 ? html`
                     <div class="info-banner">
                       <vaadin-icon icon="vaadin:info-circle"></vaadin-icon>
                       <span>
                         No Blueprint Templates are saved for
                         <strong>${this.selectedProject.ProjectName}</strong>
-                        yet. Click <strong>New Blueprint Template</strong> above
-                        to save reusable components and tier overrides, or
-                        continue below using project defaults.
+                        yet. Click <strong>Manage Blueprints</strong> above to
+                        author or capture a reusable blueprint, or continue
+                        below using project defaults.
                       </span>
                     </div>
                   `
                 : nothing
-          }
-          ${
-            this.templateBuilderMode !== 'none'
-              ? html`
-                  <div class="builder-panel">
-                    <div class="section-header">
-                      <strong style="font-size: 0.88rem;">
-                        ${
-                          this.templateBuilderMode === 'edit'
-                            ? `Edit Blueprint Template: ${this.builderName}`
-                            : 'Create New Blueprint Template'
-                        }
-                      </strong>
-                    </div>
-
-                    <div class="form-grid-3">
-                      <vaadin-text-field
-                        label="Template Name"
-                        required
-                        .value=${this.builderName}
-                        @value-changed=${(
-                          e: CustomEvent<{ value: string }>
-                        ) => {
-                          this.builderName = e.detail.value;
-                        }}
-                      ></vaadin-text-field>
-
-                      <vaadin-combo-box
-                        label="Default Tier"
-                        .items=${[
-                          'ephemeral',
-                          'xx',
-                          'dv',
-                          'qa',
-                          'it',
-                          'in',
-                          'ut',
-                          'np',
-                          'pp',
-                          'ff'
-                        ]}
-                        .value=${this.builderDefaultTier}
-                        @value-changed=${(
-                          e: CustomEvent<{ value: string }>
-                        ) => {
-                          if (e.detail.value) {
-                            this.builderDefaultTier = e.detail.value;
-                          }
-                        }}
-                      ></vaadin-combo-box>
-
-                      <vaadin-combo-box
-                        label="Default Non-Prod Base Environment"
-                        item-label-path="EnvironmentName"
-                        item-value-path="EnvironmentId"
-                        .items=${this.nonProdEnvironments}
-                        .selectedItem=${
-                          this.nonProdEnvironments.find(
-                            env =>
-                              env.EnvironmentId ===
-                              this.builderBaseEnvironmentId
-                          ) ?? null
-                        }
-                        @selected-item-changed=${(
-                          e: CustomEvent<{
-                            value: EnvironmentApiModel | null | undefined;
-                          }>
-                        ) => {
-                          const nextId = e.detail.value?.EnvironmentId ?? null;
-                          if (nextId !== this.builderBaseEnvironmentId) {
-                            this.builderBaseEnvironmentId = nextId;
-                          }
-                        }}
-                      ></vaadin-combo-box>
-                    </div>
-
-                    <div class="form-grid-3">
-                      <vaadin-text-field
-                        label="Description"
-                        .value=${this.builderDescription}
-                        @value-changed=${(
-                          e: CustomEvent<{ value: string }>
-                        ) => {
-                          this.builderDescription = e.detail.value;
-                        }}
-                      ></vaadin-text-field>
-
-                      <vaadin-number-field
-                        label="Default TTL (minutes)"
-                        min="15"
-                        max="10080"
-                        .value=${String(this.builderDefaultTtlMinutes)}
-                        @value-changed=${(
-                          e: CustomEvent<{ value: string }>
-                        ) => {
-                          const v = Number.parseInt(e.detail.value, 10);
-                          if (!Number.isNaN(v) && v > 0) {
-                            this.builderDefaultTtlMinutes = v;
-                          }
-                        }}
-                      ></vaadin-number-field>
-
-                      <vaadin-number-field
-                        label="Max TTL Policy Cap (minutes)"
-                        min="30"
-                        max="10080"
-                        .value=${String(this.builderMaxTtlMinutes)}
-                        @value-changed=${(
-                          e: CustomEvent<{ value: string }>
-                        ) => {
-                          const v = Number.parseInt(e.detail.value, 10);
-                          if (!Number.isNaN(v) && v > 0) {
-                            this.builderMaxTtlMinutes = v;
-                          }
-                        }}
-                      ></vaadin-number-field>
-                    </div>
-
-                    <div>
-                      <div
-                        style="font-size: 0.78rem; font-weight: 600; margin-bottom: 4px;"
-                      >
-                        Provision Components
-                        (${this.builderProvisionComponentIds.length} selected)
-                      </div>
-                      <div class="components-picker">
-                        ${this.projectComponents.map(
-                          comp => html`
-                            <label class="comp-chip">
-                              <vaadin-checkbox
-                                ?checked=${Boolean(
-                                  comp.ComponentId &&
-                                  this.builderProvisionComponentIds.includes(
-                                    comp.ComponentId
-                                  )
-                                )}
-                                @checked-changed=${(
-                                  e: CustomEvent<{ value: boolean }>
-                                ) => {
-                                  if (comp.ComponentId) {
-                                    this.toggleBuilderProvisionComponent(
-                                      comp.ComponentId,
-                                      Boolean(e.detail.value)
-                                    );
-                                  }
-                                }}
-                              ></vaadin-checkbox>
-                              <span>${comp.ComponentName}</span>
-                              <span class="comp-type-tag">
-                                ${comp.ComponentType || 'PowerShell'}
-                              </span>
-                            </label>
-                          `
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div
-                        style="font-size: 0.78rem; font-weight: 600; margin-bottom: 4px;"
-                      >
-                        Post-Provision Validation Components
-                        (${this.builderValidationComponentIds.length} selected)
-                      </div>
-                      <div class="components-picker">
-                        ${this.projectComponents.map(
-                          comp => html`
-                            <label class="comp-chip">
-                              <vaadin-checkbox
-                                ?checked=${Boolean(
-                                  comp.ComponentId &&
-                                  this.builderValidationComponentIds.includes(
-                                    comp.ComponentId
-                                  )
-                                )}
-                                @checked-changed=${(
-                                  e: CustomEvent<{ value: boolean }>
-                                ) => {
-                                  if (comp.ComponentId) {
-                                    this.toggleBuilderValidationComponent(
-                                      comp.ComponentId,
-                                      Boolean(e.detail.value)
-                                    );
-                                  }
-                                }}
-                              ></vaadin-checkbox>
-                              <span>${comp.ComponentName}</span>
-                            </label>
-                          `
-                        )}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div
-                        style="font-size: 0.78rem; font-weight: 600; margin-bottom: 4px;"
-                      >
-                        Tier Parameter Overrides Preview
-                        (<code>TierParameterOverridesJson</code>)
-                      </div>
-                      <div class="kv-row" style="margin-bottom: 8px;">
-                        <vaadin-text-field
-                          label="Parameter Key (for ${this.builderDefaultTier})"
-                          placeholder="e.g. aiven_plan"
-                          .value=${this.builderOverrideKey}
-                          @value-changed=${(
-                            e: CustomEvent<{ value: string }>
-                          ) => {
-                            this.builderOverrideKey = e.detail.value;
-                          }}
-                        ></vaadin-text-field>
-                        <vaadin-text-field
-                          label="Parameter Value"
-                          placeholder="e.g. startup-4"
-                          .value=${this.builderOverrideValue}
-                          @value-changed=${(
-                            e: CustomEvent<{ value: string }>
-                          ) => {
-                            this.builderOverrideValue = e.detail.value;
-                          }}
-                        ></vaadin-text-field>
-                        <vaadin-button
-                          theme="small"
-                          @click=${this.addBuilderTierOverride}
-                        >
-                          Set Override
-                        </vaadin-button>
-                      </div>
-                      <div class="json-viewer-box">
-                        <hegs-json-viewer
-                          ${ref(this.builderJsonViewerRef)}
-                          .data=${builderJsonParsed}
-                        ></hegs-json-viewer>
-                      </div>
-                    </div>
-
-                    <div
-                      style="display: flex; justify-content: flex-end; gap: 8px;"
-                    >
-                      <vaadin-button
-                        theme="small tertiary"
-                        @click=${this.cancelTemplateBuilder}
-                      >
-                        Cancel
-                      </vaadin-button>
-                      <vaadin-button
-                        theme="small primary"
-                        ?disabled=${this.builderSaving}
-                        @click=${this.saveBlueprintTemplate}
-                      >
-                        <vaadin-icon
-                          icon="vaadin:check"
-                          slot="prefix"
-                        ></vaadin-icon>
-                        Save Blueprint Template
-                      </vaadin-button>
-                    </div>
-                  </div>
-                `
-              : nothing
           }
         </div>
 
@@ -2510,20 +1909,6 @@ export class EphemeralEnvironmentWizardDialog extends LitElement {
           this.templatesLoading,
           this.templatesLoadFailed,
           this.selectedTemplate,
-          this.projectComponents,
-          this.templateBuilderMode,
-          this.builderName,
-          this.builderDescription,
-          this.builderDefaultTier,
-          this.builderBaseEnvironmentId,
-          this.builderDefaultTtlMinutes,
-          this.builderMaxTtlMinutes,
-          this.builderProvisionComponentIds,
-          this.builderValidationComponentIds,
-          this.builderTierOverridesJson,
-          this.builderOverrideKey,
-          this.builderOverrideValue,
-          this.builderSaving,
           this.environmentName,
           this.selectedBaseEnvironmentId,
           this.selectedTier,

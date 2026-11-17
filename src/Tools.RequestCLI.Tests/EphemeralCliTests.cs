@@ -780,6 +780,231 @@ namespace Tools.RequestCLI.Tests
             }
         }
 
+        [TestMethod]
+        public async Task EphemeralBlueprintCommands_ParseAndExecute_CoversListExportAndApply()
+        {
+            // 1) Parsing both two-token ("ephemeral blueprint list") and hyphenated ("ephemeral blueprint-list") forms
+            var listArgs = new EphemeralCliArgs(new[] { "ephemeral", "blueprint", "list", "--project", "MyProj" });
+            Assert.AreEqual(EphemeralCliVerb.BlueprintList, listArgs.Verb);
+            Assert.AreEqual("MyProj", listArgs.Project);
+
+            var listHyphenArgs = new EphemeralCliArgs(new[] { "ephemeral", "blueprint-list", "/project:MyProj" });
+            Assert.AreEqual(EphemeralCliVerb.BlueprintList, listHyphenArgs.Verb);
+            Assert.AreEqual("MyProj", listHyphenArgs.Project);
+
+            var exportArgs = new EphemeralCliArgs(new[]
+            {
+                "ephemeral", "blueprint", "export",
+                "--project", "MyProj",
+                "--template", "Fast PR",
+                "--file", "out.json"
+            });
+            Assert.AreEqual(EphemeralCliVerb.BlueprintExport, exportArgs.Verb);
+            Assert.AreEqual("MyProj", exportArgs.Project);
+            Assert.AreEqual("Fast PR", exportArgs.Template);
+            Assert.AreEqual("out.json", exportArgs.FilePath);
+
+            var exportAliasArgs = new EphemeralCliArgs(new[]
+            {
+                "ephemeral", "blueprint-export",
+                "/project:MyProj",
+                "/template:Fast PR",
+                "/output:out2.json"
+            });
+            Assert.AreEqual(EphemeralCliVerb.BlueprintExport, exportAliasArgs.Verb);
+            Assert.AreEqual("out2.json", exportAliasArgs.FilePath);
+
+            var applyArgs = new EphemeralCliArgs(new[]
+            {
+                "ephemeral", "blueprint", "apply",
+                "--project", "MyProj",
+                "--file", "blueprints.json"
+            });
+            Assert.AreEqual(EphemeralCliVerb.BlueprintApply, applyArgs.Verb);
+            Assert.AreEqual("MyProj", applyArgs.Project);
+            Assert.AreEqual("blueprints.json", applyArgs.FilePath);
+
+            var applyHyphenNoProjectArgs = new EphemeralCliArgs(new[]
+            {
+                "ephemeral", "blueprint-apply",
+                "/file:blueprints.json"
+            });
+            Assert.AreEqual(EphemeralCliVerb.BlueprintApply, applyHyphenNoProjectArgs.Verb);
+            Assert.AreEqual(string.Empty, applyHyphenNoProjectArgs.Project);
+            Assert.AreEqual("blueprints.json", applyHyphenNoProjectArgs.FilePath);
+
+            // Validation errors for blueprint sub-commands
+            Assert.ThrowsExactly<ArgumentException>(() => new EphemeralCliArgs(new[] { "ephemeral", "blueprint" }));
+            Assert.ThrowsExactly<ArgumentException>(() => new EphemeralCliArgs(new[] { "ephemeral", "blueprint", "unknown" }));
+            Assert.ThrowsExactly<ArgumentException>(() => new EphemeralCliArgs(new[] { "ephemeral", "blueprint", "list" }));
+            Assert.ThrowsExactly<ArgumentException>(() => new EphemeralCliArgs(new[] { "ephemeral", "blueprint", "export", "--template", "T" }));
+            Assert.ThrowsExactly<ArgumentException>(() => new EphemeralCliArgs(new[] { "ephemeral", "blueprint", "export", "--project", "P" }));
+            Assert.ThrowsExactly<ArgumentException>(() => new EphemeralCliArgs(new[] { "ephemeral", "blueprint", "apply" }));
+
+            // 2) Execute BlueprintList, BlueprintExport, and BlueprintApply against mock HttpMessageHandler
+            var logs = new List<string>();
+            EnvironmentBlueprintImportRequestApiModel? lastImportedRequest = null;
+
+            var handler = new StubHttpMessageHandler(req =>
+            {
+                var path = req.RequestUri!.PathAndQuery;
+                if (path == "/RefDataProjects/MyProj")
+                {
+                    return JsonResponse(new ProjectApiModel { ProjectId = 42, ProjectName = "MyProj" });
+                }
+                if (path == "/EphemeralEnvironments/templates?projectId=42")
+                {
+                    return JsonResponse(new List<EnvironmentTemplateApiModel>
+                    {
+                        new()
+                        {
+                            Id = 7,
+                            ProjectId = 42,
+                            ProjectName = "MyProj",
+                            Name = "Fast PR",
+                            DefaultTier = "xx",
+                            BaseEnvironmentName = "TRV-DV-01",
+                            DefaultTtlMinutes = 240,
+                            MaxTtlMinutes = 720,
+                            ProvisionComponentIds = new List<int> { 1, 2 },
+                            ValidationComponentIds = new List<int> { 3 }
+                        }
+                    });
+                }
+                if (path == "/EphemeralEnvironments/templates/7/export")
+                {
+                    return JsonResponse(new EnvironmentBlueprintDefinitionApiModel
+                    {
+                        SchemaVersion = "1.0",
+                        ProjectName = "MyProj",
+                        Name = "Fast PR",
+                        Description = "Fast PR sandbox",
+                        DefaultTier = "xx",
+                        BaseEnvironmentName = "TRV-DV-01",
+                        DefaultTtlMinutes = 240,
+                        MaxTtlMinutes = 720,
+                        ProvisionComponentNames = new List<string> { "CompA", "CompB" },
+                        ValidationComponentNames = new List<string> { "ValA" }
+                    });
+                }
+                if (path == "/EphemeralEnvironments/templates/import")
+                {
+                    var bodyJson = req.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
+                    lastImportedRequest = JsonSerializer.Deserialize<EnvironmentBlueprintImportRequestApiModel>(
+                        bodyJson,
+                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+                    return JsonResponse(new EnvironmentBlueprintImportResponseApiModel
+                    {
+                        ImportedTemplates = new List<EnvironmentTemplateApiModel>
+                        {
+                            new() { Id = 7, Name = "Fast PR" }
+                        },
+                        CreatedCount = 1,
+                        UpdatedCount = 0
+                    });
+                }
+
+                return new HttpResponseMessage(HttpStatusCode.NotFound);
+            });
+
+            using var httpClient = new HttpClient(handler) { BaseAddress = new Uri("https://localhost/") };
+            var client = new EphemeralEnvironmentCliClient(httpClient, logs.Add);
+
+            // BlueprintList
+            var listExitCode = await client.ExecuteAsync(listArgs);
+            Assert.AreEqual(0, listExitCode);
+            Assert.IsTrue(logs.Exists(l => l.Contains("Fast PR", StringComparison.Ordinal) && l.Contains("TRV-DV-01", StringComparison.Ordinal)));
+
+            // BlueprintExport to stdout (no --file)
+            logs.Clear();
+            var exportStdoutExitCode = await client.ExecuteAsync(new EphemeralCliArgs(new[]
+            {
+                "ephemeral", "blueprint", "export",
+                "--project", "MyProj",
+                "--template", "Fast PR"
+            }));
+            Assert.AreEqual(0, exportStdoutExitCode);
+            Assert.IsTrue(logs.Exists(l => l.Contains("\"Fast PR\"", StringComparison.Ordinal)));
+
+            // BlueprintExport to file and BlueprintApply from file (single object, array, and wrapper object)
+            var testArtifactPath = System.IO.Path.Combine(AppContext.BaseDirectory, $"test-blueprint-{Guid.NewGuid():N}.json");
+            try
+            {
+                var exportToFileArgs = new EphemeralCliArgs(new[]
+                {
+                    "ephemeral", "blueprint", "export",
+                    "--project", "MyProj",
+                    "--template", "Fast PR",
+                    "--file", testArtifactPath
+                });
+                Assert.AreEqual(0, await client.ExecuteAsync(exportToFileArgs));
+                Assert.IsTrue(System.IO.File.Exists(testArtifactPath));
+
+                // Apply single blueprint definition object with --project override
+                logs.Clear();
+                var applySingleExit = await client.ExecuteAsync(new EphemeralCliArgs(new[]
+                {
+                    "ephemeral", "blueprint", "apply",
+                    "--project", "MyProj",
+                    "--file", testArtifactPath
+                }));
+                Assert.AreEqual(0, applySingleExit);
+                Assert.IsNotNull(lastImportedRequest);
+                Assert.AreEqual("MyProj", lastImportedRequest!.ProjectName);
+                Assert.HasCount(1, lastImportedRequest.Blueprints);
+                Assert.AreEqual("Fast PR", lastImportedRequest.Blueprints[0].Name);
+                Assert.IsTrue(logs.Exists(l => l.Contains("Applied 1 blueprint(s) (1 created, 0 updated).", StringComparison.Ordinal)));
+
+                // Apply array of blueprint definitions without --project (falls back to blueprint's ProjectName)
+                await System.IO.File.WriteAllTextAsync(testArtifactPath, JsonSerializer.Serialize(new List<EnvironmentBlueprintDefinitionApiModel>
+                {
+                    new() { ProjectName = "FileFallbackProj", Name = "BpFromArray" }
+                }));
+                Assert.AreEqual(0, await client.ExecuteAsync(new EphemeralCliArgs(new[]
+                {
+                    "ephemeral", "blueprint", "apply",
+                    "--file", testArtifactPath
+                })));
+                Assert.AreEqual("FileFallbackProj", lastImportedRequest!.ProjectName);
+                Assert.HasCount(1, lastImportedRequest.Blueprints);
+
+                // Apply EnvironmentBlueprintImportRequestApiModel wrapper with numeric --project ID
+                await System.IO.File.WriteAllTextAsync(testArtifactPath, JsonSerializer.Serialize(new EnvironmentBlueprintImportRequestApiModel
+                {
+                    ProjectName = "WrapperProj",
+                    Blueprints = new List<EnvironmentBlueprintDefinitionApiModel>
+                    {
+                        new() { Name = "BpFromWrapper" }
+                    }
+                }));
+                Assert.AreEqual(0, await client.ExecuteAsync(new EphemeralCliArgs(new[]
+                {
+                    "ephemeral", "blueprint", "apply",
+                    "--project", "42",
+                    "--file", testArtifactPath
+                })));
+                Assert.AreEqual(42, lastImportedRequest!.ProjectId);
+                Assert.AreEqual("BpFromWrapper", lastImportedRequest.Blueprints[0].Name);
+            }
+            finally
+            {
+                if (System.IO.File.Exists(testArtifactPath))
+                {
+                    System.IO.File.Delete(testArtifactPath);
+                }
+            }
+
+            // BlueprintApply when file does not exist returns 1
+            var missingFileExit = await client.ExecuteAsync(new EphemeralCliArgs(new[]
+            {
+                "ephemeral", "blueprint", "apply",
+                "--project", "MyProj",
+                "--file", "nonexistent-blueprint-file-xyz.json"
+            }));
+            Assert.AreEqual(1, missingFileExit);
+        }
+
         private static HttpResponseMessage JsonResponse<T>(T value)
         {
             return new HttpResponseMessage(HttpStatusCode.OK)

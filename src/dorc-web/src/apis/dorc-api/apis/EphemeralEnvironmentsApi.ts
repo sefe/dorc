@@ -17,6 +17,12 @@ import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
 import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     EnvironmentApiModel,
+    EnvironmentBlueprintCaptureFromEnvironmentRequestApiModel,
+    EnvironmentBlueprintCloneRequestApiModel,
+    EnvironmentBlueprintDefinitionApiModel,
+    EnvironmentBlueprintImportRequestApiModel,
+    EnvironmentBlueprintImportResponseApiModel,
+    EnvironmentBlueprintSchemaContextApiModel,
     EnvironmentTemplateApiModel,
     EphemeralEnvironmentExtendTtlRequestApiModel,
     EphemeralEnvironmentProvisionRequestApiModel,
@@ -54,15 +60,37 @@ export interface EphemeralEnvironmentsProvisionPostRequest {
     ephemeralEnvironmentProvisionRequestApiModel?: EphemeralEnvironmentProvisionRequestApiModel;
 }
 
+export interface EphemeralEnvironmentsTemplatesCaptureFromEnvironmentPostRequest {
+    environmentBlueprintCaptureFromEnvironmentRequestApiModel?: EnvironmentBlueprintCaptureFromEnvironmentRequestApiModel;
+}
+
 export interface EphemeralEnvironmentsTemplatesGetRequest {
     projectId?: number;
+}
+
+export interface EphemeralEnvironmentsTemplatesImportPostRequest {
+    environmentBlueprintImportRequestApiModel?: EnvironmentBlueprintImportRequestApiModel;
 }
 
 export interface EphemeralEnvironmentsTemplatesPostRequest {
     environmentTemplateApiModel?: EnvironmentTemplateApiModel;
 }
 
+export interface EphemeralEnvironmentsTemplatesSchemaContextGetRequest {
+    projectId?: number;
+    baseEnvironmentId?: number;
+}
+
+export interface EphemeralEnvironmentsTemplatesTemplateIdClonePostRequest {
+    templateId: number;
+    environmentBlueprintCloneRequestApiModel?: EnvironmentBlueprintCloneRequestApiModel;
+}
+
 export interface EphemeralEnvironmentsTemplatesTemplateIdDeleteRequest {
+    templateId: number;
+}
+
+export interface EphemeralEnvironmentsTemplatesTemplateIdExportGetRequest {
     templateId: number;
 }
 
@@ -238,6 +266,31 @@ export class EphemeralEnvironmentsApi extends BaseAPI {
 
     /**
      */
+    ephemeralEnvironmentsTemplatesCaptureFromEnvironmentPost({ environmentBlueprintCaptureFromEnvironmentRequestApiModel }: EphemeralEnvironmentsTemplatesCaptureFromEnvironmentPostRequest): Observable<EnvironmentTemplateApiModel>
+    ephemeralEnvironmentsTemplatesCaptureFromEnvironmentPost({ environmentBlueprintCaptureFromEnvironmentRequestApiModel }: EphemeralEnvironmentsTemplatesCaptureFromEnvironmentPostRequest, opts?: OperationOpts): Observable<AjaxResponse<EnvironmentTemplateApiModel>>
+    ephemeralEnvironmentsTemplatesCaptureFromEnvironmentPost({ environmentBlueprintCaptureFromEnvironmentRequestApiModel }: EphemeralEnvironmentsTemplatesCaptureFromEnvironmentPostRequest, opts?: OperationOpts): Observable<EnvironmentTemplateApiModel | AjaxResponse<EnvironmentTemplateApiModel>> {
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<EnvironmentTemplateApiModel>({
+            url: '/EphemeralEnvironments/templates/capture-from-environment',
+            method: 'POST',
+            headers,
+            body: environmentBlueprintCaptureFromEnvironmentRequestApiModel,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
     ephemeralEnvironmentsTemplatesGet({ projectId }: EphemeralEnvironmentsTemplatesGetRequest): Observable<Array<EnvironmentTemplateApiModel>>
     ephemeralEnvironmentsTemplatesGet({ projectId }: EphemeralEnvironmentsTemplatesGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<EnvironmentTemplateApiModel>>>
     ephemeralEnvironmentsTemplatesGet({ projectId }: EphemeralEnvironmentsTemplatesGetRequest, opts?: OperationOpts): Observable<Array<EnvironmentTemplateApiModel> | AjaxResponse<Array<EnvironmentTemplateApiModel>>> {
@@ -261,6 +314,31 @@ export class EphemeralEnvironmentsApi extends BaseAPI {
             method: 'GET',
             headers,
             query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    ephemeralEnvironmentsTemplatesImportPost({ environmentBlueprintImportRequestApiModel }: EphemeralEnvironmentsTemplatesImportPostRequest): Observable<EnvironmentBlueprintImportResponseApiModel>
+    ephemeralEnvironmentsTemplatesImportPost({ environmentBlueprintImportRequestApiModel }: EphemeralEnvironmentsTemplatesImportPostRequest, opts?: OperationOpts): Observable<AjaxResponse<EnvironmentBlueprintImportResponseApiModel>>
+    ephemeralEnvironmentsTemplatesImportPost({ environmentBlueprintImportRequestApiModel }: EphemeralEnvironmentsTemplatesImportPostRequest, opts?: OperationOpts): Observable<EnvironmentBlueprintImportResponseApiModel | AjaxResponse<EnvironmentBlueprintImportResponseApiModel>> {
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<EnvironmentBlueprintImportResponseApiModel>({
+            url: '/EphemeralEnvironments/templates/import',
+            method: 'POST',
+            headers,
+            body: environmentBlueprintImportRequestApiModel,
         }, opts?.responseOpts);
     };
 
@@ -291,6 +369,61 @@ export class EphemeralEnvironmentsApi extends BaseAPI {
 
     /**
      */
+    ephemeralEnvironmentsTemplatesSchemaContextGet({ projectId, baseEnvironmentId }: EphemeralEnvironmentsTemplatesSchemaContextGetRequest): Observable<EnvironmentBlueprintSchemaContextApiModel>
+    ephemeralEnvironmentsTemplatesSchemaContextGet({ projectId, baseEnvironmentId }: EphemeralEnvironmentsTemplatesSchemaContextGetRequest, opts?: OperationOpts): Observable<AjaxResponse<EnvironmentBlueprintSchemaContextApiModel>>
+    ephemeralEnvironmentsTemplatesSchemaContextGet({ projectId, baseEnvironmentId }: EphemeralEnvironmentsTemplatesSchemaContextGetRequest, opts?: OperationOpts): Observable<EnvironmentBlueprintSchemaContextApiModel | AjaxResponse<EnvironmentBlueprintSchemaContextApiModel>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (projectId != null) { query['projectId'] = projectId; }
+        if (baseEnvironmentId != null) { query['baseEnvironmentId'] = baseEnvironmentId; }
+
+        return this.request<EnvironmentBlueprintSchemaContextApiModel>({
+            url: '/EphemeralEnvironments/templates/schema-context',
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    ephemeralEnvironmentsTemplatesTemplateIdClonePost({ templateId, environmentBlueprintCloneRequestApiModel }: EphemeralEnvironmentsTemplatesTemplateIdClonePostRequest): Observable<EnvironmentTemplateApiModel>
+    ephemeralEnvironmentsTemplatesTemplateIdClonePost({ templateId, environmentBlueprintCloneRequestApiModel }: EphemeralEnvironmentsTemplatesTemplateIdClonePostRequest, opts?: OperationOpts): Observable<AjaxResponse<EnvironmentTemplateApiModel>>
+    ephemeralEnvironmentsTemplatesTemplateIdClonePost({ templateId, environmentBlueprintCloneRequestApiModel }: EphemeralEnvironmentsTemplatesTemplateIdClonePostRequest, opts?: OperationOpts): Observable<EnvironmentTemplateApiModel | AjaxResponse<EnvironmentTemplateApiModel>> {
+        throwIfNullOrUndefined(templateId, 'templateId', 'ephemeralEnvironmentsTemplatesTemplateIdClonePost');
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<EnvironmentTemplateApiModel>({
+            url: '/EphemeralEnvironments/templates/{templateId}/clone'.replace('{templateId}', encodeURI(templateId)),
+            method: 'POST',
+            headers,
+            body: environmentBlueprintCloneRequestApiModel,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
     ephemeralEnvironmentsTemplatesTemplateIdDelete({ templateId }: EphemeralEnvironmentsTemplatesTemplateIdDeleteRequest): Observable<boolean>
     ephemeralEnvironmentsTemplatesTemplateIdDelete({ templateId }: EphemeralEnvironmentsTemplatesTemplateIdDeleteRequest, opts?: OperationOpts): Observable<AjaxResponse<boolean>>
     ephemeralEnvironmentsTemplatesTemplateIdDelete({ templateId }: EphemeralEnvironmentsTemplatesTemplateIdDeleteRequest, opts?: OperationOpts): Observable<boolean | AjaxResponse<boolean>> {
@@ -309,6 +442,30 @@ export class EphemeralEnvironmentsApi extends BaseAPI {
         return this.request<boolean>({
             url: '/EphemeralEnvironments/templates/{templateId}'.replace('{templateId}', encodeURI(templateId)),
             method: 'DELETE',
+            headers,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    ephemeralEnvironmentsTemplatesTemplateIdExportGet({ templateId }: EphemeralEnvironmentsTemplatesTemplateIdExportGetRequest): Observable<EnvironmentBlueprintDefinitionApiModel>
+    ephemeralEnvironmentsTemplatesTemplateIdExportGet({ templateId }: EphemeralEnvironmentsTemplatesTemplateIdExportGetRequest, opts?: OperationOpts): Observable<AjaxResponse<EnvironmentBlueprintDefinitionApiModel>>
+    ephemeralEnvironmentsTemplatesTemplateIdExportGet({ templateId }: EphemeralEnvironmentsTemplatesTemplateIdExportGetRequest, opts?: OperationOpts): Observable<EnvironmentBlueprintDefinitionApiModel | AjaxResponse<EnvironmentBlueprintDefinitionApiModel>> {
+        throwIfNullOrUndefined(templateId, 'templateId', 'ephemeralEnvironmentsTemplatesTemplateIdExportGet');
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<EnvironmentBlueprintDefinitionApiModel>({
+            url: '/EphemeralEnvironments/templates/{templateId}/export'.replace('{templateId}', encodeURI(templateId)),
+            method: 'GET',
             headers,
         }, opts?.responseOpts);
     };

@@ -23,6 +23,11 @@ namespace Dorc.Api.Controllers
             "ephemeral", "xx", "dv", "qa", "it", "in", "ut", "np", "pp", "ff"
         };
 
+        private static readonly string[] OrderedNonProdTiers =
+        {
+            "ephemeral", "xx", "dv", "qa", "it", "in", "ut", "np", "pp", "ff"
+        };
+
         private static readonly HashSet<string> BlockedProdTiers = new(StringComparer.OrdinalIgnoreCase)
         {
             "pr", "dr", "prd", "live", "prod", "production"
@@ -315,6 +320,702 @@ namespace Dorc.Api.Controllers
             catch (InvalidOperationException ex)
             {
                 return Conflict(ex.Message);
+            }
+        }
+
+        [HttpGet("templates/schema-context")]
+        [ProducesResponseType(typeof(EnvironmentBlueprintSchemaContextApiModel), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(EnvironmentBlueprintSchemaContextApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest)]
+        [SwaggerResponse(StatusCodes.Status403Forbidden)]
+        [SwaggerResponse(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> GetTemplateSchemaContext(
+            [FromQuery] int projectId,
+            [FromQuery] int? baseEnvironmentId = null,
+            CancellationToken cancellationToken = default)
+        {
+            if (projectId <= 0)
+            {
+                return BadRequest("projectId must be a positive integer.");
+            }
+
+            var project = _projectsPersistentSource.GetProject(projectId);
+            if (project is null)
+            {
+                return NotFound($"Project with ID {projectId} was not found.");
+            }
+
+            var effectiveBaseEnvironmentId = baseEnvironmentId is > 0 ? baseEnvironmentId : null;
+            if (effectiveBaseEnvironmentId.HasValue)
+            {
+                var baseEnvError = GetBaseEnvironmentAccessError(effectiveBaseEnvironmentId);
+                if (baseEnvError is not null)
+                {
+                    return baseEnvError;
+                }
+            }
+
+            var allComponents = FlattenComponents(_projectsPersistentSource.GetComponentsForProject(projectId) ?? Array.Empty<ComponentApiModel>())
+                .Where(c => c.ComponentId.HasValue)
+                .DistinctBy(c => c.ComponentId!.Value)
+                .ToList();
+
+            var componentById = allComponents.ToDictionary(c => c.ComponentId!.Value);
+            var manifestByComponentId = new Dictionary<int, TerraformTemplateManifest?>();
+            var emptyOverrides = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
+            var response = new EnvironmentBlueprintSchemaContextApiModel
+            {
+                ProjectId = project.ProjectId,
+                ProjectName = project.ProjectName,
+                BaseEnvironmentId = effectiveBaseEnvironmentId,
+                SupportedTiers = OrderedNonProdTiers.ToList()
+            };
+
+            foreach (var component in allComponents)
+            {
+                var componentId = component.ComponentId!.Value;
+                var isCatalog = IsCatalogTerraformComponent(component);
+                var componentSchema = new EnvironmentBlueprintComponentSchemaApiModel
+                {
+                    ComponentId = componentId,
+                    ComponentName = component.ComponentName,
+                    ComponentType = component.ComponentType.ToString(),
+                    IsEnabled = component.IsEnabled != false,
+                    IsCatalogTerraform = isCatalog,
+                    TerraformTemplateName = component.TerraformTemplateName,
+                    TerraformTemplateVersion = component.TerraformTemplateVersion,
+                    ManifestResolved = false
+                };
+
+                if (isCatalog)
+                {
+                    var manifest = await _templateCatalog.GetAsync(
+                        component.TerraformTemplateName,
+                        component.TerraformTemplateVersion,
+                        cancellationToken);
+                    manifestByComponentId[componentId] = manifest;
+
+                    if (manifest is not null)
+                    {
+                        componentSchema.ManifestResolved = true;
+                        var baseInputs = GetBaseEnvironmentParameterValues(componentId, effectiveBaseEnvironmentId, out _);
+
+                        var tierPreviews = new Dictionary<string, EphemeralComponentParameterPreviewApiModel>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var tier in OrderedNonProdTiers)
+                        {
+                            tierPreviews[tier] = BuildComponentPreview(
+                                component,
+                                manifest,
+                                "ephemeral-preview",
+                                project,
+                                tier,
+                                emptyOverrides,
+                                baseInputs);
+                        }
+
+                        foreach (var parameter in manifest.Parameters)
+                        {
+                            var isSensitive = parameter.Sensitive || IsLikelySensitiveParameterName(parameter.Name);
+                            var isLocked = TierSizingProfileResolver.IsTerminationProtectionParameter(parameter.Name);
+
+                            string? baseEnvValue = null;
+                            if (effectiveBaseEnvironmentId.HasValue &&
+                                baseInputs.TryGetValue(parameter.Name, out var rawBaseValue) &&
+                                rawBaseValue is not null)
+                            {
+                                baseEnvValue = isSensitive ? "***REDACTED***" : rawBaseValue;
+                            }
+
+                            var tierSuggestedValues = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                            foreach (var tier in OrderedNonProdTiers)
+                            {
+                                if (tierPreviews[tier].ResolvedParameters.TryGetValue(parameter.Name, out var resolvedValue) &&
+                                    resolvedValue is not null)
+                                {
+                                    tierSuggestedValues[tier] = isSensitive ? "***REDACTED***" : resolvedValue;
+                                }
+                            }
+
+                            componentSchema.Parameters.Add(new EnvironmentBlueprintParameterSchemaApiModel
+                            {
+                                Name = parameter.Name,
+                                Type = parameter.Type.ToString().ToLowerInvariant(),
+                                Description = parameter.Description ?? string.Empty,
+                                Required = parameter.Required,
+                                Sensitive = isSensitive,
+                                IsLockedSafetyInvariant = isLocked,
+                                DefaultValue = isSensitive && parameter.Default is not null ? "***REDACTED***" : parameter.Default,
+                                BaseEnvironmentValue = baseEnvValue,
+                                AllowedValues = parameter.AllowedValues?.ToList() ?? new List<string>(),
+                                TierSuggestedValues = tierSuggestedValues
+                            });
+                        }
+                    }
+                }
+
+                response.Components.Add(componentSchema);
+            }
+
+            var templates = _environmentTemplatesPersistentSource.GetTemplatesForProject(projectId)
+                ?? Array.Empty<EnvironmentTemplateApiModel>();
+
+            foreach (var template in templates)
+            {
+                var warnings = new List<string>();
+                var referencedIds = (template.ProvisionComponentIds ?? Array.Empty<int>())
+                    .Concat(template.ValidationComponentIds ?? Array.Empty<int>())
+                    .Distinct();
+
+                foreach (var compId in referencedIds)
+                {
+                    if (!componentById.TryGetValue(compId, out var comp))
+                    {
+                        warnings.Add($"Component ID {compId} is missing from project '{project.ProjectName}'.");
+                        continue;
+                    }
+
+                    if (comp.IsEnabled == false)
+                    {
+                        warnings.Add($"Component '{comp.ComponentName}' (ID {compId}) is disabled.");
+                    }
+
+                    if (IsCatalogTerraformComponent(comp) &&
+                        manifestByComponentId.TryGetValue(compId, out var resolvedManifest) &&
+                        resolvedManifest is null)
+                    {
+                        warnings.Add($"Catalog manifest '{comp.TerraformTemplateName}@{comp.TerraformTemplateVersion}' for component '{comp.ComponentName}' could not be resolved.");
+                    }
+                }
+
+                if (template.BaseEnvironmentId.HasValue)
+                {
+                    var baseEnv = _environmentsPersistentSource.GetEnvironment(template.BaseEnvironmentId.Value, User)
+                        ?? _environmentsPersistentSource.GetEnvironment(template.BaseEnvironmentId.Value);
+                    if (baseEnv is null)
+                    {
+                        warnings.Add($"Base environment (ID {template.BaseEnvironmentId.Value}) no longer exists.");
+                    }
+                    else if (baseEnv.EnvironmentIsProd || baseEnv.IsEphemeral)
+                    {
+                        warnings.Add($"Base environment '{baseEnv.EnvironmentName}' cannot be a production or ephemeral environment.");
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(template.TierParameterOverridesJson))
+                {
+                    try
+                    {
+                        _ = ExtractOverrideKeys(template.TierParameterOverridesJson);
+                    }
+                    catch (ArgumentException)
+                    {
+                        warnings.Add("TierParameterOverridesJson is not valid JSON.");
+                    }
+                }
+
+                response.TemplateHealth.Add(new EnvironmentBlueprintHealthStatusApiModel
+                {
+                    TemplateId = template.Id,
+                    TemplateName = template.Name,
+                    IsHealthy = warnings.Count == 0,
+                    Warnings = warnings
+                });
+            }
+
+            return Ok(response);
+        }
+
+        [HttpGet("templates/{templateId:int}/export")]
+        [ProducesResponseType(typeof(EnvironmentBlueprintDefinitionApiModel), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(EnvironmentBlueprintDefinitionApiModel))]
+        [SwaggerResponse(StatusCodes.Status404NotFound)]
+        public IActionResult ExportTemplate(int templateId)
+        {
+            var template = _environmentTemplatesPersistentSource.GetTemplateById(templateId);
+            if (template is null)
+            {
+                return NotFound($"Environment template with ID {templateId} was not found.");
+            }
+
+            var project = _projectsPersistentSource.GetProject(template.ProjectId);
+            var componentById = FlattenComponents(_projectsPersistentSource.GetComponentsForProject(template.ProjectId) ?? Array.Empty<ComponentApiModel>())
+                .Where(c => c.ComponentId.HasValue)
+                .DistinctBy(c => c.ComponentId!.Value)
+                .ToDictionary(c => c.ComponentId!.Value);
+
+            string? baseEnvName = template.BaseEnvironmentName;
+            if (string.IsNullOrWhiteSpace(baseEnvName) && template.BaseEnvironmentId.HasValue)
+            {
+                var baseEnv = _environmentsPersistentSource.GetEnvironment(template.BaseEnvironmentId.Value, User)
+                    ?? _environmentsPersistentSource.GetEnvironment(template.BaseEnvironmentId.Value);
+                baseEnvName = baseEnv?.EnvironmentName;
+            }
+
+            var definition = new EnvironmentBlueprintDefinitionApiModel
+            {
+                SchemaVersion = "1.0",
+                ProjectName = !string.IsNullOrWhiteSpace(template.ProjectName) ? template.ProjectName : project?.ProjectName ?? string.Empty,
+                Name = template.Name,
+                Description = template.Description,
+                DefaultTier = string.IsNullOrWhiteSpace(template.DefaultTier) ? "ephemeral" : template.DefaultTier,
+                BaseEnvironmentName = baseEnvName,
+                DefaultTtlMinutes = template.DefaultTtlMinutes,
+                MaxTtlMinutes = template.MaxTtlMinutes,
+                ProvisionComponentNames = ResolveComponentNames(template.ProvisionComponentIds, componentById),
+                ValidationComponentNames = ResolveComponentNames(template.ValidationComponentIds, componentById)
+            };
+
+            PopulateBlueprintOverridesFromJson(template.TierParameterOverridesJson, definition);
+
+            return Ok(definition);
+        }
+
+        [HttpPost("templates/import")]
+        [ProducesResponseType(typeof(EnvironmentBlueprintImportResponseApiModel), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(EnvironmentBlueprintImportResponseApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest)]
+        [SwaggerResponse(StatusCodes.Status403Forbidden)]
+        [SwaggerResponse(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> ImportTemplates(
+            [FromBody] EnvironmentBlueprintImportRequestApiModel? request,
+            CancellationToken cancellationToken = default)
+        {
+            if (request is null || request.Blueprints is not { Count: > 0 })
+            {
+                return BadRequest("At least one blueprint definition is required for import.");
+            }
+
+            ProjectApiModel? project = null;
+            if (request.ProjectId is > 0)
+            {
+                project = _projectsPersistentSource.GetProject(request.ProjectId.Value);
+                if (project is null)
+                {
+                    return NotFound($"Project with ID {request.ProjectId.Value} was not found.");
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(request.ProjectName))
+            {
+                project = _projectsPersistentSource.GetProject(request.ProjectName.Trim());
+                if (project is null)
+                {
+                    return NotFound($"Project '{request.ProjectName.Trim()}' was not found.");
+                }
+            }
+            else
+            {
+                var distinctProjectNames = request.Blueprints
+                    .Where(b => !string.IsNullOrWhiteSpace(b?.ProjectName))
+                    .Select(b => b.ProjectName.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (distinctProjectNames.Count == 1)
+                {
+                    project = _projectsPersistentSource.GetProject(distinctProjectNames[0]);
+                    if (project is null)
+                    {
+                        return NotFound($"Project '{distinctProjectNames[0]}' was not found.");
+                    }
+                }
+                else
+                {
+                    return BadRequest("ProjectId or ProjectName is required to import blueprints.");
+                }
+            }
+
+            if (!_securityPrivilegesChecker.CanModifyProject(User, project.ProjectName))
+            {
+                return Forbid();
+            }
+
+            var componentByName = FlattenComponents(_projectsPersistentSource.GetComponentsForProject(project.ProjectId) ?? Array.Empty<ComponentApiModel>())
+                .Where(c => c.ComponentId.HasValue && !string.IsNullOrWhiteSpace(c.ComponentName))
+                .GroupBy(c => c.ComponentName.Trim(), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+
+            var candidates = new List<EnvironmentTemplateApiModel>();
+            foreach (var def in request.Blueprints)
+            {
+                if (def is null || string.IsNullOrWhiteSpace(def.Name))
+                {
+                    return BadRequest("Each blueprint definition must specify a non-empty Name.");
+                }
+
+                int? baseEnvId = null;
+                if (!string.IsNullOrWhiteSpace(def.BaseEnvironmentName))
+                {
+                    var trimmedBaseEnv = def.BaseEnvironmentName.Trim();
+                    var baseEnv = _environmentsPersistentSource.GetEnvironment(trimmedBaseEnv, User)
+                        ?? _environmentsPersistentSource.GetEnvironment(trimmedBaseEnv);
+                    if (baseEnv is null || baseEnv.EnvironmentId <= 0)
+                    {
+                        return BadRequest($"Base environment '{trimmedBaseEnv}' was not found.");
+                    }
+
+                    baseEnvId = baseEnv.EnvironmentId;
+                    var baseEnvError = GetBaseEnvironmentAccessError(baseEnvId);
+                    if (baseEnvError is not null)
+                    {
+                        return baseEnvError;
+                    }
+                }
+
+                var provisionIds = new List<int>();
+                foreach (var compName in def.ProvisionComponentNames ?? Enumerable.Empty<string>())
+                {
+                    if (string.IsNullOrWhiteSpace(compName))
+                    {
+                        continue;
+                    }
+
+                    if (!componentByName.TryGetValue(compName.Trim(), out var comp))
+                    {
+                        return BadRequest($"Provision component '{compName}' was not found in project '{project.ProjectName}'.");
+                    }
+
+                    if (comp.IsEnabled == false)
+                    {
+                        return BadRequest($"Provision component '{compName}' is disabled in project '{project.ProjectName}'.");
+                    }
+
+                    provisionIds.Add(comp.ComponentId!.Value);
+                }
+
+                var validationIds = new List<int>();
+                foreach (var compName in def.ValidationComponentNames ?? Enumerable.Empty<string>())
+                {
+                    if (string.IsNullOrWhiteSpace(compName))
+                    {
+                        continue;
+                    }
+
+                    if (!componentByName.TryGetValue(compName.Trim(), out var comp))
+                    {
+                        return BadRequest($"Validation component '{compName}' was not found in project '{project.ProjectName}'.");
+                    }
+
+                    if (comp.IsEnabled == false)
+                    {
+                        return BadRequest($"Validation component '{compName}' is disabled in project '{project.ProjectName}'.");
+                    }
+
+                    validationIds.Add(comp.ComponentId!.Value);
+                }
+
+                var defaultTtl = def.DefaultTtlMinutes > 0 ? def.DefaultTtlMinutes : 240;
+                var maxTtl = def.MaxTtlMinutes > 0 ? def.MaxTtlMinutes : Math.Max(1440, defaultTtl);
+
+                var candidateModel = new EnvironmentTemplateApiModel
+                {
+                    ProjectId = project.ProjectId,
+                    ProjectName = project.ProjectName,
+                    Name = def.Name.Trim(),
+                    Description = def.Description,
+                    DefaultTier = string.IsNullOrWhiteSpace(def.DefaultTier) ? "ephemeral" : def.DefaultTier.Trim().ToLowerInvariant(),
+                    BaseEnvironmentId = baseEnvId,
+                    BaseEnvironmentName = def.BaseEnvironmentName,
+                    DefaultTtlMinutes = defaultTtl,
+                    MaxTtlMinutes = maxTtl,
+                    ProvisionComponentIds = provisionIds,
+                    ValidationComponentIds = validationIds,
+                    TierParameterOverridesJson = SerializeBlueprintOverridesToJson(def.GlobalParameterOverrides, def.TierParameterOverrides)
+                };
+
+                try
+                {
+                    var validationError = await ValidateTemplateComponentsAndOverridesAsync(project.ProjectId, candidateModel, cancellationToken);
+                    if (validationError is not null)
+                    {
+                        return validationError;
+                    }
+                }
+                catch (ArgumentException ex)
+                {
+                    return BadRequest(ex.Message);
+                }
+
+                candidates.Add(candidateModel);
+            }
+
+            var response = new EnvironmentBlueprintImportResponseApiModel();
+            var username = _claimsPrincipalReader.GetUserFullDomainName(User);
+
+            try
+            {
+                foreach (var candidate in candidates)
+                {
+                    var existing = _environmentTemplatesPersistentSource.GetTemplateByName(project.ProjectId, candidate.Name)
+                        ?? _environmentTemplatesPersistentSource.GetTemplatesForProject(project.ProjectId)
+                            ?.FirstOrDefault(t => string.Equals(t.Name, candidate.Name, StringComparison.OrdinalIgnoreCase));
+
+                    if (existing is not null)
+                    {
+                        candidate.Id = existing.Id;
+                        var updated = _environmentTemplatesPersistentSource.UpdateTemplate(candidate, username);
+                        response.ImportedTemplates.Add(updated);
+                        response.UpdatedCount++;
+                    }
+                    else
+                    {
+                        var created = _environmentTemplatesPersistentSource.CreateTemplate(candidate, username);
+                        response.ImportedTemplates.Add(created);
+                        response.CreatedCount++;
+                    }
+                }
+
+                return Ok(response);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("templates/{templateId:int}/clone")]
+        [ProducesResponseType(typeof(EnvironmentTemplateApiModel), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(EnvironmentTemplateApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest)]
+        [SwaggerResponse(StatusCodes.Status403Forbidden)]
+        [SwaggerResponse(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> CloneTemplate(
+            int templateId,
+            [FromBody] EnvironmentBlueprintCloneRequestApiModel? request,
+            CancellationToken cancellationToken = default)
+        {
+            var existing = _environmentTemplatesPersistentSource.GetTemplateById(templateId);
+            if (existing is null)
+            {
+                return NotFound($"Environment template with ID {templateId} was not found.");
+            }
+
+            var project = _projectsPersistentSource.GetProject(existing.ProjectId);
+            if (project is null)
+            {
+                return NotFound($"Project with ID {existing.ProjectId} was not found.");
+            }
+
+            if (!_securityPrivilegesChecker.CanModifyProject(User, project.ProjectName))
+            {
+                return Forbid();
+            }
+
+            var baseEnvError = GetBaseEnvironmentAccessError(existing.BaseEnvironmentId);
+            if (baseEnvError is not null)
+            {
+                return baseEnvError;
+            }
+
+            var newName = !string.IsNullOrWhiteSpace(request?.NewName)
+                ? request.NewName.Trim()
+                : $"{existing.Name} (Copy)";
+
+            var cloneModel = new EnvironmentTemplateApiModel
+            {
+                ProjectId = existing.ProjectId,
+                ProjectName = project.ProjectName,
+                Name = newName,
+                Description = request?.Description is not null ? request.Description : existing.Description,
+                DefaultTier = existing.DefaultTier,
+                BaseEnvironmentId = existing.BaseEnvironmentId,
+                BaseEnvironmentName = existing.BaseEnvironmentName,
+                DefaultTtlMinutes = existing.DefaultTtlMinutes,
+                MaxTtlMinutes = existing.MaxTtlMinutes,
+                ProvisionComponentIds = existing.ProvisionComponentIds?.ToList() ?? new List<int>(),
+                ValidationComponentIds = existing.ValidationComponentIds?.ToList() ?? new List<int>(),
+                TierParameterOverridesJson = existing.TierParameterOverridesJson
+            };
+
+            try
+            {
+                var validationError = await ValidateTemplateComponentsAndOverridesAsync(project.ProjectId, cloneModel, cancellationToken);
+                if (validationError is not null)
+                {
+                    return validationError;
+                }
+
+                var created = _environmentTemplatesPersistentSource.CreateTemplate(
+                    cloneModel,
+                    _claimsPrincipalReader.GetUserFullDomainName(User));
+                return Ok(created);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpPost("templates/capture-from-environment")]
+        [ProducesResponseType(typeof(EnvironmentTemplateApiModel), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(EnvironmentTemplateApiModel))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest)]
+        [SwaggerResponse(StatusCodes.Status403Forbidden)]
+        [SwaggerResponse(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> CaptureTemplateFromEnvironment(
+            [FromBody] EnvironmentBlueprintCaptureFromEnvironmentRequestApiModel? request,
+            CancellationToken cancellationToken = default)
+        {
+            if (request is null || request.ProjectId <= 0 || request.BaseEnvironmentId <= 0 || string.IsNullOrWhiteSpace(request.Name))
+            {
+                return BadRequest("ProjectId, BaseEnvironmentId, and a non-empty Name are required.");
+            }
+
+            var project = _projectsPersistentSource.GetProject(request.ProjectId);
+            if (project is null)
+            {
+                return NotFound($"Project with ID {request.ProjectId} was not found.");
+            }
+
+            if (!_securityPrivilegesChecker.CanModifyProject(User, project.ProjectName))
+            {
+                return Forbid();
+            }
+
+            var baseEnvError = GetBaseEnvironmentAccessError(request.BaseEnvironmentId);
+            if (baseEnvError is not null)
+            {
+                return baseEnvError;
+            }
+
+            var defaultTier = string.IsNullOrWhiteSpace(request.DefaultTier)
+                ? "ephemeral"
+                : request.DefaultTier.Trim().ToLowerInvariant();
+
+            var catalogComponents = FlattenComponents(_projectsPersistentSource.GetComponentsForProject(project.ProjectId) ?? Array.Empty<ComponentApiModel>())
+                .Where(c => c.ComponentId.HasValue && c.IsEnabled != false && IsLeafTerraformComponent(c) && IsCatalogTerraformComponent(c))
+                .DistinctBy(c => c.ComponentId!.Value)
+                .ToList();
+
+            string? overridesJson = null;
+            if (request.IncludeBaseEnvironmentSavedInputsAsOverrides && catalogComponents.Count > 0)
+            {
+                var tierOverridesForDefaultTier = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var comp in catalogComponents)
+                {
+                    var savedInputs = _requestsPersistentSource.GetCatalogEnvironmentInputs(comp.ComponentId!.Value, request.BaseEnvironmentId);
+                    if (savedInputs is null || string.IsNullOrWhiteSpace(savedInputs.InputsJson))
+                    {
+                        continue;
+                    }
+
+                    Dictionary<string, string?>? deserialized;
+                    try
+                    {
+                        deserialized = JsonSerializer.Deserialize<Dictionary<string, string?>>(savedInputs.InputsJson);
+                    }
+                    catch (JsonException)
+                    {
+                        continue;
+                    }
+
+                    if (deserialized is null || deserialized.Count == 0)
+                    {
+                        continue;
+                    }
+
+                    var manifest = await _templateCatalog.GetAsync(
+                        comp.TerraformTemplateName,
+                        comp.TerraformTemplateVersion,
+                        cancellationToken);
+                    if (manifest is null)
+                    {
+                        continue;
+                    }
+
+                    var manifestParamsByName = manifest.Parameters.ToDictionary(p => p.Name, StringComparer.OrdinalIgnoreCase);
+                    var effectiveContext = new CatalogInputSuggestions.Context(
+                        "ephemeral-capture",
+                        EnvironmentIsProd: false,
+                        project.BusinessVertical,
+                        project.ApplicationCode,
+                        IsEphemeral: true,
+                        ExplicitTierOverride: defaultTier,
+                        ModuleName: manifest.Name,
+                        ComponentName: comp.ComponentName);
+
+                    foreach (var kvp in deserialized)
+                    {
+                        if (string.IsNullOrWhiteSpace(kvp.Key) || kvp.Value is null)
+                        {
+                            continue;
+                        }
+
+                        if (!manifestParamsByName.TryGetValue(kvp.Key, out var paramDef))
+                        {
+                            continue;
+                        }
+
+                        if (paramDef.Sensitive ||
+                            IsLikelySensitiveParameterName(paramDef.Name) ||
+                            TierSizingProfileResolver.IsTerminationProtectionParameter(paramDef.Name) ||
+                            IsTierOrEnvironmentSpecificSuggestion(paramDef, effectiveContext))
+                        {
+                            continue;
+                        }
+
+                        tierOverridesForDefaultTier[$"{comp.ComponentName}:{paramDef.Name}"] = kvp.Value;
+                    }
+                }
+
+                if (tierOverridesForDefaultTier.Count > 0)
+                {
+                    overridesJson = SerializeBlueprintOverridesToJson(
+                        null,
+                        new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase)
+                        {
+                            [defaultTier] = tierOverridesForDefaultTier
+                        });
+                }
+            }
+
+            var defaultTtl = request.DefaultTtlMinutes > 0 ? request.DefaultTtlMinutes : 240;
+            var maxTtl = request.MaxTtlMinutes > 0 ? request.MaxTtlMinutes : Math.Max(1440, defaultTtl);
+
+            var captureModel = new EnvironmentTemplateApiModel
+            {
+                ProjectId = project.ProjectId,
+                ProjectName = project.ProjectName,
+                Name = request.Name.Trim(),
+                Description = request.Description,
+                DefaultTier = defaultTier,
+                BaseEnvironmentId = request.BaseEnvironmentId,
+                DefaultTtlMinutes = defaultTtl,
+                MaxTtlMinutes = maxTtl,
+                ProvisionComponentIds = catalogComponents.Select(c => c.ComponentId!.Value).ToList(),
+                ValidationComponentIds = new List<int>(),
+                TierParameterOverridesJson = overridesJson
+            };
+
+            try
+            {
+                var validationError = await ValidateTemplateComponentsAndOverridesAsync(project.ProjectId, captureModel, cancellationToken);
+                if (validationError is not null)
+                {
+                    return validationError;
+                }
+
+                var created = _environmentTemplatesPersistentSource.CreateTemplate(
+                    captureModel,
+                    _claimsPrincipalReader.GetUserFullDomainName(User));
+                return Ok(created);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(ex.Message);
             }
         }
 
@@ -1277,8 +1978,9 @@ namespace Dorc.Api.Controllers
                 return null;
             }
 
-            var projectComponents = _projectsPersistentSource.GetComponentsForProject(projectId)
+            var projectComponents = FlattenComponents(_projectsPersistentSource.GetComponentsForProject(projectId) ?? Array.Empty<ComponentApiModel>())
                 .Where(c => c.ComponentId.HasValue)
+                .DistinctBy(c => c.ComponentId!.Value)
                 .ToDictionary(c => c.ComponentId!.Value);
 
             if (requestedIds.Count > 0)
@@ -1345,8 +2047,9 @@ namespace Dorc.Api.Controllers
 
         private bool AreAllTemplateComponentsValidAndEnabled(int projectId, IList<int> componentIds)
         {
-            var byId = _projectsPersistentSource.GetComponentsForProject(projectId)
+            var byId = FlattenComponents(_projectsPersistentSource.GetComponentsForProject(projectId) ?? Array.Empty<ComponentApiModel>())
                 .Where(c => c.ComponentId.HasValue)
+                .DistinctBy(c => c.ComponentId!.Value)
                 .ToDictionary(c => c.ComponentId!.Value);
 
             foreach (var id in componentIds)
@@ -1358,6 +2061,124 @@ namespace Dorc.Api.Controllers
             }
 
             return true;
+        }
+
+        private static List<string> ResolveComponentNames(
+            IList<int>? componentIds,
+            IReadOnlyDictionary<int, ComponentApiModel> componentById)
+        {
+            var names = new List<string>();
+            if (componentIds is null)
+            {
+                return names;
+            }
+
+            foreach (var id in componentIds)
+            {
+                if (componentById.TryGetValue(id, out var comp) && !string.IsNullOrWhiteSpace(comp.ComponentName))
+                {
+                    names.Add(comp.ComponentName);
+                }
+            }
+
+            return names;
+        }
+
+        private static void PopulateBlueprintOverridesFromJson(
+            string? templateOverridesJson,
+            EnvironmentBlueprintDefinitionApiModel target)
+        {
+            if (string.IsNullOrWhiteSpace(templateOverridesJson))
+            {
+                return;
+            }
+
+            try
+            {
+                using var doc = JsonDocument.Parse(templateOverridesJson);
+                if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                {
+                    return;
+                }
+
+                foreach (var prop in doc.RootElement.EnumerateObject())
+                {
+                    if (prop.Value.ValueKind == JsonValueKind.Object)
+                    {
+                        var tierMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                        foreach (var nested in prop.Value.EnumerateObject())
+                        {
+                            var val = ReadPrimitiveJsonValue(nested.Value);
+                            if (val is not null)
+                            {
+                                tierMap[nested.Name] = val;
+                            }
+                        }
+
+                        if (tierMap.Count > 0)
+                        {
+                            target.TierParameterOverrides[prop.Name] = tierMap;
+                        }
+                    }
+                    else
+                    {
+                        var val = ReadPrimitiveJsonValue(prop.Value);
+                        if (val is not null)
+                        {
+                            target.GlobalParameterOverrides[prop.Name] = val;
+                        }
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Ignore malformed JSON on export; health check surfaces it
+            }
+        }
+
+        private static string? SerializeBlueprintOverridesToJson(
+            IDictionary<string, string>? globalOverrides,
+            IDictionary<string, Dictionary<string, string>>? tierOverrides)
+        {
+            var combined = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase);
+
+            if (globalOverrides is not null)
+            {
+                foreach (var kvp in globalOverrides)
+                {
+                    if (!string.IsNullOrWhiteSpace(kvp.Key) && kvp.Value is not null)
+                    {
+                        combined[kvp.Key.Trim()] = kvp.Value;
+                    }
+                }
+            }
+
+            if (tierOverrides is not null)
+            {
+                foreach (var tierKvp in tierOverrides)
+                {
+                    if (string.IsNullOrWhiteSpace(tierKvp.Key) || tierKvp.Value is null)
+                    {
+                        continue;
+                    }
+
+                    var cleanedTierMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var paramKvp in tierKvp.Value)
+                    {
+                        if (!string.IsNullOrWhiteSpace(paramKvp.Key) && paramKvp.Value is not null)
+                        {
+                            cleanedTierMap[paramKvp.Key.Trim()] = paramKvp.Value;
+                        }
+                    }
+
+                    if (cleanedTierMap.Count > 0)
+                    {
+                        combined[tierKvp.Key.Trim().ToLowerInvariant()] = cleanedTierMap;
+                    }
+                }
+            }
+
+            return combined.Count == 0 ? null : JsonSerializer.Serialize(combined);
         }
 
         private static HashSet<string> ExtractOverrideKeys(string? templateOverridesJson)

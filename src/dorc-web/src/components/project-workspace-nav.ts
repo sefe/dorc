@@ -7,6 +7,7 @@ import { drawerShortcuts } from './drawer-shortcuts';
 export type ProjectWorkspaceTab =
   | 'project-source'
   | 'environments'
+  | 'blueprints'
   | 'definitions'
   | 'components'
   | 'bundles'
@@ -212,6 +213,12 @@ export class ProjectWorkspaceNav extends LitElement {
           'Environments',
           'vaadin:cubes',
           encodedName ? `/project-envs/${encodedName}` : undefined
+        )}
+        ${this.renderTab(
+          'blueprints',
+          'Blueprints',
+          'vaadin:sliders',
+          encodedName ? `/project-envs/${encodedName}/blueprints` : undefined
         )}
         ${this.renderTab(
           'definitions',

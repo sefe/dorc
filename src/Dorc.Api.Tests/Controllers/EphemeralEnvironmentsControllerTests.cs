@@ -2121,6 +2121,265 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType<BadRequestObjectResult>(_controller.ExtendTtl("eph-ttl", new EphemeralEnvironmentExtendTtlRequestApiModel { AdditionalMinutes = 60 }));
         }
 
+        [TestMethod]
+        public async Task GetBlueprintSchemaContext_ReturnsComponentManifestParametersTierSuggestionsAndDriftWarnings()
+        {
+            Assert.IsInstanceOfType<BadRequestObjectResult>(
+                await _controller.GetBlueprintSchemaContext(0, null, CancellationToken.None));
+
+            _projectsPersistentSource.GetProject(404).Returns((ProjectApiModel)null!);
+            Assert.IsInstanceOfType<NotFoundObjectResult>(
+                await _controller.GetBlueprintSchemaContext(404, null, CancellationToken.None));
+
+            var project = new ProjectApiModel { ProjectId = 10, ProjectName = "Traveler", BusinessVertical = "trading", ApplicationCode = "trv" };
+            _projectsPersistentSource.GetProject(10).Returns(project);
+            _environmentsPersistentSource.GetEnvironment(20, _user).Returns(new EnvironmentApiModel
+            {
+                EnvironmentId = 20,
+                EnvironmentName = "Traveler DV 01",
+                EnvironmentIsProd = false
+            });
+
+            _projectsPersistentSource.GetComponentsForProject(10).Returns(new[]
+            {
+                new ComponentApiModel
+                {
+                    ComponentId = 101,
+                    ComponentName = "Postgres",
+                    ComponentType = ComponentType.Terraform,
+                    TerraformSourceType = TerraformSourceType.Catalog,
+                    TerraformTemplateName = "azure-postgresql-flexible-server",
+                    TerraformTemplateVersion = "1.0.0",
+                    IsEnabled = true
+                },
+                new ComponentApiModel
+                {
+                    ComponentId = 102,
+                    ComponentName = "DisabledLegacy",
+                    ComponentType = ComponentType.PowerShell,
+                    IsEnabled = false
+                }
+            });
+
+            var pgManifest = BuildManifest(
+                "azure-postgresql-flexible-server",
+                "database",
+                new TerraformTemplateParameter(
+                    "sku_name",
+                    TerraformParameterType.String,
+                    false,
+                    "SKU tier",
+                    "GP_Standard_D4s_v3",
+                    new[] { "B_Standard_B1ms", "GP_Standard_D2s_v3", "GP_Standard_D4s_v3" },
+                    null,
+                    null,
+                    null),
+                new TerraformTemplateParameter(
+                    "termination_protection",
+                    TerraformParameterType.Bool,
+                    false,
+                    "Safety invariant",
+                    "true",
+                    Array.Empty<string>(),
+                    null,
+                    null,
+                    null));
+            _templateCatalog.GetAsync("azure-postgresql-flexible-server", "1.0.0", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<TerraformTemplateManifest?>(pgManifest));
+
+            _environmentTemplatesPersistentSource.GetTemplatesForProject(10).Returns(new[]
+            {
+                new EnvironmentTemplateApiModel
+                {
+                    Id = 1,
+                    ProjectId = 10,
+                    Name = "Healthy Blueprint",
+                    BaseEnvironmentId = 20,
+                    ProvisionComponentIds = new List<int> { 101 }
+                },
+                new EnvironmentTemplateApiModel
+                {
+                    Id = 2,
+                    ProjectId = 10,
+                    Name = "Drifted Blueprint",
+                    BaseEnvironmentId = 999,
+                    ProvisionComponentIds = new List<int> { 102, 888 }
+                }
+            });
+
+            var result = await _controller.GetBlueprintSchemaContext(10, 20, CancellationToken.None) as OkObjectResult;
+            Assert.IsNotNull(result);
+            var ctx = result.Value as EnvironmentBlueprintSchemaContextApiModel;
+            Assert.IsNotNull(ctx);
+            Assert.AreEqual(10, ctx.ProjectId);
+            Assert.AreEqual("Traveler", ctx.ProjectName);
+            Assert.HasCount(2, ctx.Components);
+
+            var pgSchema = ctx.Components.First(c => c.ComponentId == 101);
+            Assert.IsTrue(pgSchema.IsCatalogTerraform);
+            Assert.IsTrue(pgSchema.ManifestResolved);
+            var skuParam = pgSchema.Parameters.First(p => p.Name == "sku_name");
+            CollectionAssert.Contains(skuParam.AllowedValues, "B_Standard_B1ms");
+            var tpParam = pgSchema.Parameters.First(p => p.Name == "termination_protection");
+            Assert.IsTrue(tpParam.IsSafetyInvariantLocked);
+            Assert.AreEqual("false", tpParam.ForcedInvariantValue);
+
+            var healthyStatus = ctx.TemplateHealth.First(h => h.TemplateId == 1);
+            Assert.IsTrue(healthyStatus.IsHealthy);
+            var driftStatus = ctx.TemplateHealth.First(h => h.TemplateId == 2);
+            Assert.IsFalse(driftStatus.IsHealthy);
+            Assert.IsNotEmpty(driftStatus.Warnings);
+        }
+
+        [TestMethod]
+        public async Task ExportImportCloneAndCaptureBlueprints_RoundTripsPortableDefinitions()
+        {
+            var project = new ProjectApiModel { ProjectId = 10, ProjectName = "Traveler" };
+            _projectsPersistentSource.GetProject(10).Returns(project);
+            _projectsPersistentSource.GetProject("Traveler").Returns(project);
+            _securityPrivilegesChecker.CanModifyProject(_user, "Traveler").Returns(true);
+
+            var baseEnv = new EnvironmentApiModel
+            {
+                EnvironmentId = 20,
+                EnvironmentName = "Traveler DV 01",
+                EnvironmentIsProd = false,
+                IsEphemeral = false
+            };
+            _environmentsPersistentSource.GetEnvironment(20, _user).Returns(baseEnv);
+            _environmentsPersistentSource.GetEnvironment(20).Returns(baseEnv);
+            _environmentsPersistentSource.GetEnvironment("Traveler DV 01", _user).Returns(baseEnv);
+            _environmentsPersistentSource.GetEnvironment("Traveler DV 01").Returns(baseEnv);
+            _securityPrivilegesChecker.CanModifyEnvironment(_user, "Traveler DV 01").Returns(true);
+
+            var components = new[]
+            {
+                new ComponentApiModel
+                {
+                    ComponentId = 101,
+                    ComponentName = "Postgres",
+                    ComponentType = ComponentType.Terraform,
+                    TerraformSourceType = TerraformSourceType.Catalog,
+                    TerraformTemplateName = "azure-postgresql-flexible-server",
+                    TerraformTemplateVersion = "1.0.0",
+                    IsEnabled = true
+                },
+                new ComponentApiModel
+                {
+                    ComponentId = 102,
+                    ComponentName = "SmokeTest",
+                    ComponentType = ComponentType.PowerShell,
+                    IsEnabled = true
+                }
+            };
+            _projectsPersistentSource.GetComponentsForProject(10).Returns(components);
+
+            var pgManifest = BuildManifest(
+                "azure-postgresql-flexible-server",
+                "database",
+                new TerraformTemplateParameter("sku_name", TerraformParameterType.String, false, null, "GP_Standard_D4s_v3", Array.Empty<string>(), null, null, null));
+            _templateCatalog.GetAsync("azure-postgresql-flexible-server", "1.0.0", Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<TerraformTemplateManifest?>(pgManifest));
+
+            var existingTemplate = new EnvironmentTemplateApiModel
+            {
+                Id = 55,
+                ProjectId = 10,
+                ProjectName = "Traveler",
+                Name = "Traveler PR Blueprint",
+                Description = "Fast PR environment",
+                BaseEnvironmentId = 20,
+                BaseEnvironmentName = "Traveler DV 01",
+                DefaultTier = "ephemeral",
+                DefaultTtlMinutes = 240,
+                MaxTtlMinutes = 1440,
+                ProvisionComponentIds = new List<int> { 101 },
+                ValidationComponentIds = new List<int> { 102 },
+                TierParameterOverridesJson = "{\"ephemeral\":{\"Postgres:sku_name\":\"B_Standard_B1ms\"}}"
+            };
+            _environmentTemplatesPersistentSource.GetTemplateById(55).Returns(existingTemplate);
+
+            // 1. ExportTemplate
+            var exportOk = _controller.ExportTemplate(55) as OkObjectResult;
+            Assert.IsNotNull(exportOk);
+            var exported = exportOk.Value as EnvironmentBlueprintDefinitionApiModel;
+            Assert.IsNotNull(exported);
+            Assert.AreEqual("Traveler", exported.ProjectName);
+            Assert.AreEqual("Traveler DV 01", exported.BaseEnvironmentName);
+            CollectionAssert.AreEqual(new[] { "Postgres" }, exported.ProvisionComponentNames);
+            CollectionAssert.AreEqual(new[] { "SmokeTest" }, exported.ValidationComponentNames);
+            Assert.AreEqual("B_Standard_B1ms", exported.TierParameterOverrides["ephemeral"]["Postgres:sku_name"]);
+
+            // 2. ImportTemplates (update existing + create new)
+            _environmentTemplatesPersistentSource.GetTemplatesForProject(10).Returns(new[] { existingTemplate });
+            _environmentTemplatesPersistentSource.UpdateTemplate(55, Arg.Any<EnvironmentTemplateApiModel>(), Arg.Any<string>())
+                .Returns(ci => ci.Arg<EnvironmentTemplateApiModel>());
+            _environmentTemplatesPersistentSource.CreateTemplate(Arg.Any<EnvironmentTemplateApiModel>(), Arg.Any<string>())
+                .Returns(ci =>
+                {
+                    var created = ci.Arg<EnvironmentTemplateApiModel>();
+                    created.Id = 56;
+                    return created;
+                });
+
+            var importNext = new EnvironmentBlueprintDefinitionApiModel
+            {
+                ProjectName = "Traveler",
+                Name = "Traveler UT Blueprint",
+                BaseEnvironmentName = "Traveler DV 01",
+                DefaultTier = "ut",
+                DefaultTtlMinutes = 480,
+                MaxTtlMinutes = 1440,
+                ProvisionComponentNames = new List<string> { "Postgres" },
+                ValidationComponentNames = new List<string> { "SmokeTest" },
+                TierParameterOverrides = new Dictionary<string, Dictionary<string, string>>
+                {
+                    ["ut"] = new Dictionary<string, string> { ["Postgres:sku_name"] = "GP_Standard_D4s_v3" }
+                }
+            };
+
+            var importOk = await _controller.ImportTemplates(
+                new EnvironmentBlueprintImportRequestApiModel
+                {
+                    ProjectId = 10,
+                    Blueprints = new List<EnvironmentBlueprintDefinitionApiModel> { exported, importNext }
+                },
+                CancellationToken.None) as OkObjectResult;
+            Assert.IsNotNull(importOk);
+            var importResp = importOk.Value as EnvironmentBlueprintImportResponseApiModel;
+            Assert.IsNotNull(importResp);
+            Assert.AreEqual(1, importResp.CreatedCount);
+            Assert.AreEqual(1, importResp.UpdatedCount);
+            Assert.HasCount(2, importResp.Templates);
+
+            // 3. CloneTemplate
+            var cloneOk = await _controller.CloneTemplate(
+                55,
+                new EnvironmentBlueprintCloneRequestApiModel { NewName = "Traveler PR Blueprint Clone" },
+                CancellationToken.None) as OkObjectResult;
+            Assert.IsNotNull(cloneOk);
+            var cloned = cloneOk.Value as EnvironmentTemplateApiModel;
+            Assert.IsNotNull(cloned);
+            Assert.AreEqual("Traveler PR Blueprint Clone", cloned.Name);
+
+            // 4. CaptureFromEnvironment
+            var captureOk = await _controller.CaptureTemplateFromEnvironment(
+                new EnvironmentBlueprintCaptureFromEnvironmentRequestApiModel
+                {
+                    ProjectId = 10,
+                    BaseEnvironmentId = 20,
+                    Name = "Captured From DV 01",
+                    DefaultTier = "dv"
+                },
+                CancellationToken.None) as OkObjectResult;
+            Assert.IsNotNull(captureOk);
+            var captured = captureOk.Value as EnvironmentTemplateApiModel;
+            Assert.IsNotNull(captured);
+            Assert.AreEqual("Captured From DV 01", captured.Name);
+            CollectionAssert.AreEqual(new[] { 101 }, captured.ProvisionComponentIds);
+            CollectionAssert.AreEqual(new[] { 102 }, captured.ValidationComponentIds);
+        }
+
         private static TerraformTemplateManifest BuildManifest(
             string name,
             string category,

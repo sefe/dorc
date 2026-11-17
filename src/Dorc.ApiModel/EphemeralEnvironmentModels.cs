@@ -164,4 +164,97 @@ namespace Dorc.ApiModel
         public Dictionary<string, string> ResolvedParameters { get; set; } = new Dictionary<string, string>();
         public Dictionary<string, string> ForcedInvariants { get; set; } = new Dictionary<string, string>();
     }
+
+    public class EnvironmentBlueprintDefinitionApiModel
+    {
+        public string SchemaVersion { get; set; } = "1.0";
+        public string ProjectName { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public string DefaultTier { get; set; } = "ephemeral";
+        public string BaseEnvironmentName { get; set; }
+        public int DefaultTtlMinutes { get; set; } = 240;
+        public int MaxTtlMinutes { get; set; } = 1440;
+        public List<string> ProvisionComponentNames { get; set; } = new List<string>();
+        public List<string> ValidationComponentNames { get; set; } = new List<string>();
+        public Dictionary<string, string> GlobalParameterOverrides { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        public Dictionary<string, Dictionary<string, string>> TierParameterOverrides { get; set; } = new Dictionary<string, Dictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public class EnvironmentBlueprintImportRequestApiModel
+    {
+        public int? ProjectId { get; set; }
+        public string ProjectName { get; set; }
+        public List<EnvironmentBlueprintDefinitionApiModel> Blueprints { get; set; } = new List<EnvironmentBlueprintDefinitionApiModel>();
+    }
+
+    public class EnvironmentBlueprintImportResponseApiModel
+    {
+        public List<EnvironmentTemplateApiModel> ImportedTemplates { get; set; } = new List<EnvironmentTemplateApiModel>();
+        public int CreatedCount { get; set; }
+        public int UpdatedCount { get; set; }
+    }
+
+    public class EnvironmentBlueprintCloneRequestApiModel
+    {
+        public string NewName { get; set; }
+        public string Description { get; set; }
+    }
+
+    public class EnvironmentBlueprintCaptureFromEnvironmentRequestApiModel
+    {
+        public int ProjectId { get; set; }
+        public int BaseEnvironmentId { get; set; }
+        public string Name { get; set; }
+        public string Description { get; set; }
+        public string DefaultTier { get; set; } = "ephemeral";
+        public int DefaultTtlMinutes { get; set; } = 240;
+        public int MaxTtlMinutes { get; set; } = 1440;
+        public bool IncludeBaseEnvironmentSavedInputsAsOverrides { get; set; }
+    }
+
+    public class EnvironmentBlueprintParameterSchemaApiModel
+    {
+        public string Name { get; set; }
+        public string Type { get; set; }
+        public string Description { get; set; }
+        public bool Required { get; set; }
+        public bool Sensitive { get; set; }
+        public bool IsLockedSafetyInvariant { get; set; }
+        public string DefaultValue { get; set; }
+        public string BaseEnvironmentValue { get; set; }
+        public List<string> AllowedValues { get; set; } = new List<string>();
+        public Dictionary<string, string> TierSuggestedValues { get; set; } = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    }
+
+    public class EnvironmentBlueprintComponentSchemaApiModel
+    {
+        public int ComponentId { get; set; }
+        public string ComponentName { get; set; }
+        public string ComponentType { get; set; }
+        public bool IsEnabled { get; set; }
+        public bool IsCatalogTerraform { get; set; }
+        public string TerraformTemplateName { get; set; }
+        public string TerraformTemplateVersion { get; set; }
+        public bool ManifestResolved { get; set; }
+        public List<EnvironmentBlueprintParameterSchemaApiModel> Parameters { get; set; } = new List<EnvironmentBlueprintParameterSchemaApiModel>();
+    }
+
+    public class EnvironmentBlueprintHealthStatusApiModel
+    {
+        public int TemplateId { get; set; }
+        public string TemplateName { get; set; }
+        public bool IsHealthy { get; set; }
+        public List<string> Warnings { get; set; } = new List<string>();
+    }
+
+    public class EnvironmentBlueprintSchemaContextApiModel
+    {
+        public int ProjectId { get; set; }
+        public string ProjectName { get; set; }
+        public int? BaseEnvironmentId { get; set; }
+        public List<string> SupportedTiers { get; set; } = new List<string>();
+        public List<EnvironmentBlueprintComponentSchemaApiModel> Components { get; set; } = new List<EnvironmentBlueprintComponentSchemaApiModel>();
+        public List<EnvironmentBlueprintHealthStatusApiModel> TemplateHealth { get; set; } = new List<EnvironmentBlueprintHealthStatusApiModel>();
+    }
 }

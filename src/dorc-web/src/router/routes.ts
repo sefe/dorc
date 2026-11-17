@@ -39,6 +39,7 @@ import '../pages/page-monitor-result.ts';
 import '../pages/page-not-found.ts';
 import '../pages/page-permissions-list.ts';
 import '../pages/page-project-envs.ts';
+import '../pages/page-project-blueprints.ts';
 import '../pages/page-project-bundles.ts';
 import '../pages/page-project-components.ts';
 import '../pages/page-project-ref-data.ts';
@@ -351,6 +352,16 @@ export const routes: AppRoute[] = [
         metadata: {
           title: 'Environments for Project',
           description: 'All environments attached to a project'
+        }
+      },
+      {
+        path: '/project-envs/:id/blueprints',
+        name: 'project-blueprints',
+        component: 'page-project-blueprints',
+        metadata: {
+          title: 'Blueprints for Project',
+          description:
+            'Manage ephemeral environment blueprints and tier parameter matrices for a project'
         }
       },
       {

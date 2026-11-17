@@ -59,6 +59,9 @@ param(
     [string]$UatBaseEnvironmentName = "TRV-UT-01",
 
     [Parameter(Mandatory = $false)]
+    [string]$ExportDeclarativePath,
+
+    [Parameter(Mandatory = $false)]
     [ref]$OutBearerToken,
 
     [Parameter(Mandatory = $false)]
@@ -1339,14 +1342,37 @@ Write-Host "  Base Environments: $($devBaseEnv.EnvironmentName) (Id=$($devBaseEn
 Write-Host "  Components       : $($desiredCatalogSpecs.Count) Catalog Terraform + $($desiredValidationSpecs.Count) PowerShell Validation" -ForegroundColor White
 Write-Host "  Blueprints       : $($seededTemplates.Count) SEFE tier-weighted templates ready" -ForegroundColor White
 
+$exportedDefinitions = New-Object System.Collections.ArrayList
+foreach ($tmpl in $seededTemplates) {
+    $exportedDef = Invoke-DOrcApi -Method GET -Path "/EphemeralEnvironments/templates/$($tmpl.Id)/export" -AllowStatusCodes @(404)
+    if ($null -ne $exportedDef) {
+        [void]$exportedDefinitions.Add($exportedDef)
+    }
+}
+
+if (-not [string]::IsNullOrWhiteSpace($ExportDeclarativePath)) {
+    $exportPayload = [ordered]@{
+        projectName = [string]$project.ProjectName
+        blueprints  = @($exportedDefinitions.ToArray())
+    }
+    $resolvedExportPath = [System.IO.Path]::GetFullPath($ExportDeclarativePath)
+    $exportDir = [System.IO.Path]::GetDirectoryName($resolvedExportPath)
+    if (-not [string]::IsNullOrWhiteSpace($exportDir) -and -not (Test-Path -LiteralPath $exportDir)) {
+        [void](New-Item -ItemType Directory -Path $exportDir -Force)
+    }
+    $exportPayload | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $resolvedExportPath -Encoding UTF8
+    Write-Host "  Exported JSON    : $resolvedExportPath ($($exportedDefinitions.Count) portable blueprint definitions)" -ForegroundColor Green
+}
+
 if ($PassThru) {
     return [pscustomobject]@{
-        ApiBaseUrl       = $normalizedApiBaseUrl
-        ProjectId        = $projectId
-        ProjectName      = [string]$project.ProjectName
-        BaseEnvironments = @($devBaseEnv, $uatBaseEnv)
-        Templates        = @($seededTemplates.ToArray())
-        Previews         = @($previewSummaries.ToArray())
+        ApiBaseUrl        = $normalizedApiBaseUrl
+        ProjectId         = $projectId
+        ProjectName       = [string]$project.ProjectName
+        BaseEnvironments  = @($devBaseEnv, $uatBaseEnv)
+        Templates         = @($seededTemplates.ToArray())
+        ExportedBlueprints = @($exportedDefinitions.ToArray())
+        Previews          = @($previewSummaries.ToArray())
     }
 }
 

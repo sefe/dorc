@@ -2246,6 +2246,262 @@
         }
       }
     },
+    "/EphemeralEnvironments/templates/schema-context": {
+      "get": {
+        "tags": [
+          "EphemeralEnvironments"
+        ],
+        "parameters": [
+          {
+            "name": "projectId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "baseEnvironmentId",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentBlueprintSchemaContextApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentBlueprintSchemaContextApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/EphemeralEnvironments/templates/{templateId}/export": {
+      "get": {
+        "tags": [
+          "EphemeralEnvironments"
+        ],
+        "parameters": [
+          {
+            "name": "templateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentBlueprintDefinitionApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentBlueprintDefinitionApiModel"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/EphemeralEnvironments/templates/import": {
+      "post": {
+        "tags": [
+          "EphemeralEnvironments"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvironmentBlueprintImportRequestApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvironmentBlueprintImportRequestApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvironmentBlueprintImportRequestApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentBlueprintImportResponseApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentBlueprintImportResponseApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/EphemeralEnvironments/templates/{templateId}/clone": {
+      "post": {
+        "tags": [
+          "EphemeralEnvironments"
+        ],
+        "parameters": [
+          {
+            "name": "templateId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvironmentBlueprintCloneRequestApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvironmentBlueprintCloneRequestApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvironmentBlueprintCloneRequestApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentTemplateApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentTemplateApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
+    "/EphemeralEnvironments/templates/capture-from-environment": {
+      "post": {
+        "tags": [
+          "EphemeralEnvironments"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvironmentBlueprintCaptureFromEnvironmentRequestApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvironmentBlueprintCaptureFromEnvironmentRequestApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnvironmentBlueprintCaptureFromEnvironmentRequestApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentTemplateApiModel"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentTemplateApiModel"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "404": {
+            "description": "Not Found"
+          }
+        }
+      }
+    },
     "/EphemeralEnvironments/preview-tier-parameters": {
       "post": {
         "tags": [
@@ -14392,6 +14648,327 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/EnvironmentApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnvironmentBlueprintCaptureFromEnvironmentRequestApiModel": {
+        "type": "object",
+        "properties": {
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "BaseEnvironmentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Name": {
+            "type": "string",
+            "nullable": true
+          },
+          "Description": {
+            "type": "string",
+            "nullable": true
+          },
+          "DefaultTier": {
+            "type": "string",
+            "nullable": true
+          },
+          "DefaultTtlMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "MaxTtlMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "IncludeBaseEnvironmentSavedInputsAsOverrides": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnvironmentBlueprintCloneRequestApiModel": {
+        "type": "object",
+        "properties": {
+          "NewName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Description": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnvironmentBlueprintComponentSchemaApiModel": {
+        "type": "object",
+        "properties": {
+          "ComponentId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ComponentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ComponentType": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsEnabled": {
+            "type": "boolean"
+          },
+          "IsCatalogTerraform": {
+            "type": "boolean"
+          },
+          "TerraformTemplateName": {
+            "type": "string",
+            "nullable": true
+          },
+          "TerraformTemplateVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "ManifestResolved": {
+            "type": "boolean"
+          },
+          "Parameters": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentBlueprintParameterSchemaApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnvironmentBlueprintDefinitionApiModel": {
+        "type": "object",
+        "properties": {
+          "SchemaVersion": {
+            "type": "string",
+            "nullable": true
+          },
+          "ProjectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Name": {
+            "type": "string",
+            "nullable": true
+          },
+          "Description": {
+            "type": "string",
+            "nullable": true
+          },
+          "DefaultTier": {
+            "type": "string",
+            "nullable": true
+          },
+          "BaseEnvironmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "DefaultTtlMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "MaxTtlMinutes": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ProvisionComponentNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "ValidationComponentNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "GlobalParameterOverrides": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "nullable": true
+            },
+            "nullable": true
+          },
+          "TierParameterOverrides": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              },
+              "nullable": true
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnvironmentBlueprintHealthStatusApiModel": {
+        "type": "object",
+        "properties": {
+          "TemplateId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "TemplateName": {
+            "type": "string",
+            "nullable": true
+          },
+          "IsHealthy": {
+            "type": "boolean"
+          },
+          "Warnings": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnvironmentBlueprintImportRequestApiModel": {
+        "type": "object",
+        "properties": {
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "ProjectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Blueprints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentBlueprintDefinitionApiModel"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnvironmentBlueprintImportResponseApiModel": {
+        "type": "object",
+        "properties": {
+          "ImportedTemplates": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentTemplateApiModel"
+            },
+            "nullable": true
+          },
+          "CreatedCount": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "UpdatedCount": {
+            "type": "integer",
+            "format": "int32"
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnvironmentBlueprintParameterSchemaApiModel": {
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": "string",
+            "nullable": true
+          },
+          "Type": {
+            "type": "string",
+            "nullable": true
+          },
+          "Description": {
+            "type": "string",
+            "nullable": true
+          },
+          "Required": {
+            "type": "boolean"
+          },
+          "Sensitive": {
+            "type": "boolean"
+          },
+          "IsLockedSafetyInvariant": {
+            "type": "boolean"
+          },
+          "DefaultValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "BaseEnvironmentValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "AllowedValues": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "TierSuggestedValues": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string",
+              "nullable": true
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "EnvironmentBlueprintSchemaContextApiModel": {
+        "type": "object",
+        "properties": {
+          "ProjectId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "ProjectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "BaseEnvironmentId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          },
+          "SupportedTiers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "Components": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentBlueprintComponentSchemaApiModel"
+            },
+            "nullable": true
+          },
+          "TemplateHealth": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentBlueprintHealthStatusApiModel"
             },
             "nullable": true
           }
