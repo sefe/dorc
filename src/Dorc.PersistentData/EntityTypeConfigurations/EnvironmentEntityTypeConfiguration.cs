@@ -65,6 +65,31 @@ namespace Dorc.PersistentData.EntityTypeConfigurations
                 .HasColumnName("ParentId");
 
             builder
+                .Property(e => e.IsEphemeral)
+                .HasDefaultValue(false);
+
+            builder
+                .Property(e => e.EnvironmentTier)
+                .HasMaxLength(16);
+
+            builder
+                .Property(e => e.TemplateId);
+
+            builder
+                .Property(e => e.ExpiresAtUtc);
+
+            builder
+                .Property(e => e.EphemeralState)
+                .HasMaxLength(32);
+
+            builder
+                .HasOne(e => e.Template)
+                .WithMany(t => t.Environments)
+                .HasForeignKey(e => e.TemplateId)
+                .IsRequired(false)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder
                 .HasMany(e => e.AccessControls)
                 .WithOne()
                 .HasPrincipalKey(e => e.ObjectId)

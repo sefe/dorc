@@ -141,6 +141,11 @@ namespace Dorc.ApiModel
                         if (nameElement != null && !string.IsNullOrEmpty(nameElement.Value))
                         {
                             names.Add(nameElement.Value);
+                            var colonIndex = nameElement.Value.LastIndexOf(':');
+                            if (colonIndex >= 0 && colonIndex + 1 < nameElement.Value.Length)
+                            {
+                                names.Add(nameElement.Value.Substring(colonIndex + 1));
+                            }
                         }
                     }
                 }

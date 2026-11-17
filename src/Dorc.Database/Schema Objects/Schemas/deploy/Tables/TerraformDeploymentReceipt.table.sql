@@ -25,5 +25,6 @@ CREATE TABLE [deploy].[TerraformDeploymentReceipt]
     [PlanContentSha256] VARCHAR(64) NOT NULL,
     [SourceSha256] VARCHAR(64) NOT NULL,
     [PlanSha256] VARCHAR(64) NOT NULL,
+    [Operation] NVARCHAR(32) NOT NULL CONSTRAINT [DF_TerraformDeploymentReceipt_Operation] DEFAULT ('Plan'),
     CONSTRAINT [PK_TerraformDeploymentReceipt] PRIMARY KEY ([DeploymentResultId])
 );

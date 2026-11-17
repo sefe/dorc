@@ -61,6 +61,31 @@ export interface EnvironmentApiModel {
      */
     IsParent?: boolean;
     /**
+     * @type {boolean}
+     * @memberof EnvironmentApiModel
+     */
+    IsEphemeral?: boolean;
+    /**
+     * @type {string}
+     * @memberof EnvironmentApiModel
+     */
+    EnvironmentTier?: string | null;
+    /**
+     * @type {number}
+     * @memberof EnvironmentApiModel
+     */
+    TemplateId?: number | null;
+    /**
+     * @type {string}
+     * @memberof EnvironmentApiModel
+     */
+    ExpiresAtUtc?: string | null;
+    /**
+     * @type {string}
+     * @memberof EnvironmentApiModel
+     */
+    EphemeralState?: string | null;
+    /**
      * @type {EnvironmentDetailsApiModel}
      * @memberof EnvironmentApiModel
      */

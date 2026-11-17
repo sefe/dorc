@@ -70,6 +70,7 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<AnalyticsComponentReliability> AnalyticsComponentReliability { get; set; }
         public DbSet<AnalyticsRecoveryTime> AnalyticsRecoveryTime { get; set; }
         public DbSet<Environment> Environments { get; set; }
+        public DbSet<EnvironmentTemplate> EnvironmentTemplates { get; set; }
         public DbSet<EnvironmentComponentStatus> EnvironmentComponentStatuses { get; set; }
         public DbSet<EnvironmentHistory> EnvironmentHistories { get; set; }
         public DbSet<EnvironmentUser> EnvironmentUsers { get; set; }
@@ -231,6 +232,31 @@ namespace Dorc.PersistentData.Contexts
                 entity.Property(x => x.PlanContentSha256).HasMaxLength(64).IsUnicode(false);
                 entity.Property(x => x.SourceSha256).HasMaxLength(64).IsUnicode(false);
                 entity.Property(x => x.PlanSha256).HasMaxLength(64).IsUnicode(false);
+                entity.Property(x => x.Operation).HasMaxLength(32).HasDefaultValue("Plan");
+            });
+
+            modelBuilder.Entity<EnvironmentTemplate>(entity =>
+            {
+                entity.ToTable("EnvironmentTemplate", "deploy");
+                entity.HasKey(x => x.Id);
+                entity.Property(x => x.Name).HasMaxLength(128).IsRequired();
+                entity.Property(x => x.Description).HasMaxLength(512);
+                entity.Property(x => x.DefaultTier).HasMaxLength(16).IsRequired().HasDefaultValue("ephemeral");
+                entity.Property(x => x.DefaultTtlMinutes).HasDefaultValue(240);
+                entity.Property(x => x.MaxTtlMinutes).HasDefaultValue(1440);
+                entity.Property(x => x.ProvisionComponentIdsJson).IsRequired().HasDefaultValue("[]");
+                entity.Property(x => x.ValidationComponentIdsJson).IsRequired().HasDefaultValue("[]");
+                entity.Property(x => x.CreatedBy).HasMaxLength(128);
+                entity.HasIndex(x => new { x.ProjectId, x.Name }).IsUnique();
+                entity.HasOne(x => x.Project)
+                    .WithMany()
+                    .HasForeignKey(x => x.ProjectId)
+                    .OnDelete(DeleteBehavior.ClientSetNull);
+                entity.HasOne(x => x.BaseEnvironment)
+                    .WithMany()
+                    .HasForeignKey(x => x.BaseEnvironmentId)
+                    .IsRequired(false)
+                    .OnDelete(DeleteBehavior.ClientSetNull);
             });
 
             modelBuilder.Entity<TerraformPlanApproval>(entity =>

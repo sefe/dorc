@@ -230,6 +230,8 @@ public static class ManifestSuggestHintsLint
     {
         "dorc_environment", "environment_tier", "is_prod", "cloud_by_tier", "termination_protection",
         "business_vertical", "application_code", "scope", "location",
+        "create_service", "create_resource_group", "partitions", "retention_ms", "throughput",
+        "plan", "service_name", "database_name", "sku", "resource_name",
     };
 
     public static int LintDirectory(DirectoryInfo dir, TextWriter errWriter)

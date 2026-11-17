@@ -150,13 +150,34 @@ export class EnvControlCenter extends PageEnvBase {
         </vaadin-details-summary>
         <div style="padding-left: 30px">
           <vaadin-button
-            title="Delete Environment &amp; Properties"
+            title="${
+              this.environment?.IsEphemeral &&
+              this.environment?.EphemeralState?.toLowerCase() !== 'torndown' &&
+              !(
+                this.isAdmin &&
+                this.environment?.EphemeralState?.toLowerCase() ===
+                  'teardownfailed'
+              )
+                ? 'Active ephemeral environments must be torn down via Tear Down Now before deletion'
+                : 'Delete Environment & Properties'
+            }"
             @click="${this.deleteEnvironment}"
             ?disabled="${
+              Boolean(
+                this.environment?.IsEphemeral &&
+                this.environment?.EphemeralState?.toLowerCase() !==
+                  'torndown' &&
+                !(
+                  this.isAdmin &&
+                  this.environment?.EphemeralState?.toLowerCase() ===
+                    'teardownfailed'
+                )
+              ) ||
               !(
                 this.isAdmin ||
                 (this.isEnvOwner && !this.environment?.EnvironmentIsProd)
-              ) || this.isDeletingEnvironment
+              ) ||
+              this.isDeletingEnvironment
             }"
           >
             <vaadin-icon icon="icons:delete" slot="prefix"></vaadin-icon>${
@@ -165,6 +186,23 @@ export class EnvControlCenter extends PageEnvBase {
                 : 'Delete Environment...'
             }</vaadin-button
           >
+          ${
+            this.environment?.IsEphemeral &&
+            this.environment?.EphemeralState?.toLowerCase() !== 'torndown' &&
+            !(
+              this.isAdmin &&
+              this.environment?.EphemeralState?.toLowerCase() ===
+                'teardownfailed'
+            )
+              ? html`<div
+                  class="ephemeral-delete-hint"
+                  style="font-size: 0.78rem; color: var(--dorc-text-secondary); margin: 2px 0 6px;"
+                >
+                  Active ephemeral environments must be torn down via
+                  <strong>Tear Down Now</strong> before deletion.
+                </div>`
+              : ''
+          }
           <vaadin-button
             title="Environment History"
             ?disabled="${this.environment === undefined}"

@@ -257,6 +257,12 @@ namespace Dorc.Api.Controllers
                         $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
                 }
 
+                var targetEnvironment = _environmentsPersistentSource.GetEnvironment(deploymentRequest.EnvironmentName);
+                if (IsEphemeralRequestBlockedForRestartOrResume(targetEnvironment, deploymentRequest.RequestDetails))
+                {
+                    return Conflict("Cannot submit deployments to an ephemeral environment that is tearing down or torn down.");
+                }
+
                 _requestsPersistentSource.EnsureRequestBackendNotRetired(requestId);
 
                 // Archive the current attempt before restarting
@@ -269,7 +275,8 @@ namespace Dorc.Api.Controllers
                     _log.LogWarning(ex, "Failed to archive attempt for request {RequestId} before restart", requestId);
                 }
 
-                // Always update status to Restarting so the Monitor picks it up
+                // Restore ephemeral lifecycle state before marking Restarting so the Monitor sees the active state
+                TryRestoreEphemeralLifecycleStateOnRetry(targetEnvironment);
                 _requestsPersistentSource.UpdateRequestStatus(
                     requestId,
                     DeploymentRequestStatus.Restarting,
@@ -546,6 +553,12 @@ namespace Dorc.Api.Controllers
                         $"Forbidden request to {deploymentRequest.EnvironmentName}");
                 }
 
+                var targetEnvironment = _environmentsPersistentSource.GetEnvironment(deploymentRequest.EnvironmentName);
+                if (IsEphemeralRequestBlockedForRestartOrResume(targetEnvironment, deploymentRequest.RequestDetails))
+                {
+                    return Conflict("Cannot submit deployments to an ephemeral environment that is tearing down or torn down.");
+                }
+
                 // Only Paused requests can be resumed
                 if (deploymentRequest.Status != DeploymentRequestStatus.Paused.ToString())
                 {
@@ -553,6 +566,7 @@ namespace Dorc.Api.Controllers
                         $"Only Paused requests can be resumed. Current status: {deploymentRequest.Status}");
                 }
 
+                TryRestoreEphemeralLifecycleStateOnRetry(targetEnvironment);
                 _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Pending);
 
                 var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
@@ -603,10 +617,35 @@ namespace Dorc.Api.Controllers
                     return BadRequest("Environment name must be provided.");
                 }
 
+                if (requestDto.RequestProperties != null)
+                {
+                    var reservedProperty = requestDto.RequestProperties
+                        .FirstOrDefault(p => TerraformDestroyOperationConstants.IsReservedLifecycleProperty(p?.PropertyName));
+                    if (reservedProperty != null)
+                    {
+                        return BadRequest($"Request property '{reservedProperty.PropertyName}' is reserved for internal lifecycle operations.");
+                    }
+                }
+
                 var environment = _environmentsPersistentSource.GetEnvironment(requestDto.Environment);
                 if (environment == null)
                 {
                     return BadRequest($"Environment '{requestDto.Environment}' does not exist.");
+                }
+
+                if (IsEphemeralEnvironmentBlockedForDeployments(environment))
+                {
+                    return Conflict("Cannot submit deployments to an ephemeral environment that is tearing down or torn down.");
+                }
+
+                if (environment.IsEphemeral)
+                {
+                    requestDto.RequestProperties ??= new List<RequestProperty>();
+                    requestDto.RequestProperties.Add(new RequestProperty
+                    {
+                        PropertyName = TerraformDestroyOperationConstants.EphemeralEnvironmentIdPropertyName,
+                        PropertyValue = environment.EnvironmentId.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    });
                 }
 
                 if (requestDto.Components != null && requestDto.Components.Any())
@@ -827,6 +866,74 @@ namespace Dorc.Api.Controllers
             {
                 _log.LogError(e, "Failed to store environment owner email for request {RequestId}", requestId);
             }
+        }
+
+        internal static bool IsEphemeralEnvironmentBlockedForDeployments(EnvironmentApiModel? environment)
+        {
+            return environment is { IsEphemeral: true } &&
+                (string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.Provisioning, StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.Testing, StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.TearingDown, StringComparison.OrdinalIgnoreCase) ||
+                 string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.TornDown, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private void TryRestoreEphemeralLifecycleStateOnRetry(EnvironmentApiModel? environment)
+        {
+            if (environment is not { IsEphemeral: true })
+            {
+                return;
+            }
+
+            var restoredState = string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.ProvisionFailed, StringComparison.OrdinalIgnoreCase)
+                ? EphemeralEnvironmentStates.Provisioning
+                : string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.ValidationFailed, StringComparison.OrdinalIgnoreCase)
+                    ? EphemeralEnvironmentStates.Testing
+                    : null;
+            if (restoredState != null)
+            {
+                _environmentsPersistentSource.TryTransitionEphemeralState(
+                    environment.EnvironmentName,
+                    new[] { environment.EphemeralState! },
+                    restoredState,
+                    environment.EnvironmentId);
+            }
+        }
+
+        private static bool IsEphemeralRequestBlockedForRestartOrResume(
+            EnvironmentApiModel? environment,
+            string? requestDetailsXml)
+        {
+            if (environment is not { IsEphemeral: true })
+            {
+                return false;
+            }
+
+            if (string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.TearingDown, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.TornDown, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (Dorc.PersistentData.Sources.RequestsPersistentSource.IsDestroyRequestXml(requestDetailsXml))
+            {
+                return true;
+            }
+
+            var expectedEnvironmentId = Dorc.PersistentData.Sources.RequestsPersistentSource.TryGetExpectedEphemeralEnvironmentId(requestDetailsXml);
+            if (expectedEnvironmentId != environment.EnvironmentId)
+            {
+                return true;
+            }
+
+            if (string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.Provisioning, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.ProvisionFailed, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.Testing, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.ValidationFailed, StringComparison.OrdinalIgnoreCase))
+            {
+                return !Dorc.PersistentData.Sources.RequestsPersistentSource.HasLifecycleTargetStatePropertyXml(requestDetailsXml);
+            }
+
+            return false;
         }
     }
 }

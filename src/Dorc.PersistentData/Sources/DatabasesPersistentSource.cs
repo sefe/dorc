@@ -193,6 +193,54 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public bool DetachAndDeleteDatabaseIfOrphaned(int environmentId, int databaseId, int? deploymentResultId = null)
+        {
+            return SharedResourceMutation.ExecuteInContext(_contextFactory, context =>
+            {
+                var database = context.Databases
+                    .Include(d => d.Environments)
+                    .FirstOrDefault(d => d.Id == databaseId);
+                if (database == null)
+                    return false;
+
+                if (SharedResourceMutation.HasRemainingSameEnvironmentProvenance(
+                        context,
+                        environmentId,
+                        deploymentResultId,
+                        p => p.DatabaseId == databaseId))
+                {
+                    return false;
+                }
+
+                var attached = database.Environments.FirstOrDefault(e => e.Id == environmentId);
+                if (attached != null)
+                {
+                    database.Environments.Remove(attached);
+                }
+
+                var hasOtherReferences =
+                    database.Environments.Any(e => e.Id != environmentId) ||
+                    (context.Environments != null &&
+                     context.Environments.Any(e => e.Id != environmentId && e.Databases.Any(d => d.Id == databaseId))) ||
+                    (context.Projects != null &&
+                     context.Projects.Any(p => p.SourceDatabaseId == databaseId)) ||
+                    (context.EnvironmentUsers != null &&
+                     context.EnvironmentUsers.Any(eu => eu.DbId == databaseId)) ||
+                    (context.TerraformInventoryProvenance != null &&
+                     context.TerraformInventoryProvenance.Any(p => p.EnvironmentId != environmentId && p.DatabaseId == databaseId));
+
+                var deleted = false;
+                if (!hasOtherReferences)
+                {
+                    context.Databases.Remove(database);
+                    deleted = true;
+                }
+
+                context.SaveChanges();
+                return deleted;
+            });
+        }
+
         public DatabaseApiModel GetDatabaseByTag(EnvironmentApiModel environment, string tag)
         {
             using (var context = _contextFactory.GetContext())

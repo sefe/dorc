@@ -125,6 +125,7 @@ namespace Dorc.Terraform.Catalog.Tests
 
             Assert.IsFalse(result.IsValid);
             Assert.AreEqual(ParameterValidationErrorKind.TypeMismatch, result.Errors[0].Kind);
+            Assert.IsFalse(ParameterValidator.TryParseNumberExact("1e30", out _));
         }
 
         [TestMethod]
@@ -320,6 +321,181 @@ namespace Dorc.Terraform.Catalog.Tests
             var manifest = Manifest();
             Assert.ThrowsExactly<ArgumentNullException>(
                 () => validator.Validate(manifest, null!));
+        }
+
+        [TestMethod]
+        public void Validate_EphemeralInvariants_RejectsProdAndTerminationProtectionTrue()
+        {
+            var manifest = Manifest(
+                Param("termination_protection", TerraformParameterType.Bool, required: false),
+                Param("service_termination_protection", TerraformParameterType.Bool, required: false));
+
+            // 1. Ephemeral + IsProd == true is always rejected with "$environment" error.
+            var prodResult = validator.Validate(
+                manifest,
+                new Dictionary<string, string?>
+                {
+                    ["termination_protection"] = "false",
+                    ["service_termination_protection"] = "false",
+                },
+                isEphemeral: true,
+                isProd: true);
+            Assert.IsFalse(prodResult.IsValid);
+            Assert.IsTrue(prodResult.Errors.Any(e =>
+                e.ParameterName == "$environment"
+                && e.Kind == ParameterValidationErrorKind.NotAllowed
+                && e.Message == "Ephemeral environments are never allowed when IsProd is true."));
+
+            // 2. Ephemeral + termination_protection = true (case-insensitive) is rejected.
+            var tpTrueResult = validator.Validate(
+                manifest,
+                new Dictionary<string, string?>
+                {
+                    ["termination_protection"] = "true",
+                    ["service_termination_protection"] = "True",
+                },
+                isEphemeral: true,
+                isProd: false);
+            Assert.IsFalse(tpTrueResult.IsValid);
+            Assert.IsTrue(tpTrueResult.Errors.Any(e =>
+                e.ParameterName == "termination_protection" && e.Kind == ParameterValidationErrorKind.NotAllowed));
+            Assert.IsTrue(tpTrueResult.Errors.Any(e =>
+                e.ParameterName == "service_termination_protection" && e.Kind == ParameterValidationErrorKind.NotAllowed));
+
+            // 3. Ephemeral + termination_protection = false (and service_termination_protection omitted) is valid.
+            var validEphResult = validator.Validate(
+                manifest,
+                new Dictionary<string, string?>
+                {
+                    ["termination_protection"] = "false",
+                },
+                isEphemeral: true,
+                isProd: false);
+            Assert.IsTrue(validEphResult.IsValid);
+        }
+
+        [TestMethod]
+        public void EnforceEphemeralInvariants_ForcesProtectionParametersToFalseWhenEphemeral()
+        {
+            var manifest = Manifest(
+                Param("name"),
+                Param("termination_protection", TerraformParameterType.Bool, required: false));
+            var supplied = new Dictionary<string, string?>
+            {
+                ["name"] = "db1",
+                ["termination_protection"] = "true",
+                ["service_termination_protection"] = "true",
+            };
+
+            var nonEphemeral = validator.EnforceEphemeralInvariants(manifest, supplied, isEphemeral: false);
+            Assert.AreEqual("true", nonEphemeral["termination_protection"]);
+            Assert.AreEqual("true", nonEphemeral["service_termination_protection"]);
+
+            var ephemeral = validator.EnforceEphemeralInvariants(manifest, supplied, isEphemeral: true);
+            Assert.AreEqual("false", ephemeral["termination_protection"]);
+            Assert.AreEqual("false", ephemeral["service_termination_protection"]);
+
+            // Preserves declared mixed-case parameter spelling (and normalizes differently-cased supplied keys)
+            // without leaving an undeclared duplicate key that would fail ordinal ValidateUnknown checks.
+            var mixedCaseManifest = Manifest(
+                Param("name"),
+                Param("Termination_Protection", TerraformParameterType.Bool, required: false));
+            var mixedCaseEnforced = validator.EnforceEphemeralInvariants(
+                mixedCaseManifest,
+                new Dictionary<string, string?> { ["name"] = "db1", ["termination_protection"] = "true" },
+                isEphemeral: true);
+            Assert.AreEqual("false", mixedCaseEnforced["Termination_Protection"]);
+            Assert.IsFalse(mixedCaseEnforced.ContainsKey("termination_protection"));
+            Assert.IsTrue(validator.Validate(mixedCaseManifest, mixedCaseEnforced, isEphemeral: true).IsValid);
+
+            var exactMixedCaseEnforced = validator.EnforceEphemeralInvariants(
+                mixedCaseManifest,
+                new Dictionary<string, string?> { ["name"] = "db1", ["Termination_Protection"] = "true" },
+                isEphemeral: true);
+            Assert.AreEqual("false", exactMixedCaseEnforced["Termination_Protection"]);
+            Assert.IsTrue(validator.Validate(mixedCaseManifest, exactMixedCaseEnforced, isEphemeral: true).IsValid);
+
+            var mixedCaseInvalid = validator.Validate(
+                mixedCaseManifest,
+                new Dictionary<string, string?> { ["name"] = "db1", ["Termination_Protection"] = "true" },
+                isEphemeral: true);
+            Assert.IsFalse(mixedCaseInvalid.IsValid);
+            Assert.IsTrue(mixedCaseInvalid.Errors.Any(e =>
+                e.ParameterName == "Termination_Protection" && e.Kind == ParameterValidationErrorKind.NotAllowed));
+
+            // Manifest without protection parameters does not inject keys that weren't supplied.
+            var minimalManifest = Manifest(Param("name"));
+            var minimalResult = validator.EnforceEphemeralInvariants(
+                minimalManifest,
+                new Dictionary<string, string?> { ["name"] = "db1" },
+                isEphemeral: true);
+            Assert.IsFalse(minimalResult.ContainsKey("termination_protection"));
+
+            Assert.ThrowsExactly<ArgumentNullException>(() =>
+                validator.EnforceEphemeralInvariants(null!, supplied, isEphemeral: true));
+            Assert.ThrowsExactly<ArgumentNullException>(() =>
+                validator.EnforceEphemeralInvariants(manifest, null!, isEphemeral: true));
+        }
+
+        [TestMethod]
+        public void Validate_AdditionalTypeRangeAndPatternBranches_Covered()
+        {
+            // Non-sensitive below min and sensitive above max.
+            var minManifest = Manifest(Param("size", TerraformParameterType.Number, min: 10, max: 100));
+            var belowMin = validator.Validate(minManifest, new Dictionary<string, string?> { ["size"] = "5" });
+            Assert.IsFalse(belowMin.IsValid);
+            StringAssert.Contains(belowMin.Errors[0].Message, "'5'");
+
+            var sensitiveMaxManifest = Manifest(Param("secret_size", TerraformParameterType.Number, min: 1, max: 10, sensitive: true));
+            var aboveMax = validator.Validate(sensitiveMaxManifest, new Dictionary<string, string?> { ["secret_size"] = "50" });
+            Assert.IsFalse(aboveMax.IsValid);
+            StringAssert.Contains(aboveMax.Errors[0].Message, "[REDACTED]");
+
+            // Valid pattern match, invalid regex in manifest pattern, and guaranteed RegexMatchTimeoutException.
+            var validPatternManifest = Manifest(Param("host", pattern: "^[a-z0-9-]+$"));
+            Assert.IsTrue(validator.Validate(validPatternManifest, new Dictionary<string, string?> { ["host"] = "alpha-01" }).IsValid);
+
+            var invalidRegexManifest = Manifest(Param("host", pattern: "[unclosed"));
+            var invalidRegexResult = validator.Validate(invalidRegexManifest, new Dictionary<string, string?> { ["host"] = "abc" });
+            Assert.IsFalse(invalidRegexResult.IsValid);
+            StringAssert.Contains(invalidRegexResult.Errors[0].Message, "invalid regex pattern");
+
+            var timeoutManifest = Manifest(Param("host", pattern: "^(([a-z])+.)+[A-Z]([a-z])+$"));
+            var timeoutResult = validator.Validate(timeoutManifest, new Dictionary<string, string?> { ["host"] = new string('a', 80) + "!" });
+            Assert.IsFalse(timeoutResult.IsValid);
+            StringAssert.Contains(timeoutResult.Errors[0].Message, "time limit");
+
+            // Complex parameter types (List, Map, Object) and unknown enum value.
+            foreach (var complexType in new[] { TerraformParameterType.List, TerraformParameterType.Map, TerraformParameterType.Object })
+            {
+                var complexManifest = Manifest(Param("complex", complexType));
+                Assert.IsTrue(validator.Validate(complexManifest, new Dictionary<string, string?> { ["complex"] = "[\"a\"]" }).IsValid);
+            }
+
+            var unknownTypeManifest = Manifest(Param("weird", (TerraformParameterType)999));
+            var unknownTypeResult = validator.Validate(unknownTypeManifest, new Dictionary<string, string?> { ["weird"] = "val" });
+            Assert.IsFalse(unknownTypeResult.IsValid);
+            Assert.AreEqual(ParameterValidationErrorKind.TypeMismatch, unknownTypeResult.Errors[0].Kind);
+
+            // NumberSyntax timeout branch in TryParseNumberExact
+            var originalNumberSyntax = ParameterValidator.NumberSyntax;
+            try
+            {
+                ParameterValidator.NumberSyntax = new System.Text.RegularExpressions.Regex(
+                    @"^(a+)+$",
+                    System.Text.RegularExpressions.RegexOptions.None,
+                    TimeSpan.FromTicks(1));
+                var numManifest = Manifest(Param("count", TerraformParameterType.Number));
+                var numTimeoutResult = validator.Validate(
+                    numManifest,
+                    new Dictionary<string, string?> { ["count"] = new string('a', 60) + "!" });
+                Assert.IsFalse(numTimeoutResult.IsValid);
+                Assert.AreEqual(ParameterValidationErrorKind.TypeMismatch, numTimeoutResult.Errors[0].Kind);
+            }
+            finally
+            {
+                ParameterValidator.NumberSyntax = originalNumberSyntax;
+            }
         }
     }
 }

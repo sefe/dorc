@@ -46,24 +46,52 @@ public partial class RequestsPersistentSource
         });
         context.SaveChanges();
     }
-    private static List<DeploymentRequestDefinition> CaptureDefinitions(IDeploymentContext context, DeploymentRequest request)
+    internal static List<DeploymentRequestDefinition> CaptureDefinitions(IDeploymentContext context, DeploymentRequest request)
     {
+        EnsureEphemeralEnvironmentAcceptsSubmission(context, request);
+        var isDestroy = IsDestroyRequestXml(request.RequestDetails);
+        var xml = XElement.Parse(request.RequestDetails ?? "<root/>");
+        var explicitDestroyIds = isDestroy
+            ? xml.Descendants("PropertyPair")
+                .Where(p => string.Equals((string?)p.Element("Name"), TerraformDestroyOperationConstants.DestroyComponentIdsPropertyName, StringComparison.OrdinalIgnoreCase))
+                .SelectMany(p => p.Element("Value")!.Value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                .Select(s => int.Parse(s, System.Globalization.CultureInfo.InvariantCulture))
+                .ToHashSet()
+            : new HashSet<int>();
+        var priorByComponentId = isDestroy
+            ? (from d in context.DeploymentRequestDefinitions.AsNoTracking()
+               join r in context.DeploymentRequests.AsNoTracking() on d.DeploymentRequestId equals r.Id
+               where r.Environment == request.Environment && r.Project == request.Project && !d.IsSkipped
+               orderby d.DeploymentRequestId descending
+               select new { r.RequestDetails, Definition = d })
+              .AsEnumerable()
+              .Where(x => !IsDestroyRequestXml(x.RequestDetails) &&
+                          JsonSerializer.Deserialize<ComponentApiModel>(x.Definition.DefinitionJson)!.ComponentType == ComponentType.Terraform)
+              .GroupBy(x => x.Definition.ComponentId)
+              .ToDictionary(g => g.Key, g => g.First().Definition)
+            : new Dictionary<int, DeploymentRequestDefinition>();
+
         var project = context.Projects.FromSqlRaw("SELECT * FROM [deploy].[Project] WITH (UPDLOCK,HOLDLOCK)")
             .SingleOrDefault(p => p.Name == request.Project)
             ?? throw new InvalidOperationException("The request project no longer exists.");
         var current = DeploymentDefinitions.Read(context, project.Id);
         var selected = (request.Components ?? "").Split('|', StringSplitOptions.RemoveEmptyEntries)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var graph = DeploymentDefinitions.Flatten(current.Components).ToList();
-        if (selected.Count == 0 || selected.Any(name => !graph.Any(c => c.ComponentName.Equals(name, StringComparison.OrdinalIgnoreCase))))
+        var graph = DeploymentDefinitions.Flatten(current.Components)
+            .Where(c => !isDestroy || c.ComponentType == ComponentType.Terraform)
+            .ToList();
+        if (selected.Count == 0 || selected.Any(name =>
+                !graph.Any(c => c.ComponentName.Equals(name, StringComparison.OrdinalIgnoreCase)) &&
+                !priorByComponentId.Values.Any(d => d.ComponentName.Equals(name, StringComparison.OrdinalIgnoreCase))))
             throw new InvalidOperationException("Every selected component must belong to the request project.");
         DeploymentDefinitions.ValidateNonSecret(current.Project.TerraformGitRepoUrl);
         DeploymentDefinitions.ValidateNonSecret(current.Project.ArtefactsUrl);
-        var xml = XElement.Parse(request.RequestDetails ?? "<root/>");
         var skipped = xml.Descendants("ComponentsToSkip").Descendants()
             .Select(x => x.Value).ToHashSet(StringComparer.OrdinalIgnoreCase);
         var result = new List<DeploymentRequestDefinition>();
-        foreach (var component in graph.Where(c => selected.Contains(c.ComponentName)))
+        foreach (var component in graph.Where(c =>
+            selected.Contains(c.ComponentName) &&
+            (explicitDestroyIds.Count == 0 || explicitDestroyIds.Contains(c.ComponentId!.Value))))
         {
             DeploymentDefinitions.ValidateNonSecret(component.ScriptPath);
             DeploymentDefinitions.ValidateKnownSensitiveArguments(context, component.ScriptPath);
@@ -81,7 +109,7 @@ public partial class RequestsPersistentSource
                 else
                 {
                     var environmentId = context.Environments.Where(e => e.Name == request.Environment &&
-                        e.Projects.Any(p => p.Id == project.Id)).Select(e => (int?)e.Id).SingleOrDefault()
+                        (isDestroy || e.Projects.Any(p => p.Id == project.Id))).Select(e => (int?)e.Id).SingleOrDefault()
                         ?? throw new InvalidOperationException("The Catalog request environment must be mapped to its project.");
                     var backend = TerraformStateBackends.Require(current.Project.TerraformStateBackends, environmentId);
                     // Only the effective backend travels with this request. It must not be
@@ -112,7 +140,150 @@ public partial class RequestsPersistentSource
                 SubmittedAt = request.RequestedTime ?? DateTimeOffset.UtcNow, SubmittedBy = request.UserName ?? ""
             });
         }
+        var historicalDefinitions = priorByComponentId.Values
+            .Where(d => (explicitDestroyIds.Count > 0
+                ? explicitDestroyIds.Contains(d.ComponentId)
+                : selected.Contains(d.ComponentName)) &&
+                result.All(r => r.ComponentId != d.ComponentId));
+        foreach (var priorDef in historicalDefinitions)
+        {
+            EnsureComponentRowExists(context, priorDef.ComponentId, priorDef.DefinitionJson);
+            result.Add(new DeploymentRequestDefinition
+            {
+                Ordinal = result.Count,
+                ProjectId = priorDef.ProjectId,
+                ComponentId = priorDef.ComponentId,
+                ComponentName = priorDef.ComponentName,
+                DefinitionRevisionId = priorDef.DefinitionRevisionId,
+                DefinitionRevision = priorDef.DefinitionRevision,
+                DefinitionJson = priorDef.DefinitionJson,
+                ProjectJson = priorDef.ProjectJson,
+                IsSkipped = skipped.Contains(priorDef.ComponentName),
+                ScriptJson = priorDef.ScriptJson,
+                SubmittedAt = request.RequestedTime ?? DateTimeOffset.UtcNow,
+                SubmittedBy = request.UserName ?? ""
+            });
+        }
         return result;
+    }
+
+    internal static Component EnsureComponentRowExists(
+        IDeploymentContext context,
+        int componentId,
+        string definitionJson)
+    {
+        var existing = context.Components.FirstOrDefault(c => c.Id == componentId);
+        if (existing is not null)
+            return existing;
+
+        var pinned = JsonSerializer.Deserialize<ComponentApiModel>(definitionJson)!;
+        const int maxComponentNameLength = 64;
+        var baseName = pinned.ComponentName ?? string.Empty;
+        var suffix = $" (deleted-{componentId})";
+        var maxPrefixLength = Math.Max(0, maxComponentNameLength - suffix.Length);
+        var truncatedPrefix = baseName.Length > maxPrefixLength
+            ? baseName.Substring(0, maxPrefixLength)
+            : baseName;
+        var tombstoneName = context.Components.Any(c => c.Name == baseName)
+            ? $"{truncatedPrefix}{suffix}"
+            : baseName;
+        var tombstone = new Component
+        {
+            Id = componentId,
+            Name = tombstoneName,
+            ObjectId = Guid.NewGuid(),
+            Description = "Restored tombstone for destroy",
+            IsEnabled = pinned.IsEnabled,
+            StopOnFailure = pinned.StopOnFailure,
+            ComponentType = pinned.ComponentType,
+            TerraformSourceType = pinned.TerraformSourceType,
+            TerraformGitBranch = pinned.TerraformGitBranch,
+            TerraformSubPath = pinned.TerraformSubPath,
+            TerraformTemplateName = pinned.TerraformTemplateName,
+            TerraformTemplateVersion = pinned.TerraformTemplateVersion
+        };
+        context.Components.Add(tombstone);
+        context.Database.ExecuteSqlRaw("SET IDENTITY_INSERT [deploy].[Component] ON");
+        try
+        {
+            context.SaveChanges();
+        }
+        finally
+        {
+            context.Database.ExecuteSqlRaw("SET IDENTITY_INSERT [deploy].[Component] OFF");
+        }
+        return tombstone;
+    }
+
+    internal static List<CatalogRequestInputs> CaptureDestroyCatalogInputs(
+        IDeploymentContext context,
+        DeploymentRequest request,
+        List<DeploymentRequestDefinition> definitions)
+    {
+        var environmentId = context.Environments.Where(environment => environment.Name == request.Environment)
+            .Select(environment => (int?)environment.Id).SingleOrDefault();
+        var targetComponentIds = definitions.Select(d => d.ComponentId).ToHashSet();
+        var candidateReceipts = context.TerraformDeploymentReceipts
+            .Where(r => r.EnvironmentName == request.Environment &&
+                        targetComponentIds.Contains(r.ComponentId) &&
+                        (environmentId == null || r.EnvironmentId == null || r.EnvironmentId == environmentId) &&
+                        (request.Project == null || request.Project == "" || r.ProjectName == null || r.ProjectName == "" || r.ProjectName == request.Project) &&
+                        r.Operation != "Destroy")
+            .ToList();
+        var candidateResultIds = candidateReceipts.Select(r => r.DeploymentResultId).ToHashSet();
+        var outcomesByResultId = candidateResultIds.Count > 0
+            ? context.TerraformDeploymentOutcomes
+                .Where(o => candidateResultIds.Contains(o.DeploymentResultId))
+                .Select(o => new { o.DeploymentResultId, o.ApplyOutcome })
+                .ToDictionary(o => o.DeploymentResultId, o => o.ApplyOutcome)
+            : new Dictionary<int, string>();
+
+        var pinnedReceiptsByComponent = new Dictionary<int, TerraformDeploymentReceipt>();
+        foreach (var group in candidateReceipts.GroupBy(r => r.ComponentId))
+        {
+            var selected = TerraformApplyReceiptSelection.SelectStateMutatingReceipt(
+                group.Select(r => (r, outcomesByResultId.GetValueOrDefault(r.DeploymentResultId))));
+            if (selected is not null)
+            {
+                pinnedReceiptsByComponent[group.Key] = selected;
+            }
+        }
+
+        var snapshots = new List<CatalogRequestInputs>();
+        foreach (var definition in definitions)
+        {
+            var component = JsonSerializer.Deserialize<ComponentApiModel>(definition.DefinitionJson)!;
+            pinnedReceiptsByComponent.TryGetValue(definition.ComponentId, out var pinnedReceipt);
+            var priorSnapshot = pinnedReceipt is not null
+                ? context.CatalogRequestInputs.SingleOrDefault(row =>
+                    row.DeploymentRequestId == pinnedReceipt.DeploymentRequestId &&
+                    row.ComponentId == definition.ComponentId)
+                : null;
+            var configuration = environmentId.HasValue
+                ? context.CatalogEnvironmentInputs.SingleOrDefault(row =>
+                    row.ComponentId == definition.ComponentId && row.EnvironmentId == environmentId)
+                : null;
+            if (component.TerraformSourceType != TerraformSourceType.Catalog &&
+                priorSnapshot is null &&
+                configuration is null)
+                continue;
+
+            var inputsJson = priorSnapshot?.InputsJson ?? configuration?.InputsJson ?? "{}";
+            var values = JsonSerializer.Deserialize<Dictionary<string, string>>(inputsJson)!;
+            RejectSecureCatalogInputs(context, values.Keys);
+            snapshots.Add(new CatalogRequestInputs
+            {
+                ComponentId = definition.ComponentId,
+                TemplateName = priorSnapshot?.TemplateName ?? component.TerraformTemplateName ?? component.ComponentName,
+                TemplateVersion = priorSnapshot?.TemplateVersion
+                    ?? (!string.IsNullOrWhiteSpace(configuration?.TemplateVersion)
+                        ? configuration.TemplateVersion
+                        : component.TerraformTemplateVersion!),
+                ConfigurationRevision = priorSnapshot?.ConfigurationRevision ?? configuration?.Revision ?? 0,
+                InputsJson = JsonSerializer.Serialize(values)
+            });
+        }
+        return snapshots;
     }
 
     public IList<DeploymentRequestDefinition> GetRequestDefinitions(int requestId)

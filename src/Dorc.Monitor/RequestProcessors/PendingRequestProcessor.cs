@@ -81,6 +81,9 @@ namespace Dorc.Monitor.RequestProcessors
                 _variableResolver = new VariableResolver(propertyValuesPersistentSource, _loggerFactory, _propertyEvaluator);
 
                 string? resolvedDropFolder = null;
+                EnvironmentApiModel? environment = null;
+                DeploymentRequestDetail? requestDetail = requestToExecute.Details;
+                var isDestroyRequest = IsDestroyRequest(requestDetail);
                 try
                 {
                     var scriptRoot = _configValuesPersistentSource.GetConfigValue("ScriptRoot");
@@ -98,13 +101,55 @@ namespace Dorc.Monitor.RequestProcessors
                         // redact before the payload touches any log sink.
                         logger.LogDebug($"Request details:\r\n{RequestPropertyRedaction.RedactRequestDetailsXml(requestToExecute.Request.RequestDetails)}");
 
-                        var requestDetail = requestToExecute.Details;
+                        requestDetail = requestToExecute.Details;
 
                         var environmentName = requestDetail.EnvironmentName;
 
                         SetUpEnvironmentNameAsProperty(environmentName);
 
-                        var environment = environmentsPersistentSource.GetEnvironment(environmentName);
+                        environment = environmentsPersistentSource.GetEnvironment(environmentName);
+
+                        if (environment == null)
+                        {
+                            if (isDestroyRequest)
+                            {
+                                logger.LogWarning($"Environment '{environmentName}' no longer exists for destroy request '{requestToExecute.Request.Id}'; completing cleanly.");
+                                CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Completed);
+                                var completedAt = DateTimeOffset.Now;
+                                requestsPersistentSource.SetRequestCompletionStatus(
+                                    requestToExecute.Request.Id,
+                                    DeploymentRequestStatus.Completed,
+                                    completedAt);
+                                requestToExecute.Request.Status = DeploymentRequestStatus.Completed.ToString();
+                                requestToExecute.Request.CompletedTime = completedAt;
+                                return;
+                            }
+
+                            throw new InvalidOperationException($"Environment '{environmentName}' was not found.");
+                        }
+
+                        var expectedEnvironmentId = GetExpectedEphemeralEnvironmentId(requestDetail);
+                        if (expectedEnvironmentId.HasValue &&
+                            environment.EnvironmentId > 0 &&
+                            expectedEnvironmentId.Value != environment.EnvironmentId)
+                        {
+                            logger.LogWarning(
+                                "Cancelling request {RequestId} because target environment '{EnvironmentName}' now has Id {ActualId} instead of expected Id {ExpectedId}.",
+                                requestToExecute.Request.Id,
+                                environment.EnvironmentName,
+                                environment.EnvironmentId,
+                                expectedEnvironmentId.Value);
+                            CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Cancelled);
+                            var cancelledTime = DateTimeOffset.Now;
+                            requestsPersistentSource.SetRequestCompletionStatus(
+                                requestToExecute.Request.Id,
+                                DeploymentRequestStatus.Cancelled,
+                                cancelledTime,
+                                $"Cancelled because environment '{environment.EnvironmentName}' was replaced (expected Id {expectedEnvironmentId.Value}, found {environment.EnvironmentId}).");
+                            requestToExecute.Request.Status = DeploymentRequestStatus.Cancelled.ToString();
+                            requestToExecute.Request.CompletedTime = cancelledTime;
+                            return;
+                        }
 
                         if (environment.EnvironmentSecure)
                         {
@@ -133,8 +178,73 @@ namespace Dorc.Monitor.RequestProcessors
                             return;
 
                         var deploymentRequestStatus = DeploymentRequestStatus.Completed;
+                        isDestroyRequest = IsDestroyRequest(requestDetail, environment);
+                        if (isDestroyRequest && (!environment.IsEphemeral || environment.EnvironmentIsProd || requestToExecute.Request.IsProd))
+                        {
+                            logger.LogError("Terraform Destroy is only permitted on non-production ephemeral environments.");
+                            CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Failed);
+                            var failedTime = DateTimeOffset.Now;
+                            requestsPersistentSource.SetRequestCompletionStatus(
+                                requestToExecute.Request.Id,
+                                DeploymentRequestStatus.Failed,
+                                failedTime,
+                                "Terraform Destroy is only permitted on non-production ephemeral environments.");
+                            requestToExecute.Request.Status = DeploymentRequestStatus.Failed.ToString();
+                            requestToExecute.Request.CompletedTime = failedTime;
+                            return;
+                        }
 
-                        var orderedNonSkippedComponents = requestsPersistentSource.GetSubmittedComponents(requestToExecute.Request.Id);
+                        if (isDestroyRequest &&
+                            string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.TeardownFailed, StringComparison.OrdinalIgnoreCase))
+                        {
+                            logger.LogInformation(
+                                "Skipping destroy request {RequestId} because ephemeral environment '{EnvironmentName}' is already in state 'TeardownFailed'.",
+                                requestToExecute.Request.Id,
+                                environment.EnvironmentName);
+                            CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Cancelled);
+                            var cancelledTime = DateTimeOffset.Now;
+                            requestsPersistentSource.SetRequestCompletionStatus(
+                                requestToExecute.Request.Id,
+                                DeploymentRequestStatus.Cancelled,
+                                cancelledTime,
+                                $"Cancelled because ephemeral environment '{environment.EnvironmentName}' is already in TeardownFailed state.");
+                            requestToExecute.Request.Status = DeploymentRequestStatus.Cancelled.ToString();
+                            requestToExecute.Request.CompletedTime = cancelledTime;
+                            return;
+                        }
+
+                        if (isDestroyRequest &&
+                            !string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.TearingDown, StringComparison.OrdinalIgnoreCase))
+                        {
+                            environmentsPersistentSource.UpdateEphemeralState(environment.EnvironmentId, EphemeralEnvironmentStates.TearingDown);
+                            environment.EphemeralState = EphemeralEnvironmentStates.TearingDown;
+                        }
+                        else if (!isDestroyRequest &&
+                                 environment.IsEphemeral &&
+                                 (string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.TearingDown, StringComparison.OrdinalIgnoreCase) ||
+                                  string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.TornDown, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            logger.LogInformation(
+                                "Skipping non-destroy request {RequestId} because ephemeral environment '{EnvironmentName}' is in state '{EphemeralState}'.",
+                                requestToExecute.Request.Id,
+                                environment.EnvironmentName,
+                                environment.EphemeralState);
+                            CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Cancelled);
+                            var cancelledTime = DateTimeOffset.Now;
+                            requestsPersistentSource.SetRequestCompletionStatus(
+                                requestToExecute.Request.Id,
+                                DeploymentRequestStatus.Cancelled,
+                                cancelledTime,
+                                $"Cancelled because ephemeral environment '{environment.EnvironmentName}' is tearing down or torn down.");
+                            requestToExecute.Request.Status = DeploymentRequestStatus.Cancelled.ToString();
+                            requestToExecute.Request.CompletedTime = cancelledTime;
+                            return;
+                        }
+
+                        var orderedNonSkippedComponents = OrderComponentsForExecution(
+                            requestsPersistentSource.GetSubmittedComponents(requestToExecute.Request.Id),
+                            isDestroyRequest,
+                            requestDetail);
 
                         logger.LogInformation($"Found {orderedNonSkippedComponents.Count} non-skipped components for request {requestToExecute.Request.Id}:");
 
@@ -143,6 +253,8 @@ namespace Dorc.Monitor.RequestProcessors
                             logger.LogWarning($"No non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
 
                             var completedTime = DateTimeOffset.Now;
+
+                            deploymentRequestStatus = UpdateEphemeralEnvironmentLifecycleState(environment, requestDetail, isDestroyRequest, deploymentRequestStatus, requestToExecute.Request);
 
                             requestsPersistentSource.SetRequestCompletionStatus(
                                 requestToExecute.Request.Id,
@@ -188,13 +300,17 @@ namespace Dorc.Monitor.RequestProcessors
                         }
 
                         var orderedEnabledNonSkippedComponents = orderedNonSkippedComponents
-                            .Where(component => component.IsEnabled);
+                            .Where(component => isDestroyRequest
+                                ? component.ComponentType == ComponentType.Terraform
+                                : component.IsEnabled);
 
                         if (!orderedEnabledNonSkippedComponents.Any())
                         {
                             logger.LogWarning($"No enabled non-skipped components are found for the request with id '{requestToExecute.Request.Id}'.");
 
                             var completedTime = DateTimeOffset.Now;
+
+                            deploymentRequestStatus = UpdateEphemeralEnvironmentLifecycleState(environment, requestDetail, isDestroyRequest, deploymentRequestStatus, requestToExecute.Request);
 
                             requestsPersistentSource.SetRequestCompletionStatus(
                                 requestToExecute.Request.Id,
@@ -217,7 +333,20 @@ namespace Dorc.Monitor.RequestProcessors
                         }
 
                         var commonProperties = GetCommonProperties(
-                            environment.EnvironmentIsProd);
+                            environment.EnvironmentIsProd,
+                            requestDetail.Properties);
+                        if (environment.IsEphemeral)
+                        {
+                            ComponentProcessor.ApplyEphemeralPropertyInvariants(commonProperties);
+                        }
+                        if (isDestroyRequest)
+                        {
+                            commonProperties[ComponentProcessor.TerraformOperationPropertyName] = new VariableValue
+                            {
+                                Value = ComponentProcessor.DestroyOperationValue,
+                                Type = typeof(string)
+                            };
+                        }
 
                         foreach (var enabledNonSkippedComponent in orderedEnabledNonSkippedComponents)
                         {
@@ -237,6 +366,14 @@ namespace Dorc.Monitor.RequestProcessors
 
                                 var componentId = enabledNonSkippedComponent.ComponentId!.Value;
                                 var deploymentResult = deploymentResults[componentId];
+
+                                if (isDestroyRequest &&
+                                    enabledNonSkippedComponent.ComponentType == ComponentType.Terraform &&
+                                    deploymentResult.Status == DeploymentResultStatus.Disabled.ToString())
+                                {
+                                    requestsPersistentSource.UpdateResultStatus(deploymentResult, DeploymentResultStatus.Pending);
+                                    deploymentResult.Status = DeploymentResultStatus.Pending.ToString();
+                                }
 
                                 if (deploymentResult.Status != DeploymentResultStatus.Pending.ToString() &&
                                     !(enabledNonSkippedComponent.ComponentType == ComponentType.Terraform &&
@@ -261,7 +398,7 @@ namespace Dorc.Monitor.RequestProcessors
                                             requestsPersistentSource.UpdateResultStatus(deploymentResult,
                                                 DeploymentResultStatus.Failed, DeploymentResultStatus.Running);
                                         }
-                                        if (enabledNonSkippedComponent.StopOnFailure)
+                                        if (isDestroyRequest || enabledNonSkippedComponent.StopOnFailure)
                                             break;
                                     }
                                     continue;
@@ -281,12 +418,14 @@ namespace Dorc.Monitor.RequestProcessors
 
                                 if (!isSuccessful)
                                 {
-                                    deploymentRequestStatus = DeploymentRequestStatus.Failed;
+                                    deploymentRequestStatus = deploymentResult.Status == DeploymentResultStatus.Cancelled.ToString()
+                                        ? DeploymentRequestStatus.Cancelled
+                                        : DeploymentRequestStatus.Failed;
 
-                                    if (enabledNonSkippedComponent.StopOnFailure)
+                                    if (isDestroyRequest || enabledNonSkippedComponent.StopOnFailure)
                                     {
                                         logger.LogWarning(
-                                            "Deployment of remaining components is aborted due to StopOnFailure flag on component '{ComponentName}'.",
+                                            "Deployment of remaining components is aborted due to StopOnFailure flag or destroy failure on component '{ComponentName}'.",
                                             enabledNonSkippedComponent.ComponentName);
                                         break;
                                     }
@@ -320,7 +459,7 @@ namespace Dorc.Monitor.RequestProcessors
                                     exception = exception.InnerException;
                                 }
 
-                                if (enabledNonSkippedComponent.StopOnFailure)
+                                if (isDestroyRequest || enabledNonSkippedComponent.StopOnFailure)
                                 {
                                     logger.LogError("Deployment of remaining components is aborted.");
                                     break;
@@ -346,6 +485,8 @@ namespace Dorc.Monitor.RequestProcessors
                                 DeploymentRequestStatus.Cancelling,
                                 DeploymentRequestStatus.Cancelled,
                                 finalCompletedTime) > 0;
+
+                        deploymentRequestStatus = UpdateEphemeralEnvironmentLifecycleState(environment, requestDetail, isDestroyRequest, deploymentRequestStatus, requestToExecute.Request);
 
                         requestsPersistentSource.SetRequestCompletionStatus(
                             requestToExecute.Request.Id,
@@ -377,6 +518,7 @@ namespace Dorc.Monitor.RequestProcessors
                         criticalLogBuilder.AppendLine(ex.ToString());
 
                         CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Errored);
+                        TryMarkEphemeralTeardownFailedOnException(environment, isDestroyRequest, requestToExecute.Request.EnvironmentName, requestDetail);
 
                         var erroredTime = DateTimeOffset.Now;
 
@@ -409,6 +551,7 @@ namespace Dorc.Monitor.RequestProcessors
                     criticalLogBuilder.AppendLine(e.ToString());
 
                     CancelPendingDeploymentResults(requestToExecute.Request.Id, DeploymentRequestStatus.Errored);
+                    TryMarkEphemeralTeardownFailedOnException(environment, isDestroyRequest, requestToExecute.Request.EnvironmentName, requestDetail);
 
                     var erroredTime = DateTimeOffset.Now;
 
@@ -517,9 +660,34 @@ namespace Dorc.Monitor.RequestProcessors
         }
 
 
-        private IDictionary<string, VariableValue> GetCommonProperties(bool environmentIsProd)
+        internal IDictionary<string, VariableValue> GetCommonProperties(
+            bool environmentIsProd,
+            IReadOnlyCollection<PropertyPair>? requestProperties = null)
         {
             var commonProperties = _variableResolver.LoadProperties();
+
+            var reservedKeys = commonProperties.Keys
+                .Where(TerraformDestroyOperationConstants.IsReservedLifecycleProperty)
+                .ToList();
+            foreach (var reservedKey in reservedKeys)
+            {
+                commonProperties.Remove(reservedKey);
+            }
+
+            if (requestProperties != null)
+            {
+                foreach (var propertyPair in requestProperties)
+                {
+                    if (TerraformDestroyOperationConstants.IsReservedLifecycleProperty(propertyPair.Name))
+                    {
+                        commonProperties[propertyPair.Name] = new VariableValue
+                        {
+                            Value = propertyPair.Value,
+                            Type = typeof(string)
+                        };
+                    }
+                }
+            }
 
             commonProperties.Add("IsProd", new VariableValue
             {
@@ -539,6 +707,12 @@ namespace Dorc.Monitor.RequestProcessors
 
             foreach (var propertyPair in properties)
             {
+                if (TerraformDestroyOperationConstants.IsReservedLifecycleProperty(propertyPair.Name) ||
+                    propertyPair.Name.Contains(':'))
+                {
+                    continue;
+                }
+
                 // Supplied on the deployment request, so recorded as such: these values, and
                 // any curated value that interpolates them, must never reach the expression
                 // evaluator. It compiles and runs C# inside this process, which holds both
@@ -675,6 +849,716 @@ namespace Dorc.Monitor.RequestProcessors
                     "Failed to verify cancellation status for request {RequestId} from another node.", requestId);
                 return false;
             }
+        }
+
+        internal static bool IsDestroyRequest(
+            DeploymentRequestDetail? requestDetail,
+            EnvironmentApiModel? environment = null)
+        {
+            if (requestDetail?.Properties != null)
+            {
+                if (requestDetail.Properties.Any(p =>
+                        string.Equals(p.Name, ComponentProcessor.TerraformOperationPropertyName, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(p.Value, ComponentProcessor.DestroyOperationValue, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return true;
+                }
+
+                if (requestDetail.Properties.Any(p =>
+                        string.Equals(p.Name, ComponentProcessor.IsDestroyPropertyName, StringComparison.OrdinalIgnoreCase) &&
+                        string.Equals(p.Value, "true", StringComparison.OrdinalIgnoreCase)))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        internal static IList<ComponentApiModel> OrderComponentsForExecution(
+            IList<ComponentApiModel> submittedComponents,
+            bool isDestroyRequest,
+            DeploymentRequestDetail? requestDetail = null)
+        {
+            if (submittedComponents.Count <= 1)
+            {
+                return submittedComponents;
+            }
+
+            var requestProperties = requestDetail?.Properties;
+            var hasExplicitEphemeralOrder = requestProperties != null &&
+                requestProperties.Any(p =>
+                    string.Equals(p.Name, TerraformDestroyOperationConstants.EphemeralTargetStatePropertyName, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(p.Name, TerraformDestroyOperationConstants.DeferredValidationComponentsPropertyName, StringComparison.OrdinalIgnoreCase));
+
+            if (!isDestroyRequest && !hasExplicitEphemeralOrder)
+            {
+                return submittedComponents;
+            }
+
+            IList<ComponentApiModel> ordered = submittedComponents;
+            var rankById = new Dictionary<int, int>();
+            var rawDestroyIds = requestProperties?
+                .FirstOrDefault(p => string.Equals(p.Name, TerraformDestroyOperationConstants.DestroyComponentIdsPropertyName, StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+            if (!string.IsNullOrWhiteSpace(rawDestroyIds))
+            {
+                var idTokens = rawDestroyIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                for (var i = 0; i < idTokens.Length; i++)
+                {
+                    rankById[int.Parse(idTokens[i], System.Globalization.CultureInfo.InvariantCulture)] = i;
+                }
+            }
+
+            var requestComponents = requestDetail?.Components;
+            if (requestComponents is { Count: > 1 } || rankById.Count > 0)
+            {
+                var rankByName = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+                var compCount = requestComponents?.Count ?? 0;
+                for (var i = 0; i < compCount; i++)
+                {
+                    var name = requestComponents![i];
+                    if (!string.IsNullOrWhiteSpace(name) && !rankByName.ContainsKey(name))
+                    {
+                        rankByName[name] = i;
+                    }
+                }
+
+                ordered = submittedComponents
+                    .Select((comp, idx) => (
+                        Component: comp,
+                        Rank: comp.ComponentId.HasValue && rankById.TryGetValue(comp.ComponentId.Value, out var idRank)
+                            ? idRank
+                            : (!string.IsNullOrWhiteSpace(comp.ComponentName) && rankByName.TryGetValue(comp.ComponentName, out var r)
+                                ? r
+                                : int.MaxValue),
+                        OriginalIndex: idx))
+                    .OrderBy(x => x.Rank)
+                    .ThenBy(x => x.OriginalIndex)
+                    .Select(x => x.Component)
+                    .ToList();
+            }
+
+            var isPreReversed = requestDetail?.Properties != null &&
+                requestDetail.Properties.Any(p =>
+                    string.Equals(p.Name, TerraformDestroyOperationConstants.DestroyOrderPreReversedPropertyName, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(p.Value, "true", StringComparison.OrdinalIgnoreCase));
+
+            if (!isDestroyRequest || isPreReversed)
+            {
+                return ordered;
+            }
+
+            return ordered.Reverse().ToList();
+        }
+
+        internal void TryMarkEphemeralTeardownFailedOnException(
+            EnvironmentApiModel? environment,
+            bool isDestroyRequest,
+            string? fallbackEnvironmentName,
+            DeploymentRequestDetail? requestDetail = null)
+        {
+            try
+            {
+                var targetEnv = environment;
+                if (targetEnv == null && !string.IsNullOrWhiteSpace(fallbackEnvironmentName))
+                {
+                    targetEnv = environmentsPersistentSource.GetEnvironment(fallbackEnvironmentName);
+                }
+
+                if (targetEnv is { IsEphemeral: true })
+                {
+                    var expectedEnvironmentId = GetExpectedEphemeralEnvironmentId(requestDetail);
+                    if (expectedEnvironmentId.HasValue &&
+                        targetEnv.EnvironmentId > 0 &&
+                        expectedEnvironmentId.Value != targetEnv.EnvironmentId)
+                    {
+                        return;
+                    }
+
+                    if (isDestroyRequest ||
+                        string.Equals(targetEnv.EphemeralState, EphemeralEnvironmentStates.TearingDown, StringComparison.OrdinalIgnoreCase))
+                    {
+                        if (targetEnv.EnvironmentId > 0)
+                        {
+                            environmentsPersistentSource.UpdateEphemeralState(
+                                targetEnv.EnvironmentId,
+                                EphemeralEnvironmentStates.TeardownFailed);
+                        }
+                        else
+                        {
+                            environmentsPersistentSource.UpdateEphemeralState(
+                                targetEnv.EnvironmentName,
+                                EphemeralEnvironmentStates.TeardownFailed);
+                        }
+                        targetEnv.EphemeralState = EphemeralEnvironmentStates.TeardownFailed;
+                    }
+                    else if (IsEphemeralLifecycleRequest(requestDetail) &&
+                             string.Equals(targetEnv.EphemeralState, EphemeralEnvironmentStates.Provisioning, StringComparison.OrdinalIgnoreCase))
+                    {
+                        environmentsPersistentSource.TryTransitionEphemeralState(
+                            targetEnv.EnvironmentName,
+                            new[] { EphemeralEnvironmentStates.Provisioning },
+                            EphemeralEnvironmentStates.ProvisionFailed,
+                            expectedEnvironmentId);
+                        targetEnv.EphemeralState = EphemeralEnvironmentStates.ProvisionFailed;
+                    }
+                    else if (IsEphemeralLifecycleRequest(requestDetail) &&
+                             string.Equals(targetEnv.EphemeralState, EphemeralEnvironmentStates.Testing, StringComparison.OrdinalIgnoreCase))
+                    {
+                        environmentsPersistentSource.TryTransitionEphemeralState(
+                            targetEnv.EnvironmentName,
+                            new[] { EphemeralEnvironmentStates.Testing },
+                            EphemeralEnvironmentStates.ValidationFailed,
+                            expectedEnvironmentId);
+                        targetEnv.EphemeralState = EphemeralEnvironmentStates.ValidationFailed;
+                    }
+                }
+            }
+            catch (Exception stateEx)
+            {
+                logger.LogWarning(stateEx, "Failed to transition ephemeral environment to TeardownFailed after unhandled request exception.");
+            }
+        }
+
+        internal DeploymentRequestStatus UpdateEphemeralEnvironmentLifecycleState(
+            EnvironmentApiModel? environment,
+            DeploymentRequestDetail? requestDetail,
+            bool isDestroyRequest,
+            DeploymentRequestStatus finalStatus,
+            DeploymentRequestApiModel? sourceRequest = null)
+        {
+            if (environment is not { IsEphemeral: true })
+            {
+                return finalStatus;
+            }
+
+            var expectedEnvironmentId = GetExpectedEphemeralEnvironmentId(requestDetail);
+            if (expectedEnvironmentId.HasValue &&
+                environment.EnvironmentId > 0 &&
+                expectedEnvironmentId.Value != environment.EnvironmentId)
+            {
+                return finalStatus;
+            }
+
+            if (isDestroyRequest)
+            {
+                if (finalStatus == DeploymentRequestStatus.Completed)
+                {
+                    if (HasRemainingActiveDestroyRequests(environment.EnvironmentName, sourceRequest?.Id ?? 0, requestDetail))
+                    {
+                        return finalStatus;
+                    }
+
+                    if ((sourceRequest?.Id ?? 0) > 0)
+                    {
+                        var freshEnvironment = !string.IsNullOrWhiteSpace(environment.EnvironmentName)
+                            ? environmentsPersistentSource.GetEnvironment(environment.EnvironmentName)
+                            : null;
+                        if (freshEnvironment != null && !string.IsNullOrWhiteSpace(freshEnvironment.EphemeralState))
+                        {
+                            environment.EphemeralState = freshEnvironment.EphemeralState;
+                        }
+
+                        if (string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.TeardownFailed, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return finalStatus;
+                        }
+                    }
+
+                    if (ShouldDeleteEnvironmentOnTeardown(requestDetail))
+                    {
+                        try
+                        {
+                            var deleted = environmentsPersistentSource.DeleteEnvironmentInternal(environment.EnvironmentId);
+                            if (!deleted)
+                            {
+                                environmentsPersistentSource.UpdateEphemeralState(
+                                    environment.EnvironmentId,
+                                    EphemeralEnvironmentStates.TeardownFailed);
+                                environment.EphemeralState = EphemeralEnvironmentStates.TeardownFailed;
+                                return DeploymentRequestStatus.Failed;
+                            }
+                            environment.EphemeralState = EphemeralEnvironmentStates.TornDown;
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogError(
+                                ex,
+                                "Failed to delete ephemeral environment '{EnvironmentName}' ({EnvironmentId}) after destroy; transitioning to TeardownFailed.",
+                                environment.EnvironmentName,
+                                environment.EnvironmentId);
+                            environmentsPersistentSource.UpdateEphemeralState(
+                                environment.EnvironmentId,
+                                EphemeralEnvironmentStates.TeardownFailed);
+                            environment.EphemeralState = EphemeralEnvironmentStates.TeardownFailed;
+                            return DeploymentRequestStatus.Failed;
+                        }
+                    }
+                    else
+                    {
+                        environmentsPersistentSource.UpdateEphemeralState(
+                            environment.EnvironmentId,
+                            EphemeralEnvironmentStates.TornDown);
+                        environment.EphemeralState = EphemeralEnvironmentStates.TornDown;
+                    }
+                }
+                else if (finalStatus == DeploymentRequestStatus.Failed ||
+                         finalStatus == DeploymentRequestStatus.Errored ||
+                         finalStatus == DeploymentRequestStatus.Cancelled ||
+                         finalStatus == DeploymentRequestStatus.Abandoned)
+                {
+                    environmentsPersistentSource.UpdateEphemeralState(
+                        environment.EnvironmentId,
+                        EphemeralEnvironmentStates.TeardownFailed);
+                    environment.EphemeralState = EphemeralEnvironmentStates.TeardownFailed;
+                    CancelRemainingActiveDestroyRequests(environment.EnvironmentName, sourceRequest?.Id ?? 0);
+                }
+                return finalStatus;
+            }
+
+            if (!IsEphemeralLifecycleRequest(requestDetail))
+            {
+                return finalStatus;
+            }
+
+            if (finalStatus == DeploymentRequestStatus.Completed)
+            {
+                var deferredValidationTokens = GetDeferredValidationComponentTokens(requestDetail);
+                if (deferredValidationTokens.Count > 0)
+                {
+                    if (environmentsPersistentSource.TryTransitionEphemeralState(
+                            environment.EnvironmentName,
+                            new[] { EphemeralEnvironmentStates.Provisioning, EphemeralEnvironmentStates.ProvisionFailed },
+                            EphemeralEnvironmentStates.Testing,
+                            expectedEnvironmentId))
+                    {
+                        environment.EphemeralState = EphemeralEnvironmentStates.Testing;
+                        SubmitDeferredValidationRequest(environment, requestDetail, sourceRequest, deferredValidationTokens);
+                    }
+                    return finalStatus;
+                }
+
+                if (ShouldTransitionToTestingState(requestDetail))
+                {
+                    if (environmentsPersistentSource.TryTransitionEphemeralState(
+                            environment.EnvironmentName,
+                            new[]
+                            {
+                                EphemeralEnvironmentStates.Provisioning,
+                                EphemeralEnvironmentStates.ProvisionFailed,
+                                EphemeralEnvironmentStates.ValidationFailed,
+                                EphemeralEnvironmentStates.Ready
+                            },
+                            EphemeralEnvironmentStates.Testing,
+                            expectedEnvironmentId))
+                    {
+                        environment.EphemeralState = EphemeralEnvironmentStates.Testing;
+                    }
+                    return finalStatus;
+                }
+
+                if (environmentsPersistentSource.TryTransitionEphemeralState(
+                        environment.EnvironmentName,
+                        new[]
+                        {
+                            EphemeralEnvironmentStates.Provisioning,
+                            EphemeralEnvironmentStates.ProvisionFailed,
+                            EphemeralEnvironmentStates.Testing,
+                            EphemeralEnvironmentStates.ValidationFailed
+                        },
+                        EphemeralEnvironmentStates.Ready,
+                        expectedEnvironmentId))
+                {
+                    environment.EphemeralState = EphemeralEnvironmentStates.Ready;
+                }
+                return finalStatus;
+            }
+
+            if (finalStatus == DeploymentRequestStatus.Failed ||
+                finalStatus == DeploymentRequestStatus.Errored ||
+                finalStatus == DeploymentRequestStatus.Cancelled ||
+                finalStatus == DeploymentRequestStatus.Abandoned)
+            {
+                if (string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.Provisioning, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (environmentsPersistentSource.TryTransitionEphemeralState(
+                            environment.EnvironmentName,
+                            new[] { EphemeralEnvironmentStates.Provisioning },
+                            EphemeralEnvironmentStates.ProvisionFailed,
+                            expectedEnvironmentId))
+                    {
+                        environment.EphemeralState = EphemeralEnvironmentStates.ProvisionFailed;
+                    }
+                }
+                else if (string.Equals(environment.EphemeralState, EphemeralEnvironmentStates.Testing, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (environmentsPersistentSource.TryTransitionEphemeralState(
+                            environment.EnvironmentName,
+                            new[] { EphemeralEnvironmentStates.Testing },
+                            EphemeralEnvironmentStates.ValidationFailed,
+                            expectedEnvironmentId))
+                    {
+                        environment.EphemeralState = EphemeralEnvironmentStates.ValidationFailed;
+                    }
+                }
+            }
+
+            return finalStatus;
+        }
+
+        private static List<string> GetDeferredValidationComponentTokens(DeploymentRequestDetail requestDetail)
+        {
+            var raw = requestDetail.Properties
+                .FirstOrDefault(p => string.Equals(
+                    p.Name,
+                    TerraformDestroyOperationConstants.DeferredValidationComponentsPropertyName,
+                    StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return new List<string>();
+            }
+
+            return raw
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+        }
+
+        private void SubmitDeferredValidationRequest(
+            EnvironmentApiModel environment,
+            DeploymentRequestDetail requestDetail,
+            DeploymentRequestApiModel sourceRequest,
+            IReadOnlyList<string> deferredValidationTokens)
+        {
+            var byId = new Dictionary<int, string>();
+            var mappedProjects = environmentsPersistentSource.GetMappedProjects(environment.EnvironmentName);
+            if (mappedProjects != null)
+            {
+                foreach (var project in mappedProjects)
+                {
+                    var components = manageProjectsPersistentSource.GetOrderedComponents(project.ProjectId);
+                    if (components == null)
+                    {
+                        continue;
+                    }
+
+                    IndexComponentsById(components, byId);
+                }
+            }
+
+            var resolvedComponentNames = new List<string>();
+            foreach (var token in deferredValidationTokens)
+            {
+                if (int.TryParse(token, out var componentId) && byId.TryGetValue(componentId, out var componentName))
+                {
+                    resolvedComponentNames.Add(componentName);
+                }
+                else
+                {
+                    resolvedComponentNames.Add(token);
+                }
+            }
+
+            var deferredBuildNum = requestDetail.Properties
+                .FirstOrDefault(p => string.Equals(
+                    p.Name,
+                    TerraformDestroyOperationConstants.DeferredValidationBuildNumPropertyName,
+                    StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+            var deferredBuildUrl = requestDetail.Properties
+                .FirstOrDefault(p => string.Equals(
+                    p.Name,
+                    TerraformDestroyOperationConstants.DeferredValidationBuildUrlPropertyName,
+                    StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+
+            var projectName = sourceRequest.Project ?? string.Empty;
+            var buildNumber = !string.IsNullOrWhiteSpace(deferredBuildNum)
+                ? deferredBuildNum
+                : (sourceRequest.BuildNumber ?? "ephemeral-validation");
+            var dropLocation = IsUsableDropLocation(requestDetail.BuildDetail?.DropLocation)
+                ? requestDetail.BuildDetail!.DropLocation!
+                : (IsUsableDropLocation(sourceRequest.DropLocation)
+                    ? sourceRequest.DropLocation!
+                    : (IsUsableDropLocation(deferredBuildUrl)
+                        ? deferredBuildUrl!.Trim()
+                        : "catalog://bundled"));
+            var buildUri = !IsCatalogSentinelValue(sourceRequest.BuildUri) &&
+                           sourceRequest.BuildUri!.StartsWith("vstfs://", StringComparison.OrdinalIgnoreCase)
+                ? sourceRequest.BuildUri
+                : (!string.IsNullOrWhiteSpace(deferredBuildUrl)
+                    ? NormalizeBuildUriValue(deferredBuildUrl)
+                    : NormalizeBuildUriValue(sourceRequest.BuildUri));
+            var userName = !string.IsNullOrWhiteSpace(sourceRequest.UserName) ? sourceRequest.UserName : "system:ephemeral-validation";
+
+            var validationProperties = requestDetail.Properties
+                .Where(p => !string.Equals(p.Name, TerraformDestroyOperationConstants.DeferredValidationComponentsPropertyName, StringComparison.OrdinalIgnoreCase) &&
+                            !string.Equals(p.Name, TerraformDestroyOperationConstants.DeferredValidationBuildNumPropertyName, StringComparison.OrdinalIgnoreCase) &&
+                            !string.Equals(p.Name, TerraformDestroyOperationConstants.DeferredValidationBuildUrlPropertyName, StringComparison.OrdinalIgnoreCase) &&
+                            !string.Equals(p.Name, TerraformDestroyOperationConstants.EphemeralTargetStatePropertyName, StringComparison.OrdinalIgnoreCase) &&
+                            !string.Equals(p.Name, TerraformDestroyOperationConstants.EphemeralEnvironmentIdPropertyName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            validationProperties.Add(new PropertyPair(TerraformDestroyOperationConstants.EphemeralTargetStatePropertyName, EphemeralEnvironmentStates.Ready));
+            validationProperties.Add(new PropertyPair(
+                TerraformDestroyOperationConstants.EphemeralEnvironmentIdPropertyName,
+                environment.EnvironmentId.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+
+            var validationDetail = new DeploymentRequestDetail
+            {
+                EnvironmentName = environment.EnvironmentName,
+                BuildDetail = new BuildDetail
+                {
+                    Project = projectName,
+                    BuildNumber = buildNumber,
+                    DropLocation = dropLocation,
+                    Uri = buildUri
+                },
+                Components = resolvedComponentNames,
+                Properties = validationProperties
+            };
+
+            var serializer = new DeploymentRequestDetailSerializer();
+            requestsPersistentSource.SubmitRequest(new Dorc.PersistentData.Model.DeploymentRequest
+            {
+                RequestDetails = serializer.Serialize(validationDetail),
+                UserName = userName,
+                RequestedTime = DateTimeOffset.UtcNow,
+                Project = projectName,
+                Environment = environment.EnvironmentName,
+                BuildNumber = buildNumber,
+                Components = string.Join("|", resolvedComponentNames),
+                IsProd = false
+            });
+        }
+
+        private static void IndexComponentsById(IEnumerable<ComponentApiModel> components, IDictionary<int, string> byId)
+        {
+            foreach (var component in components)
+            {
+                if (component.ComponentId.HasValue && !string.IsNullOrWhiteSpace(component.ComponentName))
+                {
+                    byId[component.ComponentId.Value] = component.ComponentName;
+                }
+
+                if (component.Children is { Count: > 0 })
+                {
+                    IndexComponentsById(component.Children, byId);
+                }
+            }
+        }
+
+        private static bool IsCatalogSentinelValue(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ||
+                   string.Equals(value, "catalog://bundled", StringComparison.OrdinalIgnoreCase) ||
+                   value.StartsWith("dorc-catalog://", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeBuildUriValue(string? rawBuildUrl)
+        {
+            if (string.IsNullOrWhiteSpace(rawBuildUrl))
+            {
+                return string.Empty;
+            }
+
+            var trimmed = rawBuildUrl.Trim();
+            var match = System.Text.RegularExpressions.Regex.Match(
+                trimmed,
+                @"(?:[?&]buildId=|/_apis/build/Builds/)(\d+)",
+                System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+            return match.Success
+                ? $"vstfs:///Build/Build/{match.Groups[1].Value}"
+                : trimmed;
+        }
+
+        private static bool IsUsableDropLocation(string? candidate)
+        {
+            if (IsCatalogSentinelValue(candidate))
+            {
+                return false;
+            }
+
+            var trimmed = candidate!.Trim();
+            if (trimmed.StartsWith("vstfs://", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return !((trimmed.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                      trimmed.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) &&
+                     System.Text.RegularExpressions.Regex.IsMatch(
+                         trimmed,
+                         @"(?:[?&]buildId=|/_apis/build/Builds/)\d+",
+                         System.Text.RegularExpressions.RegexOptions.IgnoreCase) &&
+                     !trimmed.Contains("/artifacts", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static int? GetExpectedEphemeralEnvironmentId(DeploymentRequestDetail? requestDetail)
+        {
+            var raw = requestDetail?.Properties?
+                .FirstOrDefault(p => string.Equals(
+                    p.Name,
+                    TerraformDestroyOperationConstants.EphemeralEnvironmentIdPropertyName,
+                    StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+            return int.TryParse(raw, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var parsed) && parsed > 0
+                ? parsed
+                : null;
+        }
+
+        private static bool IsEphemeralLifecycleRequest(DeploymentRequestDetail? requestDetail) =>
+            requestDetail?.Properties is { Count: > 0 } &&
+            requestDetail.Properties.Any(p =>
+                string.Equals(p.Name, "RunValidationRequest", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.Name, TerraformDestroyOperationConstants.EphemeralTargetStatePropertyName, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.Name, TerraformDestroyOperationConstants.DeferredValidationComponentsPropertyName, StringComparison.OrdinalIgnoreCase));
+
+        private static bool ShouldTransitionToTestingState(DeploymentRequestDetail requestDetail) =>
+            requestDetail.Properties.Any(p =>
+                (string.Equals(p.Name, "RunValidationRequest", StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(p.Value, "true", StringComparison.OrdinalIgnoreCase)) ||
+                (string.Equals(p.Name, "EphemeralTargetState", StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(p.Value, EphemeralEnvironmentStates.Testing, StringComparison.OrdinalIgnoreCase)));
+
+        private List<DeploymentRequestApiModel> GetActiveSiblingDestroyRequests(string? environmentName, int excludedRequestId)
+        {
+            if (string.IsNullOrWhiteSpace(environmentName) || excludedRequestId <= 0)
+            {
+                return new List<DeploymentRequestApiModel>();
+            }
+
+            var primary = requestsPersistentSource.GetRequestsWithStatus(
+                DeploymentRequestStatus.Pending,
+                DeploymentRequestStatus.Running,
+                DeploymentRequestStatus.Requesting,
+                DeploymentRequestStatus.WaitingConfirmation,
+                isProd: false) ?? Enumerable.Empty<DeploymentRequestApiModel>();
+            var secondary = requestsPersistentSource.GetRequestsWithStatus(
+                DeploymentRequestStatus.Confirmed,
+                DeploymentRequestStatus.Paused,
+                isProd: false) ?? Enumerable.Empty<DeploymentRequestApiModel>();
+
+            return primary.Concat(secondary)
+                .Where(r =>
+                    r.Id != excludedRequestId &&
+                    string.Equals(r.EnvironmentName, environmentName, StringComparison.OrdinalIgnoreCase) &&
+                    Dorc.PersistentData.Sources.RequestsPersistentSource.IsDestroyRequestXml(r.RequestDetails))
+                .ToList();
+        }
+
+        private bool HasRemainingActiveDestroyRequests(
+            string? environmentName,
+            int completedRequestId,
+            DeploymentRequestDetail? requestDetail = null)
+        {
+            if (GetActiveSiblingDestroyRequests(environmentName, completedRequestId).Count > 0)
+            {
+                return true;
+            }
+
+            if (completedRequestId <= 0 || requestDetail?.Properties == null)
+            {
+                return false;
+            }
+
+            var batchCountRaw = requestDetail.Properties
+                .FirstOrDefault(p => string.Equals(
+                    p.Name,
+                    TerraformDestroyOperationConstants.DestroyBatchCountPropertyName,
+                    StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+
+            if (!int.TryParse(batchCountRaw, out var expectedBatchCount) || expectedBatchCount <= 1)
+            {
+                return false;
+            }
+
+            var siblingIds = new HashSet<int>();
+            var siblingIdsRaw = requestDetail.Properties
+                .FirstOrDefault(p => string.Equals(
+                    p.Name,
+                    TerraformDestroyOperationConstants.SiblingDestroyRequestIdsPropertyName,
+                    StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+
+            if (!string.IsNullOrWhiteSpace(siblingIdsRaw))
+            {
+                foreach (var token in siblingIdsRaw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    if (int.TryParse(token, out var parsedId) && parsedId > 0 && parsedId != completedRequestId)
+                    {
+                        siblingIds.Add(parsedId);
+                    }
+                }
+            }
+
+            var expectedSiblingCount = expectedBatchCount - 1;
+            for (var candidateId = completedRequestId + 1;
+                 siblingIds.Count < expectedSiblingCount && candidateId <= completedRequestId + expectedSiblingCount;
+                 candidateId++)
+            {
+                var candidate = requestsPersistentSource.GetRequest(candidateId);
+                if (candidate != null &&
+                    string.Equals(candidate.EnvironmentName, environmentName, StringComparison.OrdinalIgnoreCase) &&
+                    Dorc.PersistentData.Sources.RequestsPersistentSource.IsDestroyRequestXml(candidate.RequestDetails))
+                {
+                    siblingIds.Add(candidateId);
+                }
+            }
+
+            if (siblingIds.Count < expectedSiblingCount)
+            {
+                return true;
+            }
+
+            foreach (var siblingId in siblingIds)
+            {
+                var siblingStatus = requestsPersistentSource.GetRequestStatus(siblingId)?.Status;
+                if (!string.Equals(siblingStatus, DeploymentRequestStatus.Completed.ToString(), StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private void CancelRemainingActiveDestroyRequests(string? environmentName, int failedRequestId)
+        {
+            foreach (var sibling in GetActiveSiblingDestroyRequests(environmentName, failedRequestId))
+            {
+                var isRunning = string.Equals(sibling.Status, DeploymentRequestStatus.Running.ToString(), StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(sibling.Status, DeploymentRequestStatus.Requesting.ToString(), StringComparison.OrdinalIgnoreCase);
+                var targetStatus = isRunning
+                    ? DeploymentRequestStatus.Cancelling
+                    : DeploymentRequestStatus.Cancelled;
+                requestsPersistentSource.UpdateRequestStatus(
+                    sibling.Id,
+                    targetStatus,
+                    "system:ephemeral-teardown",
+                    DateTimeOffset.UtcNow);
+            }
+        }
+
+        internal static bool ShouldDeleteEnvironmentOnTeardown(DeploymentRequestDetail? requestDetail)
+        {
+            if (requestDetail?.Properties == null)
+            {
+                return true;
+            }
+
+            if (requestDetail.Properties.Any(p =>
+                (string.Equals(p.Name, TerraformDestroyOperationConstants.DeleteEnvironmentOnSuccessPropertyName, StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(p.Value, "false", StringComparison.OrdinalIgnoreCase)) ||
+                (string.Equals(p.Name, "TeardownPolicy", StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(p.Value, "KeepRecord", StringComparison.OrdinalIgnoreCase))))
+            {
+                return false;
+            }
+
+            return true;
         }
     }
 }

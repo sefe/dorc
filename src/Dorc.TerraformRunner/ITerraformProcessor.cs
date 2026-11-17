@@ -1,6 +1,6 @@
 namespace Dorc.TerraformRunner
 {
-    internal interface ITerraformProcessor
+    public interface ITerraformProcessor
     {
         Task<bool> PreparePlanAsync(
             string pipeName,
@@ -8,7 +8,8 @@ namespace Dorc.TerraformRunner
             string resultFilePath,
             string planContentFilePath,
             string? lockFilePath,
-            CancellationToken cancellationToken);
+            CancellationToken cancellationToken,
+            bool isDestroy = false);
 
         Task<bool> ExecuteConfirmedPlanAsync(
             string pipeName,
@@ -17,6 +18,7 @@ namespace Dorc.TerraformRunner
             string? lockFilePath,
             string? appliedResourcesFilePath,
             string? sourceArchiveFilePath,
-            CancellationToken cancellationToken);
+            CancellationToken cancellationToken,
+            bool isDestroy = false);
     }
 }

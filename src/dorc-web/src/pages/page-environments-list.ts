@@ -19,6 +19,9 @@ import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-edit-environment';
 import '../components/clone-environment';
+import '../components/ephemeral-environment-banner';
+import '../components/ephemeral-environment-wizard-dialog';
+import { EphemeralEnvironmentWizardDialog } from '../components/ephemeral-environment-wizard-dialog';
 import '../components/grid-button-groups/env-controls';
 import {
   AccessControlType,
@@ -73,6 +76,9 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
 
   @query('#clone-environment') cloneEnvironmentComponent!: CloneEnvironment;
 
+  @query('#ephemeral-wizard')
+  ephemeralWizard!: EphemeralEnvironmentWizardDialog;
+
   static get styles() {
     return css`
       :host {
@@ -81,12 +87,33 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
         height: 100%;
         overflow: hidden;
       }
+      .toolbar {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        padding: 6px 12px 4px 10px;
+        width: 100%;
+        box-sizing: border-box;
+        flex-shrink: 0;
+      }
+      .toolbar-search {
+        flex: 1 1 280px;
+        min-width: 200px;
+      }
+      .toolbar-actions {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        padding-top: 4px;
+      }
       vaadin-grid#grid {
         overflow: hidden;
         flex: 1;
         min-height: 0;
         --divider-color: var(--dorc-border-color);
-        margin-top: 60px;
       }
       vaadin-grid#grid::part(prod-not-secure) {
         background-color: var(--dorc-warning-bg);
@@ -97,30 +124,43 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
 
   render() {
     return html`
-      <div style="position: fixed; height: 60px; width: 100%; display: inline">
-        <vaadin-horizontal-layout>
-          <vaadin-text-field
-            style="padding-left: 5px; min-width: 50%; padding-right: 5px"
-            placeholder="Search"
-            @value-changed="${this.updateSearch}"
-            clear-button-visible
-            helper-text="Use | for multiple search terms"
-          >
-            <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
-          </vaadin-text-field>
+      <div class="toolbar">
+        <vaadin-text-field
+          class="toolbar-search"
+          placeholder="Search"
+          @value-changed="${this.updateSearch}"
+          clear-button-visible
+          helper-text="Use | for multiple search terms"
+        >
+          <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
+        </vaadin-text-field>
+        <div class="toolbar-actions">
           <vaadin-button
             title="Add Environment"
-            style="width: 250px; padding-left: 10px"
             @click="${this.addEnvironment}"
           >
             <vaadin-icon
               icon="vaadin:cube"
+              slot="prefix"
               style="color: var(--dorc-link-color)"
             ></vaadin-icon>
             Add Environment...
           </vaadin-button>
-        </vaadin-horizontal-layout>
+          <vaadin-button
+            theme="primary"
+            title="Spin Up Temporary Environment"
+            @click="${this.openEphemeralWizard}"
+          >
+            <vaadin-icon icon="vaadin:stopwatch" slot="prefix"></vaadin-icon>
+            Spin Up Temporary Environment
+          </vaadin-button>
+        </div>
       </div>
+
+      <ephemeral-environment-wizard-dialog
+        id="ephemeral-wizard"
+        @environment-created="${this.onEphemeralEnvironmentCreated}"
+      ></ephemeral-environment-wizard-dialog>
 
       <vaadin-dialog
         ${ref(this.unsavedChanges.attach)}
@@ -166,6 +206,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
                     path="EnvironmentName"
                     header="Name"
                     style="color:lightgray"
+                    ${columnBodyRenderer(this._envNameRenderer, [])}
                   ></vaadin-grid-sort-column>
                   <vaadin-grid-sort-column
                     resizable
@@ -289,6 +330,54 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
     return '';
   };
 
+  _envNameRenderer = (envDetails: EnvironmentApiModel) => html`
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+      <span>${envDetails.EnvironmentName}</span>
+      ${
+        envDetails.IsEphemeral
+          ? html`<ephemeral-environment-banner
+              .environment=${envDetails}
+              compact
+              .showActionsInCompact=${true}
+              @ephemeral-environment-updated=${(e: CustomEvent) =>
+                this.handleEphemeralUpdated(e)}
+              @ephemeral-environment-teardown=${(e: CustomEvent) =>
+                this.handleEphemeralUpdated(e)}
+            ></ephemeral-environment-banner>`
+          : ''
+      }
+    </div>
+  `;
+
+  handleEphemeralUpdated(e: CustomEvent) {
+    const updated = e.detail?.environment as EnvironmentApiModel | undefined;
+    if (!updated) {
+      return;
+    }
+    const targetName = updated.EnvironmentName?.toLowerCase();
+    if (e.detail?.deleted && targetName) {
+      this.environments = (this.environments || []).filter(
+        env => env.EnvironmentName?.toLowerCase() !== targetName
+      );
+      this.filteredEnvironments = (this.filteredEnvironments || []).filter(
+        env => env.EnvironmentName?.toLowerCase() !== targetName
+      );
+      return;
+    }
+
+    const mergeEnv = (env: EnvironmentApiModel): EnvironmentApiModel => {
+      const isMatch =
+        (updated.EnvironmentId !== undefined &&
+          env.EnvironmentId === updated.EnvironmentId) ||
+        (targetName !== undefined &&
+          env.EnvironmentName?.toLowerCase() === targetName);
+      return isMatch ? { ...env, ...updated } : env;
+    };
+
+    this.environments = (this.environments || []).map(mergeEnv);
+    this.filteredEnvironments = (this.filteredEnvironments || []).map(mergeEnv);
+  }
+
   _envSecureRenderer(envDetails: EnvironmentApiModel) {
     const checkbox = html`<vaadin-checkbox
       disabled
@@ -380,6 +469,21 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
             filter.test(Details?.Description || '')
         )
     );
+  }
+
+  openEphemeralWizard = () => {
+    this.ephemeralWizard?.open();
+  };
+
+  onEphemeralEnvironmentCreated(e: CustomEvent) {
+    const created = e.detail?.environment as EnvironmentApiModel | undefined;
+    if (created) {
+      const model: EnvironmentApiModel[] = JSON.parse(
+        JSON.stringify(this.environments)
+      );
+      model.push(created);
+      this.setEnvironments(model);
+    }
   }
 
   addEnvironment() {

@@ -5,6 +5,7 @@
     {
         public DeploymentRequestDetail()
         {
+            Components = new List<string>();
             Properties = new List<PropertyPair>();
             ComponentsToSkip = new List<string>();
         }

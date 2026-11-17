@@ -195,9 +195,10 @@ namespace Dorc.Api.Controllers
             }
 
             CatalogEnvironmentInputs? configuration = null;
+            ComponentApiModel? selected = null;
             if (componentId.HasValue)
             {
-                var selected = _projectsPersistentSource.GetComponentsForProject(projectId)
+                selected = _projectsPersistentSource.GetComponentsForProject(projectId)
                     .SingleOrDefault(component => component.ComponentId == componentId);
                 if (selected?.TerraformSourceType != TerraformSourceType.Catalog ||
                     selected.TerraformTemplateName != manifest.Name || selected.TerraformTemplateVersion != manifest.Version)
@@ -221,7 +222,14 @@ namespace Dorc.Api.Controllers
             var secureInputNames = _configValuesPersistentSource.GetAllConfigValues(true)
                 .Where(value => value.Secure).Select(value => value.Key).ToHashSet(StringComparer.OrdinalIgnoreCase);
             var suggestionContext = new CatalogInputSuggestions.Context(
-                environment.EnvironmentName, environment.EnvironmentIsProd, project.BusinessVertical, project.ApplicationCode);
+                environment.EnvironmentName,
+                environment.EnvironmentIsProd,
+                project.BusinessVertical,
+                project.ApplicationCode,
+                environment.IsEphemeral,
+                environment.EnvironmentTier,
+                manifest.Name,
+                selected?.ComponentName);
             var parameters = manifest.Parameters
                 .Select(p =>
                 {
@@ -566,6 +574,11 @@ namespace Dorc.Api.Controllers
 
             if (deployEnvironment is not null)
             {
+                if (RequestController.IsEphemeralEnvironmentBlockedForDeployments(deployEnvironment))
+                {
+                    return Conflict("Cannot submit deployments to an ephemeral environment that is tearing down or torn down.");
+                }
+
                 // The deploy request is only legal for callers who can
                 // modify the target environment. Validate that before we
                 // create or reuse any component so invalid requests leave no
@@ -706,6 +719,14 @@ namespace Dorc.Api.Controllers
                         IsSensitive = p.Sensitive,
                     })
                     .ToList();
+                if (deployEnvironment.IsEphemeral)
+                {
+                    requestProperties.Add(new RequestProperty
+                    {
+                        PropertyName = TerraformDestroyOperationConstants.EphemeralEnvironmentIdPropertyName,
+                        PropertyValue = deployEnvironment.EnvironmentId.ToString(System.Globalization.CultureInfo.InvariantCulture)
+                    });
+                }
                 var requestDto = new RequestDto
                 {
                     Project = project.ProjectName,
@@ -939,6 +960,7 @@ namespace Dorc.Api.Controllers
                         BuildIdentity = receipt.BuildIdentity,
                         ComponentId = receipt.ComponentId,
                         EnvironmentId = receipt.EnvironmentId,
+                        Operation = receipt.Operation,
                         WorkloadTarget = receipt.WorkloadTarget,
                         ProjectName = receipt.ProjectName,
                         EnvironmentName = receipt.EnvironmentName,

@@ -19,6 +19,8 @@ import {
 } from '../apis/dorc-api';
 import '../components/attach-environment';
 import '../components/environment-card.ts';
+import '../components/ephemeral-environment-wizard-dialog';
+import { EphemeralEnvironmentWizardDialog } from '../components/ephemeral-environment-wizard-dialog';
 import '../components/project-workspace-nav';
 import { EnvironmentApiModel, ProjectApiModel } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
@@ -72,6 +74,9 @@ export class PageProjectEnvs extends PageElement {
 
   @query('#add-edit-project') addEditProject!: AddEditProject;
 
+  @query('#project-ephemeral-wizard')
+  ephemeralWizard!: EphemeralEnvironmentWizardDialog;
+
   static get styles() {
     return css`
       :host {
@@ -82,15 +87,17 @@ export class PageProjectEnvs extends PageElement {
       }
 
       .card-element {
-        padding: 10px;
+        padding: 10px 12px;
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
-        width: 300px;
+        width: 100%;
         min-height: 110px;
         height: 100%;
         display: flex;
         justify-content: space-between;
         gap: var(--lumo-space-s);
         box-sizing: border-box;
+        border-radius: 6px;
+        border: 1px solid var(--dorc-border-color);
       }
 
       @media (max-width: 768px) {
@@ -137,15 +144,47 @@ export class PageProjectEnvs extends PageElement {
         margin: 0;
         flex-shrink: 0;
         background-color: var(--dorc-bg-secondary);
-        width: 300px;
+        width: 100%;
         height: 100%;
+      }
+
+      .workspace-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        flex-wrap: wrap;
+        gap: 8px 12px;
+        padding: 8px var(--lumo-space-m);
+        border-bottom: 1px solid var(--dorc-border-color);
+        background: var(--dorc-bg-primary);
+        flex-shrink: 0;
+      }
+
+      .workspace-toolbar-meta {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+        font-size: var(--lumo-font-size-s);
+        color: var(--dorc-text-secondary);
+      }
+
+      .workspace-toolbar-actions {
+        display: inline-flex;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .workspace-toolbar-actions vaadin-button {
+        padding: 0 var(--lumo-space-m);
       }
 
       .environments {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 300px));
-        gap: var(--lumo-space-xs);
-        padding: var(--lumo-space-xs) 0 0 var(--lumo-space-xs);
+        grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
+        gap: var(--lumo-space-s);
+        padding: var(--lumo-space-s) var(--lumo-space-m);
         justify-content: flex-start;
         align-items: stretch;
         align-content: flex-start;
@@ -188,6 +227,44 @@ export class PageProjectEnvs extends PageElement {
         .projectName=${this.project ?? this.projectData?.ProjectName ?? ''}
         activeTab="environments"
       ></project-workspace-nav>
+      <div class="workspace-toolbar">
+        <div class="workspace-toolbar-meta">
+          <span>
+            <strong>${this.environments?.length ?? 0}</strong> mapped
+            environment${(this.environments?.length ?? 0) === 1 ? '' : 's'}
+          </span>
+          ${
+            (this.environments?.filter(e => e.IsEphemeral).length ?? 0) > 0
+              ? html`<span>
+                  •
+                  <strong
+                    >${
+                      this.environments?.filter(e => e.IsEphemeral).length
+                    }</strong
+                  >
+                  temporary ephemeral
+                </span>`
+              : ''
+          }
+        </div>
+        <div class="workspace-toolbar-actions">
+          <vaadin-button theme="small" @click="${this.openAttachEnv}">
+            <vaadin-icon
+              icon="icons:link"
+              slot="prefix"
+              style="color: var(--dorc-link-color)"
+            ></vaadin-icon>
+            Attach Environment
+          </vaadin-button>
+          <vaadin-button
+            theme="small primary"
+            @click="${this.openEphemeralWizard}"
+          >
+            <vaadin-icon icon="vaadin:stopwatch" slot="prefix"></vaadin-icon>
+            Spin Up Temporary Environment
+          </vaadin-button>
+        </div>
+      </div>
       <dorc-spinner ?hidden="${!this.loading}"></dorc-spinner>
       <add-edit-access-control
         id="add-edit-access-control"
@@ -270,6 +347,21 @@ export class PageProjectEnvs extends PageElement {
                 ></vaadin-icon>
               </vaadin-button>
               <vaadin-button
+                aria-label="Spin Up Temporary Environment"
+                theme="icon"
+                @click="${this.openEphemeralWizard}"
+                style="margin: 0;"
+              >
+                <vaadin-tooltip
+                  slot="tooltip"
+                  text="Spin Up Temporary Environment"
+                ></vaadin-tooltip>
+                <vaadin-icon
+                  icon="vaadin:stopwatch"
+                  style="color: var(--dorc-link-color)"
+                ></vaadin-icon>
+              </vaadin-button>
+              <vaadin-button
                 aria-label="Edit Metadata..."
                 theme="icon"
                 @click="${this.openProjectMetadata}"
@@ -293,9 +385,16 @@ export class PageProjectEnvs extends PageElement {
               .environment="${env}"
               .project="${this.project}"
               @envs-changed="${this.getEnvironments}"
+              @ephemeral-environment-updated="${
+                this.handleEphemeralEnvironmentUpdated
+              }"
             ></environment-card>`
         )}
       </div>
+      <ephemeral-environment-wizard-dialog
+        id="project-ephemeral-wizard"
+        @environment-created="${this.getEnvironments}"
+      ></ephemeral-environment-wizard-dialog>
       <vaadin-dialog
         ${ref(this.unsavedChanges.attach)}
         header-title="Map Environment to Project"
@@ -404,6 +503,29 @@ export class PageProjectEnvs extends PageElement {
   private close() {
     this.mapEnvDialogOpened = false;
   }
+
+  openEphemeralWizard() {
+    this.ephemeralWizard?.open({ projectName: this.project });
+  }
+
+  private handleEphemeralEnvironmentUpdated = (e: CustomEvent) => {
+    const updated = e.detail?.environment as EnvironmentApiModel | undefined;
+    if (e.detail?.deleted) {
+      this.getEnvironments();
+      return;
+    }
+    if (updated && this.environments) {
+      const targetName = updated.EnvironmentName?.toLowerCase();
+      this.environments = this.environments.map(env => {
+        const isMatch =
+          (updated.EnvironmentId !== undefined &&
+            env.EnvironmentId === updated.EnvironmentId) ||
+          (targetName !== undefined &&
+            env.EnvironmentName?.toLowerCase() === targetName);
+        return isMatch ? { ...env, ...updated } : env;
+      });
+    }
+  };
 
   openAttachEnv() {
     this.mapEnvDialogOpened = true;

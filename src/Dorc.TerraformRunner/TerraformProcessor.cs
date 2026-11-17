@@ -20,6 +20,7 @@ namespace Dorc.TerraformRunner
         private readonly IScriptGroupPipeClient _scriptGroupPipeClient;
         private readonly ITerraformCodeSourceProviderFactory _codeSourceFactory;
         private readonly ITemplateCatalog _catalog;
+        private readonly ITerraformStateBlobCleaner _stateBlobCleaner;
         private TerraformTemplateManifest? _manifest;
         private IReadOnlyDictionary<string, TerraformTemplateParameter> _parameters =
             new Dictionary<string, TerraformTemplateParameter>();
@@ -48,6 +49,7 @@ namespace Dorc.TerraformRunner
         private IReadOnlyDictionary<string, string> _armEnvironment =
             new Dictionary<string, string>();
         private bool _usesPlatformBackend;
+        private bool _isEphemeral;
         private string? _workloadSubscriptionId;
 
         public TerraformProcessor(
@@ -55,13 +57,15 @@ namespace Dorc.TerraformRunner
             IScriptGroupPipeClient scriptGroupPipeClient,
             ITemplateCatalog catalog,
             ITerraformCodeSourceProviderFactory codeSourceFactory,
-            string? defaultSubscriptionId = null)
+            string? defaultSubscriptionId = null,
+            ITerraformStateBlobCleaner? stateBlobCleaner = null)
         {
             this.logger = logger;
             this._scriptGroupPipeClient = scriptGroupPipeClient;
             this._codeSourceFactory = codeSourceFactory;
             _catalog = catalog;
             this._defaultSubscriptionId = defaultSubscriptionId;
+            this._stateBlobCleaner = stateBlobCleaner ?? new TerraformStateBlobCleaner(logger);
         }
 
         // Collects the cleartext values of the flagged-sensitive properties
@@ -118,7 +122,8 @@ namespace Dorc.TerraformRunner
             string resultFilePath,
             string planContentFilePath,
             string? lockFilePath,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool isDestroy = false)
         {
             cancellationToken.ThrowIfCancellationRequested();
             ScriptGroup scriptGroupProperties = this._scriptGroupPipeClient.GetScriptGroupProperties(pipeName);
@@ -141,7 +146,7 @@ namespace Dorc.TerraformRunner
                 await ProvisionTerraformWorkingDirectoryAsync(terraformWorkingDir, scriptGroupProperties, cancellationToken);
 
                 // Create terraform plan
-                var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, resultFilePath, planContentFilePath, requestId, cancellationToken);
+                var planContent = await CreateTerraformPlanAsync(properties, terraformWorkingDir, resultFilePath, planContentFilePath, requestId, isDestroy, cancellationToken);
 
                 // persist .terraform.lock.hcl alongside the plan binary
                 // so the apply phase resolves identical provider versions. The
@@ -154,7 +159,7 @@ namespace Dorc.TerraformRunner
 
                 WriteSourceArchive(
                     terraformWorkingDir, TerraformSourceArchive.PlanArchivePath(resultFilePath),
-                    scriptGroupProperties, requestId, cancellationToken);
+                    scriptGroupProperties, requestId, resultFilePath, isDestroy, cancellationToken);
 
                 cancellationToken.ThrowIfCancellationRequested();
                 logger.Information($"Terraform plan created for request '{requestId}'. Waiting for confirmation.");
@@ -177,12 +182,58 @@ namespace Dorc.TerraformRunner
             }
         }
 
+        public const string IsEphemeralPropertyName = "DOrcIsEphemeral";
+
+        internal static bool IsEphemeral(IDictionary<string, VariableValue>? properties)
+        {
+            return properties is not null
+                && properties.TryGetValue(IsEphemeralPropertyName, out var ephProp)
+                && string.Equals(Convert.ToString(ephProp?.Value, CultureInfo.InvariantCulture), "true", StringComparison.OrdinalIgnoreCase);
+        }
+
         private IDictionary<string, VariableValue> ResolvePlanProperties(IDictionary<string, VariableValue> properties)
         {
+            var isEphemeral = IsEphemeral(properties);
+            _isEphemeral = isEphemeral;
+
             // CommonProperties also contains unrelated deployment settings.
             // Only catalog parameters are Terraform inputs; legacy sources
             // retain the historical complete property set.
-            if (_manifest is null) return properties;
+            if (_manifest is null)
+            {
+                if (isEphemeral)
+                {
+                    var hadTermProt = properties.Keys.Any(k =>
+                        string.Equals(k, "termination_protection", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(k, "TF_VAR_termination_protection", StringComparison.OrdinalIgnoreCase));
+                    var hadSvcTermProt = properties.Keys.Any(k =>
+                        string.Equals(k, "service_termination_protection", StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(k, "TF_VAR_service_termination_protection", StringComparison.OrdinalIgnoreCase));
+
+                    foreach (var key in properties.Keys.Where(k =>
+                                 string.Equals(k, "termination_protection", StringComparison.OrdinalIgnoreCase) ||
+                                 string.Equals(k, "service_termination_protection", StringComparison.OrdinalIgnoreCase) ||
+                                 string.Equals(k, "TF_VAR_termination_protection", StringComparison.OrdinalIgnoreCase) ||
+                                 string.Equals(k, "TF_VAR_service_termination_protection", StringComparison.OrdinalIgnoreCase))
+                             .ToList())
+                    {
+                        properties.Remove(key);
+                    }
+
+                    if (hadTermProt)
+                    {
+                        properties["termination_protection"] = new VariableValue { Value = "false", Type = typeof(bool) };
+                    }
+
+                    if (hadSvcTermProt)
+                    {
+                        properties["service_termination_protection"] = new VariableValue { Value = "false", Type = typeof(bool) };
+                    }
+                }
+
+                return properties;
+            }
+
             var effective = new Dictionary<string, VariableValue>(StringComparer.Ordinal);
             foreach (var parameter in _manifest.Parameters)
             {
@@ -191,9 +242,24 @@ namespace Dorc.TerraformRunner
                 else if (parameter.Default is not null)
                     effective[parameter.Name] = new VariableValue { Value = parameter.Default, Type = typeof(string) };
             }
-            var validation = new ParameterValidator().Validate(_manifest,
-                effective.ToDictionary(p => p.Key,
-                    p => Convert.ToString(p.Value.Value, CultureInfo.InvariantCulture)));
+
+            var validator = new ParameterValidator();
+            var resolvedInputs = effective.ToDictionary(
+                p => p.Key,
+                p => (string?)Convert.ToString(p.Value.Value, CultureInfo.InvariantCulture),
+                StringComparer.Ordinal);
+
+            if (isEphemeral)
+            {
+                resolvedInputs = validator.EnforceEphemeralInvariants(_manifest, resolvedInputs, isEphemeral: true)
+                    .ToDictionary(p => p.Key, p => p.Value, StringComparer.Ordinal);
+                foreach (var kvp in resolvedInputs)
+                {
+                    effective[kvp.Key] = new VariableValue { Value = kvp.Value, Type = typeof(string) };
+                }
+            }
+
+            var validation = validator.Validate(_manifest, resolvedInputs, isEphemeral: isEphemeral, isProd: false);
             if (!validation.IsValid)
                 throw new InvalidOperationException("Invalid Terraform catalog inputs: " +
                     string.Join("; ", validation.Errors.Select(error => error.Message)));
@@ -414,6 +480,7 @@ namespace Dorc.TerraformRunner
             string resultFilePath,
             string planContentFilePath,
             int requestId,
+            bool isDestroy,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -426,22 +493,57 @@ namespace Dorc.TerraformRunner
                     new[] { "init", "-no-color" },
                     cancellationToken);
 
-                await CreateTerraformVariablesFileAsync(terraformWorkingDir, properties, cancellationToken);
+                var (declaresTermProt, declaresSvcTermProt) =
+                    await CreateTerraformVariablesFileAsync(terraformWorkingDir, properties, isDestroy, cancellationToken);
+
+                var planArgList = new List<string> { "plan" };
+                if (declaresTermProt)
+                {
+                    planArgList.Add("-var=termination_protection=false");
+                }
+
+                if (declaresSvcTermProt)
+                {
+                    planArgList.Add("-var=service_termination_protection=false");
+                }
+
+                if (isDestroy)
+                {
+                    planArgList.AddRange(new[] { "-destroy", "-input=false", "-no-color", $"-out={resultFilePath}", "-detailed-exitcode" });
+                }
+                else
+                {
+                    planArgList.AddRange(new[] { $"-out={resultFilePath}", "-detailed-exitcode", "-no-color" });
+                }
+
+                var planArgs = planArgList.ToArray();
 
                 await RunTerraformCommandAsync(
                     terraformWorkingDir,
                     TerraformCommand.PlanDetailedExitCode,
-                    new[] { "plan", $"-out={resultFilePath}", "-detailed-exitcode", "-no-color" },
+                    planArgs,
                     cancellationToken);
 
-                var planContent = RedactSensitiveValues(await RunTerraformCommandAsync(
+                var rawPlanContent = await RunTerraformCommandAsync(
                     terraformWorkingDir,
                     TerraformCommand.Show,
                     new[] { "show", resultFilePath, "-no-color" },
-                    cancellationToken));
+                    cancellationToken);
+                var planContent = RedactSensitiveValues(rawPlanContent);
                 if (!String.IsNullOrEmpty(planContent))
                 {
                     File.WriteAllText(planContentFilePath, planContent);
+                }
+
+                if (_isEphemeral &&
+                    !isDestroy &&
+                    Regex.IsMatch(
+                        rawPlanContent,
+                        @"\b(?:service_)?termination_protection\s*=\s*(?:\S+\s+->\s+)?(?:""true""|true\b|\(sensitive value\)|\(known after apply\))(?!\s*->)",
+                        RegexOptions.IgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        "Ephemeral Terraform plans must not enable termination_protection or service_termination_protection.");
                 }
 
                 logger.Information($"Terraform plan created successfully for request '{requestId}'");
@@ -453,11 +555,88 @@ namespace Dorc.TerraformRunner
             }
         }
 
-        private async Task CreateTerraformVariablesFileAsync(
+        private async Task<(bool DeclaresTerminationProtection, bool DeclaresServiceTerminationProtection)> CreateTerraformVariablesFileAsync(
             string workingDir,
             IDictionary<string, VariableValue> properties,
+            bool isDestroy,
             CancellationToken cancellationToken)
         {
+            var declaresTermProt = false;
+            var declaresSvcTermProt = false;
+            if (_isEphemeral)
+            {
+                foreach (var autoTfvars in Directory.EnumerateFiles(workingDir, "*.auto.tfvars*", SearchOption.TopDirectoryOnly)
+                    .Concat(Directory.EnumerateFiles(workingDir, "terraform.tfvars.json", SearchOption.TopDirectoryOnly)))
+                {
+                    var content = await File.ReadAllTextAsync(autoTfvars, cancellationToken);
+                    var scrubbed = Regex.Replace(
+                        content,
+                        @"(?<=\b(?:service_)?termination_protection""?\s*[:=]\s*)(?:""true""|true\b)",
+                        "false",
+                        RegexOptions.IgnoreCase);
+                    await File.WriteAllTextAsync(autoTfvars, scrubbed, cancellationToken);
+                }
+
+                var allTfText = StripTfCommentsAndStrings(
+                    string.Join("\n", Directory.EnumerateFiles(workingDir, "*.tf", SearchOption.TopDirectoryOnly)
+                        .Select(File.ReadAllText)));
+                var allModuleTfAndJson = StripTfCommentsAndStrings(
+                    string.Join("\n", Directory.EnumerateFiles(workingDir, "*.tf", SearchOption.AllDirectories)
+                        .Concat(Directory.EnumerateFiles(workingDir, "*.tf.json", SearchOption.AllDirectories))
+                        .Where(path => !IsInsideDotTerraformDirectory(workingDir, path))
+                        .Select(File.ReadAllText)));
+                if (!isDestroy &&
+                    Regex.IsMatch(
+                        allModuleTfAndJson,
+                        @"(?<!=)\b(?:service_)?termination_protection""?\s*[:=]\s*(?!=)(?:\s*(?<open>\())*\s*(?:""true""|true\b)(?:\s*(?<-open>\)))*(?(open)(?!))[ \t]*(?:[,}\r\n]|$)",
+                        RegexOptions.IgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        "Ephemeral Terraform plans must not hard-code termination_protection or service_termination_protection to true.");
+                }
+                declaresTermProt = _parameters.ContainsKey("termination_protection") ||
+                                   Regex.IsMatch(allTfText, @"\bvariable\s+""termination_protection""\s*\{", RegexOptions.IgnoreCase);
+                declaresSvcTermProt = _parameters.ContainsKey("service_termination_protection") ||
+                                      Regex.IsMatch(allTfText, @"\bvariable\s+""service_termination_protection""\s*\{", RegexOptions.IgnoreCase);
+
+                foreach (var tfJsonPath in Directory.EnumerateFiles(workingDir, "*.tf.json", SearchOption.TopDirectoryOnly))
+                {
+                    using var doc = JsonDocument.Parse(
+                        await File.ReadAllTextAsync(tfJsonPath, cancellationToken),
+                        new JsonDocumentOptions { CommentHandling = JsonCommentHandling.Skip, AllowTrailingCommas = true });
+                    if (doc.RootElement.TryGetProperty("variable", out var variableRoot))
+                    {
+                        IEnumerable<JsonElement> variableBlocks = variableRoot.ValueKind == JsonValueKind.Array
+                            ? variableRoot.EnumerateArray()
+                            : new[] { variableRoot };
+                        foreach (var block in variableBlocks)
+                        {
+                            foreach (var prop in block.EnumerateObject())
+                            {
+                                if (string.Equals(prop.Name, "termination_protection", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    declaresTermProt = true;
+                                }
+                                else if (string.Equals(prop.Name, "service_termination_protection", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    declaresSvcTermProt = true;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (declaresTermProt)
+                {
+                    properties["termination_protection"] = new VariableValue { Value = "false", Type = typeof(bool) };
+                }
+
+                if (declaresSvcTermProt)
+                {
+                    properties["service_termination_protection"] = new VariableValue { Value = "false", Type = typeof(bool) };
+                }
+            }
+
             var variablesContent = new StringBuilder();
 
             foreach (var property in properties)
@@ -499,6 +678,25 @@ namespace Dorc.TerraformRunner
 
             var variablesFilePath = Path.Combine(workingDir, "terraform.tfvars");
             await File.WriteAllTextAsync(variablesFilePath, variablesContent.ToString(), cancellationToken);
+            return (declaresTermProt, declaresSvcTermProt);
+        }
+
+        private static bool IsInsideDotTerraformDirectory(string workingDir, string filePath)
+        {
+            var relativePath = Path.GetRelativePath(workingDir, filePath);
+            return relativePath
+                .Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Contains(".terraform", StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static string StripTfCommentsAndStrings(string text)
+        {
+            return Regex.Replace(
+                text,
+                @"<<-?[ \t]*([\p{L}_][\p{L}\p{N}_-]*)\r?\n[\s\S]*?\r?\n[ \t]*\1(?=\r?\n|$)|""(?:\\.|[^""\\])*""|/\*[\s\S]*?\*/|(?://|#)[^\r\n]*",
+                m => Regex.IsMatch(m.Value, @"^""(?:true|(?:service_)?termination_protection)""$", RegexOptions.IgnoreCase)
+                    ? m.Value
+                    : string.Empty);
         }
 
         internal static string QuoteHclString(string value)
@@ -682,7 +880,8 @@ namespace Dorc.TerraformRunner
             string? lockFilePath,
             string? appliedResourcesFilePath,
             string? sourceArchiveFilePath,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            bool isDestroy = false)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
@@ -695,7 +894,7 @@ namespace Dorc.TerraformRunner
             logger.Information($"TerraformProcessor.ExecuteConfirmedPlan called for request' with id '{requestId}', deployment result id '{deployResultId}'.");
 
             // Execute the actual Terraform plan
-            return await ExecuteTerraformPlanAsync(requestId, planFile, lockFilePath, appliedResourcesFilePath, sourceArchiveFilePath, scriptGroupProperties, cancellationToken);
+            return await ExecuteTerraformPlanAsync(requestId, planFile, lockFilePath, appliedResourcesFilePath, sourceArchiveFilePath, scriptGroupProperties, isDestroy, cancellationToken);
         }
 
         private async Task<bool> ExecuteTerraformPlanAsync(
@@ -705,6 +904,7 @@ namespace Dorc.TerraformRunner
             string? appliedResourcesFilePath,
             string? sourceArchiveFilePath,
             ScriptGroup scriptGroup,
+            bool isDestroy,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -737,15 +937,37 @@ namespace Dorc.TerraformRunner
                     new[] { "init", "-no-color" },
                     cancellationToken);
 
+                var applyArgs = isDestroy
+                    ? new[] { "apply", "-input=false", "-no-color", "-auto-approve", planFile }
+                    : new[] { "apply", "-auto-approve", planFile, "-no-color" };
+
                 await RunTerraformCommandAsync(
                     terraformWorkingDir,
                     TerraformCommand.Apply,
-                    new[] { "apply", "-auto-approve", planFile, "-no-color" },
+                    applyArgs,
                     cancellationToken);
 
                 logger.Information($"Terraform apply completed successfully for request ID: {requestId}");
 
-                await WriteAppliedResourcesAsync(terraformWorkingDir, appliedResourcesFilePath, scriptGroup.DeployResultId, cancellationToken);
+                if (isDestroy)
+                {
+                    var hasConfiguredState = TerraformStateConfiguration.Resolve(scriptGroup) is not null;
+                    var blobDeleted = await _stateBlobCleaner.DeleteStateBlobIfConfiguredAsync(
+                        scriptGroup,
+                        cancellationToken);
+                    logger.Information(
+                        $"Post-destroy state blob cleanup completed for request ID: {requestId} (blobDeleted={blobDeleted}).");
+                    if (hasConfiguredState && !blobDeleted)
+                    {
+                        logger.Error(
+                            $"Post-destroy state blob cleanup failed for request ID {requestId} (key '{scriptGroup.TerraformStateKey}').");
+                        return false;
+                    }
+                }
+                else
+                {
+                    await WriteAppliedResourcesAsync(terraformWorkingDir, appliedResourcesFilePath, scriptGroup.DeployResultId, cancellationToken);
+                }
 
                 cancellationToken.ThrowIfCancellationRequested();
                 return true;
@@ -828,6 +1050,8 @@ namespace Dorc.TerraformRunner
             string? sourceArchiveFilePath,
             ScriptGroup scriptGroup,
             int requestId,
+            string resultFilePath,
+            bool isDestroy,
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(sourceArchiveFilePath)) return;
@@ -840,11 +1064,16 @@ namespace Dorc.TerraformRunner
                 throw new ArgumentException("Source-archive path must be absolute without parent-directory segments.");
             }
             var canonicalArchivePath = Path.GetFullPath(sourceArchiveFilePath);
+            var planSha256 = File.Exists(resultFilePath)
+                ? Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(resultFilePath))).ToLowerInvariant()
+                : string.Empty;
 
             var provenance = new
             {
                 RequestId = requestId,
                 DeploymentResultId = scriptGroup.DeployResultId,
+                Operation = isDestroy ? "Destroy" : "Plan",
+                PlanSha256 = planSha256,
                 DefinitionRevision = scriptGroup.DefinitionRevision,
                 BuildIdentity = scriptGroup.SourceBuildIdentity,
                 SourceType = scriptGroup.TerraformSourceType.ToString(),

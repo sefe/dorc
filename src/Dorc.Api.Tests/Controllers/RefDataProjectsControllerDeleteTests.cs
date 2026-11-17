@@ -159,5 +159,47 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual(404, objectResult.StatusCode);
             _projectsPersistentSource.DidNotReceive().DeleteProject(Arg.Any<int>());
         }
+
+        [TestMethod]
+        public void DeleteProject_ActiveEphemeralTemplateReference_ReturnsConflictWithSpecificMessage()
+        {
+            var projectId = 123;
+            var project = new ProjectApiModel { ProjectId = projectId, ProjectName = "TestProject" };
+            const string expectedMessage =
+                "The project \"TestProject\" cannot be deleted while its environment templates are referenced by active ephemeral environment(s): eph-1. Tear down those environments before trying again.";
+
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
+            _projectsPersistentSource.GetProject(projectId).Returns(project);
+            _definitions
+                .When(d => d.DeleteProject(projectId, "expected", Arg.Any<string>(), Arg.Any<Func<int, bool>>()))
+                .Do(_ => throw new InvalidOperationException(expectedMessage));
+
+            var result = _controller.Delete(projectId, "expected");
+
+            Assert.IsInstanceOfType(result, typeof(ObjectResult));
+            var objectResult = (ObjectResult)result;
+            Assert.AreEqual(StatusCodes.Status409Conflict, objectResult.StatusCode);
+            Assert.AreEqual(expectedMessage, objectResult.Value);
+        }
+
+        [TestMethod]
+        public void DeleteProject_UnexpectedFailure_ReturnsGenericDeploymentRequestsConflict()
+        {
+            var projectId = 123;
+            var project = new ProjectApiModel { ProjectId = projectId, ProjectName = "TestProject" };
+
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
+            _projectsPersistentSource.GetProject(projectId).Returns(project);
+            _definitions
+                .When(d => d.DeleteProject(projectId, "expected", Arg.Any<string>(), Arg.Any<Func<int, bool>>()))
+                .Do(_ => throw new Exception("FK violation"));
+
+            var result = _controller.Delete(projectId, "expected");
+
+            Assert.IsInstanceOfType(result, typeof(ObjectResult));
+            var objectResult = (ObjectResult)result;
+            Assert.AreEqual(StatusCodes.Status409Conflict, objectResult.StatusCode);
+            StringAssert.Contains(objectResult.Value?.ToString(), "linked to other deployment requests");
+        }
     }
 }

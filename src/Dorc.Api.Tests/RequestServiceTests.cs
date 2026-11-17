@@ -295,5 +295,194 @@ namespace Dorc.Api.Tests
             service.CheckRequest(ref request);
             Assert.IsTrue(request.BuildUrl.Equals("http://some_url"));
         }
+
+        [TestMethod]
+        public void CreateRequest_CoversDestroyPinnedDefinitionsAndAllBranches()
+        {
+            var projects = Substitute.For<IProjectsPersistentSource>();
+            projects.GetProject("proj").Returns(new ProjectApiModel { ProjectId = 1, ProjectName = "proj", ArtefactsUrl = "http://art;http://b" });
+            projects.GetComponentsForProject("proj").Returns(new[]
+            {
+                new ComponentApiModel { ComponentId = 10, ComponentName = "GitComp", TerraformSourceType = TerraformSourceType.Git }
+            });
+
+            var catalog = Substitute.For<ITemplateCatalog>();
+            catalog.GetAsync("module", "1.0.0", Arg.Any<CancellationToken>()).Returns(
+                new TerraformTemplateManifest("module", "1.0.0",
+                    new TerraformTemplateSource("git", "https://example.invalid/module", "v1"),
+                    new[] { new TerraformTemplateParameter("db_pass", TerraformParameterType.String, true, null, null, null, null, null, null, true) },
+                    Array.Empty<TerraformTemplateOutput>(), null, Array.Empty<string>(), null,
+                    new Dictionary<string, string>(), null, null, false, null));
+
+            var properties = Substitute.For<IPropertiesPersistentSource>();
+            properties.GetAllProperties().Returns(new[]
+            {
+                new PropertyApiModel { Name = "secProp", Secure = true },
+                new PropertyApiModel { Name = "pubProp", Secure = false }
+            });
+
+            var requests = Substitute.For<IRequestsPersistentSource>();
+            var environments = Substitute.For<IEnvironmentsPersistentSource>();
+            environments.GetEnvironment("eph-1").Returns(new EnvironmentApiModel { EnvironmentId = 55, EnvironmentName = "eph-1", IsEphemeral = true });
+            requests.GetProvisionedComponentDefinitionsForEnvironment(55).Returns(new (ProjectApiModel, ComponentApiModel)[]
+            {
+                (new ProjectApiModel { ProjectId = 2, ProjectName = "other" }, new ComponentApiModel { ComponentId = 11, ComponentName = "RemovedCat", TerraformSourceType = TerraformSourceType.Catalog, TerraformTemplateName = "module", TerraformTemplateVersion = "1.0.0" }),
+                (new ProjectApiModel { ProjectId = 1, ProjectName = "proj" }, new ComponentApiModel { ComponentId = 12, ComponentName = "Unselected", TerraformSourceType = TerraformSourceType.Git }),
+                (new ProjectApiModel { ProjectId = 1, ProjectName = "proj" }, new ComponentApiModel { ComponentId = 11, ComponentName = "RemovedCat", TerraformSourceType = TerraformSourceType.Catalog, TerraformTemplateName = "module", TerraformTemplateVersion = "1.0.0" })
+            });
+
+            var build = Substitute.For<IDeployableBuild>();
+            build.IsValid(Arg.Any<Dorc.Api.Model.BuildDetails>()).Returns(true);
+            build.Process(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>()).Returns(new RequestStatusDto { Id = 42 });
+            var factory = Substitute.For<IDeployableBuildFactory>();
+            factory.CreateInstance(Arg.Any<RequestDto>()).Returns(build);
+
+            var service = new RequestService(
+                Substitute.For<ILogger<RequestService>>(),
+                factory,
+                projects,
+                catalog,
+                properties,
+                requests,
+                environments);
+
+            // Destroy request with a component removed from live project resolves pinned definition and classifies sensitivity
+            var destroyReq = new RequestDto
+            {
+                Project = "proj",
+                Environment = "eph-1",
+                BuildUrl = "dorc-catalog://",
+                BuildNum = "1.0 [PINNED]",
+                Components = new List<string> { "GitComp", "RemovedCat" },
+                RequestProperties = new List<RequestProperty>
+                {
+                    new() { PropertyName = "otherProp", PropertyValue = "val" },
+                    new() { PropertyName = TerraformDestroyOperationConstants.PropertyName, PropertyValue = "Plan" },
+                    new() { PropertyName = TerraformDestroyOperationConstants.PropertyName, PropertyValue = TerraformDestroyOperationConstants.DestroyValue },
+                    new() { PropertyName = "db_pass", PropertyValue = "s3cr3t" },
+                    new() { PropertyName = "RemovedCat:db_pass", PropertyValue = "scoped-s3cr3t" },
+                    new() { PropertyName = "RemovedCat:secProp", PropertyValue = "scoped-sec" }
+                }
+            };
+            var status = service.CreateRequest(destroyReq, new ClaimsPrincipal());
+            Assert.AreEqual(42, status.Id);
+            Assert.AreEqual("1.0", destroyReq.BuildNum);
+            Assert.IsTrue(destroyReq.RequestProperties.Single(p => p.PropertyName == "db_pass").IsSensitive);
+            Assert.IsTrue(destroyReq.RequestProperties.Single(p => p.PropertyName == "RemovedCat:db_pass").IsSensitive);
+            Assert.IsTrue(destroyReq.RequestProperties.Single(p => p.PropertyName == "RemovedCat:secProp").IsSensitive);
+
+            // Non-destroy request with missing component throws
+            var nonDestroyMissing = new RequestDto
+            {
+                Project = "proj",
+                Environment = "eph-1",
+                BuildUrl = "dorc-catalog://",
+                Components = new List<string> { "RemovedCat" },
+                RequestProperties = new List<RequestProperty> { new() { PropertyName = "k", PropertyValue = "v" } }
+            };
+            Assert.Throws<InvalidOperationException>(() => service.CreateRequest(nonDestroyMissing, new ClaimsPrincipal()));
+
+            // Destroy request when environment is not found or optional dependencies are null throws
+            var destroyMissingEnv = new RequestDto
+            {
+                Project = "proj",
+                Environment = "missing-env",
+                BuildUrl = "dorc-catalog://",
+                Components = new List<string> { "RemovedCat" },
+                RequestProperties = new List<RequestProperty>
+                {
+                    new() { PropertyName = TerraformDestroyOperationConstants.PropertyName, PropertyValue = TerraformDestroyOperationConstants.DestroyValue }
+                }
+            };
+            Assert.Throws<InvalidOperationException>(() => service.CreateRequest(destroyMissingEnv, new ClaimsPrincipal()));
+
+            var serviceNoEnvSource = new RequestService(
+                Substitute.For<ILogger<RequestService>>(),
+                factory,
+                projects,
+                catalog,
+                properties,
+                requests,
+                null);
+            Assert.Throws<InvalidOperationException>(() => serviceNoEnvSource.CreateRequest(destroyReq, new ClaimsPrincipal()));
+
+            var serviceNoReqSource = new RequestService(
+                Substitute.For<ILogger<RequestService>>(),
+                factory,
+                projects,
+                catalog,
+                properties,
+                null,
+                environments);
+            Assert.Throws<InvalidOperationException>(() => serviceNoReqSource.CreateRequest(destroyReq, new ClaimsPrincipal()));
+
+            // Null RequestProperties and null Components
+            var nullPropsReq = new RequestDto
+            {
+                Project = "proj",
+                Environment = "eph-1",
+                BuildUrl = "dorc-catalog://",
+                BuildNum = null,
+                Components = null,
+                RequestProperties = null
+            };
+            Assert.AreEqual(42, service.CreateRequest(nullPropsReq, new ClaimsPrincipal()).Id);
+
+            var nullCompsWithPropsReq = new RequestDto
+            {
+                Project = "proj",
+                Environment = "eph-1",
+                BuildUrl = "dorc-catalog://",
+                Components = null,
+                RequestProperties = new List<RequestProperty>
+                {
+                    new() { PropertyName = "k", PropertyValue = "v" },
+                    new() { PropertyName = TerraformDestroyOperationConstants.EphemeralEnvironmentIdPropertyName, PropertyValue = "55" }
+                }
+            };
+            Assert.AreEqual(42, service.CreateRequest(nullCompsWithPropsReq, new ClaimsPrincipal()).Id);
+
+            environments.GetEnvironment("std-1").Returns(new EnvironmentApiModel { EnvironmentId = 56, EnvironmentName = "std-1", IsEphemeral = false });
+            environments.GetEnvironment("eph-zero").Returns(new EnvironmentApiModel { EnvironmentId = 0, EnvironmentName = "eph-zero", IsEphemeral = true });
+            Assert.AreEqual(42, service.CreateRequest(new RequestDto
+            {
+                Project = "proj",
+                Environment = "std-1",
+                BuildUrl = "dorc-catalog://",
+                RequestProperties = new List<RequestProperty>()
+            }, new ClaimsPrincipal()).Id);
+            Assert.AreEqual(42, service.CreateRequest(new RequestDto
+            {
+                Project = "proj",
+                Environment = "eph-zero",
+                BuildUrl = "dorc-catalog://",
+                RequestProperties = new List<RequestProperty>()
+            }, new ClaimsPrincipal()).Id);
+
+            // Catalog component missing TerraformTemplateName or TerraformTemplateVersion throws
+            projects.GetComponentsForProject("proj").Returns(new[]
+            {
+                new ComponentApiModel { ComponentId = 20, ComponentName = "NoTplName", TerraformSourceType = TerraformSourceType.Catalog, TerraformTemplateName = "", TerraformTemplateVersion = "1.0.0" },
+                new ComponentApiModel { ComponentId = 21, ComponentName = "NoTplVer", TerraformSourceType = TerraformSourceType.Catalog, TerraformTemplateName = "module", TerraformTemplateVersion = "" }
+            });
+            Assert.Throws<InvalidOperationException>(() => service.CreateRequest(new RequestDto
+            {
+                Project = "proj",
+                BuildUrl = "dorc-catalog://",
+                Components = new List<string> { "NoTplName" },
+                RequestProperties = new List<RequestProperty> { new() { PropertyName = "k", PropertyValue = "v" } }
+            }, new ClaimsPrincipal()));
+            Assert.Throws<InvalidOperationException>(() => service.CreateRequest(new RequestDto
+            {
+                Project = "proj",
+                BuildUrl = "dorc-catalog://",
+                Components = new List<string> { "NoTplVer" },
+                RequestProperties = new List<RequestProperty> { new() { PropertyName = "k", PropertyValue = "v" } }
+            }, new ClaimsPrincipal()));
+
+            // CheckRequest when project is not found throws
+            var missingProjReq = new RequestDto { Project = "missing-proj", BuildUrl = "" };
+            Assert.Throws<Exception>(() => service.CheckRequest(ref missingProjReq));
+        }
     }
 }

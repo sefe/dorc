@@ -29,26 +29,143 @@ namespace Dorc.Core.Terraform
     /// infrastructure already exists, so every failure here is logged and
     /// swallowed rather than failing a completed deployment.
     /// </summary>
-    public class TerraformCloudResourceRegistrar
+    public class TerraformCloudResourceRegistrar : ITerraformCloudResourceRegistrar
     {
         private readonly ILogger logger;
         private readonly ICloudResourcesPersistentSource _cloudResourcesPersistentSource;
         private readonly ICloudResourceAuditPersistentSource _cloudResourceAuditPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
+        private readonly IRequestsPersistentSource? _requestsPersistentSource;
 
         public TerraformCloudResourceRegistrar(
             ILogger logger,
             ICloudResourcesPersistentSource cloudResourcesPersistentSource,
             ICloudResourceAuditPersistentSource cloudResourceAuditPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            IDatabasesPersistentSource databasesPersistentSource)
+            IDatabasesPersistentSource databasesPersistentSource,
+            IRequestsPersistentSource? requestsPersistentSource = null)
         {
             this.logger = logger;
             _cloudResourcesPersistentSource = cloudResourcesPersistentSource;
             _cloudResourceAuditPersistentSource = cloudResourceAuditPersistentSource;
             _environmentsPersistentSource = environmentsPersistentSource;
             _databasesPersistentSource = databasesPersistentSource;
+            _requestsPersistentSource = requestsPersistentSource;
+        }
+
+        public void DeregisterEnvironmentResources(int environmentId, int? deploymentResultId = null)
+        {
+            if (environmentId <= 0)
+            {
+                return;
+            }
+
+            _cloudResourcesPersistentSource.ExecuteMutation(() =>
+            {
+                var provenanceRows = _requestsPersistentSource?.GetTerraformInventoryForEnvironment(environmentId, deploymentResultId)
+                    ?? Array.Empty<TerraformInventoryProvenanceApiModel>();
+
+                if (deploymentResultId.HasValue && provenanceRows.Count == 0)
+                {
+                    return 0;
+                }
+
+                var remainingSameEnvProvenance = deploymentResultId.HasValue
+                    ? (_requestsPersistentSource?.GetTerraformInventoryForEnvironment(environmentId, null)
+                        ?? Array.Empty<TerraformInventoryProvenanceApiModel>())
+                        .Where(p => !provenanceRows.Any(scoped =>
+                            scoped.ComponentId == p.ComponentId &&
+                            scoped.CloudResourceId == p.CloudResourceId &&
+                            scoped.DatabaseId == p.DatabaseId))
+                        .ToList()
+                    : new List<TerraformInventoryProvenanceApiModel>();
+
+                var retainedCloudResourceIds = remainingSameEnvProvenance
+                    .Select(p => p.CloudResourceId)
+                    .Where(id => id > 0)
+                    .ToHashSet();
+
+                var retainedDatabaseIds = remainingSameEnvProvenance
+                    .Where(p => p.DatabaseId.HasValue && p.DatabaseId.Value > 0)
+                    .Select(p => p.DatabaseId!.Value)
+                    .ToHashSet();
+
+                var cloudResourceIds = provenanceRows
+                    .Select(p => p.CloudResourceId)
+                    .Where(id => id > 0 && !retainedCloudResourceIds.Contains(id))
+                    .ToHashSet();
+
+                var databaseIds = provenanceRows
+                    .Where(p => p.DatabaseId.HasValue && p.DatabaseId.Value > 0 && !retainedDatabaseIds.Contains(p.DatabaseId.Value))
+                    .Select(p => p.DatabaseId!.Value)
+                    .ToHashSet();
+
+                if (!deploymentResultId.HasValue)
+                {
+                    var envCloudResources = _cloudResourcesPersistentSource.GetForEnvironmentId(environmentId)
+                        ?? Array.Empty<CloudResourceApiModel>();
+                    foreach (var resource in envCloudResources.Where(r => r.Id > 0))
+                    {
+                        cloudResourceIds.Add(resource.Id);
+                    }
+
+                    var envDatabases = _databasesPersistentSource.GetDatabasesForEnvId(environmentId)
+                        ?? Array.Empty<DatabaseApiModel>();
+                    foreach (var database in envDatabases.Where(d => d.Id > 0))
+                    {
+                        databaseIds.Add(database.Id);
+                    }
+                }
+
+                var exceptions = new List<Exception>();
+
+                foreach (var cloudResourceId in cloudResourceIds)
+                {
+                    try
+                    {
+                        _cloudResourcesPersistentSource.DetachAndDeleteIfOrphaned(
+                            cloudResourceId,
+                            environmentId,
+                            deploymentResultId);
+                    }
+                    catch (Exception ex)
+                    {
+                        exceptions.Add(ex);
+                        logger.LogWarning(ex,
+                            "Could not deregister cloud resource {CloudResourceId} from environment {EnvironmentId}.",
+                            cloudResourceId, environmentId);
+                    }
+                }
+
+                foreach (var databaseId in databaseIds)
+                {
+                    try
+                    {
+                        _databasesPersistentSource.DetachAndDeleteDatabaseIfOrphaned(
+                            environmentId,
+                            databaseId,
+                            deploymentResultId);
+                    }
+                    catch (Exception ex)
+                    {
+                        exceptions.Add(ex);
+                        logger.LogWarning(ex,
+                            "Could not deregister database {DatabaseId} from environment {EnvironmentId}.",
+                            databaseId, environmentId);
+                    }
+                }
+
+                if (exceptions.Count > 0)
+                {
+                    throw new InvalidOperationException(
+                        $"Failed to deregister one or more resources for environment {environmentId}.",
+                        exceptions[0]);
+                }
+
+                _requestsPersistentSource?.DeleteTerraformInventoryProvenance(environmentId, deploymentResultId);
+                return 0;
+            });
         }
 
         public TerraformRegistrationOutcome RegisterAppliedResources(string appliedResourcesFilePath, string environmentName, string username,

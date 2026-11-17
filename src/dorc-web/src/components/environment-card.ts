@@ -13,6 +13,7 @@ import { AccessControlType } from '../apis/dorc-api';
 import '@vaadin/button';
 import '@vaadin/horizontal-layout';
 import '@vaadin/tooltip';
+import './ephemeral-environment-banner';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('environment-card')
@@ -32,15 +33,18 @@ export class EnvironmentCard extends LitElement {
       }
 
       .card-element {
-        padding: 10px;
+        padding: 10px 12px;
         box-shadow: 1px 2px 3px rgba(0, 0, 0, 0.2);
-        width: 300px;
+        width: 100%;
         min-height: 110px;
         height: 100%;
         display: flex;
         justify-content: space-between;
         gap: var(--lumo-space-s);
         box-sizing: border-box;
+        background-color: var(--dorc-bg-secondary);
+        border-radius: 6px;
+        border: 1px solid var(--dorc-border-color);
       }
       @media (max-width: 768px) {
         .card-element {
@@ -94,6 +98,23 @@ export class EnvironmentCard extends LitElement {
       <div class="statistics-cards__item card-element">
         <div class="card-content">
           <h3 style="margin: 0px">${this.environment?.EnvironmentName}</h3>
+          ${
+            this.environment?.IsEphemeral
+              ? html`<div style="margin: 4px 0;">
+                  <ephemeral-environment-banner
+                    .environment=${this.environment}
+                    compact
+                    .showActionsInCompact=${true}
+                    @ephemeral-environment-updated=${
+                      this.onEphemeralEnvironmentUpdated
+                    }
+                    @ephemeral-environment-teardown=${
+                      this.onEphemeralEnvironmentUpdated
+                    }
+                  ></ephemeral-environment-banner>
+                </div>`
+              : ''
+          }
           <span class="card-element__text"
             >${this.environment?.Details?.Description}</span
           >
@@ -179,6 +200,28 @@ export class EnvironmentCard extends LitElement {
       this.envHistoryUriStart + (this.environment?.EnvironmentId ?? 0)
     );
   }
+
+  private onEphemeralEnvironmentUpdated = (e: CustomEvent) => {
+    if (e.detail?.environment) {
+      this.environment = {
+        ...this.environment,
+        ...(e.detail.environment as EnvironmentApiModel)
+      };
+    }
+    if (e.detail?.deleted) {
+      this.dispatchEvent(
+        new CustomEvent('envs-changed', {
+          detail: {
+            message: 'Ephemeral environment torn down and removed.',
+            deleted: true,
+            environment: this.environment
+          },
+          bubbles: true,
+          composed: true
+        })
+      );
+    }
+  };
 
   openAccessControl() {
     const event = new CustomEvent('open-access-control', {

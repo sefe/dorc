@@ -5,6 +5,17 @@ namespace Dorc.Terraform.Catalog
         ParameterValidationResult Validate(
             TerraformTemplateManifest manifest,
             IReadOnlyDictionary<string, string?> suppliedValues);
+
+        ParameterValidationResult Validate(
+            TerraformTemplateManifest manifest,
+            IReadOnlyDictionary<string, string?> suppliedValues,
+            bool isEphemeral,
+            bool isProd = false);
+
+        IReadOnlyDictionary<string, string?> EnforceEphemeralInvariants(
+            TerraformTemplateManifest manifest,
+            IReadOnlyDictionary<string, string?> suppliedValues,
+            bool isEphemeral);
     }
 
     public sealed record ParameterValidationResult(

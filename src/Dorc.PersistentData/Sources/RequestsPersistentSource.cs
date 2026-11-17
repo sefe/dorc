@@ -335,6 +335,8 @@ namespace Dorc.PersistentData.Sources
         public void SaveTerraformDeploymentReceipt(TerraformDeploymentReceipt receipt)
         {
             using var context = _contextFactory.GetContext();
+            if (string.IsNullOrWhiteSpace(receipt.Operation))
+                receipt.Operation = "Plan";
             context.TerraformDeploymentReceipts.Add(receipt);
             context.SaveChanges();
         }
@@ -383,12 +385,20 @@ namespace Dorc.PersistentData.Sources
             {
                 using var context = _contextFactory.GetContext();
                 using var transaction = context.Database.BeginTransaction(IsolationLevel.Serializable);
+                var isAutoApprove = string.Equals(
+                    approval.ApprovedBy,
+                    TerraformPlanApproval.EphemeralAutoApproveActor,
+                    StringComparison.OrdinalIgnoreCase);
                 var parentUpdated = context.DeploymentRequests
                     .Where(request => request.Id == result.RequestId &&
                         (request.Status == DeploymentRequestStatus.WaitingConfirmation.ToString() ||
-                         request.Status == DeploymentRequestStatus.Confirmed.ToString()))
-                    .ExecuteUpdate(setters => setters.SetProperty(request => request.Status,
-                        DeploymentRequestStatus.Confirmed.ToString()));
+                         request.Status == DeploymentRequestStatus.Confirmed.ToString() ||
+                         (isAutoApprove && request.Status == DeploymentRequestStatus.Running.ToString())))
+                    .ExecuteUpdate(setters => setters.SetProperty(
+                        request => request.Status,
+                        request => isAutoApprove && request.Status == DeploymentRequestStatus.Running.ToString()
+                            ? DeploymentRequestStatus.Running.ToString()
+                            : DeploymentRequestStatus.Confirmed.ToString()));
                 if (parentUpdated == 0)
                     return false;
 
@@ -464,10 +474,29 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
+                var runningStatus = DeploymentRequestStatus.Running.ToString();
+                var requestingStatus = DeploymentRequestStatus.Requesting.ToString();
+                var cancellingStatus = DeploymentRequestStatus.Cancelling.ToString();
+                var completedStatus = DeploymentRequestStatus.Completed.ToString();
+                var failedStatus = DeploymentRequestStatus.Failed.ToString();
+                var erroredStatus = DeploymentRequestStatus.Errored.ToString();
+                var cancelledStatus = DeploymentRequestStatus.Cancelled.ToString();
+                var abandonedStatus = DeploymentRequestStatus.Abandoned.ToString();
+                var targetStatus = status.ToString();
+                var isCancelledTarget = status == DeploymentRequestStatus.Cancelled;
                 context.DeploymentRequests
-                    .Where(r => r.Id == requestId)
+                    .Where(r => r.Id == requestId
+                        && r.Status != completedStatus
+                        && r.Status != failedStatus
+                        && r.Status != erroredStatus
+                        && r.Status != cancelledStatus
+                        && r.Status != abandonedStatus)
                     .ExecuteUpdate(setters => setters
-                        .SetProperty(b => b.Status, status.ToString())
+                        .SetProperty(
+                            b => b.Status,
+                            b => isCancelledTarget && (b.Status == runningStatus || b.Status == requestingStatus || b.Status == cancellingStatus)
+                                ? cancellingStatus
+                                : targetStatus)
                         .SetProperty(b => b.CancelledBy, user)
                         .SetProperty(b => b.CancelledTime, CancelledTime));
             }
@@ -714,13 +743,16 @@ namespace Dorc.PersistentData.Sources
         public int SubmitRequest(DeploymentRequest deploymentRequest)
         {
             using var strategyContext = _contextFactory.GetContext();
+            EnsureEphemeralEnvironmentAcceptsSubmission(strategyContext, deploymentRequest);
             return strategyContext.Database.CreateExecutionStrategy().Execute(() =>
             {
                 using var context = _contextFactory.GetContext();
                 using var transaction = context.Database.BeginTransaction(IsolationLevel.Serializable);
                 deploymentRequest.Id = 0;
                 var definitions = CaptureDefinitions(context, deploymentRequest);
-                var snapshots = CaptureCatalogInputs(context, deploymentRequest);
+                var snapshots = IsDestroyRequestXml(deploymentRequest.RequestDetails)
+                    ? CaptureDestroyCatalogInputs(context, deploymentRequest, definitions)
+                    : CaptureCatalogInputs(context, deploymentRequest);
                 var envIsProd = from obj in context.Environments.Where(r => r.Name == deploymentRequest.Environment)
                     select obj.IsProd;
                 foreach (var val in envIsProd)

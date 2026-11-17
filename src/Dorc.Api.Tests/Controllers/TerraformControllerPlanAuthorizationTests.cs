@@ -102,6 +102,7 @@ namespace Dorc.Api.Tests.Controllers
             _requestsPersistentSource.GetTerraformDeploymentReceipt(ResultId).Returns(new TerraformDeploymentReceipt
             {
                 DeploymentResultId = ResultId, DeploymentRequestId = RequestId,
+                Operation = "Destroy",
                 EnvironmentName = Environment, ProjectName = "original-project",
                 TemplateName = "original-module", TemplateVersion = "1.0.0",
                 PlanContentSha256 = PlanDigest, PlannedAt = DateTimeOffset.Parse("2026-10-20T10:00:00Z")
@@ -112,6 +113,7 @@ namespace Dorc.Api.Tests.Controllers
             });
             var model = (TerraformPlanApiModel)((OkObjectResult)_controller.GetTerraformPlan(ResultId)).Value!;
             Assert.IsTrue(model.IsHistorical);
+            Assert.AreEqual("Destroy", model.Receipt.Operation);
             Assert.AreEqual("original-module", model.Receipt.TemplateName);
             Assert.AreEqual(@"DOMAIN\approver", model.ApprovedBy);
             Assert.IsInstanceOfType<NotFoundObjectResult>(_controller.ConfirmTerraformPlan(ResultId, PlanDigest));

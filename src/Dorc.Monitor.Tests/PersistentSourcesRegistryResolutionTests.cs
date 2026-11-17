@@ -1,3 +1,4 @@
+using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.VariableResolution;
 using Dorc.Monitor.Registry;
@@ -5,6 +6,7 @@ using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using NSubstitute;
 
 namespace Dorc.Monitor.Tests
@@ -18,17 +20,34 @@ namespace Dorc.Monitor.Tests
     public class PersistentSourcesRegistryResolutionTests
     {
         [TestMethod]
-        public void PersistentSourcesRegistry_ResolvesNewComponentSources()
+        public async Task PersistentSourcesRegistry_ResolvesNewComponentSources()
         {
             var collection = new ServiceCollection();
             PersistentSourcesRegistry.Register(collection);
+            collection.AddLogging();
+            collection.AddTransient(_ => Substitute.For<Microsoft.Extensions.Configuration.IConfiguration>());
             collection.AddTransient(_ => Substitute.For<IDeploymentContextFactory>());
+            collection.AddTransient(_ => Substitute.For<ISecurityObjectFilter>());
+            collection.AddTransient(_ => Substitute.For<IRolePrivilegesChecker>());
+            collection.AddTransient(_ => Substitute.For<IPropertyEncryptor>());
+            collection.AddTransient(_ => Substitute.For<IClaimsPrincipalReader>());
+            collection.AddTransient(_ => Substitute.For<Dorc.Core.HighAvailability.IDistributedLockService>());
 
             using var provider = collection.BuildServiceProvider();
 
             Assert.IsNotNull(provider.GetRequiredService<IContainersPersistentSource>());
             Assert.IsNotNull(provider.GetRequiredService<ICloudResourcesPersistentSource>());
             Assert.IsNotNull(provider.GetRequiredService<IApiRegistrationsPersistentSource>());
+            Assert.IsNotNull(provider.GetRequiredService<IEnvironmentTemplatesPersistentSource>());
+
+            var alertPublisher = provider.GetRequiredService<ITeardownFailureAlertPublisher>();
+            Assert.IsNotNull(alertPublisher);
+            await alertPublisher.PublishTeardownFailureAlertAsync(
+                new EnvironmentApiModel { EnvironmentId = 1, EnvironmentName = "eph-test" },
+                "Test alert");
+
+            var hostedServices = provider.GetServices<IHostedService>().ToList();
+            Assert.IsTrue(hostedServices.Any(s => s is EphemeralEnvironmentReaperService));
         }
 
         [TestMethod]

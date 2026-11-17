@@ -29,6 +29,7 @@ namespace Dorc.TerraformRunner
                                 " UnhandledException in Runner: " + e.ExceptionObject + ". Sender: " + sender);
         }
 
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
         private static async Task Main(string[] args)
         {
             bool result = false;
@@ -142,15 +143,7 @@ namespace Dorc.TerraformRunner
                 var terraformProcesor = new TerraformProcessor(runnerLogger, scriptGroupReader, templateCatalog,
                     new Dorc.TerraformRunner.CodeSources.TerraformCodeSourceProviderFactory(runnerLogger, templateCatalog),
                     defaultSubscriptionId);
-                switch (options.TerraformRunnerOperation)
-                {
-                    case TerraformRunnerOperations.CreatePlan:
-                        result = await terraformProcesor.PreparePlanAsync(options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, options.LockFilePath, cancellation.Token);
-                        break;
-                    case TerraformRunnerOperations.ApplyPlan:
-                        result = await terraformProcesor.ExecuteConfirmedPlanAsync(options.PipeName, requestId, options.PlanFilePath, options.LockFilePath, options.AppliedResourcesFilePath, options.SourceArchiveFilePath, cancellation.Token);
-                        break;
-                }
+                result = await DispatchOperationAsync(terraformProcesor, options, requestId, cancellation.Token);
             }
             catch (Exception ex)
             {
@@ -164,6 +157,26 @@ namespace Dorc.TerraformRunner
                 if (cancellationWatcher is not null) await cancellationWatcher;
                 Exit(result && !cancellation.IsCancellationRequested ? 0 : 1);
             }
+        }
+
+        internal static Task<bool> DispatchOperationAsync(
+            ITerraformProcessor terraformProcessor,
+            Options options,
+            int requestId,
+            CancellationToken cancellationToken)
+        {
+            return options.TerraformRunnerOperation switch
+            {
+                TerraformRunnerOperations.CreatePlan => terraformProcessor.PreparePlanAsync(
+                    options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, options.LockFilePath, cancellationToken),
+                TerraformRunnerOperations.ApplyPlan => terraformProcessor.ExecuteConfirmedPlanAsync(
+                    options.PipeName, requestId, options.PlanFilePath, options.LockFilePath, options.AppliedResourcesFilePath, options.SourceArchiveFilePath, cancellationToken),
+                TerraformRunnerOperations.CreateDestroyPlan => terraformProcessor.PreparePlanAsync(
+                    options.PipeName, requestId, options.PlanFilePath, options.PlanContentFilePath, options.LockFilePath, cancellationToken, isDestroy: true),
+                TerraformRunnerOperations.ApplyDestroyPlan => terraformProcessor.ExecuteConfirmedPlanAsync(
+                    options.PipeName, requestId, options.PlanFilePath, options.LockFilePath, options.AppliedResourcesFilePath, options.SourceArchiveFilePath, cancellationToken, isDestroy: true),
+                _ => Task.FromResult(false)
+            };
         }
 
         internal static async Task WatchCancellationAsync(string markerPath,

@@ -697,5 +697,78 @@ namespace Dorc.Api.Tests.Controllers
                 "Bundle Requests cannot be run against production environment 'Endur PROD'.",
                 result.Value);
         }
+
+        [TestMethod]
+        public void Put_RejectsBlockedEphemeralEnvironmentAndReservedLifecycleProperties()
+        {
+            _environmentsPersistentSource.GetEnvironment("eph-prov")
+                .Returns(new EnvironmentApiModel
+                {
+                    EnvironmentName = "eph-prov",
+                    IsEphemeral = true,
+                    EphemeralState = EphemeralEnvironmentStates.Provisioning
+                });
+
+            var conflictActionResult = _controller.Put(new MakeLikeProdRequest
+            {
+                TargetEnv = "eph-prov",
+                BundleName = "TestBundle",
+                BundleProperties = new List<RequestProperty>()
+            });
+            Assert.IsInstanceOfType(conflictActionResult, typeof(ConflictObjectResult));
+            var conflictResult = (ConflictObjectResult)conflictActionResult;
+            Assert.AreEqual(StatusCodes.Status409Conflict, conflictResult.StatusCode);
+
+            _environmentsPersistentSource.GetEnvironment("TestEnv")
+                .Returns(new EnvironmentApiModel { EnvironmentName = "TestEnv", EnvironmentIsProd = false });
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "TestEnv").Returns(true);
+            _bundledRequestsPersistentSource.GetRequestsForBundle("TestBundle")
+                .Returns(Array.Empty<BundledRequestsApiModel>());
+
+            var badBundlePropActionResult = _controller.Put(new MakeLikeProdRequest
+            {
+                TargetEnv = "TestEnv",
+                BundleName = "TestBundle",
+                BundleProperties = new List<RequestProperty>
+                {
+                    new() { PropertyName = TerraformDestroyOperationConstants.EphemeralTargetStatePropertyName, PropertyValue = "Ready" }
+                }
+            });
+            Assert.IsInstanceOfType(badBundlePropActionResult, typeof(BadRequestObjectResult));
+            var badBundlePropResult = (BadRequestObjectResult)badBundlePropActionResult;
+            Assert.AreEqual(StatusCodes.Status400BadRequest, badBundlePropResult.StatusCode);
+
+            var jobWithReservedProp = new RequestDto
+            {
+                Project = "TestProject",
+                BuildUrl = "http://build.url",
+                BuildText = "Build 1.0",
+                Components = new List<string> { "Component1" },
+                RequestProperties = new List<RequestProperty>
+                {
+                    new() { PropertyName = TerraformDestroyOperationConstants.PropertyName, PropertyValue = "Destroy" }
+                }
+            };
+            _bundledRequestsPersistentSource.GetRequestsForBundle("TestBundle")
+                .Returns(new List<BundledRequestsApiModel>
+                {
+                    new()
+                    {
+                        Type = BundledRequestType.JobRequest,
+                        Request = System.Text.Json.JsonSerializer.Serialize(jobWithReservedProp),
+                        Sequence = 1
+                    }
+                });
+
+            var badJobPropActionResult = _controller.Put(new MakeLikeProdRequest
+            {
+                TargetEnv = "TestEnv",
+                BundleName = "TestBundle",
+                BundleProperties = new List<RequestProperty>()
+            });
+            Assert.IsInstanceOfType(badJobPropActionResult, typeof(BadRequestObjectResult));
+            var badJobPropResult = (BadRequestObjectResult)badJobPropActionResult;
+            Assert.AreEqual(StatusCodes.Status400BadRequest, badJobPropResult.StatusCode);
+        }
     }
 }
