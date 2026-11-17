@@ -5,7 +5,7 @@ import '@vaadin/text-area';
 import '@vaadin/vertical-layout';
 import '@vaadin/horizontal-layout';
 import '@vaadin/icon';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import { css, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -288,7 +288,7 @@ export class TerraformPlanDialog extends LitElement {
       return html`
         <div class="loading-indicator">
           <vaadin-icon
-            icon="vaadin:spinner"
+            icon="dorc:spinner"
             style="animation: spin 1s linear infinite;"
           ></vaadin-icon>
           <p>Loading Terraform plan...</p>
@@ -343,9 +343,11 @@ export class TerraformPlanDialog extends LitElement {
                   <div>
                     <dt>Source commit</dt>
                     <dd>
-                      ${this.plan.Receipt.GitCommitSha
-                        ? renderShaBadge(this.plan.Receipt.GitCommitSha)
-                        : 'Unavailable'}
+                      ${
+                        this.plan.Receipt.GitCommitSha
+                          ? renderShaBadge(this.plan.Receipt.GitCommitSha)
+                          : 'Unavailable'
+                      }
                     </dd>
                   </div>
                   <div>
@@ -596,7 +598,7 @@ export class TerraformPlanDialog extends LitElement {
                 @click="${this._confirmPlan}"
                 .disabled="${this.processing}"
               >
-                <vaadin-icon icon="vaadin:check" slot="prefix"></vaadin-icon>
+                <vaadin-icon icon="dorc:check" slot="prefix"></vaadin-icon>
                 Confirm & Apply
               </vaadin-button>
             `
@@ -610,7 +612,7 @@ export class TerraformPlanDialog extends LitElement {
                 @click="${this._declinePlan}"
                 .disabled="${this.processing}"
               >
-                <vaadin-icon icon="vaadin:close" slot="prefix"></vaadin-icon>
+                <vaadin-icon icon="dorc:decline" slot="prefix"></vaadin-icon>
                 Decline
               </vaadin-button>
             `
@@ -653,7 +655,7 @@ export class TerraformPlanDialog extends LitElement {
       return html`<div class="plan-summary" role="status">
         <span class="plan-summary__chip none">
           <vaadin-icon
-            icon="vaadin:check"
+            icon="dorc:check"
             style="width:14px;height:14px"
           ></vaadin-icon>
           No changes

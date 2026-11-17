@@ -202,7 +202,13 @@ describe('dorc:* canonical iconset registry', () => {
     }
   );
 
-  it('renders migrated Step 2 dorc:* icons inside <vaadin-icon>', async () => {
+  it('renders migrated dorc:* icons inside <vaadin-icon> with zero legacy iconsets registered', async () => {
+    await import('../../src/helpers/database-type.js');
+
+    expect(document.querySelector('vaadin-iconset[name="brand"]')).toBeNull();
+    expect(document.querySelector('vaadin-iconset[name="vaadin"]')).toBeNull();
+    expect(document.querySelector('vaadin-iconset[name="lumo"]')).toBeNull();
+
     const el = await fixture<HTMLElement>(
       html`<vaadin-icon icon="${dorcIcon('environment-owner')}"></vaadin-icon>`
     );
@@ -387,5 +393,75 @@ describe('Step 3 single-mechanism consolidation onto <vaadin-icon icon="dorc:*">
     expect(nestedKey?.textContent?.trim()).toBe('nested:');
     expect(flatKey?.querySelector('vaadin-icon')).toBeNull();
     expect(flatKey?.textContent?.trim()).toBe('flat:');
+  });
+});
+
+describe('Step 4 semantic de-conflation across split action controls', () => {
+  it('separates dorc:rerun, dorc:restart, dorc:permission-revoke, and dorc:clear-value across action controls', async () => {
+    await import('../../src/components/grid-button-groups/request-controls.js');
+    await import('../../src/components/grid-button-groups/daemon-controls.js');
+    await import('../../src/components/grid-button-groups/access-control-controls.js');
+    await import('../../src/components/deploy/property-override-controls.js');
+    await import('../../src/components/view-database-permissions.js');
+
+    const reqControls = await fixture<HTMLElement>(
+      html`<request-controls .canRestart=${true}></request-controls>`
+    );
+    expect(
+      reqControls.shadowRoot
+        ?.querySelector(
+          'vaadin-button[aria-label="Restart Request"] vaadin-icon'
+        )
+        ?.getAttribute('icon')
+    ).toBe('dorc:rerun');
+
+    const daemonControls = await fixture<HTMLElement>(
+      html`<daemon-controls></daemon-controls>`
+    );
+    expect(
+      daemonControls.shadowRoot?.querySelector(
+        'vaadin-icon[icon="dorc:restart"]'
+      )
+    ).not.toBeNull();
+
+    const aclControls = await fixture<HTMLElement>(
+      html`<access-control-controls></access-control-controls>`
+    );
+    expect(
+      aclControls.shadowRoot
+        ?.querySelector('vaadin-button[aria-label="Remove Access"] vaadin-icon')
+        ?.getAttribute('icon')
+    ).toBe('dorc:permission-revoke');
+
+    const overrideControls = await fixture<HTMLElement>(
+      html`<property-override-controls></property-override-controls>`
+    );
+    expect(
+      overrideControls.shadowRoot
+        ?.querySelector(
+          'vaadin-button[aria-label="Remove Property Override"] vaadin-icon'
+        )
+        ?.getAttribute('icon')
+    ).toBe('dorc:clear-value');
+
+    const dbPerms = await fixture<
+      HTMLElement & {
+        userPermissionList: Array<{ Role: string }>;
+        updateComplete: Promise<boolean>;
+      }
+    >(html`<view-database-permissions></view-database-permissions>`);
+    dbPerms.userPermissionList = [{ Role: 'db_datareader' }];
+    await dbPerms.updateComplete;
+
+    const revokeBtn = dbPerms.shadowRoot?.querySelector(
+      'vaadin-button[aria-label="Revoke permission"]'
+    );
+    expect(revokeBtn).not.toBeNull();
+    expect(revokeBtn?.querySelector('vaadin-icon')?.getAttribute('icon')).toBe(
+      'dorc:permission-revoke'
+    );
+    expect(
+      revokeBtn?.querySelector('vaadin-tooltip')?.getAttribute('text')
+    ).toBe('Revoke permission');
   });
 });

@@ -1,7 +1,6 @@
 import { confirmPrompt } from '../confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -58,7 +57,7 @@ export class DatabaseEnvControls extends LitElement {
       >
         <vaadin-tooltip slot="tooltip" text="Detach database"></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:unlink"
+          icon="dorc:unlink"
           style=${styleMap(unlinkStyles)}
         ></vaadin-icon>
       </vaadin-button>
@@ -102,7 +101,7 @@ export class DatabaseEnvControls extends LitElement {
           text="Edit Database Tags"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:tags"
+          icon="dorc:tags"
           style=${styleMap(editStyles)}
         ></vaadin-icon>
       </vaadin-button>

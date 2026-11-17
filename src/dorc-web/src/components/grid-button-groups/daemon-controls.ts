@@ -1,6 +1,6 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
+import '../../icons/dorc-icons.js';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { DaemonStatusApi, DaemonStatusApiModel } from '../../apis/dorc-api';
@@ -47,7 +47,7 @@ export class DaemonControls extends LitElement {
         >
           <vaadin-tooltip slot="tooltip" text="Start"></vaadin-tooltip>
           <vaadin-icon
-            icon="vaadin:play"
+            icon="dorc:play"
             style="color: ${
               this.startDisabled
                 ? 'var(--dorc-text-secondary)'
@@ -63,7 +63,7 @@ export class DaemonControls extends LitElement {
         >
           <vaadin-tooltip slot="tooltip" text="Stop"></vaadin-tooltip>
           <vaadin-icon
-            icon="vaadin:stop"
+            icon="dorc:stop"
             style="color: ${this.stopDisabled ? 'var(--dorc-text-secondary)' : 'var(--dorc-link-color)'}"
           ></vaadin-icon>
         </vaadin-button>
@@ -75,7 +75,7 @@ export class DaemonControls extends LitElement {
         >
           <vaadin-tooltip slot="tooltip" text="Restart"></vaadin-tooltip>
           <vaadin-icon
-            icon="vaadin:refresh"
+            icon="dorc:restart"
             style="color: ${
               this.restartDisabled
                 ? 'var(--dorc-text-secondary)'

@@ -1,5 +1,4 @@
 import '@vaadin/icon';
-import '@vaadin/vaadin-lumo-styles/icons.js';
 import '../../../icons/dorc-icons.js';
 import { LitElement, PropertyValues } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';

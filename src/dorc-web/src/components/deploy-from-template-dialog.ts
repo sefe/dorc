@@ -8,7 +8,7 @@ import '@vaadin/radio-group';
 import '@vaadin/radio-group/vaadin-radio-button';
 import '@vaadin/dialog';
 import '@vaadin/icon';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import { dialogRenderer, dialogFooterRenderer } from '@vaadin/dialog/lit';
 import { Notification } from '@vaadin/notification';
 import { css, html, LitElement, nothing } from 'lit';
@@ -1187,7 +1187,7 @@ export class DeployFromTemplateDialog extends LitElement {
           this.error
             ? html`<div class="alert" role="alert">
                 <vaadin-icon
-                  icon="vaadin:exclamation-circle-o"
+                  icon="dorc:alert-circle"
                   style="width:16px;height:16px;flex-shrink:0;margin-top:2px"
                 ></vaadin-icon>
                 <span>${this.error}</span>
@@ -1220,7 +1220,7 @@ export class DeployFromTemplateDialog extends LitElement {
         <div class="module">
           <div class="module-icon">
             <vaadin-icon
-              icon="vaadin:puzzle-piece"
+              icon="dorc:module-catalog"
               style="width:18px;height:18px"
             ></vaadin-icon>
           </div>
@@ -1240,7 +1240,7 @@ export class DeployFromTemplateDialog extends LitElement {
                 <div class="step-marker">
                   ${
                     status(i) === 'done'
-                      ? html`<vaadin-icon icon="vaadin:check"></vaadin-icon>`
+                      ? html`<vaadin-icon icon="dorc:check"></vaadin-icon>`
                       : i + 1
                   }
                 </div>
@@ -1584,7 +1584,7 @@ export class DeployFromTemplateDialog extends LitElement {
     const status = this.statusOf(p);
     const missing = !overridden && this.isMissing(p);
     const env = this.selectedEnvironmentName;
-    const lock = html`<vaadin-icon icon="vaadin:lock"></vaadin-icon>`;
+    const lock = html`<vaadin-icon icon="dorc:secret"></vaadin-icon>`;
     // Labels are built as single strings so the rendered text never carries
     // template line breaks (tests and screen readers both read textContent).
     const suggested = overridden && this.isSuggested(p.Name);
@@ -1626,7 +1626,7 @@ export class DeployFromTemplateDialog extends LitElement {
       >
         <div class="param-head">
           <span class="param-name">
-            ${p.Sensitive ? html`<vaadin-icon icon="vaadin:lock"></vaadin-icon>` : nothing}
+            ${p.Sensitive ? html`<vaadin-icon icon="dorc:secret"></vaadin-icon>` : nothing}
             ${p.Name}
           </span>
           ${badge}
@@ -1642,7 +1642,7 @@ export class DeployFromTemplateDialog extends LitElement {
                       ? html`<span class="field-error">${message}</span>`
                       : html`<span class="field-ok">
                           <vaadin-icon
-                            icon="vaadin:check"
+                            icon="dorc:check"
                             style="width:10px;height:10px"
                           ></vaadin-icon>
                           ${
@@ -1808,7 +1808,7 @@ export class DeployFromTemplateDialog extends LitElement {
       this.step === 1
         ? problems.length
           ? html`<span class="footer-status invalid">
-              <vaadin-icon icon="vaadin:exclamation-circle-o"></vaadin-icon>
+              <vaadin-icon icon="dorc:alert-circle"></vaadin-icon>
               ${problems.join(' · ')}
             </span>`
           : this.resolutionLoading
@@ -1849,7 +1849,7 @@ export class DeployFromTemplateDialog extends LitElement {
           this.submitting || this.step === 2
             ? nothing
             : html`<vaadin-icon
-                icon="vaadin:arrow-right"
+                icon="dorc:arrow-right"
                 slot="suffix"
               ></vaadin-icon>`
         }

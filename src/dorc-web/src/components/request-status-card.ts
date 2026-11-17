@@ -4,7 +4,6 @@ import '@vaadin/dialog';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-area';
 import '@vaadin/text-field';

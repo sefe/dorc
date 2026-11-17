@@ -12,7 +12,6 @@ import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '../icons/dorc-icons.js';
 import '@vaadin/text-field';

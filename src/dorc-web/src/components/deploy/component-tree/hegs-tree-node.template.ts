@@ -116,7 +116,7 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
                   <paper-icon-button
                     style="color: var(--dorc-text-secondary);"
                     class="giant"
-                    icon="lumo:edit"
+                    icon="dorc:edit"
                     noink
                     slot="dropdown-trigger"
                   ></paper-icon-button>

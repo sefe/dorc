@@ -9,6 +9,7 @@ import { ref } from 'lit/directives/ref.js';
 import { html } from 'lit/html.js';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogRenderer } from '@vaadin/dialog/lit';
+import '../icons/dorc-icons.js';
 
 @customElement('log-dialog')
 export class LogDialog extends LitElement {
@@ -102,7 +103,7 @@ export class LogDialog extends LitElement {
       >
         <vaadin-icon
           style="color: var(--dorc-link-color);"
-          icon="vaadin:close-small"
+          icon="dorc:close"
         ></vaadin-icon>
       </vaadin-button>
       ${
@@ -118,7 +119,7 @@ export class LogDialog extends LitElement {
             >
               <vaadin-icon
                 style="color: var(--dorc-link-color);"
-                icon="vaadin:refresh"
+                icon="dorc:refresh"
               ></vaadin-icon>
             </vaadin-button>`
           : html``

@@ -2,7 +2,6 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import '@vaadin/button';
 import '@vaadin/icon';
-import '@vaadin/icons';
 import '@vaadin/horizontal-layout';
 import '../../icons/dorc-icons.js';
 import { BundledRequestsApiModel } from '../../apis/dorc-api';

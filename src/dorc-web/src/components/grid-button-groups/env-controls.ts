@@ -2,7 +2,6 @@ import { css, LitElement } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../../icons/dorc-icons.js';
@@ -80,7 +79,7 @@ export class EnvControls extends LitElement {
           text="Environment Access..."
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:lock"
+          icon="dorc:access-control"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
@@ -96,7 +95,7 @@ export class EnvControls extends LitElement {
                 text="Clone Environment..."
               ></vaadin-tooltip>
               <vaadin-icon
-                icon="vaadin:copy-o"
+                icon="dorc:clone"
                 style="color: var(--dorc-link-color)"
               ></vaadin-icon>
             </vaadin-button>`

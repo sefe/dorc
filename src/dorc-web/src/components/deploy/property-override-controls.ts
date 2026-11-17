@@ -1,7 +1,6 @@
 import { confirmPrompt } from '../confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { RequestProperty } from '../../apis/dorc-api/index.js';

@@ -1,19 +1,27 @@
 import { columnBodyRenderer, columnHeaderRenderer } from '@vaadin/grid/lit';
 import '../components/dorc-spinner';
 import '@vaadin/button';
-import { GridDataProviderCallback, GridDataProviderParams, GridSorterDefinition } from '@vaadin/grid';
+import {
+  GridDataProviderCallback,
+  GridDataProviderParams,
+  GridSorterDefinition
+} from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/horizontal-layout';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
 import { css, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../components/add-daemon';
-import { FlatPropertyValueApiModel, GetScopedPropertyValuesResponseDto, PagedDataSorting, RefDataSearchPropertyValuesApi } from '../apis/dorc-api';
+import {
+  FlatPropertyValueApiModel,
+  GetScopedPropertyValuesResponseDto,
+  PagedDataSorting,
+  RefDataSearchPropertyValuesApi
+} from '../apis/dorc-api';
 import { PagedDataFilter, PropertyValueAuditApiModel } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
@@ -80,7 +88,10 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
 
   render() {
     return html`
-      <dorc-spinner style="--dorc-spinner-z-index: 1000" ?hidden="${!(this.loading || this.searching)}"></dorc-spinner>
+      <dorc-spinner
+        style="--dorc-spinner-z-index: 1000"
+        ?hidden="${!(this.loading || this.searching)}"
+      ></dorc-spinner>
       <vaadin-grid
         id="grid"
         column-reordering-allowed
@@ -105,9 +116,7 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
         ></vaadin-grid-column>
         <vaadin-grid-column
           header="Value"
-          ${columnBodyRenderer(this.valueRenderer, [
-                    this._editingValueId
-                  ])}
+          ${columnBodyRenderer(this.valueRenderer, [this._editingValueId])}
           ${columnHeaderRenderer(this.valueHeaderRenderer, [])}
           resizable
           width="60em"
@@ -150,9 +159,7 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
     this.loading = false;
   }
 
-  valueRenderer = (
-    item: FlatPropertyValueApiModel
-  ) => {
+  valueRenderer = (item: FlatPropertyValueApiModel) => {
     const converted: PropertyValueDto = {
       Id: item.PropertyValueId,
       Value: item.PropertyValue,
@@ -167,71 +174,71 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
     };
 
     return html`<variable-value-controls
-        .value="${converted}"
-        .editing="${converted.Id === this._editingValueId}"
-      >
-      </variable-value-controls>`;
+      .value="${converted}"
+      .editing="${converted.Id === this._editingValueId}"
+    >
+    </variable-value-controls>`;
   };
 
   nameHeaderRenderer = () => {
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="Property"></vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Name"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
-              const textField = e.target as HTMLInputElement;
-              this.nameFilterValue = textField?.value ?? '';
-              this.refreshGrid();
-            }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `;
-  }
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="Property"></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Name"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as HTMLInputElement;
+            this.nameFilterValue = textField?.value ?? '';
+            this.refreshGrid();
+          }}"
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
+  };
 
   scopeHeaderRenderer = () => {
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="PropertyValueScope"></vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Scope"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
-              const textField = e.target as HTMLInputElement;
-              this.scopeFilterValue = textField?.value ?? '';
-              this.refreshGrid();
-            }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `;
-  }
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="PropertyValueScope"></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Scope"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as HTMLInputElement;
+            this.scopeFilterValue = textField?.value ?? '';
+            this.refreshGrid();
+          }}"
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
+  };
 
   valueHeaderRenderer = () => {
     return html`
-        <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
-          <vaadin-grid-sorter path="PropertyValue"></vaadin-grid-sorter>
-          <vaadin-text-field
-            placeholder="Value"
-            clear-button-visible
-            focus-target
-            style="width: 100px"
-            theme="small"
-            @input="${(e: InputEvent) => {
-              const textField = e.target as HTMLInputElement;
-              this.valueFilterValue = textField?.value ?? '';
-              this.refreshGrid();
-            }}"
-          ></vaadin-text-field>
-        </vaadin-horizontal-layout>
-      `;
-  }
+      <vaadin-horizontal-layout style="align-items: center;" theme="spacing-xs">
+        <vaadin-grid-sorter path="PropertyValue"></vaadin-grid-sorter>
+        <vaadin-text-field
+          placeholder="Value"
+          clear-button-visible
+          focus-target
+          style="width: 100px"
+          theme="small"
+          @input="${(e: InputEvent) => {
+            const textField = e.target as HTMLInputElement;
+            this.valueFilterValue = textField?.value ?? '';
+            this.refreshGrid();
+          }}"
+        ></vaadin-text-field>
+      </vaadin-horizontal-layout>
+    `;
+  };
 
   private refreshGrid() {
     this.dispatchEvent(
@@ -254,10 +261,16 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
       filters.push({ Path: 'Property', FilterValue: this.nameFilterValue });
     }
     if (this.scopeFilterValue) {
-      filters.push({ Path: 'PropertyValueScope', FilterValue: this.scopeFilterValue });
+      filters.push({
+        Path: 'PropertyValueScope',
+        FilterValue: this.scopeFilterValue
+      });
     }
     if (this.valueFilterValue) {
-      filters.push({ Path: 'PropertyValue', FilterValue: this.valueFilterValue });
+      filters.push({
+        Path: 'PropertyValue',
+        FilterValue: this.valueFilterValue
+      });
     }
 
     const api = new RefDataSearchPropertyValuesApi(dorcApiConfiguration);
@@ -302,5 +315,5 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
           );
         }
       });
-  }
+  };
 }

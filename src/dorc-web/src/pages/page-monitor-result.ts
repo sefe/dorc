@@ -5,7 +5,6 @@ import '@vaadin/dialog';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-area';
 import '@vaadin/text-field';
@@ -385,11 +384,7 @@ export class PageMonitorResult
   onDeploymentRequestStatusChanged(
     data: DeploymentRequestEventData
   ): Promise<void> {
-    if (
-      !this.autoRefresh ||
-      !data ||
-      data.requestId !== this.requestId
-    ) {
+    if (!this.autoRefresh || !data || data.requestId !== this.requestId) {
       return Promise.resolve();
     }
     const startedTime =
@@ -424,10 +419,7 @@ export class PageMonitorResult
   onDeploymentResultStatusChanged(
     data: DeploymentResultEventData
   ): Promise<void> {
-    if (
-      this.autoRefresh &&
-      this.isEventForRequest(data, this.requestId)
-    ) {
+    if (this.autoRefresh && this.isEventForRequest(data, this.requestId)) {
       this.refreshResultItems();
     }
     return Promise.resolve();

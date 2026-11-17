@@ -5,7 +5,7 @@ import '@vaadin/details';
 import '@vaadin/dialog';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
+import '../../icons/dorc-icons.js';
 import '@vaadin/icon';
 import '@vaadin/tooltip';
 import { columnBodyRenderer } from '@vaadin/grid/lit';
@@ -154,7 +154,7 @@ export class EnvCloud extends PageEnvBase {
       >
         <vaadin-details-summary slot="summary">
           <div class="summary-bar">
-            <vaadin-icon icon="vaadin:cloud" theme="small"></vaadin-icon>
+            <vaadin-icon icon="dorc:cloud" theme="small"></vaadin-icon>
             Cloud Resource Details
             <span class="count-badge">${this.cloudResources.length}</span>
           </div>
@@ -166,7 +166,7 @@ export class EnvCloud extends PageEnvBase {
               .disabled="${this.envReadOnly}"
               @click="${() => (this.attachDialogOpened = true)}"
             >
-              <vaadin-icon icon="vaadin:link" slot="prefix"></vaadin-icon>
+              <vaadin-icon icon="dorc:link" slot="prefix"></vaadin-icon>
               Attach Cloud Resource</vaadin-button
             >
             <vaadin-button
@@ -174,7 +174,7 @@ export class EnvCloud extends PageEnvBase {
               .disabled="${this.envReadOnly || !this.canCreateDefinition}"
               @click="${this.openCreateDialog}"
             >
-              <vaadin-icon icon="vaadin:plus" slot="prefix"></vaadin-icon>
+              <vaadin-icon icon="dorc:plus" slot="prefix"></vaadin-icon>
               New Cloud Resource</vaadin-button
             >
           </div>
@@ -182,7 +182,7 @@ export class EnvCloud extends PageEnvBase {
             class="empty-state"
             ?hidden="${this.cloudResources.length !== 0}"
           >
-            <vaadin-icon icon="vaadin:cloud"></vaadin-icon>
+            <vaadin-icon icon="dorc:cloud"></vaadin-icon>
             <span>No cloud resources attached to this environment yet</span>
           </div>
           <vaadin-grid
@@ -323,7 +323,7 @@ export class EnvCloud extends PageEnvBase {
           text="View audit history"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:calendar-user"
+          icon="dorc:audit-history"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
@@ -338,10 +338,7 @@ export class EnvCloud extends PageEnvBase {
           slot="tooltip"
           text="Edit cloud resource"
         ></vaadin-tooltip>
-        <vaadin-icon
-          icon="vaadin:edit"
-          style="color: ${editColor}"
-        ></vaadin-icon>
+        <vaadin-icon icon="dorc:edit" style="color: ${editColor}"></vaadin-icon>
       </vaadin-button>
       <vaadin-button
         class="row-button"
@@ -354,10 +351,7 @@ export class EnvCloud extends PageEnvBase {
           slot="tooltip"
           text="Edit Cloud Resource Tags"
         ></vaadin-tooltip>
-        <vaadin-icon
-          icon="vaadin:tags"
-          style="color: ${editColor}"
-        ></vaadin-icon>
+        <vaadin-icon icon="dorc:tags" style="color: ${editColor}"></vaadin-icon>
       </vaadin-button>
       <vaadin-button
         class="row-button"
@@ -371,7 +365,7 @@ export class EnvCloud extends PageEnvBase {
           text="Detach cloud resource"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:unlink"
+          icon="dorc:unlink"
           style="color: ${detachColor}"
         ></vaadin-icon>
       </vaadin-button>
@@ -386,7 +380,7 @@ export class EnvCloud extends PageEnvBase {
           slot="tooltip"
           text="Delete definition from all environments"
         ></vaadin-tooltip>
-        <vaadin-icon icon="vaadin:trash"></vaadin-icon>
+        <vaadin-icon icon="dorc:trash"></vaadin-icon>
       </vaadin-button>
     `;
   };

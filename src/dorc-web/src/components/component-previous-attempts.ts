@@ -15,15 +15,12 @@ import {
   RequestApi,
   ResultStatusesApi
 } from '../apis/dorc-api';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import '@vaadin/icon';
 import '@vaadin/horizontal-layout';
 import '@vaadin/vertical-layout';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
-import {
-  renderCompactSourceEvidence,
-  shaBadgeStyles
-} from './dorc-sha-badge';
+import { renderCompactSourceEvidence, shaBadgeStyles } from './dorc-sha-badge';
 
 @customElement('component-previous-attempts')
 export class ComponentPreviousAttempts extends LitElement {
@@ -200,7 +197,7 @@ export class ComponentPreviousAttempts extends LitElement {
                       title="View Request Log"
                     >
                       <vaadin-icon
-                        icon="vaadin:file-text-o"
+                        icon="dorc:file-log"
                         style="color: cornflowerblue"
                       ></vaadin-icon>
                     </vaadin-button>
@@ -359,7 +356,7 @@ export class ComponentPreviousAttempts extends LitElement {
             @click="${() => this.viewComponentLog(result)}"
           >
             <vaadin-icon
-              icon="vaadin:file-text-o"
+              icon="dorc:file-log"
               style="color: cornflowerblue"
             ></vaadin-icon>
           </vaadin-button>

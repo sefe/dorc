@@ -5,7 +5,7 @@ import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/icon';
 import '@vaadin/text-field';
@@ -433,7 +433,7 @@ export class PageDatabasesList extends ResponsiveMixin(PageElement) {
         }}"
       >
         <vaadin-icon
-          icon="vaadin:database"
+          icon="dorc:plus"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
         Add Database...

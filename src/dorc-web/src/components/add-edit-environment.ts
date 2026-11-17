@@ -329,7 +329,7 @@ export class AddEditEnvironment extends LitElement {
             (this.environment?.EnvironmentIsProd ?? false) &&
             !(this.environment?.EnvironmentSecure ?? false)
               ? html`<div class="prod-not-secure-warning">
-                  <vaadin-icon icon="vaadin:warning"></vaadin-icon>
+                  <vaadin-icon icon="dorc:warning"></vaadin-icon>
                   <span
                     >This environment is marked as Production but
                     <strong>Is Secure</strong> is not set.</span

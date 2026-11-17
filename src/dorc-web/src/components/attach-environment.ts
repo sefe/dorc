@@ -1,7 +1,7 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/list-box/vaadin-list-box.js';
 import '@vaadin/item';
-import '@vaadin/icons';
+import '../icons/dorc-icons.js';
 import '@vaadin/icon';
 import '@vaadin/button';
 import '@vaadin/combo-box';
@@ -79,7 +79,7 @@ export class AttachEnvironment extends LitElement {
             text="Shortlist Environment"
           ></vaadin-tooltip>
           <vaadin-icon
-            icon="vaadin:list-select"
+            icon="dorc:list-select"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon>
         </vaadin-button>
@@ -107,7 +107,7 @@ export class AttachEnvironment extends LitElement {
             text="Remove Environment"
           ></vaadin-tooltip>
           <vaadin-icon
-            icon="vaadin:close-small"
+            icon="dorc:close"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon>
         </vaadin-button>
@@ -123,7 +123,7 @@ export class AttachEnvironment extends LitElement {
           text="Attach Environment(s)"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:link"
+          icon="dorc:link"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
         Attach Environment(s)

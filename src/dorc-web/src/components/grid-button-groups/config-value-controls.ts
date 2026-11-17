@@ -1,11 +1,9 @@
 import { confirmPrompt } from '../confirm-prompt';
 import '@vaadin/button';
 import { Button } from '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/password-field';
 import { TextField } from '@vaadin/text-field';
-import '@vaadin/vaadin-lumo-styles/icons.js';
 import { css, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';

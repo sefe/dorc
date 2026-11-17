@@ -18,10 +18,10 @@ describe.each(['attached-databases', 'page-databases-list'])(
   '%s type icons',
   tag => {
     it.each([
-      [DatabaseType.SqlServer, 'brand:microsoftsqlserver', 'SQL Server'],
-      [DatabaseType.CosmosDb, 'brand:cosmosdb', 'Cosmos DB'],
-      [DatabaseType.ClickHouse, 'brand:clickhouse', 'ClickHouse'],
-      [DatabaseType.PostgreSql, 'brand:postgresql', 'PostgreSQL']
+      [DatabaseType.SqlServer, 'dorc:brand-sqlserver', 'SQL Server'],
+      [DatabaseType.CosmosDb, 'dorc:brand-cosmosdb', 'Cosmos DB'],
+      [DatabaseType.ClickHouse, 'dorc:brand-clickhouse', 'ClickHouse'],
+      [DatabaseType.PostgreSql, 'dorc:brand-postgresql', 'PostgreSQL']
     ])('renders %s as a compact labelled icon', (databaseType, icon, label) => {
       const element = document.createElement(
         tag
@@ -39,12 +39,12 @@ describe.each(['attached-databases', 'page-databases-list'])(
       expect(renderedIcon?.getAttribute('aria-label')).toBe(label);
     });
 
-    it('registers a brand glyph for every brand icon the grid uses', () => {
-      const iconset = document.querySelector('vaadin-iconset[name="brand"]');
-      for (const name of ['clickhouse', 'postgresql']) {
+    it('registers a dorc:brand-* glyph for every database brand icon the grid uses', () => {
+      const iconset = document.querySelector('vaadin-iconset[name="dorc"]');
+      for (const name of ['brand-clickhouse', 'brand-postgresql']) {
         expect(iconset?.querySelector(`g#${name} path`)).not.toBeNull();
       }
-      for (const name of ['microsoftsqlserver', 'cosmosdb']) {
+      for (const name of ['brand-sqlserver', 'brand-cosmosdb']) {
         const glyph = iconset?.querySelector(`g#${name}`);
         expect(glyph?.querySelector('path')).not.toBeNull();
         expect(glyph?.getAttribute('viewBox')).toBe('0 0 128 128');
@@ -63,7 +63,7 @@ describe.each(['attached-databases', 'page-databases-list'])(
       );
 
       expect(container.querySelector('vaadin-icon')?.getAttribute('icon')).toBe(
-        'brand:microsoftsqlserver'
+        'dorc:brand-sqlserver'
       );
     });
   }
@@ -108,7 +108,7 @@ describe('reference database list Type column', () => {
         item: { DatabaseType: DatabaseType.CosmosDb }
       } as GridItemModel<DatabaseApiModel>);
       const icon = root.querySelector('vaadin-icon')!;
-      expect(icon.getAttribute('icon')).toBe('brand:cosmosdb');
+      expect(icon.getAttribute('icon')).toBe('dorc:brand-cosmosdb');
       expect(icon.getAttribute('title')).toBe('Cosmos DB');
       expect(icon.getAttribute('aria-label')).toBe('Cosmos DB');
       expect(getComputedStyle(icon).color).toBe(getComputedStyle(root).color);

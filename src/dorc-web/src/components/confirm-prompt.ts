@@ -1,6 +1,6 @@
 import '@vaadin/confirm-dialog';
 import '@vaadin/icon';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import { LOCATION_CHANGED_EVENT } from '../router/router';
 import type { ConfirmDialog } from '@vaadin/confirm-dialog';
 
@@ -112,7 +112,7 @@ export function confirmPrompt(
       iconWrap.style.flexShrink = '0';
 
       const icon = document.createElement('vaadin-icon');
-      icon.setAttribute('icon', 'vaadin:warning');
+      icon.setAttribute('icon', 'dorc:warning');
       icon.style.width = '21px';
       icon.style.height = '21px';
       iconWrap.appendChild(icon);

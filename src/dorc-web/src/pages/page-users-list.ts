@@ -3,7 +3,6 @@ import '@vaadin/dialog';
 import '../components/dorc-spinner';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -77,7 +76,7 @@ export class PageUsersList extends PageElement {
           clear-button-visible
           helper-text="Use | for multiple search terms"
         >
-          <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
+          <vaadin-icon slot="prefix" icon="dorc:search"></vaadin-icon>
         </vaadin-text-field>
         <vaadin-button
           title="Add User or Group"
@@ -85,7 +84,7 @@ export class PageUsersList extends PageElement {
           @click="${this.addUser}"
         >
           <vaadin-icon
-            icon="vaadin:user"
+            icon="dorc:plus"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon
           >Add User or Group...
@@ -165,13 +164,13 @@ export class PageUsersList extends PageElement {
     }
     if (user.LoginType?.toLowerCase() === 'endur') {
       return html`<vaadin-icon
-        icon="vaadin:chart-grid"
+        icon="dorc:login-endur"
         style="color: var(--dorc-link-color)"
       ></vaadin-icon>`;
     }
     if (user.LoginType?.toLowerCase() === 'sql') {
       return html`<vaadin-icon
-        icon="vaadin:database"
+        icon="dorc:login-sql"
         style="color: var(--dorc-link-color)"
       ></vaadin-icon>`;
     }

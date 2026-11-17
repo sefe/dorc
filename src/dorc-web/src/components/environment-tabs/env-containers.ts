@@ -6,7 +6,7 @@ import '@vaadin/details';
 import '@vaadin/dialog';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
+import '../../icons/dorc-icons.js';
 import '@vaadin/icon';
 import '@vaadin/tooltip';
 import { columnBodyRenderer } from '@vaadin/grid/lit';
@@ -150,7 +150,7 @@ export class EnvContainers extends PageEnvBase {
       >
         <vaadin-details-summary slot="summary">
           <div class="summary-bar">
-            <vaadin-icon icon="vaadin:package" theme="small"></vaadin-icon>
+            <vaadin-icon icon="dorc:container" theme="small"></vaadin-icon>
             Container Details
             <span class="count-badge">${this.containers.length}</span>
           </div>
@@ -162,7 +162,7 @@ export class EnvContainers extends PageEnvBase {
               .disabled="${this.envReadOnly}"
               @click="${() => (this.attachDialogOpened = true)}"
             >
-              <vaadin-icon icon="vaadin:link" slot="prefix"></vaadin-icon>
+              <vaadin-icon icon="dorc:link" slot="prefix"></vaadin-icon>
               Attach Container</vaadin-button
             >
             <vaadin-button
@@ -170,12 +170,12 @@ export class EnvContainers extends PageEnvBase {
               .disabled="${this.envReadOnly || !this.canCreateDefinition}"
               @click="${this.openCreateDialog}"
             >
-              <vaadin-icon icon="vaadin:plus" slot="prefix"></vaadin-icon>
+              <vaadin-icon icon="dorc:plus" slot="prefix"></vaadin-icon>
               New Container</vaadin-button
             >
           </div>
           <div class="empty-state" ?hidden="${this.containers.length !== 0}">
-            <vaadin-icon icon="vaadin:package"></vaadin-icon>
+            <vaadin-icon icon="dorc:container"></vaadin-icon>
             <span>No containers attached to this environment yet</span>
           </div>
           <vaadin-grid
@@ -307,7 +307,7 @@ export class EnvContainers extends PageEnvBase {
           text="View audit history"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:calendar-user"
+          icon="dorc:audit-history"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
@@ -319,10 +319,7 @@ export class EnvContainers extends PageEnvBase {
         @click="${() => this.openEditDialog(item)}"
       >
         <vaadin-tooltip slot="tooltip" text="Edit container"></vaadin-tooltip>
-        <vaadin-icon
-          icon="vaadin:edit"
-          style="color: ${editColor}"
-        ></vaadin-icon>
+        <vaadin-icon icon="dorc:edit" style="color: ${editColor}"></vaadin-icon>
       </vaadin-button>
       <vaadin-button
         class="row-button"
@@ -335,10 +332,7 @@ export class EnvContainers extends PageEnvBase {
           slot="tooltip"
           text="Edit Container Tags"
         ></vaadin-tooltip>
-        <vaadin-icon
-          icon="vaadin:tags"
-          style="color: ${editColor}"
-        ></vaadin-icon>
+        <vaadin-icon icon="dorc:tags" style="color: ${editColor}"></vaadin-icon>
       </vaadin-button>
       <vaadin-button
         class="row-button"
@@ -349,7 +343,7 @@ export class EnvContainers extends PageEnvBase {
       >
         <vaadin-tooltip slot="tooltip" text="Detach container"></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:unlink"
+          icon="dorc:unlink"
           style="color: ${detachColor}"
         ></vaadin-icon>
       </vaadin-button>
@@ -364,7 +358,7 @@ export class EnvContainers extends PageEnvBase {
           slot="tooltip"
           text="Delete definition from all environments"
         ></vaadin-tooltip>
-        <vaadin-icon icon="vaadin:trash"></vaadin-icon>
+        <vaadin-icon icon="dorc:trash"></vaadin-icon>
       </vaadin-button>
     `;
   };

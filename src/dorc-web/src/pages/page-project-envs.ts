@@ -1,7 +1,6 @@
 import { css, PropertyValues } from 'lit';
 import '../components/dorc-spinner';
 import '@vaadin/button';
-import '@vaadin/icons';
 import '@vaadin/icon';
 import '../icons/dorc-icons.js';
 import '@vaadin/vertical-layout';
@@ -26,7 +25,6 @@ import { PageElement } from '../helpers/page-element';
 import { AddEditAccessControl } from '../components/add-edit-access-control';
 import '../components/add-edit-access-control';
 import GlobalCache from '../global-cache';
-import '@vaadin/vaadin-lumo-styles/icons.js';
 import { AddEditProject } from '../components/add-edit-project';
 import '../components/add-edit-project';
 import '@vaadin/dialog';
@@ -249,7 +247,7 @@ export class PageProjectEnvs extends PageElement {
               >
                 <vaadin-tooltip slot="tooltip" text="Bundles"></vaadin-tooltip>
                 <vaadin-icon
-                  icon="vaadin:package"
+                  icon="dorc:bundles"
                   style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>
@@ -266,7 +264,7 @@ export class PageProjectEnvs extends PageElement {
                   text="Reference Data"
                 ></vaadin-tooltip>
                 <vaadin-icon
-                  icon="vaadin:curly-brackets"
+                  icon="dorc:reference-data"
                   style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>
@@ -281,7 +279,7 @@ export class PageProjectEnvs extends PageElement {
                   text="Edit Metadata..."
                 ></vaadin-tooltip>
                 <vaadin-icon
-                  icon="lumo:edit"
+                  icon="dorc:edit"
                   style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>

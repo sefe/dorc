@@ -91,7 +91,7 @@ export class AttachedEnvTenants extends LitElement {
       >
         <vaadin-tooltip slot="tooltip" text="Detach tenant"></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:unlink"
+          icon="dorc:unlink"
           style=${styleMap(unlinkStyles)}
         ></vaadin-icon>
       </vaadin-button>
