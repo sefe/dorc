@@ -16,10 +16,10 @@ import {
 import { PageElement } from '../helpers/page-element';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import {
-  DEFAULT_POWERSHELL_VERSION,
   GENERIC_SCRIPT_TEMPLATES,
   serializeScriptPathValue
-} from '../helpers/generic-scripts';
+} from '../script-catalog/generic-scripts';
+import { DEFAULT_POWERSHELL_VERSION } from '../script-catalog/powershell-versions';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import '../components/deploy-from-template-dialog';
 import { BRAND_ICON_PATHS, BrandIcon } from '../icons/brand-icons';

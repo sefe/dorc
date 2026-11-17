@@ -1041,7 +1041,7 @@ describe('definition history and discovery', () => {
       findGenericScriptTemplate,
       serializeScriptPathValue,
       parseScriptPathValue
-    } = await import('../../src/helpers/generic-scripts');
+    } = await import('../../src/script-catalog/generic-scripts');
 
     // Authoritative contract extracted from 00 Generic/*.ps1 (Test-RequiredProperties + script variable references)
     const expectedContracts: Record<

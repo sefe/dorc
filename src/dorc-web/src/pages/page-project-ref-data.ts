@@ -35,13 +35,15 @@ import '../components/project-workspace-nav';
 import '../components/terraform-backend-cutover';
 import GlobalCache from '../global-cache';
 import {
-  DEFAULT_POWERSHELL_VERSION,
-  FALLBACK_POWERSHELL_VERSIONS,
   GENERIC_SCRIPT_CATEGORIES,
   GENERIC_SCRIPT_TEMPLATES,
   serializeScriptPathValue,
   type GenericScriptTemplate
-} from '../helpers/generic-scripts';
+} from '../script-catalog/generic-scripts';
+import {
+  DEFAULT_POWERSHELL_VERSION,
+  FALLBACK_POWERSHELL_VERSIONS
+} from '../script-catalog/powershell-versions';
 import {
   formatShortSha,
   renderShaBadge,
