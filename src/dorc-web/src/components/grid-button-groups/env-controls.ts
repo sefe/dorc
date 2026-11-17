@@ -4,6 +4,7 @@ import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
+import '@vaadin/icon';
 import '../../icons/dorc-icons.js';
 import { EnvironmentApiModel } from '../../apis/dorc-api';
 import { AccessControlType } from '../../apis/dorc-api';

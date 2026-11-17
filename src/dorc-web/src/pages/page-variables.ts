@@ -12,6 +12,7 @@ import { GridCellPartNameGenerator } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/horizontal-layout';
+import '@vaadin/icon';
 import '@vaadin/item';
 import '@vaadin/list-box';
 import { Notification } from '@vaadin/notification';

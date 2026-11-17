@@ -10,6 +10,7 @@ import { PageEnvBase } from './page-env-base.ts';
 import { css, PropertyValues } from 'lit';
 import { EnvPageTabNames } from '../../pages/page-environment.ts';
 import '@vaadin/tooltip';
+import '@vaadin/icon';
 import '../../icons/dorc-icons.js';
 
 @customElement('env-tenants')

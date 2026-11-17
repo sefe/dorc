@@ -3,6 +3,7 @@ import { classMap } from 'lit/directives/class-map.js';
 
 import { HegsTreeNode } from './hegs-tree-node';
 
+import { TreeAction } from './TreeAction';
 import { TreeNode } from './TreeNode';
 
 export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
@@ -112,27 +113,45 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
         ${
           this.actions && this.actions.length > 0
             ? html`
-                <paper-menu-button id="actions">
-                  <paper-icon-button
-                    style="color: var(--dorc-text-secondary);"
-                    class="giant"
-                    icon="dorc:edit"
-                    noink
-                    slot="dropdown-trigger"
-                  ></paper-icon-button>
+                <div id="actions">
+                  <vaadin-button
+                    theme="icon small"
+                    class="actions-trigger"
+                    aria-label=${`Actions for ${this.data?.name || 'component'}`}
+                    aria-haspopup="menu"
+                    aria-expanded=${this.actionsOpen ? 'true' : 'false'}
+                    @click="${this._toggleActions}"
+                  >
+                    <vaadin-icon
+                      icon="dorc:edit"
+                      aria-hidden="true"
+                    ></vaadin-icon>
+                  </vaadin-button>
 
-                  <paper-listbox slot="dropdown-content">
-                    ${this.actions.map(
-                      (action: any) => html`
-                        <paper-item
-                          @click="${this._actionClicked}"
-                          @keydown=${this._actionClicked}
-                          >${action.label}
-                        </paper-item>
-                      `
-                    )}
-                  </paper-listbox>
-                </paper-menu-button>
+                  ${
+                    this.actionsOpen
+                      ? html`
+                          <div class="actions-menu" role="menu">
+                            ${this.actions.map(
+                              (action: TreeAction) => html`
+                                <button
+                                  type="button"
+                                  class="action-item"
+                                  role="menuitem"
+                                  @click="${(e: Event) => {
+                                    e.stopPropagation();
+                                    this._actionClicked(action);
+                                  }}"
+                                >
+                                  ${action.label}
+                                </button>
+                              `
+                            )}
+                          </div>
+                        `
+                      : nothing
+                  }
+                </div>
               `
             : html``
         }

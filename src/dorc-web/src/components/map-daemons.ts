@@ -107,7 +107,7 @@ export class ServerDaemonMapping extends LitElement {
         >
           <vaadin-icon
             icon="dorc:link"
-            style="color: cornflowerblue"
+            style="color: var(--dorc-link-color)"
           ></vaadin-icon>
           Map
         </vaadin-button>

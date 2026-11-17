@@ -10,6 +10,8 @@ import { _cleanupFixtures, resetTheme } from './_helpers';
 // passes vacuously in BOTH themes while the app fails. Importing it here is what
 // makes the contrast criteria mean anything.
 import '../src/theme/dorc-tokens.css';
+import '@vaadin/icon';
+import '../src/icons/dorc-icons.js';
 
 // Remove fixture containers between tests so DOM state doesn't leak.
 //

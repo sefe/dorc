@@ -47,15 +47,43 @@ export const addHegsTreeNodeStyles = css`
     height: 24px;
   }
   #actions {
+    position: relative;
     float: right;
     padding: 0;
   }
-  paper-icon-button {
-    padding: 0px;
+  #actions vaadin-button.actions-trigger {
+    --lumo-button-size: 20px;
+    --lumo-icon-size-m: 16px;
+    padding: 0;
+    margin: 0;
   }
-  paper-icon-button.giant {
-    width: 20px;
-    height: 20px;
+  .actions-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 10;
+    min-width: 120px;
+    padding: 4px 0;
+    background: var(--dorc-dialog-bg);
+    border: 1px solid var(--dorc-border-color);
+    border-radius: var(--lumo-border-radius-m);
+    box-shadow: var(--lumo-box-shadow-s);
+  }
+  .action-item {
+    display: block;
+    width: 100%;
+    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    color: var(--dorc-text-primary);
+    font-family: var(--lumo-font-family);
+    font-size: var(--lumo-font-size-s);
+    text-align: left;
+    cursor: pointer;
+  }
+  .action-item:hover,
+  .action-item:focus-visible {
+    background: var(--dorc-bg-secondary);
   }
   vaadin-icon {
     color: var(--dorc-text-secondary);

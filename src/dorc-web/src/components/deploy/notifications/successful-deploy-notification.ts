@@ -4,6 +4,7 @@ import '@vaadin/dialog';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import '@vaadin/icon';
 import '../../../icons/dorc-icons.js';
 import '@vaadin/notification';
 import '@vaadin/text-area';

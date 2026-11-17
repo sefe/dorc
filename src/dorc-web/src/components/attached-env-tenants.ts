@@ -1,5 +1,7 @@
 import { confirmPrompt } from './confirm-prompt';
 import '@vaadin/button';
+import '@vaadin/icon';
+import '../icons/dorc-icons.js';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';

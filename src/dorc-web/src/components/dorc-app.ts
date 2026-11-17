@@ -11,6 +11,7 @@ import './dorc-navbar.ts';
 import { DorcNavbar } from './dorc-navbar.ts';
 import './theme-toggle.ts';
 import { themeManager } from '../theme/theme-manager.ts';
+import '@vaadin/icon';
 import '../icons/dorc-icons.js';
 import {
   drawerShortcuts,

@@ -10,6 +10,7 @@ import { EnvironmentApiModel } from '../apis/dorc-api';
 import { PageEnvBase } from '../components/environment-tabs/page-env-base';
 import { SuccessNotification } from '../components/notifications/success-notification';
 import '@vaadin/tabs/vaadin-tab';
+import '@vaadin/icon';
 import '../icons/dorc-icons.js';
 
 export enum EnvPageTabNames {

@@ -2,6 +2,7 @@ import { Button } from '@vaadin/button';
 import { GridItemModel } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
+import '@vaadin/icon';
 import '../../icons/dorc-icons.js';
 import { css, LitElement } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
