@@ -35,6 +35,8 @@ import '../components/project-workspace-nav';
 import '../components/terraform-backend-cutover';
 import GlobalCache from '../global-cache';
 import {
+  DEFAULT_POWERSHELL_VERSION,
+  FALLBACK_POWERSHELL_VERSIONS,
   GENERIC_SCRIPT_CATEGORIES,
   GENERIC_SCRIPT_TEMPLATES,
   serializeScriptPathValue,
@@ -114,7 +116,7 @@ export class PageProjectRefData extends PageElement {
     GENERIC_SCRIPT_TEMPLATES[0]?.id ?? '';
   @state() private genericDialogStepName =
     GENERIC_SCRIPT_TEMPLATES[0]?.defaultStepName ?? 'Deploy MSI';
-  @state() private genericDialogPsVersion = '5.1';
+  @state() private genericDialogPsVersion = DEFAULT_POWERSHELL_VERSION;
   @state() private genericDialogArgs: Record<string, string> = {};
   @state() private scriptCatalogLoading = false;
   @state() private scriptCatalogItems: DeploymentDefinitionApiModel[] = [];
@@ -769,7 +771,9 @@ export class PageProjectRefData extends PageElement {
                 ComponentName:
                   searchParams.get('addScriptName') || 'Script step',
                 ScriptPath: addScriptPath,
-                PSVersion: searchParams.get('addPsVersion') || '5.1',
+                PSVersion:
+                  searchParams.get('addPsVersion') ||
+                  DEFAULT_POWERSHELL_VERSION,
                 NonProdOnly: searchParams.get('addNonProdOnly') === 'true',
                 StopOnFailure: searchParams.get('addStopOnFailure') !== 'false',
                 IsEnabled: true
@@ -1006,7 +1010,7 @@ export class PageProjectRefData extends PageElement {
       IsEnabled: true,
       StopOnFailure: true,
       NonProdOnly: false,
-      PSVersion: '5.1',
+      PSVersion: DEFAULT_POWERSHELL_VERSION,
       ParentId: 0,
       Children: []
     });
@@ -1042,7 +1046,7 @@ export class PageProjectRefData extends PageElement {
       IsEnabled: source.IsEnabled ?? true,
       StopOnFailure: source.StopOnFailure ?? true,
       NonProdOnly: source.NonProdOnly ?? false,
-      PSVersion: source.PSVersion ?? '5.1',
+      PSVersion: source.PSVersion ?? DEFAULT_POWERSHELL_VERSION,
       ParentId: source.ParentId ?? 0,
       Children: []
     };
@@ -1075,7 +1079,7 @@ export class PageProjectRefData extends PageElement {
       IsEnabled: target.IsEnabled ?? true,
       StopOnFailure: target.StopOnFailure ?? true,
       NonProdOnly: target.NonProdOnly ?? false,
-      PSVersion: target.PSVersion ?? '5.1',
+      PSVersion: target.PSVersion ?? DEFAULT_POWERSHELL_VERSION,
       ParentId: target.ComponentId ?? 0,
       Children: []
     });
@@ -1145,7 +1149,7 @@ export class PageProjectRefData extends PageElement {
       {
         ComponentName: this.genericDialogStepName || template.defaultStepName,
         ScriptPath: scriptPath,
-        PSVersion: this.genericDialogPsVersion || '5.1',
+        PSVersion: this.genericDialogPsVersion || DEFAULT_POWERSHELL_VERSION,
         IsEnabled: true,
         StopOnFailure: true,
         NonProdOnly: false
@@ -1213,7 +1217,7 @@ export class PageProjectRefData extends PageElement {
       IsEnabled: comp.IsEnabled ?? true,
       StopOnFailure: comp.StopOnFailure ?? true,
       NonProdOnly: comp.NonProdOnly ?? false,
-      PSVersion: comp.PSVersion ?? '5.1',
+      PSVersion: comp.PSVersion ?? DEFAULT_POWERSHELL_VERSION,
       ParentId: 0,
       Children: []
     };
@@ -1900,13 +1904,13 @@ export class PageProjectRefData extends PageElement {
                           .items=${
                             this.powerShellVersions.length
                               ? this.powerShellVersions
-                              : ['5.1', '7.4']
+                              : [...FALLBACK_POWERSHELL_VERSIONS]
                           }
                           .value=${this.genericDialogPsVersion}
                           @change=${(event: Event) => {
                             this.genericDialogPsVersion =
                               (event.currentTarget as HTMLInputElement).value ||
-                              '5.1';
+                              DEFAULT_POWERSHELL_VERSION;
                           }}
                         ></vaadin-combo-box>
                         ${activeTemplate.parameters.map(param =>
@@ -2011,7 +2015,7 @@ export class PageProjectRefData extends PageElement {
                                     >
                                     <span
                                       >${item.Component?.ScriptPath ?? ''}
-                                      (${item.Component?.PSVersion ?? '5.1'})</span
+                                      (${item.Component?.PSVersion ?? DEFAULT_POWERSHELL_VERSION})</span
                                     >
                                   </div>
                                   <vaadin-button

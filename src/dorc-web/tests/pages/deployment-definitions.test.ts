@@ -49,7 +49,7 @@ vi.mock('../../src/apis/dorc-api', async importOriginal => ({
     refDataPut = mocks.save;
   },
   PowerShellVersionsApi: class {
-    powerShellVersionsGet = () => of([{ Value: '5.1' }, { Value: '7.4' }]);
+    powerShellVersionsGet = () => of([{ Value: 'v5.1' }, { Value: 'v7' }]);
   },
   RefDataProjectsApi: class {
     refDataProjectsGet = mocks.projects;
@@ -848,7 +848,7 @@ describe('definition history and discovery', () => {
       ParentId: 10,
       ScriptPath:
         '{"ScriptPath":"00 Generic\\\\DeployMSI.ps1","GenericArguments":[{"msiName":"Payments.Service.msi"}]}',
-      PSVersion: '5.1'
+      PSVersion: 'v7'
     });
     expect(saved.Components[0].Children[2]).to.include({
       ComponentName: 'Database Backup',
@@ -873,5 +873,43 @@ describe('definition history and discovery', () => {
       page.shadowRoot!.querySelector<HTMLElement>('.terraform-state-pane')
         ?.hidden
     ).to.equal(false);
+  });
+
+  it('defaults newly added PowerShell components and child components under containers to v7', async () => {
+    const data = reference();
+    mocks.get.mockReturnValue(
+      of({
+        ...data,
+        Components: [
+          {
+            ComponentId: 20,
+            ComponentName: 'Container Group',
+            ComponentType: ComponentType.PowerShell,
+            PSVersion: undefined,
+            IsEnabled: true,
+            ScriptPath: '',
+            Children: []
+          }
+        ]
+      })
+    );
+    const page = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+
+    clickButton(page.shadowRoot!, 'Add child');
+    await settle();
+    clickButton(page.shadowRoot!, 'Add component');
+    await settle();
+
+    clickButton(page.shadowRoot!, 'Review changes');
+    await settle();
+    clickButton(page.shadowRoot!, 'Confirm save');
+    await settle();
+
+    const saved = mocks.save.mock.calls[0][0].refDataApiModel;
+    expect(saved.Components[0].Children[0].PSVersion).to.equal('v7');
+    expect(saved.Components[1].PSVersion).to.equal('v7');
   });
 });
