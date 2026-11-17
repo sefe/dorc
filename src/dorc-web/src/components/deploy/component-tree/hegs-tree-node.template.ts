@@ -113,7 +113,7 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
         ${
           this.actions && this.actions.length > 0
             ? html`
-                <div id="actions">
+                <div id="actions" @focusout="${this._onActionsFocusOut}">
                   <vaadin-button
                     theme="icon small"
                     class="actions-trigger"
@@ -121,6 +121,7 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
                     aria-haspopup="menu"
                     aria-expanded=${this.actionsOpen ? 'true' : 'false'}
                     @click="${this._toggleActions}"
+                    @keydown="${this._onActionsTriggerKeyDown}"
                   >
                     <vaadin-icon
                       icon="dorc:edit"
@@ -131,13 +132,18 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
                   ${
                     this.actionsOpen
                       ? html`
-                          <div class="actions-menu" role="menu">
+                          <div
+                            class="actions-menu"
+                            role="menu"
+                            @keydown="${this._onActionsMenuKeyDown}"
+                          >
                             ${this.actions.map(
-                              (action: TreeAction) => html`
+                              (action: TreeAction, index: number) => html`
                                 <button
                                   type="button"
                                   class="action-item"
                                   role="menuitem"
+                                  tabindex=${index === 0 ? '0' : '-1'}
                                   @click="${(e: Event) => {
                                     e.stopPropagation();
                                     this._actionClicked(action);

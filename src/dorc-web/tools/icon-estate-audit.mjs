@@ -1,21 +1,23 @@
 /**
- * Canonical icon estate build gate for dorc-web.
+ * Canonical icon & legacy-Polymer estate build gate for dorc-web.
  *
  * Enforces that all UI icons in `src/` resolve through the single canonical
- * `<vaadin-iconset name="dorc" size="24">` registry in `src/icons/dorc-icons.ts`:
- *   1. No imports of retired/competing icon packages (`@vaadin/icons`,
- *      `@vaadin/vaadin-lumo-styles/icons`, `@polymer/iron-icon*`,
- *      `@polymer/paper-icon-button`, `line-awesome`, or `brand-icons`).
- *   2. Outside `src/icons/dorc-icons.ts`, no `<vaadin-iconset>`, `<iron-icon>`,
- *      `<paper-icon-button>`, ad-hoc inline `<svg>`, or Line Awesome classes.
+ * `<vaadin-iconset name="dorc" size="24">` registry in `src/icons/dorc-icons.ts`,
+ * and prevents retired Polymer `<paper-*>` / `<iron-*>` elements from returning:
+ *   1. No imports of retired/competing packages (`@vaadin/icons`,
+ *      `@vaadin/vaadin-lumo-styles/icons`, `@polymer/*`, `line-awesome`, or
+ *      `brand-icons`).
+ *   2. Outside `src/icons/dorc-icons.ts`, no `<vaadin-iconset>`, `<paper-*>`,
+ *      `<iron-*>`, ad-hoc inline `<svg>`, or Line Awesome classes.
  *   3. No legacy non-`dorc:` iconset namespace prefixes (`vaadin:`, `lumo:`,
  *      `brand:`, `la:`, `iron:`, `av:`, `icons:`, `hardware:`, `inline:`, etc.).
  *   4. Every `dorc:<name>` literal and `dorcIcon('<name>')` call resolves to a
- *      registered name in `DORC_ICON_NAMES`, with no untyped `dorc:${...}`
+ *      registered name in `DORC_ICON_NAMES`, with no untyped `dorc:...${...}`
  *      string interpolation outside `src/icons/dorc-icons.ts`.
- *   5. Every component/template rendering `<vaadin-icon>` imports `@vaadin/icon`
- *      (directly or via its companion `.ts` host), and never sets hardcoded
- *      hex/named CSS colors on `<vaadin-icon>` instead of `--dorc-*`/`--lumo-*`.
+ *   5. Every component/template rendering `<vaadin-icon>` has a runtime import
+ *      of `@vaadin/icon` (type-only imports do not register custom elements),
+ *      and inline `color` styles on `<vaadin-icon>` use only theme tokens
+ *      (`var(--dorc-*)` / `var(--lumo-*)`) or `currentColor`/`inherit`.
  *   6. When scanning a tree that owns `icons/dorc-icons.ts`, every entry in
  *      `DORC_ICON_NAMES` has >=1 reference (no orphaned icons) and clean
  *      monochrome `currentColor` SVG definitions (no hex fills or inner IDs).
@@ -49,7 +51,7 @@ const SKIP_DIRS = new Set(['apis', 'node_modules']);
 const FORBIDDEN_IMPORT_PATTERNS = [
   /^@vaadin\/icons(?:\/|$)/,
   /^@vaadin\/vaadin-lumo-styles\/(?:icons|vaadin-icons|lumo-icons)(?:\.js)?$/,
-  /^@polymer\/(?:iron-icon|iron-icons|paper-icon-button)(?:\/|$)/,
+  /^@polymer\//,
   /^line-awesome(?:\/|$)/,
   /(?:^|\/)brand-icons(?:\.[jt]s)?$/
 ];
@@ -60,33 +62,35 @@ const LEGACY_NAMESPACE_RE =
 const DORC_NAMESPACE_RE = /\bdorc:([A-Za-z0-9_-]*)(?!\/)/g;
 
 const VAADIN_ICON_TAG_RE = /<\s*vaadin-icon(?:\s|>|\/|$)/i;
+const VAADIN_ICON_OPEN_TAG_RE = /<\s*vaadin-icon\b[^>]*>/gi;
 
-const HARDCODED_ICON_COLOR_RE =
-  /<\s*vaadin-icon\b[^>]*\bstyle\s*=\s*["'][^"']*\bcolor\s*:\s*(#[0-9a-fA-F]{3,8}\b|\b(?:red|darkred|green|darkgreen|blue|cornflowerblue|orange|grey|gray|black|white|crimson|goldenrod|purple|teal)\b)/gi;
+const ALLOWED_ICON_COLOR_RE =
+  /^(?:currentcolor|inherit|initial|unset|var\(\s*--[a-zA-Z0-9_-]+\s*(?:,\s*(?:currentcolor|inherit|initial|unset|var\(\s*--[a-zA-Z0-9_-]+\s*\))\s*)?\))$/i;
 
 const FORBIDDEN_MARKUP_RULES = [
   {
     re: /<\s*vaadin-iconset\b/gi,
-    message:
+    formatMessage: () =>
       'defines <vaadin-iconset> outside src/icons/dorc-icons.ts — register all icons in the canonical dorc iconset'
   },
   {
-    re: /<\s*iron-icon\b/gi,
-    message: 'uses legacy <iron-icon> — use <vaadin-icon icon="dorc:*"> instead'
+    re: /<\s*(iron-[a-z0-9-]+)\b/gi,
+    formatMessage: m =>
+      `uses legacy Polymer <${m[1].toLowerCase()}> element — use Vaadin/Lit components or <vaadin-icon icon="dorc:*"> instead`
   },
   {
-    re: /<\s*paper-icon-button\b/gi,
-    message:
-      'uses legacy <paper-icon-button> — use <vaadin-button theme="icon"> with <vaadin-icon icon="dorc:*"> instead'
+    re: /<\s*(paper-[a-z0-9-]+)\b/gi,
+    formatMessage: m =>
+      `uses legacy Polymer <${m[1].toLowerCase()}> element — use Vaadin/Lit components instead`
   },
   {
     re: /<\s*svg\b/gi,
-    message:
+    formatMessage: () =>
       'embeds inline <svg> outside src/icons/dorc-icons.ts — add the glyph to DORC_ICON_DEFS and render via <vaadin-icon icon="dorc:*">'
   },
   {
     re: /\bla-(?:solid|regular|brands|light|thin|duotone)\b|\bla\s+la-[a-z0-9-]+\b/g,
-    message:
+    formatMessage: () =>
       'uses legacy Line Awesome icon class — use <vaadin-icon icon="dorc:*"> instead'
   }
 ];
@@ -258,6 +262,50 @@ if (hasLocalRegistry) {
   }
 }
 
+function isRuntimeImport(node) {
+  if (!node.importClause) return true; // side-effect `import '@vaadin/icon'`
+  if (node.importClause.isTypeOnly) return false;
+  if (node.importClause.name) return true;
+  const bindings = node.importClause.namedBindings;
+  if (!bindings) return false;
+  if (ts.isNamespaceImport(bindings)) return true;
+  return (
+    bindings.elements.length > 0 && bindings.elements.some(el => !el.isTypeOnly)
+  );
+}
+
+function isRuntimeExport(node) {
+  if (node.isTypeOnly) return false;
+  if (!node.exportClause) return true;
+  if (ts.isNamespaceExport(node.exportClause)) return true;
+  return (
+    node.exportClause.elements.length > 0 &&
+    node.exportClause.elements.some(el => !el.isTypeOnly)
+  );
+}
+
+function isAllowedIconColorValue(raw) {
+  const cleaned = raw
+    .trim()
+    .replace(/\s*!important\s*$/i, '')
+    .trim();
+  return cleaned.length === 0 || ALLOWED_ICON_COLOR_RE.test(cleaned);
+}
+
+function collectLeafStringLiterals(expr, out = []) {
+  const unwrapped = ts.isParenthesizedExpression(expr) ? expr.expression : expr;
+  if (
+    ts.isStringLiteral(unwrapped) ||
+    ts.isNoSubstitutionTemplateLiteral(unwrapped)
+  ) {
+    out.push({ node: unwrapped, text: unwrapped.text });
+  } else if (ts.isConditionalExpression(unwrapped)) {
+    collectLeafStringLiterals(unwrapped.whenTrue, out);
+    collectLeafStringLiterals(unwrapped.whenFalse, out);
+  }
+  return out;
+}
+
 const filesImportingVaadinIcon = new Set();
 const filesRenderingVaadinIcon = [];
 
@@ -265,8 +313,8 @@ for (const { file, relFromSrc, text } of fileEntries) {
   const isRegistryFile = relFromSrc === 'icons/dorc-icons.ts';
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
 
-  const checkImportSpecifier = (specNode, specText) => {
-    if (/^@vaadin\/icon(?:\/|$)/.test(specText)) {
+  const checkImportSpecifier = (specNode, specText, isRuntime) => {
+    if (isRuntime && /^@vaadin\/icon(?:\/|$)/.test(specText)) {
       filesImportingVaadinIcon.add(file);
     }
     if (FORBIDDEN_IMPORT_PATTERNS.some(re => re.test(specText))) {
@@ -276,41 +324,119 @@ for (const { file, relFromSrc, text } of fileEntries) {
       report(
         file,
         line,
-        `forbidden legacy icon import "${specText}" — import src/icons/dorc-icons.js and use <vaadin-icon icon="dorc:*">`
+        `forbidden legacy package import "${specText}" — use Vaadin/Lit components and import src/icons/dorc-icons.js`
       );
     }
   };
 
   let firstVaadinIconLine = 0;
 
-  const scanTextChunk = (node, chunk) => {
-    if (!isRegistryFile) {
-      for (const rule of FORBIDDEN_MARKUP_RULES) {
-        rule.re.lastIndex = 0;
-        let m;
-        while ((m = rule.re.exec(chunk)) !== null) {
-          report(file, lineForMatch(source, node, m.index), rule.message);
-        }
-      }
-
-      if (firstVaadinIconLine === 0) {
-        const tagMatch = VAADIN_ICON_TAG_RE.exec(chunk);
-        if (tagMatch) {
-          firstVaadinIconLine = lineForMatch(source, node, tagMatch.index);
-        }
-      }
-
-      HARDCODED_ICON_COLOR_RE.lastIndex = 0;
-      let colorMatch;
-      while ((colorMatch = HARDCODED_ICON_COLOR_RE.exec(chunk)) !== null) {
+  const checkIconColorExpression = (expr, fallbackLine) => {
+    if (!expr) return;
+    for (const lit of collectLeafStringLiterals(expr)) {
+      if (!isAllowedIconColorValue(lit.text)) {
         report(
           file,
-          lineForMatch(source, node, colorMatch.index),
-          `sets hardcoded inline color "${colorMatch[1]}" on <vaadin-icon> — use var(--dorc-*) / var(--lumo-*) tokens or currentColor so dark theme stays legible`
+          lineForMatch(source, lit.node, 0),
+          `sets hardcoded inline color "${lit.text.trim()}" on <vaadin-icon> — use var(--dorc-*) / var(--lumo-*) tokens or currentColor so dark theme stays legible`
         );
       }
     }
+    if (ts.isCallExpression(expr)) {
+      const callee = ts.isIdentifier(expr.expression)
+        ? expr.expression.text
+        : '';
+      const [styleObj] = expr.arguments;
+      if (
+        callee === 'styleMap' &&
+        styleObj &&
+        ts.isObjectLiteralExpression(styleObj)
+      ) {
+        for (const prop of styleObj.properties) {
+          if (
+            ts.isPropertyAssignment(prop) &&
+            prop.name.getText(source).replace(/['"]/g, '') === 'color'
+          ) {
+            for (const lit of collectLeafStringLiterals(prop.initializer)) {
+              if (!isAllowedIconColorValue(lit.text)) {
+                report(
+                  file,
+                  fallbackLine ?? lineForMatch(source, lit.node, 0),
+                  `sets hardcoded inline color "${lit.text.trim()}" on <vaadin-icon> — use var(--dorc-*) / var(--lumo-*) tokens or currentColor so dark theme stays legible`
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+  };
 
+  const scanMarkupSurface = (surfaceText, lineAtOffset, expressions = []) => {
+    if (isRegistryFile) return;
+
+    for (const rule of FORBIDDEN_MARKUP_RULES) {
+      rule.re.lastIndex = 0;
+      let m;
+      while ((m = rule.re.exec(surfaceText)) !== null) {
+        report(file, lineAtOffset(m.index), rule.formatMessage(m));
+      }
+    }
+
+    if (firstVaadinIconLine === 0) {
+      const tagMatch = VAADIN_ICON_TAG_RE.exec(surfaceText);
+      if (tagMatch) {
+        firstVaadinIconLine = lineAtOffset(tagMatch.index);
+      }
+    }
+
+    VAADIN_ICON_OPEN_TAG_RE.lastIndex = 0;
+    let openTagMatch;
+    while (
+      (openTagMatch = VAADIN_ICON_OPEN_TAG_RE.exec(surfaceText)) !== null
+    ) {
+      const openTag = openTagMatch[0];
+      const tagStart = openTagMatch.index;
+      const styleAttrRe =
+        /\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)'|(\uE000\d+\uE001))/gi;
+      let styleAttr;
+      while ((styleAttr = styleAttrRe.exec(openTag)) !== null) {
+        const styleLine = lineAtOffset(tagStart + styleAttr.index);
+        if (styleAttr[3]) {
+          const exprIdx = Number(styleAttr[3].slice(1, -1));
+          checkIconColorExpression(expressions.at(exprIdx), styleLine);
+          continue;
+        }
+        const styleBody = styleAttr[1] ?? styleAttr[2] ?? '';
+        const colorDeclRe = /(?:^|;)\s*color\s*:\s*([^;]+)/gi;
+        let colorDecl;
+        while ((colorDecl = colorDeclRe.exec(styleBody)) !== null) {
+          const rawVal = colorDecl[1].trim();
+          const pureExpr = /^\uE000(\d+)\uE001$/.exec(rawVal);
+          if (pureExpr) {
+            checkIconColorExpression(
+              expressions.at(Number(pureExpr[1])),
+              styleLine
+            );
+            continue;
+          }
+          if (!isAllowedIconColorValue(rawVal)) {
+            const displayVal = rawVal
+              .replace(/\uE000\d+\uE001/g, '${...}')
+              .replace(/\s*!important\s*$/i, '')
+              .trim();
+            report(
+              file,
+              styleLine,
+              `sets hardcoded inline color "${displayVal}" on <vaadin-icon> — use var(--dorc-*) / var(--lumo-*) tokens or currentColor so dark theme stays legible`
+            );
+          }
+        }
+      }
+    }
+  };
+
+  const scanNamespaceChunk = (node, chunk) => {
     LEGACY_NAMESPACE_RE.lastIndex = 0;
     let legacyMatch;
     while ((legacyMatch = LEGACY_NAMESPACE_RE.exec(chunk)) !== null) {
@@ -321,29 +447,30 @@ for (const { file, relFromSrc, text } of fileEntries) {
       );
     }
 
-    const hasTrailingDynamicDorcPrefix =
-      (ts.isTemplateHead(node) || ts.isTemplateMiddle(node)) &&
-      /\bdorc:$/.test(chunk);
+    const trailingDynamicMatch =
+      ts.isTemplateHead(node) || ts.isTemplateMiddle(node)
+        ? /\bdorc:([A-Za-z0-9_-]*)$/.exec(chunk)
+        : null;
 
-    if (hasTrailingDynamicDorcPrefix && !isRegistryFile) {
-      const prefixIdx = chunk.lastIndexOf('dorc:');
+    if (trailingDynamicMatch && !isRegistryFile) {
       report(
         file,
-        lineForMatch(source, node, prefixIdx),
-        'constructs dynamic "dorc:${...}" icon ID — use dorcIcon(name) or a literal "dorc:<name>" so every icon reference is statically verified'
+        lineForMatch(source, node, trailingDynamicMatch.index),
+        `constructs dynamic "dorc:${trailingDynamicMatch[1]}\${...}" icon ID — use dorcIcon(name) or a literal "dorc:<name>" so every icon reference is statically verified`
       );
     }
 
     DORC_NAMESPACE_RE.lastIndex = 0;
     let dorcMatch;
     while ((dorcMatch = DORC_NAMESPACE_RE.exec(chunk)) !== null) {
-      const slug = dorcMatch[1];
-      const isAtTemplateInterpolationBoundary =
-        hasTrailingDynamicDorcPrefix &&
-        slug === '' &&
-        dorcMatch.index + dorcMatch[0].length === chunk.length;
-      if (isAtTemplateInterpolationBoundary) continue;
+      if (
+        trailingDynamicMatch !== null &&
+        dorcMatch.index === trailingDynamicMatch.index
+      ) {
+        continue;
+      }
 
+      const slug = dorcMatch[1];
       if (!slug || !/^[a-z0-9-]+$/.test(slug) || !canonicalNames.has(slug)) {
         report(
           file,
@@ -363,7 +490,11 @@ for (const { file, relFromSrc, text } of fileEntries) {
       ts.isImportDeclaration(node) &&
       ts.isStringLiteral(node.moduleSpecifier)
     ) {
-      checkImportSpecifier(node.moduleSpecifier, node.moduleSpecifier.text);
+      checkImportSpecifier(
+        node.moduleSpecifier,
+        node.moduleSpecifier.text,
+        isRuntimeImport(node)
+      );
       return;
     }
 
@@ -372,7 +503,11 @@ for (const { file, relFromSrc, text } of fileEntries) {
       node.moduleSpecifier &&
       ts.isStringLiteral(node.moduleSpecifier)
     ) {
-      checkImportSpecifier(node.moduleSpecifier, node.moduleSpecifier.text);
+      checkImportSpecifier(
+        node.moduleSpecifier,
+        node.moduleSpecifier.text,
+        isRuntimeExport(node)
+      );
       return;
     }
 
@@ -383,7 +518,7 @@ for (const { file, relFromSrc, text } of fileEntries) {
         firstArg &&
         ts.isStringLiteral(firstArg)
       ) {
-        checkImportSpecifier(firstArg, firstArg.text);
+        checkImportSpecifier(firstArg, firstArg.text, true);
       }
 
       const calleeName = ts.isIdentifier(node.expression)
@@ -413,6 +548,44 @@ for (const { file, relFromSrc, text } of fileEntries) {
       }
     }
 
+    if (ts.isTemplateExpression(node)) {
+      let combined = node.head.text;
+      const segments = [
+        { outStart: 0, outEnd: combined.length, litNode: node.head }
+      ];
+      const expressions = [];
+      for (const span of node.templateSpans) {
+        const exprIdx = expressions.length;
+        expressions.push(span.expression);
+        combined += `\uE000${exprIdx}\uE001`;
+        const segStart = combined.length;
+        combined += span.literal.text;
+        segments.push({
+          outStart: segStart,
+          outEnd: combined.length,
+          litNode: span.literal
+        });
+      }
+      const lineAtOffset = offset => {
+        const seg =
+          segments.find(s => offset <= s.outEnd) ??
+          segments[segments.length - 1];
+        return lineForMatch(
+          source,
+          seg.litNode,
+          Math.max(0, offset - seg.outStart)
+        );
+      };
+      scanMarkupSurface(combined, lineAtOffset, expressions);
+    } else if (
+      ts.isStringLiteral(node) ||
+      ts.isNoSubstitutionTemplateLiteral(node)
+    ) {
+      scanMarkupSurface(node.text, offset =>
+        lineForMatch(source, node, offset)
+      );
+    }
+
     if (
       ts.isStringLiteral(node) ||
       ts.isNoSubstitutionTemplateLiteral(node) ||
@@ -420,7 +593,7 @@ for (const { file, relFromSrc, text } of fileEntries) {
       ts.isTemplateMiddle(node) ||
       ts.isTemplateTail(node)
     ) {
-      scanTextChunk(node, node.text);
+      scanNamespaceChunk(node, node.text);
     }
 
     ts.forEachChild(node, visit);

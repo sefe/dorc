@@ -136,8 +136,10 @@ export class PageEnvironment extends PageElement {
           this.parentName
             ? html`<vaadin-icon
                 icon="dorc:environment-child"
+                role="img"
+                aria-label="Child of ${this.parentName}"
                 title="Child of ${this.parentName}"
-                style="color: grey"
+                style="color: var(--dorc-text-secondary)"
               ></vaadin-icon>`
             : html``
         }

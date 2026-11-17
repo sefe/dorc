@@ -233,8 +233,13 @@ const CASES = [
   ...[
     [
       'forbidden-import',
-      'forbidden legacy icon import "@vaadin/icons"',
+      'forbidden legacy package import "@vaadin/icons"',
       'blocks re-introducing @vaadin/icons or other retired icon packages'
+    ],
+    [
+      'polymer-import',
+      'forbidden legacy package import "@polymer/paper-listbox/paper-listbox.js"',
+      'blocks re-introducing any @polymer/* package'
     ],
     [
       'legacy-namespace',
@@ -252,6 +257,11 @@ const CASES = [
       'prevents untyped template interpolation from bypassing DORC_ICON_NAMES validation'
     ],
     [
+      'partial-dynamic-dorc-id',
+      'constructs dynamic "dorc:edit${...}" icon ID',
+      'catches partial interpolated slugs like dorc:edit${suffix}'
+    ],
+    [
       'inline-svg',
       'embeds inline <svg> outside src/icons/dorc-icons.ts',
       'keeps all vector icon definitions consolidated in DORC_ICON_DEFS'
@@ -263,8 +273,16 @@ const CASES = [
     ],
     [
       'legacy-element',
-      'uses legacy <paper-icon-button>',
+      'uses legacy Polymer <paper-icon-button> element',
       'prevents Polymer <paper-icon-button> / <iron-icon> elements from returning'
+    ],
+    [
+      'polymer-paper-item',
+      [
+        'uses legacy Polymer <paper-item> element',
+        'uses legacy Polymer <iron-collapse> element'
+      ],
+      'prevents any <paper-*> or <iron-*> element from returning'
     ],
     [
       'line-awesome-class',
@@ -277,9 +295,29 @@ const CASES = [
       'ensures every component rendering <vaadin-icon> registers the custom element'
     ],
     [
+      'type-only-vaadin-icon-import',
+      'renders <vaadin-icon> without importing "@vaadin/icon"',
+      'declaration-level `import type` is erased at compile time and does not register <vaadin-icon>'
+    ],
+    [
+      'specifier-type-only-vaadin-icon-import',
+      'renders <vaadin-icon> without importing "@vaadin/icon"',
+      'specifier-level `{ type Icon }` is erased at compile time and does not register <vaadin-icon>'
+    ],
+    [
       'hardcoded-icon-color',
       'sets hardcoded inline color "cornflowerblue" on <vaadin-icon>',
       'enforces theme tokens (var(--dorc-*)) or currentColor on <vaadin-icon>'
+    ],
+    [
+      'unlisted-named-color',
+      'sets hardcoded inline color "yellow" on <vaadin-icon>',
+      'validates <vaadin-icon> color against token allowlist rather than a partial named-color denylist'
+    ],
+    [
+      'interpolated-attr-color',
+      'sets hardcoded inline color "red" on <vaadin-icon>',
+      'catches inline color on <vaadin-icon> even when preceded by interpolated attributes'
     ],
     [
       'unused-canonical-icon',

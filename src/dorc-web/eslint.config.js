@@ -34,14 +34,14 @@ export default [
                 '@vaadin/vaadin-lumo-styles/icons*',
                 '@vaadin/vaadin-lumo-styles/vaadin-icons*',
                 '@vaadin/vaadin-lumo-styles/lumo-icons*',
-                '@polymer/iron-icon*',
-                '@polymer/paper-icon-button*',
+                '@polymer/*',
+                '@polymer/**',
                 'line-awesome*',
                 '**/brand-icons',
                 '**/brand-icons.*'
               ],
               message:
-                'Legacy icon packages are retired. Import src/icons/dorc-icons.js and render <vaadin-icon icon="dorc:*">.'
+                'Legacy icon and Polymer packages are retired. Use Vaadin/Lit components, import src/icons/dorc-icons.js, and render <vaadin-icon icon="dorc:*">.'
             }
           ]
         }
