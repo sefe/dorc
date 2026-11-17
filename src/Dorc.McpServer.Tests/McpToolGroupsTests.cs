@@ -186,12 +186,24 @@ public sealed class McpToolGroupsTests
         Assert.IsTrue((await tools.ListBundledRequestsAsync(["  "])).Succeeded);
 
         gateway.GetAsync<List<BundledRequestsApiModel>>("BundledRequests?projectNames=P1&projectNames=P2", Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Success(new List<BundledRequestsApiModel>()));
+            .Returns(new McpToolOutcome<List<BundledRequestsApiModel>>(true, new List<BundledRequestsApiModel>(), null, null));
         Assert.IsTrue((await tools.ListBundledRequestsAsync([" P1 ", "P2"])).Succeeded);
 
+        gateway.GetAsync<List<BundledRequestsApiModel>>("BundledRequests?projectNames=FAIL", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Failure<List<BundledRequestsApiModel>>("err", 500));
+        Assert.IsFalse((await tools.ListBundledRequestsAsync(["FAIL"])).Succeeded);
+
         gateway.GetAsync<List<BundledRequestsApiModel>>("BundledRequests/RequestsForBundle?bundleName=B1", Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Success(new List<BundledRequestsApiModel>()));
+            .Returns(new McpToolOutcome<List<BundledRequestsApiModel>>(true, new List<BundledRequestsApiModel>(), null, null));
         Assert.IsTrue((await tools.ListRequestsForBundleAsync("B1")).Succeeded);
+
+        gateway.GetAsync<List<BundledRequestsApiModel>>("BundledRequests/RequestsForBundle?bundleName=B2", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<BundledRequestsApiModel>(), 200));
+        Assert.IsTrue((await tools.ListRequestsForBundleAsync("B2")).Succeeded);
+
+        gateway.GetAsync<List<BundledRequestsApiModel>>("BundledRequests/RequestsForBundle?bundleName=FAIL", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Failure<List<BundledRequestsApiModel>>("err", 500));
+        Assert.IsFalse((await tools.ListRequestsForBundleAsync("FAIL")).Succeeded);
     }
 
     [TestMethod]
@@ -255,14 +267,18 @@ public sealed class McpToolGroupsTests
 
         var tools = new PropertyResolutionTools(gateway);
 
-        // GetPropertyValuesAsync: no filters, both filters, failure
-        gateway.GetAsync<List<PropertyValueDto>>("PropertyValues", Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Success(new List<PropertyValueDto>()));
-        Assert.IsTrue((await tools.GetPropertyValuesAsync(null, null)).Succeeded);
+        // GetPropertyValuesAsync: no filters (validation error), both filters, failure
+        var noFiltersResult = await tools.GetPropertyValuesAsync(null, null);
+        Assert.IsFalse(noFiltersResult.Succeeded);
+        StringAssert.Contains(noFiltersResult.Error!, "At least one of 'propertyName' or 'environmentName' must be provided");
 
         gateway.GetAsync<List<PropertyValueDto>>("PropertyValues?propertyName=P1&environmentName=DEV", Arg.Any<CancellationToken>())
             .Returns(McpToolOutcome.Success(new List<PropertyValueDto>()));
         Assert.IsTrue((await tools.GetPropertyValuesAsync(" P1 ", " DEV ")).Succeeded);
+
+        gateway.GetAsync<List<PropertyValueDto>>("PropertyValues?environmentName=DEV", Arg.Any<CancellationToken>())
+            .Returns(new McpToolOutcome<List<PropertyValueDto>>(true, new List<PropertyValueDto>(), null, null));
+        Assert.IsTrue((await tools.GetPropertyValuesAsync(null, "DEV")).Succeeded);
 
         gateway.GetAsync<List<PropertyValueDto>>("PropertyValues?propertyName=ERR", Arg.Any<CancellationToken>())
             .Returns(McpToolOutcome.Failure<List<PropertyValueDto>>("fail", 500));
@@ -398,24 +414,16 @@ public sealed class McpToolGroupsTests
         // Guard block
         Assert.IsFalse((await roTools.ChangeDaemonStatusAsync("DEV", "srv", "svc", "Starting")).Succeeded);
 
-        // DaemonStatus lookup failure (with and without status code)
-        gateway.GetAsync<List<DaemonStatusApiModel>>("DaemonStatus/ERR-ENV", Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Failure<List<DaemonStatusApiModel>>("lookup failed", 500));
-        Assert.IsFalse((await tools.ChangeDaemonStatusAsync("ERR-ENV", "srv", "svc", "Starting")).Succeeded);
-
-        gateway.GetAsync<List<DaemonStatusApiModel>>("DaemonStatus/NULL-ENV", Arg.Any<CancellationToken>())
-            .Returns(new McpToolOutcome<List<DaemonStatusApiModel>>(true, null, "empty", null));
-        Assert.IsFalse((await tools.ChangeDaemonStatusAsync("NULL-ENV", "srv", "svc", "Starting")).Succeeded);
-
-        // Unmapped server or daemon
-        gateway.GetAsync<List<DaemonStatusApiModel>>("DaemonStatus/DEV", Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Success(new List<DaemonStatusApiModel>
+        // Set up environment, server, and daemon mapping for DEV
+        gateway.GetAsync<List<EnvironmentApiModel>>("RefDataEnvironments?env=DEV", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<EnvironmentApiModel> { new() { EnvironmentId = 1, EnvironmentName = "DEV" } }));
+        gateway.GetAsync<EnvironmentContentApiModel>("RefDataEnvironmentsDetails/1", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new EnvironmentContentApiModel
             {
-                new() { EnvName = "DEV", ServerName = "srv", DaemonName = "svc" }
+                AppServers = [new ServerApiModel { ServerId = 3, Name = "srv", EnvironmentNames = ["DEV"] }]
             }));
-        Assert.IsFalse((await tools.ChangeDaemonStatusAsync("DEV", "other-srv", "svc", "Starting")).Succeeded);
-        Assert.IsFalse((await tools.ChangeDaemonStatusAsync("DEV", "srv", "other-svc", "Starting")).Succeeded);
-        Assert.IsFalse((await tools.ChangeDaemonStatusAsync("DEV", null!, null!, "Starting")).Succeeded);
+        gateway.GetAsync<List<DaemonApiModel>>("ServerDaemons/3", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<DaemonApiModel> { new() { Name = "svc" } }));
 
         // Valid statuses: starting, stopping, restarting
         gateway.PutStringResponseAsync("DaemonStatus", Arg.Any<DaemonStatusApiModel>(), Arg.Any<CancellationToken>())

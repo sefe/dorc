@@ -15,10 +15,10 @@ public sealed class PropertyResolutionTools
     }
 
     [McpServerTool(Name = "dorc_get_property_values", ReadOnly = true)]
-    [Description("Gets property values filtered by property name and/or environment name. Secure property values are automatically redacted.")]
+    [Description("Gets property values filtered by property name and/or environment name (at least one filter is required). Secure property values are automatically redacted.")]
     public async Task<McpToolOutcome<List<PropertyValueDto>>> GetPropertyValuesAsync(
-        [Description("Optional property name filter.")] string? propertyName = null,
-        [Description("Optional environment name filter.")] string? environmentName = null,
+        [Description("Optional property name filter (at least one of propertyName or environmentName must be provided).")] string? propertyName = null,
+        [Description("Optional environment name filter (at least one of propertyName or environmentName must be provided).")] string? environmentName = null,
         CancellationToken cancellationToken = default)
     {
         var queryParts = new List<string>();
@@ -32,9 +32,13 @@ public sealed class PropertyResolutionTools
             queryParts.Add($"environmentName={Uri.EscapeDataString(environmentName.Trim())}");
         }
 
-        var path = queryParts.Count == 0
-            ? "PropertyValues"
-            : $"PropertyValues?{string.Join("&", queryParts)}";
+        if (queryParts.Count == 0)
+        {
+            return McpToolOutcome.Failure<List<PropertyValueDto>>(
+                "At least one of 'propertyName' or 'environmentName' must be provided. Use 'dorc_search_property_values' for unfiltered paged searches.");
+        }
+
+        var path = $"PropertyValues?{string.Join("&", queryParts)}";
 
         var outcome = await _apiGateway.GetAsync<List<PropertyValueDto>>(path, cancellationToken).ConfigureAwait(false);
         if (!outcome.Succeeded)

@@ -182,9 +182,9 @@ public sealed class DeploymentRequestTools
         [Description("Project name.")] string project,
         [Description("Target environment name.")] string environment,
         [Description("Component names to deploy.")] List<string> components,
-        [Description("Optional build URL (mutually exclusive with buildNum).")] string? buildUrl = null,
-        [Description("Optional build number (mutually exclusive with buildUrl).")] string? buildNum = null,
-        [Description("Optional build text / label.")] string? buildText = null,
+        [Description("Optional build artifact URL. Artifact-backed deployments require buildNum together with either buildUrl or buildText; omit build metadata only for artifact-free catalog deployments.")] string? buildUrl = null,
+        [Description("Optional build number. Required for artifact-backed deployments alongside either buildUrl or buildText; omit only for artifact-free catalog deployments.")] string? buildNum = null,
+        [Description("Optional build text / label. May be paired with buildNum instead of buildUrl for artifact-backed deployments.")] string? buildText = null,
         [Description("Whether to pin the request (default false).")] bool pinned = false,
         [Description("Optional list of deployment request properties.")] List<RequestProperty>? requestProperties = null,
         CancellationToken cancellationToken = default)

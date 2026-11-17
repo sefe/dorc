@@ -137,6 +137,125 @@ public sealed class ProductionEnvironmentGuard
             cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<string?> CheckDaemonMutationAllowedAsync(
+        string operationName,
+        string? environmentName,
+        string? serverName,
+        string? daemonName,
+        IDorcApiGateway apiGateway,
+        CancellationToken cancellationToken)
+    {
+        var readOnlyError = CheckMutationAllowed(operationName);
+        if (readOnlyError is not null)
+        {
+            return readOnlyError;
+        }
+
+        if (string.IsNullOrWhiteSpace(environmentName))
+        {
+            return $"Operation '{operationName}' requires a non-empty target environment name.";
+        }
+
+        if (string.IsNullOrWhiteSpace(serverName) || string.IsNullOrWhiteSpace(daemonName))
+        {
+            return $"Operation '{operationName}' requires non-empty serverName and daemonName.";
+        }
+
+        var trimmedEnv = environmentName.Trim();
+        var trimmedServer = serverName.Trim();
+        var trimmedDaemon = daemonName.Trim();
+
+        if (!_options.AllowProd && IsProductionEnvironmentName(trimmedEnv))
+        {
+            return $"Operation '{operationName}' targeting environment '{trimmedEnv}' is blocked because production mutations are disabled (DORC_MCP_ALLOW_PROD=false).";
+        }
+
+        var envOutcome = await apiGateway.GetAsync<List<EnvironmentApiModel>>(
+            $"RefDataEnvironments?env={Uri.EscapeDataString(trimmedEnv)}",
+            cancellationToken).ConfigureAwait(false);
+
+        if (!envOutcome.Succeeded || envOutcome.Data is null)
+        {
+            return $"Operation '{operationName}' targeting environment '{trimmedEnv}' could not verify environment metadata (HTTP {envOutcome.HttpStatusCode?.ToString() ?? "error"}: {envOutcome.Error}).";
+        }
+
+        var matchingEnv = envOutcome.Data.FirstOrDefault(e =>
+            string.Equals(e.EnvironmentName, trimmedEnv, StringComparison.OrdinalIgnoreCase));
+
+        if (matchingEnv is null)
+        {
+            return $"Operation '{operationName}' could not find environment '{trimmedEnv}'.";
+        }
+
+        if (!_options.AllowProd && (matchingEnv.EnvironmentIsProd || matchingEnv.EnvironmentSecure))
+        {
+            return $"Operation '{operationName}' targeting production or secure environment '{trimmedEnv}' (EnvironmentIsProd={matchingEnv.EnvironmentIsProd}, EnvironmentSecure={matchingEnv.EnvironmentSecure}) is blocked because DORC_MCP_ALLOW_PROD=false.";
+        }
+
+        var detailsOutcome = await apiGateway.GetAsync<EnvironmentContentApiModel>(
+            $"RefDataEnvironmentsDetails/{matchingEnv.EnvironmentId}",
+            cancellationToken).ConfigureAwait(false);
+
+        if (!detailsOutcome.Succeeded || detailsOutcome.Data?.AppServers is null)
+        {
+            return $"Operation '{operationName}' could not retrieve servers for environment '{trimmedEnv}' (HTTP {detailsOutcome.HttpStatusCode?.ToString() ?? "error"}: {detailsOutcome.Error}).";
+        }
+
+        var targetServer = detailsOutcome.Data.AppServers.FirstOrDefault(s =>
+            string.Equals(s.Name, trimmedServer, StringComparison.OrdinalIgnoreCase));
+
+        if (targetServer is null)
+        {
+            return $"Operation '{operationName}' blocked because server '{trimmedServer}' does not belong to environment '{trimmedEnv}'.";
+        }
+
+        if (!_options.AllowProd)
+        {
+            if (targetServer.EnvironmentNames is null || targetServer.EnvironmentNames.Count == 0)
+            {
+                return $"Operation '{operationName}' could not verify all environment associations for server '{trimmedServer}'. Refusing to mutate when DORC_MCP_ALLOW_PROD=false.";
+            }
+
+            foreach (var associatedEnv in targetServer.EnvironmentNames)
+            {
+                if (string.Equals(associatedEnv, trimmedEnv, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var assocCheck = await CheckEnvironmentMutationAllowedAsync(
+                    operationName,
+                    associatedEnv,
+                    apiGateway,
+                    cancellationToken).ConfigureAwait(false);
+
+                if (assocCheck is not null)
+                {
+                    return $"Operation '{operationName}' on shared server '{trimmedServer}' is blocked because associated environment '{associatedEnv}' is protected: {assocCheck}";
+                }
+            }
+        }
+
+        var daemonsOutcome = await apiGateway.GetAsync<List<DaemonApiModel>>(
+            $"ServerDaemons/{targetServer.ServerId}",
+            cancellationToken).ConfigureAwait(false);
+
+        if (!daemonsOutcome.Succeeded || daemonsOutcome.Data is null)
+        {
+            return $"Operation '{operationName}' could not retrieve mapped daemons for server '{trimmedServer}' (HTTP {daemonsOutcome.HttpStatusCode?.ToString() ?? "error"}: {daemonsOutcome.Error}).";
+        }
+
+        var isDaemonMapped = daemonsOutcome.Data.Any(d =>
+            string.Equals(d.Name, trimmedDaemon, StringComparison.OrdinalIgnoreCase));
+
+        if (!isDaemonMapped)
+        {
+            return $"Operation '{operationName}' blocked because daemon '{trimmedDaemon}' is not mapped to server '{trimmedServer}'.";
+        }
+
+        return null;
+    }
+
     public async Task<string?> CheckRequestMutationAllowedAsync(
         string operationName,
         int requestId,

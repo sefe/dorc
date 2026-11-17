@@ -142,4 +142,71 @@ public static class SecretRedactor
             Items = redactedItems
         };
     }
+
+    public static List<BundledRequestsApiModel> RedactBundledRequests(IEnumerable<BundledRequestsApiModel>? items)
+    {
+        if (items is null)
+        {
+            return [];
+        }
+
+        var options = DorcJsonSerialization.CreateOptions();
+        var redacted = new List<BundledRequestsApiModel>();
+
+        foreach (var item in items)
+        {
+            redacted.Add(new BundledRequestsApiModel
+            {
+                Id = item.Id,
+                BundleName = item.BundleName,
+                ProjectId = item.ProjectId,
+                Type = item.Type,
+                RequestName = item.RequestName,
+                Sequence = item.Sequence,
+                Request = RedactBundledRequestJson(item.Request, options)
+            });
+        }
+
+        return redacted;
+    }
+
+    public static string? RedactBundledRequestJson(string? requestJson, System.Text.Json.JsonSerializerOptions? options = null)
+    {
+        if (string.IsNullOrWhiteSpace(requestJson))
+        {
+            return requestJson;
+        }
+
+        var serializerOptions = options ?? DorcJsonSerialization.CreateOptions();
+        try
+        {
+            var dto = System.Text.Json.JsonSerializer.Deserialize<RequestDto>(requestJson, serializerOptions);
+            if (dto is null)
+            {
+                return RedactedMarker;
+            }
+
+            if (dto.RequestProperties is not null)
+            {
+                dto.RequestProperties = dto.RequestProperties
+                    .Select(p =>
+                    {
+                        var isSensitive = p.IsSensitive || IsLikelySensitiveName(p.PropertyName);
+                        return new RequestProperty
+                        {
+                            PropertyName = p.PropertyName,
+                            PropertyValue = isSensitive ? RedactedMarker : p.PropertyValue,
+                            IsSensitive = p.IsSensitive
+                        };
+                    })
+                    .ToList();
+            }
+
+            return System.Text.Json.JsonSerializer.Serialize(dto, serializerOptions);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return RedactedMarker;
+        }
+    }
 }

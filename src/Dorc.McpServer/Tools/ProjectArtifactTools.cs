@@ -98,8 +98,8 @@ public sealed class ProjectArtifactTools
     }
 
     [McpServerTool(Name = "dorc_list_bundled_requests", ReadOnly = true)]
-    [Description("Lists bundled request definitions for one or more projects.")]
-    public Task<McpToolOutcome<List<BundledRequestsApiModel>>> ListBundledRequestsAsync(
+    [Description("Lists bundled request definitions for one or more projects. Sensitive request property values are redacted.")]
+    public async Task<McpToolOutcome<List<BundledRequestsApiModel>>> ListBundledRequestsAsync(
         [Description("Project names to query.")] List<string> projectNames,
         CancellationToken cancellationToken = default)
     {
@@ -108,17 +108,30 @@ public sealed class ProjectArtifactTools
             .Select(p => $"projectNames={Uri.EscapeDataString(p.Trim())}"));
 
         var path = string.IsNullOrEmpty(query) ? "BundledRequests" : $"BundledRequests?{query}";
-        return _apiGateway.GetAsync<List<BundledRequestsApiModel>>(path, cancellationToken);
+        var outcome = await _apiGateway.GetAsync<List<BundledRequestsApiModel>>(path, cancellationToken).ConfigureAwait(false);
+        if (!outcome.Succeeded)
+        {
+            return outcome;
+        }
+
+        return McpToolOutcome.Success(SecretRedactor.RedactBundledRequests(outcome.Data), outcome.HttpStatusCode ?? 200);
     }
 
     [McpServerTool(Name = "dorc_list_requests_for_bundle", ReadOnly = true)]
-    [Description("Lists template requests belonging to a specific bundle name.")]
-    public Task<McpToolOutcome<List<BundledRequestsApiModel>>> ListRequestsForBundleAsync(
+    [Description("Lists template requests belonging to a specific bundle name. Sensitive request property values are redacted.")]
+    public async Task<McpToolOutcome<List<BundledRequestsApiModel>>> ListRequestsForBundleAsync(
         [Description("Bundle name.")] string bundleName,
         CancellationToken cancellationToken = default)
     {
-        return _apiGateway.GetAsync<List<BundledRequestsApiModel>>(
+        var outcome = await _apiGateway.GetAsync<List<BundledRequestsApiModel>>(
             $"BundledRequests/RequestsForBundle?bundleName={Uri.EscapeDataString(bundleName)}",
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
+
+        if (!outcome.Succeeded)
+        {
+            return outcome;
+        }
+
+        return McpToolOutcome.Success(SecretRedactor.RedactBundledRequests(outcome.Data), outcome.HttpStatusCode ?? 200);
     }
 }

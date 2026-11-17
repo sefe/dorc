@@ -113,7 +113,9 @@ public sealed class OAuthTokenAcquirer : IOAuthTokenAcquirer, IDisposable
             Content = new FormUrlEncodedContent(formFields)
         };
 
-        var credentialsBytes = Encoding.UTF8.GetBytes($"{_options.ClientId}:{_options.ClientSecret}");
+        var encodedClientId = Uri.EscapeDataString(_options.ClientId);
+        var encodedClientSecret = Uri.EscapeDataString(_options.ClientSecret);
+        var credentialsBytes = Encoding.UTF8.GetBytes($"{encodedClientId}:{encodedClientSecret}");
         request.Headers.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(credentialsBytes));
 
         using var response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);

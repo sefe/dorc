@@ -68,7 +68,11 @@ public static class DorcMcpHostConfiguration
 
     public static HostApplicationBuilder CreateHostBuilder(string[] args)
     {
-        var builder = Host.CreateApplicationBuilder(args);
+        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        {
+            Args = args,
+            ContentRootPath = AppContext.BaseDirectory
+        });
 
         builder.Logging.ClearProviders();
         builder.Logging.AddConsole(options =>

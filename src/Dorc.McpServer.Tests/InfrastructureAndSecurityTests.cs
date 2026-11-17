@@ -22,6 +22,37 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
 
     public List<HttpRequestMessage> SentRequests { get; } = [];
 
+    public static HttpResponseMessage CreateJsonResponse(string json, HttpStatusCode statusCode = HttpStatusCode.OK)
+    {
+        return new HttpResponseMessage(statusCode)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        };
+    }
+
+    public static HttpResponseMessage CreateTextResponse(
+        string text,
+        HttpStatusCode statusCode = HttpStatusCode.OK,
+        string mediaType = "text/plain",
+        string? reasonPhrase = null)
+    {
+        var response = new HttpResponseMessage(statusCode)
+        {
+            Content = new StringContent(text, Encoding.UTF8, mediaType)
+        };
+        if (reasonPhrase is not null)
+        {
+            response.ReasonPhrase = reasonPhrase;
+        }
+
+        return response;
+    }
+
+    public static HttpResponseMessage CreateStatusResponse(HttpStatusCode statusCode)
+    {
+        return new HttpResponseMessage(statusCode);
+    }
+
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
         SentRequests.Add(request);
@@ -245,6 +276,48 @@ public sealed class InfrastructureAndSecurityTests
         Assert.AreEqual(SecretRedactor.RedactedMarker, audit.Items[0].ToValue);
         Assert.IsNull(audit.Items[1].FromValue);
         Assert.IsNull(audit.Items[1].ToValue);
+
+        // Bundled requests redaction
+        Assert.IsEmpty(SecretRedactor.RedactBundledRequests(null));
+        Assert.IsNull(SecretRedactor.RedactBundledRequestJson(null));
+        Assert.AreEqual("   ", SecretRedactor.RedactBundledRequestJson("   "));
+        Assert.AreEqual(SecretRedactor.RedactedMarker, SecretRedactor.RedactBundledRequestJson("null"));
+        Assert.AreEqual(SecretRedactor.RedactedMarker, SecretRedactor.RedactBundledRequestJson("{not-valid-json"));
+
+        var reqDtoWithNullPropsJson = "{\"Project\":\"P\",\"RequestProperties\":null}";
+        var redactedNullProps = SecretRedactor.RedactBundledRequestJson(reqDtoWithNullPropsJson);
+        StringAssert.Contains(redactedNullProps, "\"Project\":\"P\"");
+
+        var bundleRequestDto = new RequestDto
+        {
+            Project = "Proj1",
+            Environment = "DEV",
+            RequestProperties =
+            [
+                new RequestProperty { PropertyName = "PublicUrl", PropertyValue = "https://example.com", IsSensitive = false },
+                new RequestProperty { PropertyName = "FlaggedKey", PropertyValue = "flag-secret", IsSensitive = true },
+                new RequestProperty { PropertyName = "DbPassword", PropertyValue = "name-secret", IsSensitive = false }
+            ]
+        };
+        var bundleJson = JsonSerializer.Serialize(bundleRequestDto, DorcJsonSerialization.CreateOptions());
+        var redactedBundles = SecretRedactor.RedactBundledRequests(
+        [
+            new BundledRequestsApiModel
+            {
+                Id = 9,
+                BundleName = "B1",
+                ProjectId = 1,
+                Type = BundledRequestType.JobRequest,
+                RequestName = "R1",
+                Sequence = 1,
+                Request = bundleJson
+            }
+        ]);
+        Assert.HasCount(1, redactedBundles);
+        StringAssert.Contains(redactedBundles[0].Request, "https://example.com");
+        Assert.IsFalse(redactedBundles[0].Request.Contains("flag-secret", StringComparison.Ordinal));
+        Assert.IsFalse(redactedBundles[0].Request.Contains("name-secret", StringComparison.Ordinal));
+        StringAssert.Contains(redactedBundles[0].Request, SecretRedactor.RedactedMarker);
     }
 
     [TestMethod]
@@ -355,6 +428,82 @@ public sealed class InfrastructureAndSecurityTests
             .Returns(McpToolOutcome.Success(new TerraformPlanApiModel { Receipt = new TerraformDeploymentReceiptApiModel { EnvironmentName = "DEV-01" } }));
         Assert.IsNull(await nonProdGuard.CheckTerraformPlanMutationAllowedAsync("op", 409, "DEV-01", gateway, CancellationToken.None));
         Assert.IsNull(await nonProdGuard.CheckTerraformPlanMutationAllowedAsync("op", 409, null, gateway, CancellationToken.None));
+
+        // Daemon mutation checks:
+        StringAssert.Contains(await readOnlyGuard.CheckDaemonMutationAllowedAsync("op", "DEV-01", "srv", "svc", gateway, CancellationToken.None), "read-only mode");
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "  ", "srv", "svc", gateway, CancellationToken.None), "requires a non-empty target environment name");
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "DEV-01", "  ", "svc", gateway, CancellationToken.None), "requires non-empty serverName and daemonName");
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "DEV-01", "srv", "  ", gateway, CancellationToken.None), "requires non-empty serverName and daemonName");
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "PROD-01", "srv", "svc", gateway, CancellationToken.None), "DORC_MCP_ALLOW_PROD=false");
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "UAT-FAIL", "srv", "svc", gateway, CancellationToken.None), "HTTP error");
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "UAT-NULL", "srv", "svc", gateway, CancellationToken.None), "HTTP 502");
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "UAT-MISSING", "srv", "svc", gateway, CancellationToken.None), "could not find environment");
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "LIVE-01", "srv", "svc", gateway, CancellationToken.None), "EnvironmentIsProd=True");
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "SEC-01", "srv", "svc", gateway, CancellationToken.None), "EnvironmentSecure=True");
+
+        // Details lookup failures (with status code, without status code, and null AppServers)
+        gateway.GetAsync<List<EnvironmentApiModel>>("RefDataEnvironments?env=DEV-DET-ERR", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<EnvironmentApiModel> { new() { EnvironmentId = 11, EnvironmentName = "DEV-DET-ERR" } }));
+        gateway.GetAsync<EnvironmentContentApiModel>("RefDataEnvironmentsDetails/11", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Failure<EnvironmentContentApiModel>("err", 500));
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "DEV-DET-ERR", "srv", "svc", gateway, CancellationToken.None), "HTTP 500");
+
+        gateway.GetAsync<List<EnvironmentApiModel>>("RefDataEnvironments?env=DEV-DET-NULL", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<EnvironmentApiModel> { new() { EnvironmentId = 12, EnvironmentName = "DEV-DET-NULL" } }));
+        gateway.GetAsync<EnvironmentContentApiModel>("RefDataEnvironmentsDetails/12", Arg.Any<CancellationToken>())
+            .Returns(new McpToolOutcome<EnvironmentContentApiModel>(true, null, "empty", null));
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "DEV-DET-NULL", "srv", "svc", gateway, CancellationToken.None), "HTTP error");
+
+        gateway.GetAsync<List<EnvironmentApiModel>>("RefDataEnvironments?env=DEV-DET-NOSRV", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<EnvironmentApiModel> { new() { EnvironmentId = 13, EnvironmentName = "DEV-DET-NOSRV" } }));
+        gateway.GetAsync<EnvironmentContentApiModel>("RefDataEnvironmentsDetails/13", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new EnvironmentContentApiModel { AppServers = null! }));
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "DEV-DET-NOSRV", "srv", "svc", gateway, CancellationToken.None), "could not retrieve servers");
+
+        // Server not in environment, server with null/empty EnvironmentNames, server shared with PROD, server shared with another non-prod env
+        gateway.GetAsync<List<EnvironmentApiModel>>("RefDataEnvironments?env=DEV-SRV", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<EnvironmentApiModel> { new() { EnvironmentId = 14, EnvironmentName = "DEV-SRV" } }));
+        gateway.GetAsync<EnvironmentContentApiModel>("RefDataEnvironmentsDetails/14", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new EnvironmentContentApiModel
+            {
+                AppServers =
+                [
+                    new ServerApiModel { ServerId = 101, Name = "srv-null-envs", EnvironmentNames = null! },
+                    new ServerApiModel { ServerId = 102, Name = "srv-empty-envs", EnvironmentNames = [] },
+                    new ServerApiModel { ServerId = 103, Name = "srv-shared-prod", EnvironmentNames = ["DEV-SRV", "PROD-01"] },
+                    new ServerApiModel { ServerId = 104, Name = "srv-daemons-err", EnvironmentNames = ["DEV-SRV", "DEV-01"] },
+                    new ServerApiModel { ServerId = 105, Name = "srv-daemons-null", EnvironmentNames = ["DEV-SRV"] },
+                    new ServerApiModel { ServerId = 106, Name = "srv-ok", EnvironmentNames = ["DEV-SRV"] }
+                ]
+            }));
+
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "DEV-SRV", "missing-srv", "svc", gateway, CancellationToken.None), "does not belong to environment");
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "DEV-SRV", "srv-null-envs", "svc", gateway, CancellationToken.None), "could not verify all environment associations");
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "DEV-SRV", "srv-empty-envs", "svc", gateway, CancellationToken.None), "could not verify all environment associations");
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "DEV-SRV", "srv-shared-prod", "svc", gateway, CancellationToken.None), "associated environment 'PROD-01' is protected");
+
+        gateway.GetAsync<List<DaemonApiModel>>("ServerDaemons/104", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Failure<List<DaemonApiModel>>("err", 503));
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "DEV-SRV", "srv-daemons-err", "svc", gateway, CancellationToken.None), "HTTP 503");
+
+        gateway.GetAsync<List<DaemonApiModel>>("ServerDaemons/105", Arg.Any<CancellationToken>())
+            .Returns(new McpToolOutcome<List<DaemonApiModel>>(true, null, "empty", null));
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "DEV-SRV", "srv-daemons-null", "svc", gateway, CancellationToken.None), "HTTP error");
+
+        gateway.GetAsync<List<DaemonApiModel>>("ServerDaemons/106", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<DaemonApiModel> { new() { Name = "svc" } }));
+        StringAssert.Contains(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "DEV-SRV", "srv-ok", "unmapped-svc", gateway, CancellationToken.None), "is not mapped to server");
+        Assert.IsNull(await nonProdGuard.CheckDaemonMutationAllowedAsync("op", "DEV-SRV", "srv-ok", "svc", gateway, CancellationToken.None));
+
+        // Also test allowProdGuard on LIVE-01 when server & daemon are mapped
+        gateway.GetAsync<List<EnvironmentApiModel>>("RefDataEnvironments?env=PROD-OK", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<EnvironmentApiModel> { new() { EnvironmentId = 15, EnvironmentName = "PROD-OK", EnvironmentIsProd = true, EnvironmentSecure = true } }));
+        gateway.GetAsync<EnvironmentContentApiModel>("RefDataEnvironmentsDetails/15", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new EnvironmentContentApiModel
+            {
+                AppServers = [new ServerApiModel { ServerId = 106, Name = "srv-ok", EnvironmentNames = null! }]
+            }));
+        Assert.IsNull(await allowProdGuard.CheckDaemonMutationAllowedAsync("op", "PROD-OK", "srv-ok", "svc", gateway, CancellationToken.None));
     }
 
     [TestMethod]
@@ -387,10 +536,7 @@ public sealed class InfrastructureAndSecurityTests
 
         // Invalid /ApiConfig (missing OAuthAuthority and blank OAuthAuthority)
         using (var badMetaHandler = new StubHttpMessageHandler((_, _) =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{}", Encoding.UTF8, "application/json")
-            })))
+            Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{}"))))
         using (var badMetaClient = new HttpClient(badMetaHandler))
         using (var badMetaAcquirer = new OAuthTokenAcquirer(badMetaClient, new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "c", ClientSecret = "s" }))
         {
@@ -399,10 +545,7 @@ public sealed class InfrastructureAndSecurityTests
         }
 
         using (var blankMetaHandler = new StubHttpMessageHandler((_, _) =>
-            Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{\"OAuthAuthority\":\"   \"}", Encoding.UTF8, "application/json")
-            })))
+            Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{\"OAuthAuthority\":\"   \"}"))))
         using (var blankMetaClient = new HttpClient(blankMetaHandler))
         using (var blankMetaAcquirer = new OAuthTokenAcquirer(blankMetaClient, new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "c", ClientSecret = "s" }))
         {
@@ -415,16 +558,10 @@ public sealed class InfrastructureAndSecurityTests
         {
             if (req.RequestUri!.AbsolutePath.EndsWith("/ApiConfig", StringComparison.Ordinal))
             {
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent("{\"OAuthAuthority\":\"https://idp.local\"}", Encoding.UTF8, "application/json")
-                });
+                return Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{\"OAuthAuthority\":\"https://idp.local\"}"));
             }
 
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{}", Encoding.UTF8, "application/json")
-            });
+            return Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{}"));
         }))
         using (var badDiscClient = new HttpClient(badDiscHandler))
         using (var badDiscAcquirer = new OAuthTokenAcquirer(badDiscClient, new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "c", ClientSecret = "s" }))
@@ -438,24 +575,15 @@ public sealed class InfrastructureAndSecurityTests
         {
             if (req.RequestUri!.AbsolutePath.EndsWith("/ApiConfig", StringComparison.Ordinal))
             {
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent("{\"OAuthAuthority\":\"https://idp.local\"}", Encoding.UTF8, "application/json")
-                });
+                return Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{\"OAuthAuthority\":\"https://idp.local\"}"));
             }
 
             if (req.RequestUri.AbsolutePath.Contains("openid-configuration", StringComparison.Ordinal))
             {
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent("{\"token_endpoint\":\"https://idp.local/connect/token\"}", Encoding.UTF8, "application/json")
-                });
+                return Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{\"token_endpoint\":\"https://idp.local/connect/token\"}"));
             }
 
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{}", Encoding.UTF8, "application/json")
-            });
+            return Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{}"));
         }))
         using (var badTokenClient = new HttpClient(badTokenHandler))
         using (var badTokenAcquirer = new OAuthTokenAcquirer(badTokenClient, new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "c", ClientSecret = "s", Scope = "" }))
@@ -471,34 +599,25 @@ public sealed class InfrastructureAndSecurityTests
         {
             if (req.RequestUri!.AbsolutePath.EndsWith("/ApiConfig", StringComparison.Ordinal))
             {
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent("{\"OAuthAuthority\":\"https://idp.local\"}", Encoding.UTF8, "application/json")
-                });
+                return Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{\"OAuthAuthority\":\"https://idp.local\"}"));
             }
 
             if (req.RequestUri.AbsolutePath.Contains("openid-configuration", StringComparison.Ordinal))
             {
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent("{\"token_endpoint\":\"https://idp.local/connect/token\"}", Encoding.UTF8, "application/json")
-                });
+                return Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{\"token_endpoint\":\"https://idp.local/connect/token\"}"));
             }
 
             tokenCallCount++;
             var body = tokenCallCount == 1
                 ? "{\"access_token\":\"tok-1\",\"expires_in\":120}"
                 : "{\"access_token\":\"tok-2\",\"expires_in\":\"not-a-number\"}";
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent(body, Encoding.UTF8, "application/json")
-            });
+            return Task.FromResult(StubHttpMessageHandler.CreateJsonResponse(body));
         });
 
         using var oauthHttpClient = new HttpClient(oauthHandler);
         using var acquirer = new OAuthTokenAcquirer(
             oauthHttpClient,
-            new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "cid", ClientSecret = "csec", Scope = "dorc-api.manage" },
+            new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "cid+1", ClientSecret = "csec:2", Scope = "dorc-api.manage" },
             fakeTime);
 
         var t1 = await acquirer.GetAccessTokenAsync(false, CancellationToken.None);
@@ -528,13 +647,10 @@ public sealed class InfrastructureAndSecurityTests
             apiAttempt++;
             if (!force200 && apiAttempt == 1)
             {
-                return Task.FromResult(new HttpResponseMessage(HttpStatusCode.Unauthorized));
+                return Task.FromResult(StubHttpMessageHandler.CreateStatusResponse(HttpStatusCode.Unauthorized));
             }
 
-            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-            {
-                Content = new StringContent("{\"Id\":1,\"Status\":\"Ok\"}", Encoding.UTF8, "application/json")
-            });
+            return Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{\"Id\":1,\"Status\":\"Ok\"}"));
         });
 
         using var refreshingHandler = new BearerTokenRefreshingHandler(acquirer)
@@ -584,32 +700,13 @@ public sealed class InfrastructureAndSecurityTests
         {
             return mode switch
             {
-                "json-ok" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent("{\"Id\":7,\"Status\":\"Complete\"}", Encoding.UTF8, "application/json")
-                }),
-                "empty-ok" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)
-                {
-                    Content = new StringContent(string.Empty)
-                }),
-                "error-with-body" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.BadRequest)
-                {
-                    Content = new StringContent("Bad input payload")
-                }),
-                "error-empty" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.Forbidden)
-                {
-                    ReasonPhrase = "Forbidden",
-                    Content = new StringContent("   ")
-                }),
-                "string-quoted" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent("\"Line 1\\nLine 2\"", Encoding.UTF8, "application/json")
-                }),
-                "string-null-literal" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new StringContent("Plain unquoted text", Encoding.UTF8, "text/plain")
-                }),
-                _ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK))
+                "json-ok" => Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{\"Id\":7,\"Status\":\"Complete\"}")),
+                "empty-ok" => Task.FromResult(StubHttpMessageHandler.CreateTextResponse(string.Empty, HttpStatusCode.NoContent)),
+                "error-with-body" => Task.FromResult(StubHttpMessageHandler.CreateTextResponse("Bad input payload", HttpStatusCode.BadRequest)),
+                "error-empty" => Task.FromResult(StubHttpMessageHandler.CreateTextResponse("   ", HttpStatusCode.Forbidden, "text/plain", "Forbidden")),
+                "string-quoted" => Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("\"Line 1\\nLine 2\"")),
+                "string-null-literal" => Task.FromResult(StubHttpMessageHandler.CreateTextResponse("Plain unquoted text")),
+                _ => Task.FromResult(StubHttpMessageHandler.CreateStatusResponse(HttpStatusCode.OK))
             };
         });
 
