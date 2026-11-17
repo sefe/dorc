@@ -2122,14 +2122,14 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
-        public async Task GetBlueprintSchemaContext_ReturnsComponentManifestParametersTierSuggestionsAndDriftWarnings()
+        public async Task GetTemplateSchemaContext_ReturnsComponentManifestParametersTierSuggestionsAndDriftWarnings()
         {
             Assert.IsInstanceOfType<BadRequestObjectResult>(
-                await _controller.GetBlueprintSchemaContext(0, null, CancellationToken.None));
+                await _controller.GetTemplateSchemaContext(0, null, CancellationToken.None));
 
             _projectsPersistentSource.GetProject(404).Returns((ProjectApiModel)null!);
             Assert.IsInstanceOfType<NotFoundObjectResult>(
-                await _controller.GetBlueprintSchemaContext(404, null, CancellationToken.None));
+                await _controller.GetTemplateSchemaContext(404, null, CancellationToken.None));
 
             var project = new ProjectApiModel { ProjectId = 10, ProjectName = "Traveler", BusinessVertical = "trading", ApplicationCode = "trv" };
             _projectsPersistentSource.GetProject(10).Returns(project);
@@ -2139,6 +2139,7 @@ namespace Dorc.Api.Tests.Controllers
                 EnvironmentName = "Traveler DV 01",
                 EnvironmentIsProd = false
             });
+            _securityPrivilegesChecker.CanModifyEnvironment(_user, "Traveler DV 01").Returns(true);
 
             _projectsPersistentSource.GetComponentsForProject(10).Returns(new[]
             {
@@ -2207,7 +2208,7 @@ namespace Dorc.Api.Tests.Controllers
                 }
             });
 
-            var result = await _controller.GetBlueprintSchemaContext(10, 20, CancellationToken.None) as OkObjectResult;
+            var result = await _controller.GetTemplateSchemaContext(10, 20, CancellationToken.None) as OkObjectResult;
             Assert.IsNotNull(result);
             var ctx = result.Value as EnvironmentBlueprintSchemaContextApiModel;
             Assert.IsNotNull(ctx);
@@ -2221,8 +2222,9 @@ namespace Dorc.Api.Tests.Controllers
             var skuParam = pgSchema.Parameters.First(p => p.Name == "sku_name");
             CollectionAssert.Contains(skuParam.AllowedValues, "B_Standard_B1ms");
             var tpParam = pgSchema.Parameters.First(p => p.Name == "termination_protection");
-            Assert.IsTrue(tpParam.IsSafetyInvariantLocked);
-            Assert.AreEqual("false", tpParam.ForcedInvariantValue);
+            Assert.IsTrue(tpParam.IsLockedSafetyInvariant);
+            Assert.AreEqual("true", tpParam.DefaultValue);
+            Assert.AreEqual("false", tpParam.TierSuggestedValues["ephemeral"]);
 
             var healthyStatus = ctx.TemplateHealth.First(h => h.TemplateId == 1);
             Assert.IsTrue(healthyStatus.IsHealthy);
@@ -2312,7 +2314,7 @@ namespace Dorc.Api.Tests.Controllers
 
             // 2. ImportTemplates (update existing + create new)
             _environmentTemplatesPersistentSource.GetTemplatesForProject(10).Returns(new[] { existingTemplate });
-            _environmentTemplatesPersistentSource.UpdateTemplate(55, Arg.Any<EnvironmentTemplateApiModel>(), Arg.Any<string>())
+            _environmentTemplatesPersistentSource.UpdateTemplate(Arg.Any<EnvironmentTemplateApiModel>(), Arg.Any<string>())
                 .Returns(ci => ci.Arg<EnvironmentTemplateApiModel>());
             _environmentTemplatesPersistentSource.CreateTemplate(Arg.Any<EnvironmentTemplateApiModel>(), Arg.Any<string>())
                 .Returns(ci =>
@@ -2350,7 +2352,7 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsNotNull(importResp);
             Assert.AreEqual(1, importResp.CreatedCount);
             Assert.AreEqual(1, importResp.UpdatedCount);
-            Assert.HasCount(2, importResp.Templates);
+            Assert.HasCount(2, importResp.ImportedTemplates);
 
             // 3. CloneTemplate
             var cloneOk = await _controller.CloneTemplate(
@@ -2376,8 +2378,8 @@ namespace Dorc.Api.Tests.Controllers
             var captured = captureOk.Value as EnvironmentTemplateApiModel;
             Assert.IsNotNull(captured);
             Assert.AreEqual("Captured From DV 01", captured.Name);
-            CollectionAssert.AreEqual(new[] { 101 }, captured.ProvisionComponentIds);
-            CollectionAssert.AreEqual(new[] { 102 }, captured.ValidationComponentIds);
+            CollectionAssert.AreEqual(new[] { 101 }, captured.ProvisionComponentIds.ToArray());
+            Assert.IsEmpty(captured.ValidationComponentIds);
         }
 
         private static TerraformTemplateManifest BuildManifest(
