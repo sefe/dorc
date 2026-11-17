@@ -1,5 +1,4 @@
 import { LitElement } from 'lit';
-import '@vaadin/icons';
 import '@vaadin/icon';
 import '@vaadin/button';
 import { customElement, property } from 'lit/decorators.js';
@@ -48,7 +47,7 @@ export class EnvDetailTab extends LitElement {
         aria-label="Close ${name} shortcut"
         @click="${this.removeEnvDetail}"
       >
-        <vaadin-icon icon="vaadin:close-small" theme="small"></vaadin-icon>
+        <vaadin-icon icon="dorc:close" theme="small"></vaadin-icon>
       </vaadin-button>
     `;
   }

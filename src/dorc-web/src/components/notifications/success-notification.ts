@@ -4,7 +4,7 @@ import '@vaadin/dialog';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
+import '../../icons/dorc-icons.js';
 import '@vaadin/notification';
 import '@vaadin/text-area';
 import '@vaadin/text-field';
@@ -52,7 +52,7 @@ export class SuccessNotification extends LitElement {
         @click="${() => (this.notificationOpened = false)}"
         aria-label="Close"
       >
-        <vaadin-icon icon="lumo:cross"></vaadin-icon>
+        <vaadin-icon icon="dorc:close"></vaadin-icon>
       </vaadin-button>
     </vaadin-horizontal-layout>
   `;

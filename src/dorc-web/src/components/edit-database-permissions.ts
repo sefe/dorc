@@ -4,7 +4,7 @@ import { css, LitElement } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/combo-box';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import '@vaadin/icon';
 import '@vaadin/button';
 import { ComboBox } from '@vaadin/combo-box';
@@ -130,7 +130,9 @@ export class EditDatabasePermissions extends LitElement {
                 <paper-item>
                   <span>${userPerm.Database} - ${userPerm.Role}</span>
                   <vaadin-icon
-                    icon="vaadin:unlink"
+                    icon="dorc:permission-revoke"
+                    title="Revoke permission"
+                    aria-label="Revoke permission"
                     style="color: var(--dorc-error-color)"
                     @click="${this._remove}"
                     .data="${userPerm}"

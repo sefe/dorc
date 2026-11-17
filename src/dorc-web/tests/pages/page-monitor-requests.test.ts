@@ -20,7 +20,6 @@ vi.mock('@vaadin/grid/vaadin-grid-column', () => ({}));
 vi.mock('@vaadin/grid/vaadin-grid-filter', () => ({}));
 vi.mock('@vaadin/grid/vaadin-grid-sort-column', () => ({}));
 vi.mock('@vaadin/grid/vaadin-grid-sorter', () => ({}));
-vi.mock('@vaadin/icons/vaadin-icons', () => ({}));
 vi.mock('@vaadin/text-field', () => ({}));
 vi.mock('@vaadin/notification', () => ({
   Notification: { show: vi.fn() }

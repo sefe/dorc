@@ -1,7 +1,7 @@
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
+import '../../icons/dorc-icons.js';
 import '@vaadin/icon';
 import { css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -140,7 +140,7 @@ export class EnvDaemons extends PageEnvBase {
       >
         <vaadin-details-summary slot="summary">
           <div class="summary-bar">
-            <vaadin-icon icon="vaadin:cogs" theme="small"></vaadin-icon>
+            <vaadin-icon icon="dorc:daemons" theme="small"></vaadin-icon>
             Application Daemon Details
             <span class="count-badge">${this.daemonCount}</span>
           </div>
@@ -153,7 +153,7 @@ export class EnvDaemons extends PageEnvBase {
                 .disabled="${!this.environment?.UserEditable || this.daemonsLoading || this.discovering}"
                 title="Load status of mapped daemons for this environment"
               >
-                <vaadin-icon icon="vaadin:refresh" slot="prefix"></vaadin-icon>
+                <vaadin-icon icon="dorc:refresh" slot="prefix"></vaadin-icon>
                 Load Daemons
               </vaadin-button>
               ${
@@ -174,7 +174,10 @@ export class EnvDaemons extends PageEnvBase {
               .disabled="${!this.environment?.UserEditable || this.daemonsLoading || this.discovering}"
               title="Scan all servers and automatically create daemon-server mappings for discovered services"
             >
-              <vaadin-icon icon="vaadin:search" slot="prefix"></vaadin-icon>
+              <vaadin-icon
+                icon="dorc:scan-discover"
+                slot="prefix"
+              ></vaadin-icon>
               Discover Daemons
             </vaadin-button>
           </div>

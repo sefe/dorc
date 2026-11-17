@@ -2,7 +2,7 @@ import '@vaadin/button';
 import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
+import '../../icons/dorc-icons.js';
 import '@vaadin/icon';
 import { css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -15,10 +15,7 @@ import { PageEnvBase } from './page-env-base';
 import '@vaadin/dialog';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
-import {
-  DatabaseApiModel,
-  RefDataDatabasesApi
-} from '../../apis/dorc-api';
+import { DatabaseApiModel, RefDataDatabasesApi } from '../../apis/dorc-api';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
 @customElement('env-databases')
@@ -120,7 +117,7 @@ export class EnvDatabases extends PageEnvBase {
       >
         <vaadin-details-summary slot="summary">
           <div class="summary-bar">
-            <vaadin-icon icon="vaadin:database" theme="small"></vaadin-icon>
+            <vaadin-icon icon="dorc:database" theme="small"></vaadin-icon>
             Application Database Details
             <span class="count-badge">${this.databases?.length ?? 0}</span>
           </div>
@@ -132,10 +129,7 @@ export class EnvDatabases extends PageEnvBase {
                 title="Attach Database"
                 @click="${this.openAttachDatabaseDialog}"
                 .disabled="${!this.environment?.UserEditable}"
-                ><vaadin-icon
-                  icon="vaadin:link"
-                  slot="prefix"
-                ></vaadin-icon>
+                ><vaadin-icon icon="dorc:link" slot="prefix"></vaadin-icon>
                 Attach Database</vaadin-button
               >
               <vaadin-dialog

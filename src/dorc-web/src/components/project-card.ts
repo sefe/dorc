@@ -4,7 +4,7 @@ import '@vaadin/grid/vaadin-grid';
 import { customElement, property } from 'lit/decorators.js';
 import { navigate } from '../router/router';
 import { html } from 'lit/html.js';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import '@vaadin/icon';
 import { ProjectApiModel } from '../apis/dorc-api';
 import '@vaadin/button';
@@ -100,7 +100,7 @@ export class ProjectCard extends LitElement {
                     text="Plan Terraform from the module catalog"
                   ></vaadin-tooltip>
                   <vaadin-icon
-                    icon="vaadin:puzzle-piece"
+                    icon="dorc:module-catalog"
                     style="color: var(--dorc-link-color)"
                   ></vaadin-icon>
                 </vaadin-button>`
@@ -116,7 +116,7 @@ export class ProjectCard extends LitElement {
               text="Project Environments for ${this.project?.ProjectName}"
             ></vaadin-tooltip>
             <vaadin-icon
-              icon="vaadin:records"
+              icon="dorc:environments"
               style="color: var(--dorc-link-color)"
             ></vaadin-icon>
           </vaadin-button>

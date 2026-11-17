@@ -3,7 +3,6 @@ import { confirmPrompt } from '../components/confirm-prompt';
 import '@vaadin/grid';
 import '../components/dorc-spinner';
 import '@vaadin/text-field';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '../icons/dorc-icons.js';
 import { css, PropertyValues } from 'lit';
@@ -142,7 +141,7 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
           clear-button-visible
           helper-text="Use | for multiple search terms"
         >
-          <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
+          <vaadin-icon slot="prefix" icon="dorc:search"></vaadin-icon>
         </vaadin-text-field>
         <vaadin-button
           title="Add Project"
@@ -150,7 +149,7 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
           @click="${this.addProject}"
         >
           <vaadin-icon
-            icon="vaadin:archive"
+            icon="dorc:plus"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon
           >Add Project...
@@ -273,7 +272,7 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
     } else if (isFileShare) {
       // Folder icon for file shares
       return html`<vaadin-icon
-        icon="vaadin:folder-open"
+        icon="dorc:folder-open"
         title="File Share"
         style="color: ${color}; width: ${size}px; height: ${size}px;"
       ></vaadin-icon>`;

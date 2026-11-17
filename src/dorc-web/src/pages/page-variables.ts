@@ -39,7 +39,7 @@ import { RefDataEnvironmentsApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import { PropertyValueDtoExtended } from '../components/model-extensions/PropertyValueDtoExtended';
 import GlobalCache from '../global-cache';
-import '@vaadin/icons';
+import '../icons/dorc-icons.js';
 import { navigate } from '../router/router';
 import '@vaadin/tooltip';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
@@ -223,7 +223,7 @@ export class PageVariables extends PageElement {
       >
         <vaadin-tooltip slot="tooltip" text="Value Lookup"></vaadin-tooltip
         ><vaadin-icon
-          icon="vaadin:search"
+          icon="dorc:search"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon
       ></vaadin-button>

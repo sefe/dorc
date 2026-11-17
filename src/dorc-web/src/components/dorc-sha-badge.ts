@@ -1,7 +1,7 @@
 import { css, html, nothing, TemplateResult } from 'lit';
 import { Notification } from '@vaadin/notification';
 import '@vaadin/icon';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 
 const HEX_SHA_EXACT = /^[0-9a-f]{12,64}$/i;
 const HEX_SHA_IN_TEXT = /\b([0-9a-f]{12,64})\b/gi;
@@ -56,7 +56,7 @@ export async function copyShaToClipboard(
       }, 1500);
     }
 
-    Notification.show(`Copied ${ formatShortSha(clean) } (${ clean })`, {
+    Notification.show(`Copied ${formatShortSha(clean)} (${clean})`, {
       position: 'bottom-start',
       duration: 2000
     });
@@ -139,9 +139,7 @@ export function renderShaBadge(
   const titleText = label
     ? `${label}: ${full} — click to copy full SHA`
     : `${full} — click to copy full SHA`;
-  const ariaLabel = label
-    ? `Copy ${label} ${full}`
-    : `Copy revision ${full}`;
+  const ariaLabel = label ? `Copy ${label} ${full}` : `Copy revision ${full}`;
 
   return html`<button
     type="button"
@@ -157,10 +155,7 @@ export function renderShaBadge(
   >
     ${label ? html`<span class="dorc-sha-badge__label">${label}</span>` : nothing}
     <span class="dorc-sha-badge__value">${short}</span>
-    <vaadin-icon
-      class="dorc-sha-badge__icon"
-      icon="vaadin:copy-o"
-    ></vaadin-icon>
+    <vaadin-icon class="dorc-sha-badge__icon" icon="dorc:copy"></vaadin-icon>
   </button>`;
 }
 
@@ -213,8 +208,10 @@ export function renderCompactSourceEvidence(
 
   return html`<span class="dorc-sha-meta">
     <span>${parts}</span>
-    ${!defAlreadyShown
-      ? html`${renderShaBadge(defRev, { label: 'def' })}`
-      : nothing}
+    ${
+      !defAlreadyShown
+        ? html`${renderShaBadge(defRev, { label: 'def' })}`
+        : nothing
+    }
   </span>`;
 }

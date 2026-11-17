@@ -10,6 +10,7 @@ import { EnvironmentApiModel } from '../apis/dorc-api';
 import { PageEnvBase } from '../components/environment-tabs/page-env-base';
 import { SuccessNotification } from '../components/notifications/success-notification';
 import '@vaadin/tabs/vaadin-tab';
+import '../icons/dorc-icons.js';
 
 export enum EnvPageTabNames {
   Metadata = 'metadata',
@@ -133,7 +134,7 @@ export class PageEnvironment extends PageElement {
         ${
           this.parentName
             ? html`<vaadin-icon
-                icon="vaadin:child"
+                icon="dorc:environment-child"
                 title="Child of ${this.parentName}"
                 style="color: grey"
               ></vaadin-icon>`

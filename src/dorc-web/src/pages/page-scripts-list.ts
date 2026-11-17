@@ -11,7 +11,6 @@ import '@vaadin/grid/vaadin-grid';
 import '@vaadin/checkbox';
 import '@vaadin/combo-box';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import '../components/add-daemon';
 import '@vaadin/text-field';
 import {

@@ -6,7 +6,7 @@ import '@vaadin/details';
 import '@vaadin/dialog';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
+import '../../icons/dorc-icons.js';
 import '@vaadin/icon';
 import '@vaadin/tooltip';
 import { columnBodyRenderer } from '@vaadin/grid/lit';
@@ -154,7 +154,7 @@ export class EnvApis extends PageEnvBase {
       >
         <vaadin-details-summary slot="summary">
           <div class="summary-bar">
-            <vaadin-icon icon="vaadin:connect-o" theme="small"></vaadin-icon>
+            <vaadin-icon icon="dorc:api-endpoint" theme="small"></vaadin-icon>
             API Details
             <span class="count-badge">${this.apiRegistrations.length}</span>
           </div>
@@ -166,7 +166,7 @@ export class EnvApis extends PageEnvBase {
               .disabled="${this.envReadOnly}"
               @click="${() => (this.attachDialogOpened = true)}"
             >
-              <vaadin-icon icon="vaadin:link" slot="prefix"></vaadin-icon>
+              <vaadin-icon icon="dorc:link" slot="prefix"></vaadin-icon>
               Attach API</vaadin-button
             >
             <vaadin-button
@@ -174,7 +174,7 @@ export class EnvApis extends PageEnvBase {
               .disabled="${this.envReadOnly || !this.canCreateDefinition}"
               @click="${this.openCreateDialog}"
             >
-              <vaadin-icon icon="vaadin:plus" slot="prefix"></vaadin-icon>
+              <vaadin-icon icon="dorc:plus" slot="prefix"></vaadin-icon>
               New API</vaadin-button
             >
           </div>
@@ -182,7 +182,7 @@ export class EnvApis extends PageEnvBase {
             class="empty-state"
             ?hidden="${this.apiRegistrations.length !== 0}"
           >
-            <vaadin-icon icon="vaadin:connect-o"></vaadin-icon>
+            <vaadin-icon icon="dorc:api-endpoint"></vaadin-icon>
             <span>No APIs attached to this environment yet</span>
           </div>
           <vaadin-grid
@@ -314,7 +314,7 @@ export class EnvApis extends PageEnvBase {
           text="View audit history"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:calendar-user"
+          icon="dorc:audit-history"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
@@ -329,10 +329,7 @@ export class EnvApis extends PageEnvBase {
           slot="tooltip"
           text="Edit API registration"
         ></vaadin-tooltip>
-        <vaadin-icon
-          icon="vaadin:edit"
-          style="color: ${editColor}"
-        ></vaadin-icon>
+        <vaadin-icon icon="dorc:edit" style="color: ${editColor}"></vaadin-icon>
       </vaadin-button>
       <vaadin-button
         class="row-button"
@@ -342,10 +339,7 @@ export class EnvApis extends PageEnvBase {
         @click="${() => this.openTagsDialog(item)}"
       >
         <vaadin-tooltip slot="tooltip" text="Edit API Tags"></vaadin-tooltip>
-        <vaadin-icon
-          icon="vaadin:tags"
-          style="color: ${editColor}"
-        ></vaadin-icon>
+        <vaadin-icon icon="dorc:tags" style="color: ${editColor}"></vaadin-icon>
       </vaadin-button>
       <vaadin-button
         class="row-button"
@@ -359,7 +353,7 @@ export class EnvApis extends PageEnvBase {
           text="Detach API registration"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:unlink"
+          icon="dorc:unlink"
           style="color: ${detachColor}"
         ></vaadin-icon>
       </vaadin-button>
@@ -374,7 +368,7 @@ export class EnvApis extends PageEnvBase {
           slot="tooltip"
           text="Delete definition from all environments"
         ></vaadin-tooltip>
-        <vaadin-icon icon="vaadin:trash"></vaadin-icon>
+        <vaadin-icon icon="dorc:trash"></vaadin-icon>
       </vaadin-button>
     `;
   };

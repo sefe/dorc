@@ -1,28 +1,28 @@
 import { html } from 'lit';
 import '@vaadin/icon';
 import { DatabaseApiModel, DatabaseType } from '../apis/dorc-api';
-import '../icons/brand-icons';
+import '../icons/dorc-icons.js';
 
 export const databaseTypes = [
   {
     value: DatabaseType.SqlServer,
     label: 'SQL Server',
-    icon: 'brand:microsoftsqlserver'
+    icon: 'dorc:brand-sqlserver'
   },
   {
     value: DatabaseType.CosmosDb,
     label: 'Cosmos DB',
-    icon: 'brand:cosmosdb'
+    icon: 'dorc:brand-cosmosdb'
   },
   {
     value: DatabaseType.ClickHouse,
     label: 'ClickHouse',
-    icon: 'brand:clickhouse'
+    icon: 'dorc:brand-clickhouse'
   },
   {
     value: DatabaseType.PostgreSql,
     label: 'PostgreSQL',
-    icon: 'brand:postgresql'
+    icon: 'dorc:brand-postgresql'
   }
 ];
 

@@ -11,8 +11,6 @@ import './dorc-navbar.ts';
 import { DorcNavbar } from './dorc-navbar.ts';
 import './theme-toggle.ts';
 import { themeManager } from '../theme/theme-manager.ts';
-import '@vaadin/icons';
-import '@vaadin/vaadin-lumo-styles/icons.js';
 import '../icons/dorc-icons.js';
 import {
   drawerShortcuts,
@@ -372,7 +370,7 @@ export class DorcApp extends LitElement {
           aria-expanded="${(this._narrowScreen ? this._drawerOpen : this._desktopSidebarVisible) ? 'true' : 'false'}"
           @click="${this.toggleSideBar}"
         >
-          <vaadin-icon icon="lumo:menu"></vaadin-icon>
+          <vaadin-icon icon="dorc:menu"></vaadin-icon>
         </vaadin-button>
         <img class="mascot" src="/modern-dorc.webp" alt="DOrc mascot" />
         ${
@@ -401,7 +399,7 @@ export class DorcApp extends LitElement {
           target="_blank"
           rel="noopener noreferrer"
         >
-          <vaadin-icon icon="vaadin:info-circle"></vaadin-icon>
+          <vaadin-icon icon="dorc:info"></vaadin-icon>
           Help
         </a>
       </header>

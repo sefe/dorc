@@ -1,5 +1,5 @@
 import '@vaadin/icon';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import { css, html, LitElement, nothing, PropertyValues } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import { drawerShortcuts } from './drawer-shortcuts';
@@ -199,42 +199,42 @@ export class ProjectWorkspaceNav extends LitElement {
                 }
                 @click=${() => this.pinProject()}
               >
-                <vaadin-icon icon="vaadin:archives" theme="small"></vaadin-icon>
+                <vaadin-icon icon="dorc:projects" theme="small"></vaadin-icon>
                 <span>${projectLabel}</span>
               </a>`
             : html`<span class="project-context">
-                <vaadin-icon icon="vaadin:archives" theme="small"></vaadin-icon>
+                <vaadin-icon icon="dorc:projects" theme="small"></vaadin-icon>
                 <span>${projectLabel}</span>
               </span>`
         }
         ${this.renderTab(
           'environments',
           'Environments',
-          'vaadin:cubes',
+          'dorc:environments',
           encodedName ? `/project-envs/${encodedName}` : undefined
         )}
         ${this.renderTab(
           'definitions',
           'Deployment Definitions',
-          'vaadin:file-tree',
+          'dorc:deployment-tree',
           hasId ? `/project-ref-data/${this.projectId}` : undefined
         )}
         ${this.renderTab(
           'components',
           'Component Deployments',
-          'vaadin:records',
+          'dorc:component-deployments',
           hasId ? `/project-components/${this.projectId}` : undefined
         )}
         ${this.renderTab(
           'bundles',
           'Bundles',
-          'vaadin:package',
+          'dorc:bundles',
           encodedName ? `/project-envs/${encodedName}/bundles` : undefined
         )}
         ${this.renderTab(
           'terraform-state',
           'Terraform State',
-          'vaadin:database',
+          'dorc:terraform-state',
           hasId
             ? `/project-ref-data/${this.projectId}?tab=terraform-state`
             : undefined

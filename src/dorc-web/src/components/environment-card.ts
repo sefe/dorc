@@ -5,7 +5,6 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { EnvironmentApiModel } from '../apis/dorc-api';
 import { RefDataProjectEnvironmentMappingsApi } from '../apis/dorc-api';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '../icons/dorc-icons.js';
 import { AccessControlType } from '../apis/dorc-api';
@@ -148,7 +147,7 @@ export class EnvironmentCard extends LitElement {
                 text="Detach Environment"
               ></vaadin-tooltip>
               <vaadin-icon
-                icon="vaadin:unlink"
+                icon="dorc:unlink"
                 style="color: var(--dorc-error-color)"
               ></vaadin-icon>
             </vaadin-button>
@@ -163,7 +162,7 @@ export class EnvironmentCard extends LitElement {
                 text="Access Control..."
               ></vaadin-tooltip>
               <vaadin-icon
-                icon="vaadin:lock"
+                icon="dorc:access-control"
                 style="color: var(--dorc-link-color)"
               ></vaadin-icon>
             </vaadin-button>
