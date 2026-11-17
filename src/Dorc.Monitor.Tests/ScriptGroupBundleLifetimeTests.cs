@@ -192,7 +192,7 @@ namespace Dorc.Monitor.Tests
                 File.Delete(resolvedPath);
                 var ex = Assert.ThrowsExactly<System.Reflection.TargetInvocationException>(
                     () => method.Invoke(NewDispatcher(), new object?[] { powerShellVersionNumber }));
-                Assert.IsInstanceOfType<FileNotFoundException>(ex.InnerException);
+                Assert.IsInstanceOfType<InvalidOperationException>(ex.InnerException);
             }
             finally
             {
