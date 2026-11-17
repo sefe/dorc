@@ -48,7 +48,10 @@ export class AccessControlControls extends LitElement {
         ?disabled="${this.disabled}"
       >
         <vaadin-tooltip slot="tooltip" text="Remove Access"></vaadin-tooltip>
-        <vaadin-icon icon="dorc:trash" style=${styleMap(styles)}></vaadin-icon>
+        <vaadin-icon
+          icon="dorc:permission-revoke"
+          style=${styleMap(styles)}
+        ></vaadin-icon>
       </vaadin-button>
     `;
   }
