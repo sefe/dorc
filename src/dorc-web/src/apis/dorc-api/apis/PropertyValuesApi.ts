@@ -16,6 +16,8 @@ import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI } from '../runtime';
 import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
+    PropertyResolutionPreviewRequestApiModel,
+    PropertyResolutionTraceApiModel,
     PropertyValueDto,
     PropertyValueScopeOptionApiModel,
     Response,
@@ -42,6 +44,10 @@ export interface ApiPropertyValuesPutRequest {
     propertyValueDto?: Array<PropertyValueDto>;
 }
 
+export interface ApiPropertyValuesResolvePreviewPostRequest {
+    propertyResolutionPreviewRequestApiModel?: PropertyResolutionPreviewRequestApiModel;
+}
+
 export interface ApiPropertyValuesScopeOptionsGetRequest {
     propertyValueScope?: string;
 }
@@ -65,6 +71,10 @@ export interface PropertyValuesPostRequest {
 
 export interface PropertyValuesPutRequest {
     propertyValueDto?: Array<PropertyValueDto>;
+}
+
+export interface PropertyValuesResolvePreviewPostRequest {
+    propertyResolutionPreviewRequestApiModel?: PropertyResolutionPreviewRequestApiModel;
 }
 
 export interface PropertyValuesScopeOptionsGetRequest {
@@ -205,6 +215,31 @@ export class PropertyValuesApi extends BaseAPI {
             method: 'PUT',
             headers,
             body: propertyValueDto,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    apiPropertyValuesResolvePreviewPost({ propertyResolutionPreviewRequestApiModel }: ApiPropertyValuesResolvePreviewPostRequest): Observable<Array<PropertyResolutionTraceApiModel>>
+    apiPropertyValuesResolvePreviewPost({ propertyResolutionPreviewRequestApiModel }: ApiPropertyValuesResolvePreviewPostRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<PropertyResolutionTraceApiModel>>>
+    apiPropertyValuesResolvePreviewPost({ propertyResolutionPreviewRequestApiModel }: ApiPropertyValuesResolvePreviewPostRequest, opts?: OperationOpts): Observable<Array<PropertyResolutionTraceApiModel> | AjaxResponse<Array<PropertyResolutionTraceApiModel>>> {
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<Array<PropertyResolutionTraceApiModel>>({
+            url: '/api/PropertyValues/ResolvePreview',
+            method: 'POST',
+            headers,
+            body: propertyResolutionPreviewRequestApiModel,
         }, opts?.responseOpts);
     };
 
@@ -365,6 +400,31 @@ export class PropertyValuesApi extends BaseAPI {
             method: 'PUT',
             headers,
             body: propertyValueDto,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    propertyValuesResolvePreviewPost({ propertyResolutionPreviewRequestApiModel }: PropertyValuesResolvePreviewPostRequest): Observable<Array<PropertyResolutionTraceApiModel>>
+    propertyValuesResolvePreviewPost({ propertyResolutionPreviewRequestApiModel }: PropertyValuesResolvePreviewPostRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<PropertyResolutionTraceApiModel>>>
+    propertyValuesResolvePreviewPost({ propertyResolutionPreviewRequestApiModel }: PropertyValuesResolvePreviewPostRequest, opts?: OperationOpts): Observable<Array<PropertyResolutionTraceApiModel> | AjaxResponse<Array<PropertyResolutionTraceApiModel>>> {
+
+        const headers: HttpHeaders = {
+            'Content-Type': 'application/json',
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        return this.request<Array<PropertyResolutionTraceApiModel>>({
+            url: '/PropertyValues/ResolvePreview',
+            method: 'POST',
+            headers,
+            body: propertyResolutionPreviewRequestApiModel,
         }, opts?.responseOpts);
     };
 

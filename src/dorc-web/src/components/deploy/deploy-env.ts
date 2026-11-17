@@ -928,7 +928,17 @@ export class DeployEnv extends LitElement {
       'jsonviewer'
     ) as HegsJsonViewer | null;
     if (jsonViewer) {
-      Object.assign(jsonViewer.data, this.req.requestDto);
+      jsonViewer.data = { ...this.req.requestDto };
+      jsonViewer.resolutionContext = {
+        environmentName:
+          this.req.requestDto?.Environment ?? this.envName ?? undefined,
+        projectName:
+          this.req.requestDto?.Project ??
+          this.project?.ProjectName ??
+          undefined,
+        requestOverrides: this.req.requestDto?.RequestProperties ?? undefined,
+        locationKind: 'deploy-request'
+      };
       jsonViewer.expand('**');
     }
     this.dialogOpened = true;

@@ -4,46 +4,24 @@ import {
   html,
   LitElement,
   nothing,
+  PropertyValues,
   TemplateResult
 } from 'lit';
-import { property, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
+import type { PropertyResolutionTraceApiModel } from '../apis/dorc-api';
+import {
+  defaultPropertyResolutionClientCache,
+  PropertyResolutionClientCache,
+  PropertyResolutionContext
+} from '../variable-resolution/property-resolution-client-cache';
+import {
+  extractReferencedPropertyNames,
+  ParsedPropertyToken,
+  parsePropertyTokens
+} from '../variable-resolution/property-token-parser';
 
-import { customElement } from 'lit/decorators.js';
-
-/**
- * @since 1.0
- *
- * @csspart object - The object wrapper element.
- * @csspart property - The wrapper element of a property.
- * @csspart key - The key element of a property.
- * @csspart primitive - The primitive value.
- * @csspart primitive--string - Applied when the primitive is a string.
- * @csspart primitive--number - Applied when the primitive is a number.
- * @csspart primitive--boolean - Applied when the primitive is a boolean.
- * @csspart primitive--null - Applied when the primitive is a null.
- * @csspart preview - The value preview of a property.
- * @csspart highlight - The highlighted value.
- *
- * @cssproperty [--background-color] - The component background color.
- * @cssproperty [--color] - The text color.
- * @cssproperty [--font-family] - The font family.
- * @cssproperty [--font-size] - The font size.
- * @cssproperty [--indent-size] - The size of the indentation of nested properties.
- * @cssproperty [--indentguide-size] - The width of the indentation line.
- * @cssproperty [--indentguide-style] - The style of the indentation line.
- * @cssproperty [--indentguide-color] - The color of the indentation line.
- * @cssproperty [--indentguide-color-active] - The color of the indentation line when is active.
- * @cssproperty [--indentguide]
- * @cssproperty [--indentguide-active]
- * @cssproperty [--string-color] - The color of a string type value
- * @cssproperty [--number-color] - The color of a number type value
- * @cssproperty [--boolean-color] - The color of a boolean type value
- * @cssproperty [--null-color] - The color of a null type value
- * @cssproperty [--property-color] - The color of the property key.
- * @cssproperty [--preview-color] - The color of the collapsed property preview.
- * @cssproperty [--highlight-color] - The color of the highlighted value.
- */
+export type JsonViewerDisplayMode = 'raw' | 'inline' | 'resolved';
 
 interface JsonViewerState {
   expanded: { [path: string]: boolean };
@@ -84,6 +62,85 @@ function isNode(obj: any): boolean {
 
 function isPrimitiveOrNode(obj: any): boolean {
   return isPrimitive(obj) || isNode(obj);
+}
+
+export function evaluateStringWithTraces(
+  raw: string,
+  traces: Map<string, PropertyResolutionTraceApiModel>
+): {
+  status: 'resolved' | 'unresolved' | 'literal';
+  resolvedValue: unknown;
+  resolvedDisplayString: string;
+} {
+  const tokens = parsePropertyTokens(raw);
+  const propTokens = tokens.filter(
+    (
+      t
+    ): t is Extract<
+      ParsedPropertyToken,
+      { kind: 'property' }
+    > => t.kind === 'property'
+  );
+
+  if (propTokens.length === 0) {
+    const unescaped = tokens
+      .map(t => (t.kind === 'escaped-dollar' ? '$' : t.rawText))
+      .join('');
+    return {
+      status: 'literal',
+      resolvedValue: unescaped,
+      resolvedDisplayString: unescaped
+    };
+  }
+
+  for (const pt of propTokens) {
+    const trace = traces.get(pt.propertyName.toLowerCase());
+    if (
+      !trace ||
+      trace.Source === 'Unresolved' ||
+      trace.Source === 'RuntimeOnly' ||
+      trace.Diagnostic === 'CircularReference' ||
+      trace.ResolvedValueJson == null
+    ) {
+      return {
+        status: 'unresolved',
+        resolvedValue: raw,
+        resolvedDisplayString: raw
+      };
+    }
+  }
+
+  if (tokens.length === 1 && tokens[0].kind === 'property') {
+    const singleTrace = traces.get(tokens[0].propertyName.toLowerCase())!;
+    const parsedVal = JSON.parse(singleTrace.ResolvedValueJson!);
+    const displayStr =
+      typeof parsedVal === 'string' ? parsedVal : JSON.stringify(parsedVal);
+    return {
+      status: 'resolved',
+      resolvedValue: parsedVal,
+      resolvedDisplayString: displayStr
+    };
+  }
+
+  let out = '';
+  for (const token of tokens) {
+    if (token.kind === 'property') {
+      const trace = traces.get(token.propertyName.toLowerCase())!;
+      const parsedVal = JSON.parse(trace.ResolvedValueJson!);
+      out +=
+        typeof parsedVal === 'string' ? parsedVal : JSON.stringify(parsedVal);
+    } else if (token.kind === 'escaped-dollar') {
+      out += '$';
+    } else {
+      out += token.rawText;
+    }
+  }
+
+  return {
+    status: 'resolved',
+    resolvedValue: out,
+    resolvedDisplayString: out
+  };
 }
 
 function generateNodePreview(
@@ -254,6 +311,71 @@ const highlight = (path: string | null) => (): Partial<JsonViewerState> => ({
   highlight: path
 });
 
+function getBadgeFallback(
+  label: string | null | undefined,
+  fallback: string
+): string {
+  return label ? label : fallback;
+}
+
+export function getTokenBadgeAppearance(
+  trace: PropertyResolutionTraceApiModel | undefined
+): { cssClass: string; badgeLabel: string } {
+  if (!trace) {
+    return { cssClass: 'token-pending', badgeLabel: 'Resolving...' };
+  }
+
+  if (
+    trace.Diagnostic === 'ExpressionDeferred' ||
+    trace.Diagnostic === 'ExpressionBlockedByOverride'
+  ) {
+    return {
+      cssClass: 'token-expression',
+      badgeLabel:
+        trace.Diagnostic === 'ExpressionBlockedByOverride'
+          ? 'fn: Blocked by Override'
+          : 'fn: Deferred to Deploy'
+    };
+  }
+
+  if (trace.Diagnostic === 'CircularReference') {
+    return { cssClass: 'token-error', badgeLabel: 'Circular Reference' };
+  }
+
+  if (trace.IsSecure) {
+    return {
+      cssClass: 'token-secure',
+      badgeLabel: `Secret (${getBadgeFallback(trace.ScopeName, 'Redacted')})`
+    };
+  }
+
+  switch (trace.Source) {
+    case 'RequestOverride':
+      return { cssClass: 'token-override', badgeLabel: 'Request Override' };
+    case 'EnvironmentScope':
+      return {
+        cssClass: 'token-env',
+        badgeLabel: `Env (${getBadgeFallback(trace.ScopeName, 'Current')})`
+      };
+    case 'AncestorEnvironmentScope':
+      return {
+        cssClass: 'token-ancestor',
+        badgeLabel: `Inherited (${getBadgeFallback(trace.ScopeName, 'Parent')})`
+      };
+    case 'GlobalDefault':
+      return { cssClass: 'token-default', badgeLabel: 'Default (Global)' };
+    case 'BuiltInScopeOption':
+      return {
+        cssClass: 'token-builtin',
+        badgeLabel: `Built-in (${getBadgeFallback(trace.ValueType, 'Scope')})`
+      };
+    case 'RuntimeOnly':
+      return { cssClass: 'token-runtime', badgeLabel: 'Monitor Runtime' };
+    default:
+      return { cssClass: 'token-error', badgeLabel: 'Missing in Scope' };
+  }
+}
+
 @customElement('hegs-json-viewer')
 export class HegsJsonViewer extends LitElement {
   static get styles() {
@@ -287,19 +409,182 @@ export class HegsJsonViewer extends LitElement {
         color: var(--color);
         font-family: var(--font-family);
         font-size: var(--font-size);
-
-        /* This used to sit inside hegs-dialog, whose box was positioned
-           absolutely with no width cap, so the dialog simply grew to fit
-           whatever JSON it was given. Its replacements, vaadin-dialog and
-           vaadin-confirm-dialog, constrain the overlay width, and the
-           overlay's content part has overflow-x visible — so without this a
-           long build number or artefact path is clipped and cannot be
-           scrolled to at all. Reported from DV 02 against the deploy
-           confirmation. */
         overflow: auto;
         max-width: 100%;
         padding: 5px;
         box-sizing: border-box;
+        position: relative;
+      }
+
+      .context-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 6px;
+        padding: 4px 8px;
+        margin-bottom: 6px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 4px;
+        font-size: 0.8em;
+      }
+
+      .context-summary {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .context-env-pill {
+        background: rgba(111, 179, 210, 0.2);
+        color: #9ad5f0;
+        border: 1px solid rgba(111, 179, 210, 0.45);
+        border-radius: 10px;
+        padding: 1px 8px;
+        font-weight: 600;
+      }
+
+      .mode-switcher {
+        display: inline-flex;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 4px;
+        overflow: hidden;
+      }
+
+      .mode-btn {
+        background: transparent;
+        color: #ccc;
+        border: none;
+        padding: 2px 8px;
+        font-family: inherit;
+        font-size: 0.95em;
+        cursor: pointer;
+      }
+
+      .mode-btn.active {
+        background: #4ba7ef;
+        color: #111;
+        font-weight: 600;
+      }
+
+      .token-chip {
+        display: inline-block;
+        padding: 0 4px;
+        margin: 0 1px;
+        border-radius: 3px;
+        font-family: inherit;
+        font-size: inherit;
+        line-height: inherit;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid transparent;
+      }
+
+      .token-env {
+        background: rgba(76, 175, 80, 0.22);
+        color: #b9f6ca;
+        border-color: rgba(76, 175, 80, 0.55);
+      }
+
+      .token-ancestor {
+        background: rgba(0, 188, 212, 0.22);
+        color: #84ffff;
+        border-color: rgba(0, 188, 212, 0.55);
+      }
+
+      .token-default {
+        background: rgba(255, 193, 7, 0.2);
+        color: #ffe57f;
+        border-color: rgba(255, 193, 7, 0.55);
+      }
+
+      .token-override {
+        background: rgba(156, 39, 176, 0.25);
+        color: #ea80fc;
+        border-color: rgba(156, 39, 176, 0.6);
+      }
+
+      .token-builtin {
+        background: rgba(33, 150, 243, 0.22);
+        color: #82b1ff;
+        border-color: rgba(33, 150, 243, 0.55);
+      }
+
+      .token-runtime,
+      .token-pending {
+        background: rgba(158, 158, 158, 0.22);
+        color: #e0e0e0;
+        border-color: rgba(158, 158, 158, 0.5);
+      }
+
+      .token-expression {
+        background: rgba(124, 77, 255, 0.25);
+        color: #b388ff;
+        border-color: rgba(124, 77, 255, 0.6);
+      }
+
+      .token-secure {
+        background: rgba(255, 152, 0, 0.24);
+        color: #ffd180;
+        border-color: rgba(255, 152, 0, 0.6);
+      }
+
+      .token-error {
+        background: rgba(244, 67, 54, 0.28);
+        color: #ff8a80;
+        border-color: rgba(244, 67, 54, 0.75);
+      }
+
+      .inline-resolved-arrow {
+        color: #9e9e9e;
+        margin: 0 4px;
+      }
+
+      .inline-resolved-val {
+        color: #ffd54f;
+        font-style: italic;
+      }
+
+      .inspector-card {
+        margin-top: 6px;
+        padding: 8px 10px;
+        background: #1e222a;
+        border: 1px solid #4ba7ef;
+        border-radius: 4px;
+        font-size: 0.85em;
+        color: #f8f8f2;
+      }
+
+      .inspector-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-bottom: 4px;
+      }
+
+      .inspector-chain {
+        margin: 4px 0;
+        padding-left: 16px;
+        color: #cfd8dc;
+      }
+
+      .inspector-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 6px;
+      }
+
+      .inspector-link {
+        color: #82b1ff;
+        text-decoration: underline;
+        cursor: pointer;
+        background: none;
+        border: none;
+        padding: 0;
+        font: inherit;
       }
 
       .preview {
@@ -390,11 +675,30 @@ export class HegsJsonViewer extends LitElement {
   @property({ converter: JSONConverter, type: Object })
   data?: any;
 
+  @property({ type: Object })
+  resolutionContext?: PropertyResolutionContext;
+
+  @property({ type: String, attribute: 'display-mode' })
+  displayMode: JsonViewerDisplayMode = 'inline';
+
+  @property({ attribute: false })
+  resolutionCache: PropertyResolutionClientCache =
+    defaultPropertyResolutionClientCache;
+
   @state() private state: JsonViewerState = {
     expanded: {},
     filtered: {},
     highlight: null
   };
+
+  @state() private traces: Map<string, PropertyResolutionTraceApiModel> =
+    new Map();
+
+  @state() private referencedNames: string[] = [];
+
+  @state() private activeInspectedProperty: string | null = null;
+
+  private fetchGeneration = 0;
 
   private async setState(
     stateFn: (
@@ -418,6 +722,41 @@ export class HegsJsonViewer extends LitElement {
     super.connectedCallback();
   }
 
+  protected willUpdate(changedProps: PropertyValues<this>) {
+    if (
+      changedProps.has('data') ||
+      changedProps.has('resolutionContext') ||
+      changedProps.has('resolutionCache')
+    ) {
+      this.refreshPropertyTraces();
+    }
+  }
+
+  private async refreshPropertyTraces(): Promise<void> {
+    const names = extractReferencedPropertyNames(this.data);
+    this.referencedNames = names;
+    const gen = ++this.fetchGeneration;
+
+    if (names.length === 0 || !this.resolutionContext) {
+      this.traces = new Map();
+      return;
+    }
+
+    try {
+      const resolvedMap = await this.resolutionCache.resolveProperties(
+        this.resolutionContext,
+        names
+      );
+      if (gen === this.fetchGeneration) {
+        this.traces = resolvedMap;
+      }
+    } catch {
+      if (gen === this.fetchGeneration) {
+        this.traces = new Map();
+      }
+    }
+  }
+
   handlePropertyClick = (path: string) => (e: Event) => {
     e.preventDefault();
 
@@ -435,6 +774,16 @@ export class HegsJsonViewer extends LitElement {
     e.preventDefault();
 
     this.setState(toggleNode(path));
+  };
+
+  private handleDisplayModeSelect = (mode: JsonViewerDisplayMode) => () => {
+    this.displayMode = mode;
+  };
+
+  private handleInspectToken = (propertyName: string) => (e: Event) => {
+    e.stopPropagation();
+    this.activeInspectedProperty =
+      this.activeInspectedProperty === propertyName ? null : propertyName;
   };
 
   expand(glob: string | RegExp) {
@@ -554,19 +903,260 @@ export class HegsJsonViewer extends LitElement {
     `;
   }
 
+  private renderContextualString(raw: string): TemplateResult {
+    const tokens = parsePropertyTokens(raw);
+    const hasSpecial = tokens.some(
+      t =>
+        t.kind === 'property' ||
+        t.kind === 'escaped-dollar' ||
+        t.kind === 'expression-prefix' ||
+        t.kind === 'unclosed-token'
+    );
+
+    if (!hasSpecial) {
+      return html`<span
+        part="primitive primitive-string"
+        tabindex="0"
+        class="string"
+        >${JSON.stringify(raw)}</span
+      >`;
+    }
+
+    if (this.displayMode === 'raw') {
+      return html`<span
+        part="primitive primitive-string"
+        tabindex="0"
+        class="string"
+        >"${tokens.map(token => this.renderTokenSegment(token))}"</span
+      >`;
+    }
+
+    const evaluated = evaluateStringWithTraces(raw, this.traces);
+
+    if (this.displayMode === 'resolved') {
+      if (evaluated.status === 'resolved') {
+        return html`<span
+          part="primitive primitive-string"
+          tabindex="0"
+          class="string"
+          title="Raw: ${raw}"
+          >${JSON.stringify(evaluated.resolvedValue)}</span
+        >`;
+      }
+      return html`<span
+        part="primitive primitive-string"
+        tabindex="0"
+        class="string"
+        >"${tokens.map(token => this.renderTokenSegment(token))}"</span
+      >`;
+    }
+
+    // 'inline' mode: show tokenized raw value + resolved preview when resolved
+    return html`<span
+      part="primitive primitive-string"
+      tabindex="0"
+      class="string"
+      >"${tokens.map(token => this.renderTokenSegment(token))}"${
+        evaluated.status === 'resolved'
+          ? html`<span class="inline-resolved-arrow">→</span
+              ><span
+                class="inline-resolved-val"
+                part="resolved-preview"
+                >${JSON.stringify(evaluated.resolvedValue)}</span
+              >`
+          : nothing
+      }</span
+    >`;
+  }
+
+  private renderTokenSegment(token: ParsedPropertyToken): TemplateResult {
+    if (token.kind === 'property') {
+      const trace = this.traces.get(token.propertyName.toLowerCase());
+      const badge = getTokenBadgeAppearance(trace);
+      return html`<button
+        type="button"
+        part="property-token"
+        class="token-chip ${badge.cssClass}"
+        data-property-name="${token.propertyName}"
+        title="${badge.badgeLabel}"
+        @click="${this.handleInspectToken(token.propertyName)}"
+        >${token.rawText}</button
+      >`;
+    }
+
+    if (token.kind === 'expression-prefix') {
+      return html`<span
+        part="expression-token"
+        class="token-chip token-expression"
+        title="C# Expression (Evaluated at Deploy Time)"
+        >${token.rawText}</span
+      >`;
+    }
+
+    if (token.kind === 'escaped-dollar') {
+      return html`<span
+        part="escaped-dollar"
+        class="token-chip token-builtin"
+        title="Escaped literal $"
+        >${token.rawText}</span
+      >`;
+    }
+
+    if (token.kind === 'unclosed-token') {
+      return html`<span
+        part="unclosed-token"
+        class="token-chip token-error"
+        title="Unclosed $ token"
+        >${token.rawText}</span
+      >`;
+    }
+
+    return html`${token.value}`;
+  }
+
+  private renderToolbar(): TemplateResult | typeof nothing {
+    if (this.referencedNames.length === 0) {
+      return nothing;
+    }
+
+    let resolvedCount = 0;
+    let missingCount = 0;
+    let secretCount = 0;
+
+    for (const name of this.referencedNames) {
+      const trace = this.traces.get(name.toLowerCase());
+      if (!trace) {
+        continue;
+      }
+      if (trace.IsSecure) {
+        secretCount++;
+      }
+      if (trace.Source === 'Unresolved') {
+        missingCount++;
+      } else {
+        resolvedCount++;
+      }
+    }
+
+    const envLabel = this.resolutionContext?.environmentName?.trim();
+
+    return html`
+      <div class="context-toolbar" part="context-toolbar">
+        <div class="context-summary">
+          ${
+            envLabel
+              ? html`<span class="context-env-pill" part="context-env"
+                  >Env: ${envLabel}</span
+                >`
+              : html`<span class="context-env-pill" part="context-env"
+                  >Scope: Global Default</span
+                >`
+          }
+          <span part="context-counts">
+            ${this.referencedNames.length}
+            ${this.referencedNames.length === 1 ? 'property' : 'properties'}
+            (${resolvedCount} resolved${
+              missingCount > 0 ? `, ${missingCount} missing` : ''
+            }${secretCount > 0 ? `, ${secretCount} secret` : ''})
+          </span>
+        </div>
+        <div class="mode-switcher" role="group" aria-label="Property display mode">
+          ${(['raw', 'inline', 'resolved'] as JsonViewerDisplayMode[]).map(
+            mode => html`
+              <button
+                type="button"
+                class="mode-btn ${this.displayMode === mode ? 'active' : ''}"
+                data-mode="${mode}"
+                @click="${this.handleDisplayModeSelect(mode)}"
+              >
+                ${mode.charAt(0).toUpperCase() + mode.slice(1)}
+              </button>
+            `
+          )}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderInspectorCard(): TemplateResult | typeof nothing {
+    if (!this.activeInspectedProperty) {
+      return nothing;
+    }
+
+    const propName = this.activeInspectedProperty;
+    const trace = this.traces.get(propName.toLowerCase());
+    const badge = getTokenBadgeAppearance(trace);
+    const scopeParam =
+      trace?.ScopeName ?? this.resolutionContext?.environmentName ?? '';
+    const lookupHref = `/variables/value-lookup?name=${encodeURIComponent(
+      propName
+    )}${scopeParam ? `&scope=${encodeURIComponent(scopeParam)}` : ''}`;
+
+    return html`
+      <div class="inspector-card" part="inspector-card">
+        <div class="inspector-header">
+          <div>
+            <strong>$${propName}$</strong>
+            <span class="token-chip ${badge.cssClass}"
+              >${badge.badgeLabel}</span
+            >
+          </div>
+          <button
+            type="button"
+            class="inspector-link"
+            data-action="close-inspector"
+            @click="${this.handleInspectToken(propName)}"
+          >
+            Close
+          </button>
+        </div>
+        <div>
+          <div>
+            <strong>Raw:</strong>
+            <code>${trace?.RawValue ?? '(not defined)'}</code>
+          </div>
+          <div>
+            <strong>Resolved:</strong>
+            <code>${trace?.ResolvedValueJson ?? '(unresolved)'}</code>
+          </div>
+          <div>
+            <strong>Diagnostic:</strong>
+            <code>${trace?.Diagnostic ?? 'Pending'}</code>
+          </div>
+        </div>
+        ${
+          trace?.ResolutionChain && trace.ResolutionChain.length > 0
+            ? html`
+                <ol class="inspector-chain">
+                  ${trace.ResolutionChain.map(hop => html`<li>${hop}</li>`)}
+                </ol>
+              `
+            : nothing
+        }
+        <div class="inspector-actions">
+          <a class="inspector-link" href="${lookupHref}">
+            Open in Value Lookup
+          </a>
+        </div>
+      </div>
+    `;
+  }
+
   renderPrimitive(node: Primitive | null, path: string) {
     const highlight = this.state.highlight;
     const nodeType = getType(node);
     const value = isNode(node)
       ? node
-      : html`
-          <span
-            part="primitive primitive-${nodeType}"
-            tabindex="0"
-            class="${getType(node)}"
-            >${JSON.stringify(node)}</span
-          >
-        `;
+      : typeof node === 'string'
+        ? this.renderContextualString(node)
+        : html`
+            <span
+              part="primitive primitive-${nodeType}"
+              tabindex="0"
+              class="${getType(node)}"
+              >${JSON.stringify(node)}</span
+            >
+          `;
 
     return path === highlight
       ? html`<mark part="highlight">${value}</mark>`
@@ -576,6 +1166,11 @@ export class HegsJsonViewer extends LitElement {
   render() {
     const data = this.data;
 
-    return isDefined(data) ? this.renderNode(data) : null;
+    return isDefined(data)
+      ? html`${this.renderToolbar()}${this.renderNode(
+          data
+        )}${this.renderInspectorCard()}`
+      : null;
   }
 }
+

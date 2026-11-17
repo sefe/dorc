@@ -5,7 +5,7 @@ import '@vaadin/text-area';
 import '@vaadin/text-field';
 import './hegs-json-viewer';
 import { css, html, LitElement, nothing } from 'lit';
-import { customElement, property } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { live } from 'lit/directives/live.js';
 import { ref } from 'lit/directives/ref.js';
 import type { HegsJsonViewer } from './hegs-json-viewer';
@@ -31,6 +31,7 @@ export class DeploymentDefinitionEditor extends LitElement {
   @property({ attribute: false }) project: ProjectApiModel | undefined;
   @property({ type: Boolean }) readonly = false;
   @property({ type: Array }) powerShellVersions: string[] = [];
+  @state() private previewEnvironmentName = '';
 
   static styles = css`
     :host {
@@ -217,9 +218,24 @@ export class DeploymentDefinitionEditor extends LitElement {
         @change=${update}
       ></vaadin-text-area>
       <span class="json-preview-label">Parsed JSON path</span>
+      <vaadin-text-field
+        label="Preview as environment (optional)"
+        placeholder="Environment name..."
+        clear-button-visible
+        theme="small"
+        .value=${live(this.previewEnvironmentName)}
+        @value-changed=${(event: CustomEvent<{ value: string }>) => {
+          this.previewEnvironmentName = event.detail.value ?? '';
+        }}
+      ></vaadin-text-field>
       <hegs-json-viewer
         class="json-preview"
         .data=${parsed}
+        .resolutionContext=${{
+          environmentName: this.previewEnvironmentName || undefined,
+          projectName: this.project?.ProjectName || undefined,
+          locationKind: 'component-definition'
+        }}
         ${ref(element => (element as HegsJsonViewer | undefined)?.expandAll())}
       ></hegs-json-viewer>`;
   }

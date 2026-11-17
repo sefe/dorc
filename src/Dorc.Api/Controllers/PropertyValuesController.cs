@@ -24,6 +24,7 @@ namespace Dorc.Api.Controllers
         private readonly IVariableResolver _variableResolver;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IVariableScopeOptionsResolver _variableScopeOptionsResolver;
+        private readonly IPropertyResolutionTracer _propertyResolutionTracer;
         private readonly IActiveDirectorySearcher _directorySearcher;
         private readonly ILogger<PropertyValuesController> _logger;
 
@@ -33,7 +34,8 @@ namespace Dorc.Api.Controllers
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IVariableScopeOptionsResolver variableScopeOptionsResolver,
             IDirectorySearcherFactory directorySearcherFactory,
-            ILogger<PropertyValuesController> logger)
+            ILogger<PropertyValuesController> logger,
+            IPropertyResolutionTracer? propertyResolutionTracer = null)
         {
             _variableScopeOptionsResolver = variableScopeOptionsResolver;
             _environmentsPersistentSource = environmentsPersistentSource;
@@ -42,6 +44,7 @@ namespace Dorc.Api.Controllers
             _propertyValuesService = propertyValuesService;
             _directorySearcher = directorySearcherFactory.GetEntraSearcher();
             _logger = logger;
+            _propertyResolutionTracer = propertyResolutionTracer!;
         }
 
         /// <summary>
@@ -263,6 +266,42 @@ namespace Dorc.Api.Controllers
         public IActionResult DeletePropertyValue(IEnumerable<PropertyValueDto> propertyValuesToDelete)
         {
             return Ok(_propertyValuesService.DeletePropertyValues(propertyValuesToDelete, User));
+        }
+
+        /// <summary>
+        /// Resolve property values and provenance trace for contextual preview without executing dynamic expressions
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<PropertyResolutionTraceApiModel>))]
+        [HttpPost("ResolvePreview")]
+        public IActionResult ResolvePreview([FromBody] PropertyResolutionPreviewRequestApiModel request)
+        {
+            if (request == null)
+            {
+                return BadRequest("request is required");
+            }
+
+            EnvironmentApiModel? environment = null;
+            if (!string.IsNullOrWhiteSpace(request.EnvironmentName))
+            {
+                var envName = request.EnvironmentName.Trim();
+                if (!_environmentsPersistentSource.EnvironmentExists(envName))
+                {
+                    return BadRequest($"Environment '{envName}' does not exist");
+                }
+
+                environment = _environmentsPersistentSource.GetEnvironment(envName, User);
+                if (environment == null)
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden);
+                }
+
+                EnrichEnvironmentOwnerEmails(environment);
+            }
+
+            var traces = _propertyResolutionTracer.TraceProperties(request, environment, User);
+            return Ok(traces);
         }
     }
 }

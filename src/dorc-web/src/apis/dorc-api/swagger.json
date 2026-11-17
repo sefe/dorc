@@ -3245,6 +3245,104 @@
         }
       }
     },
+    "/PropertyValues/ResolvePreview": {
+      "post": {
+        "tags": [
+          "PropertyValues"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropertyResolutionPreviewRequestApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropertyResolutionPreviewRequestApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropertyResolutionPreviewRequestApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PropertyResolutionTraceApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PropertyResolutionTraceApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/PropertyValues/ResolvePreview": {
+      "post": {
+        "tags": [
+          "PropertyValues"
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropertyResolutionPreviewRequestApiModel"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropertyResolutionPreviewRequestApiModel"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/PropertyResolutionPreviewRequestApiModel"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PropertyResolutionTraceApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PropertyResolutionTraceApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/PropertyValuesAudit": {
       "put": {
         "tags": [
@@ -14740,6 +14838,78 @@
             "type": "boolean"
           },
           "Environment": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PropertyResolutionPreviewRequestApiModel": {
+        "type": "object",
+        "properties": {
+          "EnvironmentName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ProjectName": {
+            "type": "string",
+            "nullable": true
+          },
+          "PropertyNames": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "RequestOverrides": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestProperty"
+            },
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PropertyResolutionTraceApiModel": {
+        "type": "object",
+        "properties": {
+          "PropertyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "RawValue": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResolvedValueJson": {
+            "type": "string",
+            "nullable": true
+          },
+          "ValueType": {
+            "type": "string",
+            "nullable": true
+          },
+          "Source": {
+            "type": "string",
+            "nullable": true
+          },
+          "ScopeName": {
+            "type": "string",
+            "nullable": true
+          },
+          "ResolutionChain": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "nullable": true
+          },
+          "IsSecure": {
+            "type": "boolean"
+          },
+          "Diagnostic": {
             "type": "string",
             "nullable": true
           }

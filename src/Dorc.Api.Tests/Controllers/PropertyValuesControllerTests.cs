@@ -24,6 +24,7 @@ namespace Dorc.Api.Tests.Controllers
         private IDirectorySearcherFactory _directorySearcherFactory = null!;
         private IActiveDirectorySearcher _directorySearcher = null!;
         private ILogger<PropertyValuesController> _logger = null!;
+        private IPropertyResolutionTracer _propertyResolutionTracer = null!;
         private PropertyValuesController _controller = null!;
 
         [TestInitialize]
@@ -38,6 +39,7 @@ namespace Dorc.Api.Tests.Controllers
             _directorySearcher = Substitute.For<IActiveDirectorySearcher>();
             _directorySearcherFactory.GetEntraSearcher().Returns(_directorySearcher);
             _logger = Substitute.For<ILogger<PropertyValuesController>>();
+            _propertyResolutionTracer = Substitute.For<IPropertyResolutionTracer>();
 
             _controller = new PropertyValuesController(
                 _propertyValuesService,
@@ -46,7 +48,8 @@ namespace Dorc.Api.Tests.Controllers
                 _environmentsPersistentSource,
                 _variableScopeOptionsResolver,
                 _directorySearcherFactory,
-                _logger)
+                _logger,
+                _propertyResolutionTracer)
             {
                 ControllerContext = new ControllerContext
                 {
@@ -270,6 +273,77 @@ namespace Dorc.Api.Tests.Controllers
             roleChecker.IsAdmin(user).Returns(true);
             propValuesSource.GetPropertyValuesByName("MySecret").Returns(new[] { new PropertyValueDto { Id = 1 } });
             Assert.AreEqual(StatusCodes.Status200OK, (controller.DeleteProperties(deleteNames) as ObjectResult)?.StatusCode);
+        }
+
+        [TestMethod]
+        public void ResolvePreview_ValidatesRequestAndEnvironmentAuthorization_AndReturnsTraces()
+        {
+            // 1. Null request -> 400 BadRequest
+            var nullRes = _controller.ResolvePreview(null!) as BadRequestObjectResult;
+            Assert.IsNotNull(nullRes);
+            Assert.AreEqual(StatusCodes.Status400BadRequest, nullRes.StatusCode);
+
+            // 2. Non-existent environment -> 400 BadRequest
+            _environmentsPersistentSource.EnvironmentExists("MissingEnv").Returns(false);
+            var missingEnvReq = new PropertyResolutionPreviewRequestApiModel
+            {
+                EnvironmentName = "  MissingEnv  ",
+                PropertyNames = new List<string> { "PropA" }
+            };
+            var missingEnvRes = _controller.ResolvePreview(missingEnvReq) as BadRequestObjectResult;
+            Assert.IsNotNull(missingEnvRes);
+            Assert.AreEqual(StatusCodes.Status400BadRequest, missingEnvRes.StatusCode);
+
+            // 3. Unauthorized environment (GetEnvironment returns null) -> 403 Forbidden
+            _environmentsPersistentSource.EnvironmentExists("RestrictedEnv").Returns(true);
+            _environmentsPersistentSource.GetEnvironment("RestrictedEnv", Arg.Any<ClaimsPrincipal>()).Returns((EnvironmentApiModel)null!);
+            var restrictedReq = new PropertyResolutionPreviewRequestApiModel
+            {
+                EnvironmentName = "RestrictedEnv",
+                PropertyNames = new List<string> { "PropA" }
+            };
+            var restrictedRes = _controller.ResolvePreview(restrictedReq) as StatusCodeResult;
+            Assert.IsNotNull(restrictedRes);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, restrictedRes.StatusCode);
+
+            // 4. Authorized environment -> enriches owner emails and returns traces
+            var envModel = new EnvironmentApiModel
+            {
+                EnvironmentId = 10,
+                EnvironmentName = "DevEnv",
+                Details = new EnvironmentDetailsApiModel()
+            };
+            _environmentsPersistentSource.EnvironmentExists("DevEnv").Returns(true);
+            _environmentsPersistentSource.GetEnvironment("DevEnv", Arg.Any<ClaimsPrincipal>()).Returns(envModel);
+            _environmentsPersistentSource.GetEnvironmentOwnerIds(10).Returns(new List<string>());
+
+            var expectedTraces = new List<PropertyResolutionTraceApiModel>
+            {
+                new PropertyResolutionTraceApiModel { PropertyName = "PropA", ResolvedValueJson = "\"ValA\"" }
+            };
+            _propertyResolutionTracer.TraceProperties(Arg.Any<PropertyResolutionPreviewRequestApiModel>(), envModel, Arg.Any<ClaimsPrincipal>())
+                .Returns(expectedTraces);
+
+            var validEnvReq = new PropertyResolutionPreviewRequestApiModel
+            {
+                EnvironmentName = "DevEnv",
+                PropertyNames = new List<string> { "PropA" }
+            };
+            var validEnvRes = _controller.ResolvePreview(validEnvReq) as OkObjectResult;
+            Assert.IsNotNull(validEnvRes);
+            Assert.AreEqual(expectedTraces, validEnvRes.Value);
+
+            // 5. Global-only preview (no environmentName) -> passes null environment to tracer
+            _propertyResolutionTracer.TraceProperties(Arg.Any<PropertyResolutionPreviewRequestApiModel>(), null, Arg.Any<ClaimsPrincipal>())
+                .Returns(expectedTraces);
+            var globalReq = new PropertyResolutionPreviewRequestApiModel
+            {
+                EnvironmentName = "",
+                PropertyNames = new List<string> { "PropA" }
+            };
+            var globalRes = _controller.ResolvePreview(globalReq) as OkObjectResult;
+            Assert.IsNotNull(globalRes);
+            Assert.AreEqual(expectedTraces, globalRes.Value);
         }
     }
 }
