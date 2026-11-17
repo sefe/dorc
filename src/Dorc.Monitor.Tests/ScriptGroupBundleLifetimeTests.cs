@@ -161,10 +161,10 @@ namespace Dorc.Monitor.Tests
             string expectedExeSuffix)
         {
             var originalAppSettings = File.ReadAllText("appsettings.json");
-            var tempDir = Path.Combine(Path.GetTempPath(), "dorc-runner-select-" + Guid.NewGuid().ToString("N"));
+            var tempDir = Path.Join(Path.GetTempPath(), "dorc-runner-select-" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(tempDir);
-            var netfxRunner = Path.Combine(tempDir, "netfx-runner.exe");
-            var netcoreRunner = Path.Combine(tempDir, "dotnetcore-runner.exe");
+            var netfxRunner = Path.Join(tempDir, "netfx-runner.exe");
+            var netcoreRunner = Path.Join(tempDir, "dotnetcore-runner.exe");
             File.WriteAllText(netfxRunner, string.Empty);
             File.WriteAllText(netcoreRunner, string.Empty);
 
