@@ -5,6 +5,7 @@ import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { AccessControlApiModel } from '../../apis/dorc-api';
+import '@vaadin/icon';
 import '../../icons/dorc-icons.js';
 import '@vaadin/tooltip';
 

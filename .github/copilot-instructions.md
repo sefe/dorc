@@ -138,6 +138,12 @@ The API (`Dorc.Api`) requires several configurations to run:
 - **Development setup requires proper configuration files** - API will not start without valid settings
 - Configuration templates available in `src/install-scripts/`
 
+### Web UI Icon System (`src/dorc-web/src/icons/dorc-icons.ts`)
+- **Single canonical iconset**: All UI icons come from `<vaadin-iconset name="dorc" size="24">` registered in `src/dorc-web/src/icons/dorc-icons.ts` (`DORC_ICON_NAMES` / `DorcIconId` / `dorcIcon()`).
+- **Never introduce alternate iconsets or inline SVGs**: Do not import `@vaadin/icons`, `@polymer/iron-icons`, or Line Awesome; do not use `vaadin:*`, `lumo:*`, `brand:*`, `la:*`, or `<paper-icon-button>`; and do not embed `<svg>` or `<vaadin-iconset>` inside components.
+- **Explicit registration & theming**: Components rendering `<vaadin-icon icon="dorc:...">` must `import '@vaadin/icon';` and color icons via `currentColor` or `--dorc-*` / `--lumo-*` CSS custom properties (never hardcoded hex or named CSS colors). Icon-only `<vaadin-button theme="icon ...">` triggers must provide `aria-label` (plus `title` where appropriate) and mark inner decorative `<vaadin-icon aria-hidden="true">`.
+- **Guardrail verification**: `npm run audit:icons` (also run automatically inside `npm run audit:renderers` and `npm run build`) validates all `dorc:*` references, imports, SVG hygiene, and orphan-free registry parity.
+
 ## Repository Outputs
 
 ### Repository root listing

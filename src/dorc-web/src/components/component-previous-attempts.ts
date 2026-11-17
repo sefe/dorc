@@ -195,10 +195,11 @@ export class ComponentPreviousAttempts extends LitElement {
                       style="min-width: 36px; padding: 0"
                       @click="${() => this.viewLog(attempt)}"
                       title="View Request Log"
+                      aria-label="View Request Log"
                     >
                       <vaadin-icon
                         icon="dorc:file-log"
-                        style="color: cornflowerblue"
+                        style="color: var(--dorc-link-color)"
                       ></vaadin-icon>
                     </vaadin-button>
                   `
@@ -353,11 +354,13 @@ export class ComponentPreviousAttempts extends LitElement {
           <vaadin-button
             theme="small"
             style="width: 36px; min-width: 36px; padding: 0"
+            aria-label="View Component Log"
+            title="View Component Log"
             @click="${() => this.viewComponentLog(result)}"
           >
             <vaadin-icon
               icon="dorc:file-log"
-              style="color: cornflowerblue"
+              style="color: var(--dorc-link-color)"
             ></vaadin-icon>
           </vaadin-button>
         </td>

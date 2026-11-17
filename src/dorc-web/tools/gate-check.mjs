@@ -55,7 +55,10 @@ const CASES = [
   },
   ...[
     ['property-assignment', 'column.renderer = ... — the plain form'],
-    ['non-null-assertion', 'col!.renderer = ... — a non-null assertion in the way'],
+    [
+      'non-null-assertion',
+      'col!.renderer = ... — a non-null assertion in the way'
+    ],
     ['element-access', "col['headerRenderer'] = ..."],
     ['broken-chain', 'a chain prettier split across lines'],
     ['compound-assignment', 'col.renderer ??= fn reaches the same property'],
@@ -109,7 +112,11 @@ const CASES = [
     why: 'every rule in its passing form — and all twelve bindings actually checked'
   },
   ...[
-    ['missing-dep', 'reads readonly but does not depend on it', 'the base case'],
+    [
+      'missing-dep',
+      'reads readonly but does not depend on it',
+      'the base case'
+    ],
     [
       'inline-closure',
       'is not a class member or module-level function',
@@ -208,6 +215,86 @@ const CASES = [
     gate: 'confirm-prompt-snapshot.mjs',
     args: [],
     root: fixture('confirm-prompt', 'stale', name),
+    exit: 1,
+    expect,
+    why
+  })),
+
+  // ── icon-estate-audit ─────────────────────────────────────────────────────
+  {
+    gate: 'icon-estate-audit.mjs',
+    args: [],
+    root: fixture('icon-estate', 'clean'),
+    exit: 0,
+    expect:
+      '3 dorc:* icon reference(s) across 1 file(s) verified against 94 canonical IDs, 0 violation(s).',
+    why: 'canonical dorc:* literals and dorcIcon() calls against DORC_ICON_NAMES'
+  },
+  ...[
+    [
+      'forbidden-import',
+      'forbidden legacy icon import "@vaadin/icons"',
+      'blocks re-introducing @vaadin/icons or other retired icon packages'
+    ],
+    [
+      'legacy-namespace',
+      'uses non-canonical icon namespace "vaadin:trash"',
+      'blocks vaadin:, lumo:, brand:, la:, iron:, and inline: icon prefixes'
+    ],
+    [
+      'unknown-dorc-icon',
+      'references unknown dorc icon "dorc:does-not-exist"',
+      'catches unregistered or typoed dorc:* icon IDs inside templates and strings'
+    ],
+    [
+      'dynamic-dorc-id',
+      'constructs dynamic "dorc:${...}" icon ID',
+      'prevents untyped template interpolation from bypassing DORC_ICON_NAMES validation'
+    ],
+    [
+      'inline-svg',
+      'embeds inline <svg> outside src/icons/dorc-icons.ts',
+      'keeps all vector icon definitions consolidated in DORC_ICON_DEFS'
+    ],
+    [
+      'local-iconset',
+      'defines <vaadin-iconset> outside src/icons/dorc-icons.ts',
+      'prevents shadow-DOM or per-component <vaadin-iconset> islands'
+    ],
+    [
+      'legacy-element',
+      'uses legacy <paper-icon-button>',
+      'prevents Polymer <paper-icon-button> / <iron-icon> elements from returning'
+    ],
+    [
+      'line-awesome-class',
+      'uses legacy Line Awesome icon class',
+      'prevents Line Awesome icon-font classes from returning'
+    ],
+    [
+      'missing-vaadin-icon-import',
+      'renders <vaadin-icon> without importing "@vaadin/icon"',
+      'ensures every component rendering <vaadin-icon> registers the custom element'
+    ],
+    [
+      'hardcoded-icon-color',
+      'sets hardcoded inline color "cornflowerblue" on <vaadin-icon>',
+      'enforces theme tokens (var(--dorc-*)) or currentColor on <vaadin-icon>'
+    ],
+    [
+      'unused-canonical-icon',
+      'unused canonical icon "dorc:orphan-icon"',
+      'prevents orphaned/unreferenced icon slugs from accumulating in DORC_ICON_NAMES'
+    ],
+    [
+      'dirty-registry-svg',
+      'registry SVG contains hardcoded color "#ff0000"',
+      'keeps DORC_ICON_DEFS monochrome (currentColor) and free of global <defs> ID collisions'
+    ]
+  ].map(([name, expect, why]) => ({
+    gate: 'icon-estate-audit.mjs',
+    args: [],
+    root: fixture('icon-estate', 'stale', name),
     exit: 1,
     expect,
     why

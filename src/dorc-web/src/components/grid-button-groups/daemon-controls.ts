@@ -1,5 +1,6 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
+import '@vaadin/icon';
 import '../../icons/dorc-icons.js';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';

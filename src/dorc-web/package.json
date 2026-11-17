@@ -27,7 +27,8 @@
     "typecheck:tests": "tsc -p tsconfig.test.json",
     "type-checking": "tsc --noEmit && npm run typecheck:tests && npm run lit:type-checking",
     "prepare": "husky",
-    "audit:renderers": "node tools/gate-check.mjs && node tools/renderer-audit.mjs --check && node tools/renderer-deps.mjs && node tools/confirm-prompt-snapshot.mjs"
+    "audit:icons": "node tools/icon-estate-audit.mjs",
+    "audit:renderers": "node tools/gate-check.mjs && node tools/renderer-audit.mjs --check && node tools/renderer-deps.mjs && node tools/confirm-prompt-snapshot.mjs && node tools/icon-estate-audit.mjs"
   },
   "dependencies": {
     "@microsoft/signalr": "^10.0.11",
@@ -47,7 +48,6 @@
     "@vaadin/grid": "^25.3.4",
     "@vaadin/horizontal-layout": "^25.3.4",
     "@vaadin/icon": "^25.3.4",
-    "@vaadin/icons": "^25.3.4",
     "@vaadin/item": "^25.0.0",
     "@vaadin/list-box": "^25.3.4",
     "@vaadin/notification": "^25.3.4",

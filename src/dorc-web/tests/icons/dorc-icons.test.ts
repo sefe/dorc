@@ -465,3 +465,63 @@ describe('Step 4 semantic de-conflation across split action controls', () => {
     ).toBe('Revoke permission');
   });
 });
+
+describe('Step 5 legacy icon button wrapper retirement', () => {
+  it('renders hegs-tree-node action trigger with vaadin-button + dorc:edit and dispatches action events', async () => {
+    await import('../../src/components/deploy/component-tree/hegs-tree-node.js');
+
+    const treeNode = await fixture<
+      HTMLElement & {
+        actionsOpen: boolean;
+        updateComplete: Promise<boolean>;
+      }
+    >(
+      html`<hegs-tree-node
+        .data=${{
+          id: 42,
+          name: 'Deploy Service',
+          icon: '',
+          open: false,
+          hasParent: false,
+          parentId: undefined,
+          numOfChildren: 0,
+          checked: false,
+          indeterminate: false,
+          children: []
+        }}
+        .actions=${[{ label: 'Edit Step', event: 'edit-tree-step' }]}
+      ></hegs-tree-node>`
+    );
+
+    expect(treeNode.shadowRoot?.querySelector('paper-icon-button')).toBeNull();
+    expect(treeNode.shadowRoot?.querySelector('paper-menu-button')).toBeNull();
+
+    const trigger = treeNode.shadowRoot?.querySelector<HTMLElement>(
+      '#actions vaadin-button.actions-trigger'
+    );
+    expect(trigger).not.toBeNull();
+    expect(trigger?.getAttribute('theme')).toBe('icon small');
+    expect(trigger?.querySelector('vaadin-icon')?.getAttribute('icon')).toBe(
+      'dorc:edit'
+    );
+
+    trigger?.click();
+    await treeNode.updateComplete;
+    expect(treeNode.actionsOpen).toBe(true);
+
+    let firedDetail: unknown = null;
+    treeNode.addEventListener('edit-tree-step', ((e: CustomEvent) => {
+      firedDetail = e.detail;
+    }) as EventListener);
+
+    const menuItem = treeNode.shadowRoot?.querySelector<HTMLButtonElement>(
+      '.actions-menu button.action-item'
+    );
+    expect(menuItem?.textContent?.trim()).toBe('Edit Step');
+    menuItem?.click();
+    await treeNode.updateComplete;
+
+    expect(firedDetail).toEqual({ node: treeNode });
+    expect(treeNode.actionsOpen).toBe(false);
+  });
+});

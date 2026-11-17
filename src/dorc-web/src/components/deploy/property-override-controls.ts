@@ -4,6 +4,7 @@ import '@vaadin/button';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { RequestProperty } from '../../apis/dorc-api/index.js';
+import '@vaadin/icon';
 import '../../icons/dorc-icons.js';
 import '@vaadin/tooltip';
 

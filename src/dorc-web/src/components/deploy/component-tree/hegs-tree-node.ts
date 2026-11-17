@@ -1,3 +1,4 @@
+import '@vaadin/button';
 import '@vaadin/icon';
 import '../../../icons/dorc-icons.js';
 import { LitElement, PropertyValues } from 'lit';
@@ -26,6 +27,9 @@ export class HegsTreeNode extends LitElement {
 
   @state()
   protected _checked: boolean = false;
+
+  @state()
+  actionsOpen = false;
 
   @property({ type: Boolean })
   get checked(): boolean {
@@ -229,19 +233,16 @@ export class HegsTreeNode extends LitElement {
     return { expanded, collapsed: children };
   }
 
-  /**
-   * Compute the necessary node icon.
-   *
-   * @param {string=folder} an icon name.
-   * @return {string} the computed icon name.
-   */
-  _computeIcon(icon: string | undefined) {
-    return icon || 'folder';
+  _toggleActions(event: Event) {
+    event.stopPropagation();
+    this.actionsOpen = !this.actionsOpen;
   }
 
-  _actionClicked(event: any) {
+  _actionClicked(action: TreeAction) {
+    this.actionsOpen = false;
     this.dispatchEvent(
-      new CustomEvent(event.model.item.event, {
+      new CustomEvent(action.event, {
+        detail: { node: this },
         bubbles: true,
         composed: true
       })

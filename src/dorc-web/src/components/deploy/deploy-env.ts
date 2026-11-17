@@ -9,6 +9,7 @@ import '@vaadin/confirm-dialog';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/horizontal-layout';
+import '@vaadin/icon';
 import '../../icons/dorc-icons.js';
 import '@vaadin/notification';
 import '@vaadin/text-field';
