@@ -320,6 +320,19 @@ const CASES = [
       'catches inline color on <vaadin-icon> even when preceded by interpolated attributes'
     ],
     [
+      'quoted-conditional-style',
+      [
+        'sets hardcoded inline color "red" on <vaadin-icon>',
+        'sets hardcoded inline color "blue" on <vaadin-icon>'
+      ],
+      'catches whole-declaration conditional interpolations inside quoted style="${...}"'
+    ],
+    [
+      'unquoted-hardcoded-style',
+      'sets hardcoded inline color "crimson" on <vaadin-icon>',
+      'parses CSS declarations inside unquoted style=${...} without flagging non-color declarations'
+    ],
+    [
       'unused-canonical-icon',
       'unused canonical icon "dorc:orphan-icon"',
       'prevents orphaned/unreferenced icon slugs from accumulating in DORC_ICON_NAMES'
@@ -328,6 +341,14 @@ const CASES = [
       'dirty-registry-svg',
       'registry SVG contains hardcoded color "#ff0000"',
       'keeps DORC_ICON_DEFS monochrome (currentColor) and free of global <defs> ID collisions'
+    ],
+    [
+      'dirty-registry-named-color',
+      [
+        'registry SVG contains hardcoded color "red"',
+        'registry SVG contains hardcoded color "rgb(255, 0, 0)"'
+      ],
+      'catches non-hex named/functional SVG fill and stroke colors in DORC_ICON_DEFS'
     ]
   ].map(([name, expect, why]) => ({
     gate: 'icon-estate-audit.mjs',

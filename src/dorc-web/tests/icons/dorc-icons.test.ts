@@ -144,6 +144,14 @@ describe('dorc:* canonical iconset registry', () => {
       expect(innerMarkup, `hardcoded hex color in ${id}`).not.toMatch(
         /#[0-9a-fA-F]{3,8}\b/
       );
+      for (const attrMatch of innerMarkup.matchAll(
+        /\b(?:fill|stroke|color|stop-color|flood-color|lighting-color)\s*=\s*["']([^"']+)["']/gi
+      )) {
+        expect(
+          attrMatch[1].trim(),
+          `non-monochrome SVG paint in ${id}`
+        ).toMatch(/^(?:currentColor|none)$/i);
+      }
 
       const signature = `${group!.getAttribute('viewBox')}|${innerMarkup}`;
       const existing = seenGlyphs.get(signature);
@@ -571,6 +579,32 @@ describe('Step 5 legacy icon button & Polymer component retirement', () => {
 
     expect(firedDetail).toEqual({ node: treeNode });
     expect(treeNode.actionsOpen).toBe(false);
+
+    // Re-open and verify focusout with relatedTarget === null (clicking non-focusable body) closes menu
+    trigger?.click();
+    await treeNode.updateComplete;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(treeNode.actionsOpen).toBe(true);
+
+    const actionsContainer =
+      treeNode.shadowRoot?.querySelector<HTMLElement>('#actions');
+    actionsContainer?.dispatchEvent(
+      new FocusEvent('focusout', { bubbles: true, relatedTarget: null })
+    );
+    await treeNode.updateComplete;
+    expect(treeNode.actionsOpen).toBe(false);
+
+    // Re-open and verify outside pointerdown on document.body also dismisses menu
+    trigger?.click();
+    await treeNode.updateComplete;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(treeNode.actionsOpen).toBe(true);
+
+    document.body.dispatchEvent(
+      new PointerEvent('pointerdown', { bubbles: true, composed: true })
+    );
+    await treeNode.updateComplete;
+    expect(treeNode.actionsOpen).toBe(false);
   });
 
   it('replaces unregistered <paper-listbox> and <paper-item> in edit-database-permissions and add-edit-database', async () => {
@@ -621,6 +655,8 @@ describe('Step 5 legacy icon button & Polymer component retirement', () => {
     expect(addDb.shadowRoot?.querySelector('paper-item')).toBeNull();
     const info = addDb.shadowRoot?.querySelector('.info-message');
     expect(info?.textContent?.trim()).toBe('Database already exists');
-    expect(info?.getAttribute('style')).toContain('var(--dorc-error-color)');
+    expect(info?.getAttribute('style')).toContain(
+      'var(--lumo-error-text-color)'
+    );
   });
 });
