@@ -1,9 +1,7 @@
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
 import '@vaadin/icon';
-import '@vaadin/icons';
-import '@vaadin/vaadin-lumo-styles/icons.js';
-import '../../icons/iron-icons.js';
+import '../../icons/dorc-icons.js';
 import { navigate } from '../../router/router';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -193,37 +191,37 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
       {
         text: 'Edit Metadata',
         eventName: 'open-project-metadata',
-        icon: 'lumo:edit',
+        icon: 'dorc:edit',
         detail: () => ({ Project: this.project })
       },
       {
         text: 'Project Access',
         eventName: 'open-access-control',
-        icon: 'vaadin:lock',
+        icon: 'dorc:access-control',
         detail: () => ({ Name: this.project?.ProjectName })
       },
       {
         text: 'Environments',
         eventName: 'open-project-envs',
-        icon: 'vaadin:records',
+        icon: 'dorc:environments',
         detail: () => ({ Project: this.project })
       },
       {
         text: 'Components',
         eventName: 'open-project-components',
-        icon: 'vaadin:package',
+        icon: 'dorc:component-deployments',
         detail: () => ({ Project: this.project })
       },
       {
         text: 'Reference Data',
         eventName: 'open-project-ref-data',
-        icon: 'vaadin:curly-brackets',
+        icon: 'dorc:reference-data',
         detail: () => ({ Project: this.project })
       },
       {
         text: 'Audit',
         eventName: 'open-project-audit-data',
-        icon: 'vaadin:calendar-user',
+        icon: 'dorc:audit-history',
         detail: () => ({ Project: this.project })
       }
     ];
@@ -232,7 +230,7 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
       actions.push({
         text: 'Delete Project',
         eventName: 'delete-project',
-        icon: 'icons:delete',
+        icon: 'dorc:trash',
         detail: () => ({ Project: this.project }),
         isDelete: true
       });
@@ -267,7 +265,7 @@ export class ProjectControls extends ResponsiveMixin(LitElement) {
             text="Project actions"
           ></vaadin-tooltip>
           <vaadin-icon
-            icon="vaadin:ellipsis-dots-h"
+            icon="dorc:more-horizontal"
             aria-hidden="true"
           ></vaadin-icon>
         </vaadin-button>

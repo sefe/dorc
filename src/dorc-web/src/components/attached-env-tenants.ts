@@ -1,5 +1,7 @@
 import { confirmPrompt } from './confirm-prompt';
 import '@vaadin/button';
+import '@vaadin/icon';
+import '../icons/dorc-icons.js';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -16,6 +18,7 @@ import {
 import { styleMap } from 'lit/directives/style-map.js';
 import { EnvPageTabNames } from '../pages/page-environment';
 import '@vaadin/tooltip';
+import '../icons/dorc-icons.js';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 @customElement('attached-env-tenants')
@@ -78,7 +81,7 @@ export class AttachedEnvTenants extends LitElement {
           text="Open Environment Details for ${environment?.EnvironmentName}"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="hardware:developer-board"
+          icon="dorc:environment-details"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
@@ -90,7 +93,7 @@ export class AttachedEnvTenants extends LitElement {
       >
         <vaadin-tooltip slot="tooltip" text="Detach tenant"></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:unlink"
+          icon="dorc:unlink"
           style=${styleMap(unlinkStyles)}
         ></vaadin-icon>
       </vaadin-button>

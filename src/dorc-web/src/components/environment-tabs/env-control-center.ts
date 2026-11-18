@@ -2,7 +2,6 @@ import { confirmPrompt } from '../confirm-prompt';
 import { css, nothing, PropertyValues } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
-import '@vaadin/vaadin-lumo-styles/icons.js';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { Notification } from '@vaadin/notification';
@@ -13,7 +12,6 @@ import {
   RefDataEnvironmentsApi
 } from '../../apis/dorc-api';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/details';
 import '@vaadin/horizontal-layout';
@@ -26,7 +24,7 @@ import { AddEditAccessControl } from '../add-edit-access-control';
 import GlobalCache from '../../global-cache';
 import { ResetAppPasswordBehalf } from '../reset-app-password-behalf';
 import '../reset-app-password-behalf';
-import '../../icons/iron-icons.js';
+import '../../icons/dorc-icons.js';
 import '../dorc-spinner';
 import { SuccessNotification } from '../notifications/success-notification';
 import { ErrorNotification } from '../notifications/error-notification';
@@ -112,6 +110,12 @@ export class EnvControlCenter extends PageEnvBase {
         gap: var(--lumo-space-xs, 0.375rem);
         white-space: nowrap;
       }
+
+      .control-center-summary vaadin-icon {
+        width: var(--lumo-icon-size-s);
+        height: var(--lumo-icon-size-s);
+        flex-shrink: 0;
+      }
     `;
   }
 
@@ -144,7 +148,7 @@ export class EnvControlCenter extends PageEnvBase {
       >
         <vaadin-details-summary slot="summary">
           <span class="control-center-summary">
-            <vaadin-icon icon="vaadin:automation"></vaadin-icon>
+            <vaadin-icon icon="dorc:control-center"></vaadin-icon>
             <span>Environment Control Center</span>
           </span>
         </vaadin-details-summary>
@@ -159,7 +163,7 @@ export class EnvControlCenter extends PageEnvBase {
               ) || this.isDeletingEnvironment
             }"
           >
-            <vaadin-icon icon="icons:delete" slot="prefix"></vaadin-icon>${
+            <vaadin-icon icon="dorc:trash" slot="prefix"></vaadin-icon>${
               this.isDeletingEnvironment
                 ? 'Deleting Environment...'
                 : 'Delete Environment...'
@@ -170,20 +174,25 @@ export class EnvControlCenter extends PageEnvBase {
             ?disabled="${this.environment === undefined}"
             @click="${this.openEnvHistory}"
           >
-            <vaadin-icon slot="prefix" icon="icons:history"></vaadin-icon
+            <vaadin-icon
+              slot="prefix"
+              icon="dorc:environment-history"
+            ></vaadin-icon
             >Environment History</vaadin-button
           >
           <vaadin-button
             aria-label="Access Control..."
-            theme="icon"
             @click="${this.openAccessControl}"
           >
             <vaadin-tooltip
               slot="tooltip"
               text="Access Control..."
             ></vaadin-tooltip>
-            <vaadin-icon icon="vaadin:lock"></vaadin-icon>Environment
-            Access...</vaadin-button
+            <vaadin-icon
+              slot="prefix"
+              icon="dorc:access-control"
+            ></vaadin-icon
+            >Environment Access...</vaadin-button
           >
           <vaadin-button
             id="mlp"
@@ -198,8 +207,8 @@ export class EnvControlCenter extends PageEnvBase {
               )
             }"
           >
-            <vaadin-icon icon="vaadin:compile" slot="prefix"></vaadin-icon
-            >Bundle Request...</vaadin-button
+            <vaadin-icon icon="dorc:bundles" slot="prefix"></vaadin-icon>Bundle
+            Request...</vaadin-button
           >
           <vaadin-button
             id="reset-others-password"
@@ -215,8 +224,8 @@ export class EnvControlCenter extends PageEnvBase {
               )
             }"
           >
-            <vaadin-icon icon="vaadin:safe" slot="prefix"></vaadin-icon>Reset
-            SQL Account Password for...</vaadin-button
+            <vaadin-icon icon="dorc:password-reset" slot="prefix"></vaadin-icon
+            >Reset SQL Account Password for...</vaadin-button
           >
           ${
             this.isDeletingEnvironment

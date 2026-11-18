@@ -2,7 +2,7 @@ import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/dialog';
-import '@vaadin/icons/vaadin-icons';
+import '../../icons/dorc-icons.js';
 import '@vaadin/icon';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { css, PropertyValues } from 'lit';
@@ -111,7 +111,7 @@ export class EnvServers extends PageEnvBase {
       >
         <vaadin-details-summary slot="summary">
           <div class="summary-bar">
-            <vaadin-icon icon="vaadin:server" theme="small"></vaadin-icon>
+            <vaadin-icon icon="dorc:server" theme="small"></vaadin-icon>
             Application Server Details
             <span class="count-badge">${this.servers?.length ?? 0}</span>
           </div>
@@ -123,7 +123,7 @@ export class EnvServers extends PageEnvBase {
               @click="${this.openAttachServerDialog}"
               .disabled="${this.envReadOnly}"
             >
-              <vaadin-icon icon="vaadin:link" slot="prefix"></vaadin-icon>
+              <vaadin-icon icon="dorc:link" slot="prefix"></vaadin-icon>
               Attach Server
             </vaadin-button>
             <vaadin-dialog

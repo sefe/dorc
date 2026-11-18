@@ -1,4 +1,6 @@
-import '@vaadin/vaadin-lumo-styles/icons.js';
+import '@vaadin/button';
+import '@vaadin/icon';
+import '../../../icons/dorc-icons.js';
 import { LitElement, PropertyValues } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 
@@ -23,8 +25,17 @@ export class HegsTreeNode extends LitElement {
   @query('#deployment')
   private deploymentInput: HTMLInputElement | undefined;
 
+  @query('#actions')
+  private actionsContainer: HTMLElement | undefined;
+
+  @query('#actions .actions-trigger')
+  private actionsTrigger: HTMLElement | undefined;
+
   @state()
   protected _checked: boolean = false;
+
+  @state()
+  actionsOpen = false;
 
   @property({ type: Boolean })
   get checked(): boolean {
@@ -90,6 +101,21 @@ export class HegsTreeNode extends LitElement {
         this.data.indeterminate && !this.isCheckboxDisabled()
       );
     }
+    if (changed.has('actionsOpen')) {
+      if (this.actionsOpen) {
+        document.addEventListener('pointerdown', this._onDocumentPointerDown);
+      } else {
+        document.removeEventListener(
+          'pointerdown',
+          this._onDocumentPointerDown
+        );
+      }
+    }
+  }
+
+  override disconnectedCallback() {
+    document.removeEventListener('pointerdown', this._onDocumentPointerDown);
+    super.disconnectedCallback();
   }
 
   public hasDisabledDescendants(
@@ -228,19 +254,126 @@ export class HegsTreeNode extends LitElement {
     return { expanded, collapsed: children };
   }
 
-  /**
-   * Compute the necessary node icon.
-   *
-   * @param {string=folder} an icon name.
-   * @return {string} the computed icon name.
-   */
-  _computeIcon(icon: string | undefined) {
-    return icon || 'folder';
+  async _toggleActions(event: Event) {
+    event.stopPropagation();
+    const nextOpen = !this.actionsOpen;
+    this.actionsOpen = nextOpen;
+    if (nextOpen) {
+      await this._focusActionItem(0);
+    }
   }
 
-  _actionClicked(event: any) {
+  async _onActionsTriggerKeyDown(event: KeyboardEvent) {
+    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+      event.preventDefault();
+      event.stopPropagation();
+      this.actionsOpen = true;
+      await this._focusActionItem(event.key === 'ArrowUp' ? -1 : 0);
+    } else if (event.key === 'Escape' && this.actionsOpen) {
+      event.preventDefault();
+      event.stopPropagation();
+      this._closeActionsMenu(true);
+    }
+  }
+
+  _onActionsMenuKeyDown(event: KeyboardEvent) {
+    const items = this._getActionItems();
+    if (items.length === 0) {
+      return;
+    }
+    const active = this.shadowRoot?.activeElement as HTMLButtonElement | null;
+    const currentIndex = active ? items.indexOf(active) : -1;
+
+    switch (event.key) {
+      case 'ArrowDown': {
+        event.preventDefault();
+        event.stopPropagation();
+        const next = currentIndex >= 0 ? (currentIndex + 1) % items.length : 0;
+        items[next]?.focus();
+        break;
+      }
+      case 'ArrowUp': {
+        event.preventDefault();
+        event.stopPropagation();
+        const prev =
+          currentIndex >= 0
+            ? (currentIndex - 1 + items.length) % items.length
+            : items.length - 1;
+        items[prev]?.focus();
+        break;
+      }
+      case 'Home':
+        event.preventDefault();
+        event.stopPropagation();
+        items[0]?.focus();
+        break;
+      case 'End':
+        event.preventDefault();
+        event.stopPropagation();
+        items[items.length - 1]?.focus();
+        break;
+      case 'Escape':
+        event.preventDefault();
+        event.stopPropagation();
+        this._closeActionsMenu(true);
+        break;
+      case 'Tab':
+        this.actionsOpen = false;
+        break;
+    }
+  }
+
+  private readonly _onDocumentPointerDown = (event: PointerEvent) => {
+    if (!this.actionsOpen) {
+      return;
+    }
+    const container = this.actionsContainer;
+    if (container && !event.composedPath().includes(container)) {
+      this.actionsOpen = false;
+    }
+  };
+
+  _onActionsFocusOut(event: FocusEvent) {
+    if (!this.actionsOpen) {
+      return;
+    }
+    const container = event.currentTarget as HTMLElement | null;
+    const nextTarget = event.relatedTarget as Node | null;
+    if (!nextTarget || (container && !container.contains(nextTarget))) {
+      this.actionsOpen = false;
+    }
+  }
+
+  private _getActionItems(): HTMLButtonElement[] {
+    return Array.from(
+      this.shadowRoot?.querySelectorAll<HTMLButtonElement>(
+        '.actions-menu button.action-item'
+      ) ?? []
+    );
+  }
+
+  private async _focusActionItem(index: number) {
+    await this.updateComplete;
+    const items = this._getActionItems();
+    if (items.length === 0) {
+      return;
+    }
+    const resolvedIndex = index < 0 ? items.length + index : index;
+    items[Math.max(0, Math.min(items.length - 1, resolvedIndex))]?.focus();
+  }
+
+  private _closeActionsMenu(restoreFocus: boolean) {
+    this.actionsOpen = false;
+    if (restoreFocus) {
+      this.actionsTrigger?.focus();
+    }
+  }
+
+  _actionClicked(action: TreeAction) {
+    this._closeActionsMenu(true);
     this.dispatchEvent(
-      new CustomEvent(event.model.item.event, {
+      new CustomEvent(action.event, {
+        detail: { node: this },
         bubbles: true,
         composed: true
       })

@@ -3,7 +3,7 @@ import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import '@vaadin/icon';
 import '../components/add-sql-port';
 import '@vaadin/dialog';
@@ -116,7 +116,7 @@ export class PageSqlPortsList extends PageElement {
           clear-button-visible
           helper-text="Use | for multiple search terms"
         >
-          <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
+          <vaadin-icon slot="prefix" icon="dorc:search"></vaadin-icon>
         </vaadin-text-field>
         <vaadin-button
           title="Add SQL Port"
@@ -125,7 +125,8 @@ export class PageSqlPortsList extends PageElement {
           @click="${this.addSqlPort}"
         >
           <vaadin-icon
-            icon="vaadin:connect"
+            slot="prefix"
+            icon="dorc:plus"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon
           >Add SQL Port...

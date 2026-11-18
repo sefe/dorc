@@ -3,10 +3,8 @@ import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
-import '@vaadin/vaadin-lumo-styles/icons.js';
-import '../icons/iron-icons.js';
+import '../icons/dorc-icons.js';
 import '@vaadin/confirm-dialog';
 import '@vaadin/text-field';
 import '@vaadin/dialog';
@@ -141,7 +139,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
           clear-button-visible
           helper-text="Use | for multiple search terms"
         >
-          <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
+          <vaadin-icon slot="prefix" icon="dorc:search"></vaadin-icon>
         </vaadin-text-field>
         <vaadin-button
           title="Add Daemon"
@@ -150,7 +148,8 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
           ?hidden="${!(this.isAdmin || this.isPowerUser)}"
         >
           <vaadin-icon
-            icon="vaadin:cog"
+            slot="prefix"
+            icon="dorc:plus"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon
           >Add Daemon...
@@ -332,7 +331,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
           text="View audit history"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:calendar-user"
+          icon="dorc:audit-history"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
@@ -344,7 +343,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
       >
         <vaadin-tooltip slot="tooltip" text="Edit daemon"></vaadin-tooltip>
         <vaadin-icon
-          icon="lumo:edit"
+          icon="dorc:edit"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
@@ -356,7 +355,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
       >
         <vaadin-tooltip slot="tooltip" text="Delete daemon"></vaadin-tooltip>
         <vaadin-icon
-          icon="icons:delete"
+          icon="dorc:trash"
           style="color: var(--dorc-error-color)"
         ></vaadin-icon>
       </vaadin-button>

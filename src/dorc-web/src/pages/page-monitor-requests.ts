@@ -12,7 +12,8 @@ import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-filter';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
-import '@vaadin/icons/vaadin-icons';
+import '@vaadin/icon';
+import '../icons/dorc-icons.js';
 import '@vaadin/text-field';
 import { css, PropertyValueMap } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
@@ -26,8 +27,6 @@ import {
   PagedDataSorting,
   RequestStatusesApi
 } from '../apis/dorc-api';
-import '../icons/iron-icons.js';
-import '../icons/custom-icons.js';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { getShortLogonName } from '../helpers/user-extensions.js';
 import '../components/connection-status-indicator';
@@ -268,6 +267,13 @@ export class PageMonitorRequests
             var(--dorc-link-color, #58a6ff) 48%,
             transparent
           );
+        }
+
+        .id-btn vaadin-icon {
+          width: 11px;
+          height: 11px;
+          color: currentColor;
+          flex-shrink: 0;
         }
 
         .details-primary {
@@ -794,17 +800,7 @@ export class PageMonitorRequests
         }}"
       >
         <span>${request.Id}</span>
-        <svg
-          width="11"
-          height="11"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-          aria-hidden="true"
-        >
-          <path d="M6 3h7v7M13 3L6 10" />
-        </svg>
+        <vaadin-icon icon="dorc:external-link" aria-hidden="true"></vaadin-icon>
       </button>
     `;
   };

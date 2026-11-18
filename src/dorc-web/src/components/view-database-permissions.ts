@@ -11,7 +11,7 @@ import {
   UserApiModel,
   UserPermDto
 } from '../apis/dorc-api';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import '@vaadin/icon';
 import '@vaadin/button';
 import '@vaadin/tooltip';
@@ -98,17 +98,17 @@ export class ViewDatabasePermissions extends LitElement {
                   html` <vaadin-item>
                     ${userPerm.Role}
                     <vaadin-button
-                      aria-label="Manage permissions"
+                      aria-label="Revoke permission"
                       theme="icon"
                       @click="${this._remove}"
                       ?disabled="${this.readonly}"
                     >
                       <vaadin-tooltip
                         slot="tooltip"
-                        text="Manage permissions"
+                        text="Revoke permission"
                       ></vaadin-tooltip>
                       <vaadin-icon
-                        icon="vaadin:unlink"
+                        icon="dorc:permission-revoke"
                         style=${styleMap(unlinkStyles)}
                         .data="${userPerm}"
                       ></vaadin-icon>
@@ -165,7 +165,9 @@ export class ViewDatabasePermissions extends LitElement {
   public loadDatabaseUsers() {
     if (this.dbId > 0) {
       this.loading = true;
-      const refDataPermissionApi = new RefDataDatabaseUsersApi(dorcApiConfiguration);
+      const refDataPermissionApi = new RefDataDatabaseUsersApi(
+        dorcApiConfiguration
+      );
       refDataPermissionApi
         .refDataDatabaseUsersGet({ id: this.dbId, envId: this.envId })
         .subscribe(

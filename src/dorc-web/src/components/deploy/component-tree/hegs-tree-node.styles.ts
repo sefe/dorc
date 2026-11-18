@@ -2,11 +2,8 @@ import { css } from 'lit';
 
 export const addHegsTreeNodeStyles = css`
   :host(.selected) > .node-container > .node-row {
-    background-color: var(
-      --paper-tree-selected-background-color,
-      rgba(200, 200, 200, 0.5)
-    );
-    color: var(--paper-tree-selected-color, inherit);
+    background-color: var(--dorc-chip-bg);
+    color: var(--dorc-chip-text);
   }
   :host(.selected) > .node-container > .node-row > #actions {
     display: inline-block;
@@ -19,21 +16,23 @@ export const addHegsTreeNodeStyles = css`
     padding-left: 4px;
     padding-right: 4px;
   }
-  .node-preicon.collapsed,
-  .node-preicon.expanded {
-    padding-left: 0px;
-  }
   .node-preicon {
     padding-left: 18px;
   }
-  .node-preicon:before {
-    margin-right: 0px;
+  .node-preicon.collapsed,
+  .node-preicon.expanded {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    padding-left: 0px;
+    vertical-align: middle;
   }
-  .node-preicon.collapsed:before {
-    content: '\\23F5';
-  }
-  .node-preicon.expanded:before {
-    content: '\\23F7';
+  .node-preicon vaadin-icon {
+    width: 12px;
+    height: 12px;
+    color: currentColor;
+    pointer-events: none;
   }
   .node-preicon,
   .node-name {
@@ -45,15 +44,43 @@ export const addHegsTreeNodeStyles = css`
     height: 24px;
   }
   #actions {
+    position: relative;
     float: right;
     padding: 0;
   }
-  paper-icon-button {
-    padding: 0px;
+  #actions vaadin-button.actions-trigger {
+    --lumo-button-size: 20px;
+    --lumo-icon-size-m: 16px;
+    padding: 0;
+    margin: 0;
   }
-  paper-icon-button.giant {
-    width: 20px;
-    height: 20px;
+  .actions-menu {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 10;
+    min-width: 120px;
+    padding: 4px 0;
+    background: var(--dorc-dialog-bg);
+    border: 1px solid var(--dorc-border-color);
+    border-radius: var(--lumo-border-radius-m);
+    box-shadow: var(--lumo-box-shadow-s);
+  }
+  .action-item {
+    display: block;
+    width: 100%;
+    padding: 6px 12px;
+    border: none;
+    background: transparent;
+    color: var(--dorc-text-primary);
+    font-family: var(--lumo-font-family);
+    font-size: var(--lumo-font-size-s);
+    text-align: left;
+    cursor: pointer;
+  }
+  .action-item:hover,
+  .action-item:focus-visible {
+    background: var(--dorc-bg-secondary);
   }
   vaadin-icon {
     color: var(--dorc-text-secondary);

@@ -9,7 +9,7 @@ import { Checkbox } from '@vaadin/checkbox';
 import { customElement, property, query } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '@vaadin/icon';
-import '../icons/line awesome-svg.js';
+import '../icons/dorc-icons.js';
 import { Notification } from '@vaadin/notification';
 import {
   RefDataEnvironmentsApi,
@@ -243,7 +243,7 @@ export class AddEditEnvironment extends LitElement {
                 ${this.owners && this.owners.length > 1 ? 'Environment Owners:' : 'Environment Owner:'}
               </div>
               <vaadin-icon
-                icon="line awesome-svg:chess-king-solid"
+                icon="dorc:environment-owner"
                 style="width: var(--lumo-icon-size-s); height: var(--lumo-icon-size-s);"
               ></vaadin-icon>
 
@@ -329,7 +329,7 @@ export class AddEditEnvironment extends LitElement {
             (this.environment?.EnvironmentIsProd ?? false) &&
             !(this.environment?.EnvironmentSecure ?? false)
               ? html`<div class="prod-not-secure-warning">
-                  <vaadin-icon icon="vaadin:warning"></vaadin-icon>
+                  <vaadin-icon icon="dorc:warning"></vaadin-icon>
                   <span
                     >This environment is marked as Production but
                     <strong>Is Secure</strong> is not set.</span

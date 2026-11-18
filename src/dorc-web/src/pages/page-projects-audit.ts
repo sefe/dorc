@@ -15,7 +15,7 @@ import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/horizontal-layout';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import '@vaadin/icon';
 import '@vaadin/text-field';
 import { PropertyValues, css } from 'lit';
@@ -562,7 +562,7 @@ export class PageProjectsAudit extends ResponsiveMixin(PageElement) {
 
   private chevronRenderer = (item: RefDataAuditApiModel) => {
     const isOpen = this.openedItems.indexOf(item) !== -1;
-    const icon = isOpen ? 'vaadin:chevron-down' : 'vaadin:chevron-right';
+    const icon = isOpen ? 'dorc:chevron-down' : 'dorc:chevron-right';
     return html`<vaadin-icon class="chevron" icon="${icon}"></vaadin-icon>`;
   };
 

@@ -185,7 +185,7 @@ describe('confirmPrompt', () => {
       'Restart job 42?'
     );
     const icon = banner?.querySelector(
-      'vaadin-icon[icon="vaadin:warning"]'
+      'vaadin-icon[icon="dorc:warning"]'
     ) as HTMLElement | null;
     expect(icon).to.not.equal(null);
     expect(icon?.style.width).to.equal('21px');

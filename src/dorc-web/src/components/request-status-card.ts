@@ -4,7 +4,6 @@ import '@vaadin/dialog';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-area';
 import '@vaadin/text-field';
@@ -16,10 +15,8 @@ import './component-deployment-results';
 import './log-dialog';
 import './grid-button-groups/request-controls';
 import { styleMap } from 'lit/directives/style-map.js';
-import '../icons/iron-icons.js';
+import '../icons/dorc-icons.js';
 import { Notification } from '@vaadin/notification';
-import '../icons/notification-icons.js';
-import '../icons/hardware-icons.js';
 import { ErrorNotification } from './notifications/error-notification';
 import type { DeploymentRequestApiModel } from '../apis/dorc-api';
 import {
@@ -203,7 +200,7 @@ export class RequestStatusCard extends LitElement {
                   text="Refresh Page"
                 ></vaadin-tooltip>
                 <vaadin-icon
-                  icon="icons:refresh"
+                  icon="dorc:refresh"
                   style="color: var(--dorc-link-color)"
                 ></vaadin-icon>
               </vaadin-button>
@@ -221,7 +218,7 @@ export class RequestStatusCard extends LitElement {
                           text="View Log"
                         ></vaadin-tooltip>
                         <vaadin-icon
-                          icon="notification:sms-failed"
+                          icon="dorc:file-log"
                           style="color: var(--dorc-error-color)"
                         ></vaadin-icon>
                       </vaadin-button>
@@ -279,7 +276,7 @@ export class RequestStatusCard extends LitElement {
                       }"
                     ></vaadin-tooltip>
                     <vaadin-icon
-                      icon="hardware:developer-board"
+                      icon="dorc:environment-details"
                       style="color: var(--dorc-link-color)"
                     ></vaadin-icon>
                   </vaadin-button>
@@ -406,7 +403,7 @@ export class RequestStatusCard extends LitElement {
                             text="Copy Path"
                           ></vaadin-tooltip>
                           <vaadin-icon
-                            icon="icons:content-copy"
+                            icon="dorc:copy"
                             style="color: var(--dorc-link-color)"
                           ></vaadin-icon>
                         </vaadin-button>

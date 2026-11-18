@@ -1,13 +1,11 @@
 import { confirmPrompt } from '../confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { styleMap } from 'lit/directives/style-map.js';
-import '../../icons/iron-icons.js';
-import '@vaadin/vaadin-lumo-styles/icons.js';
+import '../../icons/dorc-icons.js';
 import { ErrorNotification } from '../notifications/error-notification';
 import {
   ApiBoolResult,
@@ -68,7 +66,7 @@ export class ServerControls extends LitElement {
           text="Edit Server Details"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="lumo:edit"
+          icon="dorc:edit"
           style=${styleMap(editStyles)}
         ></vaadin-icon>
       </vaadin-button>
@@ -84,7 +82,7 @@ export class ServerControls extends LitElement {
           text="Edit Application Tags"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:tags"
+          icon="dorc:tags"
           style=${styleMap(editStyles)}
         ></vaadin-icon>
       </vaadin-button>
@@ -97,7 +95,7 @@ export class ServerControls extends LitElement {
       >
         <vaadin-tooltip slot="tooltip" text="Manage Daemons"></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:cog"
+          icon="dorc:daemons"
           style=${styleMap(editStyles)}
         ></vaadin-icon>
       </vaadin-button>
@@ -115,7 +113,7 @@ export class ServerControls extends LitElement {
                 text="Detach server"
               ></vaadin-tooltip>
               <vaadin-icon
-                icon="vaadin:unlink"
+                icon="dorc:unlink"
                 style=${styleMap(unlinkStyles)}
               ></vaadin-icon>
             </vaadin-button>`
@@ -134,7 +132,7 @@ export class ServerControls extends LitElement {
                 text="Delete server"
               ></vaadin-tooltip>
               <vaadin-icon
-                icon="icons:delete"
+                icon="dorc:trash"
                 style=${styleMap(unlinkStyles)}
               ></vaadin-icon>
             </vaadin-button>`

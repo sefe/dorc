@@ -8,7 +8,7 @@ import { TreeAction } from './TreeAction';
 
 @customElement('hegs-tree')
 export class HegsTree extends LitElement {
-  private selected: TreeNode | undefined = undefined;
+  private selected: HegsTreeNode | undefined = undefined;
 
   @property({ type: Array }) data: TreeNode[] | undefined;
 
@@ -117,16 +117,23 @@ export class HegsTree extends LitElement {
   /**
    * Called when the `select` event is fired from an internal node.
    *
-   * @param {object} e An event object.
+   * @param {CustomEvent} e An event object.
    */
   _selectNode(e: CustomEvent) {
     if (this.selected) {
-      // this.toggleClass("selected", false, this.selected);
+      this.selected.classList.remove('selected');
     }
 
-    // Only selects `<paper-tree-node>`.
-    if (e.detail && e.detail.tagName === 'PAPER-TREE-NODE') {
-      this.selected = e.detail;
+    const origin = e
+      .composedPath()
+      .find(
+        (el): el is HegsTreeNode =>
+          el instanceof HTMLElement && el.tagName === 'HEGS-TREE-NODE'
+      );
+
+    if (origin) {
+      this.selected = origin;
+      this.selected.classList.add('selected');
     } else {
       this.selected = undefined;
     }

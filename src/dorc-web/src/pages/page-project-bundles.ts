@@ -8,7 +8,6 @@ import '@vaadin/grid/vaadin-grid';
 import '@vaadin/combo-box';
 import '@vaadin/button';
 import '@vaadin/icon';
-import '@vaadin/icons';
 import { customElement, property, query, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PageElement } from '../helpers/page-element';

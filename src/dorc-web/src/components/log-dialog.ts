@@ -9,6 +9,7 @@ import { ref } from 'lit/directives/ref.js';
 import { html } from 'lit/html.js';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogRenderer } from '@vaadin/dialog/lit';
+import '../icons/dorc-icons.js';
 
 @customElement('log-dialog')
 export class LogDialog extends LitElement {
@@ -92,6 +93,9 @@ export class LogDialog extends LitElement {
   private renderLog = () => html`
     <div style="display: flex; gap: 4px; align-items: center;">
       <vaadin-button
+        theme="icon"
+        title="Close log"
+        aria-label="Close log"
         @click="${() =>
           this.dispatchEvent(
             new CustomEvent('close-log-dialog', {
@@ -102,12 +106,15 @@ export class LogDialog extends LitElement {
       >
         <vaadin-icon
           style="color: var(--dorc-link-color);"
-          icon="vaadin:close-small"
+          icon="dorc:close"
         ></vaadin-icon>
       </vaadin-button>
       ${
         this.refreshEnabled
           ? html`<vaadin-button
+              theme="icon"
+              title="Refresh log"
+              aria-label="Refresh log"
               @click="${() =>
                 this.dispatchEvent(
                   new CustomEvent('refresh-log-dialog', {
@@ -118,7 +125,7 @@ export class LogDialog extends LitElement {
             >
               <vaadin-icon
                 style="color: var(--dorc-link-color);"
-                icon="vaadin:refresh"
+                icon="dorc:refresh"
               ></vaadin-icon>
             </vaadin-button>`
           : html``

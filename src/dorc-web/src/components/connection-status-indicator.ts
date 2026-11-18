@@ -2,7 +2,9 @@ import { LitElement, PropertyValues, css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { HubConnectionState } from '@microsoft/signalr';
+import '@vaadin/icon';
 import '@vaadin/tooltip';
+import '../icons/dorc-icons.js';
 
 type IndicatorStatus = 'live' | 'paused' | 'reconnecting' | 'offline';
 
@@ -238,14 +240,10 @@ export class ConnectionStatusIndicator extends LitElement {
       background: color-mix(in srgb, currentColor 26%, transparent);
     }
 
-    .strip-btn svg {
+    .strip-btn vaadin-icon {
       width: 11px;
       height: 11px;
-      fill: none;
-      stroke: currentColor;
-      stroke-width: 2;
-      stroke-linecap: round;
-      stroke-linejoin: round;
+      color: currentColor;
       flex-shrink: 0;
     }
 
@@ -437,19 +435,17 @@ export class ConnectionStatusIndicator extends LitElement {
               ${
                 this.autoRefresh
                   ? html`
-                      <svg viewBox="0 0 16 16" aria-hidden="true">
-                        <path d="M5.5 3.5v9M10.5 3.5v9" />
-                      </svg>
+                      <vaadin-icon
+                        icon="dorc:pause"
+                        aria-hidden="true"
+                      ></vaadin-icon>
                       <span>Pause</span>
                     `
                   : html`
-                      <svg viewBox="0 0 16 16" aria-hidden="true">
-                        <polygon
-                          points="4.5,3 12.5,8 4.5,13"
-                          fill="currentColor"
-                          stroke="none"
-                        />
-                      </svg>
+                      <vaadin-icon
+                        icon="dorc:resume"
+                        aria-hidden="true"
+                      ></vaadin-icon>
                       <span>Resume</span>
                     `
               }
@@ -462,9 +458,7 @@ export class ConnectionStatusIndicator extends LitElement {
               ?tabindex="${isCollapsedLive ? -1 : undefined}"
               @click="${this.manualRefresh}"
             >
-              <svg viewBox="0 0 16 16" aria-hidden="true">
-                <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3" />
-              </svg>
+              <vaadin-icon icon="dorc:refresh" aria-hidden="true"></vaadin-icon>
               <span>Refresh</span>
             </button>
           </span>

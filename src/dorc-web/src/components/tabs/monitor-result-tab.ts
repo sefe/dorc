@@ -1,5 +1,5 @@
 import { LitElement } from 'lit';
-import '@vaadin/icons';
+import '../../icons/dorc-icons.js';
 import '@vaadin/icon';
 import '@vaadin/button';
 import { customElement, property } from 'lit/decorators.js';
@@ -31,7 +31,7 @@ export class MonitorResultTab extends LitElement {
         <span class="shortcut-line">
           <vaadin-icon
             class="shortcut-icon"
-            icon="vaadin:clipboard-pulse"
+            icon="dorc:monitor-result"
             theme="small"
           ></vaadin-icon>
           <span class="shortcut-label">${label}</span>
@@ -44,7 +44,7 @@ export class MonitorResultTab extends LitElement {
         aria-label="Close deployment ${label} shortcut"
         @click="${this.removeMonitorResult}"
       >
-        <vaadin-icon icon="vaadin:close-small" theme="small"></vaadin-icon>
+        <vaadin-icon icon="dorc:close" theme="small"></vaadin-icon>
       </vaadin-button>
     `;
   }

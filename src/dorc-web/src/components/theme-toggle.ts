@@ -2,7 +2,7 @@ import { css, html, LitElement } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import '@vaadin/button';
 import '@vaadin/icon';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import { themeManager, Theme } from '../theme/theme-manager.ts';
 import '@vaadin/tooltip';
 
@@ -38,7 +38,7 @@ export class ThemeToggle extends LitElement {
   }
 
   render() {
-    const icon = this.theme === 'dark' ? 'vaadin:sun-o' : 'vaadin:moon-o';
+    const icon = this.theme === 'dark' ? 'dorc:sun' : 'dorc:moon';
     const label =
       this.theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
 

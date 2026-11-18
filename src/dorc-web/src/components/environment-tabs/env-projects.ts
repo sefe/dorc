@@ -2,7 +2,7 @@ import '@vaadin/details';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/icon';
-import '@vaadin/icons/vaadin-icons';
+import '../../icons/dorc-icons.js';
 import { css } from 'lit';
 import { customElement } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -84,7 +84,7 @@ export class EnvProjects extends PageEnvBase {
       >
         <vaadin-details-summary slot="summary">
           <div class="summary-bar">
-            <vaadin-icon icon="vaadin:archives" theme="small"></vaadin-icon>
+            <vaadin-icon icon="dorc:projects" theme="small"></vaadin-icon>
             Mapped Projects
             <span class="count-badge"
               >${this.envContent?.MappedProjects?.length ?? 0}</span

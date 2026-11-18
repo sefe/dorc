@@ -9,7 +9,8 @@ import '@vaadin/confirm-dialog';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/horizontal-layout';
-import '@vaadin/icons/vaadin-icons';
+import '@vaadin/icon';
+import '../../icons/dorc-icons.js';
 import '@vaadin/notification';
 import '@vaadin/text-field';
 import { TextField } from '@vaadin/text-field';
@@ -279,7 +280,7 @@ export class DeployEnv extends LitElement {
             aria-label="Close"
             @click="${this.deployConfirmDialogClosed}"
           >
-            <vaadin-icon icon="vaadin:close-small"></vaadin-icon>
+            <vaadin-icon icon="dorc:close"></vaadin-icon>
           </vaadin-button>
         </div>
         <div style="margin-bottom: 5px;">
@@ -288,7 +289,7 @@ export class DeployEnv extends LitElement {
         <hegs-json-viewer id="jsonviewer">{}</hegs-json-viewer>
       </vaadin-confirm-dialog>
       <div class="catalog-callout">
-        <vaadin-icon icon="vaadin:puzzle-piece"></vaadin-icon>
+        <vaadin-icon icon="dorc:module-catalog"></vaadin-icon>
         <div class="catalog-callout__text">
           <strong>Deploying infrastructure?</strong>
           Plan a stock Terraform module into ${this.envName} without a build
@@ -450,7 +451,7 @@ export class DeployEnv extends LitElement {
         ${template.Name?.replace('[PINNED]', '')}
         ${
           template.Name?.includes('[PINNED]')
-            ? html`<vaadin-icon icon="vaadin:pin"></vaadin-icon>`
+            ? html`<vaadin-icon icon="dorc:pin"></vaadin-icon>`
             : html``
         }
       </vaadin-horizontal-layout>
