@@ -647,7 +647,7 @@ namespace Dorc.Core.Tests
             {
                 MakeProperty("Leaf", "val"),
                 MakeProperty("Branch1", "$Leaf$-$Leaf$"),
-                MakeProperty("Branch2", "$Branch1$+$Branch1$"),
+                MakeProperty("Branch2", "$Branch1$:$Branch1$"),
                 MakeProperty("Root", "$Branch2$|$Branch2$"),
                 MakeProperty("ExprMissingRef", "fn:Call($UndefinedRef$)")
             });
@@ -662,7 +662,7 @@ namespace Dorc.Core.Tests
             };
 
             var res = _tracer.TraceProperties(req, null, _user);
-            Assert.AreEqual("\"val-val+val-val|val-val+val-val\"", res[0].ResolvedValueJson);
+            Assert.AreEqual("\"val-val:val-val|val-val:val-val\"", res[0].ResolvedValueJson);
             Assert.AreEqual("\"val\"", res[1].ResolvedValueJson);
             Assert.AreEqual("MissingInScope", res[2].Diagnostic);
         }
