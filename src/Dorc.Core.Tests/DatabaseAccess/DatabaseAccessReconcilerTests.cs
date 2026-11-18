@@ -372,7 +372,8 @@ internal sealed class LocalAccessDbHarness : IDisposable
             InitialCatalog = "master",
             IntegratedSecurity = true,
             Encrypt = true,
-            TrustServerCertificate = true
+            TrustServerCertificate = true,
+            ConnectTimeout = 60
         }.ConnectionString;
 
         using (var masterSql = new Microsoft.Data.SqlClient.SqlConnection(masterCs))
@@ -434,6 +435,7 @@ internal sealed class LocalAccessDbHarness : IDisposable
 
     public void Dispose()
     {
+        Microsoft.Data.SqlClient.SqlConnection.ClearAllPools();
         using var masterSql = new Microsoft.Data.SqlClient.SqlConnection(_masterConnectionString);
         masterSql.Open();
         using var dropCmd = new Microsoft.Data.SqlClient.SqlCommand(
