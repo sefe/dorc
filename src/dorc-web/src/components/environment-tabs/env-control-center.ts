@@ -110,6 +110,12 @@ export class EnvControlCenter extends PageEnvBase {
         gap: var(--lumo-space-xs, 0.375rem);
         white-space: nowrap;
       }
+
+      .control-center-summary vaadin-icon {
+        width: var(--lumo-icon-size-s);
+        height: var(--lumo-icon-size-s);
+        flex-shrink: 0;
+      }
     `;
   }
 
@@ -176,15 +182,17 @@ export class EnvControlCenter extends PageEnvBase {
           >
           <vaadin-button
             aria-label="Access Control..."
-            theme="icon"
             @click="${this.openAccessControl}"
           >
             <vaadin-tooltip
               slot="tooltip"
               text="Access Control..."
             ></vaadin-tooltip>
-            <vaadin-icon icon="dorc:access-control"></vaadin-icon>Environment
-            Access...</vaadin-button
+            <vaadin-icon
+              slot="prefix"
+              icon="dorc:access-control"
+            ></vaadin-icon
+            >Environment Access...</vaadin-button
           >
           <vaadin-button
             id="mlp"

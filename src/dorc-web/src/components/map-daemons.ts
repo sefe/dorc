@@ -106,6 +106,7 @@ export class ServerDaemonMapping extends LitElement {
           @click="${this.attachDaemon}"
         >
           <vaadin-icon
+            slot="prefix"
             icon="dorc:link"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon>

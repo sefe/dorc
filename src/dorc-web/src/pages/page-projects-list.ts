@@ -149,6 +149,7 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
           @click="${this.addProject}"
         >
           <vaadin-icon
+            slot="prefix"
             icon="dorc:plus"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon
@@ -274,7 +275,7 @@ export class PageProjectsList extends ResponsiveMixin(PageElement) {
       return html`<vaadin-icon
         icon="dorc:folder-open"
         title="File Share"
-        style="color: ${color}; width: ${size}px; height: ${size}px;"
+        style="color: ${color}; width: ${size}px; height: ${size}px; vertical-align: middle;"
       ></vaadin-icon>`;
     } else {
       // Azure DevOps logo

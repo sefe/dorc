@@ -93,6 +93,9 @@ export class LogDialog extends LitElement {
   private renderLog = () => html`
     <div style="display: flex; gap: 4px; align-items: center;">
       <vaadin-button
+        theme="icon"
+        title="Close log"
+        aria-label="Close log"
         @click="${() =>
           this.dispatchEvent(
             new CustomEvent('close-log-dialog', {
@@ -109,6 +112,9 @@ export class LogDialog extends LitElement {
       ${
         this.refreshEnabled
           ? html`<vaadin-button
+              theme="icon"
+              title="Refresh log"
+              aria-label="Refresh log"
               @click="${() =>
                 this.dispatchEvent(
                   new CustomEvent('refresh-log-dialog', {

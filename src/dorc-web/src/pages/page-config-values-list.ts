@@ -160,6 +160,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
           @click="${this.addConfigValue}"
         >
           <vaadin-icon
+            slot="prefix"
             icon="dorc:plus"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon>

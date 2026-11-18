@@ -457,6 +457,7 @@ export class PageServersList extends ResponsiveMixin(PageElement) {
         }}"
       >
         <vaadin-icon
+          slot="prefix"
           icon="dorc:plus"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>

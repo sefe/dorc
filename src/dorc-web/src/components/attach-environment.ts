@@ -115,7 +115,6 @@ export class AttachEnvironment extends LitElement {
 
       <vaadin-button
         aria-label="Attach Environment(s)"
-        theme="icon"
         @click="${this.attachEnvironment}"
       >
         <vaadin-tooltip
@@ -123,6 +122,7 @@ export class AttachEnvironment extends LitElement {
           text="Attach Environment(s)"
         ></vaadin-tooltip>
         <vaadin-icon
+          slot="prefix"
           icon="dorc:link"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
