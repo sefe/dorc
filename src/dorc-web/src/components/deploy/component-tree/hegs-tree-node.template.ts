@@ -113,7 +113,15 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
         ${
           this.actions && this.actions.length > 0
             ? html`
-                <div id="actions" @focusout="${this._onActionsFocusOut}">
+                <div
+                  id="actions"
+                  @focusout="${this._onActionsFocusOut}"
+                  @mousedown="${(e: MouseEvent) => {
+                    if (this.actionsOpen) {
+                      e.preventDefault();
+                    }
+                  }}"
+                >
                   <vaadin-button
                     theme="icon small"
                     class="actions-trigger"

@@ -25,6 +25,9 @@ export class HegsTreeNode extends LitElement {
   @query('#deployment')
   private deploymentInput: HTMLInputElement | undefined;
 
+  @query('#actions')
+  private actionsContainer: HTMLElement | undefined;
+
   @query('#actions .actions-trigger')
   private actionsTrigger: HTMLElement | undefined;
 
@@ -98,6 +101,21 @@ export class HegsTreeNode extends LitElement {
         this.data.indeterminate && !this.isCheckboxDisabled()
       );
     }
+    if (changed.has('actionsOpen')) {
+      if (this.actionsOpen) {
+        document.addEventListener('pointerdown', this._onDocumentPointerDown);
+      } else {
+        document.removeEventListener(
+          'pointerdown',
+          this._onDocumentPointerDown
+        );
+      }
+    }
+  }
+
+  override disconnectedCallback() {
+    document.removeEventListener('pointerdown', this._onDocumentPointerDown);
+    super.disconnectedCallback();
   }
 
   public hasDisabledDescendants(
@@ -305,13 +323,23 @@ export class HegsTreeNode extends LitElement {
     }
   }
 
+  private readonly _onDocumentPointerDown = (event: PointerEvent) => {
+    if (!this.actionsOpen) {
+      return;
+    }
+    const container = this.actionsContainer;
+    if (container && !event.composedPath().includes(container)) {
+      this.actionsOpen = false;
+    }
+  };
+
   _onActionsFocusOut(event: FocusEvent) {
     if (!this.actionsOpen) {
       return;
     }
     const container = event.currentTarget as HTMLElement | null;
     const nextTarget = event.relatedTarget as Node | null;
-    if (container && nextTarget && !container.contains(nextTarget)) {
+    if (!nextTarget || (container && !container.contains(nextTarget))) {
       this.actionsOpen = false;
     }
   }

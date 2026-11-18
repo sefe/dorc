@@ -219,10 +219,12 @@ export class AddEditDatabase extends LitElement {
           >Save</vaadin-button
         >
         <vaadin-button @click="${this._reset}">Clear</vaadin-button>
-        <div class="info-message" style="color: var(--dorc-error-color)">
+        <div class="info-message" style="color: var(--lumo-error-text-color)">
           ${this.infoMessage}
         </div>
-        <div style="color: var(--dorc-error-color)">${this.ErrorMessage}</div>
+        <div style="color: var(--lumo-error-text-color)">
+          ${this.ErrorMessage}
+        </div>
       </div>
     `;
   }

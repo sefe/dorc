@@ -117,15 +117,55 @@ function parseCanonicalIconRegistry(registryPath, text) {
   const duplicates = [];
   const registrySvgProblems = [];
 
+  const ALLOWED_REGISTRY_PAINT_RE = /^(?:currentcolor|none)$/i;
+
   const scanRegistryInitializer = node => {
     const checkLiteral = (litNode, chunk) => {
-      const hex = chunk.match(/#[0-9a-fA-F]{3,8}\b/);
-      if (hex) {
-        registrySvgProblems.push({
-          line: lineForMatch(source, litNode, hex.index ?? 0),
-          msg: `registry SVG contains hardcoded color "${hex[0]}" — icons must inherit currentColor`
-        });
+      let reportedColor = false;
+
+      const styleAttrRe = /\bstyle\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+      let styleAttr;
+      while ((styleAttr = styleAttrRe.exec(chunk)) !== null) {
+        const styleBody = styleAttr[1] ?? styleAttr[2] ?? '';
+        const paintDeclRe =
+          /(?:^|;)\s*(?:fill|stroke|color|stop-color|flood-color|lighting-color)\s*:\s*([^;]+)/gi;
+        let paintDecl;
+        while ((paintDecl = paintDeclRe.exec(styleBody)) !== null) {
+          const val = paintDecl[1].replace(/\s*!important\s*$/i, '').trim();
+          if (val && !ALLOWED_REGISTRY_PAINT_RE.test(val)) {
+            reportedColor = true;
+            registrySvgProblems.push({
+              line: lineForMatch(source, litNode, styleAttr.index),
+              msg: `registry SVG contains hardcoded color "${val}" — icons must inherit currentColor`
+            });
+          }
+        }
       }
+
+      const paintAttrRe =
+        /\b(?:fill|stroke|color|stop-color|flood-color|lighting-color)\s*=\s*(?:"([^"]*)"|'([^']*)')/gi;
+      let paintAttr;
+      while ((paintAttr = paintAttrRe.exec(chunk)) !== null) {
+        const val = (paintAttr[1] ?? paintAttr[2] ?? '').trim();
+        if (val && !ALLOWED_REGISTRY_PAINT_RE.test(val)) {
+          reportedColor = true;
+          registrySvgProblems.push({
+            line: lineForMatch(source, litNode, paintAttr.index),
+            msg: `registry SVG contains hardcoded color "${val}" — icons must inherit currentColor`
+          });
+        }
+      }
+
+      if (!reportedColor) {
+        const hex = chunk.match(/#[0-9a-fA-F]{3,8}\b/);
+        if (hex) {
+          registrySvgProblems.push({
+            line: lineForMatch(source, litNode, hex.index ?? 0),
+            msg: `registry SVG contains hardcoded color "${hex[0]}" — icons must inherit currentColor`
+          });
+        }
+      }
+
       const badInner = chunk.match(/\bid\s*=|<\s*(?:style|script)\b/i);
       if (badInner) {
         registrySvgProblems.push({
@@ -292,8 +332,23 @@ function isAllowedIconColorValue(raw) {
   return cleaned.length === 0 || ALLOWED_ICON_COLOR_RE.test(cleaned);
 }
 
+function unwrapExpr(expr) {
+  let cur = expr;
+  while (
+    cur &&
+    (ts.isParenthesizedExpression(cur) ||
+      ts.isAsExpression(cur) ||
+      ts.isSatisfiesExpression(cur) ||
+      ts.isNonNullExpression(cur))
+  ) {
+    cur = cur.expression;
+  }
+  return cur;
+}
+
 function collectLeafStringLiterals(expr, out = []) {
-  const unwrapped = ts.isParenthesizedExpression(expr) ? expr.expression : expr;
+  const unwrapped = unwrapExpr(expr);
+  if (!unwrapped) return out;
   if (
     ts.isStringLiteral(unwrapped) ||
     ts.isNoSubstitutionTemplateLiteral(unwrapped)
@@ -302,6 +357,9 @@ function collectLeafStringLiterals(expr, out = []) {
   } else if (ts.isConditionalExpression(unwrapped)) {
     collectLeafStringLiterals(unwrapped.whenTrue, out);
     collectLeafStringLiterals(unwrapped.whenFalse, out);
+  } else if (ts.isBinaryExpression(unwrapped)) {
+    collectLeafStringLiterals(unwrapped.left, out);
+    collectLeafStringLiterals(unwrapped.right, out);
   }
   return out;
 }
@@ -331,22 +389,107 @@ for (const { file, relFromSrc, text } of fileEntries) {
 
   let firstVaadinIconLine = 0;
 
-  const checkIconColorExpression = (expr, fallbackLine) => {
+  const checkColorValueExpression = (expr, fallbackLine) => {
     if (!expr) return;
     for (const lit of collectLeafStringLiterals(expr)) {
       if (!isAllowedIconColorValue(lit.text)) {
         report(
           file,
-          lineForMatch(source, lit.node, 0),
+          lineForMatch(source, lit.node, 0) || fallbackLine,
           `sets hardcoded inline color "${lit.text.trim()}" on <vaadin-icon> — use var(--dorc-*) / var(--lumo-*) tokens or currentColor so dark theme stays legible`
         );
       }
     }
-    if (ts.isCallExpression(expr)) {
-      const callee = ts.isIdentifier(expr.expression)
-        ? expr.expression.text
+  };
+
+  const scanStyleDeclarationList = (styleBody, exprList, styleLine) => {
+    for (const rawDecl of styleBody.split(';')) {
+      const decl = rawDecl.trim();
+      if (!decl) continue;
+
+      const colorProp = /^color\s*:\s*([\s\S]+)$/i.exec(decl);
+      if (colorProp) {
+        const rawVal = colorProp[1].trim();
+        const pureExpr = /^\uE000(\d+)\uE001$/.exec(rawVal);
+        if (pureExpr) {
+          const [, idxText] = pureExpr;
+          checkColorValueExpression(exprList.at(Number(idxText)), styleLine);
+          continue;
+        }
+        if (!isAllowedIconColorValue(rawVal)) {
+          const displayVal = rawVal
+            .replace(/\uE000\d+\uE001/g, '${...}')
+            .replace(/\s*!important\s*$/i, '')
+            .trim();
+          report(
+            file,
+            styleLine,
+            `sets hardcoded inline color "${displayVal}" on <vaadin-icon> — use var(--dorc-*) / var(--lumo-*) tokens or currentColor so dark theme stays legible`
+          );
+        }
+        continue;
+      }
+
+      if (!/^[A-Za-z-]+\s*:/.test(decl)) {
+        const placeholderRe = /\uE000(\d+)\uE001/g;
+        let ph;
+        while ((ph = placeholderRe.exec(decl)) !== null) {
+          const [, idxText] = ph;
+          checkWholeStyleExpression(exprList.at(Number(idxText)), styleLine);
+        }
+      }
+    }
+  };
+
+  const checkWholeStyleExpression = (expr, fallbackLine) => {
+    const unwrapped = unwrapExpr(expr);
+    if (!unwrapped) return;
+
+    if (
+      ts.isStringLiteral(unwrapped) ||
+      ts.isNoSubstitutionTemplateLiteral(unwrapped)
+    ) {
+      scanStyleDeclarationList(
+        unwrapped.text,
+        [],
+        lineForMatch(source, unwrapped, 0) || fallbackLine
+      );
+      return;
+    }
+
+    if (ts.isTemplateExpression(unwrapped)) {
+      let combined = unwrapped.head.text;
+      const nestedExprs = [];
+      for (const span of unwrapped.templateSpans) {
+        const exprIdx = nestedExprs.length;
+        nestedExprs.push(span.expression);
+        combined += `\uE000${exprIdx}\uE001${span.literal.text}`;
+      }
+      scanStyleDeclarationList(
+        combined,
+        nestedExprs,
+        lineForMatch(source, unwrapped, 0) || fallbackLine
+      );
+      return;
+    }
+
+    if (ts.isConditionalExpression(unwrapped)) {
+      checkWholeStyleExpression(unwrapped.whenTrue, fallbackLine);
+      checkWholeStyleExpression(unwrapped.whenFalse, fallbackLine);
+      return;
+    }
+
+    if (ts.isBinaryExpression(unwrapped)) {
+      checkWholeStyleExpression(unwrapped.left, fallbackLine);
+      checkWholeStyleExpression(unwrapped.right, fallbackLine);
+      return;
+    }
+
+    if (ts.isCallExpression(unwrapped)) {
+      const callee = ts.isIdentifier(unwrapped.expression)
+        ? unwrapped.expression.text
         : '';
-      const [styleObj] = expr.arguments;
+      const [styleObj] = unwrapped.arguments;
       if (
         callee === 'styleMap' &&
         styleObj &&
@@ -357,15 +500,7 @@ for (const { file, relFromSrc, text } of fileEntries) {
             ts.isPropertyAssignment(prop) &&
             prop.name.getText(source).replace(/['"]/g, '') === 'color'
           ) {
-            for (const lit of collectLeafStringLiterals(prop.initializer)) {
-              if (!isAllowedIconColorValue(lit.text)) {
-                report(
-                  file,
-                  fallbackLine ?? lineForMatch(source, lit.node, 0),
-                  `sets hardcoded inline color "${lit.text.trim()}" on <vaadin-icon> — use var(--dorc-*) / var(--lumo-*) tokens or currentColor so dark theme stays legible`
-                );
-              }
-            }
+            checkColorValueExpression(prop.initializer, fallbackLine);
           }
         }
       }
@@ -404,34 +539,11 @@ for (const { file, relFromSrc, text } of fileEntries) {
         const styleLine = lineAtOffset(tagStart + styleAttr.index);
         if (styleAttr[3]) {
           const exprIdx = Number(styleAttr[3].slice(1, -1));
-          checkIconColorExpression(expressions.at(exprIdx), styleLine);
+          checkWholeStyleExpression(expressions.at(exprIdx), styleLine);
           continue;
         }
         const styleBody = styleAttr[1] ?? styleAttr[2] ?? '';
-        const colorDeclRe = /(?:^|;)\s*color\s*:\s*([^;]+)/gi;
-        let colorDecl;
-        while ((colorDecl = colorDeclRe.exec(styleBody)) !== null) {
-          const rawVal = colorDecl[1].trim();
-          const pureExpr = /^\uE000(\d+)\uE001$/.exec(rawVal);
-          if (pureExpr) {
-            checkIconColorExpression(
-              expressions.at(Number(pureExpr[1])),
-              styleLine
-            );
-            continue;
-          }
-          if (!isAllowedIconColorValue(rawVal)) {
-            const displayVal = rawVal
-              .replace(/\uE000\d+\uE001/g, '${...}')
-              .replace(/\s*!important\s*$/i, '')
-              .trim();
-            report(
-              file,
-              styleLine,
-              `sets hardcoded inline color "${displayVal}" on <vaadin-icon> — use var(--dorc-*) / var(--lumo-*) tokens or currentColor so dark theme stays legible`
-            );
-          }
-        }
+        scanStyleDeclarationList(styleBody, expressions, styleLine);
       }
     }
   };
