@@ -159,6 +159,7 @@ models/PropertyFilter.ts
 models/PropertyImportCsvDto.ts
 models/PropertyResolutionPreviewRequestApiModel.ts
 models/PropertyResolutionTraceApiModel.ts
+models/PropertyUsageReferenceApiModel.ts
 models/PropertyValue.ts
 models/PropertyValueAuditApiModel.ts
 models/PropertyValueDto.ts
