@@ -104,6 +104,44 @@ const FORBIDDEN_MARKUP_RULES = [
   }
 ];
 
+function inspectVaadinButtonInner(raw) {
+  const iconOpenTags = [];
+  let hasLabelText = false;
+  const lower = raw.toLowerCase();
+  let i = 0;
+
+  while (i < raw.length) {
+    if (raw.startsWith('<!--', i)) {
+      const endComment = raw.indexOf('-->', i + 4);
+      i = endComment === -1 ? raw.length : endComment + 3;
+      continue;
+    }
+    if (raw[i] === '<') {
+      const closeBracket = raw.indexOf('>', i + 1);
+      if (closeBracket === -1) break;
+      const tagText = raw.slice(i, closeBracket + 1);
+      if (/^<\s*vaadin-tooltip\b/i.test(tagText)) {
+        const closeTooltip = lower.indexOf('</vaadin-tooltip', closeBracket + 1);
+        if (closeTooltip === -1) break;
+        const closeTooltipEnd = raw.indexOf('>', closeTooltip + 16);
+        i = closeTooltipEnd === -1 ? raw.length : closeTooltipEnd + 1;
+        continue;
+      }
+      if (/^<\s*vaadin-icon\b/i.test(tagText)) {
+        iconOpenTags.push({ tag: tagText, index: i });
+      }
+      i = closeBracket + 1;
+      continue;
+    }
+    if (!/\s/.test(raw[i])) {
+      hasLabelText = true;
+    }
+    i += 1;
+  }
+
+  return { iconOpenTags, hasLabelText };
+}
+
 function* walk(dir) {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
@@ -569,20 +607,11 @@ for (const { file, relFromSrc, text } of fileEntries) {
     while ((btnMatch = VAADIN_BUTTON_BLOCK_RE.exec(surfaceText)) !== null) {
       const [, btnOpenTag, btnInnerRaw] = btnMatch;
       const btnStart = btnMatch.index;
-      // Ignore HTML comments and <vaadin-tooltip> helper children when checking button content
-      const btnInner = btnInnerRaw
-        .replace(/<!--[\s\S]*?-->/g, '')
-        .replace(/<\s*vaadin-tooltip\b[^>]*>[\s\S]*?<\/\s*vaadin-tooltip\s*>/gi, '');
-
-      const iconOpenTags = [...btnInner.matchAll(/<\s*vaadin-icon\b[^>]*>/gi)];
+      const { iconOpenTags, hasLabelText } =
+        inspectVaadinButtonInner(btnInnerRaw);
       if (iconOpenTags.length === 0) continue;
 
-      const labelResidue = btnInner
-        .replace(/<\s*vaadin-icon\b[^>]*>(?:\s*<\/\s*vaadin-icon\s*>)?/gi, '')
-        .replace(/<[^>]+>/g, '')
-        .trim();
-
-      if (labelResidue.length > 0) {
+      if (hasLabelText) {
         if (hasThemeToken(btnOpenTag, 'icon')) {
           report(
             file,
@@ -590,10 +619,9 @@ for (const { file, relFromSrc, text } of fileEntries) {
             'labeled <vaadin-button> sets theme="icon" — omit theme="icon" when button has visible label text'
           );
         }
-        for (const iconMatch of iconOpenTags) {
-          const iconTag = iconMatch[0];
+        for (const { tag: iconTag, index: iconOffset } of iconOpenTags) {
           const iconLine = lineAtOffset(
-            btnStart + btnOpenTag.length + (iconMatch.index ?? 0)
+            btnStart + btnOpenTag.length + iconOffset
           );
           if (
             !/\bslot\s*=\s*(?:"(?:prefix|suffix)"|'(?:prefix|suffix)')/i.test(
