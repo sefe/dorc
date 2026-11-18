@@ -22,6 +22,8 @@
     <BaseOutputPath>sql\</BaseOutputPath>
     <OutputPath>sql\$(Configuration)\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <!-- MSBuild.Sdk.SqlProj 4.2.0 ships DacpacTool for net8.0, net9.0, and net10.0 only; cap BundledNETCoreAppTargetFrameworkVersion when a newer preview/GA SDK (e.g. .NET 11 on ubuntu-latest) is installed. -->
+    <BundledNETCoreAppTargetFrameworkVersion Condition="'$(BundledNETCoreAppTargetFrameworkVersion)' != '' And $([MSBuild]::VersionGreaterThan('$(BundledNETCoreAppTargetFrameworkVersion)', '10.0'))">8.0</BundledNETCoreAppTargetFrameworkVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
     <TargetDatabase>Deploy.Database</TargetDatabase>
@@ -63,4 +65,9 @@
   <ItemGroup>
     <RefactorLog Include="Dorc.Database.refactorlog" />
   </ItemGroup>
+  <Target Name="ClampDacpacToolTargetFramework" BeforeTargets="ValidateEnvironment">
+    <PropertyGroup>
+      <BundledNETCoreAppTargetFrameworkVersion Condition="'$(BundledNETCoreAppTargetFrameworkVersion)' != '' And $([MSBuild]::VersionGreaterThan('$(BundledNETCoreAppTargetFrameworkVersion)', '10.0'))">8.0</BundledNETCoreAppTargetFrameworkVersion>
+    </PropertyGroup>
+  </Target>
 </Project>
