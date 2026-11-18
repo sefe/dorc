@@ -1,16 +1,21 @@
 using Dorc.McpServer.Tools;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using ModelContextProtocol.AspNetCore;
+using ModelContextProtocol.AspNetCore.Authentication;
+using ModelContextProtocol.Authentication;
 using ModelContextProtocol.Server;
 
 namespace Dorc.McpServer;
 
 public static class DorcMcpHostConfiguration
 {
+    public const string McpScopeAuthorizationPolicy = "McpScopeAuthorizationPolicy";
+
     public static DorcApiOptions ResolveApiOptions(IConfiguration configuration)
     {
         ArgumentNullException.ThrowIfNull(configuration);
@@ -76,6 +81,24 @@ public static class DorcMcpHostConfiguration
             options.EndpointPath = endpointPathEnv.Trim();
         }
 
+        var oauthAuthorityEnv = configuration["DORC_OAUTH_AUTHORITY"];
+        if (!string.IsNullOrWhiteSpace(oauthAuthorityEnv))
+        {
+            options.OAuthAuthority = oauthAuthorityEnv.Trim();
+        }
+
+        var oauthResourceEnv = configuration["DORC_OAUTH_API_RESOURCE_NAME"];
+        if (!string.IsNullOrWhiteSpace(oauthResourceEnv))
+        {
+            options.OAuthApiResourceName = oauthResourceEnv.Trim();
+        }
+
+        var oauthScopeEnv = configuration["DORC_OAUTH_API_GLOBAL_SCOPE"];
+        if (!string.IsNullOrWhiteSpace(oauthScopeEnv))
+        {
+            options.OAuthApiGlobalScope = oauthScopeEnv.Trim();
+        }
+
         return options;
     }
 
@@ -117,7 +140,10 @@ public static class DorcMcpHostConfiguration
             ? "/mcp"
             : mcpOptions.EndpointPath.Trim();
 
-        app.MapMcp(endpointPath);
+        app.UseAuthentication();
+        app.UseAuthorization();
+        app.MapMcp(endpointPath).RequireAuthorization(McpScopeAuthorizationPolicy);
+
         return app;
     }
 
@@ -153,18 +179,13 @@ public static class DorcMcpHostConfiguration
             }
         });
 
-        gatewayHttpBuilder.AddHttpMessageHandler<CallerAuthorizationForwardingHandler>();
-
-        if (hasOAuthCredentials)
+        if (useHttpTransport)
+        {
+            gatewayHttpBuilder.AddHttpMessageHandler<CallerAuthorizationForwardingHandler>();
+        }
+        else if (hasOAuthCredentials)
         {
             gatewayHttpBuilder.AddHttpMessageHandler<BearerTokenRefreshingHandler>();
-        }
-        else
-        {
-            gatewayHttpBuilder.ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-            {
-                UseDefaultCredentials = true
-            });
         }
 
         var mcpBuilder = services
@@ -178,10 +199,18 @@ public static class DorcMcpHostConfiguration
 
         if (useHttpTransport)
         {
+            if (string.IsNullOrWhiteSpace(mcpOptions.OAuthAuthority))
+            {
+                throw new InvalidOperationException(
+                    "HTTP MCP transport requires 'DorcMcp:OAuthAuthority' (or 'DORC_OAUTH_AUTHORITY') to be configured.");
+            }
+
             mcpBuilder.WithHttpTransport(options =>
             {
                 options.SessionMode = HttpServerSessionMode.StatefulForInitializeClients;
             });
+
+            ConfigureMcpOAuth(services, mcpBuilder, mcpOptions);
         }
         else
         {
@@ -204,5 +233,61 @@ public static class DorcMcpHostConfiguration
         }
 
         return mcpOptions;
+    }
+
+    private static void ConfigureMcpOAuth(
+        IServiceCollection services,
+        IMcpServerBuilder mcpBuilder,
+        DorcMcpOptions mcpOptions)
+    {
+        var authority = mcpOptions.OAuthAuthority.Trim().TrimEnd('/');
+        var hasResourceName = !string.IsNullOrWhiteSpace(mcpOptions.OAuthApiResourceName);
+        var hasRequiredScope = !string.IsNullOrWhiteSpace(mcpOptions.OAuthApiGlobalScope);
+
+        mcpBuilder.AddAuthorizationFilters();
+
+        services
+            .AddAuthentication(options =>
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = McpAuthenticationDefaults.AuthenticationScheme;
+            })
+            .AddJwtBearer(JwtBearerDefaults.AuthenticationScheme, options =>
+            {
+                options.Authority = authority;
+                options.TokenValidationParameters = new()
+                {
+                    ValidateIssuer = true,
+                    ValidIssuer = authority,
+                    ValidateAudience = hasResourceName,
+                    ValidAudience = hasResourceName ? mcpOptions.OAuthApiResourceName.Trim() : null,
+                    ValidateLifetime = true,
+                    RoleClaimType = "role",
+                    NameClaimType = "name"
+                };
+                options.MapInboundClaims = false;
+            })
+            .AddMcp(options =>
+            {
+                options.ResourceMetadata = new ProtectedResourceMetadata
+                {
+                    AuthorizationServers = { authority },
+                    ScopesSupported = hasRequiredScope
+                        ? [mcpOptions.OAuthApiGlobalScope.Trim()]
+                        : []
+                };
+            });
+
+        services.AddAuthorization(options =>
+        {
+            options.AddPolicy(McpScopeAuthorizationPolicy, policy =>
+            {
+                policy.RequireAuthenticatedUser();
+                if (hasRequiredScope)
+                {
+                    policy.RequireClaim("scope", mcpOptions.OAuthApiGlobalScope.Trim());
+                }
+            });
+        });
     }
 }

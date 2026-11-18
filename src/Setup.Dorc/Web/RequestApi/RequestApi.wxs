@@ -30,7 +30,7 @@
           <iis:WebApplication Id="DOrcApiWebApp" WebAppPool="DeployApiPool" Name="DOrcApi" />
           <iis:WebVirtualDir Id="DOrcMcpServerVirtualDir" Alias="mcp" Directory="McpServerDir">
             <iis:WebApplication Id="DOrcMcpServerWebApp" WebAppPool="DOrcMcpServerPool" Name="DOrcMcpServer" />
-            <iis:WebDirProperties Id="McpServerDirProperties" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="yes" AuthenticationProviders="Negotiate,NTLM" />
+            <iis:WebDirProperties Id="McpServerDirProperties" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="no" />
           </iis:WebVirtualDir>
         </iis:WebSite>
         <Json:JsonFile Id="ReqApiConnectionString" File="[#DeployApiWebConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=true;ConnectRetryCount=5;ConnectRetryInterval=2" />
@@ -130,7 +130,7 @@
 			  <iis:WebApplication Id="DOrcApiWebAppProd" WebAppPool="DeployApiPoolProd" Name="DOrcApi" />
 			  <iis:WebVirtualDir Id="DOrcMcpServerVirtualDirProd" Alias="mcp" Directory="McpServerDir">
 				  <iis:WebApplication Id="DOrcMcpServerWebAppProd" WebAppPool="DOrcMcpServerPoolProd" Name="DOrcMcpServer" />
-				  <iis:WebDirProperties Id="McpServerDirPropertiesProd" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="yes" AuthenticationProviders="Negotiate,NTLM" />
+				  <iis:WebDirProperties Id="McpServerDirPropertiesProd" AnonymousAccess="yes" BasicAuthentication="no" WindowsAuthentication="no" />
 			  </iis:WebVirtualDir>
 		  </iis:WebSite>
 		  <Json:JsonFile Id="ReqApiConnectionStringProd" File="[#DeployApiWebConfig]" ElementPath="$.ConnectionStrings.DOrcConnectionString" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true;MultiSubnetFailover=true;ConnectRetryCount=5;ConnectRetryInterval=2" />

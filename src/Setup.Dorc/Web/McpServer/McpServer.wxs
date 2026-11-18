@@ -15,6 +15,9 @@
         <Json:JsonFile Id="McpServerDorcApiScope" ElementPath="$.DorcApi.Scope" File="[#McpServerWebConfig]" Value="[DORC.OAUTH.API.GLOBAL.SCOPE]" />
         <Json:JsonFile Id="McpServerTransport" ElementPath="$.DorcMcp.Transport" File="[#McpServerWebConfig]" Value="Http" />
         <Json:JsonFile Id="McpServerEndpointPath" ElementPath="$.DorcMcp.EndpointPath" File="[#McpServerWebConfig]" Value="/" />
+        <Json:JsonFile Id="McpServerOAuthAuthority" ElementPath="$.DorcMcp.OAuthAuthority" File="[#McpServerWebConfig]" Value="[DORC.OAUTH.AUTHORITY]" />
+        <Json:JsonFile Id="McpServerOAuthResourceName" ElementPath="$.DorcMcp.OAuthApiResourceName" File="[#McpServerWebConfig]" Value="[DORC.OAUTH.API.RESOURCE.NAME]" />
+        <Json:JsonFile Id="McpServerOAuthGlobalScope" ElementPath="$.DorcMcp.OAuthApiGlobalScope" File="[#McpServerWebConfig]" Value="[DORC.OAUTH.API.GLOBAL.SCOPE]" />
         <Json:JsonFile Id="McpServerReadOnly" ElementPath="$.DorcMcp.ReadOnly" File="[#McpServerWebConfig]" Value="[DORC.MCP.READONLY]" />
         <Json:JsonFile Id="McpServerAllowProd" ElementPath="$.DorcMcp.AllowProd" File="[#McpServerWebConfig]" Value="[DORC.MCP.ALLOWPROD]" />
       </Component>
@@ -31,6 +34,9 @@
           <Json:JsonFile Id="McpServerDorcApiScopeProd" ElementPath="$.DorcApi.Scope" File="[#McpServerWebConfig]" Value="[DORC.OAUTH.API.GLOBAL.SCOPE]" />
           <Json:JsonFile Id="McpServerTransportProd" ElementPath="$.DorcMcp.Transport" File="[#McpServerWebConfig]" Value="Http" />
           <Json:JsonFile Id="McpServerEndpointPathProd" ElementPath="$.DorcMcp.EndpointPath" File="[#McpServerWebConfig]" Value="/" />
+          <Json:JsonFile Id="McpServerOAuthAuthorityProd" ElementPath="$.DorcMcp.OAuthAuthority" File="[#McpServerWebConfig]" Value="[DORC.OAUTH.AUTHORITY]" />
+          <Json:JsonFile Id="McpServerOAuthResourceNameProd" ElementPath="$.DorcMcp.OAuthApiResourceName" File="[#McpServerWebConfig]" Value="[DORC.OAUTH.API.RESOURCE.NAME]" />
+          <Json:JsonFile Id="McpServerOAuthGlobalScopeProd" ElementPath="$.DorcMcp.OAuthApiGlobalScope" File="[#McpServerWebConfig]" Value="[DORC.OAUTH.API.GLOBAL.SCOPE]" />
           <Json:JsonFile Id="McpServerReadOnlyProd" ElementPath="$.DorcMcp.ReadOnly" File="[#McpServerWebConfig]" Value="[DORC.MCP.READONLY]" />
           <Json:JsonFile Id="McpServerAllowProdProd" ElementPath="$.DorcMcp.AllowProd" File="[#McpServerWebConfig]" Value="[DORC.MCP.ALLOWPROD]" />
 	  </Component>
