@@ -11,9 +11,15 @@ import {
   PropertyResolutionClientCache
 } from '../../src/variable-resolution/property-resolution-client-cache';
 import {
+  checkGlob,
+  deepTraverse,
   evaluateStringWithTraces,
+  generateNodePreview,
   getTokenBadgeAppearance,
-  HegsJsonViewer
+  getType,
+  HegsJsonViewer,
+  isMatchingPath,
+  JSONConverter
 } from '../../src/components/hegs-json-viewer';
 import '../../src/components/hegs-json-viewer';
 import type { PropertyResolutionTraceApiModel } from '../../src/apis/dorc-api';
@@ -594,7 +600,11 @@ describe('hegs-json-viewer contextual property resolution', () => {
     expect(globalHref).to.contain('/variables/value-lookup?name=GlobalProp');
     expect(globalHref).to.not.contain('scope=');
 
-    // Click MissingVar token to inspect a trace with empty ResolutionChain and null ScopeName
+    // Click MissingVar token to inspect a trace with empty ResolutionChain and null ScopeName when environmentName is empty
+    el.resolutionContext = {};
+    await settle();
+    await new Promise(r => setTimeout(r, 20));
+    await settle();
     const missingChip = root.querySelector<HTMLElement>(
       '[data-property-name="MissingVar"]'
     )!;
@@ -603,6 +613,17 @@ describe('hegs-json-viewer contextual property resolution', () => {
     expect(
       root.querySelector('[part="inspector-card"]')?.textContent
     ).to.contain('(not defined)');
+    el.resolutionContext = {
+      environmentName: 'Endur-UT1',
+      projectName: 'Endur'
+    };
+    await settle();
+    await new Promise(r => setTimeout(r, 20));
+    await settle();
+    root
+      .querySelector<HTMLElement>('[data-property-name="MissingVar"]')
+      ?.click();
+    await settle();
 
     // Close inspector via close button
     root
@@ -800,5 +821,144 @@ describe('hegs-json-viewer contextual property resolution', () => {
       projectName: 'Payments',
       locationKind: 'deployment-definition'
     });
+  });
+
+  it('covers all tree helpers, previews, search, filter, keyboard navigation, and DOM node primitives', async () => {
+    expect(getType(null)).to.equal('null');
+    expect(getType([1, 2])).to.equal('array');
+    expect(getType('str')).to.equal('string');
+    expect(getType(42)).to.equal('number');
+    expect(getType(true)).to.equal('boolean');
+    expect(getType({ a: 1 })).to.equal('object');
+
+    expect(
+      generateNodePreview({
+        emptyObj: {},
+        nonEmptyObj: { a: 1 },
+        emptyArr: [],
+        More: 4
+      })
+    ).to.equal('{ emptyObj: { }, nonEmptyObj: { ... }, emptyArr: [ ], ... }');
+
+    expect(
+      generateNodePreview([
+        [1, 2],
+        'short',
+        'this-string-is-longer-than-fifteen-chars',
+        99
+      ])
+    ).to.equal('[ [ ... ], "short", "this-string-is-...", ... ]');
+    expect(generateNodePreview({ a: 1, b: 2 })).to.equal('{ a: 1, b: 2 }');
+
+    expect(Array.from(deepTraverse(null))).to.deep.equal([]);
+    expect(Array.from(deepTraverse(undefined))).to.deep.equal([]);
+
+    expect(checkGlob('a.b.c', 'a.*.c')).to.equal(true);
+    expect(checkGlob('a.b.c.d', 'a.**.d')).to.equal(true);
+    expect(checkGlob('a.b.c', 'a.x.c')).to.equal(false);
+    expect(isMatchingPath('a.b.c', /^a\.b/)).to.equal(true);
+    expect(isMatchingPath('a.b.c', 'a.*.c')).to.equal(true);
+
+    expect(JSONConverter.fromAttribute!('', Object)).to.equal(undefined);
+    expect(JSONConverter.fromAttribute!('{"x":1}', Object)).to.deep.equal({
+      x: 1
+    });
+    expect(JSONConverter.toAttribute!({ x: 1 }, Object)).to.equal('{"x":1}');
+
+    const customNode = document.createElement('em');
+    customNode.textContent = 'dom-leaf';
+
+    const el = await fixture<HegsJsonViewer>(
+      html`<hegs-json-viewer></hegs-json-viewer>`
+    );
+    await settle();
+    // When data is undefined, render() returns null
+    expect(el.shadowRoot!.children.length).to.equal(0);
+
+    el.data = {
+      Nested: {
+        ChildStr: 'searchable-target',
+        ChildNum: 123,
+        ChildBool: false,
+        ChildNull: null,
+        ChildDom: customNode
+      },
+      Other: 'untouched'
+    };
+    await settle();
+
+    // Initially Nested is collapsed and renders preview
+    expect(
+      el.shadowRoot!.querySelector('[part="preview"]')?.textContent
+    ).to.contain('ChildStr');
+
+    // Toggle Nested via click, Space, Enter, and ignore other keys
+    const nestedKey = el.shadowRoot!.querySelector<HTMLElement>(
+      '[data-path="Nested"] > [part="key"]'
+    )!;
+    nestedKey.click();
+    await settle();
+    expect(nestedKey.getAttribute('aria-expanded')).to.equal('true');
+
+    nestedKey.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+    );
+    await settle();
+    expect(nestedKey.getAttribute('aria-expanded')).to.equal('true');
+
+    nestedKey.dispatchEvent(
+      new KeyboardEvent('keydown', { key: ' ', bubbles: true })
+    );
+    await settle();
+    expect(nestedKey.getAttribute('aria-expanded')).to.equal('false');
+
+    nestedKey.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+    );
+    await settle();
+    expect(nestedKey.getAttribute('aria-expanded')).to.equal('true');
+
+    // Collapse & expand helpers
+    el.collapse('Nested');
+    await settle();
+    expect(nestedKey.getAttribute('aria-expanded')).to.equal('false');
+
+    el.expandAll();
+    await settle();
+    expect(nestedKey.getAttribute('aria-expanded')).to.equal('true');
+
+    el.collapseAll();
+    await settle();
+    expect(nestedKey.getAttribute('aria-expanded')).to.equal('false');
+
+    // Search generator expands path, highlights node, and clears highlight on completion
+    const gen = el.search('searchable-target');
+    const firstMatch = gen.next();
+    await settle();
+    expect(firstMatch.value).to.deep.equal({
+      value: 'searchable-target',
+      path: 'Nested.ChildStr'
+    });
+    expect(el.shadowRoot!.querySelector('mark[part="highlight"]')).to.not.equal(
+      null
+    );
+    const doneMatch = gen.next();
+    expect(doneMatch.done).to.equal(true);
+    await settle();
+    expect(el.shadowRoot!.querySelector('mark[part="highlight"]')).to.equal(
+      null
+    );
+
+    // Filter and resetFilter
+    el.filter('Nested.ChildStr');
+    await settle();
+    const otherLi = el.shadowRoot!.querySelector<HTMLElement>(
+      'li[data-path="Other"]'
+    )!;
+    expect(otherLi.hidden).to.equal(true);
+
+    el.resetFilter();
+    await settle();
+    expect(otherLi.hidden).to.equal(false);
   });
 });

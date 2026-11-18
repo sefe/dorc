@@ -9,6 +9,7 @@ import {
 } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
 import type { PropertyResolutionTraceApiModel } from '../apis/dorc-api';
 import {
   defaultPropertyResolutionClientCache,
@@ -44,29 +45,29 @@ const enum SupportedTypes {
   Array = 'array'
 }
 
-type Primitive = string | number | boolean;
-
-function isRegex(obj: RegExp | any): boolean {
+function isRegex(obj: unknown): obj is RegExp {
   return obj instanceof RegExp;
 }
 
-function getType(obj: any): SupportedTypes {
-  return obj === null
-    ? SupportedTypes.Null
-    : Array.isArray(obj)
-      ? SupportedTypes.Array
-      : (obj!.constructor.name.toLowerCase() as SupportedTypes);
+export function getType(obj: unknown): SupportedTypes {
+  if (obj === null) {
+    return SupportedTypes.Null;
+  }
+  if (Array.isArray(obj)) {
+    return SupportedTypes.Array;
+  }
+  return (obj as object).constructor.name.toLowerCase() as SupportedTypes;
 }
 
-function isPrimitive(obj: any): boolean {
+function isPrimitive(obj: unknown): boolean {
   return obj !== Object(obj);
 }
 
-function isNode(obj: any): boolean {
-  return !!obj && !!(obj as Node).nodeType;
+function isNode(obj: unknown): obj is Node {
+  return Boolean(obj && (obj as Node).nodeType);
 }
 
-function isPrimitiveOrNode(obj: any): boolean {
+function isPrimitiveOrNode(obj: unknown): boolean {
   return isPrimitive(obj) || isNode(obj);
 }
 
@@ -89,12 +90,8 @@ export function evaluateStringWithTraces(
   }
 
   const propTokens = tokens.filter(
-    (
-      t
-    ): t is Extract<
-      ParsedPropertyToken,
-      { kind: 'property' }
-    > => t.kind === 'property'
+    (t): t is Extract<ParsedPropertyToken, { kind: 'property' }> =>
+      t.kind === 'property'
   );
 
   if (propTokens.length === 0) {
@@ -170,8 +167,8 @@ export function evaluateStringWithTraces(
   };
 }
 
-function generateNodePreview(
-  node: any,
+export function generateNodePreview(
+  node: Record<string, unknown> | unknown[],
   {
     nodeCount = 3,
     maxLength = 15
@@ -180,46 +177,52 @@ function generateNodePreview(
   const isArray = Array.isArray(node);
   const objectNodes = Object.keys(node);
   const keys = objectNodes.slice(0, nodeCount);
-  const preview = [];
+  const record = node as Record<string, unknown>;
 
-  const getNodePreview = (nodeValue: any) => {
+  const getNodePreview = (nodeValue: unknown): string => {
     const nodeType = getType(nodeValue);
 
     switch (nodeType) {
       case SupportedTypes.Object:
-        return Object.keys(nodeValue).length === 0 ? '{ }' : '{ ... }';
+        return Object.keys(nodeValue as object).length === 0
+          ? '{ }'
+          : '{ ... }';
       case SupportedTypes.Array:
-        return nodeValue.length === 0 ? '[ ]' : '[ ... ]';
-      case SupportedTypes.String:
-        return `"${nodeValue.substring(0, maxLength)}${nodeValue.length > maxLength ? '...' : ''}"`;
+        return (nodeValue as unknown[]).length === 0 ? '[ ]' : '[ ... ]';
+      case SupportedTypes.String: {
+        const strVal = nodeValue as string;
+        return `"${strVal.substring(0, maxLength)}${
+          strVal.length > maxLength ? '...' : ''
+        }"`;
+      }
       default:
         return String(nodeValue);
     }
   };
 
-  const childPreviews = [];
+  const childPreviews: string[] = [];
   for (const key of keys) {
-    const nodePreview = [];
-    const nodeValue = node[key];
-
-    if (!isArray) nodePreview.push(`${key}: `);
-
-    nodePreview.push(getNodePreview(nodeValue));
-    childPreviews.push(nodePreview.join(''));
+    const nodeValue = record[key];
+    const prefix = isArray ? '' : `${key}: `;
+    childPreviews.push(`${prefix}${getNodePreview(nodeValue)}`);
   }
 
   if (objectNodes.length > nodeCount) {
     childPreviews.push('...');
   }
-  preview.push(childPreviews.join(', '));
 
-  const previewText = preview.join('');
-
+  const previewText = childPreviews.join(', ');
   return isArray ? `[ ${previewText} ]` : `{ ${previewText} }`;
 }
 
-function* deepTraverse(obj: any): Generator<[any, string, string[]]> {
-  const stack: Array<[any, string, string[]]> = [[obj, '', []]];
+export function* deepTraverse(
+  obj: unknown
+): Generator<[unknown, string, string[]]> {
+  if (obj === undefined || obj === null) {
+    return;
+  }
+
+  const stack: Array<[unknown, string, string[]]> = [[obj, '', []]];
 
   while (stack.length) {
     const [node, path, parents] = stack.shift()!;
@@ -228,8 +231,10 @@ function* deepTraverse(obj: any): Generator<[any, string, string[]]> {
       yield [node, path, parents];
     }
 
-    if (!isPrimitive(node)) {
-      for (const [key, value] of Object.entries(node)) {
+    if (!isPrimitiveOrNode(node)) {
+      for (const [key, value] of Object.entries(
+        node as Record<string, unknown>
+      )) {
         stack.push([
           value,
           `${path}${path ? '.' : ''}${key}`,
@@ -240,72 +245,67 @@ function* deepTraverse(obj: any): Generator<[any, string, string[]]> {
   }
 }
 
-/**
- * Matches a string using a glob-like syntax)
- */
-function checkGlob(str: string, glob: string): boolean {
+export function checkGlob(str: string, glob: string): boolean {
   const strParts = str.split('.');
-  const globaParts = glob.split('.');
-
-  const isStar = (s: string) => s === '*';
-  const isGlobStar = (s: string) => s === '**';
+  const globParts = glob.split('.');
 
   let strIndex = 0;
   let globIndex = 0;
 
   while (strIndex < strParts.length) {
-    const globPart = globaParts[globIndex];
+    const globPart = globParts[globIndex];
     const strPart = strParts[strIndex];
 
-    if (globPart === strPart || isStar(globPart)) {
+    if (globPart === strPart || globPart === '*') {
       globIndex++;
       strIndex++;
-    } else if (isGlobStar(globPart)) {
+    } else if (globPart === '**') {
       globIndex++;
-      strIndex = strParts.length - (globaParts.length - globIndex);
+      strIndex = strParts.length - (globParts.length - globIndex);
     } else {
       return false;
     }
   }
 
-  return globIndex === globaParts.length;
+  return globIndex === globParts.length;
 }
 
-const JSONConverter: ComplexAttributeConverter = {
-  fromAttribute: (value: string): any => {
+export const JSONConverter: ComplexAttributeConverter = {
+  fromAttribute: (value: string | null): unknown => {
     return value && value.trim() ? JSON.parse(value) : undefined;
   },
-  toAttribute: (value: any): string => {
+  toAttribute: (value: unknown): string => {
     return JSON.stringify(value);
   }
 };
 
-const isDefined = (value: any): boolean => value !== void 0;
+const isDefined = (value: unknown): boolean => value !== void 0;
 
-const isMatchingPath = (path: string, criteria: string | RegExp) =>
-  isRegex(criteria)
-    ? !!path.match(criteria as RegExp)
-    : checkGlob(path, criteria as string);
+export const isMatchingPath = (
+  path: string,
+  criteria: string | RegExp
+): boolean =>
+  isRegex(criteria) ? Boolean(path.match(criteria)) : checkGlob(path, criteria);
 
 const toggleNode =
-  (path: string, expanded?: boolean) =>
+  (path: string) =>
   (state: JsonViewerState): Partial<JsonViewerState> => ({
     expanded: {
       ...state.expanded,
-      [path]: isDefined(expanded) ? !!expanded : !state.expanded[path]
+      [path]: !state.expanded[path]
     }
   });
 
 const expand =
   (regexOrGlob: string | RegExp, isExpanded: boolean) =>
-  (_state: JsonViewerState, el: any): Partial<JsonViewerState> => {
+  (_state: JsonViewerState, el: HegsJsonViewer): Partial<JsonViewerState> => {
     const expanded: Record<string, boolean> = {};
 
-    if (regexOrGlob) {
-      for (const [, path, parents] of deepTraverse(el.data)) {
-        if (isMatchingPath(path, regexOrGlob)) {
-          expanded[path] = isExpanded;
-          parents.forEach((p: string) => (expanded[p] = isExpanded));
+    for (const [, path, parents] of deepTraverse(el.data)) {
+      if (isMatchingPath(path, regexOrGlob)) {
+        expanded[path] = isExpanded;
+        for (const p of parents) {
+          expanded[p] = isExpanded;
         }
       }
     }
@@ -315,17 +315,17 @@ const expand =
 
 const filter =
   (regexOrGlob: string | RegExp) =>
-  (_state: JsonViewerState, el: any): Partial<JsonViewerState> => {
+  (_state: JsonViewerState, el: HegsJsonViewer): Partial<JsonViewerState> => {
     const filtered: Record<string, boolean> = {};
 
-    if (regexOrGlob) {
-      for (const [, path, parents] of deepTraverse(el.data)) {
-        if (isMatchingPath(path, regexOrGlob)) {
-          filtered[path] = false;
-          parents.forEach((p: string) => (filtered[p] = false));
-        } else {
-          filtered[path] = true;
+    for (const [, path, parents] of deepTraverse(el.data)) {
+      if (isMatchingPath(path, regexOrGlob)) {
+        filtered[path] = false;
+        for (const p of parents) {
+          filtered[p] = false;
         }
+      } else {
+        filtered[path] = true;
       }
     }
 
@@ -413,24 +413,28 @@ export class HegsJsonViewer extends LitElement {
   static get styles() {
     return css`
       :host {
-        --background-color: #2a2f3a;
-        --color: #f8f8f2;
-        --string-color: #a3eea0;
-        --number-color: #d19a66;
-        --boolean-color: #4ba7ef;
-        --null-color: #df9cf3;
-        --property-color: #6fb3d2;
-        --preview-color: rgba(222, 175, 143, 0.9);
-        --highlight-color: #7b0000;
+        --background-color: #181c24;
+        --surface-elevated: #202632;
+        --border-subtle: rgba(255, 255, 255, 0.1);
+        --color: #e6edf3;
+        --string-color: #a5d6ff;
+        --number-color: #f2cc60;
+        --boolean-color: #79c0ff;
+        --null-color: #d2a8ff;
+        --property-color: #7ee787;
+        --preview-color: #8b949e;
+        --highlight-color: rgba(248, 81, 73, 0.35);
 
-        --font-family: monaco, Consolas, 'Lucida Console', monospace;
-        --font-size: 1rem;
+        --font-family:
+          ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+          'Liberation Mono', monospace;
+        --font-size: 0.875rem;
 
-        --indent-size: 1.5em;
+        --indent-size: 1.35em;
         --indentguide-size: 1px;
         --indentguide-style: solid;
-        --indentguide-color: #333;
-        --indentguide-color-active: #666;
+        --indentguide-color: rgba(255, 255, 255, 0.08);
+        --indentguide-color-active: rgba(121, 192, 255, 0.45);
         --indentguide: var(--indentguide-size) var(--indentguide-style)
           var(--indentguide-color);
         --indentguide-active: var(--indentguide-size) var(--indentguide-style)
@@ -441,9 +445,13 @@ export class HegsJsonViewer extends LitElement {
         color: var(--color);
         font-family: var(--font-family);
         font-size: var(--font-size);
+        line-height: 1.6;
         overflow: auto;
         max-width: 100%;
         padding: 5px;
+        border-radius: 8px;
+        border: 1px solid var(--border-subtle);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
         box-sizing: border-box;
         position: relative;
       }
@@ -453,13 +461,14 @@ export class HegsJsonViewer extends LitElement {
         flex-wrap: wrap;
         align-items: center;
         justify-content: space-between;
-        gap: 6px;
-        padding: 4px 8px;
-        margin-bottom: 6px;
-        background: rgba(255, 255, 255, 0.06);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 4px;
-        font-size: 0.8em;
+        gap: 8px;
+        padding: 6px 10px;
+        margin-bottom: 8px;
+        background: var(--surface-elevated);
+        border: 1px solid var(--border-subtle);
+        border-radius: 6px;
+        font-size: 0.78rem;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
       }
 
       .context-summary {
@@ -470,123 +479,172 @@ export class HegsJsonViewer extends LitElement {
       }
 
       .context-env-pill {
-        background: rgba(111, 179, 210, 0.2);
-        color: #9ad5f0;
-        border: 1px solid rgba(111, 179, 210, 0.45);
-        border-radius: 10px;
-        padding: 1px 8px;
+        display: inline-flex;
+        align-items: center;
+        background: rgba(56, 139, 253, 0.16);
+        color: #79c0ff;
+        border: 1px solid rgba(56, 139, 253, 0.4);
+        border-radius: 999px;
+        padding: 2px 10px;
         font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+
+      .context-counts-text {
+        color: #9ca3af;
       }
 
       .mode-switcher {
         display: inline-flex;
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        border-radius: 4px;
-        overflow: hidden;
+        padding: 2px;
+        background: rgba(0, 0, 0, 0.28);
+        border: 1px solid var(--border-subtle);
+        border-radius: 6px;
+        gap: 2px;
       }
 
       .mode-btn {
         background: transparent;
-        color: #ccc;
+        color: #9ca3af;
         border: none;
-        padding: 2px 8px;
+        border-radius: 4px;
+        padding: 2px 10px;
         font-family: inherit;
-        font-size: 0.95em;
+        font-size: 0.78rem;
+        font-weight: 500;
         cursor: pointer;
+        transition:
+          background-color 140ms ease,
+          color 140ms ease;
+      }
+
+      .mode-btn:hover {
+        color: #e6edf3;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .mode-btn:focus-visible {
+        outline: 2px solid #58a6ff;
+        outline-offset: 1px;
       }
 
       .mode-btn.active {
-        background: #4ba7ef;
-        color: #111;
+        background: #2f81f7;
+        color: #ffffff;
         font-weight: 600;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
       }
 
       .token-chip {
-        display: inline-block;
-        padding: 0 4px;
+        display: inline-flex;
+        align-items: center;
+        padding: 0 6px;
         margin: 0 1px;
-        border-radius: 3px;
+        border-radius: 4px;
         font-family: inherit;
-        font-size: inherit;
-        line-height: inherit;
+        font-size: 0.92em;
+        line-height: 1.4;
         font-weight: 600;
         cursor: pointer;
         border: 1px solid transparent;
+        transition:
+          transform 100ms ease,
+          filter 120ms ease,
+          box-shadow 120ms ease;
+      }
+
+      .token-chip:hover {
+        filter: brightness(1.14);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+      }
+
+      .token-chip:focus-visible {
+        outline: 2px solid #58a6ff;
+        outline-offset: 1px;
       }
 
       .token-env {
-        background: rgba(76, 175, 80, 0.22);
-        color: #b9f6ca;
-        border-color: rgba(76, 175, 80, 0.55);
+        background: rgba(46, 160, 67, 0.2);
+        color: #7ee787;
+        border-color: rgba(46, 160, 67, 0.5);
       }
 
       .token-ancestor {
-        background: rgba(0, 188, 212, 0.22);
-        color: #84ffff;
-        border-color: rgba(0, 188, 212, 0.55);
+        background: rgba(57, 197, 207, 0.18);
+        color: #56d4dd;
+        border-color: rgba(57, 197, 207, 0.5);
       }
 
       .token-default {
-        background: rgba(255, 193, 7, 0.2);
-        color: #ffe57f;
-        border-color: rgba(255, 193, 7, 0.55);
+        background: rgba(210, 153, 34, 0.2);
+        color: #e3b341;
+        border-color: rgba(210, 153, 34, 0.5);
       }
 
       .token-override {
-        background: rgba(156, 39, 176, 0.25);
-        color: #ea80fc;
-        border-color: rgba(156, 39, 176, 0.6);
+        background: rgba(163, 113, 247, 0.22);
+        color: #d2a8ff;
+        border-color: rgba(163, 113, 247, 0.55);
       }
 
       .token-builtin {
-        background: rgba(33, 150, 243, 0.22);
-        color: #82b1ff;
-        border-color: rgba(33, 150, 243, 0.55);
+        background: rgba(56, 139, 253, 0.2);
+        color: #79c0ff;
+        border-color: rgba(56, 139, 253, 0.5);
       }
 
       .token-runtime,
       .token-pending {
-        background: rgba(158, 158, 158, 0.22);
-        color: #e0e0e0;
-        border-color: rgba(158, 158, 158, 0.5);
+        background: rgba(139, 148, 158, 0.2);
+        color: #c9d1d9;
+        border-color: rgba(139, 148, 158, 0.45);
       }
 
       .token-expression {
-        background: rgba(124, 77, 255, 0.25);
-        color: #b388ff;
-        border-color: rgba(124, 77, 255, 0.6);
+        background: rgba(137, 87, 229, 0.24);
+        color: #d2a8ff;
+        border-color: rgba(137, 87, 229, 0.55);
       }
 
       .token-secure {
-        background: rgba(255, 152, 0, 0.24);
-        color: #ffd180;
-        border-color: rgba(255, 152, 0, 0.6);
+        background: rgba(219, 109, 40, 0.22);
+        color: #ffa657;
+        border-color: rgba(219, 109, 40, 0.55);
       }
 
       .token-error {
-        background: rgba(244, 67, 54, 0.28);
-        color: #ff8a80;
-        border-color: rgba(244, 67, 54, 0.75);
+        background: rgba(248, 81, 73, 0.24);
+        color: #ff7b72;
+        border-color: rgba(248, 81, 73, 0.65);
       }
 
       .inline-resolved-arrow {
-        color: #9e9e9e;
-        margin: 0 4px;
+        color: #6e7681;
+        margin: 0 5px;
+        user-select: none;
       }
 
       .inline-resolved-val {
-        color: #ffd54f;
-        font-style: italic;
+        display: inline-block;
+        padding: 0 6px;
+        border-radius: 4px;
+        background: rgba(227, 179, 65, 0.12);
+        border: 1px dashed rgba(227, 179, 65, 0.35);
+        color: #f2cc60;
+        font-style: normal;
+        font-size: 0.92em;
       }
 
       .inspector-card {
-        margin-top: 6px;
-        padding: 8px 10px;
-        background: #1e222a;
-        border: 1px solid #4ba7ef;
-        border-radius: 4px;
-        font-size: 0.85em;
-        color: #f8f8f2;
+        margin-top: 8px;
+        padding: 10px 12px;
+        background: var(--surface-elevated);
+        border: 1px solid rgba(56, 139, 253, 0.45);
+        border-left: 3px solid #2f81f7;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        color: var(--color);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
       }
 
       .inspector-header {
@@ -594,33 +652,76 @@ export class HegsJsonViewer extends LitElement {
         align-items: center;
         justify-content: space-between;
         gap: 8px;
-        margin-bottom: 4px;
+        padding-bottom: 6px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+
+      .inspector-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .inspector-grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 10px;
+        align-items: baseline;
+      }
+
+      .inspector-label {
+        color: #8b949e;
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+
+      .inspector-code {
+        background: rgba(0, 0, 0, 0.25);
+        padding: 1px 6px;
+        border-radius: 4px;
+        color: #e6edf3;
+        word-break: break-all;
       }
 
       .inspector-chain {
-        margin: 4px 0;
-        padding-left: 16px;
-        color: #cfd8dc;
+        margin: 8px 0 4px;
+        padding-left: 18px;
+        color: #9ca3af;
       }
 
       .inspector-actions {
         display: flex;
         gap: 8px;
-        margin-top: 6px;
+        margin-top: 8px;
+        padding-top: 6px;
+        border-top: 1px solid var(--border-subtle);
       }
 
       .inspector-link {
-        color: #82b1ff;
-        text-decoration: underline;
+        color: #79c0ff;
+        text-decoration: none;
+        font-weight: 500;
         cursor: pointer;
-        background: none;
-        border: none;
-        padding: 0;
-        font: inherit;
+        background: rgba(56, 139, 253, 0.12);
+        border: 1px solid rgba(56, 139, 253, 0.3);
+        border-radius: 4px;
+        padding: 2px 8px;
+        font-family: inherit;
+        font-size: 0.76rem;
+        transition: background-color 120ms ease;
+      }
+
+      .inspector-link:hover {
+        background: rgba(56, 139, 253, 0.24);
       }
 
       .preview {
         color: var(--preview-color);
+        font-style: italic;
+        font-size: 0.92em;
       }
 
       .null {
@@ -630,21 +731,22 @@ export class HegsJsonViewer extends LitElement {
       .key {
         color: var(--property-color);
         display: inline-block;
+        padding: 1px 3px;
+        border-radius: 3px;
       }
 
       .collapsable:before {
         display: inline-block;
-        color: var(--color);
-        font-size: 0.8em;
+        color: var(--property-color);
+        font-size: 0.72em;
         content: '▶';
         line-height: 1em;
-        width: 1em;
+        width: 1.1em;
         height: 1em;
         text-align: center;
-
-        transition: transform 195ms ease-out;
+        margin-right: 2px;
+        transition: transform 160ms cubic-bezier(0.2, 0, 0, 1);
         transform: rotate(90deg);
-        color: var(--property-color);
       }
 
       .collapsable.collapsableCollapsed:before {
@@ -654,6 +756,15 @@ export class HegsJsonViewer extends LitElement {
       .collapsable {
         cursor: pointer;
         user-select: none;
+      }
+
+      .collapsable:hover {
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .collapsable:focus-visible {
+        outline: 2px solid #58a6ff;
+        outline-offset: 1px;
       }
 
       .string {
@@ -670,6 +781,7 @@ export class HegsJsonViewer extends LitElement {
 
       ul {
         padding: 0;
+        margin: 0;
         clear: both;
       }
 
@@ -677,6 +789,10 @@ export class HegsJsonViewer extends LitElement {
       li {
         list-style: none;
         position: relative;
+      }
+
+      li {
+        padding: 1px 0;
       }
 
       li ul > li {
@@ -689,9 +805,10 @@ export class HegsJsonViewer extends LitElement {
         content: '';
         border-left: var(--indentguide);
         position: absolute;
-        left: calc(0.5em - var(--indentguide-size));
-        top: 0.3em;
-        bottom: 0.3em;
+        left: calc(0.45em - var(--indentguide-size));
+        top: 0.25em;
+        bottom: 0.25em;
+        transition: border-color 140ms ease;
       }
 
       ul ul:hover:before {
@@ -700,12 +817,15 @@ export class HegsJsonViewer extends LitElement {
 
       mark {
         background-color: var(--highlight-color);
+        color: inherit;
+        border-radius: 3px;
+        padding: 0 2px;
       }
     `;
   }
 
   @property({ converter: JSONConverter, type: Object })
-  data?: any;
+  data?: unknown;
 
   @property({ type: Object })
   resolutionContext?: PropertyResolutionContext;
@@ -843,16 +963,15 @@ export class HegsJsonViewer extends LitElement {
       if (isPrimitiveOrNode(node) && String(node).includes(criteria)) {
         this.expand(path);
         this.updateComplete.then(() => {
-          const node = this.shadowRoot!.querySelector(
+          const elem = this.shadowRoot!.querySelector(
             `[data-path="${path}"]`
           ) as HTMLElement;
-          node.scrollIntoView({
+          elem.scrollIntoView({
             behavior: 'smooth',
             inline: 'center',
             block: 'center'
           });
-
-          node.focus();
+          elem.focus();
         });
 
         this.setState(highlight(path));
@@ -892,17 +1011,19 @@ export class HegsJsonViewer extends LitElement {
               <span
                 part="key"
                 class="${classMap({
-                  key: key,
+                  key: Boolean(key),
                   collapsable: !isPrimitive,
                   collapsableCollapsed: !this.state.expanded[nodePath]
                 })}"
-                role="${!isPrimitive ? 'button' : nothing}"
-                tabindex="${!isPrimitive ? '0' : nothing}"
-                aria-expanded="${
+                role="${ifDefined(!isPrimitive ? 'button' : undefined)}"
+                tabindex="${ifDefined(!isPrimitive ? 0 : undefined)}"
+                aria-expanded="${ifDefined(
                   !isPrimitive
-                    ? String(Boolean(this.state.expanded[nodePath]))
-                    : nothing
-                }"
+                    ? this.state.expanded[nodePath]
+                      ? 'true'
+                      : 'false'
+                    : undefined
+                )}"
                 @click="${
                   !isPrimitive ? this.handlePropertyClick(nodePath) : null
                 }"
@@ -920,29 +1041,28 @@ export class HegsJsonViewer extends LitElement {
     `;
   }
 
-  renderNode(node: any, path = '') {
+  renderNode(node: unknown, path = '') {
     const isPrimitive = isPrimitiveOrNode(node);
     const isExpanded = !path || this.state.expanded[path] || isPrimitive;
 
     if (isExpanded) {
       return isPrimitive
         ? this.renderPrimitive(node, path)
-        : this.renderObject(node, path);
+        : this.renderObject(node as Record<string, unknown>, path);
     } else {
-      return this.renderNodePreview(node);
+      return this.renderNodePreview(
+        node as Record<string, unknown> | unknown[]
+      );
     }
   }
 
-  renderNodePreview(node: any) {
+  renderNodePreview(node: Record<string, unknown> | unknown[]) {
     return html`
       <span part="preview" class="preview"> ${generateNodePreview(node)} </span>
     `;
   }
 
-  private renderContextualString(
-    raw: string,
-    path: string
-  ): TemplateResult {
+  private renderContextualString(raw: string, path: string): TemplateResult {
     const profile = resolveTokenSyntaxProfile(
       this.resolutionContext?.locationKind,
       path
@@ -1002,9 +1122,7 @@ export class HegsJsonViewer extends LitElement {
       >"${tokens.map(token => this.renderTokenSegment(token))}"${
         evaluated.status === 'resolved'
           ? html`<span class="inline-resolved-arrow">→</span
-              ><span
-                class="inline-resolved-val"
-                part="resolved-preview"
+              ><span class="inline-resolved-val" part="resolved-preview"
                 >${JSON.stringify(evaluated.resolvedValue)}</span
               >`
           : nothing
@@ -1023,8 +1141,9 @@ export class HegsJsonViewer extends LitElement {
         data-property-name="${token.propertyName}"
         title="${badge.badgeLabel}"
         @click="${this.handleInspectToken(token.propertyName)}"
-        >${escapeJsonStringSegment(token.rawText)}</button
-      >`;
+      >
+        ${escapeJsonStringSegment(token.rawText)}
+      </button>`;
     }
 
     if (token.kind === 'expression-prefix') {
@@ -1095,7 +1214,7 @@ export class HegsJsonViewer extends LitElement {
                   >Scope: Global Default</span
                 >`
           }
-          <span part="context-counts">
+          <span class="context-counts-text" part="context-counts">
             ${this.referencedNames.length}
             ${this.referencedNames.length === 1 ? 'property' : 'properties'}
             (${resolvedCount} resolved${
@@ -1103,13 +1222,18 @@ export class HegsJsonViewer extends LitElement {
             }${secretCount > 0 ? `, ${secretCount} secret` : ''})
           </span>
         </div>
-        <div class="mode-switcher" role="group" aria-label="Property display mode">
+        <div
+          class="mode-switcher"
+          role="group"
+          aria-label="Property display mode"
+        >
           ${(['raw', 'inline', 'resolved'] as JsonViewerDisplayMode[]).map(
             mode => html`
               <button
                 type="button"
                 class="mode-btn ${this.displayMode === mode ? 'active' : ''}"
                 data-mode="${mode}"
+                aria-pressed="${this.displayMode === mode ? 'true' : 'false'}"
                 @click="${this.handleDisplayModeSelect(mode)}"
               >
                 ${mode.charAt(0).toUpperCase() + mode.slice(1)}
@@ -1140,7 +1264,7 @@ export class HegsJsonViewer extends LitElement {
     return html`
       <div class="inspector-card" part="inspector-card">
         <div class="inspector-header">
-          <div>
+          <div class="inspector-title">
             <strong>$${propName}$</strong>
             <span class="token-chip ${badge.cssClass}"
               >${badge.badgeLabel}</span
@@ -1155,19 +1279,17 @@ export class HegsJsonViewer extends LitElement {
             Close
           </button>
         </div>
-        <div>
-          <div>
-            <strong>Raw:</strong>
-            <code>${trace?.RawValue ?? '(not defined)'}</code>
-          </div>
-          <div>
-            <strong>Resolved:</strong>
-            <code>${trace?.ResolvedValueJson ?? '(unresolved)'}</code>
-          </div>
-          <div>
-            <strong>Diagnostic:</strong>
-            <code>${trace?.Diagnostic ?? 'Pending'}</code>
-          </div>
+        <div class="inspector-grid">
+          <span class="inspector-label">Raw</span>
+          <code class="inspector-code"
+            >${trace?.RawValue ?? '(not defined)'}</code
+          >
+          <span class="inspector-label">Resolved</span>
+          <code class="inspector-code"
+            >${trace?.ResolvedValueJson ?? '(unresolved)'}</code
+          >
+          <span class="inspector-label">Diagnostic</span>
+          <code class="inspector-code">${trace?.Diagnostic ?? 'Pending'}</code>
         </div>
         ${
           trace?.ResolutionChain && trace.ResolutionChain.length > 0
@@ -1180,14 +1302,14 @@ export class HegsJsonViewer extends LitElement {
         }
         <div class="inspector-actions">
           <a class="inspector-link" href="${lookupHref}">
-            Open in Value Lookup
+            Open in Value Lookup →
           </a>
         </div>
       </div>
     `;
   }
 
-  renderPrimitive(node: Primitive | null, path: string) {
+  renderPrimitive(node: unknown, path: string) {
     const highlight = this.state.highlight;
     const nodeType = getType(node);
     const value = isNode(node)
@@ -1198,7 +1320,7 @@ export class HegsJsonViewer extends LitElement {
             <span
               part="primitive primitive-${nodeType}"
               tabindex="0"
-              class="${getType(node)}"
+              class="${nodeType}"
               >${JSON.stringify(node)}</span
             >
           `;
@@ -1218,4 +1340,3 @@ export class HegsJsonViewer extends LitElement {
       : null;
   }
 }
-
