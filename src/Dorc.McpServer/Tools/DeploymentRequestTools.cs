@@ -56,9 +56,17 @@ public sealed class DeploymentRequestTools
 
         if (outcome.Succeeded && outcome.Data?.Items is not null)
         {
-            foreach (var item in outcome.Data.Items.Where(i => !string.IsNullOrEmpty(i.RequestDetails)))
+            foreach (var item in outcome.Data.Items)
             {
-                item.RequestDetails = SecretRedactor.RedactRequestDetailsXml(item.RequestDetails);
+                if (!string.IsNullOrEmpty(item.RequestDetails))
+                {
+                    item.RequestDetails = SecretRedactor.RedactRequestDetailsXml(item.RequestDetails);
+                }
+
+                if (!string.IsNullOrEmpty(item.Log))
+                {
+                    item.Log = LogTruncator.TruncateTail(item.Log);
+                }
             }
         }
 
@@ -75,9 +83,17 @@ public sealed class DeploymentRequestTools
             $"RequestStatuses?requestId={requestId}",
             cancellationToken).ConfigureAwait(false);
 
-        if (outcome.Succeeded && outcome.Data is not null && !string.IsNullOrEmpty(outcome.Data.RequestDetails))
+        if (outcome.Succeeded && outcome.Data is not null)
         {
-            outcome.Data.RequestDetails = SecretRedactor.RedactRequestDetailsXml(outcome.Data.RequestDetails);
+            if (!string.IsNullOrEmpty(outcome.Data.RequestDetails))
+            {
+                outcome.Data.RequestDetails = SecretRedactor.RedactRequestDetailsXml(outcome.Data.RequestDetails);
+            }
+
+            if (!string.IsNullOrEmpty(outcome.Data.Log))
+            {
+                outcome.Data.Log = LogTruncator.TruncateTail(outcome.Data.Log);
+            }
         }
 
         return outcome;
@@ -107,13 +123,28 @@ public sealed class DeploymentRequestTools
 
     [McpServerTool(Name = "dorc_get_deployment_attempts", ReadOnly = true)]
     [Description("Lists previous deployment attempts for a deployment request.")]
-    public Task<McpToolOutcome<List<DeploymentRequestAttemptApiModel>>> GetDeploymentAttemptsAsync(
+    public async Task<McpToolOutcome<List<DeploymentRequestAttemptApiModel>>> GetDeploymentAttemptsAsync(
         [Description("Deployment request ID.")] int requestId,
         CancellationToken cancellationToken = default)
     {
-        return _apiGateway.GetAsync<List<DeploymentRequestAttemptApiModel>>(
+        var outcome = await _apiGateway.GetAsync<List<DeploymentRequestAttemptApiModel>>(
             $"Request/{requestId}/attempts",
-            cancellationToken);
+            cancellationToken).ConfigureAwait(false);
+
+        if (!outcome.Succeeded || outcome.Data is null)
+        {
+            return outcome;
+        }
+
+        foreach (var attempt in outcome.Data)
+        {
+            if (!string.IsNullOrEmpty(attempt.Log))
+            {
+                attempt.Log = LogTruncator.TruncateTail(attempt.Log, LogTruncator.DefaultMaxCharacters);
+            }
+        }
+
+        return outcome;
     }
 
     [McpServerTool(Name = "dorc_get_deployment_component_log", ReadOnly = true)]

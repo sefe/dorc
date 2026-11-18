@@ -3,6 +3,7 @@ namespace Dorc.McpServer;
 public static class LogTruncator
 {
     public const int DefaultMaxCharacters = 32768;
+    public const int AbsoluteMaxCharacters = 262144;
 
     public static string TruncateTail(string? logContent, int maxCharacters = DefaultMaxCharacters)
     {
@@ -16,19 +17,25 @@ public static class LogTruncator
             throw new ArgumentOutOfRangeException(nameof(maxCharacters), "maxCharacters must be greater than zero.");
         }
 
-        if (logContent.Length <= maxCharacters)
+        var effectiveMax = Math.Min(maxCharacters, AbsoluteMaxCharacters);
+        if (logContent.Length <= effectiveMax)
         {
             return logContent;
         }
 
-        var omittedCount = logContent.Length - maxCharacters;
-        var prefix = $"[...truncated {omittedCount} leading characters...]\n";
-        if (prefix.Length >= maxCharacters)
+        var maxMarkerLength = $"[...truncated {logContent.Length} leading characters...]\n".Length;
+        if (maxMarkerLength >= effectiveMax)
         {
-            return logContent.Substring(logContent.Length - maxCharacters, maxCharacters);
+            return logContent.Substring(logContent.Length - effectiveMax, effectiveMax);
         }
 
-        var tailLength = maxCharacters - prefix.Length;
+        var tailLength = effectiveMax - maxMarkerLength;
+        var omittedCount = logContent.Length - tailLength;
+        var prefix = $"[...truncated {omittedCount} leading characters...]\n";
+        tailLength = effectiveMax - prefix.Length;
+        omittedCount = logContent.Length - tailLength;
+        prefix = $"[...truncated {omittedCount} leading characters...]\n";
+
         return string.Concat(prefix, logContent.AsSpan(logContent.Length - tailLength, tailLength));
     }
 }

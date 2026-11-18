@@ -93,7 +93,7 @@ public sealed class DorcApiGateway : IDorcApiGateway
         {
             var errorText = string.IsNullOrWhiteSpace(rawContent)
                 ? $"HTTP {statusCode} ({response.ReasonPhrase})"
-                : $"HTTP {statusCode}: {rawContent}";
+                : $"HTTP {statusCode}: {LogTruncator.TruncateTail(rawContent, 1024)}";
             return McpToolOutcome.Failure<TResponse>(errorText, statusCode);
         }
 
@@ -102,8 +102,17 @@ public sealed class DorcApiGateway : IDorcApiGateway
             return McpToolOutcome.Success<TResponse>(default!, statusCode);
         }
 
-        var deserialized = JsonSerializer.Deserialize<TResponse>(rawContent, _jsonOptions);
-        return McpToolOutcome.Success(deserialized!, statusCode);
+        try
+        {
+            var deserialized = JsonSerializer.Deserialize<TResponse>(rawContent, _jsonOptions);
+            return McpToolOutcome.Success(deserialized!, statusCode);
+        }
+        catch (JsonException ex)
+        {
+            return McpToolOutcome.Failure<TResponse>(
+                $"HTTP {statusCode}: Invalid JSON response from DOrc API ({ex.Message}).",
+                statusCode);
+        }
     }
 
     private async Task<McpToolOutcome<string>> SendAndReadStringAsync(
@@ -118,7 +127,7 @@ public sealed class DorcApiGateway : IDorcApiGateway
         {
             var errorText = string.IsNullOrWhiteSpace(rawContent)
                 ? $"HTTP {statusCode} ({response.ReasonPhrase})"
-                : $"HTTP {statusCode}: {rawContent}";
+                : $"HTTP {statusCode}: {LogTruncator.TruncateTail(rawContent, 1024)}";
             return McpToolOutcome.Failure<string>(errorText, statusCode);
         }
 
@@ -128,10 +137,27 @@ public sealed class DorcApiGateway : IDorcApiGateway
         }
 
         var trimmed = rawContent.Trim();
-        if (trimmed.Length >= 2 && trimmed[0] == '"' && trimmed[^1] == '"')
+        var isPlainText = string.Equals(
+            response.Content.Headers.ContentType?.MediaType,
+            "text/plain",
+            StringComparison.OrdinalIgnoreCase);
+
+        if (!isPlainText &&
+            trimmed.Length >= 2 &&
+            trimmed[0] == '"' &&
+            trimmed[^1] == '"')
         {
-            var decoded = JsonSerializer.Deserialize<string>(trimmed, _jsonOptions)!;
-            return McpToolOutcome.Success(decoded, statusCode);
+            try
+            {
+                var decoded = JsonSerializer.Deserialize<string>(trimmed, _jsonOptions)!;
+                return McpToolOutcome.Success(decoded, statusCode);
+            }
+            catch (JsonException ex)
+            {
+                return McpToolOutcome.Failure<string>(
+                    $"HTTP {statusCode}: Invalid JSON string response from DOrc API ({ex.Message}).",
+                    statusCode);
+            }
         }
 
         return McpToolOutcome.Success(rawContent, statusCode);

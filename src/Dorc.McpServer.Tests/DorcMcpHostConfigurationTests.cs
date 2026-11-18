@@ -130,7 +130,7 @@ public sealed class DorcMcpHostConfigurationTests
         var gatewayWithoutUrl = hostWithoutUrl.Services.GetRequiredService<IDorcApiGateway>();
         Assert.IsNotNull(gatewayWithoutUrl);
 
-        // Test CreateWebApplication with missing OAuthAuthority throws InvalidOperationException
+        // Test CreateWebApplication with missing OAuthAuthority, missing OAuthApiResourceName, or missing OAuthApiGlobalScope throws InvalidOperationException
         Assert.ThrowsExactly<InvalidOperationException>(() => DorcMcpHostConfiguration.CreateWebApplication([
             "--DorcApi:BaseUrl=https://dorc.local",
             "--DorcMcp:Transport=Http",
@@ -138,12 +138,30 @@ public sealed class DorcMcpHostConfigurationTests
             "--DorcMcp:OAuthAuthority="
         ]));
 
-        // Test CreateWebApplication with custom and blank EndpointPath, and with OAuthAuthority (both with resource/scope and without resource/scope)
+        Assert.ThrowsExactly<InvalidOperationException>(() => DorcMcpHostConfiguration.CreateWebApplication([
+            "--DorcApi:BaseUrl=https://dorc.local",
+            "--DorcMcp:Transport=Http",
+            "--DorcMcp:OAuthAuthority=https://identityserver:5200",
+            "--DorcMcp:OAuthApiResourceName=   ",
+            "--DorcMcp:OAuthApiGlobalScope=dorc-api.manage"
+        ]));
+
+        Assert.ThrowsExactly<InvalidOperationException>(() => DorcMcpHostConfiguration.CreateWebApplication([
+            "--DorcApi:BaseUrl=https://dorc.local",
+            "--DorcMcp:Transport=Http",
+            "--DorcMcp:OAuthAuthority=https://identityserver:5200",
+            "--DorcMcp:OAuthApiResourceName=dorc-api-np",
+            "--DorcMcp:OAuthApiGlobalScope=   "
+        ]));
+
+        // Test CreateWebApplication with custom and blank EndpointPath, and with OAuthAuthority, OAuthApiResourceName, and OAuthApiGlobalScope
         await using var webAppCustom = DorcMcpHostConfiguration.CreateWebApplication([
             "--DorcApi:BaseUrl=https://dorc.local",
             "--DorcMcp:Transport=Http",
             "--DorcMcp:EndpointPath=/mcp",
-            "--DorcMcp:OAuthAuthority=https://identityserver:5200/"
+            "--DorcMcp:OAuthAuthority=https://identityserver:5200/",
+            "--DorcMcp:OAuthApiResourceName=dorc-api-np",
+            "--DorcMcp:OAuthApiGlobalScope=dorc-api-np.manage"
         ]);
         Assert.IsNotNull(webAppCustom.Services.GetRequiredService<IDorcApiGateway>());
 
@@ -165,27 +183,12 @@ public sealed class DorcMcpHostConfigurationTests
             .Get(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme);
         Assert.IsTrue(jwtOptsWithRes.TokenValidationParameters.ValidateAudience);
         Assert.AreEqual("dorc-api-np", jwtOptsWithRes.TokenValidationParameters.ValidAudience);
+        CollectionAssert.Contains(jwtOptsWithRes.TokenValidationParameters.ValidIssuers.ToArray(), "https://identityserver:5200/");
+        CollectionAssert.Contains(jwtOptsWithRes.TokenValidationParameters.ValidIssuers.ToArray(), "https://identityserver:5200");
         var mcpAuthOptsWithScope = webAppBlankPath.Services.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<ModelContextProtocol.AspNetCore.Authentication.McpAuthenticationOptions>>()
             .Get(ModelContextProtocol.AspNetCore.Authentication.McpAuthenticationDefaults.AuthenticationScheme);
         CollectionAssert.Contains(mcpAuthOptsWithScope.ResourceMetadata!.ScopesSupported.ToArray(), "dorc-api-np.manage");
         var authPolicyProvider = webAppBlankPath.Services.GetRequiredService<Microsoft.AspNetCore.Authorization.IAuthorizationPolicyProvider>();
         Assert.IsNotNull(await authPolicyProvider.GetPolicyAsync(DorcMcpHostConfiguration.McpScopeAuthorizationPolicy));
-
-        await using var webAppOAuthWithoutResourceOrScope = DorcMcpHostConfiguration.CreateWebApplication([
-            "--DorcApi:BaseUrl=https://dorc.local",
-            "--DorcMcp:Transport=Http",
-            "--DorcMcp:OAuthAuthority=https://identityserver:5200",
-            "--DorcMcp:OAuthApiResourceName=   ",
-            "--DorcMcp:OAuthApiGlobalScope=   "
-        ]);
-        var jwtOptsNoRes = webAppOAuthWithoutResourceOrScope.Services.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerOptions>>()
-            .Get(Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme);
-        Assert.IsFalse(jwtOptsNoRes.TokenValidationParameters.ValidateAudience);
-        Assert.IsNull(jwtOptsNoRes.TokenValidationParameters.ValidAudience);
-        var mcpAuthOptsNoScope = webAppOAuthWithoutResourceOrScope.Services.GetRequiredService<Microsoft.Extensions.Options.IOptionsMonitor<ModelContextProtocol.AspNetCore.Authentication.McpAuthenticationOptions>>()
-            .Get(ModelContextProtocol.AspNetCore.Authentication.McpAuthenticationDefaults.AuthenticationScheme);
-        Assert.IsEmpty(mcpAuthOptsNoScope.ResourceMetadata!.ScopesSupported);
-        var authPolicyProviderNoScope = webAppOAuthWithoutResourceOrScope.Services.GetRequiredService<Microsoft.AspNetCore.Authorization.IAuthorizationPolicyProvider>();
-        Assert.IsNotNull(await authPolicyProviderNoScope.GetPolicyAsync(DorcMcpHostConfiguration.McpScopeAuthorizationPolicy));
     }
 }

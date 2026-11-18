@@ -36,7 +36,7 @@ public sealed class SecretRedactorTests
         var longText = new string('A', 200) + "TAIL_END";
         var truncated = LogTruncator.TruncateTail(longText, 80);
         Assert.IsLessThanOrEqualTo(80, truncated.Length);
-        StringAssert.StartsWith(truncated, "[...truncated 128 leading characters...]\n");
+        StringAssert.StartsWith(truncated, "[...truncated 169 leading characters...]\n");
         StringAssert.EndsWith(truncated, "TAIL_END");
     }
 
@@ -49,6 +49,8 @@ public sealed class SecretRedactorTests
         Assert.IsTrue(SecretRedactor.IsLikelySensitiveName("DatabasePassword"));
         Assert.IsTrue(SecretRedactor.IsLikelySensitiveName("AzureClientSecret"));
         Assert.IsTrue(SecretRedactor.IsLikelySensitiveName("StorageConnectionString"));
+        Assert.IsTrue(SecretRedactor.IsLikelySensitiveName("StorageSasKey"));
+        Assert.IsTrue(SecretRedactor.IsLikelySensitiveName("BlobSasToken"));
 
         Assert.IsEmpty(SecretRedactor.RedactPropertyValues(null));
 
@@ -180,9 +182,15 @@ public sealed class SecretRedactorTests
         StringAssert.Contains(redactedCopyEnvBuild, "\"ProjectName\":\"Proj1\"");
         StringAssert.Contains(redactedCopyEnvBuild, "[10,20]");
 
-        var edgeCasesPropsJson = "{\"RequestProperties\":[\"not-an-object\",{\"OtherProp\":123},{\"PropertyName\":\"ApiSecret\"},{\"PropertyName\":\"StringFlag\",\"PropertyValue\":\"sec-str\",\"IsSensitive\":\"true\"},{\"PropertyName\":\"FalseStrFlag\",\"PropertyValue\":\"pub-str\",\"IsSensitive\":\"false\"}]}";
+        var edgeCasesPropsJson = "{\"RequestProperties\":[\"not-an-object\",{\"OtherProp\":123},{\"PropertyName\":null,\"PropertyValue\":\"null-name-sec\"},{\"PropertyName\":123,\"PropertyValue\":\"num-name-sec\"},{\"PropertyName\":\"ApiSecret\"},{\"PropertyName\":\"SafeName\",\"propertyname\":\"ApiSecret\",\"PropertyValue\":\"conflict-name-sec\"},{\"IsSensitive\":false,\"issensitive\":true,\"PropertyName\":\"SafeName\",\"PropertyValue\":\"conflict-flag-sec\"},{\"IsSensitive\":null,\"PropertyName\":\"SafeName\",\"PropertyValue\":\"null-flag-pub\"},{\"PropertyName\":\"StringFlag\",\"PropertyValue\":\"sec-str\",\"propertyvalue\":\"dup-sec-str\",\"IsSensitive\":\"true\"},{\"PropertyName\":\"FalseStrFlag\",\"PropertyValue\":\"pub-str\",\"IsSensitive\":\"false\"}]}";
         var redactedEdgeCases = SecretRedactor.RedactBundledRequestJson(edgeCasesPropsJson);
         Assert.IsFalse(redactedEdgeCases!.Contains("sec-str", StringComparison.Ordinal));
+        Assert.IsFalse(redactedEdgeCases.Contains("dup-sec-str", StringComparison.Ordinal));
+        Assert.IsFalse(redactedEdgeCases.Contains("num-name-sec", StringComparison.Ordinal));
+        Assert.IsFalse(redactedEdgeCases.Contains("null-name-sec", StringComparison.Ordinal));
+        Assert.IsFalse(redactedEdgeCases.Contains("conflict-name-sec", StringComparison.Ordinal));
+        Assert.IsFalse(redactedEdgeCases.Contains("conflict-flag-sec", StringComparison.Ordinal));
+        StringAssert.Contains(redactedEdgeCases, "null-flag-pub");
         StringAssert.Contains(redactedEdgeCases, "pub-str");
 
         var bundleRequestDto = new RequestDto

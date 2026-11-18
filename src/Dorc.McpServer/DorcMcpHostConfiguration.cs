@@ -164,7 +164,11 @@ public static class DorcMcpHostConfiguration
 
         services.AddHttpContextAccessor();
         services.AddTransient<CallerAuthorizationForwardingHandler>();
-        services.AddHttpClient<IOAuthTokenAcquirer, OAuthTokenAcquirer>();
+        services.AddHttpClient(OAuthTokenAcquirer.HttpClientName);
+        services.AddSingleton<IOAuthTokenAcquirer>(sp =>
+            new OAuthTokenAcquirer(
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient(OAuthTokenAcquirer.HttpClientName),
+                sp.GetRequiredService<DorcApiOptions>()));
         services.AddTransient<BearerTokenRefreshingHandler>();
 
         var hasOAuthCredentials = !string.IsNullOrWhiteSpace(apiOptions.ClientId) ||
@@ -199,10 +203,12 @@ public static class DorcMcpHostConfiguration
 
         if (useHttpTransport)
         {
-            if (string.IsNullOrWhiteSpace(mcpOptions.OAuthAuthority))
+            if (string.IsNullOrWhiteSpace(mcpOptions.OAuthAuthority) ||
+                string.IsNullOrWhiteSpace(mcpOptions.OAuthApiResourceName) ||
+                string.IsNullOrWhiteSpace(mcpOptions.OAuthApiGlobalScope))
             {
                 throw new InvalidOperationException(
-                    "HTTP MCP transport requires 'DorcMcp:OAuthAuthority' (or 'DORC_OAUTH_AUTHORITY') to be configured.");
+                    "HTTP MCP transport requires 'DorcMcp:OAuthAuthority', 'DorcMcp:OAuthApiResourceName', and 'DorcMcp:OAuthApiGlobalScope' to be configured.");
             }
 
             mcpBuilder.WithHttpTransport(options =>
@@ -240,9 +246,10 @@ public static class DorcMcpHostConfiguration
         IMcpServerBuilder mcpBuilder,
         DorcMcpOptions mcpOptions)
     {
-        var authority = mcpOptions.OAuthAuthority.Trim().TrimEnd('/');
-        var hasResourceName = !string.IsNullOrWhiteSpace(mcpOptions.OAuthApiResourceName);
-        var hasRequiredScope = !string.IsNullOrWhiteSpace(mcpOptions.OAuthApiGlobalScope);
+        var authority = mcpOptions.OAuthAuthority.Trim();
+        var trimmedAuthority = authority.TrimEnd('/');
+        var resourceName = mcpOptions.OAuthApiResourceName.Trim();
+        var requiredScope = mcpOptions.OAuthApiGlobalScope.Trim();
 
         mcpBuilder.AddAuthorizationFilters();
 
@@ -258,9 +265,9 @@ public static class DorcMcpHostConfiguration
                 options.TokenValidationParameters = new()
                 {
                     ValidateIssuer = true,
-                    ValidIssuer = authority,
-                    ValidateAudience = hasResourceName,
-                    ValidAudience = hasResourceName ? mcpOptions.OAuthApiResourceName.Trim() : null,
+                    ValidIssuers = [authority, trimmedAuthority],
+                    ValidateAudience = true,
+                    ValidAudience = resourceName,
                     ValidateLifetime = true,
                     RoleClaimType = "role",
                     NameClaimType = "name"
@@ -272,9 +279,7 @@ public static class DorcMcpHostConfiguration
                 options.ResourceMetadata = new ProtectedResourceMetadata
                 {
                     AuthorizationServers = { authority },
-                    ScopesSupported = hasRequiredScope
-                        ? [mcpOptions.OAuthApiGlobalScope.Trim()]
-                        : []
+                    ScopesSupported = [requiredScope]
                 };
             });
 
@@ -283,10 +288,7 @@ public static class DorcMcpHostConfiguration
             options.AddPolicy(McpScopeAuthorizationPolicy, policy =>
             {
                 policy.RequireAuthenticatedUser();
-                if (hasRequiredScope)
-                {
-                    policy.RequireClaim("scope", mcpOptions.OAuthApiGlobalScope.Trim());
-                }
+                policy.RequireClaim("scope", requiredScope);
             });
         });
     }

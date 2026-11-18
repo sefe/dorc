@@ -54,7 +54,7 @@ public sealed class OAuthAuthenticationTests
                 blankMetaAcquirer.GetAccessTokenAsync(false, CancellationToken.None));
         }
 
-        // Invalid discovery (missing token_endpoint)
+        // Invalid discovery (missing token_endpoint or mismatched token_endpoint origin)
         using (var badDiscHandler = new StubHttpMessageHandler((req, _) =>
         {
             if (req.RequestUri!.AbsolutePath.EndsWith("/ApiConfig", StringComparison.Ordinal))
@@ -69,6 +69,54 @@ public sealed class OAuthAuthenticationTests
         {
             await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
                 badDiscAcquirer.GetAccessTokenAsync(false, CancellationToken.None));
+        }
+
+        using (var mismatchedOriginHandler = new StubHttpMessageHandler((req, _) =>
+        {
+            if (req.RequestUri!.AbsolutePath.EndsWith("/ApiConfig", StringComparison.Ordinal))
+            {
+                return Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{\"OAuthAuthority\":\"https://idp.local:8443\"}"));
+            }
+
+            return Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{\"token_endpoint\":\"https://evil.local:8443/connect/token\"}"));
+        }))
+        using (var mismatchedOriginClient = new HttpClient(mismatchedOriginHandler))
+        using (var mismatchedOriginAcquirer = new OAuthTokenAcquirer(mismatchedOriginClient, new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "c", ClientSecret = "s" }))
+        {
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                mismatchedOriginAcquirer.GetAccessTokenAsync(false, CancellationToken.None));
+        }
+
+        using (var mismatchedSchemeHandler = new StubHttpMessageHandler((req, _) =>
+        {
+            if (req.RequestUri!.AbsolutePath.EndsWith("/ApiConfig", StringComparison.Ordinal))
+            {
+                return Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{\"OAuthAuthority\":\"https://idp.local\"}"));
+            }
+
+            return Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{\"token_endpoint\":\"http://idp.local/connect/token\"}"));
+        }))
+        using (var mismatchedSchemeClient = new HttpClient(mismatchedSchemeHandler))
+        using (var mismatchedSchemeAcquirer = new OAuthTokenAcquirer(mismatchedSchemeClient, new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "c", ClientSecret = "s" }))
+        {
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                mismatchedSchemeAcquirer.GetAccessTokenAsync(false, CancellationToken.None));
+        }
+
+        using (var mismatchedPortHandler = new StubHttpMessageHandler((req, _) =>
+        {
+            if (req.RequestUri!.AbsolutePath.EndsWith("/ApiConfig", StringComparison.Ordinal))
+            {
+                return Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{\"OAuthAuthority\":\"https://idp.local:8443\"}"));
+            }
+
+            return Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{\"token_endpoint\":\"https://idp.local:9443/connect/token\"}"));
+        }))
+        using (var mismatchedPortClient = new HttpClient(mismatchedPortHandler))
+        using (var mismatchedPortAcquirer = new OAuthTokenAcquirer(mismatchedPortClient, new DorcApiOptions { BaseUrl = "https://dorc.local", ClientId = "c", ClientSecret = "s" }))
+        {
+            await Assert.ThrowsExactlyAsync<InvalidOperationException>(() =>
+                mismatchedPortAcquirer.GetAccessTokenAsync(false, CancellationToken.None));
         }
 
         // Invalid token response (missing access_token)

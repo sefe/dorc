@@ -81,6 +81,11 @@ public sealed class ProductionEnvironmentGuardTests
             .Returns(new McpToolOutcome<DeploymentRequestApiModel>(true, null, "empty", null));
         StringAssert.Contains(await nonProdGuard.CheckRequestMutationAllowedAsync("op", 405, gateway, CancellationToken.None), "HTTP error");
 
+        // Request mutation: request marked IsProd=true -> blocked even if EnvironmentName looks non-prod
+        gateway.GetAsync<DeploymentRequestApiModel>("RequestStatuses?requestId=99", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new DeploymentRequestApiModel { Id = 99, EnvironmentName = "DEV-01", IsProd = true }));
+        StringAssert.Contains(await nonProdGuard.CheckRequestMutationAllowedAsync("op", 99, gateway, CancellationToken.None), "IsProd=True");
+
         // Request mutation: request found for DEV-01 -> allowed
         gateway.GetAsync<DeploymentRequestApiModel>("RequestStatuses?requestId=100", Arg.Any<CancellationToken>())
             .Returns(McpToolOutcome.Success(new DeploymentRequestApiModel { Id = 100, EnvironmentName = "DEV-01" }));

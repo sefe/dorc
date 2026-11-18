@@ -38,10 +38,17 @@ public sealed class DorcApiGatewayTests
             return mode switch
             {
                 "json-ok" => Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{\"Id\":7,\"Status\":\"Complete\"}")),
+                "json-invalid" => Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("{not-valid-json")),
                 "empty-ok" => Task.FromResult(StubHttpMessageHandler.CreateTextResponse(string.Empty, HttpStatusCode.NoContent)),
                 "error-with-body" => Task.FromResult(StubHttpMessageHandler.CreateTextResponse("Bad input payload", HttpStatusCode.BadRequest)),
                 "error-empty" => Task.FromResult(StubHttpMessageHandler.CreateTextResponse("   ", HttpStatusCode.Forbidden, "text/plain", "Forbidden")),
                 "string-quoted" => Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("\"Line 1\\nLine 2\"")),
+                "string-quoted-no-content-type" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
+                {
+                    Content = new ByteArrayContent(Encoding.UTF8.GetBytes("\"NoContentType\""))
+                }),
+                "string-quoted-invalid-json" => Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("\"unterminated\\x\"")),
+                "string-quoted-plaintext" => Task.FromResult(StubHttpMessageHandler.CreateTextResponse("\"C:\\temp\\file.txt\"", HttpStatusCode.OK, "text/plain")),
                 "string-null-literal" => Task.FromResult(StubHttpMessageHandler.CreateTextResponse("Plain unquoted text")),
                 _ => Task.FromResult(StubHttpMessageHandler.CreateStatusResponse(HttpStatusCode.OK))
             };
@@ -60,6 +67,11 @@ public sealed class DorcApiGatewayTests
 
         var putOk = await gateway.PutAsync<object?, RequestStatusDto>("Request/cancel?requestId=7", null, CancellationToken.None);
         Assert.IsTrue(putOk.Succeeded);
+
+        mode = "json-invalid";
+        var invalidJson = await gateway.GetAsync<RequestStatusDto>("Request?id=7", CancellationToken.None);
+        Assert.IsFalse(invalidJson.Succeeded);
+        StringAssert.Contains(invalidJson.Error!, "Invalid JSON response");
 
         mode = "empty-ok";
         var emptyJson = await gateway.GetAsync<RequestStatusDto>("Request?id=7", CancellationToken.None);
@@ -92,6 +104,21 @@ public sealed class DorcApiGatewayTests
         var quotedStr = await gateway.GetStringAsync("ResultStatuses/Log", CancellationToken.None);
         Assert.IsTrue(quotedStr.Succeeded);
         Assert.AreEqual("Line 1\nLine 2", quotedStr.Data);
+
+        mode = "string-quoted-no-content-type";
+        var quotedNoCtStr = await gateway.GetStringAsync("ResultStatuses/Log", CancellationToken.None);
+        Assert.IsTrue(quotedNoCtStr.Succeeded);
+        Assert.AreEqual("NoContentType", quotedNoCtStr.Data);
+
+        mode = "string-quoted-invalid-json";
+        var badQuotedStr = await gateway.GetStringAsync("ResultStatuses/Log", CancellationToken.None);
+        Assert.IsFalse(badQuotedStr.Succeeded);
+        StringAssert.Contains(badQuotedStr.Error!, "Invalid JSON string response");
+
+        mode = "string-quoted-plaintext";
+        var quotedPlainText = await gateway.GetStringAsync("ResultStatuses/Log", CancellationToken.None);
+        Assert.IsTrue(quotedPlainText.Succeeded);
+        Assert.AreEqual("\"C:\\temp\\file.txt\"", quotedPlainText.Data);
 
         mode = "string-null-literal";
         var unquotedStr = await gateway.PostWithoutResponseBodyAsync<object?>("Terraform/plan/1/confirm", null, CancellationToken.None);

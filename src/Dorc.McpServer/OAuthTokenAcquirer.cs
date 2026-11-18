@@ -6,6 +6,8 @@ namespace Dorc.McpServer;
 
 public sealed class OAuthTokenAcquirer : IOAuthTokenAcquirer, IDisposable
 {
+    public const string HttpClientName = "DorcMcpOAuthTokenAcquirer";
+
     private readonly HttpClient _httpClient;
     private readonly DorcApiOptions _options;
     private readonly TimeProvider _timeProvider;
@@ -93,7 +95,16 @@ public sealed class OAuthTokenAcquirer : IOAuthTokenAcquirer, IDisposable
             throw new InvalidOperationException("OpenID Connect discovery document did not contain a valid 'token_endpoint'.");
         }
 
-        _cachedTokenEndpoint = new Uri(tokenEndpointProp.GetString()!, UriKind.Absolute);
+        var candidateEndpoint = new Uri(tokenEndpointProp.GetString()!, UriKind.Absolute);
+        if (!string.Equals(candidateEndpoint.Scheme, authorityBase.Scheme, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(candidateEndpoint.Host, authorityBase.Host, StringComparison.OrdinalIgnoreCase) ||
+            candidateEndpoint.Port != authorityBase.Port)
+        {
+            throw new InvalidOperationException(
+                $"OpenID Connect discovery 'token_endpoint' origin '{candidateEndpoint.GetLeftPart(UriPartial.Authority)}' does not match OAuthAuthority origin '{authorityBase.GetLeftPart(UriPartial.Authority)}'.");
+        }
+
+        _cachedTokenEndpoint = candidateEndpoint;
         return _cachedTokenEndpoint;
     }
 

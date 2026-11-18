@@ -31,8 +31,8 @@ public sealed class DeploymentRequestToolsTests
                 TotalItems = 2,
                 Items =
                 [
-                    new DeploymentRequestApiModel { Id = 1, RequestDetails = searchXmlWithSecret },
-                    new DeploymentRequestApiModel { Id = 2, RequestDetails = string.Empty }
+                    new DeploymentRequestApiModel { Id = 1, RequestDetails = searchXmlWithSecret, Log = "search-log" },
+                    new DeploymentRequestApiModel { Id = 2, RequestDetails = string.Empty, Log = string.Empty }
                 ]
             }));
 
@@ -40,6 +40,7 @@ public sealed class DeploymentRequestToolsTests
         Assert.IsTrue(search1.Succeeded);
         Assert.IsFalse(search1.Data!.Items[0].RequestDetails.Contains("unflagged-secret", StringComparison.Ordinal));
         StringAssert.Contains(search1.Data.Items[0].RequestDetails, SecretRedactor.RedactedMarker);
+        Assert.AreEqual("search-log", search1.Data.Items[0].Log);
 
         gateway.PutAsync<PagedDataOperators, GetRequestStatusesListResponseDto>(
                 "RequestStatuses?page=2&limit=10",
@@ -67,13 +68,14 @@ public sealed class DeploymentRequestToolsTests
         // GetDeploymentRequestAsync: success with XML redaction, success with empty XML, and failure
         var xmlWithSecret = "<DeploymentRequestDetail><Properties><PropertyPair><Name>SecretKey</Name><Value>my-secret</Value><IsSensitive>true</IsSensitive></PropertyPair></Properties></DeploymentRequestDetail>";
         gateway.GetAsync<DeploymentRequestApiModel>("RequestStatuses?requestId=10", Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Success(new DeploymentRequestApiModel { Id = 10, RequestDetails = xmlWithSecret }));
+            .Returns(McpToolOutcome.Success(new DeploymentRequestApiModel { Id = 10, RequestDetails = xmlWithSecret, Log = "req-log-10" }));
         var req10 = await tools.GetDeploymentRequestAsync(10);
         Assert.IsTrue(req10.Succeeded);
         StringAssert.Contains(req10.Data!.RequestDetails, SecretRedactor.RedactedMarker);
+        Assert.AreEqual("req-log-10", req10.Data.Log);
 
         gateway.GetAsync<DeploymentRequestApiModel>("RequestStatuses?requestId=11", Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Success(new DeploymentRequestApiModel { Id = 11, RequestDetails = string.Empty }));
+            .Returns(McpToolOutcome.Success(new DeploymentRequestApiModel { Id = 11, RequestDetails = string.Empty, Log = string.Empty }));
         var req11 = await tools.GetDeploymentRequestAsync(11);
         Assert.IsTrue(req11.Succeeded);
 
@@ -81,6 +83,10 @@ public sealed class DeploymentRequestToolsTests
             .Returns(McpToolOutcome.Failure<DeploymentRequestApiModel>("err", 404));
         var req12 = await tools.GetDeploymentRequestAsync(12);
         Assert.IsFalse(req12.Succeeded);
+
+        gateway.GetAsync<DeploymentRequestApiModel>("RequestStatuses?requestId=13", Arg.Any<CancellationToken>())
+            .Returns(new McpToolOutcome<DeploymentRequestApiModel>(true, null, null, 200));
+        Assert.IsTrue((await tools.GetDeploymentRequestAsync(13)).Succeeded);
 
         // Status, ComponentResults, Attempts
         gateway.GetAsync<RequestStatusDto>("Request?id=10", Arg.Any<CancellationToken>())
@@ -92,8 +98,22 @@ public sealed class DeploymentRequestToolsTests
         Assert.IsTrue((await tools.GetDeploymentComponentResultsAsync(10)).Succeeded);
 
         gateway.GetAsync<List<DeploymentRequestAttemptApiModel>>("Request/10/attempts", Arg.Any<CancellationToken>())
-            .Returns(McpToolOutcome.Success(new List<DeploymentRequestAttemptApiModel>()));
-        Assert.IsTrue((await tools.GetDeploymentAttemptsAsync(10)).Succeeded);
+            .Returns(McpToolOutcome.Success(new List<DeploymentRequestAttemptApiModel>
+            {
+                new() { Id = 1, Log = "attempt-1-log" },
+                new() { Id = 2, Log = string.Empty }
+            }));
+        var attempts10 = await tools.GetDeploymentAttemptsAsync(10);
+        Assert.IsTrue(attempts10.Succeeded);
+        Assert.AreEqual("attempt-1-log", attempts10.Data![0].Log);
+
+        gateway.GetAsync<List<DeploymentRequestAttemptApiModel>>("Request/11/attempts", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Failure<List<DeploymentRequestAttemptApiModel>>("err", 500));
+        Assert.IsFalse((await tools.GetDeploymentAttemptsAsync(11)).Succeeded);
+
+        gateway.GetAsync<List<DeploymentRequestAttemptApiModel>>("Request/12/attempts", Arg.Any<CancellationToken>())
+            .Returns(new McpToolOutcome<List<DeploymentRequestAttemptApiModel>>(true, null, null, 200));
+        Assert.IsTrue((await tools.GetDeploymentAttemptsAsync(12)).Succeeded);
 
         // Component log (success & failure)
         gateway.GetStringAsync("ResultStatuses/Log?requestId=10&resultId=20", Arg.Any<CancellationToken>())

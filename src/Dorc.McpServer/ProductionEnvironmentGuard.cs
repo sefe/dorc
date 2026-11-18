@@ -282,6 +282,11 @@ public sealed class ProductionEnvironmentGuard
             return $"Operation '{operationName}' for request {requestId} could not retrieve the deployment request to verify its target environment (HTTP {reqOutcome.HttpStatusCode?.ToString() ?? "error"}: {reqOutcome.Error}).";
         }
 
+        if (reqOutcome.Data.IsProd)
+        {
+            return $"Operation '{operationName}' on deployment request {requestId} ('{reqOutcome.Data.EnvironmentName}') is blocked because the request is marked as production (IsProd=True) and DORC_MCP_ALLOW_PROD=false.";
+        }
+
         return await CheckEnvironmentMutationAllowedAsync(
             operationName,
             reqOutcome.Data.EnvironmentName,

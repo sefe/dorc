@@ -10,9 +10,6 @@
 		</iis:WebAppPool>
 
         <Json:JsonFile Id="McpServerDorcApiBaseUrl" ElementPath="$.DorcApi.BaseUrl" File="[#McpServerWebConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
-        <Json:JsonFile Id="McpServerDorcApiClientId" ElementPath="$.DorcApi.ClientId" File="[#McpServerWebConfig]" Value="[DORC.API.CLIENTID]" />
-        <Json:JsonFile Id="McpServerDorcApiClientSecret" ElementPath="$.DorcApi.ClientSecret" File="[#McpServerWebConfig]" Value="[DORC.API.CLIENTSECRET]" />
-        <Json:JsonFile Id="McpServerDorcApiScope" ElementPath="$.DorcApi.Scope" File="[#McpServerWebConfig]" Value="[DORC.OAUTH.API.GLOBAL.SCOPE]" />
         <Json:JsonFile Id="McpServerTransport" ElementPath="$.DorcMcp.Transport" File="[#McpServerWebConfig]" Value="Http" />
         <Json:JsonFile Id="McpServerEndpointPath" ElementPath="$.DorcMcp.EndpointPath" File="[#McpServerWebConfig]" Value="/" />
         <Json:JsonFile Id="McpServerOAuthAuthority" ElementPath="$.DorcMcp.OAuthAuthority" File="[#McpServerWebConfig]" Value="[DORC.OAUTH.AUTHORITY]" />
@@ -29,9 +26,6 @@
 		  </iis:WebAppPool>
 
           <Json:JsonFile Id="McpServerDorcApiBaseUrlProd" ElementPath="$.DorcApi.BaseUrl" File="[#McpServerWebConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
-          <Json:JsonFile Id="McpServerDorcApiClientIdProd" ElementPath="$.DorcApi.ClientId" File="[#McpServerWebConfig]" Value="[DORC.API.CLIENTID]" />
-          <Json:JsonFile Id="McpServerDorcApiClientSecretProd" ElementPath="$.DorcApi.ClientSecret" File="[#McpServerWebConfig]" Value="[DORC.API.CLIENTSECRET]" />
-          <Json:JsonFile Id="McpServerDorcApiScopeProd" ElementPath="$.DorcApi.Scope" File="[#McpServerWebConfig]" Value="[DORC.OAUTH.API.GLOBAL.SCOPE]" />
           <Json:JsonFile Id="McpServerTransportProd" ElementPath="$.DorcMcp.Transport" File="[#McpServerWebConfig]" Value="Http" />
           <Json:JsonFile Id="McpServerEndpointPathProd" ElementPath="$.DorcMcp.EndpointPath" File="[#McpServerWebConfig]" Value="/" />
           <Json:JsonFile Id="McpServerOAuthAuthorityProd" ElementPath="$.DorcMcp.OAuthAuthority" File="[#McpServerWebConfig]" Value="[DORC.OAUTH.AUTHORITY]" />
