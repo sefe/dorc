@@ -116,8 +116,8 @@ namespace Dorc.Api.Tests.Controllers
             _variableScopeOptionsResolver.Received(1).SetGlobalPropertyValues(_variableResolver, Arg.Any<ClaimsPrincipal>());
             Assert.IsInstanceOfType(result, typeof(OkObjectResult));
             var okResult = (OkObjectResult)result;
-            var options = okResult.Value as List<PropertyValueScopeOptionApiModel>;
-            Assert.IsNotNull(options);
+            Assert.IsInstanceOfType(okResult.Value, typeof(List<PropertyValueScopeOptionApiModel>));
+            var options = (List<PropertyValueScopeOptionApiModel>)okResult.Value;
             Assert.HasCount(1, options);
             Assert.AreEqual("$ServerNames_STP_Strategies$", options[0].ValueOption);
             Assert.AreEqual("STP-SRV01", options[0].SampleResolvedValue);

@@ -78,6 +78,26 @@ namespace Dorc.Core.VariableResolution
 
             foreach (var propName in uniqueNames)
             {
+                if (propName == "IsProd" &&
+                    environment != null &&
+                    !snapshot.Entries.ContainsKey("IsProd"))
+                {
+                    var isProdStr = environment.EnvironmentIsProd.ToString();
+                    results.Add(new PropertyResolutionTraceApiModel
+                    {
+                        PropertyName = "IsProd",
+                        RawValue = isProdStr,
+                        ResolvedValueJson = JsonSerializer.Serialize(isProdStr),
+                        ValueType = "String",
+                        Source = "BuiltInScopeOption",
+                        ScopeName = environment.EnvironmentName,
+                        ResolutionChain = new List<string> { $"$IsProd$ (BuiltInScopeOption:{environment.EnvironmentName}) -> \"{isProdStr}\"" },
+                        IsSecure = false,
+                        Diagnostic = "Ok"
+                    });
+                    continue;
+                }
+
                 var activeStack = new HashSet<string>(StringComparer.Ordinal);
                 var chain = new List<string>();
                 var evaluated = EvaluateProperty(propName, snapshot, activeStack, evaluatedCache, chain, 0);
@@ -199,17 +219,6 @@ namespace Dorc.Core.VariableResolution
                 entries[PropertyValueScopeOptionsFixed.EnvironmentName] = new CandidateEntry(
                     envName,
                     envName,
-                    "String",
-                    "BuiltInScopeOption",
-                    envName,
-                    false,
-                    false,
-                    false);
-
-                var isProdString = environment!.EnvironmentIsProd.ToString();
-                entries["IsProd"] = new CandidateEntry(
-                    isProdString,
-                    isProdString,
                     "String",
                     "BuiltInScopeOption",
                     envName,
@@ -474,8 +483,7 @@ namespace Dorc.Core.VariableResolution
                         {
                             anyChildCircular = true;
                         }
-                        else if (childResult.Source is "Unresolved" or "RuntimeOnly" ||
-                                 childResult.Diagnostic is "MissingInScope" or "RuntimeOnly")
+                        else if (childResult.RawResolvedObject == null)
                         {
                             anyChildMissing = true;
                             childSpecialDiagnostic ??= childResult.Diagnostic;
@@ -658,7 +666,7 @@ namespace Dorc.Core.VariableResolution
                 var decrypted = items.Select(encryptor!.DecryptValue).ToList();
                 return JsonSerializer.Serialize(decrypted);
             }
-            catch
+            catch (Exception ex) when (ex is JsonException or FormatException or InvalidOperationException or System.Security.Cryptography.CryptographicException)
             {
                 return RequestPropertyRedaction.Marker;
             }

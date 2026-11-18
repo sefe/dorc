@@ -722,8 +722,15 @@ namespace Dorc.Core.Tests
                 MakeProperty("SecretWithAbsentToken", "$AbsentToken$", secure: true),
                 MakeProperty("ExprUsingSecretWithAbsentToken", "fn:Call($SecretWithAbsentToken$)"),
                 MakeProperty("PlainWithAbsentToken", "$$AbsentToken$$", secure: false),
-                MakeProperty("ExprDirectAbsentToken", "fn:Call($PlainWithAbsentToken$)")
+                MakeProperty("ExprDirectAbsentToken", "fn:Call($PlainWithAbsentToken$)"),
+                MakeProperty("AliasToIsProd", "$IsProd$"),
+                MakeProperty("BadFormatSecret", "bad-base64", secure: true),
+                MakeProperty("BadInvalidOpSecret", "bad-op", secure: true),
+                MakeProperty("BadCryptoSecret", "bad-crypto", secure: true)
             });
+            _propertyEncryptor.When(e => e.DecryptValue("bad-base64")).Do(_ => throw new FormatException("bad format"));
+            _propertyEncryptor.When(e => e.DecryptValue("bad-op")).Do(_ => throw new InvalidOperationException("bad op"));
+            _propertyEncryptor.When(e => e.DecryptValue("bad-crypto")).Do(_ => throw new System.Security.Cryptography.CryptographicException("bad crypto"));
 
             _propertyValuesSource.GetEnvironmentProperties("DEV-01", null).Returns(new[]
             {
@@ -741,7 +748,8 @@ namespace Dorc.Core.Tests
                     "Root", "Leaf", "ExprMissingRef", "ExprWithMalformedChild",
                     "TransitiveMissingParent", "NullSecureArray", "CorruptSecureArray",
                     "HugeConcat", "AncestorSecret1", "AncestorSecret2", "CorruptPlainArray",
-                    "ExprUsingSecretWithAbsentToken", "ExprDirectAbsentToken"
+                    "ExprUsingSecretWithAbsentToken", "ExprDirectAbsentToken",
+                    "IsProd", "AliasToIsProd", "BadFormatSecret", "BadInvalidOpSecret", "BadCryptoSecret"
                 },
                 RequestOverrides = new List<RequestProperty>
                 {
@@ -755,13 +763,39 @@ namespace Dorc.Core.Tests
             Assert.AreEqual("MissingInScope", res[2].Diagnostic);
             Assert.AreEqual("UnclosedToken", res[3].Diagnostic);
             Assert.AreEqual("MissingInScope", res[4].Diagnostic);
+            Assert.AreEqual("\"prefix-fn:Call($UndefinedRef$)\"", res[4].ResolvedValueJson);
             Assert.AreEqual("null", res[5].RawValue);
             Assert.AreEqual("[REDACTED]", res[6].RawValue);
             Assert.AreEqual("ValueTruncated", res[7].Diagnostic);
             Assert.AreEqual("{not-json", res[10].RawValue);
             Assert.AreEqual("ExpressionDeferred", res[11].Diagnostic);
             Assert.AreEqual("ExpressionDeferred", res[12].Diagnostic);
+            Assert.AreEqual("\"False\"", res[13].ResolvedValueJson);
+            Assert.AreEqual("BuiltInScopeOption", res[13].Source);
+            Assert.AreEqual("\"$IsProd$\"", res[14].ResolvedValueJson);
+            Assert.AreEqual("MissingInScope", res[14].Diagnostic);
+            Assert.AreEqual("[REDACTED]", res[15].RawValue);
+            Assert.AreEqual("[REDACTED]", res[16].RawValue);
+            Assert.AreEqual("[REDACTED]", res[17].RawValue);
             _securityChecker.Received(1).CanReadSecrets(_user, "PARENT-01");
+
+            var noEnvIsProdRes = _tracer.TraceProperties(new PropertyResolutionPreviewRequestApiModel
+            {
+                PropertyNames = new List<string> { "IsProd" }
+            }, null, _user);
+            Assert.AreEqual("Unresolved", noEnvIsProdRes[0].Source);
+
+            var overriddenIsProdRes = _tracer.TraceProperties(new PropertyResolutionPreviewRequestApiModel
+            {
+                EnvironmentName = "DEV-01",
+                PropertyNames = new List<string> { "IsProd" },
+                RequestOverrides = new List<RequestProperty>
+                {
+                    new RequestProperty { PropertyName = "IsProd", PropertyValue = "CustomIsProd" }
+                }
+            }, env, _user);
+            Assert.AreEqual("\"CustomIsProd\"", overriddenIsProdRes[0].ResolvedValueJson);
+            Assert.AreEqual("RequestOverride", overriddenIsProdRes[0].Source);
         }
 
         [TestMethod]
