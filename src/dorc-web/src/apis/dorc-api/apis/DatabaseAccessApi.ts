@@ -19,8 +19,6 @@ import type {
     DatabaseAccessAuditApiModel,
     DatabaseAccessConfirmation,
     DatabaseAccessDirectoryIdentity,
-    DatabaseAccessImportPreview,
-    DatabaseAccessImportRequest,
     DatabaseAccessPreview,
     DatabaseAccessState,
     DatabaseAccessStatus,
@@ -43,27 +41,9 @@ export interface DatabaseAccessDirectoryRequest {
     search: string;
 }
 
-export interface DatabaseAccessExecuteImportRequest {
-    envId: number;
-    databaseId: number;
-    databaseAccessImportRequest: DatabaseAccessImportRequest;
-}
-
 export interface DatabaseAccessGetRequest {
     envId: number;
     databaseId: number;
-}
-
-export interface DatabaseAccessImportPreviewRequest {
-    envId: number;
-    databaseId: number;
-    databaseAccessImportRequest: DatabaseAccessImportRequest;
-}
-
-export interface DatabaseAccessLookupRequest {
-    envId: number;
-    databaseId: number;
-    accountName: string;
 }
 
 export interface DatabaseAccessPreviewRequest {
@@ -184,34 +164,6 @@ export class DatabaseAccessApi extends BaseAPI {
 
     /**
      */
-    databaseAccessExecuteImport({ envId, databaseId, databaseAccessImportRequest }: DatabaseAccessExecuteImportRequest): Observable<DatabaseAccessImportPreview>
-    databaseAccessExecuteImport({ envId, databaseId, databaseAccessImportRequest }: DatabaseAccessExecuteImportRequest, opts?: OperationOpts): Observable<AjaxResponse<DatabaseAccessImportPreview>>
-    databaseAccessExecuteImport({ envId, databaseId, databaseAccessImportRequest }: DatabaseAccessExecuteImportRequest, opts?: OperationOpts): Observable<DatabaseAccessImportPreview | AjaxResponse<DatabaseAccessImportPreview>> {
-        throwIfNullOrUndefined(envId, 'envId', 'databaseAccessExecuteImport');
-        throwIfNullOrUndefined(databaseId, 'databaseId', 'databaseAccessExecuteImport');
-        throwIfNullOrUndefined(databaseAccessImportRequest, 'databaseAccessImportRequest', 'databaseAccessExecuteImport');
-
-        const headers: HttpHeaders = {
-            'Content-Type': 'application/json',
-            // oauth required
-            ...(this.configuration.accessToken != null
-                ? { Authorization: typeof this.configuration.accessToken === 'function'
-                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
-                    : this.configuration.accessToken }
-                : undefined
-            ),
-        };
-
-        return this.request<DatabaseAccessImportPreview>({
-            url: '/DatabaseAccess/{envId}/{databaseId}/import'.replace('{envId}', encodeURI(envId)).replace('{databaseId}', encodeURI(databaseId)),
-            method: 'POST',
-            headers,
-            body: databaseAccessImportRequest,
-        }, opts?.responseOpts);
-    };
-
-    /**
-     */
     databaseAccessGet({ envId, databaseId }: DatabaseAccessGetRequest): Observable<DatabaseAccessState>
     databaseAccessGet({ envId, databaseId }: DatabaseAccessGetRequest, opts?: OperationOpts): Observable<AjaxResponse<DatabaseAccessState>>
     databaseAccessGet({ envId, databaseId }: DatabaseAccessGetRequest, opts?: OperationOpts): Observable<DatabaseAccessState | AjaxResponse<DatabaseAccessState>> {
@@ -232,65 +184,6 @@ export class DatabaseAccessApi extends BaseAPI {
             url: '/DatabaseAccess/{envId}/{databaseId}'.replace('{envId}', encodeURI(envId)).replace('{databaseId}', encodeURI(databaseId)),
             method: 'GET',
             headers,
-        }, opts?.responseOpts);
-    };
-
-    /**
-     */
-    databaseAccessImportPreview({ envId, databaseId, databaseAccessImportRequest }: DatabaseAccessImportPreviewRequest): Observable<DatabaseAccessImportPreview>
-    databaseAccessImportPreview({ envId, databaseId, databaseAccessImportRequest }: DatabaseAccessImportPreviewRequest, opts?: OperationOpts): Observable<AjaxResponse<DatabaseAccessImportPreview>>
-    databaseAccessImportPreview({ envId, databaseId, databaseAccessImportRequest }: DatabaseAccessImportPreviewRequest, opts?: OperationOpts): Observable<DatabaseAccessImportPreview | AjaxResponse<DatabaseAccessImportPreview>> {
-        throwIfNullOrUndefined(envId, 'envId', 'databaseAccessImportPreview');
-        throwIfNullOrUndefined(databaseId, 'databaseId', 'databaseAccessImportPreview');
-        throwIfNullOrUndefined(databaseAccessImportRequest, 'databaseAccessImportRequest', 'databaseAccessImportPreview');
-
-        const headers: HttpHeaders = {
-            'Content-Type': 'application/json',
-            // oauth required
-            ...(this.configuration.accessToken != null
-                ? { Authorization: typeof this.configuration.accessToken === 'function'
-                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
-                    : this.configuration.accessToken }
-                : undefined
-            ),
-        };
-
-        return this.request<DatabaseAccessImportPreview>({
-            url: '/DatabaseAccess/{envId}/{databaseId}/import/preview'.replace('{envId}', encodeURI(envId)).replace('{databaseId}', encodeURI(databaseId)),
-            method: 'POST',
-            headers,
-            body: databaseAccessImportRequest,
-        }, opts?.responseOpts);
-    };
-
-    /**
-     */
-    databaseAccessLookup({ envId, databaseId, accountName }: DatabaseAccessLookupRequest): Observable<DatabaseAccessDirectoryIdentity>
-    databaseAccessLookup({ envId, databaseId, accountName }: DatabaseAccessLookupRequest, opts?: OperationOpts): Observable<AjaxResponse<DatabaseAccessDirectoryIdentity>>
-    databaseAccessLookup({ envId, databaseId, accountName }: DatabaseAccessLookupRequest, opts?: OperationOpts): Observable<DatabaseAccessDirectoryIdentity | AjaxResponse<DatabaseAccessDirectoryIdentity>> {
-        throwIfNullOrUndefined(envId, 'envId', 'databaseAccessLookup');
-        throwIfNullOrUndefined(databaseId, 'databaseId', 'databaseAccessLookup');
-        throwIfNullOrUndefined(accountName, 'accountName', 'databaseAccessLookup');
-
-        const headers: HttpHeaders = {
-            // oauth required
-            ...(this.configuration.accessToken != null
-                ? { Authorization: typeof this.configuration.accessToken === 'function'
-                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
-                    : this.configuration.accessToken }
-                : undefined
-            ),
-        };
-
-        const query: HttpQuery = { // required parameters are used directly since they are already checked by throwIfNullOrUndefined
-            'accountName': accountName,
-        };
-
-        return this.request<DatabaseAccessDirectoryIdentity>({
-            url: '/DatabaseAccess/{envId}/{databaseId}/directory/lookup'.replace('{envId}', encodeURI(envId)).replace('{databaseId}', encodeURI(databaseId)),
-            method: 'GET',
-            headers,
-            query,
         }, opts?.responseOpts);
     };
 

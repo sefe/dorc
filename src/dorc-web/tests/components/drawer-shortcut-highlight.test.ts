@@ -156,7 +156,7 @@ describe('Drawer shortcut highlighting across environment sub-tabs', () => {
       a.getAttribute('href')
     );
 
-    expect(hrefs.slice(0, 12)).to.deep.equal([
+    expect(hrefs.slice(0, 11)).to.deep.equal([
       '/deploy',
       '/monitor-requests',
       '/projects',
@@ -167,7 +167,6 @@ describe('Drawer shortcut highlighting across environment sub-tabs', () => {
       '/variables',
       '/servers',
       '/databases',
-      '/sql-roles',
       '/sql-ports'
     ]);
 

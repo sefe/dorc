@@ -15,51 +15,44 @@ public sealed class DatabaseAccessContext(DbContextOptions<DatabaseAccessContext
         configuration.Property(x => x.Provider).HasMaxLength(40);
         configuration.Property(x => x.Revision).IsConcurrencyToken();
 
-        var sharedPrincipal = model.Entity<DatabaseAccessSharedPrincipal>();
-        sharedPrincipal.ToTable("DatabaseAccessSharedPrincipal", "deploy");
-        sharedPrincipal.HasKey(x => x.Id);
-        sharedPrincipal.Property(x => x.Name).HasMaxLength(128);
-        sharedPrincipal.Property(x => x.Kind).HasMaxLength(32);
-        sharedPrincipal.Property(x => x.LoginName).HasMaxLength(128);
-        sharedPrincipal.Property(x => x.DirectoryId).HasMaxLength(256);
-        sharedPrincipal.HasIndex(x => new { x.Kind, x.Name, x.LoginName, x.DirectoryId }).IsUnique();
+        var principalCatalog = model.Entity<DatabaseAccessPrincipalCatalog>();
+        principalCatalog.ToTable("DatabaseAccessPrincipalCatalog", "deploy");
+        principalCatalog.HasKey(x => x.Id);
+        principalCatalog.Property(x => x.Name).HasMaxLength(128);
+        principalCatalog.Property(x => x.Kind).HasMaxLength(32);
+        principalCatalog.Property(x => x.LoginName).HasMaxLength(128);
+        principalCatalog.Property(x => x.DirectoryId).HasMaxLength(256);
+        principalCatalog.HasIndex(x => new { x.Kind, x.Name, x.LoginName, x.DirectoryId }).IsUnique();
 
-        var sharedRole = model.Entity<DatabaseAccessSharedRole>();
-        sharedRole.ToTable("DatabaseAccessSharedRole", "deploy");
-        sharedRole.HasKey(x => x.Id);
-        sharedRole.Property(x => x.Name).HasMaxLength(128);
-        sharedRole.HasIndex(x => x.Name).IsUnique();
+        var roleCatalog = model.Entity<DatabaseAccessRoleCatalog>();
+        roleCatalog.ToTable("DatabaseAccessRoleCatalog", "deploy");
+        roleCatalog.HasKey(x => x.Id);
+        roleCatalog.Property(x => x.Name).HasMaxLength(128);
+        roleCatalog.HasIndex(x => x.Name).IsUnique();
 
-        var principal = model.Entity<DatabaseAccessDatabasePrincipal>();
-        principal.ToTable("DatabaseAccessDatabasePrincipal", "deploy");
-        principal.HasKey(x => new { x.DatabaseId, x.PrincipalId });
-        principal.HasOne<DatabaseAccessConfiguration>().WithMany().HasForeignKey(x => x.DatabaseId)
+        var principalBinding = model.Entity<DatabaseAccessPrincipalBinding>();
+        principalBinding.ToTable("DatabaseAccessPrincipalBinding", "deploy");
+        principalBinding.HasKey(x => new { x.DatabaseId, x.PrincipalId });
+        principalBinding.HasOne<DatabaseAccessConfiguration>().WithMany().HasForeignKey(x => x.DatabaseId)
             .OnDelete(DeleteBehavior.Restrict);
-        principal.HasOne<DatabaseAccessSharedPrincipal>().WithMany().HasForeignKey(x => x.PrincipalId)
-            .OnDelete(DeleteBehavior.Restrict);
-
-        var role = model.Entity<DatabaseAccessDatabaseRole>();
-        role.ToTable("DatabaseAccessDatabaseRole", "deploy");
-        role.HasKey(x => new { x.DatabaseId, x.RoleId });
-        role.HasOne<DatabaseAccessConfiguration>().WithMany().HasForeignKey(x => x.DatabaseId)
-            .OnDelete(DeleteBehavior.Restrict);
-        role.HasOne<DatabaseAccessSharedRole>().WithMany().HasForeignKey(x => x.RoleId)
+        principalBinding.HasOne<DatabaseAccessPrincipalCatalog>().WithMany().HasForeignKey(x => x.PrincipalId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        var membership = model.Entity<DatabaseAccessDatabaseMembership>();
-        membership.ToTable("DatabaseAccessDatabaseMembership", "deploy");
+        var roleBinding = model.Entity<DatabaseAccessRoleBinding>();
+        roleBinding.ToTable("DatabaseAccessRoleBinding", "deploy");
+        roleBinding.HasKey(x => new { x.DatabaseId, x.RoleId });
+        roleBinding.HasOne<DatabaseAccessConfiguration>().WithMany().HasForeignKey(x => x.DatabaseId)
+            .OnDelete(DeleteBehavior.Restrict);
+        roleBinding.HasOne<DatabaseAccessRoleCatalog>().WithMany().HasForeignKey(x => x.RoleId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        var membership = model.Entity<DatabaseAccessRoleMembership>();
+        membership.ToTable("DatabaseAccessRoleMembership", "deploy");
         membership.HasKey(x => new { x.DatabaseId, x.PrincipalId, x.RoleId });
-        membership.HasOne<DatabaseAccessDatabasePrincipal>().WithMany()
+        membership.HasOne<DatabaseAccessPrincipalBinding>().WithMany()
             .HasForeignKey(x => new { x.DatabaseId, x.PrincipalId }).OnDelete(DeleteBehavior.Restrict);
-        membership.HasOne<DatabaseAccessDatabaseRole>().WithMany()
+        membership.HasOne<DatabaseAccessRoleBinding>().WithMany()
             .HasForeignKey(x => new { x.DatabaseId, x.RoleId }).OnDelete(DeleteBehavior.Restrict);
-
-        var exclusion = model.Entity<DatabaseAccessExclusionRecord>();
-        exclusion.ToTable("DatabaseAccessExclusion", "deploy");
-        exclusion.HasKey(x => new { x.DatabaseId, x.LegacyUserId });
-        exclusion.Property(x => x.LegacyUserId).ValueGeneratedNever();
-        exclusion.HasOne<DatabaseAccessConfiguration>().WithMany().HasForeignKey(x => x.DatabaseId)
-            .OnDelete(DeleteBehavior.Restrict);
 
         var audit = model.Entity<DatabaseAccessAudit>();
         audit.ToTable("DatabaseAccessAudit", "deploy");

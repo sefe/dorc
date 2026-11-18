@@ -29,6 +29,7 @@ namespace Dorc.Monitor.Tests
             Assert.IsNotNull(provider.GetRequiredService<IContainersPersistentSource>());
             Assert.IsNotNull(provider.GetRequiredService<ICloudResourcesPersistentSource>());
             Assert.IsNotNull(provider.GetRequiredService<IApiRegistrationsPersistentSource>());
+            Assert.IsNotNull(provider.GetRequiredService<IDatabaseAccessReader>());
         }
 
         [TestMethod]

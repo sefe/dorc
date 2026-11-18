@@ -1,6 +1,5 @@
 .gitignore
 apis/AccessControlApi.ts
-apis/AccountApi.ts
 apis/AnalyticsApi.ts
 apis/ApiConfigApi.ts
 apis/ApiRegistrationAuditApi.ts
@@ -32,14 +31,12 @@ apis/RefDataComponentsApi.ts
 apis/RefDataConfigApi.ts
 apis/RefDataContainersApi.ts
 apis/RefDataDaemonsApi.ts
-apis/RefDataDatabaseUsersApi.ts
 apis/RefDataDatabasesApi.ts
 apis/RefDataEnvironmentsApi.ts
 apis/RefDataEnvironmentsDetailsApi.ts
 apis/RefDataEnvironmentsHistoryApi.ts
 apis/RefDataEnvironmentsUsersApi.ts
 apis/RefDataGroupsApi.ts
-apis/RefDataPermissionApi.ts
 apis/RefDataProjectAuditApi.ts
 apis/RefDataProjectBuildsApi.ts
 apis/RefDataProjectEnvironmentMappingsApi.ts
@@ -51,8 +48,6 @@ apis/RefDataScriptsApi.ts
 apis/RefDataSearchPropertyValuesApi.ts
 apis/RefDataServersApi.ts
 apis/RefDataSqlPortsApi.ts
-apis/RefDataUserPermissionsApi.ts
-apis/RefDataUsersApi.ts
 apis/ReleaseInformationApi.ts
 apis/RequestApi.ts
 apis/RequestStatusesApi.ts
@@ -68,7 +63,6 @@ index.ts
 models/AccessControlApiModel.ts
 models/AccessControlType.ts
 models/AccessSecureApiModel.ts
-models/AccountGranularity.ts
 models/AnalyticsComponentReliabilityApiModel.ts
 models/AnalyticsComponentUsageApiModel.ts
 models/AnalyticsDeploymentSummaryApiModel.ts
@@ -108,9 +102,6 @@ models/DaemonStatusApiModel.ts
 models/DatabaseAccessAuditApiModel.ts
 models/DatabaseAccessConfirmation.ts
 models/DatabaseAccessDirectoryIdentity.ts
-models/DatabaseAccessImportExclusion.ts
-models/DatabaseAccessImportPreview.ts
-models/DatabaseAccessImportRequest.ts
 models/DatabaseAccessMembership.ts
 models/DatabaseAccessObservation.ts
 models/DatabaseAccessObservedPrincipal.ts
@@ -166,7 +157,6 @@ models/MakeLikeProdRequest.ts
 models/PagedDataFilter.ts
 models/PagedDataOperators.ts
 models/PagedDataSorting.ts
-models/PermissionDto.ts
 models/PowerShellVersionDto.ts
 models/ProjectApiModel.ts
 models/Property.ts
@@ -217,11 +207,8 @@ models/TerraformTemplateParameter.ts
 models/TerraformTemplateResolutionApiModel.ts
 models/TerraformTemplateSource.ts
 models/UpdateEnvironmentHistoryRequest.ts
-models/UserAccountType.ts
 models/UserApiModel.ts
-models/UserDbPermissionApiModel.ts
 models/UserElementApiModel.ts
-models/UserPermDto.ts
 models/UserSearchResult.ts
 models/index.ts
 runtime.ts

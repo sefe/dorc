@@ -50,10 +50,15 @@ public sealed class SqlServerDatabaseAccessProvider : IDatabaseAccessProvider
             command.ExecuteNonQuery();
         }
         var after = Plan(target, desired, Observe(connection, transaction));
-        if (after.Errors.Count != 0 || after.Operations.Count != 0)
-            throw new DatabaseAccessConflictException("Reconciliation did not reach the requested state; target transaction rolled back.");
+        VerifyConverged(after);
         transaction.Commit();
         return after;
+    }
+
+    internal static void VerifyConverged(DatabaseAccessPreview after)
+    {
+        if (after.Errors.Count != 0 || after.Operations.Count != 0)
+            throw new DatabaseAccessConflictException("Reconciliation did not reach the requested state; target transaction rolled back.");
     }
 
     public List<string> SqlLogins(DatabaseAccessTarget target)
@@ -110,9 +115,6 @@ public sealed class SqlServerDatabaseAccessProvider : IDatabaseAccessProvider
             WHERE type IN ('S','U','G') ORDER BY name;
             """, connection, transaction) { CommandTimeout = 30 };
         using var reader = command.ExecuteReader();
-        static string Kind(string type) => type switch { "S" => "Native", "U" => "DirectoryUser", "G" => "DirectoryGroup", _ => "Unsupported" };
-        static string? Sid(SqlDataReader row, int index, string type) =>
-            type is "U" or "G" && !row.IsDBNull(index) ? new SecurityIdentifier((byte[])row[index], 0).Value : null;
         while (reader.Read())
         {
             var name = reader.GetString(0);
@@ -120,7 +122,7 @@ public sealed class SqlServerDatabaseAccessProvider : IDatabaseAccessProvider
             result.Principals.Add(new()
             {
                 Name = name, Kind = Kind(type), LoginName = reader.IsDBNull(2) ? null : reader.GetString(2),
-                DirectoryId = Sid(reader, 3, type),
+                DirectoryId = FormatDirectorySid(reader.GetValue(3), type),
                 Protected = reader.GetInt32(4) <= 4 || DatabaseAccessPlanner.ProtectedPrincipal(name)
             });
         }
@@ -132,16 +134,27 @@ public sealed class SqlServerDatabaseAccessProvider : IDatabaseAccessProvider
         while (reader.Read())
         {
             var name = reader.GetString(0);
+            var type = reader.GetString(1);
             result.Logins.Add(new()
             {
-                Name = name, LoginName = name, Kind = Kind(reader.GetString(1)), DirectoryId = Sid(reader, 2, reader.GetString(1)),
+                Name = name, LoginName = name, Kind = Kind(type), DirectoryId = FormatDirectorySid(reader.GetValue(2), type),
                 Protected = reader.GetBoolean(3) || reader.GetInt32(4) == 1 || DatabaseAccessPlanner.ProtectedPrincipal(name)
             });
         }
+        RejectCaseCollisions(result);
+        return result;
+    }
+
+    internal static string? FormatDirectorySid(object sidValue, string type) =>
+        type is "U" or "G" && sidValue is byte[] bytes ? new SecurityIdentifier(bytes, 0).Value : null;
+
+    internal static string Kind(string type) => type switch { "S" => "Native", "U" => "DirectoryUser", "G" => "DirectoryGroup", _ => "Unsupported" };
+
+    internal static void RejectCaseCollisions(DatabaseAccessObservation result)
+    {
         if (result.Principals.GroupBy(p => p.Name, DatabaseAccessPlanner.Names).Any(g => g.Count() > 1)
             || result.Roles.GroupBy(r => r.Name, DatabaseAccessPlanner.Names).Any(g => g.Count() > 1)
             || result.Logins.GroupBy(l => l.Name, DatabaseAccessPlanner.Names).Any(g => g.Count() > 1))
             throw new NotSupportedException("Case-colliding target principals, roles or logins cannot be managed by this provider.");
-        return result;
     }
 }

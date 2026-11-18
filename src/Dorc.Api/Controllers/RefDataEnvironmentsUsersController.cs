@@ -1,9 +1,7 @@
-﻿using Dorc.Api.Interfaces;
 using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Interfaces;
-using Dorc.PersistentData.Repositories;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,48 +14,18 @@ namespace Dorc.Api.Controllers
     [Route("[controller]")]
     public class RefDataEnvironmentsUsersController : ControllerBase
     {
-        private readonly IManageUsers _manageUsers;
         private readonly ISecurityPrivilegesChecker _securityService;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IActiveDirectorySearcher _activeDirectorySearcher;
-        private readonly IEnvironmentMapper _environmentMapper;
 
-        public RefDataEnvironmentsUsersController(IManageUsers manageUsers, ISecurityPrivilegesChecker securityService,
+        public RefDataEnvironmentsUsersController(
+            ISecurityPrivilegesChecker securityService,
             IEnvironmentsPersistentSource environmentsPersistentSource,
-            IActiveDirectorySearcher activeDirectorySearcher, IEnvironmentMapper environmentMapper)
+            IActiveDirectorySearcher activeDirectorySearcher)
         {
-            _environmentMapper = environmentMapper;
             _activeDirectorySearcher = activeDirectorySearcher;
             _environmentsPersistentSource = environmentsPersistentSource;
             _securityService = securityService;
-            _manageUsers = manageUsers;
-        }
-
-        /// <summary>
-        ///     Get users for environment id, it type=="Endur" gets Endur users
-        /// </summary>
-        /// <param name="id">Environment ID</param>
-        /// <param name="type">"Endur" db type</param>
-        /// <returns>Json string with array of  UserApiModel</returns>
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<UserApiModel>))]
-        [HttpGet]
-        public IActionResult Get([FromQuery] int id, [FromQuery] UserAccountType type)
-        {
-            var users = _manageUsers.GetUsersForEnvironment(id, type);
-            return StatusCode(StatusCodes.Status200OK, users);
-        }
-
-        /// <summary>
-        ///     Get users for Environment
-        /// </summary>
-        /// <param name="id">Environment ID</param>
-        /// <returns>Json string with array of UserApiModel</returns>
-        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(IEnumerable<UserApiModel>))]
-        [HttpGet("{id}")]
-        public IActionResult Get(int id)
-        {
-            var users = _manageUsers.GetUsersForEnvironment(id, UserAccountType.NotSet);
-            return StatusCode(StatusCodes.Status200OK, users);
         }
 
         /// <summary>
@@ -70,7 +38,6 @@ namespace Dorc.Api.Controllers
         [HttpGet]
         public IActionResult GetOwner(int id)
         {
-            // DO NOT use the USERS table here!
             var ownerId = _environmentsPersistentSource.GetEnvironmentOwnerId(id);
 
             var userIdActiveDirectory = _activeDirectorySearcher.GetUserDataById(ownerId);

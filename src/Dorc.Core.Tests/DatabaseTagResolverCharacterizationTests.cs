@@ -29,7 +29,8 @@ namespace Dorc.Core.Tests
             var servers = Substitute.For<IServersPersistentSource>();
             var daemons = Substitute.For<IDaemonsPersistentSource>();
             var databasesSource = Substitute.For<IDatabasesPersistentSource>();
-            var userPerms = Substitute.For<IUserPermsPersistentSource>();
+            var databaseAccess = Substitute.For<IDatabaseAccessReader>();
+            databaseAccess.GetRoleAssignments(Arg.Any<int>()).Returns(Array.Empty<DatabaseRoleAssignment>());
             servers.GetServersForEnvId(42).Returns(environmentServers);
             daemons.GetDaemonsForServer(Arg.Any<int>()).Returns(Array.Empty<DaemonApiModel>());
             databasesSource.GetDatabasesForEnvironmentName(Arg.Any<string>()).Returns(databases);
@@ -43,7 +44,7 @@ namespace Dorc.Core.Tests
             var apiRegistrations = Substitute.For<IApiRegistrationsPersistentSource>();
             apiRegistrations.GetForEnvironmentId(Arg.Any<int>()).Returns(Array.Empty<ApiRegistrationApiModel>());
 
-            var resolver = new VariableScopeOptionsResolver(properties, servers, daemons, databasesSource, userPerms,
+            var resolver = new VariableScopeOptionsResolver(properties, servers, daemons, databasesSource, databaseAccess,
                 containers, cloudResources, apiRegistrations);
             var calls = new List<string>();
             var values = new Dictionary<string, VariableValue?>();

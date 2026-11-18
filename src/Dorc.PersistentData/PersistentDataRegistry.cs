@@ -3,7 +3,6 @@ using Lamar;
 using Microsoft.Extensions.Configuration;
 using Dorc.PersistentData.Sources.Interfaces;
 using Dorc.PersistentData.Sources;
-using Dorc.PersistentData.Repositories;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Security;
 
@@ -27,8 +26,9 @@ namespace Dorc.PersistentData
             For<ISourceHostAllowList>().Use(new SourceHostAllowList(configuration)).Singleton();
 
             For<IAccessControlPersistentSource>().Use<AccessControlPersistentSource>().Scoped();
-            For<IAccountPersistentSource>().Use<AccountPersistentSource>().Scoped();
             For<IAdGroupPersistentSource>().Use<AdGroupPersistentSource>().Scoped();
+            For<DatabaseAccessStore>().Use<DatabaseAccessStore>().Scoped();
+            For<IDatabaseAccessReader>().Use<DatabaseAccessStore>().Scoped();
             For<IAnalyticsPersistentSource>().Use<AnalyticsPersistentSource>().Scoped();
             For<IBundledRequestsPersistentSource>().Use<BundledRequestsPersistentSource>().Scoped();
             For<IComponentsPersistentSource>().Use<ComponentsPersistentSource>().Scoped();
@@ -48,7 +48,6 @@ namespace Dorc.PersistentData
             For<IEnvironmentHistoryPersistentSource>().Use<EnvironmentHistoryPersistentSource>().Scoped();
             For<IEnvironmentsPersistentSource>().Use<EnvironmentsPersistentSource>().Scoped();
             For<IManageProjectsPersistentSource>().Use<ManageProjectsPersistentSource>().Scoped();
-            For<IPermissionsPersistentSource>().Use<PermissionsPersistentSource>().Scoped();
             For<IProjectsPersistentSource>().Use<ProjectsPersistentSource>().Scoped();
             For<IPropertiesPersistentSource>().Use<PropertiesPersistentSource>().Scoped();
             For<IPropertyValuesAuditPersistentSource>().Use<PropertyValuesAuditPersistentSource>().Scoped();
@@ -62,8 +61,6 @@ namespace Dorc.PersistentData
             For<ISecurityObjectFilter>().Use<SecurityObjectFilter>().Scoped();
             For<IServersPersistentSource>().Use<ServersPersistentSource>().Scoped();
             For<ISqlPortsPersistentSource>().Use<SqlPortsPersistentSource>().Scoped();
-            For<IUserPermsPersistentSource>().Use<UserPermsPersistentSource>().Scoped();
-            For<IUsersPersistentSource>().Use<UsersPersistentSource>().Scoped();
         }
     }
 }

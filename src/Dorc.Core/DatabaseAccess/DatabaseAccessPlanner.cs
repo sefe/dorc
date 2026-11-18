@@ -5,8 +5,6 @@ using Dorc.ApiModel;
 
 namespace Dorc.Core.DatabaseAccess;
 
-public sealed class DatabaseAccessConflictException(string message) : Exception(message);
-
 public static class DatabaseAccessPlanner
 {
     public const string SqlServer = "sql-server";
@@ -87,9 +85,6 @@ public static class DatabaseAccessPlanner
             if (!principals.Contains(member.Principal) || !roles.Contains(member.Role)
                 || !memberships.Add(member.Principal + "\0" + member.Role))
                 throw new ArgumentException("Memberships must uniquely reference principals and roles in this database.");
-            if (IsDbOwner(member.Role)
-                && state.Principals.Single(p => Names.Equals(p.Name, member.Principal)).LegacyUserId is not > 0)
-                throw new ArgumentException("db_owner memberships require an explicitly approved legacy import.");
             if (member.Present && (!state.Principals.Single(p => Names.Equals(p.Name, member.Principal)).Present
                 || !state.Roles.Single(r => Names.Equals(r.Name, member.Role)).Present))
                 throw new ArgumentException("A present membership cannot reference an absent principal or role.");

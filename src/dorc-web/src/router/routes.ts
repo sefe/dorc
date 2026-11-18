@@ -37,7 +37,6 @@ import '../pages/page-environments-list.ts';
 import '../pages/page-monitor-requests.ts';
 import '../pages/page-monitor-result.ts';
 import '../pages/page-not-found.ts';
-import '../pages/page-permissions-list.ts';
 import '../pages/page-project-envs.ts';
 import '../pages/page-project-bundles.ts';
 import '../pages/page-project-components.ts';
@@ -51,7 +50,6 @@ import '../pages/page-scripts-audit.ts';
 import '../pages/page-module-catalog.ts';
 import '../pages/page-servers-list.ts';
 import '../pages/page-sql-ports-list.ts';
-import '../pages/page-users-list.ts';
 import '../pages/page-variables-audit.ts';
 import '../pages/page-variables-value-lookup.ts';
 import '../pages/page-variables.ts';
@@ -181,15 +179,6 @@ export const routes: AppRoute[] = [
         }
       },
       {
-        path: '/users',
-        name: 'users',
-        component: 'page-users-list',
-        metadata: {
-          title: 'Users',
-          description: 'List of all environments you have permission to view'
-        }
-      },
-      {
         path: '/daemons',
         name: 'daemons',
         component: 'page-daemons-list',
@@ -306,15 +295,6 @@ export const routes: AppRoute[] = [
         metadata: {
           title: 'Variables Values Audit',
           description: 'List of all variables value changes'
-        }
-      },
-      {
-        path: '/sql-roles',
-        name: 'sql-roles',
-        component: 'page-permissions-list',
-        metadata: {
-          title: 'SQL Roles',
-          description: 'List of all Database Roles'
         }
       },
       {

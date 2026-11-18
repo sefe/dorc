@@ -4,7 +4,7 @@ import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
-import { css, nothing, PropertyValues } from 'lit';
+import { css, nothing } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import '../add-edit-database.ts';
@@ -16,24 +16,13 @@ import { PageEnvBase } from './page-env-base';
 import '@vaadin/dialog';
 import { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
-import {
-  DatabaseAccessApi,
-  DatabaseApiModel,
-  DatabaseType,
-  RefDataDatabasesApi,
-  RefDataDatabaseUsersApi
-} from '../../apis/dorc-api';
+import { DatabaseApiModel, RefDataDatabasesApi } from '../../apis/dorc-api';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import GlobalCache from '../../global-cache';
-import { firstValueFrom } from 'rxjs';
-import {
-  unmigratedLegacyAccounts,
-  type DatabaseAccessView
-} from '../database-access-panel';
+import type { DatabaseAccessView } from '../database-access-panel';
 
 const databaseAccessTitles: Record<DatabaseAccessView, string> = {
   all: 'Database Access',
-  migrate: 'Migrate database access',
   permissions: 'Database permissions',
   audit: 'Database access audit'
 };
@@ -58,12 +47,7 @@ export class EnvDatabases extends PageEnvBase {
   private databaseAccessView: DatabaseAccessView = 'all';
 
   @state()
-  private unmigratedAccounts: Record<number, string[]> = {};
-
-  @state()
   private isAdmin = false;
-
-  private migrationCheckEpoch = 0;
 
   private get canManageDatabaseAccess() {
     return this.isAdmin || this.environment?.IsOwner === true;
@@ -197,7 +181,6 @@ export class EnvDatabases extends PageEnvBase {
               .databases="${this.databases}"
               .readonly="${this.envReadOnly}"
               .canManageDatabaseAccess="${this.canManageDatabaseAccess}"
-              .unmigratedAccounts="${this.unmigratedAccounts}"
               @database-detached="${this._dbDetached}"
               @manage-database-access="${this.openDatabaseAccessDialog}"
               @database-tags-updated="${this.refreshDatabases}"
@@ -214,7 +197,7 @@ export class EnvDatabases extends PageEnvBase {
                       .opened="${this.databaseAccessDialogOpened}"
                       @opened-changed="${(event: DialogOpenedChangedEvent) => {
                         this.databaseAccessDialogOpened = event.detail.value;
-                        if (!event.detail.value) this.onDatabaseAccessClosed();
+                        if (!event.detail.value) this.databaseAccessId = 0;
                       }}"
                       ${dialogRenderer(this.renderDatabaseAccessDialog, [
                         this.databases,
@@ -305,6 +288,7 @@ export class EnvDatabases extends PageEnvBase {
     }
     return -1;
   }
+
   private renderAttachDatabaseDialog = () => html`
     <attach-database
       id="attach-database"
@@ -367,101 +351,7 @@ export class EnvDatabases extends PageEnvBase {
 
   private closeDatabaseAccessDialog() {
     this.databaseAccessDialogOpened = false;
-    this.onDatabaseAccessClosed();
-  }
-
-  private onDatabaseAccessClosed() {
-    const database = this.databases?.find(
-      db => db.Id === this.databaseAccessId
-    );
     this.databaseAccessId = 0;
-    if (database) void this.checkMigrations([database], false);
-  }
-
-  protected override updated(changed: PropertyValues) {
-    super.updated?.(changed);
-    if (
-      changed.has('databases') ||
-      changed.has('isAdmin') ||
-      changed.has('environment') ||
-      changed.has('environmentId')
-    ) {
-      const key = this.migrationCheckKey();
-      if (key !== this.lastMigrationCheckKey) {
-        this.lastMigrationCheckKey = key;
-        void this.checkMigrations(this.databases ?? [], true);
-      }
-    }
-  }
-
-  private lastMigrationCheckKey = '';
-
-  private migrationCheckKey() {
-    const envId = this.environment?.EnvironmentId ?? this.environmentId;
-    if (!this.canManageDatabaseAccess || !envId || envId === -1) return '';
-    return `${envId}:${(this.databases ?? []).map(db => db.Id).join(',')}`;
-  }
-
-  /**
-   * Flags databases whose legacy permissions have not all been imported or
-   * excluded. Databases are checked one at a time because each database
-   * access read takes an exclusive per-database lock.
-   */
-  private async checkMigrations(
-    databases: DatabaseApiModel[],
-    replace: boolean
-  ) {
-    const epoch = replace
-      ? ++this.migrationCheckEpoch
-      : this.migrationCheckEpoch;
-    if (replace) this.unmigratedAccounts = {};
-    const envId = this.environment?.EnvironmentId ?? this.environmentId;
-    if (!this.canManageDatabaseAccess || !envId || envId === -1) return;
-    const api = new DatabaseAccessApi(dorcApiConfiguration);
-    const legacyApi = new RefDataDatabaseUsersApi(dorcApiConfiguration);
-    for (const database of databases) {
-      const databaseId = database.Id;
-      if (
-        !databaseId ||
-        !database.ServerName ||
-        !database.Name ||
-        (database.DatabaseType ?? DatabaseType.SqlServer) !==
-          DatabaseType.SqlServer
-      )
-        continue;
-      let accounts: string[];
-      try {
-        const status = await firstValueFrom(
-          api.databaseAccessStatus({ envId, databaseId })
-        );
-        if (!status.Enabled) return;
-        const [state, assignments] = await Promise.all([
-          firstValueFrom(api.databaseAccessGet({ envId, databaseId })),
-          firstValueFrom(
-            legacyApi.refDataDatabaseUsersGetDbUsersPermissionsGet({
-              serverName: database.ServerName,
-              databaseName: database.Name
-            })
-          )
-        ]);
-        accounts = unmigratedLegacyAccounts(assignments ?? [], state);
-      } catch (err) {
-        console.warn(
-          `Could not check database access migration for ${database.Name}`,
-          err
-        );
-        continue;
-      }
-      if (
-        epoch !== this.migrationCheckEpoch ||
-        envId !== (this.environment?.EnvironmentId ?? this.environmentId)
-      )
-        return;
-      const next = { ...this.unmigratedAccounts };
-      if (accounts.length) next[databaseId] = accounts;
-      else delete next[databaseId];
-      this.unmigratedAccounts = next;
-    }
   }
 
   private closeAttachDatabaseDialog() {

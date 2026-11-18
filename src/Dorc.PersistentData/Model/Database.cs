@@ -28,7 +28,5 @@ namespace Dorc.PersistentData.Model
         public virtual AdGroup Group { get; set; }
 
         public ICollection<Environment> Environments { get; set; } = null!;
-
-        public ICollection<EnvironmentUser> EnvironmentUsers { get; set; } = null!;
     }
 }

@@ -20,7 +20,7 @@ namespace Dorc.Core.Tests
         private IServersPersistentSource _servers = null!;
         private IDaemonsPersistentSource _daemons = null!;
         private IDatabasesPersistentSource _databases = null!;
-        private IUserPermsPersistentSource _userPerms = null!;
+        private IDatabaseAccessReader _databaseAccess = null!;
         // S-005 wiring only: the resolver's constructor grew three component sources;
         // they are stubbed to return empty so the frozen call-set assertions below are
         // untouched (conditional emission keeps the resolver silent for empty sources).
@@ -36,7 +36,7 @@ namespace Dorc.Core.Tests
             _servers = Substitute.For<IServersPersistentSource>();
             _daemons = Substitute.For<IDaemonsPersistentSource>();
             _databases = Substitute.For<IDatabasesPersistentSource>();
-            _userPerms = Substitute.For<IUserPermsPersistentSource>();
+            _databaseAccess = Substitute.For<IDatabaseAccessReader>();
             _containers = Substitute.For<IContainersPersistentSource>();
             _containers.GetForEnvironmentId(Arg.Any<int>()).Returns(Array.Empty<ContainerApiModel>());
             _cloudResources = Substitute.For<ICloudResourcesPersistentSource>();
@@ -47,7 +47,7 @@ namespace Dorc.Core.Tests
         }
 
         private VariableScopeOptionsResolver CreateResolver() =>
-            new(_properties, _servers, _daemons, _databases, _userPerms,
+            new(_properties, _servers, _daemons, _databases, _databaseAccess,
                 _containers, _cloudResources, _apiRegistrations);
 
         private IVariableResolver CreateRecordingVariableResolver()
@@ -119,15 +119,15 @@ namespace Dorc.Core.Tests
 
             _properties.GetConfigurationFilePath(environment).Returns("cfg/path");
 
-            _userPerms.GetPermissions(10).Returns(new[]
+            _databaseAccess.GetRoleAssignments(10).Returns(new[]
             {
-                new UserPermDto { User = @"DOM\alice", Role = "db_owner" },
-                new UserPermDto { User = @"DOM\alice", Role = "db_datareader" }
+                new DatabaseRoleAssignment(@"DOM\alice", "db_owner"),
+                new DatabaseRoleAssignment(@"DOM\alice", "db_datareader")
             });
-            _userPerms.GetPermissions(11).Returns(Array.Empty<UserPermDto>());
-            _userPerms.GetPermissions(12).Returns(Array.Empty<UserPermDto>());
-            _userPerms.GetPermissions(13).Returns(Array.Empty<UserPermDto>());
-            _userPerms.GetPermissions(14).Returns(Array.Empty<UserPermDto>());
+            _databaseAccess.GetRoleAssignments(11).Returns(Array.Empty<DatabaseRoleAssignment>());
+            _databaseAccess.GetRoleAssignments(12).Returns(Array.Empty<DatabaseRoleAssignment>());
+            _databaseAccess.GetRoleAssignments(13).Returns(Array.Empty<DatabaseRoleAssignment>());
+            _databaseAccess.GetRoleAssignments(14).Returns(Array.Empty<DatabaseRoleAssignment>());
 
             CreateResolver().SetPropertyValues(CreateRecordingVariableResolver(), environment);
 

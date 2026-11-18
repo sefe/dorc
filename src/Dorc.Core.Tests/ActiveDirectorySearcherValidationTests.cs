@@ -1,8 +1,14 @@
+using System.DirectoryServices;
+using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
 using Dorc.Core;
+using Microsoft.Extensions.Logging;
+using NSubstitute;
 
 namespace Dorc.Core.Tests
 {
     [TestClass]
+    [SupportedOSPlatform("windows")]
     public class ActiveDirectorySearcherValidationTests
     {
         [TestMethod]
@@ -22,7 +28,7 @@ namespace Dorc.Core.Tests
             Assert.IsFalse(ActiveDirectorySearcher.IsValidSearchName("(cn=admin)"));
             Assert.IsFalse(ActiveDirectorySearcher.IsValidSearchName("a\\b"));
             Assert.IsFalse(ActiveDirectorySearcher.IsValidSearchName(""));
-            Assert.IsFalse(ActiveDirectorySearcher.IsValidSearchName(null));
+            Assert.IsFalse(ActiveDirectorySearcher.IsValidSearchName(null!));
         }
 
         [TestMethod]
@@ -48,6 +54,36 @@ namespace Dorc.Core.Tests
             Assert.AreEqual("user_123.test", ActiveDirectorySearcher.LdapFilterEncode("user_123.test"));
             Assert.AreEqual("Bob Smith \\28External\\29", ActiveDirectorySearcher.LdapFilterEncode("Bob Smith (External)"));
             Assert.AreEqual("", ActiveDirectorySearcher.LdapFilterEncode(""));
+        }
+
+        [TestMethod]
+        public void EncodeLdapBytesAndIsActive_HandleBinarySidsGroupsAndDisabledUsers()
+        {
+            Assert.AreEqual("\\01\\05\\00\\FF", ActiveDirectorySearcher.EncodeLdapBytes([0x01, 0x05, 0x00, 0xFF]));
+
+            // Groups lack userAccountControl (null) -> treated as active; enabled/disabled user flags -> respected
+            Assert.IsTrue(ActiveDirectorySearcher.IsActiveUserAccountControl(null));
+            Assert.IsTrue(ActiveDirectorySearcher.IsActiveUserAccountControl(512));
+            Assert.IsFalse(ActiveDirectorySearcher.IsActiveUserAccountControl(514));
+
+            using var localGroup = new DirectoryEntry("WinNT://127.0.0.1/Administrators,group");
+            Assert.IsTrue(ActiveDirectorySearcher.IsActive(localGroup));
+        }
+
+        [TestMethod]
+        public void SearchAndLookupMethods_BuildEncodedFiltersAgainstConfiguredRootBeforeBind()
+        {
+            using var unreachableRoot = new DirectoryEntry(
+                "LDAP://127.0.0.1:1/DC=invalid,DC=local",
+                null,
+                null,
+                AuthenticationTypes.Anonymous);
+            var searcher = new ActiveDirectorySearcher(unreachableRoot, Substitute.For<ILogger<ActiveDirectorySearcher>>());
+
+            Assert.ThrowsExactly<COMException>(() => searcher.Search("Bob (External)"));
+            Assert.ThrowsExactly<COMException>(() => searcher.GetUserDataById("S-1-5-18"));
+            Assert.ThrowsExactly<COMException>(() => searcher.GetUserData("Bob Smith (External)"));
+            Assert.ThrowsExactly<COMException>(() => searcher.GetSidsForUser("bob_smith"));
         }
     }
 }

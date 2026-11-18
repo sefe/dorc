@@ -30,7 +30,8 @@ namespace Dorc.Core.Tests
             _servers = Substitute.For<IServersPersistentSource>();
             var daemons = Substitute.For<IDaemonsPersistentSource>();
             _databases = Substitute.For<IDatabasesPersistentSource>();
-            var userPerms = Substitute.For<IUserPermsPersistentSource>();
+            var databaseAccess = Substitute.For<IDatabaseAccessReader>();
+            databaseAccess.GetRoleAssignments(Arg.Any<int>()).Returns(Array.Empty<DatabaseRoleAssignment>());
             _containers = Substitute.For<IContainersPersistentSource>();
             _cloudResources = Substitute.For<ICloudResourcesPersistentSource>();
             _apiRegistrations = Substitute.For<IApiRegistrationsPersistentSource>();
@@ -43,7 +44,7 @@ namespace Dorc.Core.Tests
             _apiRegistrations.GetForEnvironmentId(Arg.Any<int>()).Returns(Array.Empty<ApiRegistrationApiModel>());
 
             _resolver = new VariableScopeOptionsResolver(properties, _servers, daemons,
-                _databases, userPerms, _containers, _cloudResources, _apiRegistrations);
+                _databases, databaseAccess, _containers, _cloudResources, _apiRegistrations);
 
             _environment = new EnvironmentApiModel
             {

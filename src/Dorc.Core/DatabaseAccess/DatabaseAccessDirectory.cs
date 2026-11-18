@@ -1,12 +1,27 @@
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
+using System.Runtime.Versioning;
 using System.Security.Principal;
 
 namespace Dorc.Core.DatabaseAccess;
 
-public sealed class DatabaseAccessDirectory(IActiveDirectorySearcher directory)
+public sealed class DatabaseAccessDirectory
 {
-    private static DatabaseAccessDirectoryIdentity Map(UserElementApiModel user)
+    private readonly IActiveDirectorySearcher _directory;
+    private readonly Func<bool> _isWindows;
+
+    public DatabaseAccessDirectory(IActiveDirectorySearcher directory)
+        : this(directory, OperatingSystem.IsWindows)
+    {
+    }
+
+    internal DatabaseAccessDirectory(IActiveDirectorySearcher directory, Func<bool> isWindows)
+    {
+        _directory = directory;
+        _isWindows = isWindows;
+    }
+
+    private DatabaseAccessDirectoryIdentity Map(UserElementApiModel user)
     {
         var id = string.IsNullOrWhiteSpace(user.Pid) ? user.Sid : user.Pid;
         if (string.IsNullOrWhiteSpace(id))
@@ -15,9 +30,15 @@ public sealed class DatabaseAccessDirectory(IActiveDirectorySearcher directory)
     }
 
     // The SQL Server login for an AD identity is DOMAIN\account, which is also the conventional database user name.
-    private static string? AccountName(string id)
+    private string? AccountName(string id)
     {
-        if (!OperatingSystem.IsWindows()) return null;
+        if (!_isWindows()) return null;
+        return TranslateSidToAccount(id);
+    }
+
+    [SupportedOSPlatform("windows")]
+    private static string? TranslateSidToAccount(string id)
+    {
         try { return ((NTAccount)new SecurityIdentifier(id).Translate(typeof(NTAccount))).Value; }
         catch (SystemException) { return null; }
     }
@@ -26,36 +47,16 @@ public sealed class DatabaseAccessDirectory(IActiveDirectorySearcher directory)
     {
         if (string.IsNullOrWhiteSpace(query) || query.Length < 3 || query.Length > 100)
             throw new ArgumentException("Directory search requires 3-100 characters.");
-        return directory.Search(query).Select(Map).Take(100).ToList();
+        return _directory.Search(query).Select(Map).Take(100).ToList();
     }
 
     public DatabaseAccessDirectoryIdentity Resolve(string id)
     {
         if (string.IsNullOrWhiteSpace(id) || id.Length > 256)
             throw new ArgumentException("A stable directory identity is required.");
-        var identity = Map(directory.GetUserDataById(id));
+        var identity = Map(_directory.GetUserDataById(id));
         if (!StringComparer.Ordinal.Equals(identity.Id, id))
             throw new ArgumentException("Directory returned a different identity.");
         return identity;
-    }
-
-    public DatabaseAccessDirectoryIdentity Lookup(string accountName)
-    {
-        var parts = accountName?.Split('\\');
-        if (string.IsNullOrWhiteSpace(accountName) || accountName.Length > 256
-            || accountName != accountName.Trim() || accountName.Any(char.IsControl)
-            || parts?.Length != 2 || parts.Any(string.IsNullOrWhiteSpace))
-            throw new ArgumentException("Automatic directory lookup requires an exact DOMAIN\\account name. Choose an identity manually for other name formats.");
-        if (!OperatingSystem.IsWindows())
-            throw new NotSupportedException("Exact Windows account lookup requires a Windows API host.");
-        try
-        {
-            var sid = (SecurityIdentifier)new NTAccount(accountName).Translate(typeof(SecurityIdentifier));
-            return Resolve(sid.Value);
-        }
-        catch (IdentityNotMappedException error)
-        {
-            throw new ArgumentException($"Could not resolve the exact Windows account '{accountName}'. Choose a directory identity or explicitly exclude the account.", nameof(accountName), error);
-        }
     }
 }

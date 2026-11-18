@@ -14,22 +14,11 @@
 import type { Observable } from 'rxjs';
 import type { AjaxResponse } from 'rxjs/ajax';
 import { BaseAPI, throwIfNullOrUndefined, encodeURI } from '../runtime';
-import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
+import type { OperationOpts, HttpHeaders } from '../runtime';
 import type {
     EnvironmentOwnerApiModel,
-    UserAccountType,
-    UserApiModel,
     UserElementApiModel,
 } from '../models';
-
-export interface RefDataEnvironmentsUsersGetRequest {
-    id?: number;
-    type?: UserAccountType;
-}
-
-export interface RefDataEnvironmentsUsersIdGetRequest {
-    id: number;
-}
 
 export interface RefDataEnvironmentsUsersOwnerIdGetRequest {
     id: number;
@@ -48,59 +37,6 @@ export interface RefDataEnvironmentsUsersSearchUsersSearchGetRequest {
  * no description
  */
 export class RefDataEnvironmentsUsersApi extends BaseAPI {
-
-    /**
-     */
-    refDataEnvironmentsUsersGet({ id, type }: RefDataEnvironmentsUsersGetRequest): Observable<Array<UserApiModel>>
-    refDataEnvironmentsUsersGet({ id, type }: RefDataEnvironmentsUsersGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<UserApiModel>>>
-    refDataEnvironmentsUsersGet({ id, type }: RefDataEnvironmentsUsersGetRequest, opts?: OperationOpts): Observable<Array<UserApiModel> | AjaxResponse<Array<UserApiModel>>> {
-
-        const headers: HttpHeaders = {
-            // oauth required
-            ...(this.configuration.accessToken != null
-                ? { Authorization: typeof this.configuration.accessToken === 'function'
-                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
-                    : this.configuration.accessToken }
-                : undefined
-            ),
-        };
-
-        const query: HttpQuery = {};
-
-        if (id != null) { query['id'] = id; }
-        if (type != null) { query['type'] = type; }
-
-        return this.request<Array<UserApiModel>>({
-            url: '/RefDataEnvironmentsUsers',
-            method: 'GET',
-            headers,
-            query,
-        }, opts?.responseOpts);
-    };
-
-    /**
-     */
-    refDataEnvironmentsUsersIdGet({ id }: RefDataEnvironmentsUsersIdGetRequest): Observable<Array<UserApiModel>>
-    refDataEnvironmentsUsersIdGet({ id }: RefDataEnvironmentsUsersIdGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<UserApiModel>>>
-    refDataEnvironmentsUsersIdGet({ id }: RefDataEnvironmentsUsersIdGetRequest, opts?: OperationOpts): Observable<Array<UserApiModel> | AjaxResponse<Array<UserApiModel>>> {
-        throwIfNullOrUndefined(id, 'id', 'refDataEnvironmentsUsersIdGet');
-
-        const headers: HttpHeaders = {
-            // oauth required
-            ...(this.configuration.accessToken != null
-                ? { Authorization: typeof this.configuration.accessToken === 'function'
-                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
-                    : this.configuration.accessToken }
-                : undefined
-            ),
-        };
-
-        return this.request<Array<UserApiModel>>({
-            url: '/RefDataEnvironmentsUsers/{id}'.replace('{id}', encodeURI(id)),
-            method: 'GET',
-            headers,
-        }, opts?.responseOpts);
-    };
 
     /**
      */

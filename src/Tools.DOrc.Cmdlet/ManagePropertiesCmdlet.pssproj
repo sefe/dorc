@@ -32,7 +32,6 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="ApiCaller.psm1" />
-    <Content Include="EndurUsers.psm1" />
     <Content Include="DOrc.Cmdlet.tests.ps1" />
     <Content Include="ManageProperty.psm1" />
     <Content Include="Models.psm1" />

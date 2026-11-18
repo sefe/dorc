@@ -31,6 +31,12 @@ namespace Dorc.Core
             _activeDirectoryRoot = new DirectoryEntry(ldapRoot);
         }
 
+        internal ActiveDirectorySearcher(DirectoryEntry activeDirectoryRoot, ILogger<ActiveDirectorySearcher> log)
+        {
+            _activeDirectoryRoot = activeDirectoryRoot;
+            _log = log;
+        }
+
         public List<UserElementApiModel> Search(string objectName)
         {
             var output = new List<UserElementApiModel>();
@@ -172,7 +178,7 @@ namespace Dorc.Core
 
             byte[] sidBytes = ConvertSidStringToByteArray(sid);
 
-            using (var dirSearcher = new DirectorySearcher(new DirectoryEntry())
+            using (var dirSearcher = new DirectorySearcher(_activeDirectoryRoot)
             {
                 SearchScope = SearchScope.Subtree,
                 Filter = $"(objectSid={EncodeLdapBytes(sidBytes)})"
@@ -188,7 +194,7 @@ namespace Dorc.Core
                     {
                         var de = sr.GetDirectoryEntry();
 
-                        if (de.Properties["objectClass"]?.Contains("user") == true && !IsActive(de))
+                        if (!IsActive(de))
                         {
                             continue;
                         }
@@ -226,7 +232,7 @@ namespace Dorc.Core
             // Defence in depth: escape LDAP metacharacters even though validation should have
             // rejected them, so the value can never alter the filter structure.
             var escapedName = LdapFilterEncode(name);
-            using (var dirSearcher = new DirectorySearcher(new DirectoryEntry())
+            using (var dirSearcher = new DirectorySearcher(_activeDirectoryRoot)
             {
                 SearchScope = SearchScope.Subtree,
                 Filter = string.Format("(&(objectClass=user)(|(cn={0})(sn={0}*)(givenName={0})(DisplayName={0}*)(sAMAccountName={0}*)))",
@@ -265,7 +271,7 @@ namespace Dorc.Core
             var result = new HashSet<string>();
             var name = samAccountName;
 
-            DirectorySearcher ds = new DirectorySearcher();
+            using DirectorySearcher ds = new DirectorySearcher(_activeDirectoryRoot);
 
             ds.Filter = $"(&(objectClass=user)(sAMAccountName={LdapFilterEncode(name)}))";
             SearchResult sr = ds.FindOne();
@@ -317,14 +323,15 @@ namespace Dorc.Core
             return string.Empty;
         }
 
-        private static bool IsActive(DirectoryEntry de)
+        internal static bool IsActive(DirectoryEntry de)
         {
             if (de.NativeGuid == null) return false;
 
-            var flags = (int)de.Properties["userAccountControl"].Value;
-
-            return !Convert.ToBoolean(flags & 0x0002);
+            return IsActiveUserAccountControl(de.Properties["userAccountControl"].Value);
         }
+
+        internal static bool IsActiveUserAccountControl(object? userAccountControl) =>
+            userAccountControl is not int flags || !Convert.ToBoolean(flags & 0x0002);
 
         private static string ConvertByteToStringSid(byte[] sidBytes)
         {

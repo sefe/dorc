@@ -59,11 +59,8 @@ namespace Dorc.PersistentData.Contexts
         DbSet<AdGroup> AdGroups { get; set; }
         DbSet<Database> Databases { get; set; }
         DbSet<EnvironmentHistory> EnvironmentHistories { get; set; }
-        DbSet<Permission> Permissions { get; set; }
         DbSet<Server> Servers { get; set; }
         DbSet<Daemon> Daemons { get; set; }
-        DbSet<User> Users { get; set; }
-        DbSet<EnvironmentUser> EnvironmentUsers { get; set; }
         DbSet<SqlPort> SqlPorts { get; set; }
         DbSet<SecureKey> SecureKeys { get; set; }
         DbSet<RequestStatuses> RequestStatuses { get; set; }

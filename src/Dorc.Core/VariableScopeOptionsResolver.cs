@@ -11,7 +11,7 @@ namespace Dorc.Core
         private readonly IServersPersistentSource _serversPersistentSource;
         private readonly IDaemonsPersistentSource _daemonsPersistentSource;
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
-        private readonly IUserPermsPersistentSource _userPermsPersistentSource;
+        private readonly IDatabaseAccessReader _databaseAccessReader;
         private readonly IContainersPersistentSource _containersPersistentSource;
         private readonly ICloudResourcesPersistentSource _cloudResourcesPersistentSource;
         private readonly IApiRegistrationsPersistentSource _apiRegistrationsPersistentSource;
@@ -20,12 +20,12 @@ namespace Dorc.Core
             IServersPersistentSource serversPersistentSource,
             IDaemonsPersistentSource daemonsPersistentSource,
             IDatabasesPersistentSource databasesPersistentSource,
-            IUserPermsPersistentSource userPermsPersistentSource,
+            IDatabaseAccessReader databaseAccessReader,
             IContainersPersistentSource containersPersistentSource,
             ICloudResourcesPersistentSource cloudResourcesPersistentSource,
             IApiRegistrationsPersistentSource apiRegistrationsPersistentSource)
         {
-            _userPermsPersistentSource = userPermsPersistentSource;
+            _databaseAccessReader = databaseAccessReader;
             _databasesPersistentSource = databasesPersistentSource;
             _daemonsPersistentSource = daemonsPersistentSource;
             _serversPersistentSource = serversPersistentSource;
@@ -278,8 +278,8 @@ namespace Dorc.Core
             {
                 // JoinForPayload rather than Join: see the EnvironmentServers payload above.
                 Database = new DatabaseDefinition { Name = databaseApiModel.Name, Tags = JoinForPayload(databaseApiModel.Tags) },
-                Users = _userPermsPersistentSource.GetPermissions(databaseApiModel.Id)
-                    .GroupBy(u => u.User, u => u.Role)
+                Users = _databaseAccessReader.GetRoleAssignments(databaseApiModel.Id)
+                    .GroupBy(u => u.Principal, u => u.Role, StringComparer.OrdinalIgnoreCase)
                     .Select(g => new DbUserRole(g.Key, g.ToArray()))
                     .ToArray()
             };

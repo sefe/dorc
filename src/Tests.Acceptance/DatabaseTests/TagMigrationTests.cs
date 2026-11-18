@@ -83,26 +83,25 @@ namespace Tests.Acceptance.DatabaseTests
             // actually hold rows.
             ExecuteEphemeral(ReadFixture("DatabaseTests/Fixtures/LegacyTagSeed.sql"));
 
-            PublishDacpac();
+            var messages = PublishDacpacWithMessages();
+            var logText = string.Join("\n", messages);
 
             Assert.AreEqual(3, ExecuteScalarInt("SELECT COUNT(*) FROM [deploy].[EnvironmentDatabase]"),
                 "Environment-to-database links should survive the rebuild");
             Assert.AreEqual(2, ExecuteScalarInt("SELECT COUNT(*) FROM [deploy].[EnvironmentServer]"),
                 "Environment-to-server links should survive the rebuild");
-            Assert.AreEqual(2, ExecuteScalarInt("SELECT COUNT(*) FROM [dbo].[ENVIRONMENT_USER_MAP]"),
-                "User permission rows should survive the rebuild");
+            Assert.AreEqual(0, ExecuteScalarInt("SELECT ISNULL(OBJECT_ID('dbo.[ENVIRONMENT_USER_MAP]', 'U'), 0)"),
+                "Legacy user permission map should be retired after global database access migration");
+            Assert.Contains("OrphanedAssignment: 2", logText,
+                $"Incomplete legacy user permission rows should be reported in the dacpac log. Actual log:\n{logText}");
             Assert.AreEqual(1, ExecuteScalarInt("SELECT COUNT(*) FROM [deploy].[Project] WHERE [SourceDatabaseId] = 10"),
                 "A project's source database link should survive the rebuild");
 
-            // All three of the estate's foreign keys into the old table are re-pointed
-            // at deploy.Database. Two are renamed; FK_Project_ToDatabase keeps its name
-            // while its referenced table and column both change.
+            // Remaining foreign keys into the old table are re-pointed at deploy.Database;
+            // FK_Project_ToDatabase keeps its name while its referenced table and column change.
             Assert.AreEqual(1, ExecuteScalarInt(
                 "SELECT COUNT(*) FROM sys.foreign_keys WHERE name = 'FK_EnvironmentDatabase_Database'"),
                 "The database link should be re-created against deploy.Database");
-            Assert.AreEqual(1, ExecuteScalarInt(
-                "SELECT COUNT(*) FROM sys.foreign_keys WHERE name = 'FK_EnvironmentUserMap_Database'"),
-                "The user-permission link should be re-created against deploy.Database");
             Assert.AreEqual(1, ExecuteScalarInt(
                 "SELECT COUNT(*) FROM sys.foreign_keys " +
                 "WHERE name = 'FK_Project_ToDatabase' " +
@@ -118,8 +117,7 @@ namespace Tests.Acceptance.DatabaseTests
             Assert.AreEqual(0, ExecuteScalarInt(
                 "SELECT COUNT(*) FROM sys.foreign_keys WHERE is_not_trusted = 1 " +
                 "AND name IN ('FK_EnvironmentDatabase_Database', 'FK_EnvironmentServer_Server', " +
-                "'FK_EnvironmentUserMap_Database', 'FK_Project_ToDatabase', " +
-                "'FK_DatabaseTag_Database', 'FK_ServerTag_Server')"),
+                "'FK_Project_ToDatabase', 'FK_DatabaseTag_Database', 'FK_ServerTag_Server')"),
                 "Re-created foreign keys should be trusted");
 
             // The rebuild recreates the table from the model alone, so anything that

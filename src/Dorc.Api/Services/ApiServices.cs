@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using Dorc.Api.Interfaces;
 using Dorc.ApiModel;
-using Dorc.PersistentData.Repositories;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 
@@ -11,14 +10,14 @@ namespace Dorc.Api.Services
     {
         private readonly IManageProjectsPersistentSource _manageProjectsPersistentSource;
         private readonly ILogger _log;
-        private readonly IManageUsers _manageUsers;
+        private readonly IDatabaseAccessReader _databaseAccessReader;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IDatabasesPersistentSource _databasesPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IServersPersistentSource _serversPersistentSource;
 
         public ApiServices(IManageProjectsPersistentSource manageProjectsPersistentSource,
-            IManageUsers manageUsers,
+            IDatabaseAccessReader databaseAccessReader,
             IProjectsPersistentSource projectsPersistentSource,
             IDatabasesPersistentSource databasesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
@@ -28,7 +27,7 @@ namespace Dorc.Api.Services
             _environmentsPersistentSource = environmentsPersistentSource;
             _databasesPersistentSource = databasesPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
-            _manageUsers = manageUsers;
+            _databaseAccessReader = databaseAccessReader;
             _log = log;
             _manageProjectsPersistentSource = manageProjectsPersistentSource;
         }
@@ -73,7 +72,11 @@ namespace Dorc.Api.Services
                 result.Description = env.Details?.Description;
                 result.Builds =
                     _environmentsPersistentSource.GetEnvironmentComponentStatuses(env.EnvironmentName, DateTime.Now);
-                result.EndurUsers = _manageUsers.GetUsersForEnvironment(id, UserAccountType.Endur);
+                var endurDatabaseIds = result.DbServers
+                    .Where(db => db.Tags != null && db.Tags.Any(t => string.Equals(t, "Endur", StringComparison.OrdinalIgnoreCase)))
+                    .Select(db => db.Id)
+                    .ToList();
+                result.EndurUsers = _databaseAccessReader.GetNativePrincipalsForDatabases(endurDatabaseIds);
                 result.MappedProjects = _environmentsPersistentSource.GetMappedProjects(env.EnvironmentName);
             }
             else

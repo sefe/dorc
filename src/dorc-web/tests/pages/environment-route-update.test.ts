@@ -1,8 +1,10 @@
 import { expect, fixture, html } from '../_helpers';
+import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 import type { Tabs } from '@vaadin/tabs';
 import '@vaadin/tabs';
 import '@vaadin/vertical-layout';
+import GlobalCache from '../../src/global-cache';
 import '../../src/pages/page-environment';
 import '../../src/pages/page-environment-components';
 import '../../src/components/environment-tabs/env-databases';
@@ -12,12 +14,6 @@ import type { PageEnvironmentComponents } from '../../src/pages/page-environment
 import type { EnvDatabases } from '../../src/components/environment-tabs/env-databases';
 import type { EnvServers } from '../../src/components/environment-tabs/env-servers';
 import { PageEnvBase } from '../../src/components/environment-tabs/page-env-base';
-import {
-  DatabaseAccessApi,
-  DatabaseType,
-  RefDataDatabaseUsersApi
-} from '../../src/apis/dorc-api';
-import { of } from 'rxjs';
 import { router } from '../../src/router/router';
 
 describe('environment route updates', () => {
@@ -61,9 +57,9 @@ describe('environment route updates', () => {
           'database-env-controls'
         )!;
         const buttons = controls.shadowRoot!.querySelectorAll('vaadin-button');
-        expect(buttons).to.have.length(7);
+        expect(buttons).to.have.length(4);
         const cell = controls.closest('vaadin-grid-cell-content')!;
-        expect(buttons[6].getBoundingClientRect().right).to.be.at.most(
+        expect(buttons[3].getBoundingClientRect().right).to.be.at.most(
           cell.getBoundingClientRect().right + 1
         );
       });
@@ -109,7 +105,7 @@ describe('environment route updates', () => {
         controls.shadowRoot!.querySelector(
           '[aria-label="Migrate database access"]'
         )
-      ).not.to.equal(null);
+      ).to.equal(null);
       expect(
         controls.shadowRoot!.querySelector(
           '[aria-label="Database access audit"]'
@@ -123,56 +119,112 @@ describe('environment route updates', () => {
       ) as HTMLElement & { opened: boolean; headerTitle: string };
       expect(dialog.opened).to.equal(true);
       expect(dialog.headerTitle).to.equal('Database permissions - SQL01 / App');
+
+      // Footer Close button closes dialog and clears databaseAccessId (falling back to plain view title)
+      const closeButton = await vi.waitFor(() => {
+        const btn = [
+          ...databases.shadowRoot!.querySelectorAll('vaadin-button'),
+          ...document.querySelectorAll('vaadin-button')
+        ].find(b => b.textContent?.trim() === 'Close') as
+          | HTMLElement
+          | undefined;
+        expect(btn).not.to.equal(undefined);
+        return btn!;
+      });
+      closeButton.click();
+      await databases.updateComplete;
+      expect(dialog.opened).to.equal(false);
+      expect(dialog.headerTitle).to.equal('Database permissions');
+
+      // Audit button opens audit view; opened-changed(false) resets selection
+      const auditButton = controls.shadowRoot!.querySelector(
+        '[aria-label="Database access audit"]'
+      ) as HTMLElement;
+      auditButton.click();
+      await databases.updateComplete;
+      expect(dialog.opened).to.equal(true);
+      expect(dialog.headerTitle).to.equal(
+        'Database access audit - SQL01 / App'
+      );
+      dialog.dispatchEvent(
+        new CustomEvent('opened-changed', { detail: { value: false } })
+      );
+      await databases.updateComplete;
+      expect(dialog.opened).to.equal(false);
+
+      // Missing database Id is ignored; omitted view defaults to 'all' and uses EnvironmentId / undefined databases fallbacks
+      attached.dispatchEvent(
+        new CustomEvent('manage-database-access', {
+          detail: { database: { Name: 'NoId' } }
+        })
+      );
+      await databases.updateComplete;
+      expect(dialog.opened).to.equal(false);
+
+      databases.environment = { EnvironmentId: 99, IsOwner: true } as any;
+      databases.databases = undefined;
+      await databases.updateComplete;
+      attached.dispatchEvent(
+        new CustomEvent('manage-database-access', {
+          detail: { database }
+        })
+      );
+      await databases.updateComplete;
+      expect(dialog.opened).to.equal(true);
+      expect(dialog.headerTitle).to.equal('Database Access');
     });
 
-    it('skips database access migration probes for non-SQL-Server databases', async () => {
-      const statusSpy = vi
-        .spyOn(DatabaseAccessApi.prototype, 'databaseAccessStatus')
-        .mockReturnValue(of({ Enabled: true, Providers: ['sql-server'] }) as any);
-      const getSpy = vi
-        .spyOn(DatabaseAccessApi.prototype, 'databaseAccessGet')
-        .mockReturnValue(of({ Principals: [] }) as any);
-      const legacySpy = vi
-        .spyOn(
-          RefDataDatabaseUsersApi.prototype,
-          'refDataDatabaseUsersGetDbUsersPermissionsGet'
-        )
-        .mockReturnValue(of([]) as any);
+    it('enables database access management for GlobalCache Admin roles across cached and streamed states', async () => {
+      const gc = GlobalCache.getInstance();
+      const prevRoles = gc.userRoles;
+      const prevResp = gc.allRolesResp;
+      try {
+        gc.userRoles = ['Admin'];
+        const cachedAdmin = await fixture<EnvDatabases>(
+          html`<env-databases></env-databases>`
+        );
+        expect(
+          (
+            cachedAdmin.shadowRoot!.querySelector(
+              'attached-databases'
+            ) as HTMLElement & { canManageDatabaseAccess: boolean }
+          ).canManageDatabaseAccess
+        ).to.equal(true);
 
-      const databases = await fixture<EnvDatabases>(
-        html`<env-databases
-          .environment=${{ EnvironmentId: 10, IsOwner: true } as any}
-          .databases=${[
-            {
-              Id: 1,
-              Name: 'pg-db',
-              ServerName: 'proj/pg',
-              DatabaseType: DatabaseType.PostgreSql
-            },
-            {
-              Id: 2,
-              Name: 'cosmos-db',
-              ServerName: 'cosmos-acct',
-              DatabaseType: DatabaseType.CosmosDb
-            },
-            {
-              Id: 3,
-              Name: 'sql-db',
-              ServerName: 'SQL01',
-              DatabaseType: DatabaseType.SqlServer
-            }
-          ]}
-        ></env-databases>`
-      );
+        (gc as unknown as { userRoles: string[] | undefined }).userRoles =
+          undefined;
+        gc.allRolesResp = of(['Admin']);
+        const streamedAdmin = await fixture<EnvDatabases>(
+          html`<env-databases></env-databases>`
+        );
+        await streamedAdmin.updateComplete;
+        expect(
+          (
+            streamedAdmin.shadowRoot!.querySelector(
+              'attached-databases'
+            ) as HTMLElement & { canManageDatabaseAccess: boolean }
+          ).canManageDatabaseAccess
+        ).to.equal(true);
 
-      await vi.waitFor(() => expect(statusSpy.mock.calls).to.have.length(1));
-      expect(statusSpy.mock.calls[0][0]).to.deep.equal({
-        envId: 10,
-        databaseId: 3
-      });
-      expect(getSpy.mock.calls).to.have.length(1);
-      expect(legacySpy.mock.calls).to.have.length(1);
-      expect(databases).to.exist;
+        (gc as unknown as { userRoles: string[] | undefined }).userRoles =
+          undefined;
+        gc.allRolesResp = throwError(() => 'roles error');
+        const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+        const erroredRoles = await fixture<EnvDatabases>(
+          html`<env-databases></env-databases>`
+        );
+        expect(errSpy.mock.calls).to.deep.equal([['roles error']]);
+        expect(
+          (
+            erroredRoles.shadowRoot!.querySelector(
+              'attached-databases'
+            ) as HTMLElement & { canManageDatabaseAccess: boolean }
+          ).canManageDatabaseAccess
+        ).to.equal(false);
+      } finally {
+        gc.userRoles = prevRoles;
+        gc.allRolesResp = prevResp;
+      }
     });
 
     it('keeps the servers grid within the space below the component tabs', async () => {

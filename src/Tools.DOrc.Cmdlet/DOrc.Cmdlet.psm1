@@ -1,4 +1,3 @@
-using module ".\EndurUsers.psm1"
 using module ".\Models.psm1"
 using module ".\PropertiesHelper.psm1"
 using module ".\ApiCaller.psm1"
@@ -167,44 +166,6 @@ function Open-ApiConnection
         throw "Cannot establish connection with " + $ApiUrl
     }
 
-}
-
-function Add-NonProdEndurUser
-{
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Account,
-        [Parameter(Mandatory = $true)]
-        [string]$ApiUrl
-    )
-    [EndurUsers]$users = [EndurUsers]::new($ApiUrl)
-    if ($Account -like "*.adm")
-    {
-        Write-Host -ForegroundColor Red "Only non ADM accounts allowed"
-        return
-    }
-    if (-Not $users.HasRights())
-    {
-        write-host -ForegroundColor Red "Only users of Development Admins or Applications Admins AD group can perform this operation"
-        return
-    }
-    if (-Not $users.UserExists($Account))
-    {
-        if ( $users.AddEndurUser($Account))
-        {
-            write-host "User created"
-        }
-        else
-        {
-            Write-Host "User not created"
-        }
-
-    }
-    else
-    {
-        Write-Host "User already exists"
-        return
-    }
 }
 filter Convert-CsvToCsvProperties([Parameter(Mandatory = $true, ValueFromPipeline = $true)]$csvProperty)
 {

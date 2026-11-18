@@ -2,8 +2,6 @@ using Dorc.ApiModel;
 
 namespace Dorc.Core.DatabaseAccess;
 
-public record DatabaseAccessTarget(int Id, string Server, string Database);
-
 public interface IDatabaseAccessProvider
 {
     string Name { get; }

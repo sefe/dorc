@@ -12,9 +12,9 @@ Example:      :setvar TableName MyTable
 :r ./ApplyDeployCasingToRefDataTables.sql
 :r ./RestoreDatabaseIdentityValue.sql
 :r ./MigrateStagedServicesToDaemons.sql
-:r ./MigrateStagedDatabaseAccess.sql
 :r ./SeedRefDataAuditActions.sql
 :r ./CleanupOrphanedScripts.sql
 :r ./SetFileShareSourceControlType.sql
 :r ./PopulateTagTables.sql
 :r ./ScopeAivenDatabases.sql
+:r ./MigrateStagedLegacyUsersToDatabaseAccess.sql

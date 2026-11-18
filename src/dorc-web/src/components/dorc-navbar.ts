@@ -374,14 +374,6 @@ export class DorcNavbar extends LitElement {
           </a>
         </vaadin-tab>
         <vaadin-tab>
-          <a href="${urlForName('sql-roles')}" title="Roles">
-            <div class="sub-item">
-              <vaadin-icon icon="vaadin:key" theme="small"></vaadin-icon>
-              Roles
-            </div>
-          </a>
-        </vaadin-tab>
-        <vaadin-tab>
           <a href="${urlForName('sql-ports')}" title="Ports">
             <div class="sub-item">
               <vaadin-icon icon="vaadin:connect" theme="small"></vaadin-icon>
@@ -402,12 +394,6 @@ export class DorcNavbar extends LitElement {
         >
           Administration
         </div>
-        <vaadin-tab>
-          <a href="${urlForName('users')}">
-            <vaadin-icon icon="vaadin:users" theme="small"></vaadin-icon>
-            Users
-          </a>
-        </vaadin-tab>
 
         <vaadin-tab
           aria-expanded="${this.auditMenuExpanded ? 'true' : 'false'}"

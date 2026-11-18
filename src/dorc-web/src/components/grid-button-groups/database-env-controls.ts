@@ -10,7 +10,6 @@ import {
   DatabaseApiModel,
   RefDataEnvironmentsDetailsApi
 } from '../../apis/dorc-api';
-import '../../icons/social-icons.js';
 import '@vaadin/tooltip';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import type { DatabaseAccessView } from '../database-access-panel';
@@ -26,18 +25,6 @@ export class DatabaseEnvControls extends LitElement {
 
   @property({ type: Boolean }) canManageDatabaseAccess = false;
 
-  /** Legacy logins not yet imported into DOrc or excluded from migration. */
-  @property({ type: Array }) unmigratedAccounts: string[] = [];
-
-  private get migrateLabel() {
-    const accounts = this.unmigratedAccounts;
-    if (!accounts.length) return 'Migrate database access';
-    const shown = accounts.slice(0, 10).join(', ');
-    const more =
-      accounts.length > 10 ? ` and ${accounts.length - 10} more` : '';
-    return `Migrate database access - ${accounts.length} account(s) not yet migrated or excluded: ${shown}${more}`;
-  }
-
   static get styles() {
     return css`
       :host {
@@ -49,28 +36,6 @@ export class DatabaseEnvControls extends LitElement {
       vaadin-button {
         padding: 0px;
         margin: 0px;
-      }
-      .flagged {
-        position: relative;
-        display: inline-flex;
-      }
-      .badge {
-        position: absolute;
-        top: -4px;
-        right: -4px;
-        min-width: 14px;
-        height: 14px;
-        padding: 0 2px;
-        box-sizing: border-box;
-        border: 1px solid var(--dorc-error-color);
-        border-radius: 7px;
-        background: var(--dorc-failure-bg);
-        color: var(--dorc-text-primary);
-        font-size: 11px;
-        font-weight: 700;
-        line-height: 14px;
-        text-align: center;
-        pointer-events: none;
       }
     `;
   }
@@ -103,35 +68,6 @@ export class DatabaseEnvControls extends LitElement {
         ></vaadin-icon>
       </vaadin-button>
       <vaadin-button
-        aria-label="Manage permissions"
-        theme="icon"
-        @click="${this.manage}"
-        ?disabled="${this.readonly}"
-      >
-        <vaadin-tooltip
-          slot="tooltip"
-          text="Manage permissions"
-        ></vaadin-tooltip>
-        <vaadin-icon
-          icon="social:group-add"
-          style=${styleMap(editStyles)}
-        ></vaadin-icon>
-      </vaadin-button>
-      <vaadin-button
-        aria-label="View database permissions"
-        theme="icon"
-        @click="${this.view}"
-      >
-        <vaadin-tooltip
-          slot="tooltip"
-          text="View database permissions"
-        ></vaadin-tooltip>
-        <vaadin-icon
-          icon="social:group"
-          style="color: var(--dorc-link-color)"
-        ></vaadin-icon>
-      </vaadin-button>
-      <vaadin-button
         aria-label="Edit Database Tags"
         theme="icon"
         @click="${this.manageDatabaseTags}"
@@ -149,19 +85,6 @@ export class DatabaseEnvControls extends LitElement {
       ${
         this.canManageDatabaseAccess
           ? html`
-              <span class="flagged">
-                ${this.renderDatabaseAccessButton(
-                  'migrate',
-                  this.migrateLabel,
-                  'vaadin:database',
-                  databaseAccessStyles
-                )}
-                ${
-                  this.unmigratedAccounts.length
-                    ? html`<span class="badge" aria-hidden="true">!</span>`
-                    : nothing
-                }
-              </span>
               ${this.renderDatabaseAccessButton(
                 'permissions',
                 'Assign database permissions',
@@ -219,14 +142,6 @@ export class DatabaseEnvControls extends LitElement {
     }
   }
 
-  manage() {
-    this.fireManageDbPerms();
-  }
-
-  view() {
-    this.fireViewDbPerms();
-  }
-
   manageDatabaseAccess(view: DatabaseAccessView) {
     this.dispatchEvent(
       new CustomEvent('manage-database-access', { detail: { view } })
@@ -237,24 +152,6 @@ export class DatabaseEnvControls extends LitElement {
     const event = new CustomEvent('database-detached', {
       detail: {
         message: 'Database detached successfully!'
-      }
-    });
-    this.dispatchEvent(event);
-  }
-
-  private fireManageDbPerms() {
-    const event = new CustomEvent('manage-database-perms', {
-      detail: {
-        message: ''
-      }
-    });
-    this.dispatchEvent(event);
-  }
-
-  private fireViewDbPerms() {
-    const event = new CustomEvent('view-database-perms', {
-      detail: {
-        message: ''
       }
     });
     this.dispatchEvent(event);
