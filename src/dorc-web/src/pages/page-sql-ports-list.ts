@@ -125,6 +125,7 @@ export class PageSqlPortsList extends PageElement {
           @click="${this.addSqlPort}"
         >
           <vaadin-icon
+            slot="prefix"
             icon="dorc:plus"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon

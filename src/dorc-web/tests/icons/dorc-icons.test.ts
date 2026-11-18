@@ -137,7 +137,9 @@ describe('dorc:* canonical iconset registry', () => {
 
       const group = iconset.querySelector(`g#${CSS.escape(name)}`);
       expect(group, `missing <g id="${name}">`).not.toBeNull();
-      expect(group?.getAttribute('viewBox')).toMatch(/^\d+\s+\d+\s+\d+\s+\d+$/);
+      expect(group?.getAttribute('viewBox')).toMatch(
+        /^-?\d+(?:\.\d+)?\s+-?\d+(?:\.\d+)?\s+\d+(?:\.\d+)?\s+\d+(?:\.\d+)?$/
+      );
 
       const innerMarkup = group!.innerHTML.trim();
       expect(innerMarkup.length, `empty glyph for ${id}`).toBeGreaterThan(0);
@@ -225,6 +227,70 @@ describe('dorc:* canonical iconset registry', () => {
     expect(svg).not.toBeNull();
     expect(svg?.getAttribute('viewBox')).toBe('0 0 24 24');
     expect(svg?.querySelector('path')).not.toBeNull();
+  });
+
+  it('normalizes optical live-area margins and centering across all 94 dorc:* icons on a 24x24 grid', () => {
+    const iconset = document.querySelector('vaadin-iconset[name="dorc"]')!;
+    const probeHost = document.createElement('div');
+    probeHost.style.cssText =
+      'position:fixed;left:-9999px;top:0;width:24px;height:24px;visibility:hidden';
+    document.body.appendChild(probeHost);
+
+    try {
+      for (const name of DORC_ICON_NAMES) {
+        const group = iconset.querySelector(`g#${CSS.escape(name)}`)!;
+        const vbAttr = group.getAttribute('viewBox')!;
+        const [minX, minY, vbW, vbH] = vbAttr.trim().split(/\s+/).map(Number);
+
+        const svgNS = 'http://www.w3.org/2000/svg';
+        const svg = document.createElementNS(svgNS, 'svg');
+        svg.setAttribute('viewBox', vbAttr);
+        svg.setAttribute('width', '24');
+        svg.setAttribute('height', '24');
+        svg.innerHTML = group.innerHTML;
+        probeHost.replaceChildren(svg);
+
+        const bbox = svg.getBBox();
+        const scale = Math.min(24 / vbW, 24 / vbH);
+        const offsetX = (24 - vbW * scale) / 2;
+        const offsetY = (24 - vbH * scale) / 2;
+
+        const left = offsetX + (bbox.x - minX) * scale;
+        const top = offsetY + (bbox.y - minY) * scale;
+        const width = bbox.width * scale;
+        const height = bbox.height * scale;
+        const right = 24 - (left + width);
+        const bottom = 24 - (top + height);
+        const cx = left + width / 2;
+        const cy = top + height / 2;
+
+        // Every 24x24 icon must preserve >=2px optical padding (<=20px max span) and center cleanly
+        expect(left, `dorc:${name} left margin`).toBeGreaterThanOrEqual(1.95);
+        expect(top, `dorc:${name} top margin`).toBeGreaterThanOrEqual(1.95);
+        expect(right, `dorc:${name} right margin`).toBeGreaterThanOrEqual(1.95);
+        expect(bottom, `dorc:${name} bottom margin`).toBeGreaterThanOrEqual(
+          1.95
+        );
+        expect(
+          Math.max(width, height),
+          `dorc:${name} max optical span`
+        ).toBeLessThanOrEqual(20.05);
+        expect(
+          Math.max(width, height),
+          `dorc:${name} min optical span`
+        ).toBeGreaterThanOrEqual(9.5);
+        expect(
+          Math.abs(cx - 12),
+          `dorc:${name} horizontal optical center (cx=${cx.toFixed(2)})`
+        ).toBeLessThanOrEqual(0.85);
+        expect(
+          Math.abs(cy - 12),
+          `dorc:${name} vertical optical center (cy=${cy.toFixed(2)})`
+        ).toBeLessThanOrEqual(0.85);
+      }
+    } finally {
+      probeHost.remove();
+    }
   });
 });
 

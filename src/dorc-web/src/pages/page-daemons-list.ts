@@ -148,6 +148,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
           ?hidden="${!(this.isAdmin || this.isPowerUser)}"
         >
           <vaadin-icon
+            slot="prefix"
             icon="dorc:plus"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon

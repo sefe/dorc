@@ -84,6 +84,7 @@ export class PageUsersList extends PageElement {
           @click="${this.addUser}"
         >
           <vaadin-icon
+            slot="prefix"
             icon="dorc:plus"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon

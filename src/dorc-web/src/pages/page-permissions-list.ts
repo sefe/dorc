@@ -113,6 +113,7 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
           @click="${this.addPermission}"
         >
           <vaadin-icon
+            slot="prefix"
             icon="dorc:plus"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon

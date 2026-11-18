@@ -349,6 +349,16 @@ const CASES = [
         'registry SVG contains hardcoded color "rgb(255, 0, 0)"'
       ],
       'catches non-hex named/functional SVG fill and stroke colors in DORC_ICON_DEFS'
+    ],
+    [
+      'unslotted-button-icon',
+      '<vaadin-icon> inside labeled <vaadin-button> is missing slot="prefix" or slot="suffix"',
+      'catches unslotted <vaadin-icon> falling into block-level [part="label"] inside labeled <vaadin-button>'
+    ],
+    [
+      'icon-theme-on-labeled-button',
+      'labeled <vaadin-button> sets theme="icon"',
+      'prevents theme="icon" from squeezing horizontal padding on buttons with visible text'
     ]
   ].map(([name, expect, why]) => ({
     gate: 'icon-estate-audit.mjs',

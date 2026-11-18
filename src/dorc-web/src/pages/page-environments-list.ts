@@ -110,10 +110,11 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
           </vaadin-text-field>
           <vaadin-button
             title="Add Environment"
-            style="width: 250px; padding-left: 10px"
+            style="width: 250px"
             @click="${this.addEnvironment}"
           >
             <vaadin-icon
+              slot="prefix"
               icon="dorc:plus"
               style="color: var(--dorc-link-color)"
             ></vaadin-icon>

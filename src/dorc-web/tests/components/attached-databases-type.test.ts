@@ -47,7 +47,7 @@ describe.each(['attached-databases', 'page-databases-list'])(
       for (const name of ['brand-sqlserver', 'brand-cosmosdb']) {
         const glyph = iconset?.querySelector(`g#${name}`);
         expect(glyph?.querySelector('path')).not.toBeNull();
-        expect(glyph?.getAttribute('viewBox')).toBe('0 0 128 128');
+        expect(glyph?.getAttribute('viewBox')).toBe('-16 -16 160 160');
       }
     });
 

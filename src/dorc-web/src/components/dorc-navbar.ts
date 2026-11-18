@@ -65,9 +65,15 @@ export class DorcNavbar extends LitElement {
       }
 
       vaadin-icon {
-        padding-right: 0.2em;
+        margin-right: 0.35em;
+        flex-shrink: 0;
         width: var(--lumo-icon-size-s);
         height: var(--lumo-icon-size-s);
+      }
+
+      .audit-chevron {
+        margin-left: 0.25em;
+        margin-right: 0;
       }
 
       a {
@@ -118,6 +124,12 @@ export class DorcNavbar extends LitElement {
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
+      }
+
+      .sub-item vaadin-icon {
+        vertical-align: middle;
+        position: relative;
+        top: -1.5px;
       }
 
       /* ── Shortcut tabs ──
@@ -174,6 +186,7 @@ export class DorcNavbar extends LitElement {
 
       .shortcut-icon {
         flex-shrink: 0;
+        margin-right: 0;
       }
 
       .shortcut-close {
@@ -198,6 +211,7 @@ export class DorcNavbar extends LitElement {
       }
 
       .shortcut-close vaadin-icon {
+        margin: 0;
         padding: 0;
         width: 14px;
         height: 14px;
@@ -391,6 +405,7 @@ export class DorcNavbar extends LitElement {
             <vaadin-icon icon="dorc:audit-history" theme="small"></vaadin-icon>
             Audit
             <vaadin-icon
+              class="audit-chevron"
               icon="${this.auditMenuExpanded ? 'dorc:chevron-down' : 'dorc:chevron-right'}"
               theme="small"
             ></vaadin-icon>

@@ -63,6 +63,15 @@ const DORC_NAMESPACE_RE = /\bdorc:([A-Za-z0-9_-]*)(?!\/)/g;
 
 const VAADIN_ICON_TAG_RE = /<\s*vaadin-icon(?:\s|>|\/|$)/i;
 const VAADIN_ICON_OPEN_TAG_RE = /<\s*vaadin-icon\b[^>]*>/gi;
+const VAADIN_BUTTON_BLOCK_RE =
+  /(<\s*vaadin-button\b[^>]*>)([\s\S]*?)<\/\s*vaadin-button\s*>/gi;
+
+function hasThemeToken(openTag, token) {
+  const m = /\btheme\s*=\s*(?:"([^"]*)"|'([^']*)')/i.exec(openTag);
+  if (!m) return false;
+  const val = (m[1] ?? m[2] ?? '').trim();
+  return val.split(/\s+/).includes(token);
+}
 
 const ALLOWED_ICON_COLOR_RE =
   /^(?:currentcolor|inherit|initial|unset|var\(\s*--[a-zA-Z0-9_-]+\s*(?:,\s*(?:currentcolor|inherit|initial|unset|var\(\s*--[a-zA-Z0-9_-]+\s*\))\s*)?\))$/i;
@@ -180,10 +189,18 @@ function parseCanonicalIconRegistry(registryPath, text) {
         child.name.getText(source) === 'viewBox' &&
         ts.isStringLiteral(child.initializer)
       ) {
-        if (!/^0 0 \d+(?:\.\d+)? \d+(?:\.\d+)?$/.test(child.initializer.text)) {
+        const vbMatch =
+          /^(-?\d+(?:\.\d+)?) (-?\d+(?:\.\d+)?) (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)$/.exec(
+            child.initializer.text
+          );
+        if (
+          !vbMatch ||
+          Number(vbMatch[3]) <= 0 ||
+          Number(vbMatch[4]) <= 0
+        ) {
           registrySvgProblems.push({
             line: lineForMatch(source, child.initializer, 0),
-            msg: `invalid viewBox "${child.initializer.text}" in DORC_ICON_DEFS — expected "0 0 <width> <height>"`
+            msg: `invalid viewBox "${child.initializer.text}" in DORC_ICON_DEFS — expected "<minX> <minY> <width> <height>" with positive width and height`
           });
         }
         return;
@@ -544,6 +561,59 @@ for (const { file, relFromSrc, text } of fileEntries) {
         }
         const styleBody = styleAttr[1] ?? styleAttr[2] ?? '';
         scanStyleDeclarationList(styleBody, expressions, styleLine);
+      }
+    }
+
+    VAADIN_BUTTON_BLOCK_RE.lastIndex = 0;
+    let btnMatch;
+    while ((btnMatch = VAADIN_BUTTON_BLOCK_RE.exec(surfaceText)) !== null) {
+      const [, btnOpenTag, btnInnerRaw] = btnMatch;
+      const btnStart = btnMatch.index;
+      // Ignore HTML comments and <vaadin-tooltip> helper children when checking button content
+      const btnInner = btnInnerRaw
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<\s*vaadin-tooltip\b[^>]*>[\s\S]*?<\/\s*vaadin-tooltip\s*>/gi, '');
+
+      const iconOpenTags = [...btnInner.matchAll(/<\s*vaadin-icon\b[^>]*>/gi)];
+      if (iconOpenTags.length === 0) continue;
+
+      const labelResidue = btnInner
+        .replace(/<\s*vaadin-icon\b[^>]*>(?:\s*<\/\s*vaadin-icon\s*>)?/gi, '')
+        .replace(/<[^>]+>/g, '')
+        .trim();
+
+      if (labelResidue.length > 0) {
+        if (hasThemeToken(btnOpenTag, 'icon')) {
+          report(
+            file,
+            lineAtOffset(btnStart),
+            'labeled <vaadin-button> sets theme="icon" — omit theme="icon" when button has visible label text'
+          );
+        }
+        for (const iconMatch of iconOpenTags) {
+          const iconTag = iconMatch[0];
+          const iconLine = lineAtOffset(
+            btnStart + btnOpenTag.length + (iconMatch.index ?? 0)
+          );
+          if (
+            !/\bslot\s*=\s*(?:"(?:prefix|suffix)"|'(?:prefix|suffix)')/i.test(
+              iconTag
+            )
+          ) {
+            report(
+              file,
+              iconLine,
+              '<vaadin-icon> inside labeled <vaadin-button> is missing slot="prefix" or slot="suffix" — unslotted icons fall into block-level [part="label"] and misalign vertically'
+            );
+          }
+          if (hasThemeToken(iconTag, 'icon')) {
+            report(
+              file,
+              iconLine,
+              '<vaadin-icon> sets unsupported theme="icon" — use slot="prefix" or slot="suffix" on the icon instead'
+            );
+          }
+        }
       }
     }
   };
