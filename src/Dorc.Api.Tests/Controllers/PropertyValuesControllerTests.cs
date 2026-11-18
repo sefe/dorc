@@ -99,6 +99,45 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
+        [DataRow(null)]
+        [DataRow("")]
+        [DataRow("   ")]
+        public void GetScopeOptions_WhenDefaultScope_PopulatesGlobalPropertyValues(string? scope)
+        {
+            _environmentsPersistentSource.GetEnvironment(scope, Arg.Any<ClaimsPrincipal>())
+                .Returns((EnvironmentApiModel)null!);
+            _variableResolver.LocalProperties().Returns(new Dictionary<string, VariableValue>
+            {
+                ["ServerNames_STP_Strategies"] = new VariableValue { Value = "STP-SRV01", Type = typeof(string) }
+            });
+
+            var result = _controller.GetScopeOptions(scope);
+
+            _variableScopeOptionsResolver.Received(1).SetGlobalPropertyValues(_variableResolver, Arg.Any<ClaimsPrincipal>());
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            var okResult = (OkObjectResult)result;
+            var options = okResult.Value as List<PropertyValueScopeOptionApiModel>;
+            Assert.IsNotNull(options);
+            Assert.HasCount(1, options);
+            Assert.AreEqual("$ServerNames_STP_Strategies$", options[0].ValueOption);
+            Assert.AreEqual("STP-SRV01", options[0].SampleResolvedValue);
+        }
+
+        [TestMethod]
+        public void GetScopeOptions_WhenNonEmptyMissingEnvironment_DoesNotCallGlobalOrEnvironmentResolver()
+        {
+            _environmentsPersistentSource.GetEnvironment("UnknownEnv", Arg.Any<ClaimsPrincipal>())
+                .Returns((EnvironmentApiModel)null!);
+            _variableResolver.LocalProperties().Returns(new Dictionary<string, VariableValue>());
+
+            var result = _controller.GetScopeOptions("UnknownEnv");
+
+            _variableScopeOptionsResolver.DidNotReceiveWithAnyArgs().SetGlobalPropertyValues(default!, default!);
+            _variableScopeOptionsResolver.DidNotReceiveWithAnyArgs().SetPropertyValues(default!, default!);
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+        }
+
+        [TestMethod]
         public void GetScopeOptions_WhenValid_ReturnsOkWithScopeOptions()
         {
             // Arrange
@@ -390,6 +429,15 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(globalActionResult, typeof(OkObjectResult));
             var globalRes = (OkObjectResult)globalActionResult;
             Assert.AreEqual(expectedTraces, globalRes.Value);
+
+            // 6. GetScopeOptions with empty/default scope calls SetGlobalPropertyValues
+            _variableResolver.LocalProperties().Returns(new Dictionary<string, VariableValue>
+            {
+                ["ServerNames_STP_Strategies"] = new VariableValue { Value = "srv-01", Type = typeof(object) }
+            });
+            var defaultScopeResult = _controller.GetScopeOptions("");
+            Assert.IsInstanceOfType(defaultScopeResult, typeof(OkObjectResult));
+            _variableScopeOptionsResolver.Received(1).SetGlobalPropertyValues(_variableResolver, Arg.Any<ClaimsPrincipal>());
         }
     }
 }

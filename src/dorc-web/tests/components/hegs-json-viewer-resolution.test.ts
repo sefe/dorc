@@ -45,6 +45,12 @@ describe('property-token-parser', () => {
     ]);
 
     expect(parsePropertyTokens('${Env.Host_Name-1}')).to.deep.equal([
+      { kind: 'unclosed-token', rawText: '${Env.Host_Name-1}' }
+    ]);
+
+    expect(
+      parsePropertyTokens('${Env.Host_Name-1}', 'brace-only')
+    ).to.deep.equal([
       {
         kind: 'property',
         propertyName: 'Env.Host_Name-1',
@@ -137,7 +143,6 @@ describe('property-token-parser', () => {
       'Host',
       'Port',
       'host',
-      'TerraformVar',
       'ArrayProp'
     ]);
     expect(extractReferencedPropertyNames(['$RootItem$'])).to.deep.equal([
@@ -279,6 +284,60 @@ describe('PropertyResolutionClientCache', () => {
 
     // Clear cache and test transport rejection
     defaultCache.clear();
+
+    // Verify in-flight clear invalidation, secure trace non-caching, TTL eviction, and MAX_CACHED_CONTEXTS cap
+    const evictionCache = new PropertyResolutionClientCache({
+      coalesceWindowMs: 1,
+      ttlMs: 1,
+      transport: async req =>
+        (req.PropertyNames ?? []).map(n => ({
+          PropertyName: n,
+          Source: 'GlobalDefault',
+          IsSecure: n === 'SecProp',
+          ResolvedValueJson: `"val-${n}"`
+        }))
+    });
+    const inFlightPromise = evictionCache.resolveProperties(
+      { environmentName: 'INFLIGHT' },
+      ['P1']
+    );
+    evictionCache.clear();
+    const inFlightRes = await inFlightPromise;
+    expect(inFlightRes.get('P1')?.ResolvedValueJson).to.equal('"val-P1"');
+
+    const secRes = await evictionCache.resolveProperties(
+      { environmentName: 'SEC-ENV' },
+      ['SecProp']
+    );
+    expect(secRes.get('SecProp')?.IsSecure).to.equal(true);
+
+    const longTtlCache = new PropertyResolutionClientCache({
+      coalesceWindowMs: 1,
+      ttlMs: 60_000,
+      transport: async req =>
+        (req.PropertyNames ?? []).map(n => ({
+          PropertyName: n,
+          Source: 'GlobalDefault',
+          ResolvedValueJson: `"val-${n}"`
+        }))
+    });
+    for (let i = 0; i < 34; i++) {
+      await longTtlCache.resolveProperties(
+        { environmentName: `ENV-${i}` },
+        ['PropA']
+      );
+    }
+
+    await evictionCache.resolveProperties(
+      { environmentName: 'TTL-ENV' },
+      ['ShortProp']
+    );
+    await new Promise(r => setTimeout(r, 10));
+    await evictionCache.resolveProperties(
+      { environmentName: 'TTL-ENV-2' },
+      ['ShortProp']
+    );
+
     const failingCache = new PropertyResolutionClientCache({
       coalesceWindowMs: 1,
       transport: async () => {
@@ -361,10 +420,17 @@ describe('hegs-json-viewer contextual property resolution', () => {
       resolvedDisplayString: '$Host$/bad$Unclosed'
     });
 
-    // Deferred expression stays unresolved
+    // Deferred expression stays unresolved (both referenced and direct fn: prefix)
     expect(evaluateStringWithTraces('$DeferredExpr$', traces).status).to.equal(
       'unresolved'
     );
+    expect(
+      evaluateStringWithTraces('fn:1 + $Host$', traces)
+    ).to.deep.equal({
+      status: 'unresolved',
+      resolvedValue: 'fn:1 + $Host$',
+      resolvedDisplayString: 'fn:1 + $Host$'
+    });
 
     // Single token non-string preserves typed array; concatenation with non-primitive stays unresolved
     expect(evaluateStringWithTraces('$ServerArr$', traces)).to.deep.equal({
@@ -642,6 +708,7 @@ describe('hegs-json-viewer contextual property resolution', () => {
     await settle();
     expect(el.displayMode).to.equal('resolved');
     expect(root.textContent).to.contain('"https://api.ut1.corp/v1"');
+    expect(root.textContent).to.contain('"$100"');
 
     // Global default scope label when environmentName is omitted, and singular '1 property'
     el.resolutionContext = {};

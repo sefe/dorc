@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
@@ -13,16 +14,17 @@ namespace Dorc.Core.VariableResolution
     {
         private const int MaxRecursionDepth = 32;
         private const int MaxRequestedProperties = 250;
+        private const int MaxChainHops = 64;
+        private const int MaxExpandedValueLength = 65_536;
         private const string ExpressionMarker = "fn:";
 
-        private static readonly HashSet<string> RuntimeOnlyProperties = new(StringComparer.OrdinalIgnoreCase)
+        private static readonly HashSet<string> RuntimeOnlyProperties = new(StringComparer.Ordinal)
         {
             PropertyValueScopeOptionsFixed.DropFolder,
             PropertyValueScopeOptionsFixed.ScriptRoot,
             PropertyValueScopeOptionsFixed.DeploymentLogDir,
             PropertyValueScopeOptionsFixed.BuildNumber,
-            PropertyValueScopeOptionsFixed.RefDataApiUrl,
-            PropertyValueScopeOptionsFixed.EnvOwner
+            PropertyValueScopeOptionsFixed.RefDataApiUrl
         };
 
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
@@ -106,11 +108,12 @@ namespace Dorc.Core.VariableResolution
                     var isSecure = prop.Property.Secure;
                     var isArray = prop.Property.IsArray;
                     var isRedacted = isSecure && (!canReadTargetSecrets || _propertyEncryptor == null);
-                    var rawVal = !isSecure
-                        ? prop.Value
-                        : isRedacted
-                            ? RequestPropertyRedaction.Marker
-                            : _propertyEncryptor!.DecryptValue(prop.Value);
+                    var rawVal = ResolveStoredPropertyString(
+                        prop.Value,
+                        isSecure,
+                        isArray,
+                        isRedacted,
+                        _propertyEncryptor);
 
                     entries[name] = new CandidateEntry(
                         rawVal,
@@ -126,6 +129,7 @@ namespace Dorc.Core.VariableResolution
 
             if (!string.IsNullOrEmpty(envName))
             {
+                var sourceSecretsCache = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
                 var envProps = _propertyValuesPersistentSource.GetEnvironmentProperties(envName, null);
                 foreach (var prop in envProps)
                 {
@@ -137,15 +141,27 @@ namespace Dorc.Core.VariableResolution
                     var isArray = prop.Property.IsArray;
                     var resolvedScope = string.IsNullOrEmpty(filterScope) ? envName : filterScope;
 
-                    var canReadSourceSecrets = !isAncestor
-                        ? canReadTargetSecrets
-                        : (_securityPrivilegesChecker?.CanReadSecrets(user, resolvedScope) ?? false);
+                    var canReadSourceSecrets = false;
+                    if (isSecure && canReadTargetSecrets)
+                    {
+                        if (!isAncestor)
+                        {
+                            canReadSourceSecrets = true;
+                        }
+                        else if (!sourceSecretsCache.TryGetValue(resolvedScope, out canReadSourceSecrets))
+                        {
+                            canReadSourceSecrets = _securityPrivilegesChecker!.CanReadSecrets(user, resolvedScope);
+                            sourceSecretsCache[resolvedScope] = canReadSourceSecrets;
+                        }
+                    }
+
                     var isRedacted = isSecure && (!canReadTargetSecrets || !canReadSourceSecrets || _propertyEncryptor == null);
-                    var rawVal = !isSecure
-                        ? prop.Value
-                        : isRedacted
-                            ? RequestPropertyRedaction.Marker
-                            : _propertyEncryptor!.DecryptValue(prop.Value);
+                    var rawVal = ResolveStoredPropertyString(
+                        prop.Value,
+                        isSecure,
+                        isArray,
+                        isRedacted,
+                        _propertyEncryptor);
 
                     entries[name] = new CandidateEntry(
                         rawVal,
@@ -161,29 +177,22 @@ namespace Dorc.Core.VariableResolution
                 if (_configValuesPersistentSource != null)
                 {
                     var envIsProd = environment!.EnvironmentIsProd;
-                    foreach (var configValue in _configValuesPersistentSource.GetAllConfigValues(false))
+                    foreach (var configValue in _configValuesPersistentSource
+                                 .GetAllConfigValues(false)
+                                 .Where(cv => !entries.ContainsKey(cv.Key) &&
+                                              (!cv.IsForProd.HasValue || cv.IsForProd.Value == envIsProd)))
                     {
-                        if (!entries.ContainsKey(configValue.Key))
-                        {
-                            var needToSetConfigForEnv = !configValue.IsForProd.HasValue
-                                || (envIsProd && configValue.IsForProd.Value)
-                                || (!envIsProd && !configValue.IsForProd.Value);
-
-                            if (needToSetConfigForEnv)
-                            {
-                                var isSecure = configValue.Secure;
-                                var rawVal = isSecure ? RequestPropertyRedaction.Marker : configValue.Value;
-                                entries[configValue.Key] = new CandidateEntry(
-                                    rawVal,
-                                    rawVal,
-                                    "String",
-                                    "ConfigValue",
-                                    envName,
-                                    isSecure,
-                                    isSecure,
-                                    false);
-                            }
-                        }
+                        var isSecure = configValue.Secure;
+                        var rawVal = isSecure ? RequestPropertyRedaction.Marker : configValue.Value;
+                        entries[configValue.Key] = new CandidateEntry(
+                            rawVal,
+                            rawVal,
+                            "String",
+                            "ConfigValue",
+                            envName,
+                            isSecure,
+                            isSecure,
+                            false);
                     }
                 }
 
@@ -222,6 +231,13 @@ namespace Dorc.Core.VariableResolution
                 {
                     var valObj = kvp.Value.Value;
                     var valType = GetFriendlyTypeName(kvp.Value.Type);
+                    if (kvp.Key == PropertyValueScopeOptionsFixed.EnvOwnerEmails &&
+                        valObj is string[] ownerEmailArray)
+                    {
+                        valObj = string.Join(";", ownerEmailArray);
+                        valType = "String";
+                    }
+
                     var strRepr = valObj is string s ? s : JsonSerializer.Serialize(valObj);
 
                     entries[kvp.Key] = new CandidateEntry(
@@ -276,11 +292,16 @@ namespace Dorc.Core.VariableResolution
         {
             if (evaluatedCache.TryGetValue(propertyName, out var cached))
             {
-                chain.AddRange(cached.Chain);
+                AppendChainBounded(chain, cached.Chain);
                 return cached.Result;
             }
 
-            if (!snapshot.Entries.TryGetValue(propertyName, out var entry))
+            var hasFoundEntry = snapshot.Entries.TryGetValue(propertyName, out var foundEntry);
+            var isSeededAtRuntimeWithoutOverride =
+                RuntimeOnlyProperties.Contains(propertyName) &&
+                (!hasFoundEntry || foundEntry!.Source is not ("BuiltInScopeOption" or "RequestOverride"));
+
+            if (!hasFoundEntry || isSeededAtRuntimeWithoutOverride)
             {
                 if (RuntimeOnlyProperties.Contains(propertyName))
                 {
@@ -315,6 +336,8 @@ namespace Dorc.Core.VariableResolution
                 evaluatedCache[propertyName] = (missingRes, new[] { missingHop });
                 return missingRes;
             }
+
+            var entry = foundEntry!;
 
             if (depth > MaxRecursionDepth || !activeStack.Add(propertyName))
             {
@@ -352,7 +375,7 @@ namespace Dorc.Core.VariableResolution
                     return redactedRes;
                 }
 
-                if (entry.TypedValue is not string rawString)
+                if (entry.IsSecure || entry.TypedValue is not string rawString)
                 {
                     var serialized = JsonSerializer.Serialize(entry.TypedValue);
                     localChain.Add($"${propertyName}$ ({entry.Source}) -> {entry.ValueType}");
@@ -451,17 +474,18 @@ namespace Dorc.Core.VariableResolution
                         {
                             anyChildCircular = true;
                         }
-                        else if (childResult.Source is "Unresolved" or "RuntimeOnly")
+                        else if (childResult.Source is "Unresolved" or "RuntimeOnly" ||
+                                 childResult.Diagnostic is "MissingInScope" or "RuntimeOnly")
                         {
                             anyChildMissing = true;
                             childSpecialDiagnostic ??= childResult.Diagnostic;
                         }
-                        else if (childResult.Diagnostic is "ExpressionDeferred" or "ExpressionBlockedByOverride")
+                        else if (childResult.Diagnostic is not ("Ok" or "FallbackToDefault"))
                         {
                             childSpecialDiagnostic ??= childResult.Diagnostic;
                         }
 
-                        if (tokens.Count > 1 && childResult.ValueType != "String")
+                        if (tokens.Count > 1 && childResult.RawResolvedObject is not string)
                         {
                             anyNonStringInConcat = true;
                         }
@@ -486,13 +510,13 @@ namespace Dorc.Core.VariableResolution
                         "Ok",
                         RequestPropertyRedaction.Marker);
                     evaluatedCache[propertyName] = (transitiveSecretRes, localChain);
-                    chain.AddRange(localChain);
+                    AppendChainBounded(chain, localChain);
                     return transitiveSecretRes;
                 }
 
                 if (anyChildCircular)
                 {
-                    chain.AddRange(localChain);
+                    AppendChainBounded(chain, localChain);
                     return new EvaluatedResult(
                         entry.Source,
                         entry.ScopeName,
@@ -519,7 +543,7 @@ namespace Dorc.Core.VariableResolution
                         childSpecialDiagnostic!,
                         rawString);
                     evaluatedCache[propertyName] = (missingChildRes, localChain);
-                    chain.AddRange(localChain);
+                    AppendChainBounded(chain, localChain);
                     return missingChildRes;
                 }
 
@@ -544,21 +568,34 @@ namespace Dorc.Core.VariableResolution
                         diag,
                         singleChild.RawResolvedObject);
                     evaluatedCache[propertyName] = (singleRes, localChain);
-                    chain.AddRange(localChain);
+                    AppendChainBounded(chain, localChain);
                     return singleRes;
                 }
 
                 var sb = new StringBuilder();
+                var valueTruncated = false;
                 foreach (var (token, child) in evaluatedParts)
                 {
-                    sb.Append(child != null ? child.RawResolvedObject : token.Value);
+                    var chunkText = child != null ? $"{child.RawResolvedObject}" : token.Value;
+                    var remaining = MaxExpandedValueLength - sb.Length;
+                    if (chunkText.Length > remaining)
+                    {
+                        sb.Append(chunkText[..remaining]);
+                        valueTruncated = true;
+                    }
+                    else
+                    {
+                        sb.Append(chunkText);
+                    }
                 }
 
                 var finalStr = sb.ToString();
                 var finalDiag = childSpecialDiagnostic
                                 ?? (anyNonStringInConcat
                                     ? "NonStringInConcatenation"
-                                    : ClassifyExpressionOrFallback(propertyName, finalStr, entry, snapshot));
+                                    : valueTruncated
+                                        ? "ValueTruncated"
+                                        : ClassifyExpressionOrFallback(propertyName, finalStr, entry, snapshot));
 
                 localChain.Add($"${propertyName}$ ({entry.Source}) -> {FormatPreviewSnippet(finalStr)}");
                 var concatRes = new EvaluatedResult(
@@ -572,12 +609,58 @@ namespace Dorc.Core.VariableResolution
                     finalDiag,
                     finalStr);
                 evaluatedCache[propertyName] = (concatRes, localChain);
-                chain.AddRange(localChain);
+                AppendChainBounded(chain, localChain);
                 return concatRes;
             }
             finally
             {
                 activeStack.Remove(propertyName);
+            }
+        }
+
+        private static void AppendChainBounded(List<string> destination, IReadOnlyList<string> source)
+        {
+            for (var i = 0; i < source.Count && destination.Count < MaxChainHops; i++)
+            {
+                destination.Add(source[i]);
+            }
+        }
+
+        private static string ResolveStoredPropertyString(
+            string storedValue,
+            bool isSecure,
+            bool isArray,
+            bool isRedacted,
+            IPropertyEncryptor? encryptor)
+        {
+            if (isRedacted)
+            {
+                return RequestPropertyRedaction.Marker;
+            }
+
+            if (!isSecure)
+            {
+                return storedValue;
+            }
+
+            try
+            {
+                if (!isArray)
+                {
+                    return encryptor!.DecryptValue(storedValue)!;
+                }
+
+                if (JsonSerializer.Deserialize<string[]>(storedValue) is not { } items)
+                {
+                    return storedValue;
+                }
+
+                var decrypted = items.Select(encryptor!.DecryptValue).ToList();
+                return JsonSerializer.Serialize(decrypted);
+            }
+            catch
+            {
+                return RequestPropertyRedaction.Marker;
             }
         }
 
@@ -591,7 +674,9 @@ namespace Dorc.Core.VariableResolution
             {
                 var isInfluenced = snapshot.RequestSuppliedTracker.IsInfluenced(
                     propertyName,
-                    name => snapshot.Entries[name].RawValue);
+                    name => snapshot.Entries.TryGetValue(name, out var candidate) && !candidate.IsSecure
+                        ? candidate.RawValue
+                        : string.Empty);
                 return isInfluenced ? "ExpressionBlockedByOverride" : "ExpressionDeferred";
             }
 

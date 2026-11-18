@@ -81,7 +81,11 @@ export function evaluateStringWithTraces(
   resolvedDisplayString: string;
 } {
   const tokens = parsePropertyTokens(raw, profile);
-  if (tokens.some(t => t.kind === 'unclosed-token')) {
+  if (
+    tokens.some(
+      t => t.kind === 'unclosed-token' || t.kind === 'expression-prefix'
+    )
+  ) {
     return {
       status: 'unresolved',
       resolvedValue: raw,
@@ -111,9 +115,9 @@ export function evaluateStringWithTraces(
       !trace ||
       trace.Source === 'Unresolved' ||
       trace.Source === 'RuntimeOnly' ||
-      trace.Diagnostic === 'CircularReference' ||
-      trace.Diagnostic === 'ExpressionDeferred' ||
-      trace.Diagnostic === 'ExpressionBlockedByOverride' ||
+      (trace.Diagnostic != null &&
+        trace.Diagnostic !== 'Ok' &&
+        trace.Diagnostic !== 'FallbackToDefault') ||
       trace.ResolvedValueJson == null
     ) {
       return {
@@ -1097,7 +1101,7 @@ export class HegsJsonViewer extends LitElement {
     const evaluated = evaluateStringWithTraces(raw, this.traces, profile);
 
     if (this.displayMode === 'resolved') {
-      if (evaluated.status === 'resolved') {
+      if (evaluated.status === 'resolved' || evaluated.status === 'literal') {
         return html`<span
           part="primitive primitive-string"
           tabindex="0"

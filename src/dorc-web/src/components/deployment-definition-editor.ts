@@ -4,15 +4,20 @@ import '@vaadin/combo-box';
 import '@vaadin/text-area';
 import '@vaadin/text-field';
 import './hegs-json-viewer';
-import { css, html, LitElement, nothing } from 'lit';
+import { css, html, LitElement, nothing, type PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { live } from 'lit/directives/live.js';
 import { ref } from 'lit/directives/ref.js';
 import type { HegsJsonViewer } from './hegs-json-viewer';
 import {
   ComponentType,
+  PropertiesApi,
+  PropertyValuesApi,
+  RefDataProjectEnvironmentMappingsApi,
   TerraformSourceType,
   type ComponentApiModel,
+  type PropertyApiModel,
+  type PropertyResolutionTraceApiModel,
   type ProjectApiModel
 } from '../apis/dorc-api';
 import {
@@ -22,8 +27,76 @@ import {
   serializeScriptPathValue,
   type GenericScriptTemplate
 } from '../helpers/generic-scripts';
+import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { defaultPropertyResolutionClientCache } from '../variable-resolution/property-resolution-client-cache';
+import { parsePropertyTokens } from '../variable-resolution/property-token-parser';
 
 const CUSTOM_SCRIPT_OPTION = '__custom__';
+
+export interface ParameterResolutionPreview {
+  status: 'resolved' | 'unresolved' | 'masked';
+  resolvedText: string;
+  tokenNames: string[];
+  traces: PropertyResolutionTraceApiModel[];
+}
+
+export function evaluateParameterPreview(
+  rawText: string,
+  tracesByProperty: Map<string, PropertyResolutionTraceApiModel>
+): ParameterResolutionPreview | undefined {
+  const segments = parsePropertyTokens(rawText, 'brace-only');
+  const tokenNames = segments
+    .filter(
+      (
+        seg
+      ): seg is Extract<typeof seg, { kind: 'property' }> =>
+        seg.kind === 'property'
+    )
+    .map(seg => seg.propertyName);
+  if (tokenNames.length === 0) return undefined;
+
+  let out = '';
+  let status: 'resolved' | 'unresolved' | 'masked' = 'resolved';
+  const traces: PropertyResolutionTraceApiModel[] = [];
+
+  for (const seg of segments) {
+    if (seg.kind !== 'property') {
+      out += seg.rawText;
+      continue;
+    }
+    const trace =
+      tracesByProperty.get(seg.propertyName) ??
+      tracesByProperty.get(seg.propertyName.toLowerCase());
+    if (!trace) {
+      status = 'unresolved';
+      out += seg.rawText;
+      continue;
+    }
+    traces.push(trace);
+    if (trace.IsSecure || trace.Diagnostic === 'Masked') {
+      status = 'masked';
+      out += '•••••••• (Secure)';
+      continue;
+    }
+    if (
+      trace.Source === 'Unresolved' ||
+      trace.Source === 'RuntimeOnly' ||
+      (trace.Diagnostic != null &&
+        trace.Diagnostic !== 'Ok' &&
+        trace.Diagnostic !== 'FallbackToDefault') ||
+      typeof trace.ResolvedValueJson !== 'string'
+    ) {
+      status = 'unresolved';
+      out += seg.rawText;
+      continue;
+    }
+    const parsedVal: unknown = JSON.parse(trace.ResolvedValueJson);
+    out +=
+      typeof parsedVal === 'string' ? parsedVal : trace.ResolvedValueJson;
+  }
+
+  return { status, resolvedText: out, tokenNames, traces };
+}
 
 @customElement('deployment-definition-editor')
 export class DeploymentDefinitionEditor extends LitElement {
@@ -32,6 +105,21 @@ export class DeploymentDefinitionEditor extends LitElement {
   @property({ type: Boolean }) readonly = false;
   @property({ type: Array }) powerShellVersions: string[] = [];
   @state() private previewEnvironmentName = '';
+  @state() private availableProperties: PropertyApiModel[] = [];
+  @state() private projectEnvironmentNames: string[] = [];
+  @state() private activeParameterKey = '';
+  @state() private inlineCreateParamKey = '';
+  @state() private inlineNewPropertyName = '';
+  @state() private inlineNewPropertySecure = false;
+  @state() private inlineNewPropertyDefaultValue = '';
+  @state() private inlineCreateFeedback = '';
+  @state() private inlineCreateSubmitting = false;
+  private inlineCreatedProperty: PropertyApiModel | undefined;
+  @state() private previewTracesByProperty = new Map<
+    string,
+    PropertyResolutionTraceApiModel
+  >();
+  private previewRequestGeneration = 0;
 
   static styles = css`
     :host {
@@ -136,17 +224,462 @@ export class DeploymentDefinitionEditor extends LitElement {
     a {
       color: var(--dorc-link-color);
     }
+    .generic-variable-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--lumo-space-xs) var(--lumo-space-m);
+      align-items: flex-end;
+      padding: var(--lumo-space-xs) 0;
+      border-top: 1px dashed var(--dorc-border-color);
+      border-bottom: 1px dashed var(--dorc-border-color);
+    }
+    .generic-variable-toolbar > * {
+      flex: 1 1 200px;
+    }
+    .param-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 0;
+    }
+    .param-cell-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-size: var(--lumo-font-size-xs);
+    }
+    .param-action-btn {
+      border: none;
+      background: transparent;
+      color: var(--dorc-link-color);
+      font-size: var(--lumo-font-size-xs);
+      cursor: pointer;
+      padding: 0;
+      text-decoration: underline;
+    }
+    .param-preview-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: var(--lumo-font-size-xs);
+      font-family: var(--lumo-font-family-monospace, monospace);
+      background: var(--dorc-chip-bg, rgba(59, 130, 246, 0.12));
+      color: var(--dorc-chip-text, inherit);
+      overflow-wrap: anywhere;
+    }
+    .param-preview-badge[data-status='unresolved'] {
+      background: rgba(245, 158, 11, 0.16);
+    }
+    .inline-create-box {
+      border: 1px solid var(--dorc-border-color);
+      border-radius: var(--lumo-border-radius-m);
+      padding: var(--lumo-space-xs) var(--lumo-space-s);
+      background: var(--lumo-base-color, rgba(255, 255, 255, 0.04));
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--lumo-space-xs);
+      align-items: end;
+    }
     @media (max-width: 768px) {
       .fields,
       .generic-args-grid,
-      .custom-arg-row {
+      .custom-arg-row,
+      .inline-create-box {
         grid-template-columns: 1fr;
       }
     }
   `;
 
+  private isApplyingInternalChange = false;
+  private componentSelectionGeneration = 0;
+  private projectEnvironmentsGeneration = 0;
+  private inlineCreateGeneration = 0;
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.loadPropertiesCatalog();
+    this.loadProjectEnvironments();
+  }
+
+  protected updated(changed: PropertyValues) {
+    if (changed.has('project')) {
+      this.previewEnvironmentName = '';
+      this.loadProjectEnvironments();
+    }
+    if (changed.has('component')) {
+      if (!this.isApplyingInternalChange) {
+        this.componentSelectionGeneration++;
+        this.inlineCreateGeneration++;
+        this.inlineCreateSubmitting = false;
+        this.inlineCreatedProperty = undefined;
+        this.activeParameterKey = '';
+        this.inlineCreateParamKey = '';
+        this.inlineCreateFeedback = '';
+      }
+      this.isApplyingInternalChange = false;
+    }
+    if (changed.has('component') || changed.has('previewEnvironmentName')) {
+      void this.refreshParameterResolutionPreview();
+    }
+  }
+
+  public loadPropertiesCatalog() {
+    new PropertiesApi(dorcApiConfiguration).propertiesGet().subscribe({
+      next: props => {
+        this.availableProperties = [...(props ?? [])].sort((a, b) =>
+          String(a.Name ?? '').localeCompare(String(b.Name ?? ''))
+        );
+      }
+    });
+  }
+
+  public loadProjectEnvironments() {
+    const requestGen = ++this.projectEnvironmentsGeneration;
+    const projectName = this.project?.ProjectName;
+    if (!projectName) {
+      this.projectEnvironmentNames = [];
+      return;
+    }
+    new RefDataProjectEnvironmentMappingsApi(dorcApiConfiguration)
+      .refDataProjectEnvironmentMappingsGet({
+        project: projectName,
+        includeRead: true
+      })
+      .subscribe({
+        next: res => {
+          if (
+            requestGen !== this.projectEnvironmentsGeneration ||
+            this.project?.ProjectName !== projectName
+          ) {
+            return;
+          }
+          const names = (res?.Items ?? [])
+            .map(item => item.EnvironmentName ?? '')
+            .filter(Boolean);
+          this.projectEnvironmentNames = names;
+          if (!this.previewEnvironmentName && names.length > 0) {
+            this.previewEnvironmentName = names[0];
+          }
+        }
+      });
+  }
+
+  public async refreshParameterResolutionPreview() {
+    const generation = ++this.previewRequestGeneration;
+    this.previewTracesByProperty = new Map();
+    const parsed = parseScriptPathValue(this.component?.ScriptPath);
+    const tokenSet = new Set<string>();
+    for (const arg of parsed.arguments) {
+      for (const seg of parsePropertyTokens(arg.value, 'brace-only')) {
+        if (seg.kind === 'property') {
+          tokenSet.add(seg.propertyName);
+        }
+      }
+    }
+    if (tokenSet.size === 0) {
+      return;
+    }
+    try {
+      const traces = await defaultPropertyResolutionClientCache.resolveProperties(
+        {
+          environmentName: this.previewEnvironmentName || undefined,
+          projectName: this.project?.ProjectName || undefined,
+          locationKind: 'deployment-definition'
+        },
+        Array.from(tokenSet)
+      );
+      if (generation === this.previewRequestGeneration) {
+        this.previewTracesByProperty = traces;
+      }
+    } catch {
+      if (generation === this.previewRequestGeneration) {
+        this.previewTracesByProperty = new Map();
+      }
+    }
+  }
+
+  public insertVariableIntoParameter(
+    baseScriptPath: string,
+    currentArgs: Array<{ key: string; value: string }>,
+    paramKey: string,
+    propertyName: string,
+    isJsonPath: boolean
+  ) {
+    const trimmedName = propertyName.trim();
+    if (!trimmedName || !paramKey || !/^[A-Za-z0-9_.-]+$/.test(trimmedName)) {
+      return;
+    }
+    const token = `\${${trimmedName}}`;
+    this.setGenericArgument(
+      baseScriptPath,
+      currentArgs,
+      paramKey,
+      token,
+      isJsonPath
+    );
+  }
+
+  public openInlineVariableCreator(paramKey: string, suggestedName = '') {
+    this.inlineCreateGeneration++;
+    this.inlineCreateSubmitting = false;
+    this.inlineCreatedProperty = undefined;
+    this.inlineCreateParamKey = paramKey;
+    this.activeParameterKey = paramKey;
+    this.inlineNewPropertyName = suggestedName;
+    this.inlineNewPropertySecure = false;
+    this.inlineNewPropertyDefaultValue = '';
+    this.inlineCreateFeedback = '';
+  }
+
+  public createInlineVariableForParameter() {
+    if (this.inlineCreateSubmitting) return;
+    const propName = this.inlineNewPropertyName.trim();
+    const targetParam = this.inlineCreateParamKey || this.activeParameterKey;
+    if (!propName || !targetParam) return;
+    if (!/^[A-Za-z0-9_.-]+$/.test(propName)) {
+      this.inlineCreateFeedback =
+        'Variable name may only contain letters, digits, _, ., and -.';
+      return;
+    }
+
+    const originatingGeneration = this.componentSelectionGeneration;
+    const originatingInlineGeneration = ++this.inlineCreateGeneration;
+    const initialParsed = parseScriptPathValue(this.component?.ScriptPath);
+    const initialTargetValue =
+      initialParsed.arguments.find(
+        a => a.key.toLowerCase() === targetParam.toLowerCase()
+      )?.value ?? '';
+    const seedVal = this.inlineNewPropertyDefaultValue.trim();
+    const targetScope = this.previewEnvironmentName || undefined;
+    const createdByForm =
+      this.inlineCreatedProperty?.Name?.toLowerCase() === propName.toLowerCase()
+        ? this.inlineCreatedProperty
+        : undefined;
+    const preExistingCatalogProp = !createdByForm
+      ? this.availableProperties.find(
+          p => p.Name?.toLowerCase() === propName.toLowerCase()
+        )
+      : undefined;
+
+    if (preExistingCatalogProp) {
+      this.inlineCreateFeedback = `Variable \${${preExistingCatalogProp.Name}} already exists. Pick it from the parameter dropdown instead.`;
+      return;
+    }
+
+    if (
+      createdByForm &&
+      Boolean(createdByForm.Secure) !== Boolean(this.inlineNewPropertySecure)
+    ) {
+      this.inlineCreateFeedback = `Variable \${${createdByForm.Name}} was already created as ${
+        createdByForm.Secure ? 'secure' : 'non-secure'
+      }.`;
+      return;
+    }
+
+    const newProp: PropertyApiModel = createdByForm ?? {
+      Name: propName,
+      Secure: this.inlineNewPropertySecure,
+      IsArray: false
+    };
+
+    const isStillCurrentAttempt = () =>
+      this.componentSelectionGeneration === originatingGeneration &&
+      this.inlineCreateGeneration === originatingInlineGeneration &&
+      this.inlineCreateParamKey === targetParam;
+
+    const finalizeParameterInsert = () => {
+      if (!isStillCurrentAttempt()) return;
+      this.inlineCreateSubmitting = false;
+      this.inlineCreatedProperty = undefined;
+      const latestParsed = parseScriptPathValue(this.component?.ScriptPath);
+      const latestTemplate = findGenericScriptTemplate(latestParsed.scriptPath);
+      const currentParamValue =
+        latestParsed.arguments.find(
+          a => a.key.toLowerCase() === targetParam.toLowerCase()
+        )?.value ?? '';
+      const isValidTarget = Boolean(
+        latestTemplate?.parameters.some(
+          p => p.name.toLowerCase() === targetParam.toLowerCase()
+        ) ||
+          latestParsed.arguments.some(
+            a => a.key.toLowerCase() === targetParam.toLowerCase()
+          )
+      );
+      if (
+        isValidTarget &&
+        latestParsed.scriptPath &&
+        currentParamValue === initialTargetValue
+      ) {
+        this.insertVariableIntoParameter(
+          latestTemplate?.scriptPath ?? latestParsed.scriptPath,
+          latestParsed.arguments,
+          targetParam,
+          newProp.Name ?? propName,
+          latestParsed.isJsonPath
+        );
+      }
+      this.inlineCreateFeedback = `Created \${${newProp.Name ?? propName}}`;
+      this.inlineCreateParamKey = '';
+    };
+
+    const saveInitialSeedValue = () => {
+      new PropertyValuesApi(dorcApiConfiguration)
+        .propertyValuesPost({
+          propertyValueDto: [
+            {
+              Property: newProp,
+              Value: seedVal,
+              PropertyValueFilter: targetScope
+            }
+          ]
+        })
+        .subscribe({
+          next: valResponses => {
+            defaultPropertyResolutionClientCache.clear();
+            void this.refreshParameterResolutionPreview();
+            if (!isStillCurrentAttempt()) return;
+            if (valResponses?.[0]?.Status === 'success') {
+              finalizeParameterInsert();
+            } else {
+              this.inlineCreateSubmitting = false;
+              this.inlineCreateFeedback =
+                valResponses?.[0]?.Status ||
+                `Created \${${propName}}, but initial value could not be saved.`;
+            }
+          },
+          error: () => {
+            if (!isStillCurrentAttempt()) return;
+            this.inlineCreateSubmitting = false;
+            this.inlineCreateFeedback = `Created \${${propName}}, but initial value could not be saved.`;
+          }
+        });
+    };
+
+    this.inlineCreateSubmitting = true;
+
+    if (createdByForm) {
+      if (seedVal) {
+        saveInitialSeedValue();
+      } else {
+        finalizeParameterInsert();
+      }
+      return;
+    }
+
+    const propertiesApi = new PropertiesApi(dorcApiConfiguration);
+    propertiesApi.propertiesGet().subscribe({
+      next: existingList => {
+        if (!isStillCurrentAttempt()) return;
+        if (Array.isArray(existingList)) {
+          this.availableProperties = [...existingList].sort((a, b) =>
+            String(a.Name ?? '').localeCompare(String(b.Name ?? ''))
+          );
+        }
+        const existingMatch = Array.isArray(existingList)
+          ? existingList.find(
+              p => p.Name?.toLowerCase() === propName.toLowerCase()
+            )
+          : undefined;
+        if (existingMatch) {
+          this.inlineCreateSubmitting = false;
+          this.inlineCreateFeedback = `Variable \${${existingMatch.Name ?? propName}} already exists. Pick it from the parameter dropdown instead.`;
+          return;
+        }
+        propertiesApi
+          .propertiesPost({ propertyApiModel: [newProp] })
+          .subscribe({
+            next: responses => {
+              if (responses?.[0]?.Status === 'success') {
+                const returnedItem = responses[0]?.Item as
+                  | PropertyApiModel
+                  | undefined;
+                const persistedProp: PropertyApiModel =
+                  returnedItem && typeof returnedItem === 'object' && returnedItem.Name
+                    ? returnedItem
+                    : newProp;
+                this.availableProperties = [
+                  ...this.availableProperties.filter(
+                    p => p.Name?.toLowerCase() !== propName.toLowerCase()
+                  ),
+                  persistedProp
+                ].sort((a, b) =>
+                  String(a.Name ?? '').localeCompare(String(b.Name ?? ''))
+                );
+                if (!isStillCurrentAttempt()) return;
+                if (
+                  returnedItem &&
+                  typeof returnedItem === 'object' &&
+                  typeof returnedItem.Secure === 'boolean' &&
+                  Boolean(returnedItem.Secure) !== Boolean(newProp.Secure)
+                ) {
+                  this.inlineCreateSubmitting = false;
+                  this.inlineCreateFeedback = `Variable \${${persistedProp.Name ?? propName}} already exists as ${
+                    returnedItem.Secure ? 'secure' : 'non-secure'
+                  }. Pick it from the parameter dropdown instead.`;
+                  return;
+                }
+                this.inlineCreatedProperty = persistedProp;
+                if (seedVal) {
+                  saveInitialSeedValue();
+                } else {
+                  finalizeParameterInsert();
+                }
+              } else if (isStillCurrentAttempt()) {
+                this.inlineCreateSubmitting = false;
+                this.inlineCreateFeedback =
+                  responses?.[0]?.Status || 'Could not create variable.';
+              }
+            },
+            error: () => {
+              if (isStillCurrentAttempt()) {
+                this.inlineCreateSubmitting = false;
+                this.inlineCreateFeedback = 'Could not create variable.';
+              }
+            }
+          });
+      },
+      error: () => {
+        if (!isStillCurrentAttempt()) return;
+        this.inlineCreateSubmitting = false;
+        this.inlineCreateFeedback = 'Could not verify existing variables.';
+      }
+    });
+  }
+
+  private renderParameterResolutionPreviewBadge(rawVal: string) {
+    const preview = evaluateParameterPreview(
+      rawVal,
+      this.previewTracesByProperty
+    );
+    if (!preview) return nothing;
+    const scopeSummary = preview.traces
+      .map(
+        t =>
+          `${t.PropertyName}: ${t.ScopeName || '(default)'} (${t.Source ?? 'Unresolved'})`
+      )
+      .join(' · ');
+    return html`<div
+      class="param-preview-badge"
+      data-status=${preview.status}
+      title=${scopeSummary}
+    >
+      <span
+        >${
+          this.previewEnvironmentName
+            ? `Resolves in ${this.previewEnvironmentName}:`
+            : 'Resolves (default):'
+        }</span
+      >
+      <strong>${preview.resolvedText}</strong>
+    </div>`;
+  }
+
   private change(patch: Partial<ComponentApiModel>) {
     if (this.readonly || !this.component) return;
+    this.isApplyingInternalChange = true;
     this.dispatchEvent(
       new CustomEvent('definition-changed', {
         detail: { ...this.component, ...patch },
@@ -234,7 +767,7 @@ export class DeploymentDefinitionEditor extends LitElement {
         .resolutionContext=${{
           environmentName: this.previewEnvironmentName || undefined,
           projectName: this.project?.ProjectName || undefined,
-          locationKind: 'deployment-definition'
+          locationKind: 'deployment-definition' as const
         }}
         ${ref(element => (element as HegsJsonViewer | undefined)?.expandAll())}
       ></hegs-json-viewer>`;
@@ -242,6 +775,13 @@ export class DeploymentDefinitionEditor extends LitElement {
 
   private selectGenericTemplate(templatePath: string) {
     if (this.readonly || !this.component) return;
+    this.componentSelectionGeneration++;
+    this.inlineCreateGeneration++;
+    this.inlineCreateSubmitting = false;
+    this.inlineCreatedProperty = undefined;
+    this.activeParameterKey = '';
+    this.inlineCreateParamKey = '';
+    this.inlineCreateFeedback = '';
     if (!templatePath || templatePath === CUSTOM_SCRIPT_OPTION) {
       const parsed = parseScriptPathValue(this.component.ScriptPath);
       if (findGenericScriptTemplate(parsed.scriptPath)) {
@@ -367,6 +907,156 @@ export class DeploymentDefinitionEditor extends LitElement {
                   }
                 </div>
                 ${template ? html`<p>${template.description}</p>` : nothing}
+                <div
+                  class="generic-variable-toolbar"
+                  role="group"
+                  aria-label="Parameter variable tools and preview"
+                >
+                  <vaadin-combo-box
+                    id="paramPreviewEnvCombo"
+                    label="Preview resolution for environment"
+                    placeholder="Select or type environment (e.g. STP UT 01)..."
+                    allow-custom-value
+                    clear-button-visible
+                    theme="small"
+                    .items=${this.projectEnvironmentNames}
+                    .value=${live(this.previewEnvironmentName)}
+                    @value-changed=${(event: CustomEvent<{ value: string }>) => {
+                      const nextEnv = event.detail?.value ?? '';
+                      if (nextEnv !== this.previewEnvironmentName) {
+                        this.previewEnvironmentName = nextEnv;
+                      }
+                    }}
+                    @custom-value-set=${(event: CustomEvent<string>) => {
+                      this.previewEnvironmentName = event.detail ?? '';
+                    }}
+                  ></vaadin-combo-box>
+                  <vaadin-combo-box
+                    id="paramVariablePicker"
+                    label="Insert ${'${PropertyName}'} into ${
+                      this.activeParameterKey ||
+                      template?.parameters[0]?.name ||
+                      'parameter'
+                    }"
+                    placeholder="Autocomplete existing ${'${PropertyName}'}..."
+                    clear-button-visible
+                    theme="small"
+                    .items=${this.availableProperties.map(p => ({
+                      label: `\${${p.Name ?? ''}}`,
+                      value: p.Name ?? ''
+                    }))}
+                    item-label-path="label"
+                    item-value-path="value"
+                    .disabled=${this.readonly}
+                    @value-changed=${(event: CustomEvent<{ value: string }>) => {
+                      const chosen = event.detail?.value ?? '';
+                      const validActiveKey =
+                        this.activeParameterKey &&
+                        (knownParamNames.has(
+                          this.activeParameterKey.toLowerCase()
+                        ) ||
+                          parsed.arguments.some(
+                            a =>
+                              a.key.toLowerCase() ===
+                              this.activeParameterKey.toLowerCase()
+                          ))
+                          ? this.activeParameterKey
+                          : '';
+                      const targetParam =
+                        validActiveKey ||
+                        template?.parameters[0]?.name ||
+                        parsed.arguments[0]?.key ||
+                        '';
+                      if (chosen && targetParam) {
+                        this.insertVariableIntoParameter(
+                          template?.scriptPath ?? parsed.scriptPath,
+                          parsed.arguments,
+                          targetParam,
+                          chosen,
+                          parsed.isJsonPath
+                        );
+                        (event.currentTarget as HTMLElement & { value: string }).value =
+                          '';
+                      }
+                    }}
+                  ></vaadin-combo-box>
+                </div>
+                ${
+                  this.inlineCreateFeedback
+                    ? html`<p class="env-props" role="status">
+                        ${this.inlineCreateFeedback}
+                      </p>`
+                    : nothing
+                }
+                ${
+                  this.inlineCreateParamKey && !this.readonly
+                    ? html`
+                        <div
+                          class="inline-create-box"
+                          role="region"
+                          aria-label="Create variable inline"
+                        >
+                          <vaadin-text-field
+                            id="inlineNewPropertyName"
+                            label="New variable name (for ${this.inlineCreateParamKey})"
+                            placeholder="e.g. STP_DAS_Paper_DestinationPath"
+                            theme="small"
+                            .value=${live(this.inlineNewPropertyName)}
+                            @input=${(e: Event) => {
+                              this.inlineNewPropertyName = (
+                                e.currentTarget as HTMLInputElement
+                              ).value;
+                            }}
+                          ></vaadin-text-field>
+                          <vaadin-text-field
+                            id="inlineNewPropertyValue"
+                            label="Initial value (${
+                              this.previewEnvironmentName || 'default'
+                            })"
+                            placeholder="Optional initial value..."
+                            theme="small"
+                            .value=${live(this.inlineNewPropertyDefaultValue)}
+                            @input=${(e: Event) => {
+                              this.inlineNewPropertyDefaultValue = (
+                                e.currentTarget as HTMLInputElement
+                              ).value;
+                            }}
+                          ></vaadin-text-field>
+                          <vaadin-checkbox
+                            id="inlineNewPropertySecure"
+                            label="Secure"
+                            .checked=${this.inlineNewPropertySecure}
+                            @change=${(e: Event) => {
+                              this.inlineNewPropertySecure = (
+                                e.currentTarget as HTMLInputElement
+                              ).checked;
+                            }}
+                          ></vaadin-checkbox>
+                          <div style="display:flex; gap:6px;">
+                            <vaadin-button
+                              id="confirmInlineVariableBtn"
+                              theme="small primary"
+                              ?disabled=${this.inlineCreateSubmitting}
+                              @click=${() =>
+                                this.createInlineVariableForParameter()}
+                              >Create & insert</vaadin-button
+                            >
+                            <vaadin-button
+                              id="cancelInlineVariableBtn"
+                              theme="small tertiary"
+                              @click=${() => {
+                                this.inlineCreateGeneration++;
+                                this.inlineCreateSubmitting = false;
+                                this.inlineCreatedProperty = undefined;
+                                this.inlineCreateParamKey = '';
+                              }}
+                              >Cancel</vaadin-button
+                            >
+                          </div>
+                        </div>
+                      `
+                    : nothing
+                }
                 ${
                   template && template.parameters.length > 0
                     ? html`
@@ -386,44 +1076,94 @@ export class DeploymentDefinitionEditor extends LitElement {
                                 (event.currentTarget as HTMLInputElement).value,
                                 parsed.isJsonPath
                               );
-                            return param.options
-                              ? html`<vaadin-combo-box
-                                  .label=${param.label}
-                                  .items=${param.options}
-                                  .value=${live(currentVal)}
-                                  .readonly=${this.readonly}
-                                  .helperText=${param.helperText ?? ''}
-                                  ?required=${Boolean(param.required)}
-                                  @value-changed=${(
-                                    event: CustomEvent<{ value: string }>
-                                  ) => {
-                                    const nextVal =
-                                      event.detail?.value ??
-                                      (event.currentTarget as HTMLInputElement)
-                                        .value;
-                                    if (nextVal !== currentVal) {
-                                      this.setGenericArgument(
-                                        template.scriptPath,
-                                        parsed.arguments,
-                                        param.name,
-                                        nextVal,
-                                        parsed.isJsonPath
-                                      );
-                                    }
-                                  }}
-                                  @input=${updateParam}
-                                  @change=${updateParam}
-                                ></vaadin-combo-box>`
-                              : html`<vaadin-text-field
-                                  .label=${param.label}
-                                  .placeholder=${param.placeholder ?? ''}
-                                  .value=${live(currentVal)}
-                                  .readonly=${this.readonly}
-                                  .helperText=${param.helperText ?? ''}
-                                  ?required=${Boolean(param.required)}
-                                  @input=${updateParam}
-                                  @change=${updateParam}
-                                ></vaadin-text-field>`;
+                            return html`<div class="param-cell">
+                              ${
+                                param.options
+                                  ? html`<vaadin-combo-box
+                                      .label=${param.label}
+                                      .items=${
+                                        currentVal &&
+                                        !param.options.includes(currentVal)
+                                          ? [...param.options, currentVal]
+                                          : param.options
+                                      }
+                                      allow-custom-value
+                                      .value=${live(currentVal)}
+                                      .readonly=${this.readonly}
+                                      .helperText=${param.helperText ?? ''}
+                                      ?required=${Boolean(param.required)}
+                                      @focus=${() => {
+                                        this.activeParameterKey = param.name;
+                                      }}
+                                      @custom-value-set=${(
+                                        event: CustomEvent<string>
+                                      ) => {
+                                        const customVal = event.detail ?? '';
+                                        if (customVal !== currentVal) {
+                                          this.setGenericArgument(
+                                            template.scriptPath,
+                                            parsed.arguments,
+                                            param.name,
+                                            customVal,
+                                            parsed.isJsonPath
+                                          );
+                                        }
+                                      }}
+                                      @value-changed=${(
+                                        event: CustomEvent<{ value: string }>
+                                      ) => {
+                                        const nextVal =
+                                          event.detail?.value ??
+                                          (
+                                            event.currentTarget as HTMLInputElement
+                                          ).value;
+                                        if (nextVal !== currentVal) {
+                                          this.setGenericArgument(
+                                            template.scriptPath,
+                                            parsed.arguments,
+                                            param.name,
+                                            nextVal,
+                                            parsed.isJsonPath
+                                          );
+                                        }
+                                      }}
+                                      @input=${updateParam}
+                                      @change=${updateParam}
+                                    ></vaadin-combo-box>`
+                                  : html`<vaadin-text-field
+                                      .label=${param.label}
+                                      .placeholder=${param.placeholder ?? ''}
+                                      .value=${live(currentVal)}
+                                      .readonly=${this.readonly}
+                                      .helperText=${param.helperText ?? ''}
+                                      ?required=${Boolean(param.required)}
+                                      @focus=${() => {
+                                        this.activeParameterKey = param.name;
+                                      }}
+                                      @input=${updateParam}
+                                      @change=${updateParam}
+                                    ></vaadin-text-field>`
+                              }
+                              <div class="param-cell-actions">
+                                ${this.renderParameterResolutionPreviewBadge(
+                                  currentVal
+                                )}
+                                ${
+                                  !this.readonly
+                                    ? html`<button
+                                        type="button"
+                                        class="param-action-btn"
+                                        @click=${() =>
+                                          this.openInlineVariableCreator(
+                                            param.name
+                                          )}
+                                      >
+                                        + Create variable for ${param.name}
+                                      </button>`
+                                    : nothing
+                                }
+                              </div>
+                            </div>`;
                           })}
                         </div>
                       `
@@ -467,13 +1207,33 @@ export class DeploymentDefinitionEditor extends LitElement {
                       @input=${updateKey}
                       @change=${updateKey}
                     ></vaadin-text-field>
-                    <vaadin-text-field
-                      label="Argument value"
-                      .value=${live(arg.value)}
-                      .readonly=${this.readonly}
-                      @input=${updateValue}
-                      @change=${updateValue}
-                    ></vaadin-text-field>
+                    <div class="param-cell">
+                      <vaadin-text-field
+                        label="Argument value"
+                        .value=${live(arg.value)}
+                        .readonly=${this.readonly}
+                        @focus=${() => {
+                          this.activeParameterKey = arg.key;
+                        }}
+                        @input=${updateValue}
+                        @change=${updateValue}
+                      ></vaadin-text-field>
+                      <div class="param-cell-actions">
+                        ${this.renderParameterResolutionPreviewBadge(arg.value)}
+                        ${
+                          !this.readonly && arg.key
+                            ? html`<button
+                                type="button"
+                                class="param-action-btn"
+                                @click=${() =>
+                                  this.openInlineVariableCreator(arg.key)}
+                              >
+                                + Create variable for ${arg.key}
+                              </button>`
+                            : nothing
+                        }
+                      </div>
+                    </div>
                     <vaadin-button
                       theme="tertiary"
                       .disabled=${this.readonly}

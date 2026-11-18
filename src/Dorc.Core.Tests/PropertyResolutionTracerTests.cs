@@ -176,7 +176,7 @@ namespace Dorc.Core.Tests
             {
                 MakeProperty("ConnStr", "ParentConn", filter: "QA-PARENT"),
                 MakeProperty("DirectProp", "ChildVal", filter: "QA-CHILD"),
-                MakeProperty("NullFilterProp", "NullFilterVal", filter: null, isArray: true),
+                MakeProperty("NullFilterProp", @"[""plain-item-1"",""plain-item-2""]", filter: null, isArray: true),
                 MakeProperty("SecureEnvProp", "Encrypted", filter: "QA-CHILD", secure: true)
             });
 
@@ -199,6 +199,9 @@ namespace Dorc.Core.Tests
             Assert.AreEqual("EnvironmentScope", result[2].Source);
             Assert.AreEqual("QA-CHILD", result[2].ScopeName);
             Assert.AreEqual("Array", result[2].ValueType);
+            Assert.AreEqual(
+                System.Text.Json.JsonSerializer.Serialize(@"[""plain-item-1"",""plain-item-2""]"),
+                result[2].ResolvedValueJson);
 
             Assert.IsTrue(result[3].IsSecure);
             Assert.AreEqual("[REDACTED]", result[3].RawValue);
@@ -227,13 +230,24 @@ namespace Dorc.Core.Tests
                         Value = serverObj,
                         Type = typeof(VariableValueServers)
                     });
+                    resolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EnvOwnerEmails, new VariableValue
+                    {
+                        Value = new[] { "owner1@dorc.local", "owner2@dorc.local" },
+                        Type = typeof(string[])
+                    });
                 });
 
             var env = new EnvironmentApiModel { EnvironmentName = "DEV-01" };
             var request = new PropertyResolutionPreviewRequestApiModel
             {
                 EnvironmentName = "DEV-01",
-                PropertyNames = new List<string> { "EndurFileShare", "ServerNames_App", "AllServers" }
+                PropertyNames = new List<string>
+                {
+                    "EndurFileShare",
+                    "ServerNames_App",
+                    "AllServers",
+                    PropertyValueScopeOptionsFixed.EnvOwnerEmails
+                }
             };
 
             var result = _tracer.TraceProperties(request, env, _user);
@@ -249,6 +263,10 @@ namespace Dorc.Core.Tests
             Assert.AreEqual("BuiltInScopeOption", result[2].Source);
             Assert.AreEqual("VariableValueServers", result[2].ValueType);
             StringAssert.Contains(result[2].ResolvedValueJson, "srv-01.local");
+
+            Assert.AreEqual("BuiltInScopeOption", result[3].Source);
+            Assert.AreEqual("String", result[3].ValueType);
+            Assert.AreEqual(@"""owner1@dorc.local;owner2@dorc.local""", result[3].ResolvedValueJson);
         }
 
         [TestMethod]
@@ -503,11 +521,14 @@ namespace Dorc.Core.Tests
             _propertyValuesSource.GetGlobalProperties().Returns(new[]
             {
                 MakeProperty("GlobalSec", "EncGlobal", secure: true),
-                MakeProperty("ExistingProp", "FromGlobal")
+                MakeProperty("GlobalSecArray", "[\"EncArr1\",\"EncArr2\"]", secure: true, isArray: true),
+                MakeProperty("ExistingProp", "FromGlobal"),
+                MakeProperty("BuildNumber", "StoredBuildToIgnore")
             });
             _propertyValuesSource.GetEnvironmentProperties("QA-CHILD", null).Returns(new[]
             {
                 MakeProperty("DirectSec", "EncDirect", filter: "QA-CHILD", secure: true),
+                MakeProperty("DirectSecWithTokens", "EncSecretWithTokens", filter: "QA-CHILD", secure: true),
                 MakeProperty("AncestorSecAllowed", "EncAncestorOk", filter: "QA-PARENT", secure: true),
                 MakeProperty("AncestorSecDenied", "EncAncestorNo", filter: "QA-LOCKED-PARENT", secure: true),
                 MakeProperty("UsesDecryptedSecret", "conn=$DirectSec$", filter: "QA-CHILD")
@@ -527,7 +548,10 @@ namespace Dorc.Core.Tests
             _securityChecker.CanReadSecrets(_user, "QA-LOCKED-PARENT").Returns(false);
 
             _propertyEncryptor.DecryptValue("EncGlobal").Returns("PlainGlobal");
+            _propertyEncryptor.DecryptValue("EncArr1").Returns("PlainArr1");
+            _propertyEncryptor.DecryptValue("EncArr2").Returns("PlainArr2");
             _propertyEncryptor.DecryptValue("EncDirect").Returns("PlainDirect");
+            _propertyEncryptor.DecryptValue("EncSecretWithTokens").Returns("fn:$ExistingProp$$$unclosed$");
             _propertyEncryptor.DecryptValue("EncAncestorOk").Returns("PlainAncestor");
 
             var env = new EnvironmentApiModel
@@ -550,7 +574,15 @@ namespace Dorc.Core.Tests
                     "AnyEnvConfig",
                     "NonProdConfig",
                     "ProdOnlyConfig",
-                    "SecureConfig"
+                    "SecureConfig",
+                    "GlobalSecArray",
+                    "DirectSecWithTokens",
+                    "BuildNumber",
+                    "DropFolder"
+                },
+                RequestOverrides = new List<RequestProperty>
+                {
+                    new RequestProperty { PropertyName = "DropFolder", PropertyValue = @"\\custom\drop" }
                 }
             };
 
@@ -593,6 +625,24 @@ namespace Dorc.Core.Tests
             Assert.AreEqual("ConfigValue", res[9].Source);
             Assert.IsTrue(res[9].IsSecure);
             Assert.AreEqual("\"[REDACTED]\"", res[9].ResolvedValueJson);
+
+            // GlobalSecArray decrypts each element without throwing
+            Assert.IsTrue(res[10].IsSecure);
+            Assert.AreEqual("Array", res[10].ValueType);
+            Assert.AreEqual("[\"PlainArr1\",\"PlainArr2\"]", res[10].RawValue);
+
+            // DirectSecWithTokens returns literal decrypted string without parsing $ExistingProp$, $$, or fn:
+            Assert.IsTrue(res[11].IsSecure);
+            Assert.AreEqual("Ok", res[11].Diagnostic);
+            Assert.AreEqual("\"fn:$ExistingProp$$$unclosed$\"", res[11].ResolvedValueJson);
+
+            // Stored BuildNumber is ignored in favor of RuntimeOnly when not overridden
+            Assert.AreEqual("RuntimeOnly", res[12].Source);
+            Assert.AreEqual("RuntimeOnly", res[12].Diagnostic);
+
+            // Overridden DropFolder preserves RequestOverride
+            Assert.AreEqual("RequestOverride", res[13].Source);
+            Assert.AreEqual(@"""\\\\custom\\drop""", res[13].ResolvedValueJson);
 
             // Also verify prod environment includes IsForProd = true and excludes IsForProd = false,
             // and verify tracer without optional dependencies (null checker / encryptor / config source)
@@ -643,28 +693,75 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void TraceProperties_DiamondDag_ReusesEvaluatedCacheAcrossBranches()
         {
+            _scopeOptionsResolver.When(r => r.SetPropertyValues(Arg.Any<IVariableResolver>(), Arg.Any<EnvironmentApiModel>()))
+                .Do(call =>
+                {
+                    call.Arg<IVariableResolver>().SetPropertyValue("NonStringScope", new VariableValue
+                    {
+                        Value = new[] { "srv1" },
+                        Type = typeof(string[])
+                    });
+                });
+
+            _securityChecker.CanReadSecrets(_user, "DEV-01").Returns(true);
             _propertyValuesSource.GetGlobalProperties().Returns(new[]
             {
                 MakeProperty("Leaf", "val"),
                 MakeProperty("Branch1", "$Leaf$-$Leaf$"),
                 MakeProperty("Branch2", "$Branch1$:$Branch1$"),
                 MakeProperty("Root", "$Branch2$|$Branch2$"),
-                MakeProperty("ExprMissingRef", "fn:Call($UndefinedRef$)")
+                MakeProperty("ExprMissingRef", "fn:Call($UndefinedRef$)"),
+                MakeProperty("ExprWithMalformedChild", "fn:Call($MalformedRef$)"),
+                MakeProperty("MalformedRef", "$Leaf"),
+                MakeProperty("TransitiveMissingParent", "prefix-$ExprMissingRef$"),
+                MakeProperty("NullSecureArray", "null", secure: true, isArray: true),
+                MakeProperty("CorruptSecureArray", "{not-json", secure: true, isArray: true),
+                MakeProperty("CorruptPlainArray", "{not-json", secure: false, isArray: true),
+                MakeProperty("HugeChunk", new string('a', 40_000)),
+                MakeProperty("HugeConcat", "$HugeChunk$-$HugeChunk$-$Leaf$"),
+                MakeProperty("SecretWithAbsentToken", "$AbsentToken$", secure: true),
+                MakeProperty("ExprUsingSecretWithAbsentToken", "fn:Call($SecretWithAbsentToken$)"),
+                MakeProperty("PlainWithAbsentToken", "$$AbsentToken$$", secure: false),
+                MakeProperty("ExprDirectAbsentToken", "fn:Call($PlainWithAbsentToken$)")
             });
 
+            _propertyValuesSource.GetEnvironmentProperties("DEV-01", null).Returns(new[]
+            {
+                MakeProperty("AncestorSecret1", "cipher1", filter: "PARENT-01", secure: true),
+                MakeProperty("AncestorSecret2", "cipher2", filter: "PARENT-01", secure: true)
+            });
+            _securityChecker.CanReadSecrets(_user, "PARENT-01").Returns(true);
+
+            var env = new EnvironmentApiModel { EnvironmentName = "DEV-01" };
             var req = new PropertyResolutionPreviewRequestApiModel
             {
-                PropertyNames = new List<string> { "Root", "Leaf", "ExprMissingRef" },
+                EnvironmentName = "DEV-01",
+                PropertyNames = new List<string>
+                {
+                    "Root", "Leaf", "ExprMissingRef", "ExprWithMalformedChild",
+                    "TransitiveMissingParent", "NullSecureArray", "CorruptSecureArray",
+                    "HugeConcat", "AncestorSecret1", "AncestorSecret2", "CorruptPlainArray",
+                    "ExprUsingSecretWithAbsentToken", "ExprDirectAbsentToken"
+                },
                 RequestOverrides = new List<RequestProperty>
                 {
-                    new RequestProperty { PropertyName = "OtherOverride", PropertyValue = "1" }
+                    new RequestProperty { PropertyName = "OtherOverride", PropertyValue = new string('x', 70_000) }
                 }
             };
 
-            var res = _tracer.TraceProperties(req, null, _user);
+            var res = _tracer.TraceProperties(req, env, _user);
             Assert.AreEqual("\"val-val:val-val|val-val:val-val\"", res[0].ResolvedValueJson);
             Assert.AreEqual("\"val\"", res[1].ResolvedValueJson);
             Assert.AreEqual("MissingInScope", res[2].Diagnostic);
+            Assert.AreEqual("UnclosedToken", res[3].Diagnostic);
+            Assert.AreEqual("MissingInScope", res[4].Diagnostic);
+            Assert.AreEqual("null", res[5].RawValue);
+            Assert.AreEqual("[REDACTED]", res[6].RawValue);
+            Assert.AreEqual("ValueTruncated", res[7].Diagnostic);
+            Assert.AreEqual("{not-json", res[10].RawValue);
+            Assert.AreEqual("ExpressionDeferred", res[11].Diagnostic);
+            Assert.AreEqual("ExpressionDeferred", res[12].Diagnostic);
+            _securityChecker.Received(1).CanReadSecrets(_user, "PARENT-01");
         }
 
         [TestMethod]

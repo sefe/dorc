@@ -66,6 +66,9 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   private secureMessage =
     'This environment is not secure which includes default variables during deployments';
 
+  private secureEnvironmentMessage =
+    'This environment is secure (Secure = true): global (default) variable values are excluded during deployments. Required variables must be defined on this environment or inherited from an ancestor environment.';
+
   @property({ type: Boolean }) loadingProperties = true;
 
   @property({ type: Boolean }) loadingScopeOptions = true;
@@ -411,12 +414,17 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                 </vaadin-details>
 
                 ${
-                  !this.environment?.EnvironmentSecure
+                  this.environment?.EnvironmentSecure
                     ? html`<dismissible-item
+                        key="secure-env-banner"
+                        style="flex: 0 1 auto; width: 100%;"
+                        .message="${this.secureEnvironmentMessage}"
+                      ></dismissible-item>`
+                    : html`<dismissible-item
+                        key="non-secure-env-banner"
                         style="flex: 0 1 auto; width: 100%;"
                         .message="${this.secureMessage}"
                       ></dismissible-item>`
-                    : html``
                 }
                 <vaadin-grid
                   id="grid"

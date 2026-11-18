@@ -89,6 +89,14 @@ export class PageVariables extends PageElement {
 
   private newVariableScope = '';
 
+  private scopeOptionsGeneration = 0;
+
+  private variableValuesGeneration = 0;
+
+  private addValueGeneration = 0;
+
+  @state() selectedVariableScopes: string[] = [];
+
   @property({ type: Boolean }) existingPropertySelected = false;
 
   @property({ type: Boolean }) newVariableButtonDisabled = true;
@@ -189,6 +197,45 @@ export class PageVariables extends PageElement {
           min-width: 0;
           margin-left: 0;
         }
+      }
+
+      .scope-chips-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        margin-top: 4px;
+        margin-left: 5px;
+      }
+
+      .scope-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--dorc-border-color, rgba(128, 128, 128, 0.3));
+        background: var(--dorc-chip-bg, rgba(59, 130, 246, 0.14));
+        color: var(--dorc-chip-text, inherit);
+        font-size: var(--lumo-font-size-xs, 0.78rem);
+      }
+
+      .scope-chip-remove {
+        border: none;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        padding: 0 2px;
+        font-size: 0.85rem;
+        line-height: 1;
+      }
+
+      .value-resolver-stack {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: flex-end;
+        width: 100%;
       }
     `;
   }
@@ -326,17 +373,55 @@ export class PageVariables extends PageElement {
                           : html``
                       }
                     </td>
-                    <td style="vertical-align: center;">
+                    <td style="vertical-align: top;">
                       <vaadin-combo-box
                         id="envScope"
                         @value-changed="${this._newVariableValueScopeChanged}"
                         .items="${this.filteredEnvironments}"
                         ?disabled="${!this.existingPropertySelected}"
+                        clear-button-visible
                         label="Scope"
-                        placeholder="Select Variable Scope"
-                        style="min-width: 400px; margin-left: 5px"
-                        helper-text="Select the environment scope or leave blank for default"
+                        placeholder="Select Variable Scope (or add multiple)"
+                        style="min-width: 340px; margin-left: 5px"
+                        helper-text="Select environment scope(s) or include (default)"
                       ></vaadin-combo-box>
+                      <div class="scope-chips-row" role="group" aria-label="Selected target scopes">
+                        <vaadin-button
+                          id="addDefaultScopeBtn"
+                          theme="small tertiary"
+                          ?disabled="${!this.existingPropertySelected || this.hasDefaultScopedValue()}"
+                          @click="${this.toggleDefaultScopeSelection}"
+                        >
+                          ${
+                            this.selectedVariableScopes.includes('')
+                              ? '✓ (default) queued'
+                              : '+ Queue (default)'
+                          }
+                        </vaadin-button>
+                        <vaadin-button
+                          id="queueCurrentScopeBtn"
+                          theme="small tertiary"
+                          ?disabled="${!this.existingPropertySelected || !this.newVariableScope}"
+                          @click="${this.queueCurrentEnvironmentScope}"
+                        >
+                          + Queue selected scope
+                        </vaadin-button>
+                        ${this.selectedVariableScopes.map(
+                          scope => html`
+                            <span class="scope-chip">
+                              <span>${scope === '' ? '(default)' : scope}</span>
+                              <button
+                                type="button"
+                                class="scope-chip-remove"
+                                aria-label="Remove scope ${scope === '' ? '(default)' : scope}"
+                                @click="${() => this.removeQueuedScope(scope)}"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          `
+                        )}
+                      </div>
                     </td>
                     <td style="vertical-align: center; min-width: 20px">
                       ${
@@ -348,23 +433,37 @@ export class PageVariables extends PageElement {
                           : html``
                       }
                     </td>
-                    <td style="vertical-align: center; width: 100%;">
-                      <vaadin-combo-box
-                        allow-custom-value
-                        .items="${this.propertyValueScopeOptions}"
-                        item-label-path="ValueOption"
-                        item-value-path="ValueOption"
-                        ${comboBoxRenderer(this.comboboxRenderer, [])}
-                        id="newVariableValue"
-                        ?disabled="${!this.existingPropertySelected}"
-                        label="Value"
-                        style="min-width: 400px; width: 100%"
-                        helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
-                      ></vaadin-combo-box>
+                    <td style="vertical-align: top; width: 100%;">
+                      <div class="value-resolver-stack">
+                        <vaadin-text-field
+                          id="newVariableValue"
+                          ?disabled="${!this.existingPropertySelected}"
+                          clear-button-visible
+                          label="Value"
+                          placeholder="e.g. \\\\$ServerNames_STP_Strategies$\\E$\\Apps\\..."
+                          style="min-width: 320px; flex: 1 1 320px;"
+                          helper-text="Specify value directly or insert resolver tokens without overwriting existing text"
+                        ></vaadin-text-field>
+                        <vaadin-combo-box
+                          id="scopeOptionPicker"
+                          .items="${this.propertyValueScopeOptions}"
+                          item-label-path="ValueOption"
+                          item-value-path="ValueOption"
+                          ${comboBoxRenderer(this.comboboxRenderer, [])}
+                          ?disabled="${!this.existingPropertySelected}"
+                          clear-button-visible
+                          label="Insert Resolver Token"
+                          placeholder="Insert $ServerNames_&lt;Tag&gt;$..."
+                          style="min-width: 260px; flex: 0 1 300px;"
+                          helper-text="Inserts into Value at cursor"
+                          @value-changed="${this._onScopeOptionPicked}"
+                        ></vaadin-combo-box>
+                      </div>
                     </td>
                     <td style="vertical-align: center;">
                       <vaadin-button
-                        ?disabled="${!this.existingPropertySelected}"
+                        ?disabled="${!this.existingPropertySelected ||
+                        this.addingVariableValue}"
                         @click="${this._addVariableValueClick}"
                         >Add Variable Value</vaadin-button
                       >
@@ -730,6 +829,7 @@ export class PageVariables extends PageElement {
     }) as EventListener);
     this.getAllVariableNames();
     this.getEnvironments();
+    this.loadScopeOptions('');
   }
 
   private getEnvironments() {
@@ -808,12 +908,22 @@ export class PageVariables extends PageElement {
 
       if (existingProperty) {
         this.existingPropertySelected = true;
+        this.selectedVariableScopes = [];
+        this.addingVariableValue = false;
+        this.addValueGeneration++;
         checkboxSecure.checked = existingProperty?.Secure ?? false;
         this.loadVariableValues();
+        this.loadScopeOptions(this.newVariableScope);
       } else {
+        this.variableValuesGeneration++;
+        this.loadingPropertyValues = false;
+        this.addingVariableValue = false;
+        this.addValueGeneration++;
         this.existingPropertySelected = false;
+        this.selectedVariableScopes = [];
         checkboxSecure.checked = false;
         this.propertyValues = [];
+        this.allPropertyValues = [];
       }
     }
   }
@@ -821,33 +931,122 @@ export class PageVariables extends PageElement {
   _newVariableValueScopeChanged(data: CustomEvent) {
     if (data) {
       const combo = data.target as ComboBox;
-      this.newVariableScope = combo.value;
-      if (!this.newVariableScope) {
-        return;
-      }
-      this.loadingScopeOptions = true;
-
-      const api = new PropertyValuesApi(dorcApiConfiguration);
-      api
-        .propertyValuesScopeOptionsGet({
-          propertyValueScope: this.newVariableScope
-        })
-        .subscribe({
-          next: (value: PropertyValueScopeOptionApiModel[]) => {
-            this.propertyValueScopeOptions = value.sort((a, b) => {
-              if (String(a.ValueOption) > String(b.ValueOption)) return 1;
-              return -1;
-            });
-            this.loadingScopeOptions = false;
-          },
-          error: (err: any) => {
-            this.loadingScopeOptions = false;
-            this.errorAlert(err);
-          },
-          complete: () =>
-            console.log('done loading variable value scope options')
-        });
+      this.newVariableScope = combo.value ?? '';
+      this.loadScopeOptions(this.newVariableScope);
     }
+  }
+
+  public loadScopeOptions(scope: string) {
+    const generation = ++this.scopeOptionsGeneration;
+    this.loadingScopeOptions = true;
+    this.propertyValueScopeOptions = [];
+
+    const api = new PropertyValuesApi(dorcApiConfiguration);
+    api
+      .propertyValuesScopeOptionsGet({
+        propertyValueScope: scope || undefined
+      })
+      .subscribe({
+        next: (value: PropertyValueScopeOptionApiModel[]) => {
+          if (generation !== this.scopeOptionsGeneration) return;
+          this.propertyValueScopeOptions = value.sort((a, b) => {
+            if (String(a.ValueOption) > String(b.ValueOption)) return 1;
+            return -1;
+          });
+          this.loadingScopeOptions = false;
+        },
+        error: (err: any) => {
+          if (generation !== this.scopeOptionsGeneration) return;
+          this.propertyValueScopeOptions = [];
+          this.loadingScopeOptions = false;
+          this.errorAlert(err);
+        },
+        complete: () =>
+          console.log('done loading variable value scope options')
+      });
+  }
+
+  public insertTokenIntoValue(token: string) {
+    if (!token) return;
+    const textField = this.shadowRoot?.querySelector(
+      '#newVariableValue'
+    ) as unknown as (TextField & { inputElement?: HTMLInputElement }) | null;
+    if (!textField) return;
+    const current = textField.value ?? '';
+    const innerInput =
+      textField.inputElement ??
+      (textField.querySelector('input') as HTMLInputElement | null) ??
+      (textField.shadowRoot?.querySelector('input') as HTMLInputElement | null);
+    if (
+      innerInput &&
+      typeof innerInput.selectionStart === 'number' &&
+      typeof innerInput.selectionEnd === 'number'
+    ) {
+      const start = innerInput.selectionStart;
+      const end = innerInput.selectionEnd;
+      const nextVal = current.slice(0, start) + token + current.slice(end);
+      textField.value = nextVal;
+      innerInput.value = nextVal;
+      const nextPos = start + token.length;
+      innerInput.setSelectionRange(nextPos, nextPos);
+    } else {
+      textField.value = current + token;
+    }
+  }
+
+  _onScopeOptionPicked(event: CustomEvent<{ value?: string }>) {
+    const picker = event.target as ComboBox | null;
+    const token = event.detail?.value ?? picker?.value ?? '';
+    if (!token) return;
+    this.insertTokenIntoValue(token);
+    if (picker) {
+      picker.value = '';
+    }
+  }
+
+  private hasDefaultScopedValue(): boolean {
+    const sourceValues = this.allPropertyValues?.length
+      ? this.allPropertyValues
+      : this.propertyValues;
+    return Boolean(
+      sourceValues?.some(
+        pv =>
+          pv.PropertyValueFilter === '' ||
+          pv.PropertyValueFilter === undefined ||
+          pv.PropertyValueFilter === null
+      )
+    );
+  }
+
+  public toggleDefaultScopeSelection() {
+    if (this.selectedVariableScopes.includes('')) {
+      this.selectedVariableScopes = this.selectedVariableScopes.filter(
+        s => s !== ''
+      );
+    } else {
+      this.selectedVariableScopes = ['', ...this.selectedVariableScopes];
+    }
+  }
+
+  public queueCurrentEnvironmentScope() {
+    const scope = this.newVariableScope.trim();
+    if (!scope) return;
+    if (!this.selectedVariableScopes.includes(scope)) {
+      this.selectedVariableScopes = [...this.selectedVariableScopes, scope];
+    }
+    const combobox = this.shadowRoot?.querySelector(
+      '#envScope'
+    ) as unknown as ComboBox | null;
+    this.newVariableScope = '';
+    if (combobox) {
+      combobox.value = '';
+    }
+  }
+
+  public removeQueuedScope(scope: string) {
+    this.selectedVariableScopes = this.selectedVariableScopes.filter(
+      s => s !== scope
+    );
   }
 
   removeItem<T>(arr: Array<T>, value: T): Array<T> {
@@ -860,13 +1059,27 @@ export class PageVariables extends PageElement {
 
   private loadVariableValues() {
     if (this.propertyName !== '') {
+      const requestedProperty = this.propertyName;
+      const generation = ++this.variableValuesGeneration;
       this.loadingPropertyValues = true;
       const api = new PropertyValuesApi(dorcApiConfiguration);
-      api.propertyValuesGet({ propertyName: this.propertyName }).subscribe({
+      api.propertyValuesGet({ propertyName: requestedProperty }).subscribe({
         next: (data: PropertyValueDto[]) => {
+          if (
+            generation !== this.variableValuesGeneration ||
+            this.propertyName !== requestedProperty
+          ) {
+            return;
+          }
           this.setVariableValues(data);
         },
         error: (err: any) => {
+          if (
+            generation !== this.variableValuesGeneration ||
+            this.propertyName !== requestedProperty
+          ) {
+            return;
+          }
           if (err.status !== 404) {
             this.errorAlert(err);
           }
@@ -1008,6 +1221,7 @@ export class PageVariables extends PageElement {
   }
 
   _addVariableValueClick() {
+    if (this.addingVariableValue) return;
     const textField = this.shadowRoot?.querySelector(
       '#newVariableValue'
     ) as unknown as TextField;
@@ -1017,70 +1231,114 @@ export class PageVariables extends PageElement {
     );
     if (existingProperty) {
       this.addingVariableValue = true;
-      const propertyValueDto: PropertyValueDto = {
-        Property: existingProperty,
-        Value: textField.value.trim(),
-        PropertyValueFilter: this.newVariableScope
-      };
-      if (propertyValueDto.PropertyValueFilter === '') {
-        propertyValueDto.PropertyValueFilter = undefined;
-        if (
-          this.propertyValues?.find(
-            pv =>
-              pv.PropertyValueFilter === '' ||
-              pv.PropertyValueFilter === undefined ||
-              pv.PropertyValueFilter === null
-          )
-        ) {
-          const notification = new ErrorNotification();
-          notification.setAttribute(
-            'errorMessage',
-            'This variable already contains a default scoped value!'
-          );
-          this.shadowRoot?.appendChild(notification);
-          notification.open();
-          this.addingVariableValue = false;
-          return;
-        }
+      const targetScopes = Array.from(
+        new Set(
+          this.selectedVariableScopes.length > 0
+            ? [
+                ...this.selectedVariableScopes,
+                ...(this.newVariableScope ? [this.newVariableScope] : [])
+              ]
+            : [this.newVariableScope]
+        )
+      );
+
+      if (targetScopes.includes('') && this.hasDefaultScopedValue()) {
+        const notification = new ErrorNotification();
+        notification.setAttribute(
+          'errorMessage',
+          'This variable already contains a default scoped value!'
+        );
+        this.shadowRoot?.appendChild(notification);
+        notification.open();
+        this.addingVariableValue = false;
+        return;
       }
+
+      const submittedPropertyName = this.propertyName;
+      const submittedGeneration = ++this.addValueGeneration;
+      const submittedRawValue = textField.value;
+      const trimmedValue = submittedRawValue.trim();
+      const dtos: PropertyValueDto[] = targetScopes.map(scope => ({
+        Property: existingProperty,
+        Value: trimmedValue,
+        PropertyValueFilter: scope === '' ? undefined : scope
+      }));
+
       api
         .propertyValuesPost({
-          propertyValueDto: [propertyValueDto]
+          propertyValueDto: dtos
         })
         .subscribe({
           next: (value: Response[]) => {
-            if (value[0].Status === 'success') {
-              value.forEach((repValue: Response) => {
+            const succeededScopes = new Set<string>();
+            const failedResponses: Response[] = [];
+
+            value.forEach((repValue: Response, idx: number) => {
+              const scopeKey = targetScopes[idx] ?? '';
+              if (repValue.Status === 'success') {
                 console.log(repValue.Status);
-              });
-              const pv = value[0].Item as PropertyValueDto;
-
-              const findIndex = this.filteredEnvironments?.findIndex(
-                env => env === pv.PropertyValueFilter
-              );
-              if (findIndex !== undefined) {
-                this.filteredEnvironments?.splice(findIndex, 1);
-                this.filteredEnvironments?.sort();
-                this.filteredEnvironments = JSON.parse(
-                  JSON.stringify(this.filteredEnvironments)
-                );
-                const combobox = this.shadowRoot?.querySelector(
-                  '#envScope'
-                ) as unknown as ComboBox;
-                if (combobox) combobox.value = '';
+                succeededScopes.add(scopeKey);
+                if (
+                  this.propertyName === submittedPropertyName &&
+                  this.addValueGeneration === submittedGeneration
+                ) {
+                  const pv = repValue.Item as PropertyValueDto | undefined;
+                  const envToRemove = pv?.PropertyValueFilter ?? scopeKey;
+                  const findIndex = this.filteredEnvironments?.findIndex(
+                    env => env === envToRemove
+                  );
+                  if (findIndex !== undefined && findIndex >= 0) {
+                    this.filteredEnvironments?.splice(findIndex, 1);
+                  }
+                }
+              } else {
+                failedResponses.push(repValue);
               }
-              if (textField) textField.value = '';
+            });
 
-              this.loadVariableValues();
-              this.addingVariableValue = false;
-            } else {
-              this.errorAlert(value);
+            if (
+              this.propertyName === submittedPropertyName &&
+              this.addValueGeneration === submittedGeneration
+            ) {
+              if (succeededScopes.size > 0) {
+                if (this.filteredEnvironments) {
+                  this.filteredEnvironments.sort();
+                  this.filteredEnvironments = JSON.parse(
+                    JSON.stringify(this.filteredEnvironments)
+                  );
+                }
+                this.selectedVariableScopes = this.selectedVariableScopes.filter(
+                  s => !succeededScopes.has(s)
+                );
+                if (succeededScopes.has(this.newVariableScope.trim())) {
+                  const combobox = this.shadowRoot?.querySelector(
+                    '#envScope'
+                  ) as unknown as ComboBox;
+                  if (combobox) combobox.value = '';
+                  this.newVariableScope = '';
+                }
+                this.loadVariableValues();
+              }
+
+              if (failedResponses.length === 0) {
+                if (textField && textField.value === submittedRawValue) {
+                  textField.value = '';
+                }
+              }
+              if (failedResponses.length > 0) {
+                this.errorAlert(failedResponses);
+              }
               this.addingVariableValue = false;
             }
           },
           error: (err: any) => {
-            this.addingVariableValue = false;
-            this.errorAlert(err);
+            if (
+              this.propertyName === submittedPropertyName &&
+              this.addValueGeneration === submittedGeneration
+            ) {
+              this.addingVariableValue = false;
+              this.errorAlert(err);
+            }
           },
           complete: () => console.log('done adding variable value')
         });

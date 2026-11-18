@@ -31,9 +31,11 @@ interface CachedTraceEntry {
 
 interface PendingBatchBucket {
   context: PropertyResolutionContext;
+  generation: number;
   propertyNames: Map<string, string>;
   resolvers: Array<{
     requestedNames: string[];
+    preCached: Map<string, PropertyResolutionTraceApiModel>;
     resolve: (result: Map<string, PropertyResolutionTraceApiModel>) => void;
     reject: (reason: unknown) => void;
   }>;
@@ -43,6 +45,7 @@ interface PendingBatchBucket {
 const DEFAULT_TTL_MS = 30_000;
 const DEFAULT_COALESCE_WINDOW_MS = 50;
 const MAX_BATCH_PROPERTY_NAMES = 250;
+const MAX_CACHED_CONTEXTS = 32;
 
 function defaultTransport(
   request: PropertyResolutionPreviewRequestApiModel
@@ -78,6 +81,7 @@ export class PropertyResolutionClientCache {
   private readonly transport: PropertyResolutionTransport;
   private readonly ttlMs: number;
   private readonly coalesceWindowMs: number;
+  private cacheGeneration = 0;
 
   constructor(options?: {
     transport?: PropertyResolutionTransport;
@@ -91,7 +95,21 @@ export class PropertyResolutionClientCache {
   }
 
   clear(): void {
+    this.cacheGeneration++;
     this.cache.clear();
+  }
+
+  private evictExpiredEntries(now: number): void {
+    for (const [ctxKey, ctxMap] of this.cache.entries()) {
+      for (const [propName, entry] of ctxMap.entries()) {
+        if (entry.expiresAt <= now) {
+          ctxMap.delete(propName);
+        }
+      }
+      if (ctxMap.size === 0) {
+        this.cache.delete(ctxKey);
+      }
+    }
   }
 
   resolveProperties(
@@ -108,13 +126,17 @@ export class PropertyResolutionClientCache {
 
     const contextKey = computeResolutionContextKey(context);
     const now = Date.now();
+    this.evictExpiredEntries(now);
     const contextCache = this.cache.get(contextKey);
     const missingNames: string[] = [];
+    const preCached = new Map<string, PropertyResolutionTraceApiModel>();
 
     if (contextCache) {
       for (const name of cleanNames) {
-        const entry = contextCache.get(name);
-        if (!entry || entry.expiresAt <= now) {
+        const hit = contextCache.get(name);
+        if (hit) {
+          preCached.set(name, hit.trace);
+        } else {
           missingNames.push(name);
         }
       }
@@ -123,7 +145,7 @@ export class PropertyResolutionClientCache {
     }
 
     if (missingNames.length === 0) {
-      return Promise.resolve(this.collectCached(contextKey, cleanNames));
+      return Promise.resolve(preCached);
     }
 
     return new Promise((resolve, reject) => {
@@ -135,6 +157,7 @@ export class PropertyResolutionClientCache {
         );
         bucket = {
           context,
+          generation: this.cacheGeneration,
           propertyNames: new Map(),
           resolvers: [],
           timerId
@@ -150,25 +173,11 @@ export class PropertyResolutionClientCache {
 
       bucket.resolvers.push({
         requestedNames: cleanNames,
+        preCached,
         resolve,
         reject
       });
     });
-  }
-
-  private collectCached(
-    contextKey: string,
-    requestedNames: string[]
-  ): Map<string, PropertyResolutionTraceApiModel> {
-    const out = new Map<string, PropertyResolutionTraceApiModel>();
-    const contextCache = this.cache.get(contextKey)!;
-    for (const name of requestedNames) {
-      const entry = contextCache.get(name);
-      if (entry) {
-        out.set(name, entry.trace);
-      }
-    }
-    return out;
   }
 
   private async flushBucket(contextKey: string): Promise<void> {
@@ -195,24 +204,49 @@ export class PropertyResolutionClientCache {
 
       const expiresAt = Date.now() + this.ttlMs;
       let contextCache = this.cache.get(contextKey);
-      if (!contextCache) {
-        contextCache = new Map();
-        this.cache.set(contextKey, contextCache);
-      }
+      const transientTraces = new Map<
+        string,
+        PropertyResolutionTraceApiModel
+      >();
 
       for (const traces of chunkResults) {
         for (const trace of traces) {
           if (trace.PropertyName) {
-            contextCache.set(trace.PropertyName, {
-              trace,
-              expiresAt
-            });
+            transientTraces.set(trace.PropertyName, trace);
+            if (bucket.generation === this.cacheGeneration) {
+              if (trace.IsSecure) {
+                contextCache?.delete(trace.PropertyName);
+              } else {
+                if (!contextCache) {
+                  if (this.cache.size >= MAX_CACHED_CONTEXTS) {
+                    const oldestKey = this.cache.keys().next().value!;
+                    this.cache.delete(oldestKey);
+                  }
+                  contextCache = new Map();
+                  this.cache.set(contextKey, contextCache);
+                }
+                contextCache.set(trace.PropertyName, {
+                  trace,
+                  expiresAt
+                });
+              }
+            }
           }
         }
       }
 
       for (const waiter of bucket.resolvers) {
-        waiter.resolve(this.collectCached(contextKey, waiter.requestedNames));
+        const out = new Map<string, PropertyResolutionTraceApiModel>();
+        for (const name of waiter.requestedNames) {
+          const result =
+            waiter.preCached.get(name) ??
+            transientTraces.get(name) ??
+            contextCache?.get(name)?.trace;
+          if (result) {
+            out.set(name, result);
+          }
+        }
+        waiter.resolve(out);
       }
     } catch (err) {
       for (const waiter of bucket.resolvers) {

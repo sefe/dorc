@@ -134,4 +134,83 @@ describe('page-variables Secure toggle', () => {
       scopeSpy.mockRestore();
     }
   });
+
+  it('loads ScopeOptions for (default) scope, inserts tokens into Value without overwriting, and submits multi-scope values', async () => {
+    const { of } = await import('rxjs');
+    const { PropertyValuesApi } = await import('../../src/apis/dorc-api');
+    const scopeCalls: string[] = [];
+    const scopeSpy = vi
+      .spyOn(PropertyValuesApi.prototype, 'propertyValuesScopeOptionsGet')
+      .mockImplementation((req?: { propertyValueScope?: string }) => {
+        scopeCalls.push(req?.propertyValueScope ?? '');
+        return of([
+          {
+            ValueOption: '$ServerNames_STP_Strategies$',
+            SampleResolvedValue: 'stp-srv-01'
+          }
+        ]) as any;
+      });
+    const postPayloads: any[] = [];
+    const postSpy = vi
+      .spyOn(PropertyValuesApi.prototype, 'propertyValuesPost')
+      .mockImplementation((req: any) => {
+        postPayloads.push(req);
+        return of([{ Status: 'success', Item: {} }]) as any;
+      });
+
+    try {
+      const { page } = await mount(false);
+      // Load default scope options when scope is empty
+      (page as any).loadScopeOptions('');
+      await settle();
+      expect(scopeCalls).toContain('');
+      expect((page as any).propertyValueScopeOptions.length).toBe(1);
+
+      // Insert resolver token into existing path text without overwriting
+      const valInput = page.shadowRoot?.querySelector(
+        '#newVariableValue'
+      ) as HTMLElement & { value: string };
+      valInput.value = '\\\\\\E$\\Apps\\';
+      const innerInput = valInput.querySelector('input');
+      if (innerInput) {
+        innerInput.value = '\\\\\\E$\\Apps\\';
+        innerInput.setSelectionRange(2, 2);
+      }
+      (page as any).insertTokenIntoValue('$ServerNames_STP_Strategies$');
+      expect(valInput.value).toBe(
+        '\\\\$ServerNames_STP_Strategies$\\E$\\Apps\\'
+      );
+
+      // Multi-select Default + STP UT 01 + STP PR 01 and submit batch
+      (page as any).toggleDefaultScopeSelection();
+      const envScopeCombo = page.shadowRoot?.querySelector(
+        '#envScope'
+      ) as HTMLElement & { value: string };
+      envScopeCombo.value = 'STP UT 01';
+      (page as any).queueCurrentEnvironmentScope();
+      envScopeCombo.value = 'STP PR 01';
+      (page as any).queueCurrentEnvironmentScope();
+      await settle();
+
+      expect((page as any).selectedVariableScopes).toEqual([
+        '',
+        'STP UT 01',
+        'STP PR 01'
+      ]);
+
+      (page as any)._addVariableValueClick();
+      await settle();
+
+      expect(postPayloads.length).toBe(1);
+      expect(
+        postPayloads[0].propertyValueDto.map(
+          (d: any) => d.PropertyValueFilter ?? ''
+        )
+      ).toEqual(['', 'STP UT 01', 'STP PR 01']);
+      page.remove();
+    } finally {
+      scopeSpy.mockRestore();
+      postSpy.mockRestore();
+    }
+  });
 });

@@ -103,10 +103,20 @@ namespace Dorc.PersistentData.Sources
             {
                 var foundProperty = context.Properties.FirstOrDefault(p => p.Name.Equals(property.Name));
                 if (foundProperty != null)
-                    return MapToPropertyApiModel(context.Properties.FirstOrDefault(p => p.Name.Equals(property.Name)));
+                    return MapToPropertyApiModel(foundProperty);
 
                 context.Properties.Add(MapToProperty(property));
-                context.SaveChanges();
+                try
+                {
+                    context.SaveChanges();
+                }
+                catch (DbUpdateException)
+                {
+                    var racedProperty = context.Properties.AsNoTracking().FirstOrDefault(p => p.Name.Equals(property.Name));
+                    if (racedProperty != null)
+                        return MapToPropertyApiModel(racedProperty);
+                    throw;
+                }
 
                 var prop = context.Properties.FirstOrDefault(p => p.Name.Equals(property.Name));
 

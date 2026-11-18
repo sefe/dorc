@@ -122,4 +122,40 @@ describe('grid data providers survive a host re-render', () => {
       scopeSpy.mockRestore();
     }
   });
+
+  it('displays explicit Secure = true warning banner on env-variables when EnvironmentSecure is true', async () => {
+    const el = document.createElement('env-variables') as HTMLElement & {
+      envLoaded: boolean;
+      environment: { EnvironmentName?: string; EnvironmentSecure?: boolean };
+      updateComplete: Promise<unknown>;
+    };
+    el.envLoaded = true;
+    el.environment = {
+      EnvironmentName: 'STP PR 01',
+      EnvironmentSecure: true
+    };
+    document.body.appendChild(el);
+    await el.updateComplete;
+    await settle();
+
+    const dismissible = el.shadowRoot?.querySelector('dismissible-item') as
+      | (HTMLElement & { message?: string })
+      | null;
+    expect(dismissible).to.not.equal(null);
+    expect(dismissible?.message).to.contain(
+      'This environment is secure (Secure = true): global (default) variable values are excluded during deployments'
+    );
+
+    el.environment = {
+      EnvironmentName: 'STP UT 01',
+      EnvironmentSecure: false
+    };
+    await el.updateComplete;
+    const nextDismissible = el.shadowRoot?.querySelector('dismissible-item') as
+      | (HTMLElement & { message?: string })
+      | null;
+    expect(nextDismissible?.message).to.contain('This environment is not secure');
+
+    el.remove();
+  });
 });

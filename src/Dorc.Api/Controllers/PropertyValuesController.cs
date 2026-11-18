@@ -78,6 +78,10 @@ namespace Dorc.Api.Controllers
                     return BadRequest(ex.Message);
                 }
             }
+            else if (string.IsNullOrWhiteSpace(propertyValueScope))
+            {
+                _variableScopeOptionsResolver.SetGlobalPropertyValues(_variableResolver, User);
+            }
 
             var props = _variableResolver.LocalProperties();
 

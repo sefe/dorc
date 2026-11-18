@@ -171,6 +171,11 @@ namespace Dorc.PersistentData.Sources
                 var property = context.Properties.First(p =>
                     EF.Functions.Collate(p.Name, DeploymentContext.CaseInsensitiveCollation)
                         == EF.Functions.Collate(propertyValueDto.Property.Name, DeploymentContext.CaseInsensitiveCollation));
+                if (propertyValueDto.Property.Secure && !property.Secure)
+                {
+                    throw new InvalidOperationException(
+                        "Error: property metadata - secure values don't match, and cannot be edited via this API");
+                }
                 var propertyValue = MapToPropertyValue(propertyValueDto, property);
                 if (property.Secure)
                 {

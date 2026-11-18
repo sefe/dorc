@@ -52,19 +52,18 @@ export function parsePropertyTokens(
     return [{ kind: 'static', value: input, rawText: input }];
   }
 
-  const braceMatch = BRACE_TOKEN_PATTERN.exec(input);
-  if (braceMatch) {
-    return [
-      {
-        kind: 'property',
-        propertyName: braceMatch[1],
-        rawText: input,
-        syntax: 'brace'
-      }
-    ];
-  }
-
   if (profile === 'brace-only') {
+    const braceMatch = BRACE_TOKEN_PATTERN.exec(input);
+    if (braceMatch) {
+      return [
+        {
+          kind: 'property',
+          propertyName: braceMatch[1],
+          rawText: input,
+          syntax: 'brace'
+        }
+      ];
+    }
     return [{ kind: 'static', value: input, rawText: input }];
   }
 
