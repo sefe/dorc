@@ -56,12 +56,9 @@ public sealed class DeploymentRequestTools
 
         if (outcome.Succeeded && outcome.Data?.Items is not null)
         {
-            foreach (var item in outcome.Data.Items)
+            foreach (var item in outcome.Data.Items.Where(i => !string.IsNullOrEmpty(i.RequestDetails)))
             {
-                if (!string.IsNullOrEmpty(item.RequestDetails))
-                {
-                    item.RequestDetails = SecretRedactor.RedactRequestDetailsXml(item.RequestDetails);
-                }
+                item.RequestDetails = SecretRedactor.RedactRequestDetailsXml(item.RequestDetails);
             }
         }
 

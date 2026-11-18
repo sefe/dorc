@@ -188,30 +188,27 @@ public static class SecretRedactor
                 return RedactedMarker;
             }
 
-            foreach (var kvp in rootObj.ToList())
+            var matchingArrays = rootObj
+                .Where(kvp => string.Equals(kvp.Key, "RequestProperties", StringComparison.OrdinalIgnoreCase))
+                .Select(kvp => kvp.Value)
+                .OfType<JsonArray>()
+                .ToList();
+
+            foreach (var propsArray in matchingArrays)
             {
-                if (string.Equals(kvp.Key, "RequestProperties", StringComparison.OrdinalIgnoreCase) &&
-                    kvp.Value is JsonArray propsArray)
+                foreach (var propObj in propsArray.OfType<JsonObject>())
                 {
-                    foreach (var propNode in propsArray)
+                    var propName = GetCaseInsensitiveProperty(propObj, "PropertyName")?.GetValue<string>();
+                    var isSensitiveNode = GetCaseInsensitiveProperty(propObj, "IsSensitive");
+                    var isSensitive = isSensitiveNode is not null &&
+                                      (isSensitiveNode.GetValueKind() == JsonValueKind.True ||
+                                       (isSensitiveNode.GetValueKind() == JsonValueKind.String &&
+                                        bool.TryParse(isSensitiveNode.GetValue<string>(), out var parsed) &&
+                                        parsed));
+
+                    if (isSensitive || IsLikelySensitiveName(propName))
                     {
-                        if (propNode is not JsonObject propObj)
-                        {
-                            continue;
-                        }
-
-                        var propName = GetCaseInsensitiveProperty(propObj, "PropertyName")?.GetValue<string>();
-                        var isSensitiveNode = GetCaseInsensitiveProperty(propObj, "IsSensitive");
-                        var isSensitive = isSensitiveNode is not null &&
-                                          (isSensitiveNode.GetValueKind() == JsonValueKind.True ||
-                                           (isSensitiveNode.GetValueKind() == JsonValueKind.String &&
-                                            bool.TryParse(isSensitiveNode.GetValue<string>(), out var parsed) &&
-                                            parsed));
-
-                        if (isSensitive || IsLikelySensitiveName(propName))
-                        {
-                            SetCaseInsensitiveProperty(propObj, "PropertyValue", RedactedMarker);
-                        }
+                        SetCaseInsensitiveProperty(propObj, "PropertyValue", RedactedMarker);
                     }
                 }
             }
