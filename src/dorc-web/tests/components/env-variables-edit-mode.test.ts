@@ -156,6 +156,31 @@ describe('grid data providers survive a host re-render', () => {
       | null;
     expect(nextDismissible?.message).to.contain('This environment is not secure');
 
+    // Non-destructive built-in variable insertion + one-click lone $ escape on env-variables
+    const valInput = el.shadowRoot?.querySelector(
+      '#newVariableValue'
+    ) as HTMLElement & { value: string };
+    valInput.value = '\\\\\\E$\\Apps\\';
+    const innerInput = valInput.querySelector('input');
+    if (innerInput) {
+      innerInput.value = '\\\\\\E$\\Apps\\';
+      innerInput.setSelectionRange(2, 2);
+    }
+    (el as any).insertTokenIntoValue('$ServerNames_STP_Strategies$');
+    expect(valInput.value).to.equal(
+      '\\\\$ServerNames_STP_Strategies$\\E$\\Apps\\'
+    );
+    await el.updateComplete;
+    const escapeBtn = el.shadowRoot?.querySelector(
+      '#escapeDollarBtn'
+    ) as HTMLButtonElement | null;
+    expect(escapeBtn).to.not.equal(null);
+    escapeBtn?.click();
+    await el.updateComplete;
+    expect(valInput.value).to.equal(
+      '\\\\$ServerNames_STP_Strategies$\\E$$\\Apps\\'
+    );
+
     el.remove();
   });
 });

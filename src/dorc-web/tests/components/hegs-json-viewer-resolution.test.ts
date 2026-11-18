@@ -7,6 +7,12 @@ import {
   resolveTokenSyntaxProfile
 } from '../../src/variable-resolution/property-token-parser';
 import {
+  formatResolutionSource,
+  inspectParameterBindingSyntax,
+  inspectUnescapedDollars,
+  presentTrace
+} from '../../src/variable-resolution/resolution-presentation';
+import {
   computeResolutionContextKey,
   PropertyResolutionClientCache
 } from '../../src/variable-resolution/property-resolution-client-cache';
@@ -73,8 +79,161 @@ describe('property-token-parser', () => {
       )
     ).to.equal('brace-only');
     expect(
+      resolveTokenSyntaxProfile('deployment-definition', 'arguments.0.Arg')
+    ).to.equal('brace-only');
+    expect(
       resolveTokenSyntaxProfile('script-arguments', 'OtherField')
     ).to.equal('standard');
+
+    // resolution-presentation coverage
+    expect(inspectUnescapedDollars('plain')).to.deep.equal({
+      hasUnclosedDollar: false,
+      hasOtherPropertyTokens: false,
+      escapedSuggestion: 'plain'
+    });
+    expect(
+      inspectUnescapedDollars('\\\\$ServerNames_App$\\E$\\Apps')
+    ).to.deep.equal({
+      hasUnclosedDollar: true,
+      hasOtherPropertyTokens: true,
+      escapedSuggestion: '\\\\$ServerNames_App$\\E$$\\Apps'
+    });
+    expect(inspectUnescapedDollars('\\\\host\\E$\\Apps')).to.deep.equal({
+      hasUnclosedDollar: true,
+      hasOtherPropertyTokens: false,
+      escapedSuggestion: '\\\\host\\E$$\\Apps'
+    });
+
+    expect(formatResolutionSource(undefined)).to.equal('Resolving…');
+    expect(
+      formatResolutionSource({ Source: 'RequestOverride' })
+    ).to.equal('Request Override');
+    expect(
+      formatResolutionSource({ Source: 'EnvironmentScope', ScopeName: 'UT1' })
+    ).to.equal('Set on UT1');
+    expect(
+      formatResolutionSource({ Source: 'EnvironmentScope' })
+    ).to.equal('Set on Current');
+    expect(
+      formatResolutionSource({
+        Source: 'AncestorEnvironmentScope',
+        ScopeName: 'ParentEnv'
+      })
+    ).to.equal('Inherited from ParentEnv');
+    expect(
+      formatResolutionSource({ Source: 'AncestorEnvironmentScope' })
+    ).to.equal('Inherited from Parent');
+    expect(formatResolutionSource({ Source: 'GlobalDefault' })).to.equal(
+      'Default (Global)'
+    );
+    expect(
+      formatResolutionSource({
+        Source: 'BuiltInScopeOption',
+        ValueType: 'Server'
+      })
+    ).to.equal('Built-in (Server)');
+    expect(
+      formatResolutionSource({ Source: 'BuiltInScopeOption' })
+    ).to.equal('Built-in (Scope)');
+    expect(
+      formatResolutionSource({ Source: 'ConfigValue', ScopeName: 'Prod' })
+    ).to.equal('Config (Prod)');
+    expect(formatResolutionSource({ Source: 'ConfigValue' })).to.equal(
+      'Config (Fallback)'
+    );
+    expect(formatResolutionSource({ Source: 'RuntimeOnly' })).to.equal(
+      'Deploy-Time Runtime'
+    );
+    expect(formatResolutionSource({ Source: 'Unresolved' })).to.equal(
+      'Not Set in Scope'
+    );
+
+    expect(presentTrace(undefined).severity).to.equal('pending');
+    expect(presentTrace({ IsSecure: true }).severity).to.equal('masked');
+    expect(presentTrace({ Diagnostic: 'Masked' }).severity).to.equal('masked');
+    expect(
+      presentTrace({
+        Diagnostic: 'ExpressionDeferred',
+        RawValue: 'fn:1+1'
+      }).diagnosticTitle
+    ).to.equal('fn: Evaluated at Deploy Time');
+    expect(
+      presentTrace({
+        Diagnostic: 'ExpressionBlockedByOverride'
+      }).diagnosticTitle
+    ).to.equal('fn: Expression Blocked by Override');
+    expect(
+      presentTrace({
+        Diagnostic: 'CircularReference',
+        RawValue: '$A$'
+      }).diagnosticTitle
+    ).to.equal('Circular Reference');
+    expect(
+      presentTrace({
+        Diagnostic: 'CircularReference'
+      }).effectiveDisplayValue
+    ).to.equal('(circular reference)');
+    expect(
+      presentTrace({ Source: 'RuntimeOnly' }).diagnosticTitle
+    ).to.equal('Populated at Deploy Time');
+    expect(
+      presentTrace({ Source: 'Unresolved' }).diagnosticTitle
+    ).to.equal('Not Defined in Scope');
+    expect(
+      presentTrace({
+        Source: 'EnvironmentScope',
+        Diagnostic: 'UnclosedToken',
+        RawValue: '\\\\$Server$\\E$\\Apps',
+        ResolvedValueJson: '"\\\\\\\\$Server$\\\\E$\\\\Apps"'
+      })
+    ).to.deep.include({
+      severity: 'warning',
+      effectiveDisplayValue: '\\\\$Server$\\E$\\Apps',
+      hasBlockedTokensByUnescapedDollar: true
+    });
+    expect(
+      presentTrace({
+        Source: 'EnvironmentScope',
+        Diagnostic: 'UnclosedToken',
+        ResolvedValueJson: '"\\\\\\\\host\\\\E$\\\\Apps"'
+      })
+    ).to.deep.include({
+      severity: 'resolved',
+      effectiveDisplayValue: '\\\\host\\E$\\Apps',
+      hasBlockedTokensByUnescapedDollar: false
+    });
+    expect(
+      presentTrace({
+        Source: 'GlobalDefault',
+        Diagnostic: 'FallbackToDefault',
+        ResolvedValueJson: '123'
+      })
+    ).to.deep.include({
+      severity: 'resolved',
+      effectiveDisplayValue: '123',
+      diagnosticTitle: 'Using Default (Global) Value'
+    });
+    expect(
+      presentTrace({
+        Source: 'EnvironmentScope',
+        Diagnostic: 'Ok',
+        ResolvedValueJson: 'not-valid-json'
+      }).effectiveDisplayValue
+    ).to.equal('not-valid-json');
+
+    expect(inspectParameterBindingSyntax('   ')).to.equal(undefined);
+    expect(inspectParameterBindingSyntax('${Valid_Var}')).to.equal(undefined);
+    expect(inspectParameterBindingSyntax('C:\\StaticPath')).to.equal(undefined);
+    expect(inspectParameterBindingSyntax('$Legacy_Var$')).to.deep.include({
+      kind: 'dollar-syntax',
+      suggestedVariableName: 'Legacy_Var'
+    });
+    expect(inspectParameterBindingSyntax('prefix-${Mixed}')).to.deep.include({
+      kind: 'mixed-text'
+    });
+    expect(inspectParameterBindingSyntax('prefix-$Mixed$')).to.deep.include({
+      kind: 'mixed-text'
+    });
 
     expect(parsePropertyTokens('$Host$', 'literal')).to.deep.equal([
       { kind: 'static', value: '$Host$', rawText: '$Host$' }
@@ -874,7 +1033,7 @@ describe('hegs-json-viewer contextual property resolution', () => {
     );
     await settle();
     const envField = defEditor.shadowRoot!.querySelector<HTMLElement>(
-      'vaadin-text-field[label="Preview as environment (optional)"]'
+      '#paramPreviewEnvCombo'
     )!;
     envField.dispatchEvent(
       new CustomEvent('value-changed', { detail: { value: 'Payments-UAT' } })

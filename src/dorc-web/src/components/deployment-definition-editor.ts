@@ -30,14 +30,19 @@ import {
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import { defaultPropertyResolutionClientCache } from '../variable-resolution/property-resolution-client-cache';
 import { parsePropertyTokens } from '../variable-resolution/property-token-parser';
+import {
+  inspectParameterBindingSyntax,
+  presentTrace
+} from '../variable-resolution/resolution-presentation';
 
 const CUSTOM_SCRIPT_OPTION = '__custom__';
 
 export interface ParameterResolutionPreview {
-  status: 'resolved' | 'unresolved' | 'masked';
+  status: 'resolved' | 'warning' | 'unresolved' | 'masked';
   resolvedText: string;
   tokenNames: string[];
   traces: PropertyResolutionTraceApiModel[];
+  detailMessage?: string;
 }
 
 export function evaluateParameterPreview(
@@ -56,8 +61,9 @@ export function evaluateParameterPreview(
   if (tokenNames.length === 0) return undefined;
 
   let out = '';
-  let status: 'resolved' | 'unresolved' | 'masked' = 'resolved';
+  let status: 'resolved' | 'warning' | 'unresolved' | 'masked' = 'resolved';
   const traces: PropertyResolutionTraceApiModel[] = [];
+  const details: string[] = [];
 
   for (const seg of segments) {
     if (seg.kind !== 'property') {
@@ -73,29 +79,33 @@ export function evaluateParameterPreview(
       continue;
     }
     traces.push(trace);
-    if (trace.IsSecure || trace.Diagnostic === 'Masked') {
+    const presented = presentTrace(trace);
+    if (presented.diagnosticDetail) {
+      details.push(`${seg.propertyName}: ${presented.diagnosticDetail}`);
+    }
+    if (presented.severity === 'masked') {
       status = 'masked';
-      out += '•••••••• (Secure)';
+      out += presented.effectiveDisplayValue;
       continue;
     }
-    if (
-      trace.Source === 'Unresolved' ||
-      trace.Source === 'RuntimeOnly' ||
-      (trace.Diagnostic != null &&
-        trace.Diagnostic !== 'Ok' &&
-        trace.Diagnostic !== 'FallbackToDefault') ||
-      typeof trace.ResolvedValueJson !== 'string'
-    ) {
+    if (!presented.hasEffectiveValue) {
       status = 'unresolved';
       out += seg.rawText;
       continue;
     }
-    const parsedVal: unknown = JSON.parse(trace.ResolvedValueJson);
-    out +=
-      typeof parsedVal === 'string' ? parsedVal : trace.ResolvedValueJson;
+    if (presented.severity === 'warning' && status === 'resolved') {
+      status = 'warning';
+    }
+    out += presented.effectiveDisplayValue;
   }
 
-  return { status, resolvedText: out, tokenNames, traces };
+  return {
+    status,
+    resolvedText: out,
+    tokenNames,
+    traces,
+    detailMessage: details.join(' · ')
+  };
 }
 
 @customElement('deployment-definition-editor')
@@ -108,6 +118,8 @@ export class DeploymentDefinitionEditor extends LitElement {
   @state() private availableProperties: PropertyApiModel[] = [];
   @state() private projectEnvironmentNames: string[] = [];
   @state() private activeParameterKey = '';
+  @state() private openPickerParamKey = '';
+  @state() private pickerFilterText = '';
   @state() private inlineCreateParamKey = '';
   @state() private inlineNewPropertyName = '';
   @state() private inlineNewPropertySecure = false;
@@ -237,13 +249,15 @@ export class DeploymentDefinitionEditor extends LitElement {
       flex: 1 1 200px;
     }
     .param-cell {
+      position: relative;
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 4px;
       min-width: 0;
     }
     .param-cell-actions {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
       gap: 6px;
@@ -258,11 +272,66 @@ export class DeploymentDefinitionEditor extends LitElement {
       padding: 0;
       text-decoration: underline;
     }
-    .param-preview-badge {
+    .param-bind-suffix-btn {
       display: inline-flex;
       align-items: center;
+      gap: 3px;
+      padding: 2px 7px;
+      border-radius: 5px;
+      border: 1px solid var(--dorc-border-color, rgba(148, 163, 184, 0.35));
+      background: var(--dorc-chip-bg, rgba(59, 130, 246, 0.1));
+      color: var(--dorc-link-color, #2563eb);
+      font-family: var(--lumo-font-family-monospace, monospace);
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+      line-height: 1.3;
+    }
+    .param-bind-suffix-btn:hover {
+      background: rgba(59, 130, 246, 0.2);
+    }
+    .param-picker-popover {
+      border: 1px solid var(--dorc-border-color, rgba(148, 163, 184, 0.35));
+      border-radius: 8px;
+      padding: 8px;
+      background: var(--lumo-base-color, #1e293b);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+      display: flex;
+      flex-direction: column;
       gap: 6px;
-      padding: 2px 8px;
+      z-index: 20;
+    }
+    .param-picker-list {
+      max-height: 160px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .param-picker-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 4px 8px;
+      border: none;
+      border-radius: 5px;
+      background: transparent;
+      color: inherit;
+      font-family: var(--lumo-font-family-monospace, monospace);
+      font-size: var(--lumo-font-size-xs);
+      text-align: left;
+      cursor: pointer;
+    }
+    .param-picker-item:hover {
+      background: rgba(59, 130, 246, 0.14);
+    }
+    .param-preview-badge {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 8px;
       border-radius: 6px;
       font-size: var(--lumo-font-size-xs);
       font-family: var(--lumo-font-family-monospace, monospace);
@@ -270,8 +339,21 @@ export class DeploymentDefinitionEditor extends LitElement {
       color: var(--dorc-chip-text, inherit);
       overflow-wrap: anywhere;
     }
-    .param-preview-badge[data-status='unresolved'] {
+    .param-preview-badge[data-status='unresolved'],
+    .param-preview-badge[data-status='warning'] {
       background: rgba(245, 158, 11, 0.16);
+    }
+    .param-syntax-hint {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: var(--lumo-font-size-xs);
+      background: rgba(245, 158, 11, 0.14);
+      border: 1px solid rgba(245, 158, 11, 0.35);
     }
     .inline-create-box {
       border: 1px solid var(--dorc-border-color);
@@ -316,6 +398,8 @@ export class DeploymentDefinitionEditor extends LitElement {
         this.inlineCreateSubmitting = false;
         this.inlineCreatedProperty = undefined;
         this.activeParameterKey = '';
+        this.openPickerParamKey = '';
+        this.pickerFilterText = '';
         this.inlineCreateParamKey = '';
         this.inlineCreateFeedback = '';
       }
@@ -428,6 +512,7 @@ export class DeploymentDefinitionEditor extends LitElement {
     this.inlineCreatedProperty = undefined;
     this.inlineCreateParamKey = paramKey;
     this.activeParameterKey = paramKey;
+    this.openPickerParamKey = '';
     this.inlineNewPropertyName = suggestedName;
     this.inlineNewPropertySecure = false;
     this.inlineNewPropertyDefaultValue = '';
@@ -649,18 +734,163 @@ export class DeploymentDefinitionEditor extends LitElement {
     });
   }
 
+  public toggleParameterPicker(paramKey: string) {
+    if (this.openPickerParamKey === paramKey) {
+      this.openPickerParamKey = '';
+      this.pickerFilterText = '';
+    } else {
+      this.openPickerParamKey = paramKey;
+      this.activeParameterKey = paramKey;
+      this.pickerFilterText = '';
+    }
+  }
+
+  private renderParameterVariableControls(
+    baseScriptPath: string,
+    currentArgs: Array<{ key: string; value: string }>,
+    paramKey: string,
+    currentVal: string,
+    isJsonPath: boolean
+  ) {
+    const syntaxWarning = inspectParameterBindingSyntax(currentVal);
+    const isPickerOpen =
+      !this.readonly &&
+      Boolean(paramKey) &&
+      this.openPickerParamKey === paramKey;
+    const filterLower = this.pickerFilterText.trim().toLowerCase();
+    const filteredProps = this.availableProperties
+      .filter(p =>
+        !filterLower
+          ? true
+          : (p.Name ?? '').toLowerCase().includes(filterLower)
+      )
+      .slice(0, 30);
+
+    return html`
+      ${
+        syntaxWarning
+          ? html`<div class="param-syntax-hint" role="status">
+              <span>${syntaxWarning.message}</span>
+              ${
+                !this.readonly && syntaxWarning.suggestedVariableName
+                  ? html`<button
+                      type="button"
+                      class="param-action-btn"
+                      @click=${() =>
+                        this.insertVariableIntoParameter(
+                          baseScriptPath,
+                          currentArgs,
+                          paramKey,
+                          syntaxWarning.suggestedVariableName!,
+                          isJsonPath
+                        )}
+                    >
+                      Use \${${syntaxWarning.suggestedVariableName}}
+                    </button>`
+                  : nothing
+              }
+            </div>`
+          : nothing
+      }
+      ${
+        isPickerOpen
+          ? html`<div
+              class="param-picker-popover"
+              role="dialog"
+              aria-label="Bind variable to ${paramKey}"
+            >
+              <vaadin-text-field
+                placeholder="Search variable for ${paramKey}..."
+                clear-button-visible
+                theme="small"
+                .value=${live(this.pickerFilterText)}
+                @input=${(e: Event) => {
+                  this.pickerFilterText = (
+                    e.currentTarget as HTMLInputElement
+                  ).value;
+                }}
+              ></vaadin-text-field>
+              <div class="param-picker-list">
+                ${filteredProps.map(
+                  prop => html`<button
+                    type="button"
+                    class="param-picker-item"
+                    @click=${() => {
+                      this.insertVariableIntoParameter(
+                        baseScriptPath,
+                        currentArgs,
+                        paramKey,
+                        prop.Name ?? '',
+                        isJsonPath
+                      );
+                      this.openPickerParamKey = '';
+                    }}
+                  >
+                    <span>\${${prop.Name}}</span>
+                    <span style="opacity:0.7"
+                      >${prop.Secure ? 'Secure' : 'Variable'}</span
+                    >
+                  </button>`
+                )}
+              </div>
+              <div
+                style="display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--dorc-border-color); padding-top:4px;"
+              >
+                <button
+                  type="button"
+                  class="param-action-btn"
+                  @click=${() =>
+                    this.openInlineVariableCreator(
+                      paramKey,
+                      this.pickerFilterText.trim()
+                    )}
+                >
+                  + New variable for ${paramKey}
+                </button>
+                <button
+                  type="button"
+                  class="param-action-btn"
+                  @click=${() => {
+                    this.openPickerParamKey = '';
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>`
+          : nothing
+      }
+      <div class="param-cell-actions">
+        ${this.renderParameterResolutionPreviewBadge(currentVal)}
+        ${
+          !this.readonly && paramKey
+            ? html`<button
+                type="button"
+                class="param-action-btn"
+                @click=${() => this.openInlineVariableCreator(paramKey)}
+              >
+                + Create variable for ${paramKey}
+              </button>`
+            : nothing
+        }
+      </div>
+    `;
+  }
+
   private renderParameterResolutionPreviewBadge(rawVal: string) {
     const preview = evaluateParameterPreview(
       rawVal,
       this.previewTracesByProperty
     );
     if (!preview) return nothing;
-    const scopeSummary = preview.traces
-      .map(
-        t =>
-          `${t.PropertyName}: ${t.ScopeName || '(default)'} (${t.Source ?? 'Unresolved'})`
-      )
-      .join(' · ');
+    const scopeSummary =
+      preview.detailMessage ||
+      preview.traces
+        .map(
+          t =>
+            `${t.PropertyName}: ${t.ScopeName || 'Default'} (${t.Source ?? 'Unresolved'})`
+        )
+        .join(' · ');
     return html`<div
       class="param-preview-badge"
       data-status=${preview.status}
@@ -670,7 +900,7 @@ export class DeploymentDefinitionEditor extends LitElement {
         >${
           this.previewEnvironmentName
             ? `Resolves in ${this.previewEnvironmentName}:`
-            : 'Resolves (default):'
+            : 'Resolves (Default):'
         }</span
       >
       <strong>${preview.resolvedText}</strong>
@@ -751,16 +981,6 @@ export class DeploymentDefinitionEditor extends LitElement {
         @change=${update}
       ></vaadin-text-area>
       <span class="json-preview-label">Parsed JSON path</span>
-      <vaadin-text-field
-        label="Preview as environment (optional)"
-        placeholder="Environment name..."
-        clear-button-visible
-        theme="small"
-        .value=${live(this.previewEnvironmentName)}
-        @value-changed=${(event: CustomEvent<{ value: string }>) => {
-          this.previewEnvironmentName = event.detail.value ?? '';
-        }}
-      ></vaadin-text-field>
       <hegs-json-viewer
         class="json-preview"
         .data=${parsed}
@@ -780,6 +1000,8 @@ export class DeploymentDefinitionEditor extends LitElement {
     this.inlineCreateSubmitting = false;
     this.inlineCreatedProperty = undefined;
     this.activeParameterKey = '';
+    this.openPickerParamKey = '';
+    this.pickerFilterText = '';
     this.inlineCreateParamKey = '';
     this.inlineCreateFeedback = '';
     if (!templatePath || templatePath === CUSTOM_SCRIPT_OPTION) {
@@ -931,55 +1153,11 @@ export class DeploymentDefinitionEditor extends LitElement {
                       this.previewEnvironmentName = event.detail ?? '';
                     }}
                   ></vaadin-combo-box>
-                  <vaadin-combo-box
-                    id="paramVariablePicker"
-                    label="Insert ${'${PropertyName}'} into ${
-                      this.activeParameterKey ||
-                      template?.parameters[0]?.name ||
-                      'parameter'
-                    }"
-                    placeholder="Autocomplete existing ${'${PropertyName}'}..."
-                    clear-button-visible
-                    theme="small"
-                    .items=${this.availableProperties.map(p => ({
-                      label: `\${${p.Name ?? ''}}`,
-                      value: p.Name ?? ''
-                    }))}
-                    item-label-path="label"
-                    item-value-path="value"
-                    .disabled=${this.readonly}
-                    @value-changed=${(event: CustomEvent<{ value: string }>) => {
-                      const chosen = event.detail?.value ?? '';
-                      const validActiveKey =
-                        this.activeParameterKey &&
-                        (knownParamNames.has(
-                          this.activeParameterKey.toLowerCase()
-                        ) ||
-                          parsed.arguments.some(
-                            a =>
-                              a.key.toLowerCase() ===
-                              this.activeParameterKey.toLowerCase()
-                          ))
-                          ? this.activeParameterKey
-                          : '';
-                      const targetParam =
-                        validActiveKey ||
-                        template?.parameters[0]?.name ||
-                        parsed.arguments[0]?.key ||
-                        '';
-                      if (chosen && targetParam) {
-                        this.insertVariableIntoParameter(
-                          template?.scriptPath ?? parsed.scriptPath,
-                          parsed.arguments,
-                          targetParam,
-                          chosen,
-                          parsed.isJsonPath
-                        );
-                        (event.currentTarget as HTMLElement & { value: string }).value =
-                          '';
-                      }
-                    }}
-                  ></vaadin-combo-box>
+                  <span class="env-props">
+                    Click <code>${'{x}'}</code> inside any parameter field to
+                    bind an existing <code>${'${VariableName}'}</code> or create
+                    a new variable.
+                  </span>
                 </div>
                 ${
                   this.inlineCreateFeedback
@@ -1076,6 +1254,21 @@ export class DeploymentDefinitionEditor extends LitElement {
                                 (event.currentTarget as HTMLInputElement).value,
                                 parsed.isJsonPath
                               );
+                            const suffixBtn = !this.readonly
+                              ? html`<button
+                                  type="button"
+                                  slot="suffix"
+                                  class="param-bind-suffix-btn"
+                                  title="Bind variable (\${VariableName}) to ${param.name}"
+                                  aria-label="Bind variable to ${param.name}"
+                                  @click=${(e: Event) => {
+                                    e.stopPropagation();
+                                    this.toggleParameterPicker(param.name);
+                                  }}
+                                >
+                                  ${'{x}'}
+                                </button>`
+                              : nothing;
                             return html`<div class="param-cell">
                               ${
                                 param.options
@@ -1129,7 +1322,8 @@ export class DeploymentDefinitionEditor extends LitElement {
                                       }}
                                       @input=${updateParam}
                                       @change=${updateParam}
-                                    ></vaadin-combo-box>`
+                                      >${suffixBtn}</vaadin-combo-box
+                                    >`
                                   : html`<vaadin-text-field
                                       .label=${param.label}
                                       .placeholder=${param.placeholder ?? ''}
@@ -1142,27 +1336,16 @@ export class DeploymentDefinitionEditor extends LitElement {
                                       }}
                                       @input=${updateParam}
                                       @change=${updateParam}
-                                    ></vaadin-text-field>`
+                                      >${suffixBtn}</vaadin-text-field
+                                    >`
                               }
-                              <div class="param-cell-actions">
-                                ${this.renderParameterResolutionPreviewBadge(
-                                  currentVal
-                                )}
-                                ${
-                                  !this.readonly
-                                    ? html`<button
-                                        type="button"
-                                        class="param-action-btn"
-                                        @click=${() =>
-                                          this.openInlineVariableCreator(
-                                            param.name
-                                          )}
-                                      >
-                                        + Create variable for ${param.name}
-                                      </button>`
-                                    : nothing
-                                }
-                              </div>
+                              ${this.renderParameterVariableControls(
+                                template.scriptPath,
+                                parsed.arguments,
+                                param.name,
+                                currentVal,
+                                parsed.isJsonPath
+                              )}
                             </div>`;
                           })}
                         </div>
@@ -1217,22 +1400,32 @@ export class DeploymentDefinitionEditor extends LitElement {
                         }}
                         @input=${updateValue}
                         @change=${updateValue}
-                      ></vaadin-text-field>
-                      <div class="param-cell-actions">
-                        ${this.renderParameterResolutionPreviewBadge(arg.value)}
+                      >
                         ${
                           !this.readonly && arg.key
                             ? html`<button
                                 type="button"
-                                class="param-action-btn"
-                                @click=${() =>
-                                  this.openInlineVariableCreator(arg.key)}
+                                slot="suffix"
+                                class="param-bind-suffix-btn"
+                                title="Bind variable (\${VariableName}) to ${arg.key}"
+                                aria-label="Bind variable to ${arg.key}"
+                                @click=${(e: Event) => {
+                                  e.stopPropagation();
+                                  this.toggleParameterPicker(arg.key);
+                                }}
                               >
-                                + Create variable for ${arg.key}
+                                ${'{x}'}
                               </button>`
                             : nothing
                         }
-                      </div>
+                      </vaadin-text-field>
+                      ${this.renderParameterVariableControls(
+                        template?.scriptPath ?? parsed.scriptPath,
+                        parsed.arguments,
+                        arg.key,
+                        arg.value,
+                        true
+                      )}
                     </div>
                     <vaadin-button
                       theme="tertiary"

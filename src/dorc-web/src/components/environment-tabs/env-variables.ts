@@ -47,6 +47,7 @@ import '@vaadin/combo-box';
 import '@vaadin/text-field';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import { firstValueFrom, Observable } from 'rxjs';
+import { inspectUnescapedDollars } from '../../variable-resolution/resolution-presentation';
 
 const variableValue = 'PropertyValue';
 const variableName = 'Property';
@@ -98,6 +99,8 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   isShowDefaultProps: boolean = false;
 
   @state() private _editingValueId: number | undefined;
+
+  @state() draftNewVariableValue = '';
 
   static get styles() {
     return css`
@@ -158,6 +161,39 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
 
       .env-variable-add-actions {
         padding-top: 16px;
+      }
+
+      .value-resolver-stack {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: flex-end;
+        width: 100%;
+      }
+
+      .dollar-lint-banner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 4px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: var(--lumo-font-size-xs, 0.78rem);
+        background: rgba(245, 158, 11, 0.14);
+        border: 1px solid rgba(245, 158, 11, 0.35);
+      }
+
+      .dollar-lint-btn {
+        border: none;
+        background: transparent;
+        color: var(--dorc-link-color);
+        font-size: var(--lumo-font-size-xs, 0.78rem);
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: underline;
+        padding: 0;
       }
 
       @keyframes spin {
@@ -375,17 +411,41 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                           }
                         </td>
                         <td style="vertical-align: top; width: 100%;">
-                          <vaadin-combo-box
-                            allow-custom-value
-                            .items="${this.propertyValueScopeOptions}"
-                            item-label-path="ValueOption"
-                            item-value-path="ValueOption"
-                            ${comboBoxRenderer(this.comboboxRenderer, [])}
-                            id="newVariableValue"
-                            label="Value"
-                            style="min-width: 400px; width: 100%"
-                            helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
-                          ></vaadin-combo-box>
+                          <div class="value-resolver-stack">
+                            <vaadin-text-field
+                              id="newVariableValue"
+                              clear-button-visible
+                              label="Value"
+                              placeholder="e.g. \\\\$ServerNames_STP_Strategies$\\E$$\\Apps\\..."
+                              style="min-width: 320px; flex: 1 1 320px;"
+                              helper-text="Use $VariableName$ or built-in tokens; use $$ for a literal $ (e.g. E$$)"
+                              @input="${(e: Event) => {
+                                this.draftNewVariableValue = (
+                                  e.currentTarget as HTMLInputElement
+                                ).value;
+                              }}"
+                              @value-changed="${(
+                                e: CustomEvent<{ value?: string }>
+                              ) => {
+                                this.draftNewVariableValue =
+                                  e.detail?.value ?? '';
+                              }}"
+                            ></vaadin-text-field>
+                            <vaadin-combo-box
+                              id="scopeOptionPicker"
+                              .items="${this.propertyValueScopeOptions}"
+                              item-label-path="ValueOption"
+                              item-value-path="ValueOption"
+                              ${comboBoxRenderer(this.comboboxRenderer, [])}
+                              clear-button-visible
+                              label="Insert Built-in Variable ($x$)"
+                              placeholder="Insert $ServerNames_&lt;Tag&gt;$..."
+                              style="min-width: 260px; flex: 0 1 300px;"
+                              helper-text="Inserts into Value at cursor without overwriting"
+                              @value-changed="${this._onScopeOptionPicked}"
+                            ></vaadin-combo-box>
+                          </div>
+                          ${this.renderDollarEscapeHint()}
                         </td>
                         <td style="vertical-align: top;">
                           <div class="env-variable-add-actions">
@@ -1088,6 +1148,77 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
       </div>
     </div>
   `;
+
+  public insertTokenIntoValue(token: string) {
+    if (!token) return;
+    const textField = this.shadowRoot?.querySelector(
+      '#newVariableValue'
+    ) as unknown as (TextField & { inputElement?: HTMLInputElement }) | null;
+    if (!textField) return;
+    const current = textField.value ?? '';
+    const innerInput =
+      textField.inputElement ??
+      (textField.querySelector('input') as HTMLInputElement | null) ??
+      (textField.shadowRoot?.querySelector('input') as HTMLInputElement | null);
+    if (
+      innerInput &&
+      typeof innerInput.selectionStart === 'number' &&
+      typeof innerInput.selectionEnd === 'number'
+    ) {
+      const start = innerInput.selectionStart;
+      const end = innerInput.selectionEnd;
+      const nextVal = current.slice(0, start) + token + current.slice(end);
+      textField.value = nextVal;
+      innerInput.value = nextVal;
+      const nextPos = start + token.length;
+      innerInput.setSelectionRange(nextPos, nextPos);
+    } else {
+      textField.value = current + token;
+    }
+    this.draftNewVariableValue = textField.value;
+  }
+
+  _onScopeOptionPicked(event: CustomEvent<{ value?: string }>) {
+    const picker = event.target as ComboBox | null;
+    const token = event.detail?.value ?? picker?.value ?? '';
+    if (!token) return;
+    this.insertTokenIntoValue(token);
+    if (picker) {
+      picker.value = '';
+    }
+  }
+
+  public escapeLiteralDollarsInValue() {
+    const textField = this.shadowRoot?.querySelector(
+      '#newVariableValue'
+    ) as unknown as TextField | null;
+    if (!textField) return;
+    const inspection = inspectUnescapedDollars(textField.value ?? '');
+    textField.value = inspection.escapedSuggestion;
+    this.draftNewVariableValue = inspection.escapedSuggestion;
+  }
+
+  private renderDollarEscapeHint() {
+    const inspection = inspectUnescapedDollars(this.draftNewVariableValue);
+    if (!inspection.hasUnclosedDollar) return html``;
+    return html`<div class="dollar-lint-banner" role="status">
+      <span
+        >${
+          inspection.hasOtherPropertyTokens
+            ? 'Unescaped $ (such as E$) will prevent other $Variable$ tokens in this value from expanding.'
+            : 'Contains a single $ (such as E$). Escape as $$ if you combine this path with $Variable$ tokens.'
+        }</span
+      >
+      <button
+        type="button"
+        id="escapeDollarBtn"
+        class="dollar-lint-btn"
+        @click="${() => this.escapeLiteralDollarsInValue()}"
+      >
+        Escape literal $ as $$
+      </button>
+    </div>`;
+  }
 
   _propNameValueChanged(data: CustomEvent) {
     if (data) {

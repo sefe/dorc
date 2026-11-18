@@ -955,6 +955,53 @@ describe('definition history and discovery', () => {
       resolvedText: '${Missing_Var}'
     });
 
+    // UnclosedToken trace with lone literal $ (e.g. E$) still resolves effective path
+    traceMap.set('Unc_Admin_Share', {
+      PropertyName: 'Unc_Admin_Share',
+      Source: 'EnvironmentScope',
+      ScopeName: 'STP UT 01',
+      Diagnostic: 'UnclosedToken',
+      RawValue: '\\\\stp-ut-01\\E$\\Apps\\DAS_Paper',
+      ResolvedValueJson: '"\\\\\\\\stp-ut-01\\\\E$\\\\Apps\\\\DAS_Paper"'
+    });
+    expect(
+      evaluateParameterPreview('${Unc_Admin_Share}', traceMap)
+    ).to.deep.include({
+      status: 'resolved',
+      resolvedText: '\\\\stp-ut-01\\E$\\Apps\\DAS_Paper'
+    });
+
+    // UnclosedToken trace with blocked $ServerNames_X$ yields 'warning' status with effective path
+    traceMap.set('Unc_Blocked_Share', {
+      PropertyName: 'Unc_Blocked_Share',
+      Source: 'EnvironmentScope',
+      ScopeName: 'STP UT 01',
+      Diagnostic: 'UnclosedToken',
+      RawValue: '\\\\$ServerNames_App$\\E$\\Apps\\DAS_Paper',
+      ResolvedValueJson: '"\\\\\\\\$ServerNames_App$\\\\E$\\\\Apps\\\\DAS_Paper"'
+    });
+    expect(
+      evaluateParameterPreview('${Unc_Blocked_Share}', traceMap)
+    ).to.deep.include({
+      status: 'warning',
+      resolvedText: '\\\\$ServerNames_App$\\E$\\Apps\\DAS_Paper'
+    });
+
+    // Masked trace
+    traceMap.set('Secret_Var', {
+      PropertyName: 'Secret_Var',
+      Source: 'EnvironmentScope',
+      IsSecure: true,
+      Diagnostic: 'Masked',
+      ResolvedValueJson: '"masked"'
+    });
+    expect(
+      evaluateParameterPreview('${Secret_Var}', traceMap)
+    ).to.deep.include({
+      status: 'masked',
+      resolvedText: '•••••••• (Secure)'
+    });
+
     const editor = await fixture<DeploymentDefinitionEditor>(
       html`<deployment-definition-editor
         .project=${{ ProjectId: 7, ProjectName: 'Payments' }}
@@ -1002,6 +1049,31 @@ describe('definition history and discovery', () => {
     expect(latestPatch[0].ScriptPath).to.include(
       '{"sourcePath":"${STP_DAS_Paper_DestinationPath}"}'
     );
+
+    // Toggle per-field {x} variable picker popover and filter/select variable
+    editor.toggleParameterPicker('sourcePath');
+    await editor.updateComplete;
+    const popover = editor.shadowRoot!.querySelector('.param-picker-popover');
+    expect(popover).not.to.equal(null);
+
+    const searchInput = popover!.querySelector('vaadin-text-field')!;
+    (searchInput as unknown as { value: string }).value = 'STP_DAS';
+    searchInput.dispatchEvent(new Event('input'));
+    await editor.updateComplete;
+
+    const firstPickerItem =
+      popover!.querySelector<HTMLButtonElement>('.param-picker-item');
+    firstPickerItem?.click();
+    await editor.updateComplete;
+    expect(editor.shadowRoot!.querySelector('.param-picker-popover')).to.equal(
+      null
+    );
+
+    // Toggle open and close
+    editor.toggleParameterPicker('sourcePath');
+    await editor.updateComplete;
+    editor.toggleParameterPicker('sourcePath');
+    await editor.updateComplete;
 
     // Inline variable creation for destinationPath with initial default/scoped value
     editor.openInlineVariableCreator(

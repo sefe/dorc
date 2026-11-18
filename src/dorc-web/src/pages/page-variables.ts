@@ -43,6 +43,7 @@ import '@vaadin/icons';
 import { navigate } from '../router/router';
 import '@vaadin/tooltip';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { inspectUnescapedDollars } from '../variable-resolution/resolution-presentation';
 
 @customElement('page-variables')
 export class PageVariables extends PageElement {
@@ -96,6 +97,8 @@ export class PageVariables extends PageElement {
   private addValueGeneration = 0;
 
   @state() selectedVariableScopes: string[] = [];
+
+  @state() draftNewVariableValue = '';
 
   @property({ type: Boolean }) existingPropertySelected = false;
 
@@ -236,6 +239,31 @@ export class PageVariables extends PageElement {
         gap: 8px;
         align-items: flex-end;
         width: 100%;
+      }
+
+      .dollar-lint-banner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 4px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: var(--lumo-font-size-xs, 0.78rem);
+        background: rgba(245, 158, 11, 0.14);
+        border: 1px solid rgba(245, 158, 11, 0.35);
+      }
+
+      .dollar-lint-btn {
+        border: none;
+        background: transparent;
+        color: var(--dorc-link-color);
+        font-size: var(--lumo-font-size-xs, 0.78rem);
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: underline;
+        padding: 0;
       }
     `;
   }
@@ -440,9 +468,17 @@ export class PageVariables extends PageElement {
                           ?disabled="${!this.existingPropertySelected}"
                           clear-button-visible
                           label="Value"
-                          placeholder="e.g. \\\\$ServerNames_STP_Strategies$\\E$\\Apps\\..."
+                          placeholder="e.g. \\\\$ServerNames_STP_Strategies$\\E$$\\Apps\\..."
                           style="min-width: 320px; flex: 1 1 320px;"
-                          helper-text="Specify value directly or insert resolver tokens without overwriting existing text"
+                          helper-text="Use $VariableName$ or built-in tokens; use $$ for a literal $ (e.g. E$$)"
+                          @input="${(e: Event) => {
+                            this.draftNewVariableValue = (
+                              e.currentTarget as HTMLInputElement
+                            ).value;
+                          }}"
+                          @value-changed="${(e: CustomEvent<{ value?: string }>) => {
+                            this.draftNewVariableValue = e.detail?.value ?? '';
+                          }}"
                         ></vaadin-text-field>
                         <vaadin-combo-box
                           id="scopeOptionPicker"
@@ -452,13 +488,14 @@ export class PageVariables extends PageElement {
                           ${comboBoxRenderer(this.comboboxRenderer, [])}
                           ?disabled="${!this.existingPropertySelected}"
                           clear-button-visible
-                          label="Insert Resolver Token"
+                          label="Insert Built-in Variable ($x$)"
                           placeholder="Insert $ServerNames_&lt;Tag&gt;$..."
                           style="min-width: 260px; flex: 0 1 300px;"
-                          helper-text="Inserts into Value at cursor"
+                          helper-text="Inserts into Value at cursor without overwriting"
                           @value-changed="${this._onScopeOptionPicked}"
                         ></vaadin-combo-box>
                       </div>
+                      ${this.renderDollarEscapeHint()}
                     </td>
                     <td style="vertical-align: center;">
                       <vaadin-button
@@ -992,6 +1029,39 @@ export class PageVariables extends PageElement {
     } else {
       textField.value = current + token;
     }
+    this.draftNewVariableValue = textField.value;
+  }
+
+  public escapeLiteralDollarsInValue() {
+    const textField = this.shadowRoot?.querySelector(
+      '#newVariableValue'
+    ) as unknown as TextField | null;
+    if (!textField) return;
+    const inspection = inspectUnescapedDollars(textField.value ?? '');
+    textField.value = inspection.escapedSuggestion;
+    this.draftNewVariableValue = inspection.escapedSuggestion;
+  }
+
+  private renderDollarEscapeHint() {
+    const inspection = inspectUnescapedDollars(this.draftNewVariableValue);
+    if (!inspection.hasUnclosedDollar) return html``;
+    return html`<div class="dollar-lint-banner" role="status">
+      <span
+        >${
+          inspection.hasOtherPropertyTokens
+            ? 'Unescaped $ (such as E$) will prevent other $Variable$ tokens in this value from expanding.'
+            : 'Contains a single $ (such as E$). Escape as $$ if you combine this path with $Variable$ tokens.'
+        }</span
+      >
+      <button
+        type="button"
+        id="escapeDollarBtn"
+        class="dollar-lint-btn"
+        @click="${() => this.escapeLiteralDollarsInValue()}"
+      >
+        Escape literal $ as $$
+      </button>
+    </div>`;
   }
 
   _onScopeOptionPicked(event: CustomEvent<{ value?: string }>) {

@@ -16,6 +16,7 @@ import {
   PropertyResolutionClientCache,
   PropertyResolutionContext
 } from '../variable-resolution/property-resolution-client-cache';
+import { presentTrace } from '../variable-resolution/resolution-presentation';
 import {
   extractReferencedPropertyNames,
   ParsedPropertyToken,
@@ -117,7 +118,8 @@ export function evaluateStringWithTraces(
       trace.Source === 'RuntimeOnly' ||
       (trace.Diagnostic != null &&
         trace.Diagnostic !== 'Ok' &&
-        trace.Diagnostic !== 'FallbackToDefault') ||
+        trace.Diagnostic !== 'FallbackToDefault' &&
+        trace.Diagnostic !== 'UnclosedToken') ||
       trace.ResolvedValueJson == null
     ) {
       return {
@@ -1257,6 +1259,13 @@ export class HegsJsonViewer extends LitElement {
     const propName = this.activeInspectedProperty;
     const trace = this.traces.get(propName);
     const badge = getTokenBadgeAppearance(trace);
+    const presented = presentTrace(trace);
+    const usesBraceSyntax =
+      this.resolutionContext?.locationKind === 'deployment-definition' ||
+      this.resolutionContext?.locationKind === 'script-arguments';
+    const tokenDisplayTitle = usesBraceSyntax
+      ? `\${${propName}}`
+      : `$${propName}$`;
     const rawScope =
       trace?.Source === 'GlobalDefault'
         ? ''
@@ -1269,7 +1278,7 @@ export class HegsJsonViewer extends LitElement {
       <div class="inspector-card" part="inspector-card">
         <div class="inspector-header">
           <div class="inspector-title">
-            <strong>$${propName}$</strong>
+            <strong>${tokenDisplayTitle}</strong>
             <span class="token-chip ${badge.cssClass}"
               >${badge.badgeLabel}</span
             >
@@ -1290,10 +1299,20 @@ export class HegsJsonViewer extends LitElement {
           >
           <span class="inspector-label">Resolved</span>
           <code class="inspector-code"
-            >${trace?.ResolvedValueJson ?? '(unresolved)'}</code
+            >${
+              presented.hasEffectiveValue
+                ? presented.effectiveDisplayValue
+                : (trace?.ResolvedValueJson ?? '(unresolved)')
+            }</code
           >
           <span class="inspector-label">Diagnostic</span>
-          <code class="inspector-code">${trace?.Diagnostic ?? 'Pending'}</code>
+          <code class="inspector-code"
+            >${
+              trace?.Diagnostic
+                ? `${trace.Diagnostic} — ${presented.diagnosticTitle}`
+                : 'Pending'
+            }</code
+          >
         </div>
         ${
           trace?.ResolutionChain && trace.ResolutionChain.length > 0

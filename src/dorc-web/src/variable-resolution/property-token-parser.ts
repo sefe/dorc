@@ -30,10 +30,14 @@ export function resolveTokenSyntaxProfile(
     locationKind === 'script-arguments' ||
     locationKind === 'deployment-definition'
   ) {
-    if (jsonPath === 'ScriptPath') {
+    const lowerPath = jsonPath.toLowerCase();
+    if (lowerPath === 'scriptpath') {
       return 'literal';
     }
-    if (jsonPath.startsWith('GenericArguments.')) {
+    if (
+      lowerPath.startsWith('genericarguments.') ||
+      lowerPath.startsWith('arguments.')
+    ) {
       return 'brace-only';
     }
   }

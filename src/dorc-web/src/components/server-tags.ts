@@ -119,8 +119,8 @@ export class ServerTags extends LitElement {
         aria-label="Exposed server tag tokens"
       >
         <span class="token-hints-label">
-          Deployment variable token${tokens.length === 1 ? '' : 's'} exposed by
-          server tags:
+          Built-in variable token${tokens.length === 1 ? '' : 's'} exposed by
+          server tags (for use in Variable Values):
         </span>
         ${
           tokens.length > 0

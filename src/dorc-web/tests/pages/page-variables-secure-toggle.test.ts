@@ -181,6 +181,18 @@ describe('page-variables Secure toggle', () => {
         '\\\\$ServerNames_STP_Strategies$\\E$\\Apps\\'
       );
 
+      // One-click escape of lone $ (E$ -> E$$) while keeping $ServerNames_STP_Strategies$ intact
+      await settle();
+      const escapeBtn = page.shadowRoot?.querySelector(
+        '#escapeDollarBtn'
+      ) as HTMLButtonElement | null;
+      expect(escapeBtn).not.toBeNull();
+      escapeBtn?.click();
+      await settle();
+      expect(valInput.value).toBe(
+        '\\\\$ServerNames_STP_Strategies$\\E$$\\Apps\\'
+      );
+
       // Multi-select Default + STP UT 01 + STP PR 01 and submit batch
       (page as any).toggleDefaultScopeSelection();
       const envScopeCombo = page.shadowRoot?.querySelector(
