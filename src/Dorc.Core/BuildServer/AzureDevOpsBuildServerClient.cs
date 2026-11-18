@@ -12,10 +12,19 @@ namespace Dorc.Core.BuildServer
     public class AzureDevOpsBuildServerClient : IBuildServerClient
     {
         private readonly ILoggerFactory _loggerFactory;
+        private readonly Func<string, IAzureDevOpsServerWebClient>? _clientFactory;
 
         public AzureDevOpsBuildServerClient(ILoggerFactory loggerFactory)
+            : this(loggerFactory, null)
+        {
+        }
+
+        internal AzureDevOpsBuildServerClient(
+            ILoggerFactory loggerFactory,
+            Func<string, IAzureDevOpsServerWebClient>? clientFactory)
         {
             _loggerFactory = loggerFactory;
+            _clientFactory = clientFactory;
         }
 
         public IEnumerable<DeployableArtefact> GetDefinitions(string serverUrl, string projectPaths, string buildRegex)
@@ -84,7 +93,8 @@ namespace Dorc.Core.BuildServer
                 var artifacts = client.GetBuildArtifacts(serverUrl, tfsProject, (int)buildValue.Id);
                 if (artifacts.Count > 1)
                 {
-                    var drop = artifacts.FirstOrDefault(v => v.Name.Equals("drop"));
+                    var drop = artifacts.FirstOrDefault(v =>
+                        string.Equals(v.Name, "drop", StringComparison.OrdinalIgnoreCase));
                     if (drop != null) return drop.Resource.DownloadUrl;
                 }
                 else if (artifacts.Count == 1)
@@ -191,10 +201,12 @@ namespace Dorc.Core.BuildServer
             return (parts[0].Trim(), parts[1].Trim());
         }
 
-        private AzureDevOpsServerWebClient CreateClient(string serverUrl)
+        private IAzureDevOpsServerWebClient CreateClient(string serverUrl)
         {
-            return new AzureDevOpsServerWebClient(serverUrl,
-                _loggerFactory.CreateLogger<AzureDevOpsServerWebClient>());
+            return _clientFactory != null
+                ? _clientFactory(serverUrl)
+                : new AzureDevOpsServerWebClient(serverUrl,
+                    _loggerFactory.CreateLogger<AzureDevOpsServerWebClient>());
         }
     }
 }
