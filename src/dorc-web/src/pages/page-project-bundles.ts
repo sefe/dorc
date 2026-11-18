@@ -19,7 +19,8 @@ import {
   BundledRequestsApi,
   BundledRequestsApiModel,
   RefDataProjectEnvironmentMappingsApi,
-  EnvironmentApiModelTemplateApiModel
+  EnvironmentApiModelTemplateApiModel,
+  RequestProperty
 } from '../apis/dorc-api';
 import { ErrorNotification } from '../components/notifications/error-notification.ts';
 import { Grid } from '@vaadin/grid';
@@ -45,6 +46,31 @@ import '../components/project-workspace-nav';
  * callback each time is what makes `ref` re-run, since expansion is only
  * exposed as a method.
  */
+export function extractBundleRequestOverrides(
+  parsed: unknown,
+  environmentName?: string
+): RequestProperty[] {
+  const overrides: RequestProperty[] = [];
+  if (environmentName) {
+    overrides.push({
+      PropertyName: 'TargetEnvironmentName',
+      PropertyValue: environmentName
+    });
+  }
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    const reqProps = (parsed as { RequestProperties?: RequestProperty[] })
+      .RequestProperties;
+    if (Array.isArray(reqProps)) {
+      for (const rp of reqProps) {
+        if (rp?.PropertyName?.trim()) {
+          overrides.push(rp);
+        }
+      }
+    }
+  }
+  return overrides;
+}
+
 const showJson =
   (
     raw: string | null | undefined,
@@ -54,10 +80,17 @@ const showJson =
   (element?: Element) => {
     if (!element) return;
     const viewer = element as unknown as HegsJsonViewer;
-    viewer.data = parseJson(raw);
+    const parsed = parseJson(raw);
+    const requestOverrides = extractBundleRequestOverrides(
+      parsed,
+      environmentName
+    );
+    viewer.data = parsed;
     viewer.resolutionContext = {
       environmentName: environmentName || undefined,
       projectName: projectName || undefined,
+      requestOverrides:
+        requestOverrides.length > 0 ? requestOverrides : undefined,
       locationKind: 'bundle-request'
     };
     viewer.expand('**');

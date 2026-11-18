@@ -25,6 +25,7 @@ namespace Dorc.Api.Tests.Controllers
         private IActiveDirectorySearcher _directorySearcher = null!;
         private ILogger<PropertyValuesController> _logger = null!;
         private IPropertyResolutionTracer _propertyResolutionTracer = null!;
+        private ISecurityPrivilegesChecker _securityPrivilegesChecker = null!;
         private PropertyValuesController _controller = null!;
 
         [TestInitialize]
@@ -40,6 +41,7 @@ namespace Dorc.Api.Tests.Controllers
             _directorySearcherFactory.GetEntraSearcher().Returns(_directorySearcher);
             _logger = Substitute.For<ILogger<PropertyValuesController>>();
             _propertyResolutionTracer = Substitute.For<IPropertyResolutionTracer>();
+            _securityPrivilegesChecker = Substitute.For<ISecurityPrivilegesChecker>();
 
             _controller = new PropertyValuesController(
                 _propertyValuesService,
@@ -49,7 +51,8 @@ namespace Dorc.Api.Tests.Controllers
                 _variableScopeOptionsResolver,
                 _directorySearcherFactory,
                 _logger,
-                _propertyResolutionTracer)
+                _propertyResolutionTracer,
+                _securityPrivilegesChecker)
             {
                 ControllerContext = new ControllerContext
                 {
@@ -296,7 +299,7 @@ namespace Dorc.Api.Tests.Controllers
             var missingEnvRes = (BadRequestObjectResult)missingEnvActionResult;
             Assert.AreEqual(StatusCodes.Status400BadRequest, missingEnvRes.StatusCode);
 
-            // 3. Unauthorized environment (GetEnvironment returns null) -> 403 Forbidden
+            // 3. Unauthorized environment (GetEnvironment returns null or existing denied environment) -> 403 Forbidden
             _environmentsPersistentSource.EnvironmentExists("RestrictedEnv").Returns(true);
             _environmentsPersistentSource.GetEnvironment("RestrictedEnv", Arg.Any<ClaimsPrincipal>()).Returns((EnvironmentApiModel)null!);
             var restrictedReq = new PropertyResolutionPreviewRequestApiModel
@@ -309,11 +312,33 @@ namespace Dorc.Api.Tests.Controllers
             var restrictedRes = (StatusCodeResult)restrictedActionResult;
             Assert.AreEqual(StatusCodes.Status403Forbidden, restrictedRes.StatusCode);
 
-            // 4. Authorized environment -> enriches owner emails and returns traces
+            var deniedEnvModel = new EnvironmentApiModel
+            {
+                EnvironmentId = 11,
+                EnvironmentName = "DeniedEnv",
+                UserEditable = false,
+                IsOwner = false
+            };
+            _environmentsPersistentSource.EnvironmentExists("DeniedEnv").Returns(true);
+            _environmentsPersistentSource.GetEnvironment("DeniedEnv", Arg.Any<ClaimsPrincipal>()).Returns(deniedEnvModel);
+            _securityPrivilegesChecker.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), "DeniedEnv").Returns(false);
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "DeniedEnv").Returns(false);
+            _securityPrivilegesChecker.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), "DeniedEnv").Returns(false);
+            var deniedReq = new PropertyResolutionPreviewRequestApiModel
+            {
+                EnvironmentName = "DeniedEnv",
+                PropertyNames = new List<string> { "PropA" }
+            };
+            var deniedActionResult = _controller.ResolvePreview(deniedReq);
+            Assert.IsInstanceOfType(deniedActionResult, typeof(StatusCodeResult));
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((StatusCodeResult)deniedActionResult).StatusCode);
+
+            // 4. Authorized environment variants -> enriches owner emails and returns traces
             var envModel = new EnvironmentApiModel
             {
                 EnvironmentId = 10,
                 EnvironmentName = "DevEnv",
+                UserEditable = true,
                 Details = new EnvironmentDetailsApiModel()
             };
             _environmentsPersistentSource.EnvironmentExists("DevEnv").Returns(true);
@@ -336,6 +361,22 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(validEnvActionResult, typeof(OkObjectResult));
             var validEnvRes = (OkObjectResult)validEnvActionResult;
             Assert.AreEqual(expectedTraces, validEnvRes.Value);
+
+            envModel.UserEditable = false;
+            envModel.IsOwner = true;
+            Assert.IsInstanceOfType(_controller.ResolvePreview(validEnvReq), typeof(OkObjectResult));
+
+            envModel.IsOwner = false;
+            _securityPrivilegesChecker.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), "DevEnv").Returns(true);
+            Assert.IsInstanceOfType(_controller.ResolvePreview(validEnvReq), typeof(OkObjectResult));
+
+            _securityPrivilegesChecker.CanModifyEnvironment(Arg.Any<ClaimsPrincipal>(), "DevEnv").Returns(false);
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "DevEnv").Returns(true);
+            Assert.IsInstanceOfType(_controller.ResolvePreview(validEnvReq), typeof(OkObjectResult));
+
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(Arg.Any<ClaimsPrincipal>(), "DevEnv").Returns(false);
+            _securityPrivilegesChecker.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), "DevEnv").Returns(true);
+            Assert.IsInstanceOfType(_controller.ResolvePreview(validEnvReq), typeof(OkObjectResult));
 
             // 5. Global-only preview (no environmentName) -> passes null environment to tracer
             _propertyResolutionTracer.TraceProperties(Arg.Any<PropertyResolutionPreviewRequestApiModel>(), null, Arg.Any<ClaimsPrincipal>())

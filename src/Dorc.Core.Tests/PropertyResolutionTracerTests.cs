@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
+using Dorc.Core.Interfaces;
 using Dorc.Core.Lamar;
 using Dorc.Core.VariableResolution;
+using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using NSubstitute;
 
@@ -13,6 +15,9 @@ namespace Dorc.Core.Tests
     {
         private IPropertyValuesPersistentSource _propertyValuesSource = null!;
         private IVariableScopeOptionsResolver _scopeOptionsResolver = null!;
+        private IConfigValuesPersistentSource _configValuesSource = null!;
+        private ISecurityPrivilegesChecker _securityChecker = null!;
+        private IPropertyEncryptor _propertyEncryptor = null!;
         private PropertyResolutionTracer _tracer = null!;
         private ClaimsPrincipal _user = null!;
 
@@ -21,18 +26,31 @@ namespace Dorc.Core.Tests
         {
             _propertyValuesSource = Substitute.For<IPropertyValuesPersistentSource>();
             _scopeOptionsResolver = Substitute.For<IVariableScopeOptionsResolver>();
+            _configValuesSource = Substitute.For<IConfigValuesPersistentSource>();
+            _securityChecker = Substitute.For<ISecurityPrivilegesChecker>();
+            _propertyEncryptor = Substitute.For<IPropertyEncryptor>();
             _user = new ClaimsPrincipal(new ClaimsIdentity("TestAuth"));
 
             _propertyValuesSource.GetGlobalProperties().Returns(Array.Empty<PropertyValueDto>());
             _propertyValuesSource.GetEnvironmentProperties(Arg.Any<string>(), Arg.Any<string>())
                 .Returns(Array.Empty<PropertyValueDto>());
+            _configValuesSource.GetAllConfigValues(false).Returns(Array.Empty<ConfigValueApiModel>());
 
-            _tracer = new PropertyResolutionTracer(_propertyValuesSource, _scopeOptionsResolver);
+            _tracer = new PropertyResolutionTracer(
+                _propertyValuesSource,
+                _scopeOptionsResolver,
+                _configValuesSource,
+                _securityChecker,
+                _propertyEncryptor);
         }
 
         [TestMethod]
-        public void TraceProperties_EmptyPropertyNames_ReturnsEmptyList()
+        public void TraceProperties_EmptyOrNullPropertyNames_ReturnsEmptyList()
         {
+            var twoArgTracer = new PropertyResolutionTracer(_propertyValuesSource, _scopeOptionsResolver);
+            Assert.AreEqual(0, twoArgTracer.TraceProperties(null!, null, _user).Count);
+            Assert.AreEqual(0, twoArgTracer.TraceProperties(new PropertyResolutionPreviewRequestApiModel { PropertyNames = null! }, null, _user).Count);
+
             var request = new PropertyResolutionPreviewRequestApiModel
             {
                 EnvironmentName = "DEV",
@@ -48,7 +66,7 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        public void TraceProperties_DeduplicatesAndIgnoresWhitespaceNames()
+        public void TraceProperties_DeduplicatesExactNamesAndPreservesCaseSensitivity()
         {
             _propertyValuesSource.GetGlobalProperties().Returns(new[]
             {
@@ -57,12 +75,12 @@ namespace Dorc.Core.Tests
 
             var request = new PropertyResolutionPreviewRequestApiModel
             {
-                PropertyNames = new List<string> { "  PropA ", "propa", "", "   " }
+                PropertyNames = new List<string> { "  PropA ", "PropA", "propa", "", "   " }
             };
 
             var result = _tracer.TraceProperties(request, null, _user);
 
-            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual(2, result.Count);
             Assert.AreEqual("PropA", result[0].PropertyName);
             Assert.AreEqual("ValA", result[0].RawValue);
             Assert.AreEqual("\"ValA\"", result[0].ResolvedValueJson);
@@ -72,6 +90,10 @@ namespace Dorc.Core.Tests
             Assert.AreEqual("String", result[0].ValueType);
             Assert.IsFalse(result[0].IsSecure);
             Assert.IsTrue(result[0].ResolutionChain.Count > 0);
+
+            Assert.AreEqual("propa", result[1].PropertyName);
+            Assert.AreEqual("Unresolved", result[1].Source);
+            Assert.AreEqual("MissingInScope", result[1].Diagnostic);
         }
 
         [TestMethod]
@@ -473,6 +495,176 @@ namespace Dorc.Core.Tests
 
             Assert.AreEqual("RuntimeOnly", result[4].Diagnostic);
             Assert.AreEqual("\"$ScriptRoot$/deploy.ps1\"", result[4].ResolvedValueJson);
+        }
+
+        [TestMethod]
+        public void TraceProperties_ReadSecretsPermissionAndConfigValueFallbacks_BehavesCorrectly()
+        {
+            _propertyValuesSource.GetGlobalProperties().Returns(new[]
+            {
+                MakeProperty("GlobalSec", "EncGlobal", secure: true),
+                MakeProperty("ExistingProp", "FromGlobal")
+            });
+            _propertyValuesSource.GetEnvironmentProperties("QA-CHILD", null).Returns(new[]
+            {
+                MakeProperty("DirectSec", "EncDirect", filter: "QA-CHILD", secure: true),
+                MakeProperty("AncestorSecAllowed", "EncAncestorOk", filter: "QA-PARENT", secure: true),
+                MakeProperty("AncestorSecDenied", "EncAncestorNo", filter: "QA-LOCKED-PARENT", secure: true),
+                MakeProperty("UsesDecryptedSecret", "conn=$DirectSec$", filter: "QA-CHILD")
+            });
+
+            _configValuesSource.GetAllConfigValues(false).Returns(new[]
+            {
+                new ConfigValueApiModel { Key = "ExistingProp", Value = "ConfigIgnored", IsForProd = null, Secure = false },
+                new ConfigValueApiModel { Key = "AnyEnvConfig", Value = "AnyVal", IsForProd = null, Secure = false },
+                new ConfigValueApiModel { Key = "NonProdConfig", Value = "NonProdVal", IsForProd = false, Secure = false },
+                new ConfigValueApiModel { Key = "ProdOnlyConfig", Value = "ProdVal", IsForProd = true, Secure = false },
+                new ConfigValueApiModel { Key = "SecureConfig", Value = "EncryptedCfg", IsForProd = null, Secure = true }
+            });
+
+            _securityChecker.CanReadSecrets(_user, "QA-CHILD").Returns(true);
+            _securityChecker.CanReadSecrets(_user, "QA-PARENT").Returns(true);
+            _securityChecker.CanReadSecrets(_user, "QA-LOCKED-PARENT").Returns(false);
+
+            _propertyEncryptor.DecryptValue("EncGlobal").Returns("PlainGlobal");
+            _propertyEncryptor.DecryptValue("EncDirect").Returns("PlainDirect");
+            _propertyEncryptor.DecryptValue("EncAncestorOk").Returns("PlainAncestor");
+
+            var env = new EnvironmentApiModel
+            {
+                EnvironmentName = "QA-CHILD",
+                EnvironmentIsProd = false
+            };
+
+            var req = new PropertyResolutionPreviewRequestApiModel
+            {
+                EnvironmentName = "QA-CHILD",
+                PropertyNames = new List<string>
+                {
+                    "GlobalSec",
+                    "DirectSec",
+                    "AncestorSecAllowed",
+                    "AncestorSecDenied",
+                    "UsesDecryptedSecret",
+                    "ExistingProp",
+                    "AnyEnvConfig",
+                    "NonProdConfig",
+                    "ProdOnlyConfig",
+                    "SecureConfig"
+                }
+            };
+
+            var res = _tracer.TraceProperties(req, env, _user);
+
+            // GlobalSec decrypted because user has ReadSecrets on target QA-CHILD
+            Assert.IsTrue(res[0].IsSecure);
+            Assert.AreEqual("\"PlainGlobal\"", res[0].ResolvedValueJson);
+
+            // DirectSec decrypted
+            Assert.IsTrue(res[1].IsSecure);
+            Assert.AreEqual("\"PlainDirect\"", res[1].ResolvedValueJson);
+
+            // AncestorSecAllowed decrypted because user has ReadSecrets on both QA-CHILD and QA-PARENT
+            Assert.IsTrue(res[2].IsSecure);
+            Assert.AreEqual("\"PlainAncestor\"", res[2].ResolvedValueJson);
+
+            // AncestorSecDenied redacted because user lacks ReadSecrets on QA-LOCKED-PARENT
+            Assert.IsTrue(res[3].IsSecure);
+            Assert.AreEqual("\"[REDACTED]\"", res[3].ResolvedValueJson);
+
+            // UsesDecryptedSecret interpolates PlainDirect and inherits IsSecure = true
+            Assert.IsTrue(res[4].IsSecure);
+            Assert.AreEqual("\"conn=PlainDirect\"", res[4].ResolvedValueJson);
+
+            // ExistingProp keeps GlobalDefault, not overwritten by ConfigValue
+            Assert.AreEqual("GlobalDefault", res[5].Source);
+            Assert.AreEqual("\"FromGlobal\"", res[5].ResolvedValueJson);
+
+            // AnyEnvConfig and NonProdConfig included for non-prod environment
+            Assert.AreEqual("ConfigValue", res[6].Source);
+            Assert.AreEqual("\"AnyVal\"", res[6].ResolvedValueJson);
+            Assert.AreEqual("ConfigValue", res[7].Source);
+            Assert.AreEqual("\"NonProdVal\"", res[7].ResolvedValueJson);
+
+            // ProdOnlyConfig excluded in non-prod environment
+            Assert.AreEqual("Unresolved", res[8].Source);
+
+            // SecureConfig is redacted
+            Assert.AreEqual("ConfigValue", res[9].Source);
+            Assert.IsTrue(res[9].IsSecure);
+            Assert.AreEqual("\"[REDACTED]\"", res[9].ResolvedValueJson);
+
+            // Also verify prod environment includes IsForProd = true and excludes IsForProd = false,
+            // and verify tracer without optional dependencies (null checker / encryptor / config source)
+            var prodEnv = new EnvironmentApiModel
+            {
+                EnvironmentName = "PROD-01",
+                EnvironmentIsProd = true
+            };
+            _securityChecker.CanReadSecrets(_user, "PROD-01").Returns(true);
+            var prodRes = _tracer.TraceProperties(new PropertyResolutionPreviewRequestApiModel
+            {
+                EnvironmentName = "PROD-01",
+                PropertyNames = new List<string> { "ProdOnlyConfig", "NonProdConfig" }
+            }, prodEnv, _user);
+            Assert.AreEqual("ConfigValue", prodRes[0].Source);
+            Assert.AreEqual("Unresolved", prodRes[1].Source);
+
+            var noDepsTracer = new PropertyResolutionTracer(
+                _propertyValuesSource,
+                _scopeOptionsResolver,
+                null,
+                null,
+                null);
+            var noEncryptorRes = noDepsTracer.TraceProperties(new PropertyResolutionPreviewRequestApiModel
+            {
+                EnvironmentName = "QA-CHILD",
+                PropertyNames = new List<string> { "GlobalSec", "DirectSec", "DirectSec", "AncestorSecAllowed" }
+            }, env, _user);
+            Assert.AreEqual("\"[REDACTED]\"", noEncryptorRes[0].ResolvedValueJson);
+            Assert.AreEqual("\"[REDACTED]\"", noEncryptorRes[1].ResolvedValueJson);
+            Assert.AreEqual("\"[REDACTED]\"", noEncryptorRes[2].ResolvedValueJson);
+
+            var checkerOnlyTracer = new PropertyResolutionTracer(
+                _propertyValuesSource,
+                _scopeOptionsResolver,
+                null,
+                _securityChecker,
+                null);
+            var checkerOnlyRes = checkerOnlyTracer.TraceProperties(new PropertyResolutionPreviewRequestApiModel
+            {
+                EnvironmentName = "QA-CHILD",
+                PropertyNames = new List<string> { "GlobalSec", "DirectSec" }
+            }, env, _user);
+            Assert.AreEqual("\"[REDACTED]\"", checkerOnlyRes[0].ResolvedValueJson);
+            Assert.AreEqual("\"[REDACTED]\"", checkerOnlyRes[1].ResolvedValueJson);
+        }
+
+        [TestMethod]
+        public void TraceProperties_DiamondDag_ReusesEvaluatedCacheAcrossBranches()
+        {
+            _propertyValuesSource.GetGlobalProperties().Returns(new[]
+            {
+                MakeProperty("Leaf", "val"),
+                MakeProperty("Branch1", "$Leaf$-$Leaf$"),
+                MakeProperty("Branch2", "$Branch1$+$Branch1$"),
+                MakeProperty("Root", "$Branch2$|$Branch2$"),
+                MakeProperty("ExprMissingRef", "fn:Call($UndefinedRef$)")
+            });
+
+            var req = new PropertyResolutionPreviewRequestApiModel
+            {
+                PropertyNames = new List<string> { "Root", "Leaf", "ExprMissingRef" },
+                RequestOverrides = new List<RequestProperty>
+                {
+                    new RequestProperty { PropertyName = "OtherOverride", PropertyValue = "1" }
+                }
+            };
+
+            var res = _tracer.TraceProperties(req, null, _user);
+            Assert.AreEqual("\"val-val+val-val|val-val+val-val\"", res[0].ResolvedValueJson);
+            Assert.AreEqual("\"val\"", res[1].ResolvedValueJson);
+            Assert.AreEqual("MissingInScope", res[2].Diagnostic);
         }
 
         [TestMethod]

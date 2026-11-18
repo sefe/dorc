@@ -10,11 +10,46 @@ export type ParsedPropertyToken =
   | { kind: 'expression-prefix'; rawText: 'fn:'; expressionBody: string }
   | { kind: 'unclosed-token'; rawText: string };
 
+export type PropertyTokenSyntaxLocationKind =
+  | 'deploy-request'
+  | 'script-arguments'
+  | 'bundle-request'
+  | 'deployment-definition'
+  | 'ephemeral-wizard'
+  | 'raw-json';
+
+export type PropertyTokenSyntaxProfile = 'standard' | 'brace-only' | 'literal';
+
 const BRACE_TOKEN_PATTERN = /^\$\{([A-Za-z0-9_.-]+)\}$/;
 
-export function parsePropertyTokens(input: string): ParsedPropertyToken[] {
+export function resolveTokenSyntaxProfile(
+  locationKind?: PropertyTokenSyntaxLocationKind,
+  jsonPath = ''
+): PropertyTokenSyntaxProfile {
+  if (
+    locationKind === 'script-arguments' ||
+    locationKind === 'deployment-definition'
+  ) {
+    if (jsonPath === 'ScriptPath') {
+      return 'literal';
+    }
+    if (jsonPath.startsWith('GenericArguments.')) {
+      return 'brace-only';
+    }
+  }
+  return 'standard';
+}
+
+export function parsePropertyTokens(
+  input: string,
+  profile: PropertyTokenSyntaxProfile = 'standard'
+): ParsedPropertyToken[] {
   if (input.length === 0) {
     return [];
+  }
+
+  if (profile === 'literal') {
+    return [{ kind: 'static', value: input, rawText: input }];
   }
 
   const braceMatch = BRACE_TOKEN_PATTERN.exec(input);
@@ -27,6 +62,10 @@ export function parsePropertyTokens(input: string): ParsedPropertyToken[] {
         syntax: 'brace'
       }
     ];
+  }
+
+  if (profile === 'brace-only') {
+    return [{ kind: 'static', value: input, rawText: input }];
   }
 
   const tokens: ParsedPropertyToken[] = [];
@@ -95,7 +134,10 @@ export function parsePropertyTokens(input: string): ParsedPropertyToken[] {
   return tokens;
 }
 
-export function extractReferencedPropertyNames(data: unknown): string[] {
+export function extractReferencedPropertyNames(
+  data: unknown,
+  locationKind?: PropertyTokenSyntaxLocationKind
+): string[] {
   const seen = new Set<string>();
   const ordered: string[] = [];
 
@@ -104,16 +146,16 @@ export function extractReferencedPropertyNames(data: unknown): string[] {
     if (!trimmed) {
       return;
     }
-    const lower = trimmed.toLowerCase();
-    if (!seen.has(lower)) {
-      seen.add(lower);
+    if (!seen.has(trimmed)) {
+      seen.add(trimmed);
       ordered.push(trimmed);
     }
   };
 
-  const visit = (node: unknown) => {
+  const visit = (node: unknown, path: string) => {
     if (typeof node === 'string') {
-      for (const token of parsePropertyTokens(node)) {
+      const profile = resolveTokenSyntaxProfile(locationKind, path);
+      for (const token of parsePropertyTokens(node, profile)) {
         if (token.kind === 'property') {
           addName(token.propertyName);
         }
@@ -122,8 +164,9 @@ export function extractReferencedPropertyNames(data: unknown): string[] {
     }
 
     if (Array.isArray(node)) {
-      for (const item of node) {
-        visit(item);
+      for (let i = 0; i < node.length; i++) {
+        const childPath = path ? `${path}.${i}` : String(i);
+        visit(node[i], childPath);
       }
       return;
     }
@@ -135,16 +178,18 @@ export function extractReferencedPropertyNames(data: unknown): string[] {
       for (const [key, value] of Object.entries(
         node as Record<string, unknown>
       )) {
-        for (const token of parsePropertyTokens(key)) {
+        const childPath = path ? `${path}.${key}` : key;
+        const keyProfile = resolveTokenSyntaxProfile(locationKind, childPath);
+        for (const token of parsePropertyTokens(key, keyProfile)) {
           if (token.kind === 'property') {
             addName(token.propertyName);
           }
         }
-        visit(value);
+        visit(value, childPath);
       }
     }
   };
 
-  visit(data);
+  visit(data, '');
   return ordered;
 }

@@ -24,6 +24,7 @@ namespace Dorc.Api.Controllers
         private readonly IVariableResolver _variableResolver;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IVariableScopeOptionsResolver _variableScopeOptionsResolver;
+        private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IPropertyResolutionTracer _propertyResolutionTracer;
         private readonly IActiveDirectorySearcher _directorySearcher;
         private readonly ILogger<PropertyValuesController> _logger;
@@ -35,7 +36,8 @@ namespace Dorc.Api.Controllers
             IVariableScopeOptionsResolver variableScopeOptionsResolver,
             IDirectorySearcherFactory directorySearcherFactory,
             ILogger<PropertyValuesController> logger,
-            IPropertyResolutionTracer? propertyResolutionTracer = null)
+            IPropertyResolutionTracer? propertyResolutionTracer = null,
+            ISecurityPrivilegesChecker? securityPrivilegesChecker = null)
         {
             _variableScopeOptionsResolver = variableScopeOptionsResolver;
             _environmentsPersistentSource = environmentsPersistentSource;
@@ -45,6 +47,7 @@ namespace Dorc.Api.Controllers
             _directorySearcher = directorySearcherFactory.GetEntraSearcher();
             _logger = logger;
             _propertyResolutionTracer = propertyResolutionTracer!;
+            _securityPrivilegesChecker = securityPrivilegesChecker!;
         }
 
         /// <summary>
@@ -292,7 +295,12 @@ namespace Dorc.Api.Controllers
                 }
 
                 environment = _environmentsPersistentSource.GetEnvironment(envName, User);
-                if (environment == null)
+                if (environment == null ||
+                    !environment.UserEditable &&
+                    !environment.IsOwner &&
+                    !_securityPrivilegesChecker.CanModifyEnvironment(User, envName) &&
+                    !_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, envName) &&
+                    !_securityPrivilegesChecker.CanReadSecrets(User, envName))
                 {
                     return StatusCode(StatusCodes.Status403Forbidden);
                 }

@@ -42,6 +42,7 @@ interface PendingBatchBucket {
 
 const DEFAULT_TTL_MS = 30_000;
 const DEFAULT_COALESCE_WINDOW_MS = 50;
+const MAX_BATCH_PROPERTY_NAMES = 250;
 
 function defaultTransport(
   request: PropertyResolutionPreviewRequestApiModel
@@ -62,7 +63,7 @@ export function computeResolutionContextKey(
   const overrides = (context.requestOverrides ?? [])
     .filter(o => Boolean(o.PropertyName?.trim()))
     .map(o => ({
-      name: o.PropertyName!.trim().toLowerCase(),
+      name: o.PropertyName!.trim(),
       val: o.IsSensitive ? '[REDACTED]' : (o.PropertyValue ?? ''),
       sec: Boolean(o.IsSensitive)
     }))
@@ -112,7 +113,7 @@ export class PropertyResolutionClientCache {
 
     if (contextCache) {
       for (const name of cleanNames) {
-        const entry = contextCache.get(name.toLowerCase());
+        const entry = contextCache.get(name);
         if (!entry || entry.expiresAt <= now) {
           missingNames.push(name);
         }
@@ -142,9 +143,8 @@ export class PropertyResolutionClientCache {
       }
 
       for (const missing of missingNames) {
-        const lower = missing.toLowerCase();
-        if (!bucket.propertyNames.has(lower)) {
-          bucket.propertyNames.set(lower, missing);
+        if (!bucket.propertyNames.has(missing)) {
+          bucket.propertyNames.set(missing, missing);
         }
       }
 
@@ -163,9 +163,9 @@ export class PropertyResolutionClientCache {
     const out = new Map<string, PropertyResolutionTraceApiModel>();
     const contextCache = this.cache.get(contextKey)!;
     for (const name of requestedNames) {
-      const entry = contextCache.get(name.toLowerCase());
+      const entry = contextCache.get(name);
       if (entry) {
-        out.set(name.toLowerCase(), entry.trace);
+        out.set(name, entry.trace);
       }
     }
     return out;
@@ -176,13 +176,22 @@ export class PropertyResolutionClientCache {
     this.pendingBuckets.delete(contextKey);
 
     const namesToFetch = Array.from(bucket.propertyNames.values());
+    const chunks: string[][] = [];
+    for (let i = 0; i < namesToFetch.length; i += MAX_BATCH_PROPERTY_NAMES) {
+      chunks.push(namesToFetch.slice(i, i + MAX_BATCH_PROPERTY_NAMES));
+    }
+
     try {
-      const traces = await this.transport({
-        EnvironmentName: bucket.context.environmentName ?? null,
-        ProjectName: bucket.context.projectName ?? null,
-        PropertyNames: namesToFetch,
-        RequestOverrides: bucket.context.requestOverrides ?? null
-      });
+      const chunkResults = await Promise.all(
+        chunks.map(chunk =>
+          this.transport({
+            EnvironmentName: bucket.context.environmentName ?? null,
+            ProjectName: bucket.context.projectName ?? null,
+            PropertyNames: chunk,
+            RequestOverrides: bucket.context.requestOverrides ?? null
+          })
+        )
+      );
 
       const expiresAt = Date.now() + this.ttlMs;
       let contextCache = this.cache.get(contextKey);
@@ -191,12 +200,14 @@ export class PropertyResolutionClientCache {
         this.cache.set(contextKey, contextCache);
       }
 
-      for (const trace of traces) {
-        if (trace.PropertyName) {
-          contextCache.set(trace.PropertyName.toLowerCase(), {
-            trace,
-            expiresAt
-          });
+      for (const traces of chunkResults) {
+        for (const trace of traces) {
+          if (trace.PropertyName) {
+            contextCache.set(trace.PropertyName, {
+              trace,
+              expiresAt
+            });
+          }
         }
       }
 

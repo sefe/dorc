@@ -3,7 +3,8 @@ import { of } from 'rxjs';
 import { expect, fixture, html, settle } from '../_helpers';
 import {
   extractReferencedPropertyNames,
-  parsePropertyTokens
+  parsePropertyTokens,
+  resolveTokenSyntaxProfile
 } from '../../src/variable-resolution/property-token-parser';
 import {
   computeResolutionContextKey,
@@ -30,7 +31,7 @@ vi.mock('../../src/apis/dorc-api', async importOriginal => {
 });
 
 describe('property-token-parser', () => {
-  it('parses empty, static, dollar, brace, escaped-dollar, fn:, and unclosed tokens', () => {
+  it('parses empty, static, dollar, brace, escaped-dollar, fn:, unclosed tokens, and execution-site profiles', () => {
     expect(parsePropertyTokens('')).to.deep.equal([]);
 
     expect(parsePropertyTokens('plain-text')).to.deep.equal([
@@ -42,6 +43,38 @@ describe('property-token-parser', () => {
         kind: 'property',
         propertyName: 'Env.Host_Name-1',
         rawText: '${Env.Host_Name-1}',
+        syntax: 'brace'
+      }
+    ]);
+
+    // Execution-site syntax profiles (ScriptPath literal, GenericArguments brace-only)
+    expect(resolveTokenSyntaxProfile(undefined, 'ScriptPath')).to.equal(
+      'standard'
+    );
+    expect(
+      resolveTokenSyntaxProfile('script-arguments', 'ScriptPath')
+    ).to.equal('literal');
+    expect(
+      resolveTokenSyntaxProfile(
+        'deployment-definition',
+        'GenericArguments.0.Arg'
+      )
+    ).to.equal('brace-only');
+    expect(
+      resolveTokenSyntaxProfile('script-arguments', 'OtherField')
+    ).to.equal('standard');
+
+    expect(parsePropertyTokens('$Host$', 'literal')).to.deep.equal([
+      { kind: 'static', value: '$Host$', rawText: '$Host$' }
+    ]);
+    expect(parsePropertyTokens('$Host$', 'brace-only')).to.deep.equal([
+      { kind: 'static', value: '$Host$', rawText: '$Host$' }
+    ]);
+    expect(parsePropertyTokens('${Host}', 'brace-only')).to.deep.equal([
+      {
+        kind: 'property',
+        propertyName: 'Host',
+        rawText: '${Host}',
         syntax: 'brace'
       }
     ]);
@@ -84,10 +117,10 @@ describe('property-token-parser', () => {
     ]);
   });
 
-  it('extracts unique referenced property names across objects, arrays, keys, and skips DOM nodes', () => {
+  it('extracts unique case-sensitive referenced property names across objects, arrays, keys, profiles, and skips DOM nodes', () => {
     const domSpan = document.createElement('span');
     const data = {
-      '$KeyProp$': 'https://$Host$:$Port$/$host$',
+      '$KeyProp$': 'https://$Host$:$Port$/$Host$/$host$',
       EmptyToken: '$   $',
       BraceToken: '${TerraformVar}',
       NestedArray: ['$$literal', '$ArrayProp$', 42, null, domSpan]
@@ -97,9 +130,24 @@ describe('property-token-parser', () => {
       'KeyProp',
       'Host',
       'Port',
+      'host',
       'TerraformVar',
       'ArrayProp'
     ]);
+    expect(extractReferencedPropertyNames(['$RootItem$'])).to.deep.equal([
+      'RootItem'
+    ]);
+
+    const scriptData = {
+      ScriptPath: '$IgnoredInScriptPath$',
+      GenericArguments: [
+        { DollarIgnored: '$NotExtracted$' },
+        { BraceIncluded: '${ExtractedArg}' }
+      ]
+    };
+    expect(
+      extractReferencedPropertyNames(scriptData, 'script-arguments')
+    ).to.deep.equal(['ExtractedArg']);
   });
 });
 
@@ -108,7 +156,7 @@ describe('PropertyResolutionClientCache', () => {
     resolvePreviewPostMock.mockReset();
   });
 
-  it('computes normalized context keys with sensitive overrides redacted', () => {
+  it('computes normalized context keys with sensitive overrides redacted and case-sensitive override names', () => {
     const key1 = computeResolutionContextKey({});
     expect(key1).to.equal('{"env":"","proj":"","overrides":[]}');
 
@@ -127,15 +175,15 @@ describe('PropertyResolutionClientCache', () => {
         env: 'endur-ut1',
         proj: 'appproj',
         overrides: [
-          { name: 'aprop', val: '[REDACTED]', sec: true },
-          { name: 'mprop', val: '', sec: false },
-          { name: 'zprop', val: 'zval', sec: false }
+          { name: 'AProp', val: '[REDACTED]', sec: true },
+          { name: 'MProp', val: '', sec: false },
+          { name: 'ZProp', val: 'zval', sec: false }
         ]
       })
     );
   });
 
-  it('uses default transport, coalesces concurrent calls, serves from cache, and handles errors', async () => {
+  it('uses default transport, coalesces concurrent calls, chunks >250 names, serves from cache, and handles errors', async () => {
     resolvePreviewPostMock.mockReturnValueOnce(
       of([
         {
@@ -161,7 +209,7 @@ describe('PropertyResolutionClientCache', () => {
     const [firstBatch, secondBatch] = await Promise.all([
       defaultCache.resolveProperties(
         { environmentName: 'UT1', projectName: 'Proj' },
-        ['Host', 'host']
+        ['Host', 'Host']
       ),
       defaultCache.resolveProperties(
         { environmentName: 'UT1', projectName: 'Proj' },
@@ -170,8 +218,8 @@ describe('PropertyResolutionClientCache', () => {
     ]);
 
     expect(resolvePreviewPostMock.mock.calls).to.have.length(1);
-    expect(firstBatch.get('host')?.ResolvedValueJson).to.equal('"ut1.internal"');
-    expect(secondBatch.has('missingprop')).to.equal(false);
+    expect(firstBatch.get('Host')?.ResolvedValueJson).to.equal('"ut1.internal"');
+    expect(secondBatch.has('MissingProp')).to.equal(false);
 
     // Hit warm cache for 'Host' without transport call
     const cachedHit = await defaultCache.resolveProperties(
@@ -179,7 +227,49 @@ describe('PropertyResolutionClientCache', () => {
       ['Host']
     );
     expect(resolvePreviewPostMock.mock.calls).to.have.length(1);
-    expect(cachedHit.get('host')?.ScopeName).to.equal('UT1');
+    expect(cachedHit.get('Host')?.ScopeName).to.equal('UT1');
+
+    // Hit warm cache for 'Host' + uncached 'NewProp' so contextCache exists and only 'NewProp' is fetched
+    resolvePreviewPostMock.mockReturnValueOnce(
+      of([
+        {
+          PropertyName: 'NewProp',
+          Source: 'GlobalDefault',
+          ResolvedValueJson: '"new-val"'
+        }
+      ])
+    );
+    const partialHit = await defaultCache.resolveProperties(
+      { environmentName: 'UT1', projectName: 'Proj' },
+      ['Host', 'NewProp']
+    );
+    expect(resolvePreviewPostMock.mock.calls).to.have.length(2);
+    expect(partialHit.get('Host')?.ResolvedValueJson).to.equal(
+      '"ut1.internal"'
+    );
+    expect(partialHit.get('NewProp')?.ResolvedValueJson).to.equal('"new-val"');
+
+    // Verify chunking of batches > 250 property names
+    const chunkCalls: number[] = [];
+    const chunkingCache = new PropertyResolutionClientCache({
+      coalesceWindowMs: 1,
+      transport: async req => {
+        const names = req.PropertyNames ?? [];
+        chunkCalls.push(names.length);
+        return names.map(n => ({
+          PropertyName: n,
+          Source: 'GlobalDefault',
+          ResolvedValueJson: `"val-${n}"`
+        }));
+      }
+    });
+    const manyNames = Array.from({ length: 300 }, (_, i) => `Prop_${i}`);
+    const chunkedResult = await chunkingCache.resolveProperties({}, manyNames);
+    expect(chunkCalls).to.deep.equal([250, 50]);
+    expect(chunkedResult.size).to.equal(300);
+    expect(chunkedResult.get('Prop_299')?.ResolvedValueJson).to.equal(
+      '"val-Prop_299"'
+    );
 
     // Clear cache and test transport rejection
     defaultCache.clear();
@@ -204,26 +294,44 @@ describe('hegs-json-viewer contextual property resolution', () => {
   it('evaluates string traces and badge appearances across all sources and diagnostics', () => {
     const traces = new Map<string, PropertyResolutionTraceApiModel>([
       [
-        'host',
+        'Host',
         {
           PropertyName: 'Host',
           Source: 'EnvironmentScope',
           ScopeName: 'UT1',
           ResolvedValueJson: '"ut1.local"',
-          Diagnostic: 'Resolved'
+          Diagnostic: 'Ok'
         }
       ],
       [
-        'port',
+        'Port',
         {
           PropertyName: 'Port',
           Source: 'GlobalDefault',
           ResolvedValueJson: '8443',
-          Diagnostic: 'Resolved'
+          Diagnostic: 'Ok'
         }
       ],
       [
-        'unresolved',
+        'ServerArr',
+        {
+          PropertyName: 'ServerArr',
+          Source: 'BuiltInScopeOption',
+          ResolvedValueJson: '["web-1"]',
+          Diagnostic: 'Ok'
+        }
+      ],
+      [
+        'DeferredExpr',
+        {
+          PropertyName: 'DeferredExpr',
+          Source: 'GlobalDefault',
+          ResolvedValueJson: '"fn:DateTime.UtcNow"',
+          Diagnostic: 'ExpressionDeferred'
+        }
+      ],
+      [
+        'Unresolved',
         {
           PropertyName: 'Unresolved',
           Source: 'Unresolved',
@@ -237,6 +345,30 @@ describe('hegs-json-viewer contextual property resolution', () => {
       resolvedValue: 'literal$text',
       resolvedDisplayString: 'literal$text'
     });
+
+    // Unclosed token prevents partial substitution
+    expect(
+      evaluateStringWithTraces('$Host$/bad$Unclosed', traces)
+    ).to.deep.equal({
+      status: 'unresolved',
+      resolvedValue: '$Host$/bad$Unclosed',
+      resolvedDisplayString: '$Host$/bad$Unclosed'
+    });
+
+    // Deferred expression stays unresolved
+    expect(evaluateStringWithTraces('$DeferredExpr$', traces).status).to.equal(
+      'unresolved'
+    );
+
+    // Single token non-string preserves typed array; concatenation with non-primitive stays unresolved
+    expect(evaluateStringWithTraces('$ServerArr$', traces)).to.deep.equal({
+      status: 'resolved',
+      resolvedValue: ['web-1'],
+      resolvedDisplayString: '["web-1"]'
+    });
+    expect(
+      evaluateStringWithTraces('prefix-$ServerArr$', traces).status
+    ).to.equal('unresolved');
 
     expect(evaluateStringWithTraces('$Port$', traces)).to.deep.equal({
       status: 'resolved',
@@ -320,6 +452,18 @@ describe('hegs-json-viewer contextual property resolution', () => {
       }).badgeLabel
     ).to.equal('Built-in (Scope)');
     expect(
+      getTokenBadgeAppearance({
+        Source: 'ConfigValue',
+        ScopeName: 'UT1'
+      }).badgeLabel
+    ).to.equal('Config (UT1)');
+    expect(
+      getTokenBadgeAppearance({
+        Source: 'ConfigValue',
+        ScopeName: null
+      }).badgeLabel
+    ).to.equal('Config (Fallback)');
+    expect(
       getTokenBadgeAppearance({ Source: 'RuntimeOnly' }).badgeLabel
     ).to.equal('Monitor Runtime');
     expect(
@@ -327,7 +471,7 @@ describe('hegs-json-viewer contextual property resolution', () => {
     ).to.equal('Missing in Scope');
   });
 
-  it('renders toolbar, mode switches (inline, raw, resolved), tokens, and inspector card', async () => {
+  it('renders toolbar, mode switches (inline, raw, resolved), tokens, JSON escaping, and inspector card', async () => {
     const customCache = new PropertyResolutionClientCache({
       coalesceWindowMs: 1,
       transport: async () => [
@@ -340,7 +484,18 @@ describe('hegs-json-viewer contextual property resolution', () => {
           ScopeName: 'Endur-UT1',
           ResolutionChain: ['BaseHost', 'ApiHost'],
           IsSecure: false,
-          Diagnostic: 'Resolved'
+          Diagnostic: 'Ok'
+        },
+        {
+          PropertyName: 'GlobalProp',
+          RawValue: 'global-val',
+          ResolvedValueJson: '"global-val"',
+          ValueType: 'String',
+          Source: 'GlobalDefault',
+          ScopeName: 'Default',
+          ResolutionChain: ['GlobalProp'],
+          IsSecure: false,
+          Diagnostic: 'Ok'
         },
         {
           PropertyName: 'DbPassword',
@@ -376,6 +531,7 @@ describe('hegs-json-viewer contextual property resolution', () => {
         }}
         .data=${{
           Endpoint: 'https://$ApiHost$/v1',
+          WinPath: 'C:\\deploy\\$GlobalProp$',
           Secret: '$DbPassword$',
           Missing: '$MissingVar$',
           Expr: 'fn:System.DateTime.UtcNow',
@@ -400,7 +556,10 @@ describe('hegs-json-viewer contextual property resolution', () => {
         .querySelector('[part="context-counts"]')
         ?.textContent?.replace(/\s+/g, ' ')
         .trim()
-    ).to.contain('3 properties (2 resolved, 1 missing, 1 secret)');
+    ).to.contain('4 properties (3 resolved, 1 missing, 1 secret)');
+
+    // Verify Windows backslashes inside tokenized strings are properly JSON-escaped
+    expect(root.textContent).to.contain('C:\\\\deploy\\\\');
 
     // Inline mode shows resolved preview arrow
     expect(
@@ -423,6 +582,17 @@ describe('hegs-json-viewer contextual property resolution', () => {
     expect(
       inspector?.querySelector<HTMLAnchorElement>('a.inspector-link')?.href
     ).to.contain('/variables/value-lookup?name=ApiHost&scope=Endur-UT1');
+
+    // Click GlobalProp token to verify GlobalDefault omits &scope=Default in deep link
+    const globalChip = root.querySelector<HTMLElement>(
+      '[data-property-name="GlobalProp"]'
+    )!;
+    globalChip.click();
+    await settle();
+    const globalHref =
+      root.querySelector<HTMLAnchorElement>('a.inspector-link')?.href ?? '';
+    expect(globalHref).to.contain('/variables/value-lookup?name=GlobalProp');
+    expect(globalHref).to.not.contain('scope=');
 
     // Click MissingVar token to inspect a trace with empty ResolutionChain and null ScopeName
     const missingChip = root.querySelector<HTMLElement>(
@@ -472,25 +642,100 @@ describe('hegs-json-viewer contextual property resolution', () => {
     el.resolutionContext = undefined;
     await settle();
 
-    // Error in resolutionCache resets traces cleanly
+    // Error in resolutionCache resets traces cleanly, and stale in-flight request is ignored
+    let rejectSlow!: (err: Error) => void;
+    let resolveSlow!: (traces: PropertyResolutionTraceApiModel[]) => void;
+    let callIdx = 0;
     el.resolutionCache = new PropertyResolutionClientCache({
       coalesceWindowMs: 1,
-      transport: async () => {
-        throw new Error('Network failure');
+      transport: () => {
+        callIdx++;
+        if (callIdx === 1) {
+          return new Promise<PropertyResolutionTraceApiModel[]>((_, rej) => {
+            rejectSlow = rej;
+          });
+        }
+        if (callIdx === 2) {
+          return new Promise<PropertyResolutionTraceApiModel[]>(res => {
+            resolveSlow = res;
+          });
+        }
+        return Promise.reject(new Error('Network failure'));
       }
     });
     el.resolutionContext = { environmentName: 'Endur-UT1' };
     await settle();
+    // Trigger generation 2 immediately before generation 1 settles
+    el.resolutionContext = { environmentName: 'Endur-UT2' };
+    await settle();
+    // Trigger generation 3 immediately before generation 2 settles
+    el.resolutionContext = { environmentName: 'Endur-UT3' };
+    await settle();
+    await new Promise(r => setTimeout(r, 10));
+    rejectSlow(new Error('Stale error'));
+    resolveSlow([{ PropertyName: 'ApiHost', Source: 'GlobalDefault' }]);
+    await settle();
     await new Promise(r => setTimeout(r, 20));
     await settle();
+
+    // Render inspector card while trace is still pending (undefined)
+    el.resolutionCache = new PropertyResolutionClientCache({
+      coalesceWindowMs: 500,
+      transport: async () => []
+    });
+    el.data = { OnlyOne: '$PendingProp$', NoMissingOrSecret: '$ApiHost$' };
+    el.resolutionContext = { environmentName: 'Endur-UT1' };
+    await settle();
+    const pendingChip = root.querySelector<HTMLElement>(
+      '[data-property-name="PendingProp"]'
+    )!;
+    pendingChip.click();
+    await settle();
+    expect(
+      root.querySelector('[part="inspector-card"]')?.textContent
+    ).to.contain('Pending');
+
+    // Render toolbar with 0 missing and 0 secret properties
+    el.resolutionCache = customCache;
+    el.data = { OnlyOne: '$ApiHost$' };
+    el.resolutionContext = { environmentName: 'Endur-UT1' };
+    await settle();
+    await new Promise(r => setTimeout(r, 20));
+    await settle();
+    expect(
+      root
+        .querySelector('[part="context-counts"]')
+        ?.textContent?.replace(/\s+/g, ' ')
+        .trim()
+    ).to.equal('1 property (1 resolved)');
   });
 
   it('wires resolutionContext in call sites and query params in page-variables-value-lookup', async () => {
     await import('../../src/pages/page-variables-value-lookup');
     await import('../../src/pages/page-scripts-list');
-    await import('../../src/pages/page-project-bundles');
+    const bundlesMod = await import('../../src/pages/page-project-bundles');
     await import('../../src/components/deployment-definition-editor');
     await import('../../src/components/deploy/deploy-env');
+
+    // Verify extractBundleRequestOverrides extracts job RequestProperties and TargetEnvironmentName
+    expect(
+      bundlesMod.extractBundleRequestOverrides(
+        {
+          RequestProperties: [
+            { PropertyName: 'Host', PropertyValue: 'job-host' },
+            { PropertyName: '   ', PropertyValue: 'ignored' }
+          ]
+        },
+        'Endur-UT1'
+      )
+    ).to.deep.equal([
+      { PropertyName: 'TargetEnvironmentName', PropertyValue: 'Endur-UT1' },
+      { PropertyName: 'Host', PropertyValue: 'job-host' }
+    ]);
+    expect(bundlesMod.extractBundleRequestOverrides('raw-str')).to.deep.equal(
+      []
+    );
+    expect(bundlesMod.extractBundleRequestOverrides({})).to.deep.equal([]);
 
     // 1. page-variables-value-lookup query param initialization
     const originalUrl = window.location.href;
@@ -553,7 +798,7 @@ describe('hegs-json-viewer contextual property resolution', () => {
     expect(defViewer.resolutionContext).to.deep.equal({
       environmentName: 'Payments-UAT',
       projectName: 'Payments',
-      locationKind: 'component-definition'
+      locationKind: 'deployment-definition'
     });
   });
 });

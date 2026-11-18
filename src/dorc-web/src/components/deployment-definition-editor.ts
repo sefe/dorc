@@ -234,7 +234,7 @@ export class DeploymentDefinitionEditor extends LitElement {
         .resolutionContext=${{
           environmentName: this.previewEnvironmentName || undefined,
           projectName: this.project?.ProjectName || undefined,
-          locationKind: 'component-definition'
+          locationKind: 'deployment-definition'
         }}
         ${ref(element => (element as HegsJsonViewer | undefined)?.expandAll())}
       ></hegs-json-viewer>`;
