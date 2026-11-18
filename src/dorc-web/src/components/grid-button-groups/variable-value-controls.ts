@@ -19,6 +19,7 @@ import { Notification } from '@vaadin/notification';
 import '@vaadin/text-field';
 import '@vaadin/tooltip';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
+import { defaultPropertyResolutionClientCache } from '../../variable-resolution/property-resolution-client-cache';
 import { inspectUnescapedDollars } from '../../variable-resolution/resolution-presentation';
 
 @customElement('variable-value-controls')
@@ -31,6 +32,8 @@ export class VariableValueControls extends LitElement {
   @property({ type: String }) additionalInformation = '';
 
   private _originalValueBeforeEdit: string | null | undefined;
+
+  private _originalValueId: number | undefined;
 
   static get styles() {
     return css`
@@ -78,7 +81,18 @@ export class VariableValueControls extends LitElement {
               reveal-button-hidden
               ?readonly="${!this.editing}"
               focus-target
+              @keydown="${(e: KeyboardEvent) => {
+                if (!this.editing) return;
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  this._saveClick();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  this._cancelClick();
+                }
+              }}"
               @value-changed="${(e: CustomEvent) => {
+                if (!this.editing) return;
                 const textField = e.detail as TextField;
                 if (this.value) this.value.Value = textField.value;
               }}"
@@ -89,9 +103,20 @@ export class VariableValueControls extends LitElement {
               ?readonly="${!this.editing}"
               focus-target
               .value="${live(this.value?.Value ?? '')}"
+              @keydown="${(e: KeyboardEvent) => {
+                if (!this.editing) return;
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  this._saveClick();
+                } else if (e.key === 'Escape') {
+                  e.preventDefault();
+                  this._cancelClick();
+                }
+              }}"
               @value-changed="${(e: CustomEvent) => {
+                if (!this.editing) return;
                 const textField = e.detail as TextField;
-                if (this.value) {
+                if (this.value && this.value.Value !== textField.value) {
                   this.value.Value = textField.value;
                   this.requestUpdate();
                 }
@@ -200,6 +225,25 @@ export class VariableValueControls extends LitElement {
 
   private renderInlineDollarEscapeButton() {
     const inspection = inspectUnescapedDollars(this.value?.Value ?? '');
+    if (inspection.hasBraceSyntax) {
+      return html`<vaadin-button
+        theme="small tertiary"
+        aria-label="Convert to $Variable$"
+        title="Convert \${VariableName} to $VariableName$"
+        @click="${() => {
+          if (!this.value) return;
+          this.value.Value = inspection.braceConvertedSuggestion;
+          const textField = this.shadowRoot?.querySelector(
+            `#propValue${this.value?.Id}`
+          ) as unknown as TextField | null;
+          if (textField) {
+            textField.value = inspection.braceConvertedSuggestion;
+          }
+          this.requestUpdate();
+        }}"
+        >Use $Variable$</vaadin-button
+      >`;
+    }
     if (!inspection.hasUnclosedDollar) return html``;
     return html`<vaadin-button
       theme="small tertiary"
@@ -226,6 +270,7 @@ export class VariableValueControls extends LitElement {
 
   _editClick() {
     this._originalValueBeforeEdit = this.value?.Value;
+    this._originalValueId = this.value?.Id;
     const textField = this.shadowRoot?.querySelector(
       `#propValue${this.value?.Id}`
     ) as unknown as TextField;
@@ -260,7 +305,11 @@ export class VariableValueControls extends LitElement {
   _cancelClick() {
     if (this.value?.Property?.Secure) {
       this.resetSecureFieldIfNeeded();
-    } else if (this.value && this._originalValueBeforeEdit !== undefined) {
+    } else if (
+      this.value &&
+      this._originalValueBeforeEdit !== undefined &&
+      this._originalValueId === this.value.Id
+    ) {
       this.value.Value = this._originalValueBeforeEdit;
       const textField = this.shadowRoot?.querySelector(
         `#propValue${this.value?.Id}`
@@ -298,6 +347,7 @@ export class VariableValueControls extends LitElement {
             return;
           }
 
+          defaultPropertyResolutionClientCache.clear();
           this.resetSecureFieldIfNeeded();
           this.dispatchEvent(
             new CustomEvent('variable-value-updated', {

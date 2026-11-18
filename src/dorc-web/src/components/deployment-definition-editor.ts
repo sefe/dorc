@@ -1,6 +1,7 @@
 import '@vaadin/button';
 import '@vaadin/checkbox';
 import '@vaadin/combo-box';
+import '@vaadin/password-field';
 import '@vaadin/text-area';
 import '@vaadin/text-field';
 import './hegs-json-viewer';
@@ -18,6 +19,7 @@ import {
   type ComponentApiModel,
   type PropertyApiModel,
   type PropertyResolutionTraceApiModel,
+  type PropertyValueScopeOptionApiModel,
   type ProjectApiModel
 } from '../apis/dorc-api';
 import {
@@ -31,8 +33,11 @@ import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import { defaultPropertyResolutionClientCache } from '../variable-resolution/property-resolution-client-cache';
 import { parsePropertyTokens } from '../variable-resolution/property-token-parser';
 import {
+  buildInsertableDollarTokens,
+  evaluateDollarValuePreview,
   inspectParameterBindingSyntax,
   inspectUnescapedDollars,
+  lookupTrace,
   presentTrace
 } from '../variable-resolution/resolution-presentation';
 
@@ -44,6 +49,23 @@ export interface ParameterResolutionPreview {
   tokenNames: string[];
   traces: PropertyResolutionTraceApiModel[];
   detailMessage?: string;
+}
+
+const STATUS_PRIORITY: Record<
+  ParameterResolutionPreview['status'],
+  number
+> = {
+  resolved: 0,
+  masked: 1,
+  warning: 2,
+  unresolved: 3
+};
+
+function promoteStatus(
+  current: ParameterResolutionPreview['status'],
+  next: ParameterResolutionPreview['status']
+): ParameterResolutionPreview['status'] {
+  return STATUS_PRIORITY[next] > STATUS_PRIORITY[current] ? next : current;
 }
 
 export function evaluateParameterPreview(
@@ -62,7 +84,7 @@ export function evaluateParameterPreview(
   if (tokenNames.length === 0) return undefined;
 
   let out = '';
-  let status: 'resolved' | 'warning' | 'unresolved' | 'masked' = 'resolved';
+  let status: ParameterResolutionPreview['status'] = 'resolved';
   const traces: PropertyResolutionTraceApiModel[] = [];
   const details: string[] = [];
 
@@ -71,11 +93,9 @@ export function evaluateParameterPreview(
       out += seg.rawText;
       continue;
     }
-    const trace =
-      tracesByProperty.get(seg.propertyName) ??
-      tracesByProperty.get(seg.propertyName.toLowerCase());
+    const trace = lookupTrace(tracesByProperty, seg.propertyName);
     if (!trace) {
-      status = 'unresolved';
+      status = promoteStatus(status, 'unresolved');
       out += seg.rawText;
       continue;
     }
@@ -85,17 +105,22 @@ export function evaluateParameterPreview(
       details.push(`${seg.propertyName}: ${presented.diagnosticDetail}`);
     }
     if (presented.severity === 'masked') {
-      status = 'masked';
+      status = promoteStatus(status, 'masked');
       out += presented.effectiveDisplayValue;
       continue;
     }
-    if (!presented.hasEffectiveValue) {
-      status = 'unresolved';
-      out += seg.rawText;
+    if (
+      presented.severity === 'unresolved' ||
+      !presented.hasEffectiveValue
+    ) {
+      status = promoteStatus(status, 'unresolved');
+      out += presented.hasEffectiveValue
+        ? presented.effectiveDisplayValue
+        : seg.rawText;
       continue;
     }
-    if (presented.severity === 'warning' && status === 'resolved') {
-      status = 'warning';
+    if (presented.severity === 'warning') {
+      status = promoteStatus(status, 'warning');
     }
     out += presented.effectiveDisplayValue;
   }
@@ -125,8 +150,13 @@ export class DeploymentDefinitionEditor extends LitElement {
   @state() private inlineNewPropertyName = '';
   @state() private inlineNewPropertySecure = false;
   @state() private inlineNewPropertyDefaultValue = '';
+  @state() private inlineValuePickerOpen = false;
+  @state() private inlineValuePickerFilter = '';
+  @state() private inlineScopeOptions: PropertyValueScopeOptionApiModel[] = [];
   @state() private inlineCreateFeedback = '';
   @state() private inlineCreateSubmitting = false;
+  private inlineValueSelectionStart: number | null = null;
+  private inlineValueSelectionEnd: number | null = null;
   private inlineCreatedProperty: PropertyApiModel | undefined;
   @state() private previewTracesByProperty = new Map<
     string,
@@ -406,9 +436,35 @@ export class DeploymentDefinitionEditor extends LitElement {
       }
       this.isApplyingInternalChange = false;
     }
-    if (changed.has('component') || changed.has('previewEnvironmentName')) {
+    if (
+      changed.has('component') ||
+      changed.has('previewEnvironmentName') ||
+      changed.has('inlineNewPropertyDefaultValue')
+    ) {
       void this.refreshParameterResolutionPreview();
     }
+    if (changed.has('previewEnvironmentName') && this.inlineCreateParamKey) {
+      this.loadInlineScopeOptions();
+    }
+  }
+
+  public loadInlineScopeOptions() {
+    const api = new PropertyValuesApi(dorcApiConfiguration);
+    if (typeof api.propertyValuesScopeOptionsGet !== 'function') {
+      return;
+    }
+    api
+      .propertyValuesScopeOptionsGet({
+        propertyValueScope: this.previewEnvironmentName || ''
+      })
+      .subscribe({
+        next: opts => {
+          this.inlineScopeOptions = opts ?? [];
+        },
+        error: () => {
+          this.inlineScopeOptions = [];
+        }
+      });
   }
 
   public loadPropertiesCatalog() {
@@ -454,7 +510,6 @@ export class DeploymentDefinitionEditor extends LitElement {
 
   public async refreshParameterResolutionPreview() {
     const generation = ++this.previewRequestGeneration;
-    this.previewTracesByProperty = new Map();
     const parsed = parseScriptPathValue(this.component?.ScriptPath);
     const tokenSet = new Set<string>();
     for (const arg of parsed.arguments) {
@@ -464,7 +519,22 @@ export class DeploymentDefinitionEditor extends LitElement {
         }
       }
     }
+    if (
+      this.inlineCreateParamKey &&
+      !this.inlineNewPropertySecure &&
+      this.inlineNewPropertyDefaultValue
+    ) {
+      for (const seg of parsePropertyTokens(
+        this.inlineNewPropertyDefaultValue,
+        'standard'
+      )) {
+        if (seg.kind === 'property') {
+          tokenSet.add(seg.propertyName);
+        }
+      }
+    }
     if (tokenSet.size === 0) {
+      this.previewTracesByProperty = new Map();
       return;
     }
     try {
@@ -517,32 +587,176 @@ export class DeploymentDefinitionEditor extends LitElement {
     this.inlineNewPropertyName = suggestedName;
     this.inlineNewPropertySecure = false;
     this.inlineNewPropertyDefaultValue = '';
+    this.inlineValuePickerOpen = false;
+    this.inlineValuePickerFilter = '';
+    this.inlineValueSelectionStart = null;
+    this.inlineValueSelectionEnd = null;
     this.inlineCreateFeedback = '';
+    this.loadInlineScopeOptions();
+  }
+
+  public insertTokenIntoInlineValue(token: string) {
+    if (!token) return;
+    const current = this.inlineNewPropertyDefaultValue;
+    const start =
+      typeof this.inlineValueSelectionStart === 'number'
+        ? this.inlineValueSelectionStart
+        : current.length;
+    const end =
+      typeof this.inlineValueSelectionEnd === 'number'
+        ? this.inlineValueSelectionEnd
+        : start;
+    const nextVal = current.slice(0, start) + token + current.slice(end);
+    const nextCaret = start + token.length;
+    this.inlineNewPropertyDefaultValue = nextVal;
+    this.inlineValueSelectionStart = nextCaret;
+    this.inlineValueSelectionEnd = nextCaret;
+    this.inlineValuePickerOpen = false;
+    const valueField = this.shadowRoot?.querySelector('#inlineNewPropertyValue') as
+      | (HTMLElement & { inputElement?: HTMLInputElement })
+      | null;
+    const nativeInput = valueField?.inputElement;
+    if (nativeInput) {
+      nativeInput.focus();
+      if (typeof nativeInput.setSelectionRange === 'function') {
+        nativeInput.setSelectionRange(nextCaret, nextCaret);
+      }
+    } else {
+      valueField?.focus();
+    }
   }
 
   private renderInlineValueDollarHint() {
+    if (this.inlineNewPropertySecure) return nothing;
     const inspection = inspectUnescapedDollars(
       this.inlineNewPropertyDefaultValue
     );
-    if (!inspection.hasUnclosedDollar) return nothing;
-    return html`<div class="param-syntax-hint" role="status">
-      <span
-        >${
-          inspection.hasOtherPropertyTokens
-            ? 'Unescaped $ (such as E$) prevents other $Variable$ tokens from expanding.'
-            : 'Contains a literal $ (such as E$). Escape as $$ if combining with $Variable$ tokens.'
-        }</span
-      >
-      <button
-        type="button"
-        class="param-action-btn"
-        @click=${() => {
-          this.inlineNewPropertyDefaultValue = inspection.escapedSuggestion;
-        }}
-      >
-        Escape literal $ as $$
-      </button>
-    </div>`;
+    const preview = evaluateDollarValuePreview(
+      this.inlineNewPropertyDefaultValue,
+      this.previewTracesByProperty,
+      this.previewEnvironmentName || 'Default'
+    );
+    const dollarTokens = buildInsertableDollarTokens(
+      this.inlineScopeOptions,
+      this.availableProperties,
+      this.inlineNewPropertyName
+    );
+    const filterLower = this.inlineValuePickerFilter.trim().toLowerCase();
+    const filteredTokens = dollarTokens
+      .filter(t =>
+        !filterLower
+          ? true
+          : t.ValueOption.toLowerCase().includes(filterLower) ||
+            String(t.SampleResolvedValue ?? '')
+              .toLowerCase()
+              .includes(filterLower)
+      )
+      .slice(0, 30);
+
+    return html`
+      ${
+        this.inlineValuePickerOpen
+          ? html`<div
+              class="param-picker-popover full"
+              role="dialog"
+              aria-label="Insert $Variable$ token into initial value"
+            >
+              <vaadin-text-field
+                placeholder="Search $ServerNames_&lt;Tag&gt;$, $EnvironmentName$, or $Variable$..."
+                clear-button-visible
+                theme="small"
+                .value=${live(this.inlineValuePickerFilter)}
+                @input=${(e: Event) => {
+                  this.inlineValuePickerFilter = (
+                    e.currentTarget as HTMLInputElement
+                  ).value;
+                }}
+              ></vaadin-text-field>
+              <div class="param-picker-list">
+                ${filteredTokens.map(
+                  opt => html`<button
+                    type="button"
+                    class="param-picker-item"
+                    @click=${() => this.insertTokenIntoInlineValue(opt.ValueOption)}
+                  >
+                    <span>${opt.ValueOption}</span>
+                    <span style="opacity:0.7">${opt.CategoryLabel}</span>
+                  </button>`
+                )}
+              </div>
+              <div style="display:flex; justify-content:flex-end;">
+                <button
+                  type="button"
+                  class="param-action-btn"
+                  @click=${() => {
+                    this.inlineValuePickerOpen = false;
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>`
+          : nothing
+      }
+      ${
+        inspection.hasBraceSyntax
+          ? html`<div class="param-syntax-hint full" role="status">
+              <span
+                >Variable values use <code>$VariableName$</code> rather than
+                <code>\${VariableName}</code>.</span
+              >
+              <button
+                type="button"
+                class="param-action-btn"
+                @click=${() => {
+                  this.inlineNewPropertyDefaultValue =
+                    inspection.braceConvertedSuggestion;
+                }}
+              >
+                Convert to $Variable$
+              </button>
+            </div>`
+          : inspection.hasUnclosedDollar
+            ? html`<div class="param-syntax-hint full" role="status">
+                <span
+                  >${
+                    inspection.hasOtherPropertyTokens
+                      ? 'Unescaped $ (such as E$) prevents other $Variable$ tokens from expanding.'
+                      : 'Contains a literal $ (such as E$). Escape as $$ if combining with $Variable$ tokens.'
+                  }</span
+                >
+                <button
+                  type="button"
+                  class="param-action-btn"
+                  @click=${() => {
+                    this.inlineNewPropertyDefaultValue =
+                      inspection.escapedSuggestion;
+                  }}
+                >
+                  Escape literal $ as $$
+                </button>
+              </div>`
+            : nothing
+      }
+      ${
+        preview
+          ? html`<div
+              class="param-preview-badge full"
+              data-status=${preview.status}
+              title=${preview.scopeSummary}
+            >
+              <span
+                >${
+                  this.previewEnvironmentName
+                    ? `Value resolves in ${this.previewEnvironmentName}:`
+                    : 'Value resolves (Default):'
+                }</span
+              >
+              <strong>${preview.resolvedText}</strong>
+            </div>`
+          : nothing
+      }
+    `;
   }
 
   public createInlineVariableForParameter() {
@@ -924,9 +1138,13 @@ export class DeploymentDefinitionEditor extends LitElement {
     >
       <span
         >${
-          this.previewEnvironmentName
-            ? `Resolves in ${this.previewEnvironmentName}:`
-            : 'Resolves (Default):'
+          preview.status === 'unresolved'
+            ? this.previewEnvironmentName
+              ? `Not resolved in ${this.previewEnvironmentName}:`
+              : 'Not resolved (Default):'
+            : this.previewEnvironmentName
+              ? `Resolves in ${this.previewEnvironmentName}:`
+              : 'Resolves (Default):'
         }</span
       >
       <strong>${preview.resolvedText}</strong>
@@ -1212,20 +1430,75 @@ export class DeploymentDefinitionEditor extends LitElement {
                               ).value;
                             }}
                           ></vaadin-text-field>
-                          <vaadin-text-field
-                            id="inlineNewPropertyValue"
-                            label="Initial value (${
-                              this.previewEnvironmentName || 'default'
-                            })"
-                            placeholder="Optional initial value (use $Variable$ or $$)..."
-                            theme="small"
-                            .value=${live(this.inlineNewPropertyDefaultValue)}
-                            @input=${(e: Event) => {
-                              this.inlineNewPropertyDefaultValue = (
-                                e.currentTarget as HTMLInputElement
-                              ).value;
-                            }}
-                          ></vaadin-text-field>
+                          ${
+                            this.inlineNewPropertySecure
+                              ? html`<vaadin-password-field
+                                  id="inlineNewPropertyValue"
+                                  label="Initial secret value (${
+                                    this.previewEnvironmentName || 'default'
+                                  })"
+                                  placeholder="Optional initial secret value..."
+                                  theme="small"
+                                  .value=${live(
+                                    this.inlineNewPropertyDefaultValue
+                                  )}
+                                  @input=${(e: Event) => {
+                                    this.inlineNewPropertyDefaultValue = (
+                                      e.currentTarget as HTMLInputElement
+                                    ).value;
+                                  }}
+                                ></vaadin-password-field>`
+                              : html`<vaadin-text-field
+                                  id="inlineNewPropertyValue"
+                                  label="Initial value (${
+                                    this.previewEnvironmentName || 'default'
+                                  })"
+                                  placeholder="Optional initial value (use $Variable$ or $$)..."
+                                  theme="small"
+                                  .value=${live(
+                                    this.inlineNewPropertyDefaultValue
+                                  )}
+                                  @blur=${(e: Event) => {
+                                    const target = e.currentTarget as HTMLElement & {
+                                      inputElement?: HTMLInputElement;
+                                    };
+                                    const nativeInput = target.inputElement;
+                                    if (nativeInput) {
+                                      this.inlineValueSelectionStart =
+                                        nativeInput.selectionStart;
+                                      this.inlineValueSelectionEnd =
+                                        nativeInput.selectionEnd;
+                                    }
+                                  }}
+                                  @input=${(e: Event) => {
+                                    const target = e.currentTarget as HTMLElement & {
+                                      value: string;
+                                      inputElement?: HTMLInputElement;
+                                    };
+                                    this.inlineNewPropertyDefaultValue =
+                                      target.value;
+                                    if (target.inputElement) {
+                                      this.inlineValueSelectionStart =
+                                        target.inputElement.selectionStart;
+                                      this.inlineValueSelectionEnd =
+                                        target.inputElement.selectionEnd;
+                                    }
+                                  }}
+                                >
+                                  <button
+                                    slot="suffix"
+                                    type="button"
+                                    class="param-bind-suffix-btn"
+                                    title="Insert $Variable$ or $ServerNames_&lt;Tag&gt;$ token"
+                                    @click=${() => {
+                                      this.inlineValuePickerOpen =
+                                        !this.inlineValuePickerOpen;
+                                    }}
+                                  >
+                                    $x$
+                                  </button>
+                                </vaadin-text-field>`
+                          }
                           ${this.renderInlineValueDollarHint()}
                           <vaadin-checkbox
                             id="inlineNewPropertySecure"

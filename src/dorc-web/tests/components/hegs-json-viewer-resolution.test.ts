@@ -90,31 +90,54 @@ describe('property-token-parser', () => {
     expect(inspectUnescapedDollars('plain')).to.deep.equal({
       hasUnclosedDollar: false,
       hasOtherPropertyTokens: false,
-      escapedSuggestion: 'plain'
+      escapedSuggestion: 'plain',
+      isTypingOpenToken: false,
+      hasBraceSyntax: false,
+      braceConvertedSuggestion: 'plain'
     });
     expect(
       inspectUnescapedDollars('\\\\$ServerNames_App$\\E$\\Apps')
     ).to.deep.equal({
       hasUnclosedDollar: true,
       hasOtherPropertyTokens: true,
-      escapedSuggestion: '\\\\$ServerNames_App$\\E$$\\Apps'
+      escapedSuggestion: '\\\\$ServerNames_App$\\E$$\\Apps',
+      isTypingOpenToken: false,
+      hasBraceSyntax: false,
+      braceConvertedSuggestion: '\\\\$ServerNames_App$\\E$\\Apps'
     });
     expect(inspectUnescapedDollars('\\\\host\\E$\\Apps')).to.deep.equal({
       hasUnclosedDollar: true,
       hasOtherPropertyTokens: false,
-      escapedSuggestion: '\\\\host\\E$$\\Apps'
+      escapedSuggestion: '\\\\host\\E$$\\Apps',
+      isTypingOpenToken: false,
+      hasBraceSyntax: false,
+      braceConvertedSuggestion: '\\\\host\\E$\\Apps'
     });
     expect(
       inspectUnescapedDollars('\\\\host\\E$\\Apps\\$OtherVar$')
     ).to.deep.equal({
       hasUnclosedDollar: true,
       hasOtherPropertyTokens: true,
-      escapedSuggestion: '\\\\host\\E$$\\Apps\\$OtherVar$'
+      escapedSuggestion: '\\\\host\\E$$\\Apps\\$OtherVar$',
+      isTypingOpenToken: false,
+      hasBraceSyntax: false,
+      braceConvertedSuggestion: '\\\\host\\E$\\Apps\\$OtherVar$'
     });
     expect(inspectUnescapedDollars('\\\\host\\E$$\\Apps')).to.deep.equal({
       hasUnclosedDollar: false,
       hasOtherPropertyTokens: false,
-      escapedSuggestion: '\\\\host\\E$$\\Apps'
+      escapedSuggestion: '\\\\host\\E$$\\Apps',
+      isTypingOpenToken: false,
+      hasBraceSyntax: false,
+      braceConvertedSuggestion: '\\\\host\\E$$\\Apps'
+    });
+    expect(inspectUnescapedDollars('${ServerNames_App}')).to.deep.equal({
+      hasUnclosedDollar: false,
+      hasOtherPropertyTokens: true,
+      escapedSuggestion: '$ServerNames_App$',
+      isTypingOpenToken: false,
+      hasBraceSyntax: true,
+      braceConvertedSuggestion: '$ServerNames_App$'
     });
 
     const insertableTokens = buildInsertableDollarTokens(
@@ -353,6 +376,41 @@ describe('property-token-parser', () => {
       },
       { kind: 'static', value: 'tail', rawText: 'tail' }
     ]);
+
+    expect(
+      parsePropertyTokens('\\\\$ServerNames_App$\\E$\\Apps\\$OtherVar$')
+    ).to.deep.equal([
+      { kind: 'static', value: '\\\\', rawText: '\\\\' },
+      {
+        kind: 'property',
+        propertyName: 'ServerNames_App',
+        rawText: '$ServerNames_App$',
+        syntax: 'dollar'
+      },
+      { kind: 'static', value: '\\E$\\Apps\\', rawText: '\\E$\\Apps\\' },
+      {
+        kind: 'property',
+        propertyName: 'OtherVar',
+        rawText: '$OtherVar$',
+        syntax: 'dollar'
+      }
+    ]);
+    expect(parsePropertyTokens('\\\\srv\\C$\\x\\D$\\y')).to.deep.equal([
+      {
+        kind: 'static',
+        value: '\\\\srv\\C$\\x\\D$\\y',
+        rawText: '\\\\srv\\C$\\x\\D$\\y'
+      }
+    ]);
+    expect(parsePropertyTokens('\\\\srv\\ADMIN$\\System32\\IPC$')).to.deep.equal(
+      [
+        {
+          kind: 'static',
+          value: '\\\\srv\\ADMIN$\\System32\\IPC$',
+          rawText: '\\\\srv\\ADMIN$\\System32\\IPC$'
+        }
+      ]
+    );
 
     expect(parsePropertyTokens('prefix$')).to.deep.equal([
       { kind: 'static', value: 'prefix', rawText: 'prefix' },

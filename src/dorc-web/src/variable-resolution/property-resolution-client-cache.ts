@@ -133,7 +133,8 @@ export class PropertyResolutionClientCache {
 
     if (contextCache) {
       for (const name of cleanNames) {
-        const hit = contextCache.get(name);
+        const hit =
+          contextCache.get(name) ?? contextCache.get(name.toLowerCase());
         if (hit) {
           preCached.set(name, hit.trace);
         } else {
@@ -212,10 +213,16 @@ export class PropertyResolutionClientCache {
       for (const traces of chunkResults) {
         for (const trace of traces) {
           if (trace.PropertyName) {
-            transientTraces.set(trace.PropertyName, trace);
+            const propKey = trace.PropertyName;
+            const lowerKey = propKey.toLowerCase();
+            transientTraces.set(propKey, trace);
+            if (!transientTraces.has(lowerKey)) {
+              transientTraces.set(lowerKey, trace);
+            }
             if (bucket.generation === this.cacheGeneration) {
               if (trace.IsSecure) {
-                contextCache?.delete(trace.PropertyName);
+                contextCache?.delete(propKey);
+                contextCache?.delete(lowerKey);
               } else {
                 if (!contextCache) {
                   if (this.cache.size >= MAX_CACHED_CONTEXTS) {
@@ -225,10 +232,16 @@ export class PropertyResolutionClientCache {
                   contextCache = new Map();
                   this.cache.set(contextKey, contextCache);
                 }
-                contextCache.set(trace.PropertyName, {
+                contextCache.set(propKey, {
                   trace,
                   expiresAt
                 });
+                if (!contextCache.has(lowerKey)) {
+                  contextCache.set(lowerKey, {
+                    trace,
+                    expiresAt
+                  });
+                }
               }
             }
           }
@@ -238,10 +251,13 @@ export class PropertyResolutionClientCache {
       for (const waiter of bucket.resolvers) {
         const out = new Map<string, PropertyResolutionTraceApiModel>();
         for (const name of waiter.requestedNames) {
+          const lower = name.toLowerCase();
           const result =
             waiter.preCached.get(name) ??
             transientTraces.get(name) ??
-            contextCache?.get(name)?.trace;
+            transientTraces.get(lower) ??
+            contextCache?.get(name)?.trace ??
+            contextCache?.get(lower)?.trace;
           if (result) {
             out.set(name, result);
           }

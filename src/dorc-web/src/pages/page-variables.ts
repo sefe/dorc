@@ -30,6 +30,7 @@ import {
   EnvironmentApiModel,
   PropertiesApi,
   PropertyApiModel,
+  PropertyResolutionTraceApiModel,
   PropertyValueDto,
   PropertyValuesApi,
   PropertyValueScopeOptionApiModel,
@@ -43,8 +44,11 @@ import '@vaadin/icons';
 import { navigate } from '../router/router';
 import '@vaadin/tooltip';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { defaultPropertyResolutionClientCache } from '../variable-resolution/property-resolution-client-cache';
+import { parsePropertyTokens } from '../variable-resolution/property-token-parser';
 import {
   buildInsertableDollarTokens,
+  evaluateDollarValuePreview,
   InsertableDollarTokenOption,
   inspectUnescapedDollars
 } from '../variable-resolution/resolution-presentation';
@@ -103,6 +107,17 @@ export class PageVariables extends PageElement {
   @state() selectedVariableScopes: string[] = [];
 
   @state() draftNewVariableValue = '';
+
+  @state() private draftPreviewTraces = new Map<
+    string,
+    PropertyResolutionTraceApiModel
+  >();
+
+  private draftPreviewGeneration = 0;
+
+  private valueSelectionStart: number | null = null;
+
+  private valueSelectionEnd: number | null = null;
 
   @property({ type: Boolean }) existingPropertySelected = false;
 
@@ -475,13 +490,33 @@ export class PageVariables extends PageElement {
                           placeholder="e.g. \\\\$ServerNames_STP_Strategies$\\E$$\\Apps\\..."
                           style="min-width: 320px; flex: 1 1 320px;"
                           helper-text="Use $VariableName$ or built-in tokens; use $$ for a literal $ (e.g. E$$)"
+                          @blur="${(e: Event) => {
+                            const target = e.currentTarget as TextField & {
+                              inputElement?: HTMLInputElement;
+                            };
+                            if (target?.inputElement) {
+                              this.valueSelectionStart =
+                                target.inputElement.selectionStart;
+                              this.valueSelectionEnd =
+                                target.inputElement.selectionEnd;
+                            }
+                          }}"
                           @input="${(e: Event) => {
-                            this.draftNewVariableValue = (
-                              e.currentTarget as HTMLInputElement
-                            ).value;
+                            const target = e.currentTarget as TextField & {
+                              inputElement?: HTMLInputElement;
+                            };
+                            this.draftNewVariableValue = target.value;
+                            if (target?.inputElement) {
+                              this.valueSelectionStart =
+                                target.inputElement.selectionStart;
+                              this.valueSelectionEnd =
+                                target.inputElement.selectionEnd;
+                            }
+                            void this.refreshDraftValuePreview();
                           }}"
                           @value-changed="${(e: CustomEvent<{ value?: string }>) => {
                             this.draftNewVariableValue = e.detail?.value ?? '';
+                            void this.refreshDraftValuePreview();
                           }}"
                         ></vaadin-text-field>
                         <vaadin-combo-box
@@ -878,6 +913,11 @@ export class PageVariables extends PageElement {
       'variable-value-deleted',
       this.variableValueDeleted as EventListener
     );
+    this.addEventListener('variable-value-updated', (() => {
+      defaultPropertyResolutionClientCache.clear();
+      this._editingValueId = undefined;
+      void this.refreshDraftValuePreview();
+    }) as EventListener);
     this.addEventListener('editing-started', ((e: CustomEvent) => {
       this._editingValueId = e.detail.id;
     }) as EventListener);
@@ -990,6 +1030,52 @@ export class PageVariables extends PageElement {
       const combo = data.target as ComboBox;
       this.newVariableScope = combo.value ?? '';
       this.loadScopeOptions(this.newVariableScope);
+      void this.refreshDraftValuePreview();
+    }
+  }
+
+  public isSelectedPropertySecure(): boolean {
+    const existingProperty = this.properties?.find(
+      value => value.Name === this.propertyName
+    );
+    return Boolean(existingProperty?.Secure);
+  }
+
+  public async refreshDraftValuePreview() {
+    const generation = ++this.draftPreviewGeneration;
+    if (this.isSelectedPropertySecure() || !this.draftNewVariableValue) {
+      this.draftPreviewTraces = new Map();
+      return;
+    }
+    const referenced = parsePropertyTokens(
+      this.draftNewVariableValue,
+      'standard'
+    )
+      .filter(
+        (t): t is Extract<typeof t, { kind: 'property' }> =>
+          t.kind === 'property'
+      )
+      .map(t => t.propertyName);
+    if (referenced.length === 0) {
+      this.draftPreviewTraces = new Map();
+      return;
+    }
+    const targetScope =
+      this.newVariableScope ||
+      this.selectedVariableScopes.find(s => Boolean(s)) ||
+      undefined;
+    try {
+      const traces = await defaultPropertyResolutionClientCache.resolveProperties(
+        { environmentName: targetScope },
+        referenced
+      );
+      if (generation === this.draftPreviewGeneration) {
+        this.draftPreviewTraces = traces;
+      }
+    } catch {
+      if (generation === this.draftPreviewGeneration) {
+        this.draftPreviewTraces = new Map();
+      }
     }
   }
 
@@ -1034,25 +1120,38 @@ export class PageVariables extends PageElement {
       textField.inputElement ??
       (textField.querySelector('input') as HTMLInputElement | null) ??
       (textField.shadowRoot?.querySelector('input') as HTMLInputElement | null);
-    if (
-      innerInput &&
-      typeof innerInput.selectionStart === 'number' &&
-      typeof innerInput.selectionEnd === 'number'
-    ) {
-      const start = innerInput.selectionStart;
-      const end = innerInput.selectionEnd;
-      const nextVal = current.slice(0, start) + token + current.slice(end);
-      textField.value = nextVal;
+    const start =
+      typeof this.valueSelectionStart === 'number'
+        ? this.valueSelectionStart
+        : innerInput && typeof innerInput.selectionStart === 'number'
+          ? innerInput.selectionStart
+          : current.length;
+    const end =
+      typeof this.valueSelectionEnd === 'number'
+        ? this.valueSelectionEnd
+        : innerInput && typeof innerInput.selectionEnd === 'number'
+          ? innerInput.selectionEnd
+          : start;
+    const nextVal = current.slice(0, start) + token + current.slice(end);
+    const nextPos = start + token.length;
+    textField.value = nextVal;
+    this.valueSelectionStart = nextPos;
+    this.valueSelectionEnd = nextPos;
+    if (innerInput) {
       innerInput.value = nextVal;
-      const nextPos = start + token.length;
-      innerInput.setSelectionRange(nextPos, nextPos);
-    } else {
-      textField.value = current + token;
+      innerInput.focus();
+      if (typeof innerInput.setSelectionRange === 'function') {
+        innerInput.setSelectionRange(nextPos, nextPos);
+      }
+    } else if (typeof textField.focus === 'function') {
+      textField.focus();
     }
     this.draftNewVariableValue = textField.value;
+    void this.refreshDraftValuePreview();
   }
 
   public escapeLiteralDollarsInValue() {
+    if (this.isSelectedPropertySecure()) return;
     const textField = this.shadowRoot?.querySelector(
       '#newVariableValue'
     ) as unknown as TextField | null;
@@ -1060,28 +1159,82 @@ export class PageVariables extends PageElement {
     const inspection = inspectUnescapedDollars(textField.value ?? '');
     textField.value = inspection.escapedSuggestion;
     this.draftNewVariableValue = inspection.escapedSuggestion;
+    void this.refreshDraftValuePreview();
   }
 
   private renderDollarEscapeHint() {
+    if (this.isSelectedPropertySecure()) return html``;
     const inspection = inspectUnescapedDollars(this.draftNewVariableValue);
-    if (!inspection.hasUnclosedDollar) return html``;
-    return html`<div class="dollar-lint-banner" role="status">
-      <span
-        >${
-          inspection.hasOtherPropertyTokens
-            ? 'Unescaped $ (such as E$) will prevent other $Variable$ tokens in this value from expanding.'
-            : 'Contains a single $ (such as E$). Escape as $$ if you combine this path with $Variable$ tokens.'
-        }</span
-      >
-      <button
-        type="button"
-        id="escapeDollarBtn"
-        class="dollar-lint-btn"
-        @click="${() => this.escapeLiteralDollarsInValue()}"
-      >
-        Escape literal $ as $$
-      </button>
-    </div>`;
+    const targetScope =
+      this.newVariableScope ||
+      this.selectedVariableScopes.find(s => Boolean(s)) ||
+      'Default';
+    const preview = evaluateDollarValuePreview(
+      this.draftNewVariableValue,
+      this.draftPreviewTraces,
+      targetScope
+    );
+
+    return html`
+      ${
+        inspection.hasBraceSyntax
+          ? html`<div class="dollar-lint-banner" role="status">
+              <span
+                >Variable values use <code>$VariableName$</code> rather than
+                <code>\${VariableName}</code>.</span
+              >
+              <button
+                type="button"
+                id="convertBraceBtn"
+                class="dollar-lint-btn"
+                @click="${() => {
+                  const textField = this.shadowRoot?.querySelector(
+                    '#newVariableValue'
+                  ) as unknown as TextField | null;
+                  if (textField) {
+                    textField.value = inspection.braceConvertedSuggestion;
+                  }
+                  this.draftNewVariableValue =
+                    inspection.braceConvertedSuggestion;
+                  void this.refreshDraftValuePreview();
+                }}"
+              >
+                Convert to $Variable$
+              </button>
+            </div>`
+          : inspection.hasUnclosedDollar
+            ? html`<div class="dollar-lint-banner" role="status">
+                <span
+                  >${
+                    inspection.hasOtherPropertyTokens
+                      ? 'Unescaped $ (such as E$) will prevent other $Variable$ tokens in this value from expanding.'
+                      : 'Contains a single $ (such as E$). Escape as $$ if you combine this path with $Variable$ tokens.'
+                  }</span
+                >
+                <button
+                  type="button"
+                  id="escapeDollarBtn"
+                  class="dollar-lint-btn"
+                  @click="${() => this.escapeLiteralDollarsInValue()}"
+                >
+                  Escape literal $ as $$
+                </button>
+              </div>`
+            : html``
+      }
+      ${
+        preview
+          ? html`<div
+              class="scope-chip"
+              style="margin-top: 4px; border-radius: 6px; font-family: monospace;"
+              title="${preview.scopeSummary}"
+            >
+              <span>Resolves (${targetScope}):</span>
+              <strong>${preview.resolvedText}</strong>
+            </div>`
+          : html``
+      }
+    `;
   }
 
   _onScopeOptionPicked(event: CustomEvent<{ value?: string }>) {
@@ -1391,6 +1544,7 @@ export class PageVariables extends PageElement {
               this.addValueGeneration === submittedGeneration
             ) {
               if (succeededScopes.size > 0) {
+                defaultPropertyResolutionClientCache.clear();
                 if (this.filteredEnvironments) {
                   this.filteredEnvironments.sort();
                   this.filteredEnvironments = JSON.parse(
@@ -1414,6 +1568,10 @@ export class PageVariables extends PageElement {
                 if (textField && textField.value === submittedRawValue) {
                   textField.value = '';
                 }
+                this.draftNewVariableValue = '';
+                this.draftPreviewTraces = new Map();
+                this.valueSelectionStart = null;
+                this.valueSelectionEnd = null;
               }
               if (failedResponses.length > 0) {
                 this.errorAlert(failedResponses);
@@ -1439,6 +1597,7 @@ export class PageVariables extends PageElement {
     if (e.detail.data) {
       const data = e.detail.data as Response[];
       if (data[0].Status === 'success') {
+        defaultPropertyResolutionClientCache.clear();
         const pv = data[0].Item as PropertyValueDto;
         if (pv.PropertyValueFilter !== undefined) {
           this.filteredEnvironments?.push(pv.PropertyValueFilter ?? '');

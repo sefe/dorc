@@ -3,7 +3,10 @@ import type {
   PropertyResolutionTraceApiModel,
   PropertyValueScopeOptionApiModel
 } from '../apis/dorc-api';
-import { parsePropertyTokens } from './property-token-parser';
+import {
+  ParsedPropertyToken,
+  parsePropertyTokens
+} from './property-token-parser';
 
 export type ResolutionSeverity =
   | 'resolved'
@@ -25,7 +28,10 @@ export interface PresentedTrace {
 export interface UnescapedDollarInspection {
   hasUnclosedDollar: boolean;
   hasOtherPropertyTokens: boolean;
+  hasBraceSyntax: boolean;
+  isTypingOpenToken: boolean;
   escapedSuggestion: string;
+  braceConvertedSuggestion: string;
 }
 
 export interface InsertableDollarTokenOption {
@@ -35,26 +41,49 @@ export interface InsertableDollarTokenOption {
 }
 
 const ADMIN_SHARE_PATTERN = /^(?:[A-Za-z]|ADMIN|IPC)\$(?=[\\/]|$)/i;
-const VALID_DOLLAR_TOKEN_PATTERN = /^\$([A-Za-z0-9_.-]+)\$/;
+const VALID_DOLLAR_TOKEN_PATTERN = /^\$([^$\\/\s]+)\$/;
+const BRACE_TOKEN_AT_START_PATTERN = /^\$\{\s*([A-Za-z0-9_.-]+)\s*\}/;
+const OPEN_TOKEN_AT_END_PATTERN = /^\$[A-Za-z0-9_.-]*$/;
+const EXPRESSION_PREFIX = 'fn:';
+
+export function lookupTrace(
+  traces: Map<string, PropertyResolutionTraceApiModel>,
+  propertyName: string
+): PropertyResolutionTraceApiModel | undefined {
+  return (
+    traces.get(propertyName) ?? traces.get(propertyName.toLowerCase())
+  );
+}
 
 export function inspectUnescapedDollars(raw: string): UnescapedDollarInspection {
-  if (!raw || !raw.includes('$')) {
+  if (
+    !raw ||
+    !raw.includes('$') ||
+    raw.trimStart().startsWith(EXPRESSION_PREFIX)
+  ) {
     return {
       hasUnclosedDollar: false,
       hasOtherPropertyTokens: false,
-      escapedSuggestion: raw
+      hasBraceSyntax: false,
+      isTypingOpenToken: false,
+      escapedSuggestion: raw,
+      braceConvertedSuggestion: raw
     };
   }
 
   let hasUnclosedDollar = false;
   let hasOtherPropertyTokens = false;
+  let hasBraceSyntax = false;
+  let isTypingOpenToken = false;
   let out = '';
+  let braceOut = '';
   let i = 0;
 
   while (i < raw.length) {
     // Already-escaped $$
     if (raw[i] === '$' && raw[i + 1] === '$') {
       out += '$$';
+      braceOut += '$$';
       i += 2;
       continue;
     }
@@ -67,36 +96,60 @@ export function inspectUnescapedDollars(raw: string): UnescapedDollarInspection 
         const sharePrefix = adminMatch[0].slice(0, -1); // e.g. 'E' or 'ADMIN'
         hasUnclosedDollar = true;
         out += `${sharePrefix}$$`;
+        braceOut += adminMatch[0];
         i += adminMatch[0].length;
         continue;
       }
     }
 
     if (raw[i] === '$') {
-      const tokenMatch = VALID_DOLLAR_TOKEN_PATTERN.exec(raw.slice(i));
+      const sliceFromHere = raw.slice(i);
+      const braceMatch = BRACE_TOKEN_AT_START_PATTERN.exec(sliceFromHere);
+      if (braceMatch) {
+        hasBraceSyntax = true;
+        hasOtherPropertyTokens = true;
+        out += `$${braceMatch[1]}$`;
+        braceOut += `$${braceMatch[1]}$`;
+        i += braceMatch[0].length;
+        continue;
+      }
+
+      const tokenMatch = VALID_DOLLAR_TOKEN_PATTERN.exec(sliceFromHere);
       if (tokenMatch) {
-        // Check that the closing $ is not immediately part of an admin share like $Var\E$
         hasOtherPropertyTokens = true;
         out += tokenMatch[0];
+        braceOut += tokenMatch[0];
         i += tokenMatch[0].length;
         continue;
+      }
+
+      if (OPEN_TOKEN_AT_END_PATTERN.test(sliceFromHere)) {
+        isTypingOpenToken = true;
+        out += sliceFromHere;
+        braceOut += sliceFromHere;
+        break;
       }
 
       // Lone or invalid $ (not a valid $PropertyName$ token)
       hasUnclosedDollar = true;
       out += '$$';
+      braceOut += '$';
       i += 1;
       continue;
     }
 
     out += raw[i];
+    braceOut += raw[i];
     i += 1;
   }
 
   return {
     hasUnclosedDollar,
     hasOtherPropertyTokens,
-    escapedSuggestion: hasUnclosedDollar ? out : raw
+    hasBraceSyntax,
+    isTypingOpenToken,
+    escapedSuggestion: hasUnclosedDollar || hasBraceSyntax ? out : raw,
+    braceConvertedSuggestion: hasBraceSyntax ? braceOut : raw
   };
 }
 
@@ -155,7 +208,7 @@ export function buildInsertableDollarTokens(
 
   for (const prop of properties ?? []) {
     const name = prop.Name?.trim();
-    if (!name) continue;
+    if (!name || /[\\/\s$]/.test(name)) continue;
     if (excludedLower && name.toLowerCase() === excludedLower) continue;
     const token = `$${name}$`;
     const key = token.toLowerCase();
@@ -263,9 +316,21 @@ export function presentTrace(
     };
   }
 
+  if (trace.Source === 'RuntimeOnly') {
+    return {
+      severity: 'warning',
+      effectiveDisplayValue: '(populated at deploy time)',
+      hasEffectiveValue: false,
+      sourceLabel,
+      diagnosticTitle: 'Populated at Deploy Time',
+      diagnosticDetail:
+        'This value is populated by the deployment runner at execution time.',
+      hasBlockedTokensByUnescapedDollar: false
+    };
+  }
+
   if (
     trace.Source === 'Unresolved' ||
-    trace.Source === 'RuntimeOnly' ||
     typeof trace.ResolvedValueJson !== 'string'
   ) {
     return {
@@ -273,14 +338,9 @@ export function presentTrace(
       effectiveDisplayValue: '(not defined in this scope)',
       hasEffectiveValue: false,
       sourceLabel,
-      diagnosticTitle:
-        trace.Source === 'RuntimeOnly'
-          ? 'Populated at Deploy Time'
-          : 'Not Defined in Scope',
+      diagnosticTitle: 'Not Defined in Scope',
       diagnosticDetail:
-        trace.Source === 'RuntimeOnly'
-          ? 'This value is populated by the deployment runner at execution time.'
-          : 'No value is defined for this environment or Default scope.',
+        'No value is defined for this environment or Default scope.',
       hasBlockedTokensByUnescapedDollar: false
     };
   }
@@ -295,6 +355,25 @@ export function presentTrace(
     typeof parsedVal === 'string' ? parsedVal : JSON.stringify(parsedVal);
 
   if (trace.Diagnostic === 'MissingInScope') {
+    const rawTokens = parsePropertyTokens(
+      trace.RawValue ?? effectiveDisplayValue,
+      'standard'
+    );
+    const hasUnclosedParserToken = rawTokens.some(
+      t => t.kind === 'unclosed-token'
+    );
+    if (hasUnclosedParserToken) {
+      return {
+        severity: 'warning',
+        effectiveDisplayValue,
+        hasEffectiveValue: true,
+        sourceLabel,
+        diagnosticTitle: 'Unescaped $ Paired Into Bogus Token',
+        diagnosticDetail:
+          'Multiple literal $ were paired as a $Variable$ token. Escape literal $ as $$.',
+        hasBlockedTokensByUnescapedDollar: true
+      };
+    }
     return {
       severity: 'unresolved',
       effectiveDisplayValue,
@@ -408,6 +487,8 @@ export interface ParameterBindingWarning {
 }
 
 const LEGACY_DOLLAR_WHOLE_PATTERN = /^\$([A-Za-z0-9_.-]+)\$$/;
+const SPACED_BRACE_WHOLE_PATTERN = /^\$\{\s*([A-Za-z0-9_.-]+)\s*\}$/;
+const BARE_BRACE_WHOLE_PATTERN = /^\{([A-Za-z0-9_.-]+)\}$/;
 
 export function inspectParameterBindingSyntax(
   rawText: string
@@ -421,6 +502,24 @@ export function inspectParameterBindingSyntax(
       kind: 'dollar-syntax',
       suggestedVariableName: dollarMatch[1],
       message: `Script parameters use \${${dollarMatch[1]}} rather than $${dollarMatch[1]}$.`
+    };
+  }
+
+  const spacedBraceMatch = SPACED_BRACE_WHOLE_PATTERN.exec(trimmed);
+  if (spacedBraceMatch && trimmed !== `\${${spacedBraceMatch[1]}}`) {
+    return {
+      kind: 'dollar-syntax',
+      suggestedVariableName: spacedBraceMatch[1],
+      message: `Remove spaces inside \${${spacedBraceMatch[1]}} so DOrc binds the variable directly.`
+    };
+  }
+
+  const bareBraceMatch = BARE_BRACE_WHOLE_PATTERN.exec(trimmed);
+  if (bareBraceMatch) {
+    return {
+      kind: 'dollar-syntax',
+      suggestedVariableName: bareBraceMatch[1],
+      message: `Script parameters require a leading $: use \${${bareBraceMatch[1]}}. `
     };
   }
 
@@ -444,7 +543,7 @@ export function inspectParameterBindingSyntax(
     };
   }
 
-  if (/\$\{[A-Za-z0-9_.-]+\}/.test(trimmed) || /\$[A-Za-z0-9_.-]+\$/.test(trimmed)) {
+  if (/\$\{[^}]*\}/.test(trimmed) || /\$[A-Za-z0-9_.-]+\$/.test(trimmed)) {
     return {
       kind: 'mixed-text',
       message:
@@ -453,4 +552,87 @@ export function inspectParameterBindingSyntax(
   }
 
   return undefined;
+}
+
+export interface DollarValuePreview {
+  status: 'resolved' | 'warning' | 'unresolved' | 'masked';
+  resolvedText: string;
+  scopeSummary: string;
+}
+
+export function evaluateDollarValuePreview(
+  rawText: string,
+  tracesByProperty: Map<string, PropertyResolutionTraceApiModel>,
+  scopeLabel: string
+): DollarValuePreview | undefined {
+  if (!rawText || !rawText.includes('$') || rawText.trimStart().startsWith('fn:')) {
+    return undefined;
+  }
+
+  const tokens = parsePropertyTokens(rawText, 'standard');
+  const propTokens = tokens.filter(
+    (t): t is Extract<ParsedPropertyToken, { kind: 'property' }> =>
+      t.kind === 'property'
+  );
+  const hasUnclosedParserToken = tokens.some(t => t.kind === 'unclosed-token');
+
+  if (hasUnclosedParserToken) {
+    return {
+      status: 'warning',
+      resolvedText: rawText,
+      scopeSummary:
+        'Unescaped $ prevents $Variable$ tokens from expanding — escape literal $ as $$'
+    };
+  }
+
+  if (propTokens.length === 0 && !tokens.some(t => t.kind === 'escaped-dollar')) {
+    return undefined;
+  }
+
+  let out = '';
+  let status: 'resolved' | 'warning' | 'unresolved' | 'masked' = 'resolved';
+  const details: string[] = [];
+
+  for (const token of tokens) {
+    if (token.kind === 'escaped-dollar') {
+      out += '$';
+      continue;
+    }
+    if (token.kind !== 'property') {
+      out += token.rawText;
+      continue;
+    }
+
+    const trace = lookupTrace(tracesByProperty, token.propertyName);
+    if (!trace) {
+      status = 'unresolved';
+      out += token.rawText;
+      details.push(`$${token.propertyName}$: resolving in ${scopeLabel}…`);
+      continue;
+    }
+
+    const presented = presentTrace(trace);
+    details.push(`$${token.propertyName}$: ${presented.diagnosticTitle} (${presented.sourceLabel})`);
+
+    if (presented.severity === 'masked') {
+      if (status === 'resolved') status = 'masked';
+      out += presented.effectiveDisplayValue;
+    } else if (presented.severity === 'warning') {
+      if (status !== 'unresolved') status = 'warning';
+      out += presented.hasEffectiveValue
+        ? presented.effectiveDisplayValue
+        : token.rawText;
+    } else if (presented.severity === 'resolved' && presented.hasEffectiveValue) {
+      out += presented.effectiveDisplayValue;
+    } else {
+      status = 'unresolved';
+      out += token.rawText;
+    }
+  }
+
+  return {
+    status,
+    resolvedText: out,
+    scopeSummary: details.join(' · ')
+  };
 }

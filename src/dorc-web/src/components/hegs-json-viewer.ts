@@ -16,7 +16,10 @@ import {
   PropertyResolutionClientCache,
   PropertyResolutionContext
 } from '../variable-resolution/property-resolution-client-cache';
-import { presentTrace } from '../variable-resolution/resolution-presentation';
+import {
+  lookupTrace,
+  presentTrace
+} from '../variable-resolution/resolution-presentation';
 import {
   extractReferencedPropertyNames,
   ParsedPropertyToken,
@@ -29,6 +32,14 @@ export type JsonViewerDisplayMode = 'raw' | 'inline' | 'resolved';
 
 function escapeJsonStringSegment(segment: string): string {
   return JSON.stringify(segment).slice(1, -1);
+}
+
+function safeParseTraceValue(rawJson: string): unknown {
+  try {
+    return JSON.parse(rawJson);
+  } catch {
+    return rawJson;
+  }
 }
 
 interface JsonViewerState {
@@ -82,11 +93,7 @@ export function evaluateStringWithTraces(
   resolvedDisplayString: string;
 } {
   const tokens = parsePropertyTokens(raw, profile);
-  if (
-    tokens.some(
-      t => t.kind === 'unclosed-token' || t.kind === 'expression-prefix'
-    )
-  ) {
+  if (tokens.some(t => t.kind === 'expression-prefix')) {
     return {
       status: 'unresolved',
       resolvedValue: raw,
@@ -98,6 +105,23 @@ export function evaluateStringWithTraces(
     (t): t is Extract<ParsedPropertyToken, { kind: 'property' }> =>
       t.kind === 'property'
   );
+
+  // If an unclosed $ coexists with $Property$ tokens, the backend PropertyEvaluator
+  // leaves the entire string unexpanded; only mark unresolved when property tokens are blocked.
+  if (tokens.some(t => t.kind === 'unclosed-token')) {
+    if (propTokens.length > 0) {
+      return {
+        status: 'unresolved',
+        resolvedValue: raw,
+        resolvedDisplayString: raw
+      };
+    }
+    return {
+      status: 'literal',
+      resolvedValue: raw,
+      resolvedDisplayString: raw
+    };
+  }
 
   if (propTokens.length === 0) {
     const unescaped = tokens
@@ -111,7 +135,7 @@ export function evaluateStringWithTraces(
   }
 
   for (const pt of propTokens) {
-    const trace = traces.get(pt.propertyName);
+    const trace = lookupTrace(traces, pt.propertyName);
     if (!trace) {
       return {
         status: 'unresolved',
@@ -128,7 +152,9 @@ export function evaluateStringWithTraces(
       (trace.Diagnostic != null &&
         trace.Diagnostic !== 'Ok' &&
         trace.Diagnostic !== 'FallbackToDefault' &&
-        trace.Diagnostic !== 'UnclosedToken') ||
+        trace.Diagnostic !== 'UnclosedToken' &&
+        trace.Diagnostic !== 'ValueTruncated' &&
+        trace.Diagnostic !== 'NonStringInConcatenation') ||
       trace.ResolvedValueJson == null
     ) {
       return {
@@ -140,7 +166,7 @@ export function evaluateStringWithTraces(
   }
 
   if (tokens.length === 1 && tokens[0].kind === 'property') {
-    const singleTrace = traces.get(tokens[0].propertyName)!;
+    const singleTrace = lookupTrace(traces, tokens[0].propertyName)!;
     if (singleTrace.IsSecure || singleTrace.Diagnostic === 'Masked') {
       return {
         status: 'resolved',
@@ -148,7 +174,7 @@ export function evaluateStringWithTraces(
         resolvedDisplayString: '•••••••• (Secure)'
       };
     }
-    const parsedVal = JSON.parse(singleTrace.ResolvedValueJson!);
+    const parsedVal = safeParseTraceValue(singleTrace.ResolvedValueJson!);
     const displayStr =
       typeof parsedVal === 'string' ? parsedVal : JSON.stringify(parsedVal);
     return {
@@ -161,12 +187,12 @@ export function evaluateStringWithTraces(
   let out = '';
   for (const token of tokens) {
     if (token.kind === 'property') {
-      const trace = traces.get(token.propertyName)!;
+      const trace = lookupTrace(traces, token.propertyName)!;
       if (trace.IsSecure || trace.Diagnostic === 'Masked') {
         out += '•••••••• (Secure)';
         continue;
       }
-      const parsedVal = JSON.parse(trace.ResolvedValueJson!);
+      const parsedVal = safeParseTraceValue(trace.ResolvedValueJson!);
       if (
         typeof parsedVal !== 'string' &&
         typeof parsedVal !== 'number' &&
@@ -395,11 +421,25 @@ export function getTokenBadgeAppearance(
     return { cssClass: 'token-error', badgeLabel: 'Circular Reference' };
   }
 
-  if (trace.IsSecure) {
+  if (trace.Diagnostic === 'MissingInScope') {
+    return { cssClass: 'token-error', badgeLabel: 'Nested $Var$ Missing' };
+  }
+
+  if (trace.IsSecure || trace.Diagnostic === 'Masked') {
     return {
       cssClass: 'token-secure',
       badgeLabel: `Secret (${getBadgeFallback(trace.ScopeName, 'Redacted')})`
     };
+  }
+
+  if (trace.Diagnostic === 'UnclosedToken') {
+    const presented = presentTrace(trace);
+    if (presented.hasBlockedTokensByUnescapedDollar) {
+      return {
+        cssClass: 'token-default',
+        badgeLabel: 'Blocked by Unescaped $'
+      };
+    }
   }
 
   switch (trace.Source) {
@@ -876,6 +916,8 @@ export class HegsJsonViewer extends LitElement {
 
   @state() private activeInspectedProperty: string | null = null;
 
+  @state() private activeInspectedRawToken: string | null = null;
+
   private fetchGeneration = 0;
 
   private async setState(
@@ -962,11 +1004,17 @@ export class HegsJsonViewer extends LitElement {
     this.displayMode = mode;
   };
 
-  private handleInspectToken = (propertyName: string) => (e: Event) => {
-    e.stopPropagation();
-    this.activeInspectedProperty =
-      this.activeInspectedProperty === propertyName ? null : propertyName;
-  };
+  private handleInspectToken =
+    (propertyName: string, rawToken?: string) => (e: Event) => {
+      e.stopPropagation();
+      if (this.activeInspectedProperty === propertyName) {
+        this.activeInspectedProperty = null;
+        this.activeInspectedRawToken = null;
+      } else {
+        this.activeInspectedProperty = propertyName;
+        this.activeInspectedRawToken = rawToken ?? null;
+      }
+    };
 
   expand(glob: string | RegExp) {
     this.setState(expand(glob, true));
@@ -1111,12 +1159,18 @@ export class HegsJsonViewer extends LitElement {
       >`;
     }
 
+    const hasBlockedPropertyTokens =
+      tokens.some(t => t.kind === 'unclosed-token') &&
+      tokens.some(t => t.kind === 'property');
+
     if (this.displayMode === 'raw') {
       return html`<span
         part="primitive primitive-string"
         tabindex="0"
         class="string"
-        >"${tokens.map(token => this.renderTokenSegment(token))}"</span
+        >"${tokens.map(token =>
+          this.renderTokenSegment(token, hasBlockedPropertyTokens)
+        )}"</span
       >`;
     }
 
@@ -1136,7 +1190,9 @@ export class HegsJsonViewer extends LitElement {
         part="primitive primitive-string"
         tabindex="0"
         class="string"
-        >"${tokens.map(token => this.renderTokenSegment(token))}"</span
+        >"${tokens.map(token =>
+          this.renderTokenSegment(token, hasBlockedPropertyTokens)
+        )}"</span
       >`;
     }
 
@@ -1145,7 +1201,9 @@ export class HegsJsonViewer extends LitElement {
       part="primitive primitive-string"
       tabindex="0"
       class="string"
-      >"${tokens.map(token => this.renderTokenSegment(token))}"${
+      >"${tokens.map(token =>
+        this.renderTokenSegment(token, hasBlockedPropertyTokens)
+      )}"${
         evaluated.status === 'resolved'
           ? html`<span class="inline-resolved-arrow">→</span
               ><span class="inline-resolved-val" part="resolved-preview"
@@ -1156,9 +1214,12 @@ export class HegsJsonViewer extends LitElement {
     >`;
   }
 
-  private renderTokenSegment(token: ParsedPropertyToken): TemplateResult {
+  private renderTokenSegment(
+    token: ParsedPropertyToken,
+    hasBlockedPropertyTokens = false
+  ): TemplateResult {
     if (token.kind === 'property') {
-      const trace = this.traces.get(token.propertyName);
+      const trace = lookupTrace(this.traces, token.propertyName);
       const badge = getTokenBadgeAppearance(trace);
       return html`<button
         type="button"
@@ -1166,7 +1227,7 @@ export class HegsJsonViewer extends LitElement {
         class="token-chip ${badge.cssClass}"
         data-property-name="${token.propertyName}"
         title="${badge.badgeLabel}"
-        @click="${this.handleInspectToken(token.propertyName)}"
+        @click="${this.handleInspectToken(token.propertyName, token.rawText)}"
       >
         ${escapeJsonStringSegment(token.rawText)}
       </button>`;
@@ -1193,8 +1254,12 @@ export class HegsJsonViewer extends LitElement {
     if (token.kind === 'unclosed-token') {
       return html`<span
         part="unclosed-token"
-        class="token-chip token-error"
-        title="Unclosed $ token"
+        class="token-chip ${hasBlockedPropertyTokens
+          ? 'token-error'
+          : 'token-default'}"
+        title="${hasBlockedPropertyTokens
+          ? 'Unescaped $ prevents $Variable$ expansion — escape as $$'
+          : 'Literal $ (kept as-is unless combined with $Variable$ tokens)'}"
         >${escapeJsonStringSegment(token.rawText)}</span
       >`;
     }
@@ -1212,14 +1277,14 @@ export class HegsJsonViewer extends LitElement {
     let secretCount = 0;
 
     for (const name of this.referencedNames) {
-      const trace = this.traces.get(name);
+      const trace = lookupTrace(this.traces, name);
       if (!trace) {
         continue;
       }
-      if (trace.IsSecure) {
+      if (trace.IsSecure || trace.Diagnostic === 'Masked') {
         secretCount++;
       }
-      if (trace.Source === 'Unresolved') {
+      if (trace.Source === 'Unresolved' || trace.Diagnostic === 'MissingInScope') {
         missingCount++;
       } else {
         resolvedCount++;
@@ -1277,15 +1342,15 @@ export class HegsJsonViewer extends LitElement {
     }
 
     const propName = this.activeInspectedProperty;
-    const trace = this.traces.get(propName);
+    const trace = lookupTrace(this.traces, propName);
     const badge = getTokenBadgeAppearance(trace);
     const presented = presentTrace(trace);
     const usesBraceSyntax =
       this.resolutionContext?.locationKind === 'deployment-definition' ||
       this.resolutionContext?.locationKind === 'script-arguments';
-    const tokenDisplayTitle = usesBraceSyntax
-      ? `\${${propName}}`
-      : `$${propName}$`;
+    const tokenDisplayTitle =
+      this.activeInspectedRawToken ??
+      (usesBraceSyntax ? `\${${propName}}` : `$${propName}$`);
     const rawScope =
       trace?.Source === 'GlobalDefault'
         ? ''
@@ -1319,18 +1384,14 @@ export class HegsJsonViewer extends LitElement {
           >
           <span class="inspector-label">Resolved</span>
           <code class="inspector-code"
-            >${
-              presented.hasEffectiveValue
-                ? presented.effectiveDisplayValue
-                : (trace?.ResolvedValueJson ?? '(unresolved)')
-            }</code
+            >${presented.effectiveDisplayValue}</code
           >
           <span class="inspector-label">Diagnostic</span>
           <code class="inspector-code"
             >${
               trace?.Diagnostic
                 ? `${trace.Diagnostic} — ${presented.diagnosticTitle}`
-                : 'Pending'
+                : presented.diagnosticTitle
             }</code
           >
         </div>

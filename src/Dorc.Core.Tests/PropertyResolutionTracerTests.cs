@@ -805,6 +805,35 @@ namespace Dorc.Core.Tests
             Assert.IsTrue(registry.Any(sd => sd.ServiceType == typeof(IPropertyResolutionTracer)));
         }
 
+        [TestMethod]
+        public void PropertyParser_HandlesWindowsAdminSharesAndBraceTokensGracefully()
+        {
+            var parser = new PropertyParser();
+
+            // Single drive share + subsequent $Token$
+            var tokens1 = parser.Parse(@"\\$ServerNames_App$\E$\Apps\$OtherVar$").ToList();
+            Assert.HasCount(4, tokens1);
+            Assert.IsInstanceOfType<StaticToken>(tokens1[0]);
+            Assert.AreEqual(@"\\", ((StaticToken)tokens1[0]).Value);
+            Assert.IsInstanceOfType<PropertyToken>(tokens1[1]);
+            Assert.AreEqual("ServerNames_App", ((PropertyToken)tokens1[1]).Value);
+            Assert.IsInstanceOfType<StaticToken>(tokens1[2]);
+            Assert.AreEqual(@"\E$\Apps\", ((StaticToken)tokens1[2]).Value);
+            Assert.IsInstanceOfType<PropertyToken>(tokens1[3]);
+            Assert.AreEqual("OtherVar", ((PropertyToken)tokens1[3]).Value);
+
+            // Two admin shares in one path
+            var tokens2 = parser.Parse(@"\\srv\C$\x\D$\y").ToList();
+            Assert.HasCount(1, tokens2);
+            Assert.IsInstanceOfType<StaticToken>(tokens2[0]);
+            Assert.AreEqual(@"\\srv\C$\x\D$\y", ((StaticToken)tokens2[0]).Value);
+
+            // ADMIN$ and IPC$ shares
+            var tokens3 = parser.Parse(@"\\srv\ADMIN$\System32\IPC$").ToList();
+            Assert.HasCount(1, tokens3);
+            Assert.AreEqual(@"\\srv\ADMIN$\System32\IPC$", ((StaticToken)tokens3[0]).Value);
+        }
+
         private static PropertyValueDto MakeProperty(
             string name,
             string val,

@@ -22,6 +22,84 @@ export type PropertyTokenSyntaxProfile = 'standard' | 'brace-only' | 'literal';
 
 const BRACE_TOKEN_PATTERN = /^\$\{([A-Za-z0-9_.-]+)\}$/;
 
+export function isAdminShareDollarAt(
+  input: string,
+  dollarIndex: number
+): boolean {
+  if (dollarIndex + 1 < input.length) {
+    const next = input[dollarIndex + 1];
+    if (next !== '\\' && next !== '/') {
+      return false;
+    }
+  }
+
+  if (dollarIndex >= 1 && /^[A-Za-z]$/.test(input[dollarIndex - 1])) {
+    if (
+      dollarIndex === 1 ||
+      input[dollarIndex - 2] === '\\' ||
+      input[dollarIndex - 2] === '/'
+    ) {
+      return true;
+    }
+  }
+
+  for (const shareName of ['ADMIN', 'IPC']) {
+    if (
+      dollarIndex >= shareName.length &&
+      input
+        .slice(dollarIndex - shareName.length, dollarIndex)
+        .toUpperCase() === shareName
+    ) {
+      const prefixIdx = dollarIndex - shareName.length;
+      if (
+        prefixIdx === 0 ||
+        input[prefixIdx - 1] === '\\' ||
+        input[prefixIdx - 1] === '/'
+      ) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+export function isValidPropertyTokenName(candidate: string): boolean {
+  if (!candidate || candidate.trim().length === 0) {
+    return false;
+  }
+  for (let i = 0; i < candidate.length; i++) {
+    const c = candidate[i];
+    if (
+      c === '$' ||
+      c === '\\' ||
+      c === '/' ||
+      /\s/.test(c) ||
+      c === '{' ||
+      c === '}'
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function findClosingPropertyTokenDollar(
+  value: string,
+  startIndex: number
+): number {
+  for (let idx = startIndex; idx < value.length; idx++) {
+    const c = value[idx];
+    if (c === '$') {
+      return idx;
+    }
+    if (c === '\\' || c === '/' || /\s/.test(c) || c === '{' || c === '}') {
+      return -1;
+    }
+  }
+  return -1;
+}
+
 export function resolveTokenSyntaxProfile(
   locationKind?: PropertyTokenSyntaxLocationKind,
   jsonPath = ''
@@ -92,41 +170,57 @@ export function parsePropertyTokens(
       continue;
     }
 
-    if (cursor > staticStart) {
-      const slice = input.slice(staticStart, cursor);
-      tokens.push({ kind: 'static', value: slice, rawText: slice });
-    }
-
     const nextIdx = cursor + 1;
-    if (nextIdx >= input.length) {
-      tokens.push({ kind: 'unclosed-token', rawText: '$' });
-      return tokens;
-    }
 
-    if (input[nextIdx] === '$') {
+    // Already-escaped $$
+    if (nextIdx < input.length && input[nextIdx] === '$') {
+      if (cursor > staticStart) {
+        const slice = input.slice(staticStart, cursor);
+        tokens.push({ kind: 'static', value: slice, rawText: slice });
+      }
       tokens.push({ kind: 'escaped-dollar', value: '$', rawText: '$$' });
       cursor += 2;
       staticStart = cursor;
       continue;
     }
 
-    const closingIdx = input.indexOf('$', nextIdx);
-    if (closingIdx === -1) {
-      const unclosedSlice = input.slice(cursor);
-      tokens.push({ kind: 'unclosed-token', rawText: unclosedSlice });
-      return tokens;
+    // Windows admin/hidden share like E$\, C$/, ADMIN$\, IPC$\ -> literal $
+    if (isAdminShareDollarAt(input, cursor)) {
+      cursor++;
+      continue;
     }
 
-    const propName = input.slice(nextIdx, closingIdx);
-    const rawToken = input.slice(cursor, closingIdx + 1);
-    tokens.push({
-      kind: 'property',
-      propertyName: propName,
-      rawText: rawToken,
-      syntax: 'dollar'
-    });
-    cursor = closingIdx + 1;
-    staticStart = cursor;
+    // Standard $PropertyName$ token with valid characters
+    if (nextIdx < input.length) {
+      const closingIdx = findClosingPropertyTokenDollar(input, nextIdx);
+      if (closingIdx > nextIdx) {
+        const propName = input.slice(nextIdx, closingIdx);
+        if (isValidPropertyTokenName(propName)) {
+          if (cursor > staticStart) {
+            const slice = input.slice(staticStart, cursor);
+            tokens.push({ kind: 'static', value: slice, rawText: slice });
+          }
+          const rawToken = input.slice(cursor, closingIdx + 1);
+          tokens.push({
+            kind: 'property',
+            propertyName: propName,
+            rawText: rawToken,
+            syntax: 'dollar'
+          });
+          cursor = closingIdx + 1;
+          staticStart = cursor;
+          continue;
+        }
+      }
+    }
+
+    if (cursor > staticStart) {
+      const slice = input.slice(staticStart, cursor);
+      tokens.push({ kind: 'static', value: slice, rawText: slice });
+    }
+    const unclosedSlice = input.slice(cursor);
+    tokens.push({ kind: 'unclosed-token', rawText: unclosedSlice });
+    return tokens;
   }
 
   if (cursor > staticStart) {

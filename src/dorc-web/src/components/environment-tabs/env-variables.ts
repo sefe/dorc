@@ -23,6 +23,7 @@ import { TextField } from '@vaadin/text-field';
 import {
   PropertiesApi,
   PropertyApiModel,
+  PropertyResolutionTraceApiModel,
   PropertyValueDto,
   PropertyValuesApi,
   PropertyValueScopeOptionApiModel,
@@ -47,8 +48,11 @@ import '@vaadin/combo-box';
 import '@vaadin/text-field';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import { firstValueFrom, Observable } from 'rxjs';
+import { defaultPropertyResolutionClientCache } from '../../variable-resolution/property-resolution-client-cache';
+import { parsePropertyTokens } from '../../variable-resolution/property-token-parser';
 import {
   buildInsertableDollarTokens,
+  evaluateDollarValuePreview,
   InsertableDollarTokenOption,
   inspectUnescapedDollars
 } from '../../variable-resolution/resolution-presentation';
@@ -95,7 +99,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
 
   @property({ type: Boolean }) searching = false;
 
-  private propertyName = '';
+  @state() private propertyName = '';
 
   filterVariableValue: string = '';
   filterVariableName: string = '';
@@ -105,6 +109,17 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   @state() private _editingValueId: number | undefined;
 
   @state() draftNewVariableValue = '';
+
+  @state() private draftPreviewTraces = new Map<
+    string,
+    PropertyResolutionTraceApiModel
+  >();
+
+  private draftPreviewGeneration = 0;
+
+  private valueSelectionStart: number | null = null;
+
+  private valueSelectionEnd: number | null = null;
 
   static get styles() {
     return css`
@@ -423,16 +438,36 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                               placeholder="e.g. \\\\$ServerNames_STP_Strategies$\\E$$\\Apps\\..."
                               style="min-width: 320px; flex: 1 1 320px;"
                               helper-text="Use $VariableName$ or built-in tokens; use $$ for a literal $ (e.g. E$$)"
+                              @blur="${(e: Event) => {
+                                const target = e.currentTarget as TextField & {
+                                  inputElement?: HTMLInputElement;
+                                };
+                                if (target?.inputElement) {
+                                  this.valueSelectionStart =
+                                    target.inputElement.selectionStart;
+                                  this.valueSelectionEnd =
+                                    target.inputElement.selectionEnd;
+                                }
+                              }}"
                               @input="${(e: Event) => {
-                                this.draftNewVariableValue = (
-                                  e.currentTarget as HTMLInputElement
-                                ).value;
+                                const target = e.currentTarget as TextField & {
+                                  inputElement?: HTMLInputElement;
+                                };
+                                this.draftNewVariableValue = target.value;
+                                if (target?.inputElement) {
+                                  this.valueSelectionStart =
+                                    target.inputElement.selectionStart;
+                                  this.valueSelectionEnd =
+                                    target.inputElement.selectionEnd;
+                                }
+                                void this.refreshDraftValuePreview();
                               }}"
                               @value-changed="${(
                                 e: CustomEvent<{ value?: string }>
                               ) => {
                                 this.draftNewVariableValue =
                                   e.detail?.value ?? '';
+                                void this.refreshDraftValuePreview();
                               }}"
                             ></vaadin-text-field>
                             <vaadin-combo-box
@@ -1077,6 +1112,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   }
 
   variableValueDeleted() {
+    defaultPropertyResolutionClientCache.clear();
     if (this.grid) {
       this.grid.clearCache();
       this.loading = true;
@@ -1084,6 +1120,8 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   }
 
   private variableValueUpdated() {
+    defaultPropertyResolutionClientCache.clear();
+    this._editingValueId = undefined;
     if (this.grid) {
       this.grid.clearCache();
       this.loading = true;
@@ -1169,6 +1207,47 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
     </div>
   `;
 
+  public isSelectedPropertySecure(): boolean {
+    const existingProperty = this.properties?.find(
+      value => value.Name === this.propertyName
+    );
+    return Boolean(existingProperty?.Secure);
+  }
+
+  public async refreshDraftValuePreview() {
+    const generation = ++this.draftPreviewGeneration;
+    if (this.isSelectedPropertySecure() || !this.draftNewVariableValue) {
+      this.draftPreviewTraces = new Map();
+      return;
+    }
+    const referenced = parsePropertyTokens(
+      this.draftNewVariableValue,
+      'standard'
+    )
+      .filter(
+        (t): t is Extract<typeof t, { kind: 'property' }> =>
+          t.kind === 'property'
+      )
+      .map(t => t.propertyName);
+    if (referenced.length === 0) {
+      this.draftPreviewTraces = new Map();
+      return;
+    }
+    try {
+      const traces = await defaultPropertyResolutionClientCache.resolveProperties(
+        { environmentName: this.environmentName || undefined },
+        referenced
+      );
+      if (generation === this.draftPreviewGeneration) {
+        this.draftPreviewTraces = traces;
+      }
+    } catch {
+      if (generation === this.draftPreviewGeneration) {
+        this.draftPreviewTraces = new Map();
+      }
+    }
+  }
+
   public insertTokenIntoValue(token: string) {
     if (!token) return;
     const textField = this.shadowRoot?.querySelector(
@@ -1180,22 +1259,34 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
       textField.inputElement ??
       (textField.querySelector('input') as HTMLInputElement | null) ??
       (textField.shadowRoot?.querySelector('input') as HTMLInputElement | null);
-    if (
-      innerInput &&
-      typeof innerInput.selectionStart === 'number' &&
-      typeof innerInput.selectionEnd === 'number'
-    ) {
-      const start = innerInput.selectionStart;
-      const end = innerInput.selectionEnd;
-      const nextVal = current.slice(0, start) + token + current.slice(end);
-      textField.value = nextVal;
+    const start =
+      typeof this.valueSelectionStart === 'number'
+        ? this.valueSelectionStart
+        : innerInput && typeof innerInput.selectionStart === 'number'
+          ? innerInput.selectionStart
+          : current.length;
+    const end =
+      typeof this.valueSelectionEnd === 'number'
+        ? this.valueSelectionEnd
+        : innerInput && typeof innerInput.selectionEnd === 'number'
+          ? innerInput.selectionEnd
+          : start;
+    const nextVal = current.slice(0, start) + token + current.slice(end);
+    const nextPos = start + token.length;
+    textField.value = nextVal;
+    this.valueSelectionStart = nextPos;
+    this.valueSelectionEnd = nextPos;
+    if (innerInput) {
       innerInput.value = nextVal;
-      const nextPos = start + token.length;
-      innerInput.setSelectionRange(nextPos, nextPos);
-    } else {
-      textField.value = current + token;
+      innerInput.focus();
+      if (typeof innerInput.setSelectionRange === 'function') {
+        innerInput.setSelectionRange(nextPos, nextPos);
+      }
+    } else if (typeof textField.focus === 'function') {
+      textField.focus();
     }
     this.draftNewVariableValue = textField.value;
+    void this.refreshDraftValuePreview();
   }
 
   _onScopeOptionPicked(event: CustomEvent<{ value?: string }>) {
@@ -1209,6 +1300,7 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   }
 
   public escapeLiteralDollarsInValue() {
+    if (this.isSelectedPropertySecure()) return;
     const textField = this.shadowRoot?.querySelector(
       '#newVariableValue'
     ) as unknown as TextField | null;
@@ -1216,34 +1308,85 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
     const inspection = inspectUnescapedDollars(textField.value ?? '');
     textField.value = inspection.escapedSuggestion;
     this.draftNewVariableValue = inspection.escapedSuggestion;
+    void this.refreshDraftValuePreview();
   }
 
   private renderDollarEscapeHint() {
+    if (this.isSelectedPropertySecure()) return html``;
     const inspection = inspectUnescapedDollars(this.draftNewVariableValue);
-    if (!inspection.hasUnclosedDollar) return html``;
-    return html`<div class="dollar-lint-banner" role="status">
-      <span
-        >${
-          inspection.hasOtherPropertyTokens
-            ? 'Unescaped $ (such as E$) will prevent other $Variable$ tokens in this value from expanding.'
-            : 'Contains a single $ (such as E$). Escape as $$ if you combine this path with $Variable$ tokens.'
-        }</span
-      >
-      <button
-        type="button"
-        id="escapeDollarBtn"
-        class="dollar-lint-btn"
-        @click="${() => this.escapeLiteralDollarsInValue()}"
-      >
-        Escape literal $ as $$
-      </button>
-    </div>`;
+    const targetScope = this.environmentName || 'Current Environment';
+    const preview = evaluateDollarValuePreview(
+      this.draftNewVariableValue,
+      this.draftPreviewTraces,
+      targetScope
+    );
+
+    return html`
+      ${
+        inspection.hasBraceSyntax
+          ? html`<div class="dollar-lint-banner" role="status">
+              <span
+                >Variable values use <code>$VariableName$</code> rather than
+                <code>\${VariableName}</code>.</span
+              >
+              <button
+                type="button"
+                id="convertBraceBtn"
+                class="dollar-lint-btn"
+                @click="${() => {
+                  const textField = this.shadowRoot?.querySelector(
+                    '#newVariableValue'
+                  ) as unknown as TextField | null;
+                  if (textField) {
+                    textField.value = inspection.braceConvertedSuggestion;
+                  }
+                  this.draftNewVariableValue =
+                    inspection.braceConvertedSuggestion;
+                  void this.refreshDraftValuePreview();
+                }}"
+              >
+                Convert to $Variable$
+              </button>
+            </div>`
+          : inspection.hasUnclosedDollar
+            ? html`<div class="dollar-lint-banner" role="status">
+                <span
+                  >${
+                    inspection.hasOtherPropertyTokens
+                      ? 'Unescaped $ (such as E$) will prevent other $Variable$ tokens in this value from expanding.'
+                      : 'Contains a single $ (such as E$). Escape as $$ if you combine this path with $Variable$ tokens.'
+                  }</span
+                >
+                <button
+                  type="button"
+                  id="escapeDollarBtn"
+                  class="dollar-lint-btn"
+                  @click="${() => this.escapeLiteralDollarsInValue()}"
+                >
+                  Escape literal $ as $$
+                </button>
+              </div>`
+            : html``
+      }
+      ${
+        preview
+          ? html`<div
+              class="dollar-lint-banner"
+              style="background: rgba(59, 130, 246, 0.12); border-color: rgba(59, 130, 246, 0.35); font-family: monospace;"
+              title="${preview.scopeSummary}"
+            >
+              <span>Resolves (${targetScope}): <strong>${preview.resolvedText}</strong></span>
+            </div>`
+          : html``
+      }
+    `;
   }
 
   _propNameValueChanged(data: CustomEvent) {
     if (data) {
       const combo = data.target as ComboBox;
       this.propertyName = combo.value;
+      void this.refreshDraftValuePreview();
     }
   }
 
@@ -1267,10 +1410,15 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
         .subscribe({
           next: (value: Response[]) => {
             if (value[0].Status === 'success') {
+              defaultPropertyResolutionClientCache.clear();
               value.forEach((response: Response) => {
                 console.log(response.Status);
               });
               if (textField) textField.value = '';
+              this.draftNewVariableValue = '';
+              this.draftPreviewTraces = new Map();
+              this.valueSelectionStart = null;
+              this.valueSelectionEnd = null;
               this.grid?.clearCache();
               this.getAllVariableNames();
               this.addingVariableValue = false;
