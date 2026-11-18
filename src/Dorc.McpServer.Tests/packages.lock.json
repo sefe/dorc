@@ -484,6 +484,14 @@
           "ModelContextProtocol.Core": "[2.4.0]"
         }
       },
+      "ModelContextProtocol.AspNetCore": {
+        "type": "Transitive",
+        "resolved": "2.4.0",
+        "contentHash": "qo04FrgNKc5obyjzqd8CTu1vofrxcbKnOFVzxQ1+b3G9SBluwRMT31NZTztegJ1QDri4Z/3jUe8UqaIc+2xmCw==",
+        "dependencies": {
+          "ModelContextProtocol": "[2.4.0]"
+        }
+      },
       "ModelContextProtocol.Core": {
         "type": "Transitive",
         "resolved": "2.4.0",
@@ -577,6 +585,7 @@
           "Microsoft.Extensions.Hosting": "[10.0.3, )",
           "Microsoft.Extensions.Http": "[10.0.3, )",
           "ModelContextProtocol": "[2.4.0, )",
+          "ModelContextProtocol.AspNetCore": "[2.4.0, )",
           "System.Text.Json": "[10.0.13, )",
           "System.Text.RegularExpressions": "[4.3.1, )"
         }

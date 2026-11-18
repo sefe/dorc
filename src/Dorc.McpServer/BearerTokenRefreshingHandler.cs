@@ -16,8 +16,15 @@ public sealed class BearerTokenRefreshingHandler : DelegatingHandler
         HttpRequestMessage request,
         CancellationToken cancellationToken)
     {
-        var token = await _tokenAcquirer.GetAccessTokenAsync(forceRefresh: false, cancellationToken).ConfigureAwait(false);
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        if (request.Headers.Authorization is null)
+        {
+            var token = await _tokenAcquirer.GetAccessTokenAsync(forceRefresh: false, cancellationToken).ConfigureAwait(false);
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+        else
+        {
+            return await base.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        }
 
         byte[]? bufferedContent = null;
         string? contentType = null;

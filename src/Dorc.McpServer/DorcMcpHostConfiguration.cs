@@ -1,9 +1,10 @@
 using Dorc.McpServer.Tools;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+using ModelContextProtocol.AspNetCore;
 using ModelContextProtocol.Server;
 
 namespace Dorc.McpServer;
@@ -63,7 +64,24 @@ public static class DorcMcpHostConfiguration
             options.AllowProd = parsedAllowProd;
         }
 
+        var transportEnv = configuration["DORC_MCP_TRANSPORT"];
+        if (!string.IsNullOrWhiteSpace(transportEnv))
+        {
+            options.Transport = transportEnv.Trim();
+        }
+
+        var endpointPathEnv = configuration["DORC_MCP_ENDPOINT_PATH"];
+        if (!string.IsNullOrWhiteSpace(endpointPathEnv))
+        {
+            options.EndpointPath = endpointPathEnv.Trim();
+        }
+
         return options;
+    }
+
+    public static bool IsHttpTransport(string? transport)
+    {
+        return string.Equals(transport, "Http", StringComparison.OrdinalIgnoreCase);
     }
 
     public static HostApplicationBuilder CreateHostBuilder(string[] args)
@@ -80,20 +98,53 @@ public static class DorcMcpHostConfiguration
             options.LogToStandardErrorThreshold = LogLevel.Trace;
         });
 
-        var apiOptions = ResolveApiOptions(builder.Configuration);
-        var mcpOptions = ResolveMcpOptions(builder.Configuration);
+        ConfigureDorcMcpServices(builder.Services, builder.Configuration, useHttpTransport: false);
+        return builder;
+    }
 
-        builder.Services.AddSingleton(apiOptions);
-        builder.Services.AddSingleton(mcpOptions);
-        builder.Services.AddSingleton<ProductionEnvironmentGuard>();
+    public static WebApplication CreateWebApplication(string[] args)
+    {
+        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+        {
+            Args = args,
+            ContentRootPath = AppContext.BaseDirectory
+        });
 
-        builder.Services.AddHttpClient<IOAuthTokenAcquirer, OAuthTokenAcquirer>();
-        builder.Services.AddTransient<BearerTokenRefreshingHandler>();
+        var mcpOptions = ConfigureDorcMcpServices(builder.Services, builder.Configuration, useHttpTransport: true);
+
+        var app = builder.Build();
+        var endpointPath = string.IsNullOrWhiteSpace(mcpOptions.EndpointPath)
+            ? "/mcp"
+            : mcpOptions.EndpointPath.Trim();
+
+        app.MapMcp(endpointPath);
+        return app;
+    }
+
+    public static DorcMcpOptions ConfigureDorcMcpServices(
+        IServiceCollection services,
+        IConfiguration configuration,
+        bool useHttpTransport)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configuration);
+
+        var apiOptions = ResolveApiOptions(configuration);
+        var mcpOptions = ResolveMcpOptions(configuration);
+
+        services.AddSingleton(apiOptions);
+        services.AddSingleton(mcpOptions);
+        services.AddSingleton<ProductionEnvironmentGuard>();
+
+        services.AddHttpContextAccessor();
+        services.AddTransient<CallerAuthorizationForwardingHandler>();
+        services.AddHttpClient<IOAuthTokenAcquirer, OAuthTokenAcquirer>();
+        services.AddTransient<BearerTokenRefreshingHandler>();
 
         var hasOAuthCredentials = !string.IsNullOrWhiteSpace(apiOptions.ClientId) ||
                                   !string.IsNullOrWhiteSpace(apiOptions.ClientSecret);
 
-        var gatewayHttpBuilder = builder.Services.AddHttpClient<IDorcApiGateway, DorcApiGateway>((sp, client) =>
+        var gatewayHttpBuilder = services.AddHttpClient<IDorcApiGateway, DorcApiGateway>((sp, client) =>
         {
             var opts = sp.GetRequiredService<DorcApiOptions>();
             if (!string.IsNullOrWhiteSpace(opts.BaseUrl))
@@ -101,6 +152,8 @@ public static class DorcMcpHostConfiguration
                 client.BaseAddress = new Uri(opts.BaseUrl.TrimEnd('/') + "/", UriKind.Absolute);
             }
         });
+
+        gatewayHttpBuilder.AddHttpMessageHandler<CallerAuthorizationForwardingHandler>();
 
         if (hasOAuthCredentials)
         {
@@ -114,9 +167,8 @@ public static class DorcMcpHostConfiguration
             });
         }
 
-        builder.Services
+        var mcpBuilder = services
             .AddMcpServer()
-            .WithStdioServerTransport()
             .WithTools<DeploymentRequestTools>()
             .WithTools<ProjectArtifactTools>()
             .WithTools<EnvironmentCatalogTools>()
@@ -124,9 +176,21 @@ public static class DorcMcpHostConfiguration
             .WithTools<TerraformCatalogTools>()
             .WithTools<DaemonOperationsTools>();
 
+        if (useHttpTransport)
+        {
+            mcpBuilder.WithHttpTransport(options =>
+            {
+                options.SessionMode = HttpServerSessionMode.StatefulForInitializeClients;
+            });
+        }
+        else
+        {
+            mcpBuilder.WithStdioServerTransport();
+        }
+
         if (mcpOptions.ReadOnly)
         {
-            builder.Services.PostConfigure<McpServerOptions>(options =>
+            services.PostConfigure<McpServerOptions>(options =>
             {
                 var mutatingTools = options.ToolCollection!
                     .Where(t => t.ProtocolTool.Annotations!.ReadOnlyHint != true)
@@ -139,6 +203,6 @@ public static class DorcMcpHostConfiguration
             });
         }
 
-        return builder;
+        return mcpOptions;
     }
 }

@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Dorc.ApiModel;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
@@ -104,9 +105,17 @@ public sealed class InfrastructureAndSecurityTests
         Assert.AreEqual("csecret", apiOptions.ClientSecret);
         Assert.AreEqual("custom.scope", apiOptions.Scope);
 
-        var mcpOptions = new DorcMcpOptions { ReadOnly = false, AllowProd = true };
+        var mcpOptions = new DorcMcpOptions
+        {
+            ReadOnly = false,
+            AllowProd = true,
+            Transport = "Http",
+            EndpointPath = "/custom-mcp"
+        };
         Assert.IsFalse(mcpOptions.ReadOnly);
         Assert.IsTrue(mcpOptions.AllowProd);
+        Assert.AreEqual("Http", mcpOptions.Transport);
+        Assert.AreEqual("/custom-mcp", mcpOptions.EndpointPath);
 
         var ok = McpToolOutcome.Success("val", 201);
         Assert.IsTrue(ok.Succeeded);
@@ -719,6 +728,49 @@ public sealed class InfrastructureAndSecurityTests
         };
         using var rawBytesResp = await apiClient.SendAsync(rawBytesReq);
         Assert.AreEqual(HttpStatusCode.OK, rawBytesResp.StatusCode);
+
+        // When request already has an Authorization header (e.g., forwarded from caller), BearerTokenRefreshingHandler preserves it without acquiring a service token
+        using var preAuthedReq = new HttpRequestMessage(HttpMethod.Get, "Request");
+        preAuthedReq.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", "caller-jwt");
+        force200 = true;
+        using var preAuthedResp = await apiClient.SendAsync(preAuthedReq);
+        Assert.AreEqual(HttpStatusCode.OK, preAuthedResp.StatusCode);
+        Assert.AreEqual("caller-jwt", innerApiHandler.SentRequests[^1].Headers.Authorization?.Parameter);
+
+        // CallerAuthorizationForwardingHandler tests
+        Assert.ThrowsExactly<ArgumentNullException>(() => new CallerAuthorizationForwardingHandler(null!));
+
+        var httpContextAccessor = new HttpContextAccessor();
+        using var forwardingHandler = new CallerAuthorizationForwardingHandler(httpContextAccessor)
+        {
+            InnerHandler = innerApiHandler
+        };
+        using var forwardingClient = new HttpClient(forwardingHandler) { BaseAddress = new Uri("https://dorc.local/") };
+
+        // 1. Null HttpContext -> no header added
+        httpContextAccessor.HttpContext = null;
+        using var noCtxResp = await forwardingClient.GetAsync("Request");
+        Assert.IsNull(innerApiHandler.SentRequests[^1].Headers.Authorization);
+
+        // 2. HttpContext without Authorization header -> no header added
+        httpContextAccessor.HttpContext = new DefaultHttpContext();
+        using var noHeaderResp = await forwardingClient.GetAsync("Request");
+        Assert.IsNull(innerApiHandler.SentRequests[^1].Headers.Authorization);
+
+        // 3. HttpContext with invalid Authorization header -> ignored
+        var invalidAuthContext = new DefaultHttpContext();
+        invalidAuthContext.Request.Headers.Authorization = ":::not-a-valid-auth-header:::";
+        httpContextAccessor.HttpContext = invalidAuthContext;
+        using var invalidHeaderResp = await forwardingClient.GetAsync("Request");
+        Assert.IsNull(innerApiHandler.SentRequests[^1].Headers.Authorization);
+
+        // 4. HttpContext with valid Bearer Authorization header -> forwarded
+        var validAuthContext = new DefaultHttpContext();
+        validAuthContext.Request.Headers.Authorization = "  Bearer user-forwarded-token  ";
+        httpContextAccessor.HttpContext = validAuthContext;
+        using var validHeaderResp = await forwardingClient.GetAsync("Request");
+        Assert.AreEqual("Bearer", innerApiHandler.SentRequests[^1].Headers.Authorization?.Scheme);
+        Assert.AreEqual("user-forwarded-token", innerApiHandler.SentRequests[^1].Headers.Authorization?.Parameter);
     }
 
     [TestMethod]
@@ -797,10 +849,18 @@ public sealed class InfrastructureAndSecurityTests
     }
 
     [TestMethod]
-    public void DorcMcpHostConfiguration_ResolvesOptionsAndBuildsHost()
+    public async Task DorcMcpHostConfiguration_ResolvesOptionsAndBuildsHost()
     {
         Assert.ThrowsExactly<ArgumentNullException>(() => DorcMcpHostConfiguration.ResolveApiOptions(null!));
         Assert.ThrowsExactly<ArgumentNullException>(() => DorcMcpHostConfiguration.ResolveMcpOptions(null!));
+        var emptyConfig = new ConfigurationBuilder().AddInMemoryCollection([]).Build();
+        Assert.ThrowsExactly<ArgumentNullException>(() => DorcMcpHostConfiguration.ConfigureDorcMcpServices(null!, emptyConfig, false));
+        Assert.ThrowsExactly<ArgumentNullException>(() => DorcMcpHostConfiguration.ConfigureDorcMcpServices(new ServiceCollection(), null!, false));
+
+        Assert.IsTrue(DorcMcpHostConfiguration.IsHttpTransport("Http"));
+        Assert.IsTrue(DorcMcpHostConfiguration.IsHttpTransport("http"));
+        Assert.IsFalse(DorcMcpHostConfiguration.IsHttpTransport("Stdio"));
+        Assert.IsFalse(DorcMcpHostConfiguration.IsHttpTransport(null));
 
         var configFull = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -810,7 +870,9 @@ public sealed class InfrastructureAndSecurityTests
                 ["DORC_API_CLIENT_SECRET"] = " env-secret ",
                 ["DORC_API_SCOPE"] = " env-scope ",
                 ["DORC_MCP_READ_ONLY"] = "false",
-                ["DORC_MCP_ALLOW_PROD"] = "true"
+                ["DORC_MCP_ALLOW_PROD"] = "true",
+                ["DORC_MCP_TRANSPORT"] = " Http ",
+                ["DORC_MCP_ENDPOINT_PATH"] = " /api/mcp "
             })
             .Build();
 
@@ -823,13 +885,16 @@ public sealed class InfrastructureAndSecurityTests
         var mcpOpts = DorcMcpHostConfiguration.ResolveMcpOptions(configFull);
         Assert.IsFalse(mcpOpts.ReadOnly);
         Assert.IsTrue(mcpOpts.AllowProd);
+        Assert.AreEqual("Http", mcpOpts.Transport);
+        Assert.AreEqual("/api/mcp", mcpOpts.EndpointPath);
 
-        var configEmpty = new ConfigurationBuilder().AddInMemoryCollection([]).Build();
-        var defaultApiOpts = DorcMcpHostConfiguration.ResolveApiOptions(configEmpty);
+        var defaultApiOpts = DorcMcpHostConfiguration.ResolveApiOptions(emptyConfig);
         Assert.AreEqual("dorc-api.manage", defaultApiOpts.Scope);
-        var defaultMcpOpts = DorcMcpHostConfiguration.ResolveMcpOptions(configEmpty);
+        var defaultMcpOpts = DorcMcpHostConfiguration.ResolveMcpOptions(emptyConfig);
         Assert.IsTrue(defaultMcpOpts.ReadOnly);
         Assert.IsFalse(defaultMcpOpts.AllowProd);
+        Assert.AreEqual("Stdio", defaultMcpOpts.Transport);
+        Assert.AreEqual("/mcp", defaultMcpOpts.EndpointPath);
 
         // Test CreateHostBuilder with both non-empty and empty BaseUrl, OAuth vs Windows credentials, and ReadOnly vs non-ReadOnly
         using var hostWithUrl = DorcMcpHostConfiguration.CreateHostBuilder([
@@ -858,5 +923,20 @@ public sealed class InfrastructureAndSecurityTests
         using var hostWithoutUrl = DorcMcpHostConfiguration.CreateHostBuilder(["--DorcApi:BaseUrl="]).Build();
         var gatewayWithoutUrl = hostWithoutUrl.Services.GetRequiredService<IDorcApiGateway>();
         Assert.IsNotNull(gatewayWithoutUrl);
+
+        // Test CreateWebApplication with custom and blank EndpointPath
+        await using var webAppCustom = DorcMcpHostConfiguration.CreateWebApplication([
+            "--DorcApi:BaseUrl=https://dorc.local",
+            "--DorcMcp:Transport=Http",
+            "--DorcMcp:EndpointPath=/mcp"
+        ]);
+        Assert.IsNotNull(webAppCustom.Services.GetRequiredService<IDorcApiGateway>());
+
+        await using var webAppBlankPath = DorcMcpHostConfiguration.CreateWebApplication([
+            "--DorcApi:BaseUrl=https://dorc.local",
+            "--DorcMcp:Transport=Http",
+            "--DorcMcp:EndpointPath=   "
+        ]);
+        Assert.IsNotNull(webAppBlankPath.Services.GetRequiredService<IDorcApiGateway>());
     }
 }

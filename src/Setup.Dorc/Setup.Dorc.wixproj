@@ -5,6 +5,7 @@
     <Name>Setup.Dorc</Name>
     <DorcWebUIDir>$(SolutionDir)dorc-web\dist</DorcWebUIDir>
     <DorcApiDir>$(SolutionDir)Dorc.Api\bin\$(Configuration)\net8.0\publish</DorcApiDir>
+    <DorcMcpServerDir>$(SolutionDir)Dorc.McpServer\bin\$(Configuration)\net8.0\publish</DorcMcpServerDir>
     <DorcMonitorDir>$(SolutionDir)Dorc.Monitor\bin\$(Configuration)\net8.0\publish</DorcMonitorDir>
     <DorcRunnerDir>$(SolutionDir)Dorc.Runner\bin\$(Configuration)\net8.0\publish</DorcRunnerDir>
     <DorcNetFrameworkRunnerDir>$(SolutionDir)Dorc.NetFramework.Runner\bin\$(Configuration)</DorcNetFrameworkRunnerDir>
@@ -17,11 +18,11 @@
     <Platforms>x64</Platforms>
 </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
-    <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);DorcTerraformRunnerDir=$(DorcTerraformRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir);ToolsEMDir=$(ToolsEMDir)</DefineConstants>
+    <DefineConstants>Debug;DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcMcpServerDir=$(DorcMcpServerDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);DorcTerraformRunnerDir=$(DorcTerraformRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir);ToolsEMDir=$(ToolsEMDir)</DefineConstants>
     <SuppressValidation>True</SuppressValidation>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|x64' ">
-    <DefineConstants>DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);DorcTerraformRunnerDir=$(DorcTerraformRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir);ToolsEMDir=$(ToolsEMDir)</DefineConstants>
+    <DefineConstants>DorcWebUIDir=$(DorcWebUIDir);DorcRefDataApiDir=$(DorcRefDataApiDir);DorcApiDir=$(DorcApiDir);DorcMcpServerDir=$(DorcMcpServerDir);DorcMonitorDir=$(DorcMonitorDir);DorcRunnerDir=$(DorcRunnerDir);DorcNetFrameworkRunnerDir=$(DorcNetFrameworkRunnerDir);DorcTerraformRunnerDir=$(DorcTerraformRunnerDir);ToolsDCEBDir=$(ToolsDCEBDir);ToolsPREDir=$(ToolsPREDir);ToolsPVCDir=$(ToolsPVCDir);ToolsReqDir=$(ToolsReqDir);ToolsEMDir=$(ToolsEMDir)</DefineConstants>
     <SuppressValidation>True</SuppressValidation>
   </PropertyGroup>
   <ItemGroup>
@@ -29,6 +30,7 @@
     <Folder Include="Monitors\NonProd\" />
     <Folder Include="Monitors\Prod\" />
     <Folder Include="Web" />
+    <Folder Include="Web\McpServer" />
     <Folder Include="Web\RequestApi" />
     <Folder Include="Web\Orchestrator" />
   </ItemGroup>
@@ -39,6 +41,7 @@
     <Content Include="Setup.Dorc.msi.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
+    <Content Include="Web\McpServer\HeatTransform.xslt" />
     <Content Include="Web\Orchestrator\HeatTransform.xslt" />
     <Content Include="Install.Orchestrator.bat">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -49,6 +52,14 @@
     <ProjectReference Include="..\Dorc.Api\Dorc.Api.csproj">
       <Name>Dorc.Api</Name>
       <Project>{e4958e0f-ec3c-4943-adfb-deb744f5ab57}</Project>
+      <Private>True</Private>
+      <DoNotHarvest>True</DoNotHarvest>
+      <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
+      <RefTargetDir>INSTALLFOLDER</RefTargetDir>
+    </ProjectReference>
+    <ProjectReference Include="..\Dorc.McpServer\Dorc.McpServer.csproj">
+      <Name>Dorc.McpServer</Name>
+      <Project>{d9e8a341-7206-4455-8274-9603f039d7a1}</Project>
       <Private>True</Private>
       <DoNotHarvest>True</DoNotHarvest>
       <RefProjectOutputGroups>Binaries;Content;Satellites</RefProjectOutputGroups>
@@ -99,6 +110,7 @@
   <Target Name="PublishProjects" AfterTargets="BeforeResolveReferences"
           Condition="'$(DorcPayloadPrepublished)' != 'true'">
     <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Api\Dorc.Api.csproj&quot; -c $(Configuration)" />
+    <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.McpServer\Dorc.McpServer.csproj&quot; -c $(Configuration)" />
     <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Monitor\Dorc.Monitor.csproj&quot; -c $(Configuration)" />
     <Exec Command="dotnet publish &quot;$(SolutionDir)Dorc.Runner\Dorc.Runner.csproj&quot; -c $(Configuration)" />
     <Exec Command="&quot;$(MSBuildBinPath)\MSBuild.exe&quot; &quot;$(SolutionDir)Dorc.NetFramework.Runner\Dorc.NetFramework.Runner.csproj&quot; -p:Configuration=$(Configuration)" />
@@ -122,6 +134,14 @@
       <ComponentGroupName>DOrcAPIComGroup</ComponentGroupName>
       <Transforms>$(MSBuildProjectDirectory)/Web/RequestApi/HeatTransform.xslt</Transforms>
       <PreprocessorVariable>var.DorcApiDir</PreprocessorVariable>
+      <SuppressRootDirectory>true</SuppressRootDirectory>
+      <SuppressRegistry>true</SuppressRegistry>
+    </HarvestDirectory>
+    <HarvestDirectory Include="$(DorcMcpServerDir)">
+      <DirectoryRefId>McpServerDir</DirectoryRefId>
+      <ComponentGroupName>DOrcMcpServerComGroup</ComponentGroupName>
+      <Transforms>$(MSBuildProjectDirectory)/Web/McpServer/HeatTransform.xslt</Transforms>
+      <PreprocessorVariable>var.DorcMcpServerDir</PreprocessorVariable>
       <SuppressRootDirectory>true</SuppressRootDirectory>
       <SuppressRegistry>true</SuppressRegistry>
     </HarvestDirectory>

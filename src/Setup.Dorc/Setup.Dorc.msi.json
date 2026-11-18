@@ -206,6 +206,14 @@
       "DeployProperty": "DORC_OAUTH_API_GLOBAL_SCOPE"
     },
     {
+      "MSIParameter": "DORC.MCP.READONLY",
+      "DeployProperty": "DORC_MCP_READONLY"
+    },
+    {
+      "MSIParameter": "DORC.MCP.ALLOWPROD",
+      "DeployProperty": "DORC_MCP_ALLOWPROD"
+    },
+    {
       "MSIParameter": "AZURE.SIGNALR.USE",
       "DeployProperty": "AZURE_SIGNALR_USE"
     },

@@ -1,0 +1,38 @@
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:iis="http://wixtoolset.org/schemas/v4/wxs/iis" xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+	 xmlns:Json="http://schemas.hegsie.com/wix/JsonExtension">
+  <Fragment>
+    <CustomAction Id="ReconfigureLoadUserProfileMcpServer" Directory="McpServerDir" Execute="deferred" Impersonate="no" ExeCommand="[System64Folder]inetsrv\AppCmd.exe set apppool &quot;DOrcMcpServer&quot; -processmodel.loaduserprofile:true" Return="ignore" />
+
+	<Component Id="McpServerComponent" Guid="{7A91D48C-248B-45F6-8736-C4A8BC7931E1}" KeyPath="yes" Directory="McpServerDir" Condition="ENVIRONMENTISPRODUCTION = &quot;FALSE&quot;">
+        <util:User Id="McpUser" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
+        <iis:WebAppPool Id="DOrcMcpServerPool" Name="DOrcMcpServer" Identity="other" RecycleMinutes="0" ManagedRuntimeVersion="v4.0" ManagedPipelineMode="Integrated" User="McpUser">
+			<iis:RecycleTime Value="2:00" />
+		</iis:WebAppPool>
+
+        <Json:JsonFile Id="McpServerDorcApiBaseUrl" ElementPath="$.DorcApi.BaseUrl" File="[#McpServerWebConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
+        <Json:JsonFile Id="McpServerDorcApiClientId" ElementPath="$.DorcApi.ClientId" File="[#McpServerWebConfig]" Value="[DORC.API.CLIENTID]" />
+        <Json:JsonFile Id="McpServerDorcApiClientSecret" ElementPath="$.DorcApi.ClientSecret" File="[#McpServerWebConfig]" Value="[DORC.API.CLIENTSECRET]" />
+        <Json:JsonFile Id="McpServerDorcApiScope" ElementPath="$.DorcApi.Scope" File="[#McpServerWebConfig]" Value="[DORC.OAUTH.API.GLOBAL.SCOPE]" />
+        <Json:JsonFile Id="McpServerTransport" ElementPath="$.DorcMcp.Transport" File="[#McpServerWebConfig]" Value="Http" />
+        <Json:JsonFile Id="McpServerEndpointPath" ElementPath="$.DorcMcp.EndpointPath" File="[#McpServerWebConfig]" Value="/" />
+        <Json:JsonFile Id="McpServerReadOnly" ElementPath="$.DorcMcp.ReadOnly" File="[#McpServerWebConfig]" Value="[DORC.MCP.READONLY]" />
+        <Json:JsonFile Id="McpServerAllowProd" ElementPath="$.DorcMcp.AllowProd" File="[#McpServerWebConfig]" Value="[DORC.MCP.ALLOWPROD]" />
+      </Component>
+
+	  <Component Id="McpServerComponentProd" Guid="{E4A8421B-17A0-470C-8D28-2BC1E680D259}" KeyPath="yes" Directory="McpServerDir" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
+		  <util:User Id="McpUserProd" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
+		  <iis:WebAppPool Id="DOrcMcpServerPoolProd" Name="DOrcMcpServer" Identity="other" RecycleMinutes="0" ManagedRuntimeVersion="v4.0" ManagedPipelineMode="Integrated" User="McpUserProd">
+			  <iis:RecycleTime Value="2:00" />
+		  </iis:WebAppPool>
+
+          <Json:JsonFile Id="McpServerDorcApiBaseUrlProd" ElementPath="$.DorcApi.BaseUrl" File="[#McpServerWebConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
+          <Json:JsonFile Id="McpServerDorcApiClientIdProd" ElementPath="$.DorcApi.ClientId" File="[#McpServerWebConfig]" Value="[DORC.API.CLIENTID]" />
+          <Json:JsonFile Id="McpServerDorcApiClientSecretProd" ElementPath="$.DorcApi.ClientSecret" File="[#McpServerWebConfig]" Value="[DORC.API.CLIENTSECRET]" />
+          <Json:JsonFile Id="McpServerDorcApiScopeProd" ElementPath="$.DorcApi.Scope" File="[#McpServerWebConfig]" Value="[DORC.OAUTH.API.GLOBAL.SCOPE]" />
+          <Json:JsonFile Id="McpServerTransportProd" ElementPath="$.DorcMcp.Transport" File="[#McpServerWebConfig]" Value="Http" />
+          <Json:JsonFile Id="McpServerEndpointPathProd" ElementPath="$.DorcMcp.EndpointPath" File="[#McpServerWebConfig]" Value="/" />
+          <Json:JsonFile Id="McpServerReadOnlyProd" ElementPath="$.DorcMcp.ReadOnly" File="[#McpServerWebConfig]" Value="[DORC.MCP.READONLY]" />
+          <Json:JsonFile Id="McpServerAllowProdProd" ElementPath="$.DorcMcp.AllowProd" File="[#McpServerWebConfig]" Value="[DORC.MCP.ALLOWPROD]" />
+	  </Component>
+  </Fragment>
+</Wix>
