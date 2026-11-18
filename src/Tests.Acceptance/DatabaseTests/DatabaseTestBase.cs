@@ -106,8 +106,15 @@ namespace Tests.Acceptance.DatabaseTests
         /// </summary>
         protected void PublishDacpac()
         {
+            _ = PublishDacpacWithMessages();
+        }
+
+        protected System.Collections.Generic.IReadOnlyList<string> PublishDacpacWithMessages()
+        {
             var dacpacPath = LocateDacpac();
             var dacServices = new DacServices(EphemeralConnectionString);
+            var messages = new System.Collections.Generic.List<string>();
+            dacServices.Message += (_, e) => messages.Add(e.Message.Message);
             using var package = DacPackage.Load(dacpacPath);
 
             var options = new DacDeployOptions
@@ -118,6 +125,7 @@ namespace Tests.Acceptance.DatabaseTests
             };
 
             dacServices.Deploy(package, EphemeralDatabaseName, upgradeExisting: true, options: options);
+            return messages;
         }
 
         protected int ExecuteScalarInt(string sql)

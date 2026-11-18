@@ -19,7 +19,7 @@ graph TB
     %% Core Components
     WebUI["DOrc Web UI<br/>Lit 3, Vaadin Components<br/>TypeScript, Vite"]
     API["DOrc API<br/>ASP.NET Core 8<br/>REST API + SignalR Hub"]
-    Database[("SQL Server Database<br/>Projects, Environments<br/>Config, Deployments<br/>Audit, Users")]
+    Database[("SQL Server Database<br/>Projects, Environments<br/>Config, Deployments<br/>Audit, Database Access")]
     Monitor["DOrc Monitor<br/>Event Aggregation<br/>Log Processing"]
     Runner["DOrc Runner<br/>PowerShell Execution<br/>Script Processing"]
     TargetServers["Target Servers<br/>Application Deployments<br/>Configuration Updates"]
@@ -192,6 +192,121 @@ request when anything changed. To do it by hand:
 npm run ado-build-spec-refresh   # update the committed build.json from upstream
 npm run api-gen                  # regenerate against it
 ```
+
+### Database access management
+
+The **Database Access** dialog manages database-native users, directory-backed
+database principals, roles and role memberships, replacing the retired legacy
+`USERS`, `PERMISSION` and `ENVIRONMENT_USER_MAP` stack. Open it from the
+environment's **Databases** tab using the row actions (**Assign database
+permissions** and **Database access audit**), which are available to environment
+owners and administrators.
+
+Saving changes in the dialog updates desired state in DOrc only; no target SQL
+connection or target-readiness check occurs when editing metadata. Target
+preview and apply are performed during deployments by the CLI / deploy module
+through the API (`POST /DatabaseAccess/{envId}/{databaseId}/preview` and
+`POST /DatabaseAccess/{envId}/{databaseId}/apply`).
+
+Granting `db_owner` membership requires the caller to be an owner or
+administrator of **every environment sharing the database**
+(`CanApproveDbOwner = true`) and requires explicit confirmation in the UI.
+Ordinary desired-state editing by single-environment owners on a shared database
+preserves any existing `db_owner` memberships without allowing new `db_owner`
+grants.
+
+**Schema and global DACPAC migration**
+
+The database project defines `DatabaseAccessConfiguration`,
+`DatabaseAccessPrincipalCatalog`, `DatabaseAccessPrincipalBinding`,
+`DatabaseAccessRoleCatalog`, `DatabaseAccessRoleBinding`,
+`DatabaseAccessRoleMembership` and `DatabaseAccessAudit` in the `deploy` schema.
+
+Upgrading an existing DOrc database via SSDT DACPAC deployment performs a
+one-time global migration of legacy database user assignments:
+
+1. **Pre-deployment (`StageLegacyUsersForDatabaseAccessMigration.sql`)**: if
+   legacy `dbo.USERS`, `dbo.PERMISSION` and `dbo.ENVIRONMENT_USER_MAP` tables
+   are present, their assignments are staged into a temporary migration table
+   before SSDT drops the retired objects.
+2. **Post-deployment (`MigrateStagedLegacyUsersToDatabaseAccess.sql`)**:
+   - Migrates clean `Sql` / `Endur` logins as `Native` principals and resolves
+     Windows `DOMAIN\account` entries via `SUSER_SID(...)` into directory SIDs
+     (`DirectoryUser` / `DirectoryGroup` from `Login_Type`).
+   - Skips unsafe or ambiguous rows (protected roles such as `db_owner` /
+     `db_securityadmin` / `db_accessadmin` / `public`, unresolved Windows SIDs,
+     or conflicting login bindings) rather than failing the DACPAC publish.
+   - Records a `GlobalLegacyMigration` entry in `deploy.DatabaseAccessAudit`
+     for each affected database (`Succeeded` or `PartialWithIssues`).
+   - Prints a structured plain-text **DOrc Legacy Database Access Migration
+     Report** directly to the SQL / DACPAC deployment output log summarizing
+     migrated counts and listing every skipped database, login, permission and
+     reason so operators can review and manually patch them after the release.
+   - Drops any remaining legacy or prerelease tables.
+
+Take the API offline during the coordinated schema/API upgrade and verify the
+API identity has the required access to the `deploy` schema before bringing the
+API back online. This upgrade affects only the DOrc metadata database, not any
+managed target environment.
+
+The API defaults to:
+
+```json
+"DatabaseAccess": {
+  "Enabled": true
+}
+```
+
+`DatabaseAccess:Enabled` is the only rollout setting. Set it to `false` to
+disable requests to `DatabaseAccess/{envId}/{databaseId}` (apart from its
+authorized status response). Access requires environment modification rights;
+saving desired state and running target preview/apply also require modification
+rights on every environment sharing the database.
+
+The first provider is `sql-server`. Additional engines require an
+`IDatabaseAccessProvider` registration; unsupported providers fail explicitly.
+The SQL Server provider supports database-user creation/remapping/removal
+against **existing server logins**, custom-role creation/removal, and role
+membership changes. It does not provision server logins or passwords, manage
+object-level grants, or modify protected/system principals and roles. `public`,
+`db_securityadmin` and `db_accessadmin` remain blocked. The `db_owner` role
+definition is protected: it may only be referenced, never created, altered or
+deleted by DOrc. Only explicitly managed absent principals/roles are removed;
+objects found through discovery are not adopted or deleted implicitly.
+
+Target preview and Apply use the API process's Windows identity with
+`Encrypt=true` and `TrustServerCertificate=true` to support SQL Server
+instances without CA-trusted certificates. Grant only the permissions needed on
+managed target databases: `VIEW DEFINITION` for discovery, sufficient
+server-login metadata visibility, and membership in `db_owner` on the target
+database (required by SQL Server for orphaned-user remapping and fixed
+database-role membership changes). Active Directory users and groups are
+resolved through the AD searcher; principal records store stable SID references
+and database user names rather than copied directory profiles.
+
+**CLI and deployment-module integration**
+
+`Tools.ApplyPermissionsCLI` in `dorc-cli` consumes this API using
+`/permissions:DatabaseAccess`, `/environment:<name>`, `/instance:<server>` and
+`/database:<name>` (with `/preview:true` for discovery without apply).
+`sefe/dorc-ps-deploy-module` exposes
+`Apply-DatabasePermissions -permissionSource DatabaseAccess -previewOnly`, opted
+into via `DatabasePermissionsMode=DatabaseAccess`. SQL Server changes execute in
+one transaction per apply with a database-scoped DOrc lock serializing changes
+across API instances. Endur, Arc and ComOps in-application permissions remain on
+their dedicated paths.
+
+For isolated SQL integration coverage on Windows:
+
+```powershell
+SqlLocalDB create DOrcAccessTests -s
+$env:DORC_ACCESS_TEST_SERVER = '(localdb)\DOrcAccessTests'
+dotnet test .\src\Dorc.Core.Tests\Dorc.Core.Tests.csproj --configuration Release --filter FullyQualifiedName~SqlServerDatabaseAccessProviderTests
+```
+
+The SQL test accepts only that named LocalDB instance, creates randomly named
+test databases/logins, and removes them in cleanup. Never point tests at a
+shared production database.
 
 ## Project Structure
 

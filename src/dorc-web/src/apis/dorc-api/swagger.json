@@ -140,86 +140,6 @@
         }
       }
     },
-    "/Account/userExists": {
-      "get": {
-        "tags": [
-          "Account"
-        ],
-        "parameters": [
-          {
-            "name": "userLanId",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "accountType",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/Account/groupExists": {
-      "get": {
-        "tags": [
-          "Account"
-        ],
-        "parameters": [
-          {
-            "name": "groupLanId",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "accountType",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/AnalyticsDeploymentsMonth": {
       "get": {
         "tags": [
@@ -1601,6 +1521,483 @@
               "text/json": {
                 "schema": {
                   "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/DatabaseAccess/{envId}/{databaseId}/status": {
+      "get": {
+        "tags": [
+          "DatabaseAccess"
+        ],
+        "operationId": "databaseAccessStatus",
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "databaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseAccessStatus"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseAccessStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/DatabaseAccess/{envId}/{databaseId}": {
+      "get": {
+        "tags": [
+          "DatabaseAccess"
+        ],
+        "operationId": "databaseAccessGet",
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "databaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseAccessState"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseAccessState"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "DatabaseAccess"
+        ],
+        "operationId": "databaseAccessSave",
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "databaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseAccessState"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseAccessState"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseAccessState"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseAccessState"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseAccessState"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/DatabaseAccess/{envId}/{databaseId}/preview": {
+      "post": {
+        "tags": [
+          "DatabaseAccess"
+        ],
+        "operationId": "databaseAccessPreview",
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "databaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseAccessPreview"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseAccessPreview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/DatabaseAccess/{envId}/{databaseId}/apply": {
+      "post": {
+        "tags": [
+          "DatabaseAccess"
+        ],
+        "operationId": "databaseAccessApply",
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "databaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseAccessConfirmation"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseAccessConfirmation"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/DatabaseAccessConfirmation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseAccessPreview"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseAccessPreview"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/DatabaseAccess/{envId}/{databaseId}/logins": {
+      "get": {
+        "tags": [
+          "DatabaseAccess"
+        ],
+        "operationId": "databaseAccessSqlLogins",
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "databaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/DatabaseAccess/{envId}/{databaseId}/directory": {
+      "get": {
+        "tags": [
+          "DatabaseAccess"
+        ],
+        "operationId": "databaseAccessDirectory",
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "databaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DatabaseAccessDirectoryIdentity"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DatabaseAccessDirectoryIdentity"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/DatabaseAccess/{envId}/{databaseId}/directory/resolve": {
+      "get": {
+        "tags": [
+          "DatabaseAccess"
+        ],
+        "operationId": "databaseAccessResolve",
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "databaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseAccessDirectoryIdentity"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DatabaseAccessDirectoryIdentity"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/DatabaseAccess/{envId}/{databaseId}/audit": {
+      "get": {
+        "tags": [
+          "DatabaseAccess"
+        ],
+        "operationId": "databaseAccessAudit",
+        "parameters": [
+          {
+            "name": "envId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "databaseId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int32"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DatabaseAccessAuditApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/DatabaseAccessAuditApiModel"
+                  }
                 }
               }
             }
@@ -6596,123 +6993,6 @@
         }
       }
     },
-    "/RefDataDatabaseUsers": {
-      "get": {
-        "tags": [
-          "RefDataDatabaseUsers"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "envId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 0
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/RefDataDatabaseUsers/GetDbUsersPermissions": {
-      "get": {
-        "tags": [
-          "RefDataDatabaseUsers"
-        ],
-        "parameters": [
-          {
-            "name": "serverName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "databaseName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "tag",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserDbPermissionApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserDbPermissionApiModel"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "string"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/RefDataEnvironments": {
       "get": {
         "tags": [
@@ -7520,94 +7800,6 @@
         }
       }
     },
-    "/RefDataEnvironmentsUsers": {
-      "get": {
-        "tags": [
-          "RefDataEnvironmentsUsers"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "type",
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/UserAccountType"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/RefDataEnvironmentsUsers/{id}": {
-      "get": {
-        "tags": [
-          "RefDataEnvironmentsUsers"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/RefDataEnvironmentsUsers/owner/{id}": {
       "get": {
         "tags": [
@@ -7795,124 +7987,6 @@
                 }
               }
             }
-          }
-        }
-      }
-    },
-    "/RefDataPermission": {
-      "get": {
-        "tags": [
-          "RefDataPermission"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PermissionDto"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/PermissionDto"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "RefDataPermission"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PermissionDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PermissionDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/PermissionDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "RefDataPermission"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PermissionDto"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PermissionDto"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/PermissionDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "RefDataPermission"
-        ],
-        "parameters": [
-          {
-            "name": "id",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
           }
         }
       }
@@ -9349,368 +9423,6 @@
               "text/json": {
                 "schema": {
                   "type": "string"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/RefDataUserPermissions": {
-      "get": {
-        "tags": [
-          "RefDataUserPermissions"
-        ],
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "databaseId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 0
-            }
-          },
-          {
-            "name": "envId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 0
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserPermDto"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserPermDto"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "put": {
-        "tags": [
-          "RefDataUserPermissions"
-        ],
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "permissionId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "dbId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "envId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 0
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              }
-            }
-          }
-        }
-      },
-      "delete": {
-        "tags": [
-          "RefDataUserPermissions"
-        ],
-        "parameters": [
-          {
-            "name": "userId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "permissionId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "dbId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "envId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32",
-              "default": 0
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "boolean"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/RefDataUsers": {
-      "get": {
-        "tags": [
-          "RefDataUsers"
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "tags": [
-          "RefDataUsers"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UserApiModel"
-              }
-            },
-            "text/json": {
-              "schema": {
-                "$ref": "#/components/schemas/UserApiModel"
-              }
-            },
-            "application/*+json": {
-              "schema": {
-                "$ref": "#/components/schemas/UserApiModel"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserApiModel"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserApiModel"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/RefDataUsers/ByGranularity": {
-      "get": {
-        "tags": [
-          "RefDataUsers"
-        ],
-        "parameters": [
-          {
-            "name": "granularity",
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/AccountGranularity"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/RefDataUsers/ByEnvironmentId": {
-      "get": {
-        "tags": [
-          "RefDataUsers"
-        ],
-        "parameters": [
-          {
-            "name": "environmentId",
-            "in": "query",
-            "schema": {
-              "type": "integer",
-              "format": "int32"
-            }
-          },
-          {
-            "name": "userAccountType",
-            "in": "query",
-            "schema": {
-              "$ref": "#/components/schemas/UserAccountType"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/UserApiModel"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/RefDataUsers/ByName": {
-      "get": {
-        "tags": [
-          "RefDataUsers"
-        ],
-        "parameters": [
-          {
-            "name": "userName",
-            "in": "query",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserApiModel"
-                }
-              },
-              "text/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/UserApiModel"
                 }
               }
             }
@@ -12057,15 +11769,6 @@
         },
         "additionalProperties": false
       },
-      "AccountGranularity": {
-        "enum": [
-          "UsersAndGroups",
-          "Users",
-          "Groups",
-          "NotSet"
-        ],
-        "type": "string"
-      },
       "AnalyticsComponentReliabilityApiModel": {
         "type": "object",
         "properties": {
@@ -13123,6 +12826,352 @@
           "ErrorMessage": {
             "type": "string",
             "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseAccessAuditApiModel": {
+        "required": [
+          "Action",
+          "Actor",
+          "CreatedUtc",
+          "Detail",
+          "Id",
+          "Status"
+        ],
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "CreatedUtc": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "Actor": {
+            "type": "string"
+          },
+          "Action": {
+            "type": "string"
+          },
+          "Status": {
+            "type": "string"
+          },
+          "Detail": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseAccessConfirmation": {
+        "required": [
+          "Token"
+        ],
+        "type": "object",
+        "properties": {
+          "Token": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseAccessDirectoryIdentity": {
+        "required": [
+          "DisplayName",
+          "Id",
+          "IsGroup",
+          "Status"
+        ],
+        "type": "object",
+        "properties": {
+          "Id": {
+            "type": "string"
+          },
+          "DisplayName": {
+            "type": "string"
+          },
+          "IsGroup": {
+            "type": "boolean"
+          },
+          "AccountName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Status": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseAccessMembership": {
+        "required": [
+          "Present",
+          "Principal",
+          "Role"
+        ],
+        "type": "object",
+        "properties": {
+          "Principal": {
+            "type": "string"
+          },
+          "Role": {
+            "type": "string"
+          },
+          "Present": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseAccessObservation": {
+        "required": [
+          "Logins",
+          "Memberships",
+          "Principals",
+          "Roles"
+        ],
+        "type": "object",
+        "properties": {
+          "Principals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseAccessObservedPrincipal"
+            }
+          },
+          "Roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseAccessRole"
+            }
+          },
+          "Memberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseAccessMembership"
+            }
+          },
+          "Logins": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseAccessObservedPrincipal"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseAccessObservedPrincipal": {
+        "required": [
+          "Kind",
+          "Name",
+          "Protected"
+        ],
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": "string"
+          },
+          "Kind": {
+            "type": "string"
+          },
+          "LoginName": {
+            "type": "string",
+            "nullable": true
+          },
+          "DirectoryId": {
+            "type": "string",
+            "nullable": true
+          },
+          "Protected": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseAccessOperation": {
+        "required": [
+          "Action",
+          "Login",
+          "Principal",
+          "Role"
+        ],
+        "type": "object",
+        "properties": {
+          "Action": {
+            "type": "string"
+          },
+          "Principal": {
+            "type": "string"
+          },
+          "Role": {
+            "type": "string"
+          },
+          "Login": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseAccessPreview": {
+        "required": [
+          "Errors",
+          "Observed",
+          "Operations",
+          "Revision",
+          "Token"
+        ],
+        "type": "object",
+        "properties": {
+          "Token": {
+            "type": "string"
+          },
+          "Revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Observed": {
+            "$ref": "#/components/schemas/DatabaseAccessObservation"
+          },
+          "Operations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseAccessOperation"
+            }
+          },
+          "Errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseAccessPrincipal": {
+        "required": [
+          "Kind",
+          "Name",
+          "Present"
+        ],
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": "string"
+          },
+          "Kind": {
+            "type": "string"
+          },
+          "LoginName": {
+            "type": "string",
+            "nullable": true
+          },
+          "DirectoryId": {
+            "type": "string",
+            "nullable": true
+          },
+          "Present": {
+            "type": "boolean"
+          },
+          "LegacyUserId": {
+            "type": "integer",
+            "format": "int32",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseAccessRole": {
+        "required": [
+          "Managed",
+          "Name",
+          "Present"
+        ],
+        "type": "object",
+        "properties": {
+          "Name": {
+            "type": "string"
+          },
+          "Managed": {
+            "type": "boolean"
+          },
+          "Present": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseAccessState": {
+        "required": [
+          "DatabaseId",
+          "Memberships",
+          "Principals",
+          "Provider",
+          "Revision",
+          "Roles"
+        ],
+        "type": "object",
+        "properties": {
+          "DatabaseId": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "Revision": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "Provider": {
+            "type": "string"
+          },
+          "Principals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseAccessPrincipal"
+            }
+          },
+          "Roles": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseAccessRole"
+            }
+          },
+          "Memberships": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DatabaseAccessMembership"
+            }
+          }
+        },
+        "additionalProperties": false
+      },
+      "DatabaseAccessStatus": {
+        "required": [
+          "Enabled",
+          "ExecutionEnabled",
+          "Limitations",
+          "Providers"
+        ],
+        "type": "object",
+        "properties": {
+          "Enabled": {
+            "type": "boolean"
+          },
+          "ExecutionEnabled": {
+            "type": "boolean"
+          },
+          "CanApproveDbOwner": {
+            "type": "boolean"
+          },
+          "Providers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "Limitations": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         },
         "additionalProperties": false
@@ -14549,24 +14598,6 @@
             "nullable": true
           },
           "Direction": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "PermissionDto": {
-        "type": "object",
-        "properties": {
-          "Id": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "PermissionName": {
-            "type": "string",
-            "nullable": true
-          },
-          "DisplayName": {
             "type": "string",
             "nullable": true
           }
@@ -16165,15 +16196,6 @@
         },
         "additionalProperties": false
       },
-      "UserAccountType": {
-        "enum": [
-          "Windows",
-          "Endur",
-          "Sql",
-          "NotSet"
-        ],
-        "type": "string"
-      },
       "UserApiModel": {
         "type": "object",
         "properties": {
@@ -16208,47 +16230,6 @@
         },
         "additionalProperties": false
       },
-      "UserDbPermissionApiModel": {
-        "type": "object",
-        "properties": {
-          "UserId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "UserLoginId": {
-            "type": "string",
-            "nullable": true
-          },
-          "UserLoginType": {
-            "type": "string",
-            "nullable": true
-          },
-          "PermissionId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "PermissionName": {
-            "type": "string",
-            "nullable": true
-          },
-          "PermissionDisplayName": {
-            "type": "string",
-            "nullable": true
-          },
-          "DbId": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "Tags": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            },
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
       "UserElementApiModel": {
         "type": "object",
         "properties": {
@@ -16273,28 +16254,6 @@
             "type": "boolean"
           },
           "Email": {
-            "type": "string",
-            "nullable": true
-          }
-        },
-        "additionalProperties": false
-      },
-      "UserPermDto": {
-        "type": "object",
-        "properties": {
-          "Id": {
-            "type": "integer",
-            "format": "int32"
-          },
-          "Database": {
-            "type": "string",
-            "nullable": true
-          },
-          "Role": {
-            "type": "string",
-            "nullable": true
-          },
-          "User": {
             "type": "string",
             "nullable": true
           }

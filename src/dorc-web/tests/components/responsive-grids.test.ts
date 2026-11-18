@@ -137,11 +137,6 @@ describe('Responsive grid CSS (structural)', () => {
     assertResponsiveCss(mod.PageDaemonsList, 'page-daemons-list');
   });
 
-  it('page-permissions-list CSS contains responsive cell wrapping', async () => {
-    const mod = await import('../../src/pages/page-permissions-list.js');
-    assertResponsiveCss(mod.PagePermissionsList, 'page-permissions-list');
-  });
-
   it('page-project-bundles CSS contains responsive cell wrapping', async () => {
     const mod = await import('../../src/pages/page-project-bundles.js');
     assertResponsiveCss(mod.PageProjectBundles, 'page-project-bundles');

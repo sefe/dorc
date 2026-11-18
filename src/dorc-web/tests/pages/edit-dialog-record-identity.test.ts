@@ -18,17 +18,11 @@ import { dialogIn, expect, inDialog } from '../_helpers';
 // pins the user-facing contract and the second is the one that fails if the
 // array goes.
 
-const { daemonsSpy, permissionsSpy } = vi.hoisted(() => ({
+const { daemonsSpy } = vi.hoisted(() => ({
   daemonsSpy: vi.fn(() =>
     of([
       { Id: 1, Name: 'Alpha', DisplayName: 'Alpha' },
       { Id: 2, Name: 'Beta', DisplayName: 'Beta' }
-    ])
-  ),
-  permissionsSpy: vi.fn(() =>
-    of([
-      { Id: 1, PermissionName: 'ReadOnly', DisplayName: 'ReadOnly' },
-      { Id: 2, PermissionName: 'Owner', DisplayName: 'Owner' }
     ])
   )
 }));
@@ -43,16 +37,11 @@ vi.mock('../../src/apis/dorc-api', async importOriginal => {
     },
     ServerDaemonsApi: class {
       serverDaemonsGet = () => of([]);
-    },
-    RefDataPermissionApi: class {
-      refDataPermissionGet = permissionsSpy;
-      refDataPermissionDelete = () => of({});
     }
   };
 });
 
 await import('../../src/pages/page-daemons-list');
-await import('../../src/pages/page-permissions-list');
 
 const settle = () => new Promise(r => setTimeout(r, 250));
 
@@ -115,71 +104,6 @@ describe('edit dialogs show the record that was clicked', () => {
     (
       el as unknown as { editDaemonDialogOpened: boolean }
     ).editDaemonDialogOpened = false;
-    await settle();
-    el.remove();
-  });
-
-  it('permissions: reopening on a second row rebuilds the form for that row', async () => {
-    const el = document.createElement(
-      'page-permissions-list'
-    ) as HTMLElement & {
-      editPermission(p: unknown): void;
-      updateComplete: Promise<unknown>;
-    };
-    document.body.appendChild(el);
-    await el.updateComplete;
-    await settle();
-
-    el.editPermission({
-      Id: 1,
-      PermissionName: 'ReadOnly',
-      DisplayName: 'ReadOnly'
-    });
-    await el.updateComplete;
-    await settle();
-
-    // `permission` is private on the element, so read what the user actually
-    // sees: the value sitting in the Permission Name field.
-    const nameOf = () =>
-      (
-        formIn(
-          el,
-          'edit-permission-dialog',
-          'edit-permission'
-        )?.shadowRoot?.querySelector('#permission-name') as
-          (HTMLElement & { value?: string }) | null
-      )?.value;
-
-    expect(nameOf(), 'holds the first row').to.equal('ReadOnly');
-
-    (
-      el as unknown as { editPermissionDialogOpened: boolean }
-    ).editPermissionDialogOpened = false;
-    await el.updateComplete;
-    await settle();
-
-    el.editPermission({ Id: 2, PermissionName: 'Owner', DisplayName: 'Owner' });
-    await el.updateComplete;
-    await settle();
-
-    expect(
-      nameOf(),
-      'holds the second row — editing Owner must not save over ReadOnly'
-    ).to.equal('Owner');
-
-    el.editPermission({
-      Id: 3,
-      PermissionName: 'Auditor',
-      DisplayName: 'Auditor'
-    });
-    await el.updateComplete;
-    await settle();
-
-    expect(nameOf(), 'the open form follows a record swap').to.equal('Auditor');
-
-    (
-      el as unknown as { editPermissionDialogOpened: boolean }
-    ).editPermissionDialogOpened = false;
     await settle();
     el.remove();
   });

@@ -33,7 +33,6 @@ function RunMonitorResultsPageRequests(baseApiAddress, user, count = 1) {
   for (let i = 0; i < count; i++) {
     runSuccessGetRequest(baseApiAddress, '/ApiConfig', user);
     runSuccessGetRequest(baseApiAddress, '/RefDataRoles', user);
-    runSuccessGetRequest(baseApiAddress, '/RefDataUsers', user);
     runSuccessGetRequest(baseApiAddress, '/Metadata', user);
 
     var requestId = Math.floor(Math.random() * (1738416 - 1724812 + 1)) + 1724812;

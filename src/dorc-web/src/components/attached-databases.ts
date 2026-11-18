@@ -2,7 +2,6 @@ import { normaliseTags } from '../helpers/tag-parser';
 import '@vaadin/dialog';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
-import { ref } from 'lit/directives/ref.js';
 import '@vaadin/button';
 import '@vaadin/grid';
 import { columnBodyRenderer } from '@vaadin/grid/lit';
@@ -12,27 +11,16 @@ import { css, LitElement, nothing } from 'lit';
 import { ResponsiveMixin } from '../helpers/responsive-mixin';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import '../components/edit-database-permissions';
 import '../components/database-tags';
 import './grid-button-groups/database-env-controls.ts';
-import '../components/view-database-permissions';
 import { DatabaseApiModel } from '../apis/dorc-api';
-import { EditDatabasePermissions } from './edit-database-permissions';
-import { ViewDatabasePermissions } from './view-database-permissions';
+import type { DatabaseAccessView } from './database-access-panel';
 import { map } from 'lit/directives/map.js';
 import { renderDatabaseType } from '../helpers/database-type';
 
 @customElement('attached-databases')
 export class AttachedDatabases extends ResponsiveMixin(LitElement) {
-  @state() private permissionsDialogOpened = false;
-
-  @state() private viewPermissionsDialogOpened = false;
-
   @state() private tagsDialogOpened = false;
-
-  @state() private editDbId: number | null = null;
-
-  @state() private viewDbId: number | null = null;
 
   @state() private selectedDatabase: DatabaseApiModel | undefined;
 
@@ -40,6 +28,8 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
   envId = 0;
 
   @property({ type: Boolean }) readonly = true;
+
+  @property({ type: Boolean }) canManageDatabaseAccess = false;
 
   @property({ type: Array })
   public databases: Array<DatabaseApiModel> | undefined = [];
@@ -117,11 +107,13 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         <vaadin-grid-column
           path="ServerName"
           header="Instance"
+          width="220px"
           resizable
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="Name"
           header="Database"
+          width="220px"
           resizable
         ></vaadin-grid-column>
         <vaadin-grid-column
@@ -134,19 +126,24 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         <vaadin-grid-column
           ${columnBodyRenderer(this.tagsRenderer, [])}
           resizable
+          width="200px"
           header="Tags"
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
           path="ArrayName"
           header="Array Name"
+          width="140px"
           resizable
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
         <vaadin-grid-column
+          width="${this.canManageDatabaseAccess ? '220px' : '120px'}"
+          flex-grow="0"
           ${columnBodyRenderer(this.databaseControlsRenderer, [
             this.envId,
-            this.readonly
+            this.readonly,
+            this.canManageDatabaseAccess
           ])}
           resizable
         >
@@ -164,39 +161,6 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         }}"
         ${dialogRenderer(this.renderDatabaseTags, [this.selectedDatabase])}
         ${dialogFooterRenderer(this.renderDatabaseTagsFooter, [])}
-      ></vaadin-dialog>
-
-      <vaadin-dialog
-        id="permissions"
-        header-title="Manage Database Permissions"
-        draggable
-        .opened="${this.permissionsDialogOpened}"
-        @opened-changed="${(e: DialogOpenedChangedEvent) => {
-          this.permissionsDialogOpened = e.detail.value;
-          // Clearing the id destroys the content, so the next open recreates it
-          // and re-seeds through `ref`. Without this the element persists and
-          // the stable callback would not fire for the next row.
-          if (!this.permissionsDialogOpened) this.editDbId = null;
-        }}"
-        ${dialogRenderer(this.renderEditPermissions, [this.editDbId, this.envId])}
-        ${dialogFooterRenderer(this.renderEditPermissionsFooter, [])}
-      ></vaadin-dialog>
-
-      <vaadin-dialog
-        id="viewPermissions"
-        header-title="Database Permissions"
-        draggable
-        .opened="${this.viewPermissionsDialogOpened}"
-        @opened-changed="${(e: DialogOpenedChangedEvent) => {
-          this.viewPermissionsDialogOpened = e.detail.value;
-          if (!this.viewPermissionsDialogOpened) this.viewDbId = null;
-        }}"
-        ${dialogRenderer(this.renderViewPermissions, [
-          this.viewDbId,
-          this.envId,
-          this.readonly
-        ])}
-        ${dialogFooterRenderer(this.renderViewPermissionsFooter, [])}
       ></vaadin-dialog>
     `;
   }
@@ -235,6 +199,7 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
       .dbDetails="${db}"
       .envId="${this.envId}"
       .readonly="${this.readonly}"
+      .canManageDatabaseAccess="${this.canManageDatabaseAccess}"
       @database-detached="${() =>
         this.dispatchEvent(
           new CustomEvent('database-detached', { detail: { db } })
@@ -243,14 +208,14 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
         this.selectedDatabase = db;
         this.tagsDialogOpened = true;
       }}"
-      @manage-database-perms="${() => {
-        this.editDbId = db.Id || 0;
-        this.permissionsDialogOpened = true;
-      }}"
-      @view-database-perms="${() => {
-        this.viewDbId = db.Id || 0;
-        this.viewPermissionsDialogOpened = true;
-      }}"
+      @manage-database-access="${(
+        event: CustomEvent<{ view: DatabaseAccessView }>
+      ) =>
+        this.dispatchEvent(
+          new CustomEvent('manage-database-access', {
+            detail: { database: db, view: event.detail.view }
+          })
+        )}"
     ></database-env-controls>
   `;
 
@@ -277,69 +242,4 @@ export class AttachedDatabases extends ResponsiveMixin(LitElement) {
       })
     );
   }
-
-  /**
-   * These two components are configured through imperative methods, and the
-   * elements do not exist until the dialog opens. `ref` fires exactly when the
-   * element is created, which removes the old configure-then-open ordering
-   * rather than trying to re-time it.
-   */
-  /**
-   * Seeds the permission dialogs, once per open.
-   *
-   * These are class fields, not arrows written inline in the renderer. Lit's
-   * `ref` compares callback identity, so a fresh arrow each render re-fires the
-   * directive on every renderer invocation — and the overlay invokes the
-   * renderer itself on open and again on header/footer changes, which meant
-   * four loads per open and four `reset()`s, the first carrying the previous
-   * row's id.
-   *
-   * Seeding is driven by the element's lifetime instead: `viewDbId`/`editDbId`
-   * are cleared on close, so the element is destroyed and recreated per open
-   * and the callback runs exactly once with the right row.
-   */
-  private seedViewPermissions = (el?: Element) => {
-    if (!el || this.viewDbId === null) return;
-    const view = el as ViewDatabasePermissions;
-    view.setDbId(this.viewDbId);
-    view.loadDatabaseUsers();
-  };
-
-  private seedEditPermissions = (el?: Element) => {
-    if (!el || this.editDbId === null) return;
-    const edit = el as EditDatabasePermissions;
-    edit.reset();
-    edit.setDbId(this.editDbId);
-  };
-
-  private renderEditPermissions = () =>
-    this.editDbId !== null
-      ? html`<edit-database-permissions
-          id="edit"
-          .envId="${this.envId}"
-          ${ref(this.seedEditPermissions)}
-        ></edit-database-permissions>`
-      : nothing;
-
-  private renderEditPermissionsFooter = () => html`
-    <vaadin-button @click="${() => (this.permissionsDialogOpened = false)}"
-      >Close</vaadin-button
-    >
-  `;
-
-  private renderViewPermissions = () =>
-    this.viewDbId !== null
-      ? html`<view-database-permissions
-          id="view"
-          .envId="${this.envId}"
-          .readonly="${this.readonly}"
-          ${ref(this.seedViewPermissions)}
-        ></view-database-permissions>`
-      : nothing;
-
-  private renderViewPermissionsFooter = () => html`
-    <vaadin-button @click="${() => (this.viewPermissionsDialogOpened = false)}"
-      >Close</vaadin-button
-    >
-  `;
 }

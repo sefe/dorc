@@ -10,7 +10,6 @@ using Environment = Dorc.PersistentData.Model.Environment;
 using EnvironmentChainItemDto = Dorc.PersistentData.Model.EnvironmentChainItemDto;
 using Property = Dorc.PersistentData.Model.Property;
 using Server = Dorc.PersistentData.Model.Server;
-using User = Dorc.PersistentData.Model.User;
 
 namespace Dorc.PersistentData.Contexts
 {
@@ -72,8 +71,6 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<Environment> Environments { get; set; }
         public DbSet<EnvironmentComponentStatus> EnvironmentComponentStatuses { get; set; }
         public DbSet<EnvironmentHistory> EnvironmentHistories { get; set; }
-        public DbSet<EnvironmentUser> EnvironmentUsers { get; set; }
-        public DbSet<Permission> Permissions { get; set; }
         public DbSet<Project> Projects { get; set; }
         public DbSet<Property> Properties { get; set; }
         public DbSet<PropertyFilter> PropertyFilters { get; set; }
@@ -97,7 +94,6 @@ namespace Dorc.PersistentData.Contexts
         public DbSet<Server> Servers { get; set; }
         public DbSet<ServerTag> ServerTags { get; set; }
         public DbSet<SqlPort> SqlPorts { get; set; }
-        public DbSet<User> Users { get; set; }
         public DbSet<DeploymentRequestAttempt> DeploymentRequestAttempts { get; set; }
         public DbSet<DeploymentResultAttempt> DeploymentResultAttempts { get; set; }
 
@@ -337,8 +333,6 @@ namespace Dorc.PersistentData.Contexts
             new EnvironmentComponentStatusEntityTypeConfiguration().Configure(modelBuilder.Entity<EnvironmentComponentStatus>());
             new EnvironmentEntityTypeConfiguration().Configure(modelBuilder.Entity<Environment>());
             new EnvironmentHistoryEntityTypeConfiguration().Configure(modelBuilder.Entity<EnvironmentHistory>());
-            new EnvironmentUserEntityTypeConfiguration().Configure(modelBuilder.Entity<EnvironmentUser>());
-            new PermissionEntityTypeConfiguration().Configure(modelBuilder.Entity<Permission>());
             new ProjectEntityTypeConfiguration().Configure(modelBuilder.Entity<Project>());
             new PropertyValueEntityTypeConfiguration().Configure(modelBuilder.Entity<PropertyValue>());
             new PropertyValueFilterEntityTypeConfiguration().Configure(modelBuilder.Entity<PropertyValueFilter>());
@@ -359,7 +353,6 @@ namespace Dorc.PersistentData.Contexts
             new ServerEntityTypeConfiguration().Configure(modelBuilder.Entity<Server>());
             new ServerTagEntityTypeConfiguration().Configure(modelBuilder.Entity<ServerTag>());
             new SqlPortEntityTypeConfiguration().Configure(modelBuilder.Entity<SqlPort>());
-            new UserEntityTypeConfiguration().Configure(modelBuilder.Entity<User>());
             new DeploymentRequestAttemptEntityTypeConfiguration().Configure(modelBuilder.Entity<DeploymentRequestAttempt>());
             new DeploymentResultAttemptEntityTypeConfiguration().Configure(modelBuilder.Entity<DeploymentResultAttempt>());
         }

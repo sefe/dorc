@@ -34,7 +34,8 @@ namespace Dorc.Core.Tests
             var servers = Substitute.For<IServersPersistentSource>();
             var daemons = Substitute.For<IDaemonsPersistentSource>();
             var databases = Substitute.For<IDatabasesPersistentSource>();
-            var userPerms = Substitute.For<IUserPermsPersistentSource>();
+            var databaseAccess = Substitute.For<IDatabaseAccessReader>();
+            databaseAccess.GetRoleAssignments(Arg.Any<int>()).Returns(Array.Empty<DatabaseRoleAssignment>());
             servers.GetServersForEnvId(42).Returns(new[]
             {
                 new ServerApiModel { ServerId = 1, Name = "web01", Tags = tags }
@@ -52,7 +53,7 @@ namespace Dorc.Core.Tests
             var apiRegistrations = Substitute.For<IApiRegistrationsPersistentSource>();
             apiRegistrations.GetForEnvironmentId(Arg.Any<int>()).Returns(Array.Empty<ApiRegistrationApiModel>());
 
-            var resolver = new VariableScopeOptionsResolver(properties, servers, daemons, databases, userPerms,
+            var resolver = new VariableScopeOptionsResolver(properties, servers, daemons, databases, databaseAccess,
                 containers, cloudResources, apiRegistrations);
             var calls = new List<string>();
             var variableResolver = Substitute.For<IVariableResolver>();

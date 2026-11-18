@@ -15,18 +15,21 @@ namespace Dorc.PersistentData.Sources
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
+        private readonly IDatabaseAccessReader _databaseAccessReader;
 
         protected override IClaimsPrincipalReader ClaimsPrincipalReader => _claimsPrincipalReader;
 
         public DatabasesPersistentSource(
             IDeploymentContextFactory contextFactory,
             IRolePrivilegesChecker rolePrivilegesChecker,
-            IClaimsPrincipalReader claimsPrincipalReader
+            IClaimsPrincipalReader claimsPrincipalReader,
+            IDatabaseAccessReader databaseAccessReader
             )
         {
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _contextFactory = contextFactory;
             _claimsPrincipalReader = claimsPrincipalReader;
+            _databaseAccessReader = databaseAccessReader;
         }
 
         public DatabaseApiModel? GetDatabase(int id)
@@ -426,13 +429,13 @@ namespace Dorc.PersistentData.Sources
                         == EF.Functions.Collate(envFilter, DeploymentContext.CaseInsensitiveCollation));
 
                 var dbIds = environmentDetails.Databases.Select(d => d.Id).ToList();
+                var matchedDatabaseId = _databaseAccessReader.FindDatabaseWithNativePrincipal(dbIds, username);
+                if (matchedDatabaseId == null)
+                    return null;
 
-                var database = context.EnvironmentUsers
-                    .Include(eu => eu.Database).ThenInclude(d => d.TagLinks)
-                    .Include(eu => eu.User)
-                    .Where(eu =>
-                        dbIds.Contains(eu.Database.Id) && eu.User.LoginId.Equals(username) &&
-                        eu.User.LoginType.Equals(envFilter)).Select(eu => eu.Database).FirstOrDefault();
+                var database = context.Databases
+                    .Include(d => d.TagLinks)
+                    .FirstOrDefault(d => d.Id == matchedDatabaseId.Value);
 
                 return MapToDatabaseApiModel(database);
             }

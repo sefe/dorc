@@ -4,7 +4,7 @@ using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Model;
 using Dorc.PersistentData.Sources;
-using Dorc.PersistentData.Repositories;
+using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.Extensions.Logging;
 using NSubstitute;
 using Environment = Dorc.PersistentData.Model.Environment;
@@ -14,8 +14,7 @@ namespace Dorc.Api.Tests.Sources
     /// <summary>
     /// Characterization of the tag consumers in the persistent sources. Values that
     /// used to miss because they carried several tags now assert tag-membership
-    /// semantics; the shared-tag throw and the permissions filter's
-    /// omitted-means-no-filter behaviour are kept behaviour and must survive.
+    /// semantics; the shared-tag throw is kept behaviour and must survive.
     /// </summary>
     [TestClass]
     public class DatabaseTagSourceCharacterizationTests
@@ -31,10 +30,13 @@ namespace Dorc.Api.Tests.Sources
             return factory;
         }
 
-        private static DatabasesPersistentSource DatabasesSource(IDeploymentContext context) =>
+        private static DatabasesPersistentSource DatabasesSource(
+            IDeploymentContext context,
+            IDatabaseAccessReader? databaseAccessReader = null) =>
             new(FactoryFor(context),
                 Substitute.For<IRolePrivilegesChecker>(),
-                Substitute.For<IClaimsPrincipalReader>());
+                Substitute.For<IClaimsPrincipalReader>(),
+                databaseAccessReader ?? Substitute.For<IDatabaseAccessReader>());
 
         // ---- Sites 1 & 4: the two GetDatabaseByTag overloads ----
 
@@ -171,89 +173,6 @@ namespace Dorc.Api.Tests.Sources
             StringAssert.Contains(nameEx.Message, "'B'");
         }
 
-        // ---- Site 2: Endur users join ----
-
-        [TestMethod]
-        public void GetEnvironmentUsers_MatchesEndurByTagMembership()
-        {
-            var context = Substitute.For<IDeploymentContext>();
-            var env = new Environment { Id = 42, Name = "Endur DV 10" };
-            var endurDb = new Database { Id = 10, Name = "D1", TagLinks = DbTags("Endur") };
-            var multiTagDb = new Database { Id = 11, Name = "D2", TagLinks = DbTags("Endur", "Ops") };
-            endurDb.Environments = new List<Environment> { env };
-            multiTagDb.Environments = new List<Environment> { env };
-            var envSet = DbContextMock.GetQueryableMockDbSet(new List<Environment> { env });
-            var dbSet = DbContextMock.GetQueryableMockDbSet(new List<Database> { endurDb, multiTagDb });
-            var userSet = DbContextMock.GetQueryableMockDbSet(new List<User>
-            {
-                new() { Id = 1, LanId = "endur.user", LoginId = "endur.user" },
-                new() { Id = 2, LanId = "multi.user", LoginId = "multi.user" }
-            });
-            var envUserSet = DbContextMock.GetQueryableMockDbSet(new List<EnvironmentUser>
-            {
-                new() { DbId = 10, UserId = 1, PermissionId = 5 },
-                new() { DbId = 11, UserId = 2, PermissionId = 5 }
-            });
-            context.Environments.Returns(envSet);
-            context.Databases.Returns(dbSet);
-            context.Users.Returns(userSet);
-            context.EnvironmentUsers.Returns(envUserSet);
-            var source = new UsersPersistentSource(FactoryFor(context), Substitute.For<IClaimsPrincipalReader>());
-
-            var users = source.GetEnvironmentUsers(42, UserAccountType.Endur).ToList();
-
-            // FLIPPED by S-003: the multi-tag database now carries the "Endur" tag,
-            // so its user is visible alongside the single-value one.
-            Assert.AreEqual(2, users.Count);
-            CollectionAssert.AreEquivalent(new[] { "endur.user", "multi.user" },
-                users.Select(u => u.LanId).ToArray());
-        }
-
-        // ---- Site 3: permissions tag filter ----
-
-        private static UserPermsPersistentSource PermsSourceWithOneMultiTagDb(out IDeploymentContext context)
-        {
-            context = Substitute.For<IDeploymentContext>();
-            var db = new Database { Id = 10, Name = "db1", ServerName = "s1", TagLinks = DbTags("Endur", "Ops") };
-            var dbSet = DbContextMock.GetQueryableMockDbSet(new List<Database> { db });
-            var userSet = DbContextMock.GetQueryableMockDbSet(new List<User>
-            {
-                new() { Id = 1, LoginId = "u1", LoginType = "Endur" }
-            });
-            var envUserSet = DbContextMock.GetQueryableMockDbSet(new List<EnvironmentUser>
-            {
-                new() { DbId = 10, UserId = 1, PermissionId = 5 }
-            });
-            var permSet = DbContextMock.GetQueryableMockDbSet(new List<Permission>
-            {
-                new() { Id = 5, Name = "dbo", DisplayName = "Owner" }
-            });
-            context.Databases.Returns(dbSet);
-            context.Users.Returns(userSet);
-            context.EnvironmentUsers.Returns(envUserSet);
-            context.Permissions.Returns(permSet);
-            return new UserPermsPersistentSource(FactoryFor(context));
-        }
-
-        [TestMethod]
-        public void GetUserDbPermissions_OmittedTag_AppliesNoFilter()
-        {
-            // Kept behaviour: an omitted optional tag means "no filter".
-            var source = PermsSourceWithOneMultiTagDb(out _);
-            Assert.AreEqual(1, source.GetUserDbPermissions("s1", "db1").Count);
-            Assert.AreEqual(1, source.GetUserDbPermissions("s1", "db1", null).Count);
-        }
-
-        [TestMethod]
-        public void GetUserDbPermissions_FilterUsesTagMembership()
-        {
-            var source = PermsSourceWithOneMultiTagDb(out _);
-            // FLIPPED by S-003: the filter is per-tag membership now.
-            Assert.AreEqual(1, source.GetUserDbPermissions("s1", "db1", "Endur").Count);
-            Assert.AreEqual(1, source.GetUserDbPermissions("s1", "db1", "Ops").Count);
-            Assert.AreEqual(0, source.GetUserDbPermissions("s1", "db1", "Endu").Count);
-        }
-
         // ---- Site 5: configuration file path ----
 
         private static PropertiesPersistentSource PropertiesSourceFor(params Database[] databases)
@@ -332,42 +251,6 @@ namespace Dorc.Api.Tests.Sources
             StringAssert.Contains(ex.Message, "'A_DB' on 'srv1'");
             StringAssert.Contains(ex.Message, "'B_DB'");
             StringAssert.Contains(ex.Message, "EndurConfigurationFile");
-        }
-
-        [TestMethod]
-        public void NullTypeDatabases_AreInvisibleToUsersJoinAndPermsFilter()
-        {
-            // Sites 2 & 3 (gate F-2): a null-Type database matches no tag.
-            var context = Substitute.For<IDeploymentContext>();
-            var env = new Environment { Id = 42, Name = "Endur DV 10" };
-            var nullDb = new Database { Id = 12, Name = "D3", ServerName = "s1", Tags = null };
-            nullDb.Environments = new List<Environment> { env };
-            var envSet = DbContextMock.GetQueryableMockDbSet(new List<Environment> { env });
-            var dbSet = DbContextMock.GetQueryableMockDbSet(new List<Database> { nullDb });
-            var userSet = DbContextMock.GetQueryableMockDbSet(new List<User>
-            {
-                new() { Id = 3, LanId = "null.user", LoginId = "null.user" }
-            });
-            var envUserSet = DbContextMock.GetQueryableMockDbSet(new List<EnvironmentUser>
-            {
-                new() { DbId = 12, UserId = 3, PermissionId = 5 }
-            });
-            var permSet = DbContextMock.GetQueryableMockDbSet(new List<Permission>
-            {
-                new() { Id = 5, Name = "dbo", DisplayName = "Owner" }
-            });
-            context.Environments.Returns(envSet);
-            context.Databases.Returns(dbSet);
-            context.Users.Returns(userSet);
-            context.EnvironmentUsers.Returns(envUserSet);
-            context.Permissions.Returns(permSet);
-
-            var usersSource = new UsersPersistentSource(FactoryFor(context), Substitute.For<IClaimsPrincipalReader>());
-            Assert.AreEqual(0, usersSource.GetEnvironmentUsers(42, UserAccountType.Endur).Count());
-
-            var permsSource = new UserPermsPersistentSource(FactoryFor(context));
-            Assert.AreEqual(0, permsSource.GetUserDbPermissions("s1", "D3", "Endur").Count);
-            Assert.AreEqual(1, permsSource.GetUserDbPermissions("s1", "D3").Count);
         }
 
         // ---- Padding can no longer make a row unmatchable ----
