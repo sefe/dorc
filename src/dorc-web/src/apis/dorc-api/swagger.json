@@ -3343,6 +3343,84 @@
         }
       }
     },
+    "/PropertyValues/WhereUsed": {
+      "get": {
+        "tags": [
+          "PropertyValues"
+        ],
+        "parameters": [
+          {
+            "name": "propertyName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PropertyUsageReferenceApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PropertyUsageReferenceApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/PropertyValues/WhereUsed": {
+      "get": {
+        "tags": [
+          "PropertyValues"
+        ],
+        "parameters": [
+          {
+            "name": "propertyName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PropertyUsageReferenceApiModel"
+                  }
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/PropertyUsageReferenceApiModel"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/PropertyValuesAudit": {
       "put": {
         "tags": [
@@ -14910,6 +14988,28 @@
             "type": "boolean"
           },
           "Diagnostic": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "PropertyUsageReferenceApiModel": {
+        "type": "object",
+        "properties": {
+          "PropertyName": {
+            "type": "string",
+            "nullable": true
+          },
+          "Scope": {
+            "type": "string",
+            "nullable": true
+          },
+          "PropertyValueFilter": {
+            "type": "string",
+            "nullable": true
+          },
+          "RawValueSnippet": {
             "type": "string",
             "nullable": true
           }

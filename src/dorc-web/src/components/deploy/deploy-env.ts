@@ -13,11 +13,14 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/notification';
 import '@vaadin/text-field';
 import { TextField } from '@vaadin/text-field';
-import { css, LitElement, PropertyValues } from 'lit';
+import { css, LitElement, nothing, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { PropertiesApi, RequestApi } from '../../apis/dorc-api';
-import type { RequestPostRequest } from '../../apis/dorc-api';
+import type {
+  PropertyResolutionTraceApiModel,
+  RequestPostRequest
+} from '../../apis/dorc-api';
 import {
   DeployArtefactDto,
   DeployComponentDto,
@@ -35,10 +38,116 @@ import { TreeNode } from './component-tree/TreeNode';
 import { SuccessfulDeployNotification } from './notifications/successful-deploy-notification';
 import { HegsJsonViewer } from '../hegs-json-viewer';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
+import { defaultPropertyResolutionClientCache } from '../../variable-resolution/property-resolution-client-cache';
+import {
+  extractReferencedPropertyNames,
+  parsePropertyTokens
+} from '../../variable-resolution/property-token-parser';
+import { lookupTrace } from '../../variable-resolution/resolution-presentation';
 
 type ConfirmDialogWithOverlay = HTMLElement & {
   _overlayElement?: HTMLElement;
 };
+
+export interface PreflightResolutionSummary {
+  totalReferencedCount: number;
+  unresolvedVariableNames: string[];
+  fallbackToDefaultVariableNames: string[];
+  resolvedInEnvironmentVariableNames: string[];
+}
+
+export function collectDeployReferencedVariables(
+  requestDto: unknown,
+  propertyOverrides: RequestProperty[] | undefined,
+  componentNodes: TreeNode[] | undefined
+): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+
+  const addName = (candidate: string | null | undefined) => {
+    const trimmed = candidate?.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      return;
+    }
+    seen.add(trimmed);
+    ordered.push(trimmed);
+  };
+
+  if (requestDto !== undefined) {
+    for (const name of extractReferencedPropertyNames(
+      requestDto,
+      'deploy-request'
+    )) {
+      addName(name);
+    }
+  }
+
+  for (const override of propertyOverrides ?? []) {
+    if (typeof override.PropertyValue === 'string') {
+      for (const token of parsePropertyTokens(
+        override.PropertyValue,
+        'standard'
+      )) {
+        if (token.kind === 'property') {
+          addName(token.propertyName);
+        }
+      }
+    }
+  }
+
+  if (componentNodes && componentNodes.length > 0) {
+    for (const name of extractReferencedPropertyNames(
+      componentNodes,
+      'deploy-request'
+    )) {
+      addName(name);
+    }
+  }
+
+  return ordered;
+}
+
+export function computePreflightResolutionSummary(
+  referencedNames: string[],
+  tracesByProperty: Map<string, PropertyResolutionTraceApiModel>
+): PreflightResolutionSummary {
+  const unresolvedVariableNames: string[] = [];
+  const fallbackToDefaultVariableNames: string[] = [];
+  const resolvedInEnvironmentVariableNames: string[] = [];
+
+  for (const name of referencedNames) {
+    const trace = lookupTrace(tracesByProperty, name);
+    if (
+      !trace ||
+      trace.Source === 'Unresolved' ||
+      trace.Diagnostic === 'MissingInScope' ||
+      trace.Diagnostic === 'CircularReference'
+    ) {
+      unresolvedVariableNames.push(name);
+    } else if (
+      trace.Diagnostic === 'FallbackToDefault' ||
+      trace.Source === 'GlobalDefault'
+    ) {
+      fallbackToDefaultVariableNames.push(name);
+    } else if (
+      trace.Source === 'EnvironmentScope' ||
+      trace.Source === 'AncestorEnvironmentScope' ||
+      trace.Source === 'BuiltInScopeOption' ||
+      trace.Source === 'RequestOverride'
+    ) {
+      resolvedInEnvironmentVariableNames.push(name);
+    } else {
+      resolvedInEnvironmentVariableNames.push(name);
+    }
+  }
+
+  return {
+    totalReferencedCount: referencedNames.length,
+    unresolvedVariableNames,
+    fallbackToDefaultVariableNames,
+    resolvedInEnvironmentVariableNames
+  };
+}
 
 @customElement('deploy-env')
 export class DeployEnv extends LitElement {
@@ -97,8 +206,87 @@ export class DeployEnv extends LitElement {
 
   @state() private requestedDeployment: RequestStatusDto | undefined;
 
+  @state()
+  private preflightSummary: PreflightResolutionSummary | undefined;
+
+  private preflightGeneration = 0;
+
   static get styles() {
     return css`
+      .preflight-banner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--lumo-space-s);
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 600px;
+        margin: var(--lumo-space-s) 0 var(--lumo-space-s) var(--lumo-space-s);
+        padding: var(--lumo-space-xs) var(--lumo-space-m);
+        border-radius: var(--lumo-border-radius-m);
+        font-size: var(--lumo-font-size-s);
+      }
+      .preflight-banner--dialog {
+        margin: 0 0 var(--lumo-space-s) 0;
+        max-width: 100%;
+      }
+      .preflight-banner--warning {
+        background: var(--lumo-error-color-10pct, rgba(248, 81, 73, 0.12));
+        border: 1px solid var(--dorc-error-color, #d93025);
+        border-left: 4px solid var(--dorc-error-color, #d93025);
+        color: var(--dorc-text-primary);
+      }
+      .preflight-banner--passed {
+        background: var(--lumo-success-color-10pct, rgba(46, 160, 67, 0.12));
+        border: 1px solid var(--lumo-success-color, #2ea043);
+        border-left: 4px solid var(--lumo-success-color, #2ea043);
+        color: var(--dorc-text-primary);
+      }
+      .preflight-banner__body {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex: 1 1 240px;
+        min-width: 0;
+      }
+      .preflight-banner__title {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-xs);
+        font-weight: 600;
+      }
+      .preflight-banner__missing-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 2px;
+      }
+      .preflight-banner__chip {
+        font-family: monospace;
+        font-size: var(--lumo-font-size-xs);
+        padding: 1px 6px;
+        border-radius: var(--lumo-border-radius-s);
+        background: rgba(248, 81, 73, 0.16);
+        color: var(--dorc-text-primary);
+        border: 1px solid rgba(248, 81, 73, 0.35);
+      }
+      .preflight-banner__meta {
+        font-size: var(--lumo-font-size-xs);
+        color: var(--dorc-text-secondary-strong);
+      }
+      .preflight-banner__link {
+        font-weight: 600;
+        color: var(--dorc-link-color);
+        text-decoration: none;
+        white-space: nowrap;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+      }
+      .preflight-banner__link:hover {
+        text-decoration: underline;
+      }
       .catalog-callout {
         display: flex;
         align-items: center;
@@ -259,6 +447,150 @@ export class DeployEnv extends LitElement {
     });
   }
 
+  protected updated(changedProperties: PropertyValues) {
+    super.updated(changedProperties);
+    if (
+      changedProperties.has('envName') ||
+      changedProperties.has('data') ||
+      changedProperties.has('propertyOverrides') ||
+      changedProperties.has('req') ||
+      changedProperties.has('project')
+    ) {
+      this.refreshPreflightResolution();
+    }
+  }
+
+  public async refreshPreflightResolution(): Promise<void> {
+    const referencedNames = collectDeployReferencedVariables(
+      this.req?.requestDto,
+      this.propertyOverrides,
+      this.data
+    );
+    const currentEnvironment =
+      this.req?.requestDto?.Environment?.trim() || this.envName.trim();
+
+    if (referencedNames.length === 0 || !currentEnvironment) {
+      this.preflightGeneration++;
+      if (this.preflightSummary !== undefined) {
+        this.preflightSummary = undefined;
+      }
+      return;
+    }
+
+    const generation = ++this.preflightGeneration;
+
+    try {
+      const tracesByProperty =
+        await defaultPropertyResolutionClientCache.resolveProperties(
+          {
+            environmentName: currentEnvironment,
+            projectName:
+              this.req?.requestDto?.Project ??
+              this.project?.ProjectName ??
+              undefined,
+            requestOverrides:
+              this.req?.requestDto?.RequestProperties ?? this.propertyOverrides,
+            locationKind: 'deploy-request'
+          },
+          referencedNames
+        );
+      if (generation !== this.preflightGeneration) {
+        return;
+      }
+      this.preflightSummary = computePreflightResolutionSummary(
+        referencedNames,
+        tracesByProperty
+      );
+    } catch (err) {
+      console.error('Preflight variable resolution failed:', err);
+      if (generation !== this.preflightGeneration) {
+        return;
+      }
+      this.preflightSummary = undefined;
+    }
+  }
+
+  private renderPreflightBanner(inDialog: boolean) {
+    const summary = this.preflightSummary;
+    const targetEnv =
+      this.req?.requestDto?.Environment?.trim() || this.envName.trim();
+    if (!summary || summary.totalReferencedCount === 0 || !targetEnv) {
+      return nothing;
+    }
+
+    const dialogModifier = inDialog ? ' preflight-banner--dialog' : '';
+    const hasMissing = summary.unresolvedVariableNames.length > 0;
+
+    if (hasMissing) {
+      const variablesHref = `/environment/${encodeURIComponent(targetEnv)}/variables`;
+      return html`
+        <div
+          class="preflight-banner preflight-banner--warning${dialogModifier}"
+          role="alert"
+        >
+          <div class="preflight-banner__body">
+            <div class="preflight-banner__title">
+              <vaadin-icon icon="vaadin:warning"></vaadin-icon>
+              <span>
+                Missing or unresolved variables in ${targetEnv}
+                (${summary.unresolvedVariableNames.length} of
+                ${summary.totalReferencedCount})
+              </span>
+            </div>
+            <div class="preflight-banner__missing-list">
+              ${summary.unresolvedVariableNames.map(
+                varName =>
+                  html`<span class="preflight-banner__chip">${varName}</span>`
+              )}
+            </div>
+            ${
+              summary.fallbackToDefaultVariableNames.length > 0
+                ? html`
+                    <div class="preflight-banner__meta">
+                      Using Default fallback:
+                      ${summary.fallbackToDefaultVariableNames.join(', ')}
+                    </div>
+                  `
+                : nothing
+            }
+          </div>
+          <a class="preflight-banner__link" href=${variablesHref}>
+            Configure variables in ${targetEnv}
+          </a>
+        </div>
+      `;
+    }
+
+    return html`
+      <div
+        class="preflight-banner preflight-banner--passed${dialogModifier}"
+        role="status"
+      >
+        <div class="preflight-banner__body">
+          <div class="preflight-banner__title">
+            <vaadin-icon icon="vaadin:check-circle"></vaadin-icon>
+            <span
+              >${`Preflight passed: ${summary.totalReferencedCount} variable(s) resolved for ${targetEnv}`}</span
+            >
+          </div>
+          ${
+            summary.fallbackToDefaultVariableNames.length > 0
+              ? html`
+                  <div class="preflight-banner__meta">
+                    ${summary.resolvedInEnvironmentVariableNames.length} in
+                    environment ·
+                    ${summary.fallbackToDefaultVariableNames.length} using
+                    Default fallback
+                    (${summary.fallbackToDefaultVariableNames.join(', ')})
+                  </div>
+                `
+              : nothing
+          }
+        </div>
+      </div>
+    `;
+  }
+
   render() {
     return html`
       <vaadin-confirm-dialog
@@ -285,6 +617,7 @@ export class DeployEnv extends LitElement {
         <div style="margin-bottom: 5px;">
           Please confirm you want to submit this deployment request?
         </div>
+        ${this.renderPreflightBanner(true)}
         <hegs-json-viewer id="jsonviewer">{}</hegs-json-viewer>
       </vaadin-confirm-dialog>
       <div class="catalog-callout">
@@ -419,6 +752,7 @@ export class DeployEnv extends LitElement {
           </vaadin-grid>
         </vaadin-vertical-layout>
       </vaadin-details>
+      ${this.renderPreflightBanner(false)}
       <vaadin-button
         style="width: 100%; max-width: 600px; margin-left: var(--lumo-space-s); margin-bottom: var(--lumo-space-xl)"
         ?disabled="${this.bundleValidating || this.buildsLoading}"

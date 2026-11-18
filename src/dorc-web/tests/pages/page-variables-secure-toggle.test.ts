@@ -225,4 +225,165 @@ describe('page-variables Secure toggle', () => {
       postSpy.mockRestore();
     }
   });
+
+  it('opens inline $ IntelliSense on typing $Serv, supports $x$ explorer, excludes semicolon tags, and renders live tokenised segment pills', async () => {
+    const { of } = await import('rxjs');
+    const { PropertyValuesApi } = await import('../../src/apis/dorc-api');
+    const { segmentizeDollarValueWithTraces } = await import(
+      '../../src/variable-resolution/resolution-presentation'
+    );
+
+    const scopeSpy = vi
+      .spyOn(PropertyValuesApi.prototype, 'propertyValuesScopeOptionsGet')
+      .mockReturnValue(
+        of([
+          {
+            ValueOption: '$ServerNames_STP_Strategies$',
+            SampleResolvedValue: 'GMDV-ENDAPP30'
+          },
+          {
+            ValueOption: '$ABAgentV12;appserv02$',
+            SampleResolvedValue: 'ABAgentV12;appserv02'
+          }
+        ]) as any
+      );
+
+    try {
+      const { page } = await mount(false);
+      (page as any).newVariableScope = 'Endur DV 10';
+      (page as any).loadScopeOptions('Endur DV 10');
+      await settle();
+
+      const filteredTokens = (page as any).getFilteredCompletionTokens();
+      expect(
+        filteredTokens.some(
+          (t: { ValueOption: string }) =>
+            t.ValueOption === '$ABAgentV12;appserv02$'
+        ),
+        'semicolon-joined legacy tag strings are excluded'
+      ).toBe(false);
+
+      // Clicking the $x$ suffix explorer button opens the token explorer for new users
+      const exploreBtn = page.shadowRoot?.querySelector(
+        '#exploreDollarTokensBtn'
+      ) as HTMLButtonElement | null;
+      expect(exploreBtn).not.toBeNull();
+      exploreBtn?.click();
+      await settle();
+
+      let popover = page.shadowRoot?.querySelector(
+        '#dollarTokenIntellisensePopover'
+      );
+      expect(popover).not.toBeNull();
+      expect(
+        popover?.querySelector('#tokenExplorerSearchInput')
+      ).not.toBeNull();
+
+      // Typing $Serv in #newVariableValue triggers inline IntelliSense and Tab replaces $Serv at caret
+      const valInput = page.shadowRoot?.querySelector(
+        '#newVariableValue'
+      ) as HTMLElement & { value: string };
+      const innerInput = valInput.querySelector('input');
+      valInput.value = '\\\\$Serv';
+      if (innerInput) {
+        innerInput.value = '\\\\$Serv';
+        innerInput.setSelectionRange(7, 7);
+      }
+      valInput.dispatchEvent(new Event('input', { bubbles: true }));
+      await settle();
+
+      popover = page.shadowRoot?.querySelector(
+        '#dollarTokenIntellisensePopover'
+      );
+      expect(popover).not.toBeNull();
+      expect((page as any).inlineDollarQuery).toBe('Serv');
+
+      valInput.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Tab', bubbles: true })
+      );
+      await settle();
+
+      expect(valInput.value).toBe('\\\\$ServerNames_STP_Strategies$');
+      expect(
+        page.shadowRoot?.querySelector('#dollarTokenIntellisensePopover')
+      ).toBeNull();
+
+      // Verify live tokenised segment strip and per-token provenance pills
+      const strip = page.shadowRoot?.querySelector('#dollarTokenSegmentStrip');
+      expect(strip).not.toBeNull();
+      expect(strip?.textContent).toContain('Resolves (Endur DV 10):');
+      expect(strip?.textContent).toContain('\\\\GMDV-ENDAPP30');
+
+      const pill = strip?.querySelector(
+        '.dollar-token-pill--resolved'
+      ) as HTMLElement | null;
+      expect(pill).not.toBeNull();
+      expect(pill?.getAttribute('title')).toContain(
+        'Env (Endur DV 10) -> GMDV-ENDAPP30'
+      );
+
+      // Direct unit check of segmentizeDollarValueWithTraces across all segment kinds & statuses
+      const traces = new Map<string, any>([
+        [
+          'ServerNames_Web',
+          {
+            PropertyName: 'ServerNames_Web',
+            Source: 'EnvironmentScope',
+            ScopeName: 'Endur DV 10',
+            ResolvedValueJson: '"GMDV-ENDAPP30"',
+            Diagnostic: 'None'
+          }
+        ],
+        [
+          'DefaultRoot',
+          {
+            PropertyName: 'DefaultRoot',
+            Source: 'GlobalDefault',
+            ScopeName: 'Default',
+            ResolvedValueJson: '"D:\\\\Apps"',
+            Diagnostic: 'FallbackToDefault'
+          }
+        ],
+        [
+          'DbPassword',
+          {
+            PropertyName: 'DbPassword',
+            Source: 'EnvironmentScope',
+            ScopeName: 'Endur DV 10',
+            IsSecure: true,
+            Diagnostic: 'Masked'
+          }
+        ]
+      ]);
+
+      const segments = segmentizeDollarValueWithTraces(
+        '\\\\$ServerNames_Web$\\E$$\\$DefaultRoot$\\$MissingVar$\\$DbPassword$',
+        traces
+      );
+      const propSegments = segments.filter(s => s.kind === 'property');
+      expect(propSegments.map(s => s.status)).toEqual([
+        'resolved',
+        'fallback',
+        'unresolved',
+        'masked'
+      ]);
+      expect(propSegments[0].tooltip).toBe(
+        'Env (Endur DV 10) -> GMDV-ENDAPP30'
+      );
+      expect(propSegments[1].tooltip).toBe('Default fallback -> D:\\Apps');
+      expect(propSegments[2].tooltip).toBe('Missing in scope');
+      expect(propSegments[3].tooltip).toContain('Secret');
+      expect(
+        segments.some(
+          s =>
+            s.kind === 'escaped-dollar' &&
+            s.tooltip === 'Escaped literal $ ($$)'
+        )
+      ).toBe(true);
+
+      page.remove();
+    } finally {
+      scopeSpy.mockRestore();
+    }
+  });
 });

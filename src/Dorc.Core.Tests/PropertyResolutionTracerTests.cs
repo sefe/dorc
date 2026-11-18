@@ -462,7 +462,9 @@ namespace Dorc.Core.Tests
             var result = _tracer.TraceProperties(request, null, _user);
 
             Assert.AreEqual("ExpressionDeferred", result[0].Diagnostic);
-            Assert.AreEqual("ExpressionDeferred", result[1].Diagnostic);
+            Assert.AreEqual("Ok", result[1].Diagnostic);
+            Assert.AreEqual("3", result[1].ResolvedValueJson);
+            Assert.AreEqual("Int32", result[1].ValueType);
             Assert.AreEqual("ExpressionBlockedByOverride", result[2].Diagnostic);
             Assert.AreEqual("ExpressionDeferred", result[3].Diagnostic);
             Assert.AreEqual("ExpressionBlockedByOverride", result[4].Diagnostic);
@@ -473,6 +475,102 @@ namespace Dorc.Core.Tests
 
             Assert.IsTrue(result[6].IsSecure);
             Assert.AreEqual("[REDACTED]", result[6].RawValue);
+        }
+
+        [TestMethod]
+        public void TraceProperties_SafeExpressionSandboxPreview_EvaluatesPureExpressionsAndDefersUnsafeOnes()
+        {
+            _propertyValuesSource.GetGlobalProperties().Returns(new[]
+            {
+                MakeProperty("EnvironmentNameWithUnderscores", "fn:\"$EnvironmentName$\".Replace(\" \",\"_\")"),
+                MakeProperty("LowerTrimmedEnv", "fn:\"$EnvironmentName$\".Trim().Replace(\" \",\"-\").ToLower()"),
+                MakeProperty("SharePathUsingEvaluatedExpr", @"\\files\$EnvironmentNameWithUnderscores$\drop"),
+                MakeProperty("TierLabel", "fn:\"$EnvironmentName$\".StartsWith(\"Endur\") ? \"ENDUR\" : \"OTHER\""),
+                MakeProperty("StringMethodsExpr", "fn:string.Join(\":\", \"a,b,c\".Split(',')) + \"-\" + \"42\".PadLeft(4, '0')"),
+                MakeProperty("MathAndParseExpr", "fn:Math.Max(int.Parse(\"10\"), 4 * 5) - Math.Abs(-2)"),
+                MakeProperty("AliasToMathExpr", "$MathAndParseExpr$"),
+                MakeProperty("BlockedSafeLookingExpr", "fn:\"$OverriddenProp$\".ToUpper()"),
+                MakeProperty("DeferredReflectionExpr", "fn:\"abc\".GetType().Assembly.Location"),
+                MakeProperty("DeferredFileIoExpr", "fn:System.IO.File.ReadAllText(\"C:\\\\temp\\\\secret.txt\")"),
+                MakeProperty("DeferredEnvironmentExpr", "fn:System.Environment.GetEnvironmentVariable(\"PATH\")"),
+                MakeProperty("DeferredDivideByZeroExpr", "fn:10 / 0"),
+                MakeProperty("DeferredOutOfBoundsExpr", "fn:\"abc\".Substring(10)"),
+                MakeProperty("DeferredSyntaxErrorExpr", "fn:\"abc\".ToUpper(")
+            });
+
+            var env = new EnvironmentApiModel
+            {
+                EnvironmentName = "Endur DV 10",
+                EnvironmentSecure = false,
+                EnvironmentIsProd = false
+            };
+
+            var request = new PropertyResolutionPreviewRequestApiModel
+            {
+                EnvironmentName = "Endur DV 10",
+                PropertyNames = new List<string>
+                {
+                    "EnvironmentNameWithUnderscores",
+                    "LowerTrimmedEnv",
+                    "SharePathUsingEvaluatedExpr",
+                    "TierLabel",
+                    "StringMethodsExpr",
+                    "MathAndParseExpr",
+                    "AliasToMathExpr",
+                    "BlockedSafeLookingExpr",
+                    "DirectBlockedSafeLookingOverride",
+                    "DeferredReflectionExpr",
+                    "DeferredFileIoExpr",
+                    "DeferredEnvironmentExpr",
+                    "DeferredDivideByZeroExpr",
+                    "DeferredOutOfBoundsExpr",
+                    "DeferredSyntaxErrorExpr"
+                },
+                RequestOverrides = new List<RequestProperty>
+                {
+                    new RequestProperty { PropertyName = "OverriddenProp", PropertyValue = "injected" },
+                    new RequestProperty { PropertyName = "DirectBlockedSafeLookingOverride", PropertyValue = "fn:\"abc\".ToUpper()" }
+                }
+            };
+
+            var result = _tracer.TraceProperties(request, env, _user);
+
+            Assert.AreEqual("\"Endur_DV_10\"", result[0].ResolvedValueJson);
+            Assert.AreEqual("String", result[0].ValueType);
+            Assert.AreEqual("FallbackToDefault", result[0].Diagnostic);
+
+            Assert.AreEqual("\"endur-dv-10\"", result[1].ResolvedValueJson);
+            Assert.AreEqual("FallbackToDefault", result[1].Diagnostic);
+
+            Assert.AreEqual(@"""\\\\files\\Endur_DV_10\\drop""", result[2].ResolvedValueJson);
+            Assert.AreEqual("FallbackToDefault", result[2].Diagnostic);
+
+            Assert.AreEqual("\"ENDUR\"", result[3].ResolvedValueJson);
+            Assert.AreEqual("FallbackToDefault", result[3].Diagnostic);
+
+            Assert.AreEqual("\"a:b:c-0042\"", result[4].ResolvedValueJson);
+            Assert.AreEqual("FallbackToDefault", result[4].Diagnostic);
+
+            Assert.AreEqual("18", result[5].ResolvedValueJson);
+            Assert.AreEqual("Int32", result[5].ValueType);
+            Assert.AreEqual("FallbackToDefault", result[5].Diagnostic);
+
+            Assert.AreEqual("18", result[6].ResolvedValueJson);
+            Assert.AreEqual("Int32", result[6].ValueType);
+            Assert.AreEqual("FallbackToDefault", result[6].Diagnostic);
+
+            // Request-influenced expressions must still be blocked even when using allowlisted methods
+            Assert.AreEqual("ExpressionBlockedByOverride", result[7].Diagnostic);
+            Assert.Contains("injected", result[7].ResolvedValueJson);
+
+            Assert.AreEqual("ExpressionBlockedByOverride", result[8].Diagnostic);
+            Assert.Contains("ToUpper()", result[8].ResolvedValueJson);
+
+            // Unsafe or invalid expressions fall back cleanly to ExpressionDeferred
+            for (var i = 9; i <= 14; i++)
+            {
+                Assert.AreEqual("ExpressionDeferred", result[i].Diagnostic, $"Expected ExpressionDeferred at index {i}");
+            }
         }
 
         [TestMethod]
@@ -832,6 +930,42 @@ namespace Dorc.Core.Tests
             var tokens3 = parser.Parse(@"\\srv\ADMIN$\System32\IPC$").ToList();
             Assert.HasCount(1, tokens3);
             Assert.AreEqual(@"\\srv\ADMIN$\System32\IPC$", ((StaticToken)tokens3[0]).Value);
+        }
+
+        [TestMethod]
+        public void SafeExpressionPreviewEvaluator_EvaluatesSupportedOperationsAndRejectsUnsafeConstructs()
+        {
+            var evaluator = new SafeExpressionPreviewEvaluator();
+
+            Assert.IsTrue(evaluator.TryEvaluate("fn:\"Hello World\".Replace(\" \", \"_\").ToUpperInvariant()", out var val1));
+            Assert.AreEqual("HELLO_WORLD", val1);
+
+            Assert.IsTrue(evaluator.TryEvaluate("fn:\"--abc--\".Trim('-').Substring(0, 2).PadRight(4, 'x')", out var val2));
+            Assert.AreEqual("abxx", val2);
+
+            Assert.IsTrue(evaluator.TryEvaluate("fn:string.Concat(\"a\", 1, true) + \"-\" + string.Empty", out var val3));
+            Assert.AreEqual("a1True-", val3);
+
+            Assert.IsTrue(evaluator.TryEvaluate("fn:$\"sum={10 + 5},len={\"abcd\".Length}\"", out var val4));
+            Assert.AreEqual("sum=15,len=4", val4);
+
+            Assert.IsTrue(evaluator.TryEvaluate("fn:(!false && 5 > 3) || (1 / 0 == 1) ? \"yes\" : \"no\"", out var val5));
+            Assert.AreEqual("yes", val5);
+
+            Assert.IsTrue(evaluator.TryEvaluate("fn:\"a;b;c\".Split(';')[1]", out var val6));
+            Assert.AreEqual("b", val6);
+
+            Assert.IsTrue(evaluator.TryEvaluate("fn:\"PROD\".Equals(\"prod\", System.StringComparison.OrdinalIgnoreCase)", out var val7));
+            Assert.IsTrue((bool)val7!);
+
+            Assert.IsFalse(evaluator.TryEvaluate(null, out _));
+            Assert.IsFalse(evaluator.TryEvaluate("plain", out _));
+            Assert.IsFalse(evaluator.TryEvaluate("fn:   ", out _));
+            Assert.IsFalse(evaluator.TryEvaluate("fn:DateTime.Now", out _));
+            Assert.IsFalse(evaluator.TryEvaluate("fn:Guid.NewGuid()", out _));
+            Assert.IsFalse(evaluator.TryEvaluate("fn:new System.Random().Next()", out _));
+            Assert.IsFalse(evaluator.TryEvaluate("fn:typeof(string).FullName", out _));
+            Assert.IsFalse(evaluator.TryEvaluate("fn:\"a\".Replace(\"\", \"x\")", out _));
         }
 
         private static PropertyValueDto MakeProperty(

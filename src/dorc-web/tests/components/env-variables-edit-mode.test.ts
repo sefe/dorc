@@ -181,6 +181,52 @@ describe('grid data providers survive a host re-render', () => {
       '\\\\$ServerNames_STP_Strategies$\\E$$\\Apps\\'
     );
 
+    // Inline $ IntelliSense + $x$ Explorer + Tokenised Segment Strip on env-variables
+    (el as any).propertyValueScopeOptions = [
+      {
+        ValueOption: '$ServerNames_STP_Strategies$',
+        SampleResolvedValue: 'stp-ut-srv01'
+      },
+      {
+        ValueOption: '$LegacyTag1;LegacyTag2$',
+        SampleResolvedValue: 'LegacyTag1;LegacyTag2'
+      }
+    ];
+    await el.updateComplete;
+
+    const strip = el.shadowRoot?.querySelector('#dollarTokenSegmentStrip');
+    expect(strip).to.not.equal(null);
+    expect(strip?.textContent).to.contain('Resolves (');
+    expect(strip?.textContent).to.contain('stp-ut-srv01');
+    const resolvedPill = strip?.querySelector('.dollar-token-pill--resolved');
+    expect(resolvedPill).to.not.equal(null);
+
+    const exploreBtn = el.shadowRoot?.querySelector(
+      '#exploreDollarTokensBtn'
+    ) as HTMLButtonElement | null;
+    expect(exploreBtn).to.not.equal(null);
+    exploreBtn?.click();
+    await el.updateComplete;
+    expect(
+      el.shadowRoot?.querySelector('#dollarTokenIntellisensePopover')
+    ).to.not.equal(null);
+
+    valInput.value = '$Serv';
+    if (innerInput) {
+      innerInput.value = '$Serv';
+      innerInput.setSelectionRange(5, 5);
+    }
+    valInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await el.updateComplete;
+
+    const optionEl = el.shadowRoot?.querySelector(
+      '.token-intellisense-item[data-token="$ServerNames_STP_Strategies$"]'
+    ) as HTMLElement | null;
+    expect(optionEl).to.not.equal(null);
+    optionEl?.click();
+    await el.updateComplete;
+    expect(valInput.value).to.equal('$ServerNames_STP_Strategies$');
+
     el.remove();
   });
 });

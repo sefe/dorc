@@ -397,6 +397,22 @@ function getBadgeFallback(
   return label ? label : fallback;
 }
 
+export function tracesDifferAcrossEnvironments(
+  primaryTrace: PropertyResolutionTraceApiModel | undefined,
+  compareTrace: PropertyResolutionTraceApiModel | undefined
+): boolean {
+  if (!primaryTrace || !compareTrace) {
+    return false;
+  }
+  const primaryPresented = presentTrace(primaryTrace);
+  const comparePresented = presentTrace(compareTrace);
+  return (
+    primaryPresented.effectiveDisplayValue !==
+      comparePresented.effectiveDisplayValue ||
+    primaryTrace.Source !== compareTrace.Source
+  );
+}
+
 export function getTokenBadgeAppearance(
   trace: PropertyResolutionTraceApiModel | undefined
 ): { cssClass: string; badgeLabel: string } {
@@ -558,6 +574,82 @@ export class HegsJsonViewer extends LitElement {
 
       .context-counts-text {
         color: #9ca3af;
+      }
+
+      .compare-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .compare-env-input {
+        background: rgba(0, 0, 0, 0.28);
+        color: #e6edf3;
+        border: 1px solid var(--border-subtle);
+        border-radius: 5px;
+        padding: 2px 8px;
+        font-family: inherit;
+        font-size: 0.76rem;
+        width: 140px;
+      }
+
+      .compare-env-input:focus {
+        outline: 1px solid #58a6ff;
+        border-color: #58a6ff;
+      }
+
+      .compare-summary-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 2px 9px;
+        font-weight: 600;
+        font-size: 0.74rem;
+      }
+
+      .compare-summary-pill.has-diff {
+        background: rgba(210, 153, 34, 0.2);
+        color: #f2cc60;
+        border: 1px solid rgba(210, 153, 34, 0.5);
+      }
+
+      .compare-summary-pill.all-match {
+        background: rgba(46, 160, 67, 0.18);
+        color: #7ee787;
+        border: 1px solid rgba(46, 160, 67, 0.45);
+      }
+
+      .inline-compare-diff {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 0 6px;
+        border-radius: 4px;
+        background: rgba(248, 81, 73, 0.16);
+        border: 1px solid rgba(248, 81, 73, 0.45);
+        color: #ffa198;
+        font-style: normal;
+        font-size: 0.9em;
+        font-weight: 600;
+      }
+
+      .compare-match-badge {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 0 6px;
+        border-radius: 4px;
+        background: rgba(46, 160, 67, 0.16);
+        border: 1px solid rgba(46, 160, 67, 0.45);
+        color: #7ee787;
+        font-size: 0.76rem;
+        font-weight: 600;
+      }
+
+      .inspector-compare-cell {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
       }
 
       .mode-switcher {
@@ -899,6 +991,12 @@ export class HegsJsonViewer extends LitElement {
   @property({ type: String, attribute: 'display-mode' })
   displayMode: JsonViewerDisplayMode = 'inline';
 
+  @property({ type: String, attribute: 'compare-environment-name' })
+  compareEnvironmentName = '';
+
+  @property({ type: Array })
+  compareEnvironmentOptions: string[] = [];
+
   @property({ attribute: false })
   resolutionCache: PropertyResolutionClientCache =
     defaultPropertyResolutionClientCache;
@@ -912,6 +1010,9 @@ export class HegsJsonViewer extends LitElement {
   @state() private traces: Map<string, PropertyResolutionTraceApiModel> =
     new Map();
 
+  @state() private compareTraces: Map<string, PropertyResolutionTraceApiModel> =
+    new Map();
+
   @state() private referencedNames: string[] = [];
 
   @state() private activeInspectedProperty: string | null = null;
@@ -919,6 +1020,8 @@ export class HegsJsonViewer extends LitElement {
   @state() private activeInspectedRawToken: string | null = null;
 
   private fetchGeneration = 0;
+
+  private compareFetchGeneration = 0;
 
   private async setState(
     stateFn: (
@@ -949,7 +1052,21 @@ export class HegsJsonViewer extends LitElement {
       changedProps.has('resolutionCache')
     ) {
       this.refreshPropertyTraces();
+    } else if (changedProps.has('compareEnvironmentName')) {
+      this.refreshCompareTraces();
     }
+  }
+
+  private getActiveCompareEnvironment(): string {
+    const trimmed = this.compareEnvironmentName.trim();
+    if (!trimmed) {
+      return '';
+    }
+    const primaryEnv = this.resolutionContext?.environmentName?.trim() ?? '';
+    if (primaryEnv && primaryEnv.toLowerCase() === trimmed.toLowerCase()) {
+      return '';
+    }
+    return trimmed;
   }
 
   private async refreshPropertyTraces(): Promise<void> {
@@ -961,6 +1078,7 @@ export class HegsJsonViewer extends LitElement {
     this.traces = new Map();
     this.activeInspectedProperty = null;
     const gen = ++this.fetchGeneration;
+    this.refreshCompareTraces();
 
     if (names.length === 0 || !this.resolutionContext) {
       return;
@@ -977,6 +1095,33 @@ export class HegsJsonViewer extends LitElement {
     } catch {
       if (gen === this.fetchGeneration) {
         this.traces = new Map();
+      }
+    }
+  }
+
+  private async refreshCompareTraces(): Promise<void> {
+    const compareEnv = this.getActiveCompareEnvironment();
+    this.compareTraces = new Map();
+    const gen = ++this.compareFetchGeneration;
+
+    if (!compareEnv || this.referencedNames.length === 0) {
+      return;
+    }
+
+    try {
+      const resolvedCompare = await this.resolutionCache.resolveProperties(
+        {
+          ...this.resolutionContext,
+          environmentName: compareEnv
+        },
+        this.referencedNames
+      );
+      if (gen === this.compareFetchGeneration) {
+        this.compareTraces = resolvedCompare;
+      }
+    } catch {
+      if (gen === this.compareFetchGeneration) {
+        this.compareTraces = new Map();
       }
     }
   }
@@ -1002,6 +1147,11 @@ export class HegsJsonViewer extends LitElement {
 
   private handleDisplayModeSelect = (mode: JsonViewerDisplayMode) => () => {
     this.displayMode = mode;
+  };
+
+  private handleCompareEnvironmentInput = (e: Event) => {
+    const target = e.target as HTMLInputElement;
+    this.compareEnvironmentName = target.value;
   };
 
   private handleInspectToken =
@@ -1197,6 +1347,24 @@ export class HegsJsonViewer extends LitElement {
     }
 
     // 'inline' mode: show tokenized raw value + resolved preview when resolved
+    const compareEnv = this.getActiveCompareEnvironment();
+    const propTokens = tokens.filter(
+      (t): t is Extract<ParsedPropertyToken, { kind: 'property' }> =>
+        t.kind === 'property'
+    );
+    const hasCompareDiff =
+      Boolean(compareEnv) &&
+      this.compareTraces.size > 0 &&
+      propTokens.some(pt =>
+        tracesDifferAcrossEnvironments(
+          lookupTrace(this.traces, pt.propertyName),
+          lookupTrace(this.compareTraces, pt.propertyName)
+        )
+      );
+    const compareEvaluated = hasCompareDiff
+      ? evaluateStringWithTraces(raw, this.compareTraces, profile)
+      : undefined;
+
     return html`<span
       part="primitive primitive-string"
       tabindex="0"
@@ -1209,6 +1377,18 @@ export class HegsJsonViewer extends LitElement {
               ><span class="inline-resolved-val" part="resolved-preview"
                 >${JSON.stringify(evaluated.resolvedValue)}</span
               >`
+          : nothing
+      }${
+        compareEvaluated
+          ? html`<span
+              class="inline-compare-diff"
+              part="compare-diff-badge"
+              title="Differs in ${compareEnv}"
+              >≠ ${compareEnv}:
+              ${compareEvaluated.status === 'resolved'
+                ? JSON.stringify(compareEvaluated.resolvedValue)
+                : compareEvaluated.resolvedDisplayString}</span
+            >`
           : nothing
       }</span
     >`;
@@ -1292,6 +1472,20 @@ export class HegsJsonViewer extends LitElement {
     }
 
     const envLabel = this.resolutionContext?.environmentName?.trim();
+    const compareEnv = this.getActiveCompareEnvironment();
+    let diffCount = 0;
+    if (compareEnv && this.compareTraces.size > 0) {
+      for (const name of this.referencedNames) {
+        if (
+          tracesDifferAcrossEnvironments(
+            lookupTrace(this.traces, name),
+            lookupTrace(this.compareTraces, name)
+          )
+        ) {
+          diffCount++;
+        }
+      }
+    }
 
     return html`
       <div class="context-toolbar" part="context-toolbar">
@@ -1312,6 +1506,42 @@ export class HegsJsonViewer extends LitElement {
               missingCount > 0 ? `, ${missingCount} missing` : ''
             }${secretCount > 0 ? `, ${secretCount} secret` : ''})
           </span>
+          <div class="compare-controls" part="compare-controls">
+            <input
+              type="text"
+              class="compare-env-input"
+              part="compare-env-input"
+              list="compare-env-datalist"
+              placeholder="Compare env..."
+              aria-label="Compare environment"
+              .value="${this.compareEnvironmentName}"
+              @input="${this.handleCompareEnvironmentInput}"
+              @change="${this.handleCompareEnvironmentInput}"
+            />
+            ${
+              this.compareEnvironmentOptions.length > 0
+                ? html`<datalist id="compare-env-datalist">
+                    ${this.compareEnvironmentOptions.map(
+                      opt => html`<option value="${opt}"></option>`
+                    )}
+                  </datalist>`
+                : nothing
+            }
+            ${
+              compareEnv && this.compareTraces.size > 0
+                ? html`<span
+                    class="compare-summary-pill ${diffCount > 0
+                      ? 'has-diff'
+                      : 'all-match'}"
+                    part="compare-summary"
+                  >
+                    ${diffCount > 0
+                      ? `${diffCount} differ in ${compareEnv}`
+                      : `All match ${compareEnv}`}
+                  </span>`
+                : nothing
+            }
+          </div>
         </div>
         <div
           class="mode-switcher"
@@ -1332,6 +1562,34 @@ export class HegsJsonViewer extends LitElement {
             `
           )}
         </div>
+      </div>
+    `;
+  }
+
+  private renderInspectorComparisonRow(
+    propName: string,
+    primaryTrace: PropertyResolutionTraceApiModel | undefined,
+    compareEnv: string
+  ): TemplateResult {
+    const compareTrace = lookupTrace(this.compareTraces, propName);
+    const comparePresented = presentTrace(compareTrace);
+    const compareBadge = getTokenBadgeAppearance(compareTrace);
+    const isDiff = tracesDifferAcrossEnvironments(primaryTrace, compareTrace);
+
+    return html`
+      <span class="inspector-label">Compare (${compareEnv})</span>
+      <div class="inspector-compare-cell" part="inspector-compare">
+        <code class="inspector-code"
+          >${comparePresented.effectiveDisplayValue}</code
+        >
+        <span class="token-chip ${compareBadge.cssClass}"
+          >${compareBadge.badgeLabel}</span
+        >
+        ${
+          isDiff
+            ? html`<span class="inline-compare-diff">≠ Differs</span>`
+            : html`<span class="compare-match-badge">= Matches</span>`
+        }
       </div>
     `;
   }
@@ -1394,6 +1652,15 @@ export class HegsJsonViewer extends LitElement {
                 : presented.diagnosticTitle
             }</code
           >
+          ${
+            this.getActiveCompareEnvironment()
+              ? this.renderInspectorComparisonRow(
+                  propName,
+                  trace,
+                  this.getActiveCompareEnvironment()
+                )
+              : nothing
+          }
         </div>
         ${
           trace?.ResolutionChain && trace.ResolutionChain.length > 0

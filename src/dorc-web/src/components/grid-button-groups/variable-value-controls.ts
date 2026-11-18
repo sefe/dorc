@@ -11,7 +11,10 @@ import { html } from 'lit/html.js';
 import { live } from 'lit/directives/live.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { PropertyValuesApi } from '../../apis/dorc-api';
-import type { PropertyValueDto } from '../../apis/dorc-api';
+import type {
+  PropertyUsageReferenceApiModel,
+  PropertyValueDto
+} from '../../apis/dorc-api';
 import { Response } from '../../apis/dorc-api';
 import '../../icons/editor-icons.js';
 import '../../icons/iron-icons.js';
@@ -21,6 +24,8 @@ import '@vaadin/tooltip';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import { defaultPropertyResolutionClientCache } from '../../variable-resolution/property-resolution-client-cache';
 import { inspectUnescapedDollars } from '../../variable-resolution/resolution-presentation';
+
+export type PropertyUsageReference = PropertyUsageReferenceApiModel;
 
 @customElement('variable-value-controls')
 export class VariableValueControls extends LitElement {
@@ -34,6 +39,16 @@ export class VariableValueControls extends LitElement {
   private _originalValueBeforeEdit: string | null | undefined;
 
   private _originalValueId: number | undefined;
+
+  private _whereUsedReferences: PropertyUsageReference[] | null = null;
+
+  private _whereUsedLoading = false;
+
+  private _whereUsedForPropertyName: string | undefined;
+
+  private _whereUsedForValueId: number | undefined;
+
+  private _whereUsedGeneration = 0;
 
   static get styles() {
     return css`
@@ -58,7 +73,45 @@ export class VariableValueControls extends LitElement {
       vaadin-button[disabled] {
         background-color: var(--dorc-border-color);
       }
+      .where-used-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        max-width: 260px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        font-size: var(--lumo-font-size-xxs, 11px);
+        line-height: 1.3;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        background: var(--lumo-contrast-10pct, rgba(0, 0, 0, 0.06));
+        color: var(--dorc-text-primary, inherit);
+        border: 1px solid var(--dorc-border-color, rgba(0, 0, 0, 0.15));
+        flex: 0 0 auto;
+      }
+      .where-used-badge.has-dependents {
+        background: var(--lumo-primary-color-10pct, rgba(25, 118, 210, 0.12));
+        color: var(--dorc-link-color, #1565c0);
+        border-color: var(--dorc-link-color, #1565c0);
+      }
     `;
+  }
+
+  protected override willUpdate(changedProperties: Map<string, unknown>) {
+    if (changedProperties.has('value')) {
+      const currentName = this.value?.Property?.Name ?? undefined;
+      const currentId = this.value?.Id;
+      if (
+        this._whereUsedForPropertyName !== currentName ||
+        this._whereUsedForValueId !== currentId
+      ) {
+        this._whereUsedReferences = null;
+        this._whereUsedLoading = false;
+        this._whereUsedForPropertyName = currentName;
+        this._whereUsedForValueId = currentId;
+      }
+    }
   }
 
   render() {
@@ -170,6 +223,7 @@ export class VariableValueControls extends LitElement {
           style=${styleMap(deleteStyles)}
         ></vaadin-icon>
       </vaadin-button>
+      ${this.renderWhereUsedControl()}
       ${
         this.additionalInformation !== ''
           ? html`<div style="display: inline-block">
@@ -178,6 +232,139 @@ export class VariableValueControls extends LitElement {
           : html``
       }
     `;
+  }
+
+  private renderWhereUsedControl() {
+    const propertyName = this.value?.Property?.Name?.trim();
+    if (!propertyName) {
+      return html``;
+    }
+
+    const references = this._whereUsedReferences;
+    const hasDependents = Boolean(references && references.length > 0);
+    const badgeSummary =
+      references === null
+        ? ''
+        : references.length === 0
+          ? `No other variables reference $${propertyName}$`
+          : `Used by ${references.length}: ${references
+              .map(
+                ref =>
+                  `$${ref.PropertyName}$ (${ref.Scope || ref.PropertyValueFilter || 'Default'})`
+              )
+              .join(', ')}`;
+    const badgeTooltip =
+      references && references.length > 0
+        ? references
+            .map(
+              ref =>
+                `$${ref.PropertyName}$ [${ref.Scope || ref.PropertyValueFilter || 'Default'}]: ${ref.RawValueSnippet ?? ''}`
+            )
+            .join('\n')
+        : badgeSummary;
+
+    return html`
+      <vaadin-button
+        id="where-used"
+        aria-label="Where Used"
+        theme="icon small"
+        ?disabled="${this._whereUsedLoading}"
+        @click="${this._inspectWhereUsed}"
+      >
+        <vaadin-tooltip
+          slot="tooltip"
+          text="Where Used (Impact Analysis for $${propertyName}$)"
+        ></vaadin-tooltip>
+        <vaadin-icon
+          icon="vaadin:connect"
+          style="color: var(--dorc-link-color)"
+        ></vaadin-icon>
+      </vaadin-button>
+      ${references !== null
+        ? html`<span
+            class="where-used-badge ${hasDependents ? 'has-dependents' : ''}"
+            role="status"
+            title="${badgeTooltip}"
+            >${badgeSummary}</span
+          >`
+        : html``}
+    `;
+  }
+
+  private _inspectWhereUsed() {
+    const propertyName = this.value?.Property?.Name?.trim();
+    if (!propertyName || this._whereUsedLoading) {
+      return;
+    }
+
+    if (
+      this._whereUsedReferences !== null &&
+      this._whereUsedForPropertyName === propertyName
+    ) {
+      this._whereUsedReferences = null;
+      this.requestUpdate();
+      return;
+    }
+
+    const valueId = this.value?.Id;
+    const generation = ++this._whereUsedGeneration;
+    this._whereUsedLoading = true;
+    this._whereUsedForPropertyName = propertyName;
+    this._whereUsedForValueId = valueId;
+    this.requestUpdate();
+
+    const api = new PropertyValuesApi(dorcApiConfiguration);
+    api.propertyValuesWhereUsedGet({ propertyName }).subscribe({
+      next: (payload: PropertyUsageReference[]) => {
+        if (
+          generation !== this._whereUsedGeneration ||
+          this.value?.Id !== valueId ||
+          this.value?.Property?.Name?.trim() !== propertyName
+        ) {
+          return;
+        }
+        const references: PropertyUsageReference[] = Array.isArray(payload)
+          ? payload
+          : [];
+        this._whereUsedReferences = references;
+        this._whereUsedLoading = false;
+        this.requestUpdate();
+
+        const message =
+          references.length === 0
+            ? `No other variables reference $${propertyName}$`
+            : `$${propertyName}$ is referenced by ${references.length} variable value(s): ${references
+                .map(
+                  ref =>
+                    `$${ref.PropertyName ?? ''}$ (${ref.Scope || ref.PropertyValueFilter || 'Default'})`
+                )
+                .join(', ')}`;
+        Notification.show(message, {
+          theme: references.length > 0 ? 'primary' : 'contrast',
+          position: 'bottom-start',
+          duration: 5000
+        });
+      },
+      error: (err: any) => {
+        if (
+          generation !== this._whereUsedGeneration ||
+          this.value?.Id !== valueId ||
+          this.value?.Property?.Name?.trim() !== propertyName
+        ) {
+          return;
+        }
+        this._whereUsedLoading = false;
+        this.requestUpdate();
+        Notification.show(
+          err?.message ?? `Unable to inspect references for $${propertyName}$.`,
+          {
+            theme: 'error',
+            position: 'bottom-start',
+            duration: 5000
+          }
+        );
+      }
+    });
   }
 
   async removePropertyValue() {

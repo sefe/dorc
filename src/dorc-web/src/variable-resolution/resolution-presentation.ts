@@ -4,6 +4,7 @@ import type {
   PropertyValueScopeOptionApiModel
 } from '../apis/dorc-api';
 import {
+  isAdminShareDollarAt,
   ParsedPropertyToken,
   parsePropertyTokens
 } from './property-token-parser';
@@ -47,7 +48,7 @@ const OPEN_TOKEN_AT_END_PATTERN = /^\$[A-Za-z0-9_.-]*$/;
 const EXPRESSION_PREFIX = 'fn:';
 
 export function lookupTrace(
-  traces: Map<string, PropertyResolutionTraceApiModel>,
+  traces: ReadonlyMap<string, PropertyResolutionTraceApiModel>,
   propertyName: string
 ): PropertyResolutionTraceApiModel | undefined {
   return (
@@ -183,7 +184,7 @@ export function buildInsertableDollarTokens(
 
   for (const opt of scopeOptions ?? []) {
     const token = opt.ValueOption?.trim();
-    if (!token) continue;
+    if (!token || token === '$$' || token.includes(';')) continue;
     const key = token.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
@@ -202,7 +203,7 @@ export function buildInsertableDollarTokens(
     result.push({
       ValueOption: token,
       SampleResolvedValue: rt.description,
-      CategoryLabel: 'Built-in Deploy Token'
+      CategoryLabel: 'Deploy-Time (Runtime)'
     });
   }
 
@@ -219,7 +220,7 @@ export function buildInsertableDollarTokens(
       SampleResolvedValue: prop.Secure
         ? 'Encrypted variable ($' + name + '$)'
         : 'Scoped DOrc variable ($' + name + '$)',
-      CategoryLabel: prop.Secure ? 'Secure Variable' : 'Scoped Variable'
+      CategoryLabel: prop.Secure ? 'Secure Variable' : 'Variable'
     });
   }
 
@@ -560,9 +561,439 @@ export interface DollarValuePreview {
   scopeSummary: string;
 }
 
+export type DollarTokenSegmentStatus =
+  | 'resolved'
+  | 'fallback'
+  | 'warning'
+  | 'unresolved'
+  | 'masked'
+  | 'runtime';
+
+export type DollarValueSegment =
+  | {
+      kind: 'literal';
+      rawText: string;
+      displayText: string;
+    }
+  | {
+      kind: 'escaped-dollar';
+      rawText: '$$';
+      displayText: '$';
+      tooltip: string;
+    }
+  | {
+      kind: 'property';
+      rawToken: string;
+      rawText: string;
+      propertyName: string;
+      status: DollarTokenSegmentStatus;
+      resolvedPreview: string;
+      badgeLabel: string;
+      tooltip: string;
+    }
+  | {
+      kind: 'unclosed-dollar';
+      rawText: string;
+      displayText: string;
+      tooltip: string;
+    };
+
+export interface ActiveDollarCompletionTrigger {
+  dollarStartIndex: number;
+  replaceEndIndex: number;
+  queryText: string;
+}
+
+export function formatSampleResolvedPreview(sampleValue: unknown): string {
+  if (sampleValue === null || sampleValue === undefined) {
+    return '';
+  }
+  const raw =
+    typeof sampleValue === 'string'
+      ? sampleValue
+      : JSON.stringify(sampleValue);
+  return raw.replace(/\s+/g, ' ').trim();
+}
+
+export function detectActiveDollarCompletion(
+  rawValue: string,
+  caretIndex: number
+): ActiveDollarCompletionTrigger | undefined {
+  if (
+    !rawValue ||
+    caretIndex <= 0 ||
+    rawValue.trimStart().startsWith(EXPRESSION_PREFIX)
+  ) {
+    return undefined;
+  }
+
+  const clampedCaret = Math.min(caretIndex, rawValue.length);
+  const prefix = rawValue.slice(0, clampedCaret);
+  let idx = 0;
+
+  while (idx < prefix.length) {
+    if (prefix[idx] !== '$') {
+      idx++;
+      continue;
+    }
+
+    if (idx + 1 < prefix.length && prefix[idx + 1] === '$') {
+      idx += 2;
+      continue;
+    }
+
+    if (isAdminShareDollarAt(rawValue, idx)) {
+      idx++;
+      continue;
+    }
+
+    let closingIdx = -1;
+    for (let scan = idx + 1; scan < prefix.length; scan++) {
+      const ch = prefix[scan];
+      if (ch === '$') {
+        closingIdx = scan;
+        break;
+      }
+      if (
+        ch === '\\' ||
+        ch === '/' ||
+        /\s/.test(ch) ||
+        ch === '{' ||
+        ch === '}'
+      ) {
+        break;
+      }
+    }
+
+    if (closingIdx > idx + 1) {
+      idx = closingIdx + 1;
+      continue;
+    }
+
+    const candidateQuery = prefix.slice(idx + 1);
+    if (/^[A-Za-z0-9_.-]*$/.test(candidateQuery)) {
+      const replaceEnd =
+        clampedCaret < rawValue.length && rawValue[clampedCaret] === '$'
+          ? clampedCaret + 1
+          : clampedCaret;
+      return {
+        dollarStartIndex: idx,
+        replaceEndIndex: replaceEnd,
+        queryText: candidateQuery
+      };
+    }
+
+    idx++;
+  }
+
+  return undefined;
+}
+
+export function filterInsertableDollarTokens(
+  tokens: readonly InsertableDollarTokenOption[],
+  queryText: string
+): InsertableDollarTokenOption[] {
+  const normalized = queryText.replace(/^\$+|\$+$/g, '').trim().toLowerCase();
+  if (!normalized) {
+    return [...tokens];
+  }
+  return tokens.filter(opt => {
+    const tokenName = opt.ValueOption.toLowerCase();
+    const sample = formatSampleResolvedPreview(
+      opt.SampleResolvedValue
+    ).toLowerCase();
+    const category = opt.CategoryLabel.toLowerCase();
+    return (
+      tokenName.includes(normalized) ||
+      sample.includes(normalized) ||
+      category.includes(normalized)
+    );
+  });
+}
+
+export function applyDollarTokenCompletion(
+  rawValue: string,
+  token: string,
+  trigger: ActiveDollarCompletionTrigger | undefined,
+  caretStart: number,
+  caretEnd: number
+): { nextValue: string; nextCaretIndex: number } {
+  if (trigger) {
+    const nextValue =
+      rawValue.slice(0, trigger.dollarStartIndex) +
+      token +
+      rawValue.slice(trigger.replaceEndIndex);
+    return {
+      nextValue,
+      nextCaretIndex: trigger.dollarStartIndex + token.length
+    };
+  }
+  const safeStart = Math.max(0, Math.min(caretStart, rawValue.length));
+  const safeEnd = Math.max(safeStart, Math.min(caretEnd, rawValue.length));
+  const nextValue =
+    rawValue.slice(0, safeStart) + token + rawValue.slice(safeEnd);
+  return {
+    nextValue,
+    nextCaretIndex: safeStart + token.length
+  };
+}
+
+export function synthesizeScopePreviewTraces(
+  traces: ReadonlyMap<string, PropertyResolutionTraceApiModel>,
+  scopeOptions: readonly PropertyValueScopeOptionApiModel[] | undefined,
+  properties: readonly PropertyApiModel[] | undefined,
+  scopeName: string
+): Map<string, PropertyResolutionTraceApiModel> {
+  const merged = new Map<string, PropertyResolutionTraceApiModel>();
+
+  for (const rt of RUNTIME_DOLLAR_TOKENS) {
+    merged.set(rt.name, {
+      PropertyName: rt.name,
+      Source: 'RuntimeOnly',
+      ScopeName: scopeName,
+      Diagnostic: 'RuntimeOnly'
+    });
+  }
+
+  for (const prop of properties ?? []) {
+    const name = prop.Name?.trim();
+    if (!name || !prop.Secure) continue;
+    merged.set(name, {
+      PropertyName: name,
+      Source: 'EnvironmentScope',
+      ScopeName: scopeName,
+      IsSecure: true,
+      Diagnostic: 'Masked'
+    });
+  }
+
+  for (const opt of scopeOptions ?? []) {
+    const rawToken = opt.ValueOption?.trim();
+    if (!rawToken || !rawToken.startsWith('$') || !rawToken.endsWith('$')) {
+      continue;
+    }
+    const propName = rawToken.slice(1, -1);
+    if (!propName || propName.includes(';')) continue;
+    merged.set(propName, {
+      PropertyName: propName,
+      Source: 'EnvironmentScope',
+      ScopeName: scopeName,
+      ResolvedValueJson: JSON.stringify(opt.SampleResolvedValue ?? ''),
+      Diagnostic: 'None'
+    });
+  }
+
+  for (const [k, v] of traces.entries()) {
+    merged.set(k, v);
+  }
+
+  return merged;
+}
+
+export function segmentizeDollarValueWithTraces(
+  rawValue: string,
+  traces: ReadonlyMap<string, PropertyResolutionTraceApiModel>
+): DollarValueSegment[] {
+  if (!rawValue) {
+    return [];
+  }
+
+  if (rawValue.trimStart().startsWith(EXPRESSION_PREFIX)) {
+    return [
+      {
+        kind: 'literal',
+        rawText: rawValue,
+        displayText: rawValue
+      }
+    ];
+  }
+
+  const tokens = parsePropertyTokens(rawValue, 'standard');
+  const segments: DollarValueSegment[] = [];
+
+  for (const token of tokens) {
+    if (token.kind === 'static') {
+      segments.push({
+        kind: 'literal',
+        rawText: token.rawText,
+        displayText: token.value
+      });
+      continue;
+    }
+
+    if (token.kind === 'escaped-dollar') {
+      segments.push({
+        kind: 'escaped-dollar',
+        rawText: '$$',
+        displayText: '$',
+        tooltip: 'Escaped literal $ ($$)'
+      });
+      continue;
+    }
+
+    if (token.kind === 'unclosed-token') {
+      segments.push({
+        kind: 'unclosed-dollar',
+        rawText: token.rawText,
+        displayText: token.rawText,
+        tooltip:
+          'Unescaped $ prevents $Variable$ tokens from expanding — escape literal $ as $$'
+      });
+      continue;
+    }
+
+    if (token.kind !== 'property') {
+      segments.push({
+        kind: 'literal',
+        rawText: token.rawText,
+        displayText: token.rawText
+      });
+      continue;
+    }
+
+    const trace = lookupTrace(traces, token.propertyName);
+    if (!trace) {
+      const runtimeMatch = RUNTIME_DOLLAR_TOKENS.find(
+        rt => rt.name.toLowerCase() === token.propertyName.toLowerCase()
+      );
+      if (runtimeMatch) {
+        segments.push({
+          kind: 'property',
+          rawToken: token.rawText,
+          rawText: token.rawText,
+          propertyName: token.propertyName,
+          status: 'runtime',
+          resolvedPreview: '(populated at deploy time)',
+          badgeLabel: 'Deploy-Time (Runtime)',
+          tooltip: `Deploy-Time (Runtime) -> ${runtimeMatch.description}`
+        });
+      } else {
+        segments.push({
+          kind: 'property',
+          rawToken: token.rawText,
+          rawText: token.rawText,
+          propertyName: token.propertyName,
+          status: 'unresolved',
+          resolvedPreview: token.rawText,
+          badgeLabel: 'Missing in scope',
+          tooltip: 'Missing in scope'
+        });
+      }
+      continue;
+    }
+
+    const presented = presentTrace(trace);
+
+    if (trace.IsSecure || trace.Diagnostic === 'Masked') {
+      const scopeProvenance = trace.ScopeName
+        ? `Env (${trace.ScopeName})`
+        : formatResolutionSource(trace);
+      segments.push({
+        kind: 'property',
+        rawToken: token.rawText,
+        rawText: token.rawText,
+        propertyName: token.propertyName,
+        status: 'masked',
+        resolvedPreview: presented.effectiveDisplayValue,
+        badgeLabel: 'Secret',
+        tooltip: `Secret (${scopeProvenance}) -> ${presented.effectiveDisplayValue}`
+      });
+      continue;
+    }
+
+    if (trace.Source === 'RuntimeOnly' || trace.Diagnostic === 'RuntimeOnly') {
+      const previewVal = presented.hasEffectiveValue
+        ? presented.effectiveDisplayValue
+        : '(populated at deploy time)';
+      segments.push({
+        kind: 'property',
+        rawToken: token.rawText,
+        rawText: token.rawText,
+        propertyName: token.propertyName,
+        status: 'runtime',
+        resolvedPreview: previewVal,
+        badgeLabel: 'Deploy-Time (Runtime)',
+        tooltip: `Deploy-Time (Runtime) -> ${previewVal}`
+      });
+      continue;
+    }
+
+    if (
+      trace.Source === 'Unresolved' ||
+      !presented.hasEffectiveValue ||
+      trace.Diagnostic === 'MissingInScope'
+    ) {
+      const previewVal = presented.hasEffectiveValue
+        ? presented.effectiveDisplayValue
+        : '(not defined in this scope)';
+      const tooltip =
+        trace.Diagnostic === 'MissingInScope' && presented.hasEffectiveValue
+          ? `Missing in scope -> ${previewVal}`
+          : 'Missing in scope';
+      segments.push({
+        kind: 'property',
+        rawToken: token.rawText,
+        rawText: token.rawText,
+        propertyName: token.propertyName,
+        status: 'unresolved',
+        resolvedPreview: previewVal,
+        badgeLabel: 'Missing in scope',
+        tooltip
+      });
+      continue;
+    }
+
+    if (
+      trace.Diagnostic === 'FallbackToDefault' ||
+      trace.Source === 'GlobalDefault' ||
+      trace.Source === 'ConfigValue'
+    ) {
+      const badgeLabel =
+        trace.Source === 'ConfigValue'
+          ? `Config (${trace.ScopeName || 'Fallback'})`
+          : 'Default fallback';
+      segments.push({
+        kind: 'property',
+        rawToken: token.rawText,
+        rawText: token.rawText,
+        propertyName: token.propertyName,
+        status: 'fallback',
+        resolvedPreview: presented.effectiveDisplayValue,
+        badgeLabel,
+        tooltip: `${badgeLabel} -> ${presented.effectiveDisplayValue}`
+      });
+      continue;
+    }
+
+    const envBadge =
+      trace.Source === 'AncestorEnvironmentScope'
+        ? `Inherited (${trace.ScopeName || 'Parent'})`
+        : trace.Source === 'RequestOverride'
+          ? 'Request Override'
+          : trace.ScopeName
+            ? `Env (${trace.ScopeName})`
+            : `Built-in (${trace.ValueType || 'Scope'})`;
+    const segStatus: DollarTokenSegmentStatus =
+      presented.severity === 'warning' ? 'warning' : 'resolved';
+
+    segments.push({
+      kind: 'property',
+      rawToken: token.rawText,
+      rawText: token.rawText,
+      propertyName: token.propertyName,
+      status: segStatus,
+      resolvedPreview: presented.effectiveDisplayValue,
+      badgeLabel: envBadge,
+      tooltip: `${envBadge} -> ${presented.effectiveDisplayValue}`
+    });
+  }
+
+  return segments;
+}
+
 export function evaluateDollarValuePreview(
   rawText: string,
-  tracesByProperty: Map<string, PropertyResolutionTraceApiModel>,
+  tracesByProperty: ReadonlyMap<string, PropertyResolutionTraceApiModel>,
   scopeLabel: string
 ): DollarValuePreview | undefined {
   if (!rawText || !rawText.includes('$') || rawText.trimStart().startsWith('fn:')) {

@@ -18,6 +18,7 @@ import type { OperationOpts, HttpHeaders, HttpQuery } from '../runtime';
 import type {
     PropertyResolutionPreviewRequestApiModel,
     PropertyResolutionTraceApiModel,
+    PropertyUsageReferenceApiModel,
     PropertyValueDto,
     PropertyValueScopeOptionApiModel,
     Response,
@@ -52,6 +53,10 @@ export interface ApiPropertyValuesScopeOptionsGetRequest {
     propertyValueScope?: string;
 }
 
+export interface ApiPropertyValuesWhereUsedGetRequest {
+    propertyName?: string;
+}
+
 export interface PropertyValuesDeleteRequest {
     propertyValueDto?: Array<PropertyValueDto>;
 }
@@ -79,6 +84,10 @@ export interface PropertyValuesResolvePreviewPostRequest {
 
 export interface PropertyValuesScopeOptionsGetRequest {
     propertyValueScope?: string;
+}
+
+export interface PropertyValuesWhereUsedGetRequest {
+    propertyName?: string;
 }
 
 /**
@@ -273,6 +282,34 @@ export class PropertyValuesApi extends BaseAPI {
 
     /**
      */
+    apiPropertyValuesWhereUsedGet({ propertyName }: ApiPropertyValuesWhereUsedGetRequest): Observable<Array<PropertyUsageReferenceApiModel>>
+    apiPropertyValuesWhereUsedGet({ propertyName }: ApiPropertyValuesWhereUsedGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<PropertyUsageReferenceApiModel>>>
+    apiPropertyValuesWhereUsedGet({ propertyName }: ApiPropertyValuesWhereUsedGetRequest, opts?: OperationOpts): Observable<Array<PropertyUsageReferenceApiModel> | AjaxResponse<Array<PropertyUsageReferenceApiModel>>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (propertyName != null) { query['propertyName'] = propertyName; }
+
+        return this.request<Array<PropertyUsageReferenceApiModel>>({
+            url: '/api/PropertyValues/WhereUsed',
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
     propertyValuesDelete({ propertyValueDto }: PropertyValuesDeleteRequest): Observable<Array<Response>>
     propertyValuesDelete({ propertyValueDto }: PropertyValuesDeleteRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<Response>>>
     propertyValuesDelete({ propertyValueDto }: PropertyValuesDeleteRequest, opts?: OperationOpts): Observable<Array<Response> | AjaxResponse<Array<Response>>> {
@@ -450,6 +487,34 @@ export class PropertyValuesApi extends BaseAPI {
 
         return this.request<Array<PropertyValueScopeOptionApiModel>>({
             url: '/PropertyValues/ScopeOptions',
+            method: 'GET',
+            headers,
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    propertyValuesWhereUsedGet({ propertyName }: PropertyValuesWhereUsedGetRequest): Observable<Array<PropertyUsageReferenceApiModel>>
+    propertyValuesWhereUsedGet({ propertyName }: PropertyValuesWhereUsedGetRequest, opts?: OperationOpts): Observable<AjaxResponse<Array<PropertyUsageReferenceApiModel>>>
+    propertyValuesWhereUsedGet({ propertyName }: PropertyValuesWhereUsedGetRequest, opts?: OperationOpts): Observable<Array<PropertyUsageReferenceApiModel> | AjaxResponse<Array<PropertyUsageReferenceApiModel>>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (propertyName != null) { query['propertyName'] = propertyName; }
+
+        return this.request<Array<PropertyUsageReferenceApiModel>>({
+            url: '/PropertyValues/WhereUsed',
             method: 'GET',
             headers,
             query,

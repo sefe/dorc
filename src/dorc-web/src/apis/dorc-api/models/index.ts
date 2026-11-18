@@ -93,6 +93,7 @@ export * from './PropertyFilter';
 export * from './PropertyImportCsvDto';
 export * from './PropertyResolutionPreviewRequestApiModel';
 export * from './PropertyResolutionTraceApiModel';
+export * from './PropertyUsageReferenceApiModel';
 export * from './PropertyValue';
 export * from './PropertyValueAuditApiModel';
 export * from './PropertyValueDto';

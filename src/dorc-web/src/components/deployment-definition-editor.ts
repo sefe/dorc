@@ -33,7 +33,9 @@ import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import { defaultPropertyResolutionClientCache } from '../variable-resolution/property-resolution-client-cache';
 import { parsePropertyTokens } from '../variable-resolution/property-token-parser';
 import {
+  applyDollarTokenCompletion,
   buildInsertableDollarTokens,
+  detectActiveDollarCompletion,
   evaluateDollarValuePreview,
   inspectParameterBindingSyntax,
   inspectUnescapedDollars,
@@ -606,12 +608,19 @@ export class DeploymentDefinitionEditor extends LitElement {
       typeof this.inlineValueSelectionEnd === 'number'
         ? this.inlineValueSelectionEnd
         : start;
-    const nextVal = current.slice(0, start) + token + current.slice(end);
-    const nextCaret = start + token.length;
-    this.inlineNewPropertyDefaultValue = nextVal;
-    this.inlineValueSelectionStart = nextCaret;
-    this.inlineValueSelectionEnd = nextCaret;
+    const trigger = detectActiveDollarCompletion(current, end);
+    const completed = applyDollarTokenCompletion(
+      current,
+      token,
+      trigger,
+      start,
+      end
+    );
+    this.inlineNewPropertyDefaultValue = completed.nextValue;
+    this.inlineValueSelectionStart = completed.nextCaretIndex;
+    this.inlineValueSelectionEnd = completed.nextCaretIndex;
     this.inlineValuePickerOpen = false;
+    this.inlineValuePickerFilter = '';
     const valueField = this.shadowRoot?.querySelector('#inlineNewPropertyValue') as
       | (HTMLElement & { inputElement?: HTMLInputElement })
       | null;
@@ -619,7 +628,10 @@ export class DeploymentDefinitionEditor extends LitElement {
     if (nativeInput) {
       nativeInput.focus();
       if (typeof nativeInput.setSelectionRange === 'function') {
-        nativeInput.setSelectionRange(nextCaret, nextCaret);
+        nativeInput.setSelectionRange(
+          completed.nextCaretIndex,
+          completed.nextCaretIndex
+        );
       }
     } else {
       valueField?.focus();
@@ -1477,11 +1489,40 @@ export class DeploymentDefinitionEditor extends LitElement {
                                     };
                                     this.inlineNewPropertyDefaultValue =
                                       target.value;
+                                    const caret =
+                                      target.inputElement?.selectionStart ??
+                                      target.value.length;
                                     if (target.inputElement) {
                                       this.inlineValueSelectionStart =
                                         target.inputElement.selectionStart;
                                       this.inlineValueSelectionEnd =
                                         target.inputElement.selectionEnd;
+                                    }
+                                    const activeCompletion =
+                                      detectActiveDollarCompletion(
+                                        target.value,
+                                        caret
+                                      );
+                                    if (activeCompletion) {
+                                      this.inlineValuePickerOpen = true;
+                                      this.inlineValuePickerFilter =
+                                        activeCompletion.queryText;
+                                    } else if (this.inlineValuePickerOpen) {
+                                      this.inlineValuePickerOpen = false;
+                                      this.inlineValuePickerFilter = '';
+                                    }
+                                  }}
+                                  @keydown=${(e: KeyboardEvent) => {
+                                    if (e.ctrlKey && e.key === ' ') {
+                                      e.preventDefault();
+                                      this.inlineValuePickerOpen = true;
+                                    } else if (
+                                      e.key === 'Escape' &&
+                                      this.inlineValuePickerOpen
+                                    ) {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      this.inlineValuePickerOpen = false;
                                     }
                                   }}
                                 >
@@ -1489,7 +1530,7 @@ export class DeploymentDefinitionEditor extends LitElement {
                                     slot="suffix"
                                     type="button"
                                     class="param-bind-suffix-btn"
-                                    title="Insert $Variable$ or $ServerNames_&lt;Tag&gt;$ token"
+                                    title="Explore $ tokens (or type $ / Ctrl+Space)"
                                     @click=${() => {
                                       this.inlineValuePickerOpen =
                                         !this.inlineValuePickerOpen;

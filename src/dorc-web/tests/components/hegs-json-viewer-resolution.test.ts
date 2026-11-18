@@ -26,7 +26,8 @@ import {
   getType,
   HegsJsonViewer,
   isMatchingPath,
-  JSONConverter
+  JSONConverter,
+  tracesDifferAcrossEnvironments
 } from '../../src/components/hegs-json-viewer';
 import '../../src/components/hegs-json-viewer';
 import type { PropertyResolutionTraceApiModel } from '../../src/apis/dorc-api';
@@ -1341,5 +1342,163 @@ describe('hegs-json-viewer contextual property resolution', () => {
     el.resetFilter();
     await settle();
     expect(otherLi.hidden).to.equal(false);
+  });
+
+  it('compares property resolution across environments with toolbar summary, inline diff badge, and inspector comparison row', async () => {
+    expect(tracesDifferAcrossEnvironments(undefined, undefined)).to.equal(
+      false
+    );
+    expect(
+      tracesDifferAcrossEnvironments(
+        {
+          PropertyName: 'Host',
+          Source: 'EnvironmentScope',
+          ResolvedValueJson: '"ut1.corp"'
+        },
+        {
+          PropertyName: 'Host',
+          Source: 'EnvironmentScope',
+          ResolvedValueJson: '"prod.corp"'
+        }
+      )
+    ).to.equal(true);
+    expect(
+      tracesDifferAcrossEnvironments(
+        {
+          PropertyName: 'Port',
+          Source: 'GlobalDefault',
+          ResolvedValueJson: '"8443"'
+        },
+        {
+          PropertyName: 'Port',
+          Source: 'GlobalDefault',
+          ResolvedValueJson: '"8443"'
+        }
+      )
+    ).to.equal(false);
+
+    const compareCache = new PropertyResolutionClientCache({
+      coalesceWindowMs: 1,
+      transport: async req => {
+        const env = req.EnvironmentName;
+        if (env === 'PROD') {
+          return [
+            {
+              PropertyName: 'ApiHost',
+              RawValue: 'api.prod.corp',
+              ResolvedValueJson: '"api.prod.corp"',
+              Source: 'EnvironmentScope',
+              ScopeName: 'PROD',
+              Diagnostic: 'Ok'
+            },
+            {
+              PropertyName: 'SharedPort',
+              RawValue: '8443',
+              ResolvedValueJson: '"8443"',
+              Source: 'GlobalDefault',
+              ScopeName: 'Default',
+              Diagnostic: 'Ok'
+            }
+          ];
+        }
+        return [
+          {
+            PropertyName: 'ApiHost',
+            RawValue: 'api.ut1.corp',
+            ResolvedValueJson: '"api.ut1.corp"',
+            Source: 'EnvironmentScope',
+            ScopeName: 'Endur-UT1',
+            Diagnostic: 'Ok'
+          },
+          {
+            PropertyName: 'SharedPort',
+            RawValue: '8443',
+            ResolvedValueJson: '"8443"',
+            Source: 'GlobalDefault',
+            ScopeName: 'Default',
+            Diagnostic: 'Ok'
+          }
+        ];
+      }
+    });
+
+    const el = await fixture<HegsJsonViewer>(
+      html`<hegs-json-viewer
+        .resolutionCache=${compareCache}
+        .resolutionContext=${{
+          environmentName: 'Endur-UT1',
+          projectName: 'Endur'
+        }}
+        .compareEnvironmentOptions=${['Endur-UAT', 'PROD']}
+        .data=${{
+          Endpoint: 'https://$ApiHost$/v1',
+          Port: '$SharedPort$'
+        }}
+      ></hegs-json-viewer>`
+    );
+    el.expandAll();
+    await settle();
+    await new Promise(r => setTimeout(r, 20));
+    await settle();
+
+    const root = el.shadowRoot!;
+    const compareInput = root.querySelector<HTMLInputElement>(
+      '[part="compare-env-input"]'
+    )!;
+    expect(compareInput).to.not.equal(null);
+    expect(root.querySelectorAll('#compare-env-datalist option')).to.have.length(
+      2
+    );
+
+    // Setting compareEnvironmentName to same environment as primary is treated as inactive
+    compareInput.value = 'Endur-UT1';
+    compareInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await settle();
+    expect(root.querySelector('[part="compare-summary"]')).to.equal(null);
+
+    // Setting compareEnvironmentName to PROD resolves compare traces and shows diff summary + inline diff badge
+    compareInput.value = 'PROD';
+    compareInput.dispatchEvent(new Event('input', { bubbles: true }));
+    await settle();
+    await new Promise(r => setTimeout(r, 20));
+    await settle();
+
+    expect(
+      root.querySelector('[part="compare-summary"]')?.textContent?.trim()
+    ).to.equal('1 differ in PROD');
+
+    const diffBadge = root.querySelector('[part="compare-diff-badge"]');
+    expect(diffBadge).to.not.equal(null);
+    expect(diffBadge?.textContent?.replace(/\s+/g, ' ').trim()).to.contain(
+      '≠ PROD: "https://api.prod.corp/v1"'
+    );
+
+    // Inspecting differing property shows Compare (PROD) row with ≠ Differs
+    root
+      .querySelector<HTMLElement>('[data-property-name="ApiHost"]')
+      ?.click();
+    await settle();
+    const inspectorCompare = root.querySelector('[part="inspector-compare"]');
+    expect(inspectorCompare).to.not.equal(null);
+    expect(inspectorCompare?.textContent).to.contain('api.prod.corp');
+    expect(inspectorCompare?.textContent).to.contain('≠ Differs');
+
+    // Inspecting matching property shows Compare (PROD) row with = Matches
+    root
+      .querySelector<HTMLElement>('[data-property-name="SharedPort"]')
+      ?.click();
+    await settle();
+    const matchingCompare = root.querySelector('[part="inspector-compare"]');
+    expect(matchingCompare?.textContent).to.contain('8443');
+    expect(matchingCompare?.textContent).to.contain('= Matches');
+
+    // When all referenced properties match between environments, summary shows All match
+    el.data = { PortOnly: '$SharedPort$' };
+    await settle();
+    await new Promise(r => setTimeout(r, 20));
+    await settle();
+    expect(
+      root.querySelector('[part="compare-summary"]')?.textContent?.trim()
+    ).to.equal('All match PROD');
   });
 });

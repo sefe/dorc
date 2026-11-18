@@ -439,5 +439,143 @@ namespace Dorc.Api.Tests.Controllers
             Assert.IsInstanceOfType(defaultScopeResult, typeof(OkObjectResult));
             _variableScopeOptionsResolver.Received(1).SetGlobalPropertyValues(_variableResolver, Arg.Any<ClaimsPrincipal>());
         }
+
+        [TestMethod]
+        public void GetScopeOptions_FiltersOutNullEmptyAndSemicolonCompositeKeys()
+        {
+            const string envName = "Endur DV 02";
+            var environment = new EnvironmentApiModel
+            {
+                EnvironmentId = 42,
+                EnvironmentName = envName,
+                Details = new EnvironmentDetailsApiModel()
+            };
+            _environmentsPersistentSource.GetEnvironment(envName, Arg.Any<ClaimsPrincipal>())
+                .Returns(environment);
+            _environmentsPersistentSource.GetEnvironmentOwnerIds(42)
+                .Returns(new List<string>());
+            _variableResolver.LocalProperties().Returns(new Dictionary<string, VariableValue>
+            {
+                ["ServerNames_TagA;TagB"] = new VariableValue { Value = "GMDV-SRV01", Type = typeof(string) },
+                ["DatabaseServer_One;Two"] = new VariableValue { Value = "GMDV-DB01", Type = typeof(string) },
+                ["   "] = new VariableValue { Value = "BlankKey", Type = typeof(string) },
+                ["NullValueKey"] = null!,
+                ["EmptyStringValueKey"] = new VariableValue { Value = string.Empty, Type = typeof(string) },
+                ["ServerNames_TagA"] = new VariableValue { Value = "GMDV-SRV01", Type = typeof(string) },
+                ["NonStringValueKey"] = new VariableValue { Value = 123, Type = typeof(int) }
+            });
+
+            var result = _controller.GetScopeOptions(envName);
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            var options = ((OkObjectResult)result).Value as List<PropertyValueScopeOptionApiModel>;
+            Assert.IsNotNull(options);
+            Assert.AreEqual(2, options.Count);
+            CollectionAssert.AreEquivalent(
+                new[] { "$ServerNames_TagA$", "$NonStringValueKey$" },
+                options.Select(o => o.ValueOption).ToArray());
+        }
+
+        [TestMethod]
+        [DataRow(null)]
+        [DataRow("")]
+        [DataRow("   ")]
+        public void GetWhereUsed_WhenPropertyNameIsNullOrWhitespace_ReturnsBadRequest(string? propertyName)
+        {
+            var result = _controller.GetWhereUsed(propertyName!);
+
+            Assert.IsInstanceOfType(result, typeof(BadRequestObjectResult));
+            var badRequest = (BadRequestObjectResult)result;
+            Assert.AreEqual(StatusCodes.Status400BadRequest, badRequest.StatusCode);
+        }
+
+        [TestMethod]
+        public void GetWhereUsed_ReturnsNonSecureDependentVariablesMatchingDollarAndBraceTokens()
+        {
+            var longPrefix = new string('x', 130);
+            _propertyValuesPersistentSource.GetGlobalProperties().Returns(new[]
+            {
+                new PropertyValueDto
+                {
+                    Property = new PropertyApiModel { Name = "ConnectionString", Secure = false },
+                    Value = "Server=$DbHost$;Database=Main"
+                },
+                new PropertyValueDto
+                {
+                    Property = new PropertyApiModel { Name = "BackupEndpoint", Secure = false },
+                    Value = "https://${ dbhost }:8443/api"
+                },
+                new PropertyValueDto
+                {
+                    Property = new PropertyApiModel { Name = "SecretConnection", Secure = true },
+                    Value = "Server=$DbHost$;Password=secret"
+                },
+                new PropertyValueDto
+                {
+                    Property = new PropertyApiModel { Name = "EscapedLiteral", Secure = false },
+                    Value = "Literal $$DbHost$$ should not match"
+                },
+                new PropertyValueDto
+                {
+                    Property = new PropertyApiModel { Name = "UnrelatedProperty", Secure = false },
+                    Value = "Server=$DbHostSecondary$"
+                }
+            });
+
+            _propertyValuesPersistentSource.GetPropertyValuesForSearchValueByPage(
+                    Arg.Any<int>(),
+                    Arg.Any<int>(),
+                    Arg.Any<PagedDataOperators>(),
+                    Arg.Any<ClaimsPrincipal>())
+                .Returns(new GetScopedPropertyValuesResponseDto
+                {
+                    Items = new List<FlatPropertyValueApiModel>
+                    {
+                        new FlatPropertyValueApiModel
+                        {
+                            Property = "ConnectionString",
+                            PropertyValueScope = null!,
+                            PropertyValue = "Server=$DbHost$;Database=Main",
+                            Secure = false
+                        },
+                        new FlatPropertyValueApiModel
+                        {
+                            Property = "EnvServiceUrl",
+                            PropertyValueScope = "Endur DV 02",
+                            PropertyValue = $"{longPrefix}://$DBHOST$/service",
+                            Secure = false
+                        },
+                        new FlatPropertyValueApiModel
+                        {
+                            Property = "EnvSecretUrl",
+                            PropertyValueScope = "Endur DV 02",
+                            PropertyValue = "https://$DbHost$/secret",
+                            Secure = true
+                        }
+                    }
+                });
+
+            var result = _controller.GetWhereUsed("  DbHost  ");
+
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            var references = ((OkObjectResult)result).Value as List<PropertyUsageReferenceApiModel>;
+            Assert.IsNotNull(references);
+            Assert.AreEqual(3, references.Count);
+
+            Assert.AreEqual("BackupEndpoint", references[0].PropertyName);
+            Assert.AreEqual("Default", references[0].Scope);
+            Assert.AreEqual(string.Empty, references[0].PropertyValueFilter);
+            Assert.AreEqual("https://${ dbhost }:8443/api", references[0].RawValueSnippet);
+
+            Assert.AreEqual("ConnectionString", references[1].PropertyName);
+            Assert.AreEqual("Default", references[1].Scope);
+            Assert.AreEqual("Server=$DbHost$;Database=Main", references[1].RawValueSnippet);
+
+            Assert.AreEqual("EnvServiceUrl", references[2].PropertyName);
+            Assert.AreEqual("Endur DV 02", references[2].Scope);
+            Assert.AreEqual("Endur DV 02", references[2].PropertyValueFilter);
+            Assert.AreEqual(120, references[2].RawValueSnippet.Length);
+            StringAssert.EndsWith(references[2].RawValueSnippet, "...");
+        }
     }
 }

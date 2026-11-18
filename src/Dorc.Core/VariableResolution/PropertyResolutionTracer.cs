@@ -33,6 +33,7 @@ namespace Dorc.Core.VariableResolution
         private readonly ISecurityPrivilegesChecker? _securityPrivilegesChecker;
         private readonly IPropertyEncryptor? _propertyEncryptor;
         private readonly PropertyParser _parser = new();
+        private readonly SafeExpressionPreviewEvaluator _expressionPreviewEvaluator = new();
 
         public PropertyResolutionTracer(
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
@@ -429,19 +430,15 @@ namespace Dorc.Core.VariableResolution
                 if (!tokens.Any(t => t is PropertyToken))
                 {
                     var unescaped = string.Concat(tokens.Select(t => t.Value));
-                    var diagnostic = ClassifyExpressionOrFallback(propertyName, unescaped, entry, snapshot);
-                    localChain.Add($"${propertyName}$ ({entry.Source}) -> {FormatPreviewSnippet(unescaped)}");
-
-                    var literalRes = new EvaluatedResult(
-                        entry.Source,
-                        entry.ScopeName,
+                    var literalRes = EvaluateCandidateValue(
+                        propertyName,
                         rawString,
-                        JsonSerializer.Serialize(unescaped),
+                        unescaped,
                         entry.ValueType,
                         entry.IsSecure,
-                        false,
-                        diagnostic,
-                        unescaped);
+                        entry,
+                        snapshot,
+                        localChain);
                     evaluatedCache[propertyName] = (literalRes, localChain);
                     chain.AddRange(localChain);
                     return literalRes;
@@ -493,7 +490,7 @@ namespace Dorc.Core.VariableResolution
                             childSpecialDiagnostic ??= childResult.Diagnostic;
                         }
 
-                        if (tokens.Count > 1 && childResult.RawResolvedObject is not string)
+                        if (tokens.Count > 1 && childResult.RawResolvedObject is not (string or ValueType))
                         {
                             anyNonStringInConcat = true;
                         }
@@ -563,6 +560,10 @@ namespace Dorc.Core.VariableResolution
                     {
                         diag = ClassifyExpressionOrFallback(propertyName, singleValStr, entry, snapshot);
                     }
+                    else if (diag == "Ok" && entry.IsFromFallbackDefault)
+                    {
+                        diag = "FallbackToDefault";
+                    }
 
                     localChain.Add($"${propertyName}$ ({entry.Source}) -> ${evaluatedParts[0].Token.Value}$");
                     var singleRes = new EvaluatedResult(
@@ -598,24 +599,36 @@ namespace Dorc.Core.VariableResolution
                 }
 
                 var finalStr = sb.ToString();
-                var finalDiag = childSpecialDiagnostic
-                                ?? (anyNonStringInConcat
-                                    ? "NonStringInConcatenation"
-                                    : valueTruncated
-                                        ? "ValueTruncated"
-                                        : ClassifyExpressionOrFallback(propertyName, finalStr, entry, snapshot));
+                if (childSpecialDiagnostic != null || anyNonStringInConcat || valueTruncated)
+                {
+                    var finalDiag = childSpecialDiagnostic
+                                    ?? (anyNonStringInConcat ? "NonStringInConcatenation" : "ValueTruncated");
 
-                localChain.Add($"${propertyName}$ ({entry.Source}) -> {FormatPreviewSnippet(finalStr)}");
-                var concatRes = new EvaluatedResult(
-                    entry.Source,
-                    entry.ScopeName,
+                    localChain.Add($"${propertyName}$ ({entry.Source}) -> {FormatPreviewSnippet(finalStr)}");
+                    var specialConcatRes = new EvaluatedResult(
+                        entry.Source,
+                        entry.ScopeName,
+                        rawString,
+                        JsonSerializer.Serialize(finalStr),
+                        "String",
+                        anyChildSecure,
+                        false,
+                        finalDiag,
+                        finalStr);
+                    evaluatedCache[propertyName] = (specialConcatRes, localChain);
+                    AppendChainBounded(chain, localChain);
+                    return specialConcatRes;
+                }
+
+                var concatRes = EvaluateCandidateValue(
+                    propertyName,
                     rawString,
-                    JsonSerializer.Serialize(finalStr),
+                    finalStr,
                     "String",
                     anyChildSecure,
-                    false,
-                    finalDiag,
-                    finalStr);
+                    entry,
+                    snapshot,
+                    localChain);
                 evaluatedCache[propertyName] = (concatRes, localChain);
                 AppendChainBounded(chain, localChain);
                 return concatRes;
@@ -670,6 +683,87 @@ namespace Dorc.Core.VariableResolution
             {
                 return RequestPropertyRedaction.Marker;
             }
+        }
+
+        private EvaluatedResult EvaluateCandidateValue(
+            string propertyName,
+            string rawString,
+            string candidateString,
+            string defaultValueType,
+            bool isSecure,
+            CandidateEntry entry,
+            ResolutionSnapshot snapshot,
+            List<string> localChain)
+        {
+            if (candidateString.StartsWith(ExpressionMarker, StringComparison.Ordinal))
+            {
+                var isInfluenced = snapshot.RequestSuppliedTracker.IsInfluenced(
+                    propertyName,
+                    name => snapshot.Entries.TryGetValue(name, out var candidate) && !candidate.IsSecure
+                        ? candidate.RawValue
+                        : string.Empty);
+
+                if (isInfluenced)
+                {
+                    localChain.Add($"${propertyName}$ ({entry.Source}) -> {FormatPreviewSnippet(candidateString)}");
+                    return new EvaluatedResult(
+                        entry.Source,
+                        entry.ScopeName,
+                        rawString,
+                        JsonSerializer.Serialize(candidateString),
+                        defaultValueType,
+                        isSecure,
+                        false,
+                        "ExpressionBlockedByOverride",
+                        candidateString);
+                }
+
+                if (_expressionPreviewEvaluator.TryEvaluate(candidateString, out var evaluatedValue) &&
+                    evaluatedValue != null)
+                {
+                    var evaluatedType = GetFriendlyTypeName(evaluatedValue.GetType());
+                    var evaluatedJson = JsonSerializer.Serialize(evaluatedValue);
+                    var evaluatedDisplay = evaluatedValue is string evaluatedStr ? evaluatedStr : evaluatedJson;
+                    var evaluatedDiag = entry.IsFromFallbackDefault ? "FallbackToDefault" : "Ok";
+                    localChain.Add(
+                        $"${propertyName}$ ({entry.Source}) -> {FormatPreviewSnippet(candidateString)} => {FormatPreviewSnippet(evaluatedDisplay)}");
+                    return new EvaluatedResult(
+                        entry.Source,
+                        entry.ScopeName,
+                        rawString,
+                        evaluatedJson,
+                        evaluatedType,
+                        isSecure,
+                        false,
+                        evaluatedDiag,
+                        evaluatedValue);
+                }
+
+                localChain.Add($"${propertyName}$ ({entry.Source}) -> {FormatPreviewSnippet(candidateString)}");
+                return new EvaluatedResult(
+                    entry.Source,
+                    entry.ScopeName,
+                    rawString,
+                    JsonSerializer.Serialize(candidateString),
+                    defaultValueType,
+                    isSecure,
+                    false,
+                    "ExpressionDeferred",
+                    candidateString);
+            }
+
+            var diagnostic = entry.IsFromFallbackDefault ? "FallbackToDefault" : "Ok";
+            localChain.Add($"${propertyName}$ ({entry.Source}) -> {FormatPreviewSnippet(candidateString)}");
+            return new EvaluatedResult(
+                entry.Source,
+                entry.ScopeName,
+                rawString,
+                JsonSerializer.Serialize(candidateString),
+                defaultValueType,
+                isSecure,
+                false,
+                diagnostic,
+                candidateString);
         }
 
         private static string ClassifyExpressionOrFallback(
