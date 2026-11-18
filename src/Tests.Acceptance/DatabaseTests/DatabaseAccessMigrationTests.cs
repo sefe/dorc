@@ -70,8 +70,16 @@ namespace Tests.Acceptance.DatabaseTests
         {
             PublishDacpac();
 
-            var resolvesLocalWindowsAccounts =
-                ExecuteScalarInt("SELECT CASE WHEN SUSER_SID(N'BUILTIN\\Users') IS NOT NULL AND SUSER_SID(N'NT AUTHORITY\\NETWORK SERVICE') IS NOT NULL THEN 1 ELSE 0 END") == 1;
+            var probedWindowsAccounts = new (string AccountName, string ExpectedKind, string ExpectedSid)[]
+            {
+                (@"BUILTIN\Users", "DirectoryGroup", "S-1-5-32-545"),
+                (@"NT AUTHORITY\NETWORK SERVICE", "DirectoryUser", "S-1-5-20")
+            };
+            var resolvedWindowsAccounts = probedWindowsAccounts
+                .Where(account => ExecuteScalarInt($"SELECT CASE WHEN SUSER_SID(N'{account.AccountName}') IS NOT NULL THEN 1 ELSE 0 END") == 1)
+                .ToArray();
+            var resolvedWindowsCount = resolvedWindowsAccounts.Length;
+            var unresolvedWindowsCount = 1 + (probedWindowsAccounts.Length - resolvedWindowsCount);
 
             ExecuteEphemeral("""
                 INSERT INTO [deploy].[Environment] ([Name], [Secure], [IsProd], [ObjectId]) VALUES
@@ -201,20 +209,17 @@ namespace Tests.Acceptance.DatabaseTests
             Assert.AreEqual(1, ExecuteScalarInt("SELECT COUNT(*) FROM [deploy].[DatabaseAccessPrincipalCatalog] WHERE [Name] = N'svc_sql' AND [Kind] = N'Native'"));
             Assert.AreEqual(1, ExecuteScalarInt("SELECT COUNT(*) FROM [deploy].[DatabaseAccessPrincipalCatalog] WHERE [Name] = N'svc_cmdlet' AND [Kind] = N'Native'"));
 
-            if (resolvesLocalWindowsAccounts)
+            foreach (var account in resolvedWindowsAccounts)
             {
-                Assert.AreEqual(1, ExecuteScalarInt("SELECT COUNT(*) FROM [deploy].[DatabaseAccessPrincipalCatalog] WHERE [Name] = N'BUILTIN\\Users' AND [Kind] = N'DirectoryGroup' AND [DirectoryId] = N'S-1-5-32-545' AND [LoginName] IS NULL"));
-                Assert.AreEqual(1, ExecuteScalarInt("SELECT COUNT(*) FROM [deploy].[DatabaseAccessPrincipalCatalog] WHERE [Name] = N'NT AUTHORITY\\NETWORK SERVICE' AND [Kind] = N'DirectoryUser' AND [DirectoryId] = N'S-1-5-20' AND [LoginName] IS NULL"));
-                Assert.AreEqual(6, ExecuteScalarInt("SELECT COUNT(*) FROM [deploy].[DatabaseAccessRoleMembership] WHERE [Present] = 1"));
-                Assert.Contains("Migrated automatically: 6 assignment(s) across 2 database(s) (Native SQL=4, Windows AD/SAM=2)", reportText, reportText);
-                Assert.Contains("UnresolvedWindowsAccount: 1", reportText, reportText);
+                Assert.AreEqual(
+                    1,
+                    ExecuteScalarInt($"SELECT COUNT(*) FROM [deploy].[DatabaseAccessPrincipalCatalog] WHERE [Name] = N'{account.AccountName}' AND [Kind] = N'{account.ExpectedKind}' AND [DirectoryId] = N'{account.ExpectedSid}' AND [LoginName] IS NULL"));
             }
-            else
-            {
-                Assert.AreEqual(4, ExecuteScalarInt("SELECT COUNT(*) FROM [deploy].[DatabaseAccessRoleMembership] WHERE [Present] = 1"));
-                Assert.Contains("Migrated automatically: 4 assignment(s) across 2 database(s) (Native SQL=4, Windows AD/SAM=0)", reportText, reportText);
-                Assert.Contains("UnresolvedWindowsAccount: 3", reportText, reportText);
-            }
+
+            var expectedMigratedCount = 4 + resolvedWindowsCount;
+            Assert.AreEqual(expectedMigratedCount, ExecuteScalarInt("SELECT COUNT(*) FROM [deploy].[DatabaseAccessRoleMembership] WHERE [Present] = 1"));
+            Assert.Contains($"Migrated automatically: {expectedMigratedCount} assignment(s) across 2 database(s) (Native SQL=4, Windows AD/SAM={resolvedWindowsCount})", reportText, reportText);
+            Assert.Contains($"UnresolvedWindowsAccount: {unresolvedWindowsCount}", reportText, reportText);
 
             Assert.AreEqual(4, ExecuteScalarInt("SELECT [Revision] FROM [deploy].[DatabaseAccessConfiguration] c JOIN [deploy].[Database] d ON d.[Id] = c.[DatabaseId] WHERE d.[Name] = N'trade-db-2'"));
             Assert.AreEqual(3, ExecuteScalarInt("SELECT COUNT(*) FROM [deploy].[DatabaseAccessAudit] WHERE [Action] = N'GlobalMigrate' AND [Status] = N'PartialWithIssues'"));
