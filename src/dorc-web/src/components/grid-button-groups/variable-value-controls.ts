@@ -19,6 +19,7 @@ import { Notification } from '@vaadin/notification';
 import '@vaadin/text-field';
 import '@vaadin/tooltip';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
+import { inspectUnescapedDollars } from '../../variable-resolution/resolution-presentation';
 
 @customElement('variable-value-controls')
 export class VariableValueControls extends LitElement {
@@ -28,6 +29,8 @@ export class VariableValueControls extends LitElement {
   @property({ type: Boolean }) editing = false;
 
   @property({ type: String }) additionalInformation = '';
+
+  private _originalValueBeforeEdit: string | null | undefined;
 
   static get styles() {
     return css`
@@ -88,10 +91,18 @@ export class VariableValueControls extends LitElement {
               .value="${live(this.value?.Value ?? '')}"
               @value-changed="${(e: CustomEvent) => {
                 const textField = e.detail as TextField;
-                if (this.value) this.value.Value = textField.value;
+                if (this.value) {
+                  this.value.Value = textField.value;
+                  this.requestUpdate();
+                }
               }}"
               style="padding: 0px"
             ></vaadin-text-field>`
+      }
+      ${
+        this.editing && !this.value?.Property?.Secure
+          ? this.renderInlineDollarEscapeButton()
+          : html``
       }
 
       <vaadin-button
@@ -187,7 +198,34 @@ export class VariableValueControls extends LitElement {
     this.dispatchEvent(event);
   }
 
+  private renderInlineDollarEscapeButton() {
+    const inspection = inspectUnescapedDollars(this.value?.Value ?? '');
+    if (!inspection.hasUnclosedDollar) return html``;
+    return html`<vaadin-button
+      theme="small tertiary"
+      aria-label="Escape literal $ as $$"
+      title="${
+        inspection.hasOtherPropertyTokens
+          ? 'Unescaped $ prevents $Variable$ expansion — click to escape as $$'
+          : 'Escape literal $ (e.g. E$) as $$'
+      }"
+      @click="${() => {
+        if (!this.value) return;
+        this.value.Value = inspection.escapedSuggestion;
+        const textField = this.shadowRoot?.querySelector(
+          `#propValue${this.value?.Id}`
+        ) as unknown as TextField | null;
+        if (textField) {
+          textField.value = inspection.escapedSuggestion;
+        }
+        this.requestUpdate();
+      }}"
+      >Escape $ → $$</vaadin-button
+    >`;
+  }
+
   _editClick() {
+    this._originalValueBeforeEdit = this.value?.Value;
     const textField = this.shadowRoot?.querySelector(
       `#propValue${this.value?.Id}`
     ) as unknown as TextField;
@@ -220,7 +258,17 @@ export class VariableValueControls extends LitElement {
   }
 
   _cancelClick() {
-    this.resetSecureFieldIfNeeded();
+    if (this.value?.Property?.Secure) {
+      this.resetSecureFieldIfNeeded();
+    } else if (this.value && this._originalValueBeforeEdit !== undefined) {
+      this.value.Value = this._originalValueBeforeEdit;
+      const textField = this.shadowRoot?.querySelector(
+        `#propValue${this.value?.Id}`
+      ) as unknown as TextField | null;
+      if (textField) {
+        textField.value = this._originalValueBeforeEdit ?? '';
+      }
+    }
     this.dispatchEvent(
       new CustomEvent('editing-cancelled', {
         detail: { id: this.value?.Id },

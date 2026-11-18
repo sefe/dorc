@@ -32,6 +32,7 @@ import { defaultPropertyResolutionClientCache } from '../variable-resolution/pro
 import { parsePropertyTokens } from '../variable-resolution/property-token-parser';
 import {
   inspectParameterBindingSyntax,
+  inspectUnescapedDollars,
   presentTrace
 } from '../variable-resolution/resolution-presentation';
 
@@ -517,6 +518,31 @@ export class DeploymentDefinitionEditor extends LitElement {
     this.inlineNewPropertySecure = false;
     this.inlineNewPropertyDefaultValue = '';
     this.inlineCreateFeedback = '';
+  }
+
+  private renderInlineValueDollarHint() {
+    const inspection = inspectUnescapedDollars(
+      this.inlineNewPropertyDefaultValue
+    );
+    if (!inspection.hasUnclosedDollar) return nothing;
+    return html`<div class="param-syntax-hint" role="status">
+      <span
+        >${
+          inspection.hasOtherPropertyTokens
+            ? 'Unescaped $ (such as E$) prevents other $Variable$ tokens from expanding.'
+            : 'Contains a literal $ (such as E$). Escape as $$ if combining with $Variable$ tokens.'
+        }</span
+      >
+      <button
+        type="button"
+        class="param-action-btn"
+        @click=${() => {
+          this.inlineNewPropertyDefaultValue = inspection.escapedSuggestion;
+        }}
+      >
+        Escape literal $ as $$
+      </button>
+    </div>`;
   }
 
   public createInlineVariableForParameter() {
@@ -1191,7 +1217,7 @@ export class DeploymentDefinitionEditor extends LitElement {
                             label="Initial value (${
                               this.previewEnvironmentName || 'default'
                             })"
-                            placeholder="Optional initial value..."
+                            placeholder="Optional initial value (use $Variable$ or $$)..."
                             theme="small"
                             .value=${live(this.inlineNewPropertyDefaultValue)}
                             @input=${(e: Event) => {
@@ -1200,6 +1226,7 @@ export class DeploymentDefinitionEditor extends LitElement {
                               ).value;
                             }}
                           ></vaadin-text-field>
+                          ${this.renderInlineValueDollarHint()}
                           <vaadin-checkbox
                             id="inlineNewPropertySecure"
                             label="Secure"

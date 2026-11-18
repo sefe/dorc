@@ -1,4 +1,8 @@
-import type { PropertyResolutionTraceApiModel } from '../apis/dorc-api';
+import type {
+  PropertyApiModel,
+  PropertyResolutionTraceApiModel,
+  PropertyValueScopeOptionApiModel
+} from '../apis/dorc-api';
 import { parsePropertyTokens } from './property-token-parser';
 
 export type ResolutionSeverity =
@@ -24,30 +28,149 @@ export interface UnescapedDollarInspection {
   escapedSuggestion: string;
 }
 
-export function inspectUnescapedDollars(raw: string): UnescapedDollarInspection {
-  const tokens = parsePropertyTokens(raw, 'standard');
-  const hasUnclosedDollar = tokens.some(t => t.kind === 'unclosed-token');
-  const hasOtherPropertyTokens = tokens.some(t => t.kind === 'property');
+export interface InsertableDollarTokenOption {
+  ValueOption: string;
+  SampleResolvedValue: unknown;
+  CategoryLabel: string;
+}
 
-  if (!hasUnclosedDollar) {
+const ADMIN_SHARE_PATTERN = /^(?:[A-Za-z]|ADMIN|IPC)\$(?=[\\/]|$)/i;
+const VALID_DOLLAR_TOKEN_PATTERN = /^\$([A-Za-z0-9_.-]+)\$/;
+
+export function inspectUnescapedDollars(raw: string): UnescapedDollarInspection {
+  if (!raw || !raw.includes('$')) {
     return {
       hasUnclosedDollar: false,
-      hasOtherPropertyTokens,
+      hasOtherPropertyTokens: false,
       escapedSuggestion: raw
     };
   }
 
-  const escapedSuggestion = tokens
-    .map(t =>
-      t.kind === 'unclosed-token' ? t.rawText.replace(/\$/g, '$$$') : t.rawText
-    )
-    .join('');
+  let hasUnclosedDollar = false;
+  let hasOtherPropertyTokens = false;
+  let out = '';
+  let i = 0;
+
+  while (i < raw.length) {
+    // Already-escaped $$
+    if (raw[i] === '$' && raw[i + 1] === '$') {
+      out += '$$';
+      i += 2;
+      continue;
+    }
+
+    // Windows admin/hidden share like E$\, C$/, ADMIN$\, IPC$\ at start or after \ or /
+    const prevChar = i > 0 ? raw[i - 1] : '';
+    if (i === 0 || prevChar === '\\' || prevChar === '/') {
+      const adminMatch = ADMIN_SHARE_PATTERN.exec(raw.slice(i));
+      if (adminMatch) {
+        const sharePrefix = adminMatch[0].slice(0, -1); // e.g. 'E' or 'ADMIN'
+        hasUnclosedDollar = true;
+        out += `${sharePrefix}$$`;
+        i += adminMatch[0].length;
+        continue;
+      }
+    }
+
+    if (raw[i] === '$') {
+      const tokenMatch = VALID_DOLLAR_TOKEN_PATTERN.exec(raw.slice(i));
+      if (tokenMatch) {
+        // Check that the closing $ is not immediately part of an admin share like $Var\E$
+        hasOtherPropertyTokens = true;
+        out += tokenMatch[0];
+        i += tokenMatch[0].length;
+        continue;
+      }
+
+      // Lone or invalid $ (not a valid $PropertyName$ token)
+      hasUnclosedDollar = true;
+      out += '$$';
+      i += 1;
+      continue;
+    }
+
+    out += raw[i];
+    i += 1;
+  }
 
   return {
-    hasUnclosedDollar: true,
+    hasUnclosedDollar,
     hasOtherPropertyTokens,
-    escapedSuggestion
+    escapedSuggestion: hasUnclosedDollar ? out : raw
   };
+}
+
+const RUNTIME_DOLLAR_TOKENS: Array<{ name: string; description: string }> = [
+  { name: 'EnvironmentName', description: 'Deploy target environment name' },
+  {
+    name: 'EnvironmentShortName',
+    description: 'Short environment identifier'
+  },
+  { name: 'DropFolder', description: 'Artifact drop folder at deploy time' },
+  { name: 'ScriptRoot', description: 'Scripts root directory at deploy time' },
+  {
+    name: 'DeploymentLogDir',
+    description: 'Deployment log directory at deploy time'
+  },
+  { name: 'BuildNumber', description: 'Build / release number at deploy time' },
+  {
+    name: 'IsProd',
+    description: 'True when deploying to a production environment'
+  }
+];
+
+export function buildInsertableDollarTokens(
+  scopeOptions: PropertyValueScopeOptionApiModel[] | undefined,
+  properties: PropertyApiModel[] | undefined,
+  excludePropertyName?: string
+): InsertableDollarTokenOption[] {
+  const seen = new Set<string>();
+  const result: InsertableDollarTokenOption[] = [];
+  const excludedLower = excludePropertyName?.trim().toLowerCase() ?? '';
+
+  for (const opt of scopeOptions ?? []) {
+    const token = opt.ValueOption?.trim();
+    if (!token) continue;
+    const key = token.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push({
+      ValueOption: token,
+      SampleResolvedValue: opt.SampleResolvedValue ?? 'Built-in scope token',
+      CategoryLabel: 'Built-in Scope Token'
+    });
+  }
+
+  for (const rt of RUNTIME_DOLLAR_TOKENS) {
+    const token = `$${rt.name}$`;
+    const key = token.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push({
+      ValueOption: token,
+      SampleResolvedValue: rt.description,
+      CategoryLabel: 'Built-in Deploy Token'
+    });
+  }
+
+  for (const prop of properties ?? []) {
+    const name = prop.Name?.trim();
+    if (!name) continue;
+    if (excludedLower && name.toLowerCase() === excludedLower) continue;
+    const token = `$${name}$`;
+    const key = token.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push({
+      ValueOption: token,
+      SampleResolvedValue: prop.Secure
+        ? 'Encrypted variable ($' + name + '$)'
+        : 'Scoped DOrc variable ($' + name + '$)',
+      CategoryLabel: prop.Secure ? 'Secure Variable' : 'Scoped Variable'
+    });
+  }
+
+  return result;
 }
 
 export function formatResolutionSource(
@@ -171,11 +294,66 @@ export function presentTrace(
   const effectiveDisplayValue =
     typeof parsedVal === 'string' ? parsedVal : JSON.stringify(parsedVal);
 
+  if (trace.Diagnostic === 'MissingInScope') {
+    return {
+      severity: 'unresolved',
+      effectiveDisplayValue,
+      hasEffectiveValue: true,
+      sourceLabel,
+      diagnosticTitle: 'Nested $Variable$ Missing in Scope',
+      diagnosticDetail:
+        'This variable references another $Variable$ token that has no value defined in this environment or Default scope.',
+      hasBlockedTokensByUnescapedDollar: false
+    };
+  }
+
+  if (trace.Diagnostic === 'RuntimeOnly') {
+    return {
+      severity: 'warning',
+      effectiveDisplayValue,
+      hasEffectiveValue: true,
+      sourceLabel,
+      diagnosticTitle: 'Contains Deploy-Time Token',
+      diagnosticDetail:
+        'References a token (such as $DropFolder$ or $BuildNumber$) that is populated at deployment execution time.',
+      hasBlockedTokensByUnescapedDollar: false
+    };
+  }
+
+  if (trace.Diagnostic === 'NonStringInConcatenation') {
+    return {
+      severity: 'warning',
+      effectiveDisplayValue,
+      hasEffectiveValue: true,
+      sourceLabel,
+      diagnosticTitle: 'Array/Object Token in String Path',
+      diagnosticDetail:
+        'Combines a multi-value array or object token (such as $ServerNames_<Tag>$ with multiple servers) inside a string.',
+      hasBlockedTokensByUnescapedDollar: false
+    };
+  }
+
+  if (trace.Diagnostic === 'ValueTruncated') {
+    return {
+      severity: 'warning',
+      effectiveDisplayValue,
+      hasEffectiveValue: true,
+      sourceLabel,
+      diagnosticTitle: 'Preview Value Truncated',
+      diagnosticDetail:
+        'The expanded variable value exceeded the maximum preview size and was truncated.',
+      hasBlockedTokensByUnescapedDollar: false
+    };
+  }
+
   if (trace.Diagnostic === 'UnclosedToken') {
     const dollarInfo = inspectUnescapedDollars(
       trace.RawValue ?? effectiveDisplayValue
     );
-    if (dollarInfo.hasOtherPropertyTokens) {
+    if (
+      dollarInfo.hasUnclosedDollar &&
+      dollarInfo.hasOtherPropertyTokens
+    ) {
       return {
         severity: 'warning',
         effectiveDisplayValue,
@@ -248,7 +426,22 @@ export function inspectParameterBindingSyntax(
 
   const parsedBrace = parsePropertyTokens(trimmed, 'brace-only');
   if (parsedBrace.length === 1 && parsedBrace[0].kind === 'property') {
+    if (rawText !== trimmed) {
+      return {
+        kind: 'dollar-syntax',
+        suggestedVariableName: parsedBrace[0].propertyName,
+        message: `Remove surrounding spaces around \${${parsedBrace[0].propertyName}} so DOrc binds the variable directly.`
+      };
+    }
     return undefined;
+  }
+
+  if (trimmed.includes('$$')) {
+    return {
+      kind: 'mixed-text',
+      message:
+        'Script parameters do not unescape $$. Use a single $ for literal paths (e.g. E$), or bind a ${VariableName} variable.'
+    };
   }
 
   if (/\$\{[A-Za-z0-9_.-]+\}/.test(trimmed) || /\$[A-Za-z0-9_.-]+\$/.test(trimmed)) {

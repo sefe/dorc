@@ -112,8 +112,17 @@ export function evaluateStringWithTraces(
 
   for (const pt of propTokens) {
     const trace = traces.get(pt.propertyName);
+    if (!trace) {
+      return {
+        status: 'unresolved',
+        resolvedValue: raw,
+        resolvedDisplayString: raw
+      };
+    }
+    if (trace.IsSecure || trace.Diagnostic === 'Masked') {
+      continue;
+    }
     if (
-      !trace ||
       trace.Source === 'Unresolved' ||
       trace.Source === 'RuntimeOnly' ||
       (trace.Diagnostic != null &&
@@ -132,6 +141,13 @@ export function evaluateStringWithTraces(
 
   if (tokens.length === 1 && tokens[0].kind === 'property') {
     const singleTrace = traces.get(tokens[0].propertyName)!;
+    if (singleTrace.IsSecure || singleTrace.Diagnostic === 'Masked') {
+      return {
+        status: 'resolved',
+        resolvedValue: '•••••••• (Secure)',
+        resolvedDisplayString: '•••••••• (Secure)'
+      };
+    }
     const parsedVal = JSON.parse(singleTrace.ResolvedValueJson!);
     const displayStr =
       typeof parsedVal === 'string' ? parsedVal : JSON.stringify(parsedVal);
@@ -146,6 +162,10 @@ export function evaluateStringWithTraces(
   for (const token of tokens) {
     if (token.kind === 'property') {
       const trace = traces.get(token.propertyName)!;
+      if (trace.IsSecure || trace.Diagnostic === 'Masked') {
+        out += '•••••••• (Secure)';
+        continue;
+      }
       const parsedVal = JSON.parse(trace.ResolvedValueJson!);
       if (
         typeof parsedVal !== 'string' &&

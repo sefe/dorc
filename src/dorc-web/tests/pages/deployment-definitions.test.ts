@@ -910,7 +910,7 @@ describe('definition history and discovery', () => {
     defaultPropertyResolutionClientCache.clear();
     // Unit-test evaluateParameterPreview branches (resolved, masked, unresolved, no tokens)
     expect(evaluateParameterPreview('plain', new Map())).to.equal(undefined);
-    const traceMap = new Map([
+    const traceMap = new Map<string, any>([
       [
         'stp_das_paper_destinationpath',
         {

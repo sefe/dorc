@@ -47,7 +47,11 @@ import '@vaadin/combo-box';
 import '@vaadin/text-field';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import { firstValueFrom, Observable } from 'rxjs';
-import { inspectUnescapedDollars } from '../../variable-resolution/resolution-presentation';
+import {
+  buildInsertableDollarTokens,
+  InsertableDollarTokenOption,
+  inspectUnescapedDollars
+} from '../../variable-resolution/resolution-presentation';
 
 const variableValue = 'PropertyValue';
 const variableName = 'Property';
@@ -433,15 +437,19 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                             ></vaadin-text-field>
                             <vaadin-combo-box
                               id="scopeOptionPicker"
-                              .items="${this.propertyValueScopeOptions}"
+                              .items="${buildInsertableDollarTokens(
+                                this.propertyValueScopeOptions,
+                                this.properties,
+                                this.propertyName
+                              )}"
                               item-label-path="ValueOption"
                               item-value-path="ValueOption"
                               ${comboBoxRenderer(this.comboboxRenderer, [])}
                               clear-button-visible
-                              label="Insert Built-in Variable ($x$)"
-                              placeholder="Insert $ServerNames_&lt;Tag&gt;$..."
-                              style="min-width: 260px; flex: 0 1 300px;"
-                              helper-text="Inserts into Value at cursor without overwriting"
+                              label="Insert $Variable$ Token"
+                              placeholder="Insert $ServerNames_&lt;Tag&gt;$ or $VariableName$..."
+                              style="min-width: 280px; flex: 0 1 320px;"
+                              helper-text="Inserts built-in scope tokens or scoped $VariableName$ at cursor"
                               @value-changed="${this._onScopeOptionPicked}"
                             ></vaadin-combo-box>
                           </div>
@@ -1135,15 +1143,27 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
   }
 
   private comboboxRenderer = (
-    scopeOption: PropertyValueScopeOptionApiModel
+    scopeOption: InsertableDollarTokenOption | PropertyValueScopeOptionApiModel
   ) => html`
     <div style="display: flex;">
       <div>
-        ${scopeOption.ValueOption}
+        <div>
+          ${scopeOption.ValueOption}
+          ${
+            'CategoryLabel' in scopeOption && scopeOption.CategoryLabel
+              ? html`<span
+                  style="font-size: var(--lumo-font-size-xxs, 0.7rem); color: var(--lumo-secondary-text-color); margin-left: 6px;"
+                  >(${scopeOption.CategoryLabel})</span
+                >`
+              : html``
+          }
+        </div>
         <div
           style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
         >
-          ${JSON.stringify(scopeOption.SampleResolvedValue)}
+          ${typeof scopeOption.SampleResolvedValue === 'string'
+            ? scopeOption.SampleResolvedValue
+            : JSON.stringify(scopeOption.SampleResolvedValue)}
         </div>
       </div>
     </div>

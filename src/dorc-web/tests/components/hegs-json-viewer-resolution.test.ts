@@ -7,6 +7,7 @@ import {
   resolveTokenSyntaxProfile
 } from '../../src/variable-resolution/property-token-parser';
 import {
+  buildInsertableDollarTokens,
   formatResolutionSource,
   inspectParameterBindingSyntax,
   inspectUnescapedDollars,
@@ -103,6 +104,47 @@ describe('property-token-parser', () => {
       hasOtherPropertyTokens: false,
       escapedSuggestion: '\\\\host\\E$$\\Apps'
     });
+    expect(
+      inspectUnescapedDollars('\\\\host\\E$\\Apps\\$OtherVar$')
+    ).to.deep.equal({
+      hasUnclosedDollar: true,
+      hasOtherPropertyTokens: true,
+      escapedSuggestion: '\\\\host\\E$$\\Apps\\$OtherVar$'
+    });
+    expect(inspectUnescapedDollars('\\\\host\\E$$\\Apps')).to.deep.equal({
+      hasUnclosedDollar: false,
+      hasOtherPropertyTokens: false,
+      escapedSuggestion: '\\\\host\\E$$\\Apps'
+    });
+
+    const insertableTokens = buildInsertableDollarTokens(
+      [
+        {
+          ValueOption: '$ServerNames_App$',
+          SampleResolvedValue: ['app01']
+        },
+        {
+          ValueOption: '',
+          SampleResolvedValue: null
+        }
+      ],
+      [
+        { Name: 'Target_Path', Secure: false },
+        { Name: 'Secret_Key', Secure: true },
+        { Name: 'Self_Var', Secure: false },
+        { Name: '' }
+      ],
+      'Self_Var'
+    );
+    expect(insertableTokens.map(t => t.ValueOption)).to.include.members([
+      '$ServerNames_App$',
+      '$EnvironmentName$',
+      '$Target_Path$',
+      '$Secret_Key$'
+    ]);
+    expect(insertableTokens.map(t => t.ValueOption)).not.to.include(
+      '$Self_Var$'
+    );
 
     expect(formatResolutionSource(undefined)).to.equal('Resolving…');
     expect(
@@ -220,9 +262,44 @@ describe('property-token-parser', () => {
         ResolvedValueJson: 'not-valid-json'
       }).effectiveDisplayValue
     ).to.equal('not-valid-json');
+    expect(
+      presentTrace({
+        Source: 'EnvironmentScope',
+        Diagnostic: 'MissingInScope',
+        ResolvedValueJson: '"$MissingChild$"'
+      }).severity
+    ).to.equal('unresolved');
+    expect(
+      presentTrace({
+        Source: 'EnvironmentScope',
+        Diagnostic: 'RuntimeOnly',
+        ResolvedValueJson: '"$DropFolder$"'
+      }).severity
+    ).to.equal('warning');
+    expect(
+      presentTrace({
+        Source: 'EnvironmentScope',
+        Diagnostic: 'NonStringInConcatenation',
+        ResolvedValueJson: '"$ServerNames_App$"'
+      }).severity
+    ).to.equal('warning');
+    expect(
+      presentTrace({
+        Source: 'EnvironmentScope',
+        Diagnostic: 'ValueTruncated',
+        ResolvedValueJson: '"long"'
+      }).severity
+    ).to.equal('warning');
 
     expect(inspectParameterBindingSyntax('   ')).to.equal(undefined);
     expect(inspectParameterBindingSyntax('${Valid_Var}')).to.equal(undefined);
+    expect(inspectParameterBindingSyntax(' ${Valid_Var} ')).to.deep.include({
+      kind: 'dollar-syntax',
+      suggestedVariableName: 'Valid_Var'
+    });
+    expect(inspectParameterBindingSyntax('\\\\host\\E$$\\Apps')).to.deep.include({
+      kind: 'mixed-text'
+    });
     expect(inspectParameterBindingSyntax('C:\\StaticPath')).to.equal(undefined);
     expect(inspectParameterBindingSyntax('$Legacy_Var$')).to.deep.include({
       kind: 'dollar-syntax',
@@ -619,6 +696,26 @@ describe('hegs-json-viewer contextual property resolution', () => {
       status: 'resolved',
       resolvedValue: 'https://ut1.local:8443/$cost',
       resolvedDisplayString: 'https://ut1.local:8443/$cost'
+    });
+
+    traces.set('SecretProp', {
+      PropertyName: 'SecretProp',
+      Source: 'EnvironmentScope',
+      IsSecure: true,
+      Diagnostic: 'Ok',
+      ResolvedValueJson: '"super-secret-plaintext"'
+    });
+    expect(evaluateStringWithTraces('$SecretProp$', traces)).to.deep.equal({
+      status: 'resolved',
+      resolvedValue: '•••••••• (Secure)',
+      resolvedDisplayString: '•••••••• (Secure)'
+    });
+    expect(
+      evaluateStringWithTraces('pwd=$SecretProp$', traces)
+    ).to.deep.equal({
+      status: 'resolved',
+      resolvedValue: 'pwd=•••••••• (Secure)',
+      resolvedDisplayString: 'pwd=•••••••• (Secure)'
     });
 
     expect(
