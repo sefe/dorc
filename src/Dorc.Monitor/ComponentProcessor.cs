@@ -71,6 +71,7 @@ namespace Dorc.Monitor
             _logger.LogInformation($"Deploying component with the name '{component.ComponentName}' and id '{component.ComponentId}' of type '{component.ComponentType}' (Enum Value: {(int)component.ComponentType}).");
 
             var deploymentResultStatus = DeploymentResultStatus.StatusNotSet;
+            var preserveRunningStatusOnInterruption = false;
             StringBuilder componentResultLogBuilder = new StringBuilder();
 
             try
@@ -201,7 +202,7 @@ namespace Dorc.Monitor
                 }
                 else
                 {
-                    deploymentResultStatus = DeploymentResultStatus.Running;
+                    preserveRunningStatusOnInterruption = true;
                     _logger.LogWarning(
                         "Processing of the component '{ComponentName}' was interrupted while request {RequestId} is still Running (monitor shutdown or lock loss); keeping component status Running for recovery.",
                         component.ComponentName,
@@ -218,21 +219,28 @@ namespace Dorc.Monitor
             finally
             {
                 deploymentResult.Log = componentResultLogBuilder.ToString();
-                requestsPersistentSource.UpdateResultStatus(
-                    deploymentResult,
-                    deploymentResultStatus);
-
-                componentsPersistentSource.SaveEnvComponentStatus(
-                    environmentId,
-                    component,
-                    deploymentResultStatus.ToString(),
-                    requestId);
-
-                eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                if (preserveRunningStatusOnInterruption)
                 {
-                    Status = deploymentResultStatus.ToString()
-                }).ContinueWith(t => _logger.LogWarning(t.Exception!.InnerException,
-                    "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
+                    requestsPersistentSource.UpdateResultLog(deploymentResult, deploymentResult.Log);
+                }
+                else
+                {
+                    requestsPersistentSource.UpdateResultStatus(
+                        deploymentResult,
+                        deploymentResultStatus);
+
+                    componentsPersistentSource.SaveEnvComponentStatus(
+                        environmentId,
+                        component,
+                        deploymentResultStatus.ToString(),
+                        requestId);
+
+                    eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                    {
+                        Status = deploymentResultStatus.ToString()
+                    }).ContinueWith(t => _logger.LogWarning(t.Exception!.InnerException,
+                        "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
+                }
             }
 
             return deploymentResultStatus != DeploymentResultStatus.Failed;
@@ -253,7 +261,7 @@ namespace Dorc.Monitor
 
                 return !string.Equals(currentStatus, DeploymentRequestStatus.Running.ToString(), StringComparison.OrdinalIgnoreCase);
             }
-            catch (Exception ex)
+            catch (InvalidOperationException ex)
             {
                 _logger.LogWarning(ex, "Failed to check request {RequestId} status during component cancellation.", requestId);
                 return false;

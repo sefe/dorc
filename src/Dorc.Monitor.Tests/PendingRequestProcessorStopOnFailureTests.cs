@@ -535,9 +535,13 @@ namespace Dorc.Monitor.Tests
 
             sut.Execute(dto, CancellationToken.None, mockLoggerFactory);
 
-            // Request must NOT be finalized as Cancelled or Completed so startup recovery (S-004) can handle it
+            // Request must NOT be finalized as Cancelled or Completed; instead it transitions Running -> Pending for recovery
             mockRequestsPersistentSource.DidNotReceiveWithAnyArgs()
                 .SetRequestCompletionStatus(default, default, default, default);
+            mockRequestsPersistentSource.Received(1).SwitchDeploymentRequestStatuses(
+                Arg.Is<IList<DeploymentRequestApiModel>>(l => l.Count == 1 && l[0].Id == 100),
+                DeploymentRequestStatus.Running,
+                DeploymentRequestStatus.Pending);
         }
     }
 }

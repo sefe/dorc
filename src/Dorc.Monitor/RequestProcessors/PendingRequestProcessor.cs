@@ -309,8 +309,27 @@ namespace Dorc.Monitor.RequestProcessors
                                 var currentDbRequestStatus = requestsPersistentSource.GetRequest(requestToExecute.Request.Id)?.Status;
                                 if (string.Equals(currentDbRequestStatus, DeploymentRequestStatus.Running.ToString(), StringComparison.OrdinalIgnoreCase))
                                 {
+                                    var resumed = requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                                        new List<DeploymentRequestApiModel> { requestToExecute.Request },
+                                        DeploymentRequestStatus.Running,
+                                        DeploymentRequestStatus.Pending);
+
+                                    if (resumed > 0)
+                                    {
+                                        requestToExecute.Request.Status = DeploymentRequestStatus.Pending.ToString();
+                                        eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                                            RequestId: requestToExecute.Request.Id,
+                                            Status: DeploymentRequestStatus.Pending.ToString(),
+                                            StartedTime: null,
+                                            CompletedTime: null,
+                                            Timestamp: DateTimeOffset.UtcNow
+                                        )).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                                            "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                                            TaskContinuationOptions.OnlyOnFaulted);
+                                    }
+
                                     logger.LogWarning(
-                                        "Request {RequestId} execution was interrupted while still Running in DB (monitor shutdown or lock loss); leaving request in Running state for startup recovery.",
+                                        "Request {RequestId} execution was interrupted while still Running in DB (monitor shutdown or lock loss); transitioned Running -> Pending for recovery.",
                                         requestToExecute.Request.Id);
                                     return;
                                 }

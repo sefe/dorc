@@ -95,13 +95,14 @@ namespace Dorc.Monitor.Tests
                 component, result, 7, false, 1, false, "RVC DEV", "C:\\Scripts",
                 new Dictionary<string, VariableValue>(), CancellationToken.None));
 
-            // Must NOT mark result as Cancelled when parent request is still Running
+            // Initial dispatch sets Running once; finally block must only persist the log and NOT re-write Running or Cancelled
             requests.DidNotReceive().UpdateResultStatus(
                 result,
                 Arg.Is<DeploymentResultStatus>(s => s.Value == DeploymentResultStatus.Cancelled.Value));
-            requests.Received().UpdateResultStatus(
+            requests.Received(1).UpdateResultStatus(
                 result,
                 Arg.Is<DeploymentResultStatus>(s => s.Value == DeploymentResultStatus.Running.Value));
+            requests.Received(1).UpdateResultLog(result, Arg.Any<string>());
         }
 
         [TestMethod]
