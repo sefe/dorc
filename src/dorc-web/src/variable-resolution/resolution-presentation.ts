@@ -57,11 +57,7 @@ export function lookupTrace(
 }
 
 export function inspectUnescapedDollars(raw: string): UnescapedDollarInspection {
-  if (
-    !raw ||
-    !raw.includes('$') ||
-    raw.trimStart().startsWith(EXPRESSION_PREFIX)
-  ) {
+  if (!raw || !raw.includes('$')) {
     return {
       hasUnclosedDollar: false,
       hasOtherPropertyTokens: false,
@@ -72,13 +68,19 @@ export function inspectUnescapedDollars(raw: string): UnescapedDollarInspection 
     };
   }
 
+  const trimmedStart = raw.trimStart();
+  const leadingWhitespaceLen = raw.length - trimmedStart.length;
+  const hasFnPrefix = trimmedStart.startsWith(EXPRESSION_PREFIX);
+  let out = hasFnPrefix
+    ? raw.slice(0, leadingWhitespaceLen + EXPRESSION_PREFIX.length)
+    : '';
+  let braceOut = out;
+  let i = out.length;
+
   let hasUnclosedDollar = false;
   let hasOtherPropertyTokens = false;
   let hasBraceSyntax = false;
   let isTypingOpenToken = false;
-  let out = '';
-  let braceOut = '';
-  let i = 0;
 
   while (i < raw.length) {
     // Already-escaped $$
@@ -173,6 +175,24 @@ const RUNTIME_DOLLAR_TOKENS: Array<{ name: string; description: string }> = [
   }
 ];
 
+const FN_EXPRESSION_SNIPPETS: Array<{
+  snippet: string;
+  description: string;
+}> = [
+  {
+    snippet: 'fn:System.IO.Path.Combine("$DropFolder$", "app")',
+    description: 'C# Path.Combine with $Variable$ expansion'
+  },
+  {
+    snippet: 'fn:"$EnvironmentShortName$".ToLowerInvariant()',
+    description: 'C# string transformation on a $Variable$ token'
+  },
+  {
+    snippet: 'fn:System.DateTime.UtcNow.ToString("yyyyMMdd")',
+    description: 'Dynamic UTC date string evaluated at deploy time'
+  }
+];
+
 export function buildInsertableDollarTokens(
   scopeOptions: PropertyValueScopeOptionApiModel[] | undefined,
   properties: PropertyApiModel[] | undefined,
@@ -221,6 +241,17 @@ export function buildInsertableDollarTokens(
         ? 'Encrypted variable ($' + name + '$)'
         : 'Scoped DOrc variable ($' + name + '$)',
       CategoryLabel: prop.Secure ? 'Secure Variable' : 'Variable'
+    });
+  }
+
+  for (const expr of FN_EXPRESSION_SNIPPETS) {
+    const key = expr.snippet.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    result.push({
+      ValueOption: expr.snippet,
+      SampleResolvedValue: expr.description,
+      CategoryLabel: 'fn: C# Expression'
     });
   }
 
@@ -576,6 +607,12 @@ export type DollarValueSegment =
       displayText: string;
     }
   | {
+      kind: 'expression-prefix';
+      rawText: 'fn:';
+      displayText: 'fn:';
+      tooltip: string;
+    }
+  | {
       kind: 'escaped-dollar';
       rawText: '$$';
       displayText: '$';
@@ -602,6 +639,7 @@ export interface ActiveDollarCompletionTrigger {
   dollarStartIndex: number;
   replaceEndIndex: number;
   queryText: string;
+  triggerKind?: 'dollar' | 'fn';
 }
 
 export function formatSampleResolvedPreview(sampleValue: unknown): string {
@@ -619,17 +657,32 @@ export function detectActiveDollarCompletion(
   rawValue: string,
   caretIndex: number
 ): ActiveDollarCompletionTrigger | undefined {
-  if (
-    !rawValue ||
-    caretIndex <= 0 ||
-    rawValue.trimStart().startsWith(EXPRESSION_PREFIX)
-  ) {
+  if (!rawValue || caretIndex <= 0) {
     return undefined;
   }
 
   const clampedCaret = Math.min(caretIndex, rawValue.length);
   const prefix = rawValue.slice(0, clampedCaret);
-  let idx = 0;
+  const trimmedPrefix = prefix.trimStart();
+  const leadingWs = prefix.length - trimmedPrefix.length;
+
+  // Detect typing fn: at the start of the value before any $ token is opened
+  if (
+    trimmedPrefix.toLowerCase().startsWith(EXPRESSION_PREFIX) &&
+    !trimmedPrefix.includes('$') &&
+    /^[A-Za-z0-9_.:"]*$/.test(trimmedPrefix)
+  ) {
+    return {
+      dollarStartIndex: leadingWs,
+      replaceEndIndex: clampedCaret,
+      queryText: trimmedPrefix,
+      triggerKind: 'fn'
+    };
+  }
+
+  let idx = trimmedPrefix.startsWith(EXPRESSION_PREFIX)
+    ? leadingWs + EXPRESSION_PREFIX.length
+    : 0;
 
   while (idx < prefix.length) {
     if (prefix[idx] !== '$') {
@@ -657,7 +710,8 @@ export function detectActiveDollarCompletion(
       if (
         ch === '\\' ||
         ch === '/' ||
-        /\s/.test(ch) ||
+        ch === '\r' ||
+        ch === '\n' ||
         ch === '{' ||
         ch === '}'
       ) {
@@ -671,7 +725,7 @@ export function detectActiveDollarCompletion(
     }
 
     const candidateQuery = prefix.slice(idx + 1);
-    if (/^[A-Za-z0-9_.-]*$/.test(candidateQuery)) {
+    if (/^[A-Za-z0-9_.\- ]*$/.test(candidateQuery)) {
       const replaceEnd =
         clampedCaret < rawValue.length && rawValue[clampedCaret] === '$'
           ? clampedCaret + 1
@@ -679,7 +733,8 @@ export function detectActiveDollarCompletion(
       return {
         dollarStartIndex: idx,
         replaceEndIndex: replaceEnd,
-        queryText: candidateQuery
+        queryText: candidateQuery,
+        triggerKind: 'dollar'
       };
     }
 
@@ -693,9 +748,35 @@ export function filterInsertableDollarTokens(
   tokens: readonly InsertableDollarTokenOption[],
   queryText: string
 ): InsertableDollarTokenOption[] {
-  const normalized = queryText.replace(/^\$+|\$+$/g, '').trim().toLowerCase();
-  if (!normalized) {
+  const trimmedQuery = queryText.trim().toLowerCase();
+  if (!trimmedQuery) {
     return [...tokens];
+  }
+  if (trimmedQuery.startsWith(EXPRESSION_PREFIX)) {
+    const fnSubQuery = trimmedQuery.slice(EXPRESSION_PREFIX.length).trim();
+    const fnMatches = tokens.filter(opt => {
+      const tokenName = opt.ValueOption.toLowerCase();
+      const sample = formatSampleResolvedPreview(
+        opt.SampleResolvedValue
+      ).toLowerCase();
+      if (!tokenName.startsWith(EXPRESSION_PREFIX)) {
+        return false;
+      }
+      return (
+        !fnSubQuery ||
+        tokenName.includes(fnSubQuery) ||
+        sample.includes(fnSubQuery)
+      );
+    });
+    if (fnMatches.length > 0) {
+      return fnMatches;
+    }
+  }
+  const normalized = trimmedQuery.replace(/^\$+|\$+$/g, '').trim();
+  if (!normalized) {
+    return tokens.filter(
+      opt => !opt.ValueOption.toLowerCase().startsWith(EXPRESSION_PREFIX)
+    );
   }
   return tokens.filter(opt => {
     const tokenName = opt.ValueOption.toLowerCase();
@@ -798,20 +879,36 @@ export function segmentizeDollarValueWithTraces(
     return [];
   }
 
-  if (rawValue.trimStart().startsWith(EXPRESSION_PREFIX)) {
-    return [
-      {
-        kind: 'literal',
-        rawText: rawValue,
-        displayText: rawValue
-      }
-    ];
-  }
+  const trimmedStart = rawValue.trimStart();
+  const leadingWsLen = rawValue.length - trimmedStart.length;
+  const normalizedInput = trimmedStart.startsWith(EXPRESSION_PREFIX)
+    ? trimmedStart
+    : rawValue;
 
-  const tokens = parsePropertyTokens(rawValue, 'standard');
+  const tokens = parsePropertyTokens(normalizedInput, 'standard');
   const segments: DollarValueSegment[] = [];
 
+  if (leadingWsLen > 0 && trimmedStart.startsWith(EXPRESSION_PREFIX)) {
+    const ws = rawValue.slice(0, leadingWsLen);
+    segments.push({
+      kind: 'literal',
+      rawText: ws,
+      displayText: ws
+    });
+  }
+
   for (const token of tokens) {
+    if (token.kind === 'expression-prefix') {
+      segments.push({
+        kind: 'expression-prefix',
+        rawText: 'fn:',
+        displayText: 'fn:',
+        tooltip:
+          'Dynamic C# expression prefix (fn:) — $Variable$ tokens expand before C# evaluation'
+      });
+      continue;
+    }
+
     if (token.kind === 'static') {
       segments.push({
         kind: 'literal',
@@ -838,15 +935,6 @@ export function segmentizeDollarValueWithTraces(
         displayText: token.rawText,
         tooltip:
           'Unescaped $ prevents $Variable$ tokens from expanding — escape literal $ as $$'
-      });
-      continue;
-    }
-
-    if (token.kind !== 'property') {
-      segments.push({
-        kind: 'literal',
-        rawText: token.rawText,
-        displayText: token.rawText
       });
       continue;
     }
@@ -996,11 +1084,23 @@ export function evaluateDollarValuePreview(
   tracesByProperty: ReadonlyMap<string, PropertyResolutionTraceApiModel>,
   scopeLabel: string
 ): DollarValuePreview | undefined {
-  if (!rawText || !rawText.includes('$') || rawText.trimStart().startsWith('fn:')) {
+  if (!rawText) {
     return undefined;
   }
 
-  const tokens = parsePropertyTokens(rawText, 'standard');
+  const trimmedStart = rawText.trimStart();
+  const hasFnPrefix = trimmedStart.startsWith(EXPRESSION_PREFIX);
+  if (!rawText.includes('$') && !hasFnPrefix) {
+    return undefined;
+  }
+
+  const leadingWs = hasFnPrefix
+    ? rawText.slice(0, rawText.length - trimmedStart.length)
+    : '';
+  const tokens = parsePropertyTokens(
+    hasFnPrefix ? trimmedStart : rawText,
+    'standard'
+  );
   const propTokens = tokens.filter(
     (t): t is Extract<ParsedPropertyToken, { kind: 'property' }> =>
       t.kind === 'property'
@@ -1016,13 +1116,26 @@ export function evaluateDollarValuePreview(
     };
   }
 
-  if (propTokens.length === 0 && !tokens.some(t => t.kind === 'escaped-dollar')) {
+  if (
+    propTokens.length === 0 &&
+    !tokens.some(t => t.kind === 'escaped-dollar') &&
+    !hasFnPrefix
+  ) {
     return undefined;
   }
 
-  let out = '';
-  let status: 'resolved' | 'warning' | 'unresolved' | 'masked' = 'resolved';
+  let out = leadingWs;
+  let status: 'resolved' | 'warning' | 'unresolved' | 'masked' = hasFnPrefix
+    ? 'warning'
+    : 'resolved';
+  let anyMissingEffectiveValue = false;
   const details: string[] = [];
+
+  if (hasFnPrefix) {
+    details.push(
+      'fn: C# expression evaluated at deploy time after $Variable$ expansion'
+    );
+  }
 
   for (const token of tokens) {
     if (token.kind === 'escaped-dollar') {
@@ -1037,6 +1150,7 @@ export function evaluateDollarValuePreview(
     const trace = lookupTrace(tracesByProperty, token.propertyName);
     if (!trace) {
       status = 'unresolved';
+      anyMissingEffectiveValue = true;
       out += token.rawText;
       details.push(`$${token.propertyName}$: resolving in ${scopeLabel}…`);
       continue;
@@ -1044,6 +1158,10 @@ export function evaluateDollarValuePreview(
 
     const presented = presentTrace(trace);
     details.push(`$${token.propertyName}$: ${presented.diagnosticTitle} (${presented.sourceLabel})`);
+
+    if (!presented.hasEffectiveValue) {
+      anyMissingEffectiveValue = true;
+    }
 
     if (presented.severity === 'masked') {
       if (status === 'resolved') status = 'masked';
@@ -1057,13 +1175,15 @@ export function evaluateDollarValuePreview(
       out += presented.effectiveDisplayValue;
     } else {
       status = 'unresolved';
-      out += token.rawText;
+      out += presented.hasEffectiveValue
+        ? presented.effectiveDisplayValue
+        : token.rawText;
     }
   }
 
   return {
     status,
-    resolvedText: out,
+    resolvedText: anyMissingEffectiveValue ? rawText : out,
     scopeSummary: details.join(' · ')
   };
 }

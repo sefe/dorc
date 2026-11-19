@@ -1693,7 +1693,14 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
                 <span
                   ><strong>$ Token IntelliSense</strong>
                   ${this.inlineDollarQuery
-                    ? html`matching <code>$${this.inlineDollarQuery}</code>`
+                    ? html`matching
+                        <code
+                          >${this.inlineDollarQuery
+                            .toLowerCase()
+                            .startsWith('fn:')
+                            ? this.inlineDollarQuery
+                            : `$${this.inlineDollarQuery}`}</code
+                        >`
                     : html``}</span
                 >
                 <span>↑↓ navigate · Tab/Enter insert · Esc close</span>
@@ -1840,6 +1847,14 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
               ${segments.map(seg => {
                 if (seg.kind === 'literal') {
                   return html`<span class="dollar-segment-literal"
+                    >${seg.displayText}</span
+                  >`;
+                }
+                if (seg.kind === 'expression-prefix') {
+                  return html`<span
+                    class="dollar-token-pill dollar-token-pill--runtime"
+                    data-token-status="expression-prefix"
+                    title="${seg.tooltip}"
                     >${seg.displayText}</span
                   >`;
                 }

@@ -1535,7 +1535,14 @@ export class PageVariables extends PageElement {
                 <span
                   ><strong>$ Token IntelliSense</strong>
                   ${this.inlineDollarQuery
-                    ? html`matching <code>$${this.inlineDollarQuery}</code>`
+                    ? html`matching
+                        <code
+                          >${this.inlineDollarQuery
+                            .toLowerCase()
+                            .startsWith('fn:')
+                            ? this.inlineDollarQuery
+                            : `$${this.inlineDollarQuery}`}</code
+                        >`
                     : html``}</span
                 >
                 <span>↑↓ navigate · Tab/Enter insert · Esc close</span>
@@ -1688,6 +1695,14 @@ export class PageVariables extends PageElement {
                     >${seg.displayText}</span
                   >`;
                 }
+                if (seg.kind === 'expression-prefix') {
+                  return html`<span
+                    class="dollar-token-pill dollar-token-pill--runtime"
+                    data-token-status="expression-prefix"
+                    title="${seg.tooltip}"
+                    >${seg.displayText}</span
+                  >`;
+                }
                 if (seg.kind === 'escaped-dollar') {
                   return html`<span
                     class="dollar-token-pill dollar-token-pill--escaped"
@@ -1772,12 +1787,24 @@ export class PageVariables extends PageElement {
     if (combobox) {
       combobox.value = '';
     }
+    const fallbackScope =
+      this.selectedVariableScopes.find(s => Boolean(s)) || '';
+    this.loadScopeOptions(fallbackScope);
+    this.draftPreviewTraces = new Map();
+    void this.refreshDraftValuePreview();
   }
 
   public removeQueuedScope(scope: string) {
     this.selectedVariableScopes = this.selectedVariableScopes.filter(
       s => s !== scope
     );
+    const activeScope =
+      this.newVariableScope ||
+      this.selectedVariableScopes.find(s => Boolean(s)) ||
+      '';
+    this.loadScopeOptions(activeScope);
+    this.draftPreviewTraces = new Map();
+    void this.refreshDraftValuePreview();
   }
 
   removeItem<T>(arr: Array<T>, value: T): Array<T> {

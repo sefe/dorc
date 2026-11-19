@@ -74,7 +74,8 @@ export function isValidPropertyTokenName(candidate: string): boolean {
       c === '$' ||
       c === '\\' ||
       c === '/' ||
-      /\s/.test(c) ||
+      c === '\r' ||
+      c === '\n' ||
       c === '{' ||
       c === '}'
     ) {
@@ -93,7 +94,14 @@ function findClosingPropertyTokenDollar(
     if (c === '$') {
       return idx;
     }
-    if (c === '\\' || c === '/' || /\s/.test(c) || c === '{' || c === '}') {
+    if (
+      c === '\\' ||
+      c === '/' ||
+      c === '\r' ||
+      c === '\n' ||
+      c === '{' ||
+      c === '}'
+    ) {
       return -1;
     }
   }

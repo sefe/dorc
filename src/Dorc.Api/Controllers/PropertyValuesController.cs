@@ -386,7 +386,6 @@ namespace Dorc.Api.Controllers
             }
 
             const int pageSize = 500;
-            const int maxPages = 10;
             var filterOperators = new PagedDataOperators
             {
                 Filters = new List<PagedDataFilter>
@@ -399,7 +398,7 @@ namespace Dorc.Api.Controllers
                 }
             };
 
-            for (var page = 1; page <= maxPages; page++)
+            for (var page = 1; ; page++)
             {
                 var pagedSearch = _propertyValuesPersistentSource.GetPropertyValuesForSearchValueByPage(
                     pageSize,
@@ -458,7 +457,7 @@ namespace Dorc.Api.Controllers
                 // Fallback to regex matching when value contains ${Var} brace syntax or unescaped literal $
             }
 
-            var withoutEscapedDollarPairs = rawValue.Replace("$$", string.Empty);
+            var withoutEscapedDollarPairs = rawValue.Replace("$$", "\u0000");
             return tokenRegex.IsMatch(withoutEscapedDollarPairs);
         }
 

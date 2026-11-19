@@ -381,6 +381,59 @@ describe('page-variables Secure toggle', () => {
         )
       ).toBe(true);
 
+      // Verify typing fn: triggers fn: expression IntelliSense and $ inside fn: triggers $Variable$ completion
+      valInput.value = 'fn:';
+      if (innerInput) {
+        innerInput.value = 'fn:';
+        innerInput.setSelectionRange(3, 3);
+      }
+      valInput.dispatchEvent(new Event('input', { bubbles: true }));
+      await settle();
+
+      popover = page.shadowRoot?.querySelector(
+        '#dollarTokenIntellisensePopover'
+      );
+      expect(popover).not.toBeNull();
+      expect((page as any).inlineDollarQuery).toBe('fn:');
+      expect(
+        (page as any)
+          .getFilteredCompletionTokens()
+          .every((t: { ValueOption: string }) =>
+            t.ValueOption.startsWith('fn:')
+          )
+      ).toBe(true);
+
+      // Typing $Serv inside an fn: expression triggers $Variable$ completion and renders fn: + token pills
+      valInput.value = 'fn:System.IO.Path.Combine("$Serv", "app")';
+      if (innerInput) {
+        innerInput.value = valInput.value;
+        innerInput.setSelectionRange(32, 32);
+      }
+      valInput.dispatchEvent(new Event('input', { bubbles: true }));
+      await settle();
+
+      expect((page as any).inlineDollarQuery).toBe('Serv');
+      valInput.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Tab', bubbles: true })
+      );
+      await settle();
+
+      expect(valInput.value).toBe(
+        'fn:System.IO.Path.Combine("$ServerNames_STP_Strategies$", "app")'
+      );
+
+      const fnStrip = page.shadowRoot?.querySelector(
+        '#dollarTokenSegmentStrip'
+      );
+      expect(fnStrip).not.toBeNull();
+      expect(
+        fnStrip?.querySelector('[data-token-status="expression-prefix"]')
+          ?.textContent
+      ).toBe('fn:');
+      expect(fnStrip?.textContent).toContain(
+        'fn:System.IO.Path.Combine("GMDV-ENDAPP30", "app")'
+      );
+
       page.remove();
     } finally {
       scopeSpy.mockRestore();

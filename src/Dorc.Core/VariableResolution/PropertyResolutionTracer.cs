@@ -14,6 +14,7 @@ namespace Dorc.Core.VariableResolution
     {
         private const int MaxRecursionDepth = 32;
         private const int MaxRequestedProperties = 250;
+        private const int MaxTotalEvaluations = 1024;
         private const int MaxChainHops = 64;
         private const int MaxExpandedValueLength = 65_536;
         private const string ExpressionMarker = "fn:";
@@ -76,6 +77,7 @@ namespace Dorc.Core.VariableResolution
             var snapshot = BuildResolutionSnapshot(request, environment, user);
             var evaluatedCache = new Dictionary<string, (EvaluatedResult Result, IReadOnlyList<string> Chain)>(StringComparer.Ordinal);
             var results = new List<PropertyResolutionTraceApiModel>(uniqueNames.Count);
+            var remainingEvaluations = MaxTotalEvaluations;
 
             foreach (var propName in uniqueNames)
             {
@@ -101,7 +103,7 @@ namespace Dorc.Core.VariableResolution
 
                 var activeStack = new HashSet<string>(StringComparer.Ordinal);
                 var chain = new List<string>();
-                var evaluated = EvaluateProperty(propName, snapshot, activeStack, evaluatedCache, chain, 0);
+                var evaluated = EvaluateProperty(propName, snapshot, activeStack, evaluatedCache, chain, 0, ref remainingEvaluations);
                 results.Add(ToTraceApiModel(propName, evaluated, chain));
             }
 
@@ -340,7 +342,8 @@ namespace Dorc.Core.VariableResolution
             HashSet<string> activeStack,
             Dictionary<string, (EvaluatedResult Result, IReadOnlyList<string> Chain)> evaluatedCache,
             List<string> chain,
-            int depth)
+            int depth,
+            ref int remainingEvaluations)
         {
             if (evaluatedCache.TryGetValue(propertyName, out var cached))
             {
@@ -391,7 +394,7 @@ namespace Dorc.Core.VariableResolution
 
             var entry = foundEntry!;
 
-            if (depth > MaxRecursionDepth || !activeStack.Add(propertyName))
+            if (remainingEvaluations <= 0 || depth > MaxRecursionDepth || !activeStack.Add(propertyName))
             {
                 chain.Add($"${propertyName}$ -> [CircularReference]");
                 return new EvaluatedResult(
@@ -405,6 +408,8 @@ namespace Dorc.Core.VariableResolution
                     "CircularReference",
                     null);
             }
+
+            remainingEvaluations--;
 
             var localChain = new List<string>();
             try
@@ -504,7 +509,8 @@ namespace Dorc.Core.VariableResolution
                             activeStack,
                             evaluatedCache,
                             localChain,
-                            depth + 1);
+                            depth + 1,
+                            ref remainingEvaluations);
 
                         evaluatedParts.Add((token, childResult));
 

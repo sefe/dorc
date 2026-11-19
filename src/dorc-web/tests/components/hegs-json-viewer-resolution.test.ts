@@ -8,6 +8,8 @@ import {
 } from '../../src/variable-resolution/property-token-parser';
 import {
   buildInsertableDollarTokens,
+  detectActiveDollarCompletion,
+  evaluateDollarValuePreview,
   formatResolutionSource,
   inspectParameterBindingSyntax,
   inspectUnescapedDollars,
@@ -422,6 +424,70 @@ describe('property-token-parser', () => {
       { kind: 'static', value: 'prefix', rawText: 'prefix' },
       { kind: 'unclosed-token', rawText: '$Unclosed' }
     ]);
+
+    // Legacy server tag tokens containing spaces (e.g. $Web Tier$)
+    expect(parsePropertyTokens('https://$Web Tier$:8443')).to.deep.equal([
+      { kind: 'static', value: 'https://', rawText: 'https://' },
+      {
+        kind: 'property',
+        propertyName: 'Web Tier',
+        rawText: '$Web Tier$',
+        syntax: 'dollar'
+      },
+      { kind: 'static', value: ':8443', rawText: ':8443' }
+    ]);
+
+    // detectActiveDollarCompletion supports spaces and fn: expression prefix
+    expect(
+      detectActiveDollarCompletion('https://$Web Ti', 'https://$Web Ti'.length)
+    ).to.deep.equal({
+      triggerKind: 'dollar',
+      dollarStartIndex: 8,
+      replaceEndIndex: 15,
+      queryText: 'Web Ti'
+    });
+    expect(detectActiveDollarCompletion('fn:Str', 6)).to.deep.equal({
+      triggerKind: 'fn',
+      dollarStartIndex: 0,
+      replaceEndIndex: 6,
+      queryText: 'fn:Str'
+    });
+
+    // evaluateDollarValuePreview preserves rawText when any referenced token is missing
+    const previewTraces = new Map<string, PropertyResolutionTraceApiModel>([
+      [
+        'Host',
+        {
+          PropertyName: 'Host',
+          Source: 'EnvironmentScope',
+          Diagnostic: 'Ok',
+          ResolvedValueJson: '"app01.corp"'
+        }
+      ],
+      [
+        'MissingPort',
+        {
+          PropertyName: 'MissingPort',
+          Source: 'Unresolved',
+          Diagnostic: 'MissingInScope'
+        }
+      ]
+    ]);
+    const partialPreview = evaluateDollarValuePreview(
+      'https://$Host$:$MissingPort$/api',
+      previewTraces,
+      'UT1'
+    );
+    expect(partialPreview?.resolvedText).to.equal(
+      'https://$Host$:$MissingPort$/api'
+    );
+    expect(partialPreview?.status).to.equal('unresolved');
+    const completePreview = evaluateDollarValuePreview(
+      'https://$Host$:8443/api',
+      previewTraces,
+      'UT1'
+    );
+    expect(completePreview?.resolvedText).to.equal('https://app01.corp:8443/api');
   });
 
   it('extracts unique case-sensitive referenced property names across objects, arrays, keys, profiles, and skips DOM nodes', () => {

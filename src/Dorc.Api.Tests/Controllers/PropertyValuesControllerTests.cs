@@ -468,8 +468,9 @@ namespace Dorc.Api.Tests.Controllers
             var result = _controller.GetScopeOptions(envName);
 
             Assert.IsInstanceOfType(result, typeof(OkObjectResult));
-            var options = ((OkObjectResult)result).Value as List<PropertyValueScopeOptionApiModel>;
-            Assert.IsNotNull(options);
+            var okResult = (OkObjectResult)result;
+            Assert.IsInstanceOfType(okResult.Value, typeof(List<PropertyValueScopeOptionApiModel>));
+            var options = (List<PropertyValueScopeOptionApiModel>)okResult.Value!;
             Assert.AreEqual(2, options.Count);
             CollectionAssert.AreEquivalent(
                 new[] { "$ServerNames_TagA$", "$NonStringValueKey$" },
@@ -517,6 +518,11 @@ namespace Dorc.Api.Tests.Controllers
                 },
                 new PropertyValueDto
                 {
+                    Property = new PropertyApiModel { Name = "AdjacentTokensSeparatedByEscapedDollar", Secure = false },
+                    Value = "$Db$$Host$"
+                },
+                new PropertyValueDto
+                {
                     Property = new PropertyApiModel { Name = "UnrelatedProperty", Secure = false },
                     Value = "Server=$DbHostSecondary$"
                 }
@@ -558,8 +564,9 @@ namespace Dorc.Api.Tests.Controllers
             var result = _controller.GetWhereUsed("  DbHost  ");
 
             Assert.IsInstanceOfType(result, typeof(OkObjectResult));
-            var references = ((OkObjectResult)result).Value as List<PropertyUsageReferenceApiModel>;
-            Assert.IsNotNull(references);
+            var okResult = (OkObjectResult)result;
+            Assert.IsInstanceOfType(okResult.Value, typeof(List<PropertyUsageReferenceApiModel>));
+            var references = (List<PropertyUsageReferenceApiModel>)okResult.Value!;
             Assert.AreEqual(3, references.Count);
 
             Assert.AreEqual("BackupEndpoint", references[0].PropertyName);

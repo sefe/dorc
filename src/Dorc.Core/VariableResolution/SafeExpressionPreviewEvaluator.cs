@@ -480,7 +480,7 @@ namespace Dorc.Core.VariableResolution
                         return false;
                     }
 
-                    if (kind is SyntaxKind.DivideExpression or SyntaxKind.ModuloExpression && dblR == 0.0)
+                    if (kind is SyntaxKind.DivideExpression or SyntaxKind.ModuloExpression && dblR is 0.0 or -0.0)
                     {
                         return false;
                     }

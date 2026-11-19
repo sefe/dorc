@@ -155,6 +155,54 @@ describe('DeployEnv responsive layout', () => {
       expect(passedBanners[0].textContent).to.include(
         'Preflight passed: 2 variable(s) resolved for Endur DEV 1'
       );
+
+      // Verify checked component GenericArguments (${Var} brace-only syntax) are collected
+      const withComponentRefs = collectDeployReferencedVariables(
+        undefined,
+        [],
+        [
+          {
+            id: 42,
+            name: 'Copy Step',
+            checked: true,
+            numOfChildren: 0
+          } as any
+        ],
+        new Map([
+          [
+            42,
+            {
+              ComponentId: 42,
+              ScriptPath: JSON.stringify({
+                ScriptPath: '00 Generic/Copy.ps1',
+                GenericArguments: [
+                  { Name: 'Dest', Value: '${ComponentDestPath}' },
+                  { Name: 'IgnoredDollar', Value: '$NotUsedInGenericArgs$' }
+                ]
+              })
+            }
+          ]
+        ])
+      );
+      expect(withComponentRefs).to.deep.equal(['ComponentDestPath']);
+
+      // Verify non-Ok diagnostics (e.g. CircularReference) do not count as resolved
+      const circularSummary = computePreflightResolutionSummary(
+        ['CyclicVar'],
+        new Map([
+          [
+            'CyclicVar',
+            {
+              PropertyName: 'CyclicVar',
+              Source: 'EnvironmentScope',
+              Diagnostic: 'CircularReference'
+            }
+          ]
+        ])
+      );
+      expect(circularSummary.resolvedInEnvironmentVariableNames).to.deep.equal(
+        []
+      );
     } finally {
       defaultPropertyResolutionClientCache.resolveProperties = originalResolve;
     }

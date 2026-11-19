@@ -983,6 +983,37 @@ namespace Dorc.Core.Tests
             var tokens3 = parser.Parse(@"\\srv\ADMIN$\System32\IPC$").ToList();
             Assert.HasCount(1, tokens3);
             Assert.AreEqual(@"\\srv\ADMIN$\System32\IPC$", ((StaticToken)tokens3[0]).Value);
+
+            // Legacy server tag keys containing spaces (e.g. $Web Tier$)
+            var tokens4 = parser.Parse(@"https://$Web Tier$:8443/api").ToList();
+            Assert.HasCount(3, tokens4);
+            Assert.IsInstanceOfType<PropertyToken>(tokens4[1]);
+            Assert.AreEqual("Web Tier", ((PropertyToken)tokens4[1]).Value);
+        }
+
+        [TestMethod]
+        public void TraceProperties_CyclicBranchingRing_BoundedByEvaluationBudget()
+        {
+            var overrides = new List<RequestProperty>();
+            const int ringSize = 20;
+            for (var i = 0; i < ringSize; i++)
+            {
+                var next = (i + 1) % ringSize;
+                overrides.Add(new RequestProperty
+                {
+                    PropertyName = $"Ring_{i}",
+                    PropertyValue = $"$Ring_{next}$-$Ring_{next}$"
+                });
+            }
+
+            var res = _tracer.TraceProperties(new PropertyResolutionPreviewRequestApiModel
+            {
+                PropertyNames = new List<string> { "Ring_0" },
+                RequestOverrides = overrides
+            }, null, _user);
+
+            Assert.HasCount(1, res);
+            Assert.AreEqual("CircularReference", res[0].Diagnostic);
         }
 
         [TestMethod]

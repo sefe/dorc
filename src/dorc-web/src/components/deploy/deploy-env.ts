@@ -16,19 +16,23 @@ import { TextField } from '@vaadin/text-field';
 import { css, LitElement, nothing, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { PropertiesApi, RequestApi } from '../../apis/dorc-api';
-import type {
-  PropertyResolutionTraceApiModel,
-  RequestPostRequest
-} from '../../apis/dorc-api';
 import {
+  ComponentApiModel,
   DeployArtefactDto,
   DeployComponentDto,
+  DeploymentDefinitionsApi,
+  GetDeploymentDefinitionsResponse,
+  PropertiesApi,
   PropertyApiModel,
+  RequestApi,
   RequestProperty,
   RequestStatusDto
 } from '../../apis/dorc-api';
-import type { ProjectApiModel } from '../../apis/dorc-api';
+import type {
+  ProjectApiModel,
+  PropertyResolutionTraceApiModel,
+  RequestPostRequest
+} from '../../apis/dorc-api';
 import '../hegs-json-viewer';
 import './property-override-controls';
 import { ErrorNotification } from '../notifications/error-notification';
@@ -37,6 +41,7 @@ import { HegsTree } from './component-tree/hegs-tree';
 import { TreeNode } from './component-tree/TreeNode';
 import { SuccessfulDeployNotification } from './notifications/successful-deploy-notification';
 import { HegsJsonViewer } from '../hegs-json-viewer';
+import { parseScriptPathValue } from '../../helpers/generic-scripts';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 import { defaultPropertyResolutionClientCache } from '../../variable-resolution/property-resolution-client-cache';
 import {
@@ -56,10 +61,44 @@ export interface PreflightResolutionSummary {
   resolvedInEnvironmentVariableNames: string[];
 }
 
+function collectSelectedLeafTreeNodes(nodes: TreeNode[] | undefined): TreeNode[] {
+  if (!nodes || nodes.length === 0) {
+    return [];
+  }
+  const selected: TreeNode[] = [];
+  const visit = (items: TreeNode[]) => {
+    for (const node of items) {
+      if (node.disabled) {
+        continue;
+      }
+      if (node.children && node.children.length > 0) {
+        if (node.checked && !hasDisabledDescendant(node)) {
+          selected.push(node);
+        }
+        visit(node.children);
+      } else if (node.checked) {
+        selected.push(node);
+      }
+    }
+  };
+  visit(nodes);
+  return selected;
+}
+
+function hasDisabledDescendant(node: TreeNode): boolean {
+  if (!node.children || node.children.length === 0) {
+    return false;
+  }
+  return node.children.some(
+    child => Boolean(child.disabled) || hasDisabledDescendant(child)
+  );
+}
+
 export function collectDeployReferencedVariables(
   requestDto: unknown,
   propertyOverrides: RequestProperty[] | undefined,
-  componentNodes: TreeNode[] | undefined
+  componentNodes: TreeNode[] | undefined,
+  componentDefinitionsById?: ReadonlyMap<number, ComponentApiModel>
 ): string[] {
   const seen = new Set<string>();
   const ordered: string[] = [];
@@ -102,6 +141,24 @@ export function collectDeployReferencedVariables(
     )) {
       addName(name);
     }
+
+    if (componentDefinitionsById && componentDefinitionsById.size > 0) {
+      const selectedNodes = collectSelectedLeafTreeNodes(componentNodes);
+      for (const selectedNode of selectedNodes) {
+        const compDef = componentDefinitionsById.get(selectedNode.id);
+        if (!compDef?.ScriptPath) {
+          continue;
+        }
+        const parsedScript = parseScriptPathValue(compDef.ScriptPath);
+        for (const arg of parsedScript.arguments) {
+          for (const token of parsePropertyTokens(arg.value, 'brace-only')) {
+            if (token.kind === 'property') {
+              addName(token.propertyName);
+            }
+          }
+        }
+      }
+    }
   }
 
   return ordered;
@@ -117,25 +174,19 @@ export function computePreflightResolutionSummary(
 
   for (const name of referencedNames) {
     const trace = lookupTrace(tracesByProperty, name);
-    if (
-      !trace ||
-      trace.Source === 'Unresolved' ||
-      trace.Diagnostic === 'MissingInScope' ||
-      trace.Diagnostic === 'CircularReference'
-    ) {
+    if (!trace || trace.Source === 'Unresolved') {
+      unresolvedVariableNames.push(name);
+      continue;
+    }
+
+    const diag = trace.Diagnostic ?? 'Ok';
+    if (diag !== 'Ok' && diag !== 'FallbackToDefault') {
       unresolvedVariableNames.push(name);
     } else if (
-      trace.Diagnostic === 'FallbackToDefault' ||
+      diag === 'FallbackToDefault' ||
       trace.Source === 'GlobalDefault'
     ) {
       fallbackToDefaultVariableNames.push(name);
-    } else if (
-      trace.Source === 'EnvironmentScope' ||
-      trace.Source === 'AncestorEnvironmentScope' ||
-      trace.Source === 'BuiltInScopeOption' ||
-      trace.Source === 'RequestOverride'
-    ) {
-      resolvedInEnvironmentVariableNames.push(name);
     } else {
       resolvedInEnvironmentVariableNames.push(name);
     }
@@ -209,7 +260,12 @@ export class DeployEnv extends LitElement {
   @state()
   private preflightSummary: PreflightResolutionSummary | undefined;
 
+  @state()
+  private projectComponentDefinitions: Map<number, ComponentApiModel> =
+    new Map();
+
   private preflightGeneration = 0;
+  private componentDefsGeneration = 0;
 
   static get styles() {
     return css`
@@ -437,6 +493,12 @@ export class DeployEnv extends LitElement {
       this.closeDeployDialog
     );
 
+    this.addEventListener('tree-node-changed', () => {
+      requestAnimationFrame(() => {
+        void this.refreshPreflightResolution();
+      });
+    });
+
     const api = new PropertiesApi(dorcApiConfiguration);
     api.propertiesGet().subscribe({
       next: (data: PropertyApiModel[]) => {
@@ -454,20 +516,26 @@ export class DeployEnv extends LitElement {
       changedProperties.has('data') ||
       changedProperties.has('propertyOverrides') ||
       changedProperties.has('req') ||
-      changedProperties.has('project')
+      changedProperties.has('project') ||
+      changedProperties.has('dialogOpened') ||
+      changedProperties.has('projectComponentDefinitions')
     ) {
       this.refreshPreflightResolution();
     }
   }
 
   public async refreshPreflightResolution(): Promise<void> {
+    const activeRequestDto = this.dialogOpened
+      ? this.req?.requestDto
+      : undefined;
     const referencedNames = collectDeployReferencedVariables(
-      this.req?.requestDto,
+      activeRequestDto,
       this.propertyOverrides,
-      this.data
+      this.data,
+      this.projectComponentDefinitions
     );
     const currentEnvironment =
-      this.req?.requestDto?.Environment?.trim() || this.envName.trim();
+      (activeRequestDto?.Environment?.trim() || this.envName.trim());
 
     if (referencedNames.length === 0 || !currentEnvironment) {
       this.preflightGeneration++;
@@ -485,11 +553,11 @@ export class DeployEnv extends LitElement {
           {
             environmentName: currentEnvironment,
             projectName:
-              this.req?.requestDto?.Project ??
+              activeRequestDto?.Project ??
               this.project?.ProjectName ??
               undefined,
             requestOverrides:
-              this.req?.requestDto?.RequestProperties ?? this.propertyOverrides,
+              activeRequestDto?.RequestProperties ?? this.propertyOverrides,
             locationKind: 'deploy-request'
           },
           referencedNames
@@ -513,7 +581,8 @@ export class DeployEnv extends LitElement {
   private renderPreflightBanner(inDialog: boolean) {
     const summary = this.preflightSummary;
     const targetEnv =
-      this.req?.requestDto?.Environment?.trim() || this.envName.trim();
+      (inDialog ? this.req?.requestDto?.Environment?.trim() : undefined) ||
+      this.envName.trim();
     if (!summary || summary.totalReferencedCount === 0 || !targetEnv) {
       return nothing;
     }
@@ -943,10 +1012,42 @@ export class DeployEnv extends LitElement {
           if (hegsTree) {
             hegsTree.componentsLoading = false;
           }
+          this.loadProjectExecutableDefinitions(this._project?.ProjectId ?? 0);
         },
         (err: any) => console.error(err),
         () => console.log('done loading project components')
       );
+  }
+
+  private loadProjectExecutableDefinitions(projectId: number) {
+    if (!projectId) {
+      this.projectComponentDefinitions = new Map();
+      return;
+    }
+    const generation = ++this.componentDefsGeneration;
+    const defsApi = new DeploymentDefinitionsApi(dorcApiConfiguration);
+    defsApi
+      .deploymentDefinitionsGet({ projectId, page: 1, limit: 200 })
+      .subscribe({
+        next: (resp: GetDeploymentDefinitionsResponse) => {
+          if (generation !== this.componentDefsGeneration) {
+            return;
+          }
+          const byId = new Map<number, ComponentApiModel>();
+          for (const item of resp?.Items ?? []) {
+            if (item.Component?.ComponentId != null) {
+              byId.set(item.Component.ComponentId, item.Component);
+            }
+          }
+          this.projectComponentDefinitions = byId;
+        },
+        error: () => {
+          if (generation !== this.componentDefsGeneration) {
+            return;
+          }
+          this.projectComponentDefinitions = new Map();
+        }
+      });
   }
 
   private createTreeFromList(

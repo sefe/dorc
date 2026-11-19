@@ -1,3 +1,4 @@
+using System.Linq;
 ﻿using System.Text;
 
 namespace Dorc.Core.VariableResolution
@@ -5,6 +6,7 @@ namespace Dorc.Core.VariableResolution
     public class PropertyParser
     {
         private const char EscapeCharacter = '$';
+        private static readonly string[] AdminShareNames = ["ADMIN", "IPC"];
 
         public IEnumerable<Token> Parse(string value)
         {
@@ -74,7 +76,7 @@ namespace Dorc.Core.VariableResolution
             for (var j = startIndex; j < value.Length; j++)
             {
                 var ch = value[j];
-                if (ch == '\\' || ch == '/' || char.IsWhiteSpace(ch) || ch == '{' || ch == '}')
+                if (ch == '\\' || ch == '/' || ch == '\r' || ch == '\n' || ch == '{' || ch == '}')
                 {
                     return -1;
                 }
@@ -90,14 +92,14 @@ namespace Dorc.Core.VariableResolution
 
         private static bool IsValidPropertyTokenName(string candidate)
         {
-            if (string.IsNullOrEmpty(candidate))
+            if (string.IsNullOrWhiteSpace(candidate))
             {
                 return false;
             }
 
             foreach (var ch in candidate)
             {
-                if (ch == '\\' || ch == '/' || ch == EscapeCharacter || char.IsWhiteSpace(ch) || ch == '{' || ch == '}')
+                if (ch == '\\' || ch == '/' || ch == EscapeCharacter || ch == '\r' || ch == '\n' || ch == '{' || ch == '}')
                 {
                     return false;
                 }
@@ -119,29 +121,25 @@ namespace Dorc.Core.VariableResolution
             }
 
             // Check single drive letter before $: e.g. C$, E$ at index 0 or after \ or /
-            if (dollarIndex >= 1 && char.IsLetter(value[dollarIndex - 1]))
+            if (dollarIndex >= 1 &&
+                char.IsLetter(value[dollarIndex - 1]) &&
+                (dollarIndex == 1 || value[dollarIndex - 2] == '\\' || value[dollarIndex - 2] == '/'))
             {
-                if (dollarIndex == 1 || value[dollarIndex - 2] == '\\' || value[dollarIndex - 2] == '/')
-                {
-                    return true;
-                }
+                return true;
             }
 
             // Check ADMIN$ or IPC$ at start or after \ or /
-            foreach (var shareName in new[] { "ADMIN", "IPC" })
+            return AdminShareNames.Any(shareName =>
             {
-                if (dollarIndex >= shareName.Length &&
-                    string.Compare(value, dollarIndex - shareName.Length, shareName, 0, shareName.Length, StringComparison.OrdinalIgnoreCase) == 0)
+                if (dollarIndex < shareName.Length ||
+                    string.Compare(value, dollarIndex - shareName.Length, shareName, 0, shareName.Length, StringComparison.OrdinalIgnoreCase) != 0)
                 {
-                    var prefixIdx = dollarIndex - shareName.Length;
-                    if (prefixIdx == 0 || value[prefixIdx - 1] == '\\' || value[prefixIdx - 1] == '/')
-                    {
-                        return true;
-                    }
+                    return false;
                 }
-            }
 
-            return false;
+                var prefixIdx = dollarIndex - shareName.Length;
+                return prefixIdx == 0 || value[prefixIdx - 1] == '\\' || value[prefixIdx - 1] == '/';
+            });
         }
     }
 }

@@ -66,9 +66,14 @@ namespace Dorc.Core.AzureDevOpsServer
                 string? continuationToken = null;
                 do
                 {
-                    var response = instance.DefinitionsListWithHttpInfoAsync(coll, project, ApiVersion, continuationToken: continuationToken, includeLatestBuilds: true);
+                    var response = instance.DefinitionsListWithHttpInfoAsync(coll, project, ApiVersion, continuationToken: continuationToken).GetAwaiter().GetResult();
+                    if (response.Data == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"Failed to retrieve Azure DevOps build definitions for project '{project}' (HTTP {(int)response.StatusCode}): {response.ErrorText}");
+                    }
 
-                    foreach (var header in response.Result.Headers)
+                    foreach (var header in response.Headers)
                     {
                         if (header.Key.Equals("X-MS-ContinuationToken", StringComparison.OrdinalIgnoreCase))
                         {
@@ -77,13 +82,19 @@ namespace Dorc.Core.AzureDevOpsServer
                         }
                     }
 
-                    buildDefinitions.AddRange(response.Result.Data);
+                    buildDefinitions.AddRange(response.Data);
 
                 } while (!string.IsNullOrEmpty(continuationToken));
 
-                var regexs = new Regex(projectRegex, RegexOptions.IgnoreCase, RegexMatchTimeout);
-
-                output.AddRange(buildDefinitions.Where(x => regexs.IsMatch(x.Name)));
+                if (string.IsNullOrWhiteSpace(projectRegex))
+                {
+                    output.AddRange(buildDefinitions);
+                }
+                else
+                {
+                    var regexs = new Regex(projectRegex, RegexOptions.IgnoreCase, RegexMatchTimeout);
+                    output.AddRange(buildDefinitions.Where(x => x?.Name != null && regexs.IsMatch(x.Name)));
+                }
                 buildDefinitions.Clear();
             }
 
@@ -156,11 +167,16 @@ namespace Dorc.Core.AzureDevOpsServer
                 string? continuationToken = null;
                 do
                 {
-                    var response = instance.BuildsListWithHttpInfoAsync(coll, project, ApiVersion,
+                    var response = await instance.BuildsListWithHttpInfoAsync(coll, project, ApiVersion,
                         definitions: string.Join(",", defIds),
                         continuationToken: continuationToken);
+                    if (response.Data == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"Failed to retrieve Azure DevOps builds for project '{project}' (HTTP {(int)response.StatusCode}): {response.ErrorText}");
+                    }
 
-                    foreach (var header in response.Result.Headers)
+                    foreach (var header in response.Headers)
                     {
                         if (header.Key.Equals("X-MS-ContinuationToken", StringComparison.OrdinalIgnoreCase))
                         {
@@ -169,7 +185,7 @@ namespace Dorc.Core.AzureDevOpsServer
                         }
                     }
 
-                    builds.AddRange(response.Result.Data);
+                    builds.AddRange(response.Data);
 
                 } while (!string.IsNullOrEmpty(continuationToken));
             }
@@ -198,13 +214,18 @@ namespace Dorc.Core.AzureDevOpsServer
                 string? continuationToken = null;
                 do
                 {
-                    var response = instance.BuildsListWithHttpInfoAsync(coll, projectName, ApiVersion,
+                    var response = await instance.BuildsListWithHttpInfoAsync(coll, projectName, ApiVersion,
                         buildNumber: buildNumber + "*",
                         statusFilter: filter.Status != null ? filter.Status.ToString() : null,
                         resultFilter: filter.Result != null ? filter.Result.ToString() : null,
                         continuationToken: continuationToken);
+                    if (response.Data == null)
+                    {
+                        throw new InvalidOperationException(
+                            $"Failed to retrieve Azure DevOps builds for '{buildNumber}' in project '{projectName}' (HTTP {(int)response.StatusCode}): {response.ErrorText}");
+                    }
 
-                    foreach (var header in response.Result.Headers)
+                    foreach (var header in response.Headers)
                     {
                         if (header.Key.Equals("X-MS-ContinuationToken", StringComparison.OrdinalIgnoreCase))
                         {
@@ -213,7 +234,7 @@ namespace Dorc.Core.AzureDevOpsServer
                         }
                     }
 
-                    builds.AddRange(response.Result.Data);
+                    builds.AddRange(response.Data);
 
                 } while (!string.IsNullOrEmpty(continuationToken));
             }
