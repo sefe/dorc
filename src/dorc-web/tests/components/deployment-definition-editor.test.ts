@@ -360,11 +360,31 @@ describe('deployment-definition-editor', () => {
     expect(renameBtn).not.to.equal(null);
     renameBtn!.click();
     await editor.updateComplete;
+    const renameKeyInput = editor.shadowRoot!.querySelector<HTMLInputElement>(
+      'tr.custom-arg-row vaadin-text-field[aria-label="Additional argument name"]'
+    );
+    expect(renameKeyInput).not.to.equal(null);
+    // Clearing key while renaming keeps the row intact without deleting the saved argument
+    renameKeyInput!.value = '';
+    renameKeyInput!.dispatchEvent(new Event('input'));
+    await editor.updateComplete;
     expect(
-      editor.shadowRoot!.querySelector(
-        'tr.custom-arg-row vaadin-text-field[aria-label="Additional argument name"]'
-      )
-    ).not.to.equal(null);
+      editor.shadowRoot!.querySelectorAll('tr.custom-arg-row').length
+    ).to.equal(1);
+    // Typing a duplicate template parameter name shows an inline error
+    renameKeyInput!.value = 'buildName';
+    renameKeyInput!.dispatchEvent(new Event('input'));
+    await editor.updateComplete;
+    expect(
+      editor.shadowRoot!.querySelector('.param-syntax-hint')?.textContent
+    ).to.include('already a template parameter');
+    // Typing a valid new name updates the saved argument key
+    renameKeyInput!.value = 'RenamedCustomArg';
+    renameKeyInput!.dispatchEvent(new Event('input'));
+    await editor.updateComplete;
+    expect(latestPatch[latestPatch.length - 1].ScriptPath).to.include(
+      '"RenamedCustomArg"'
+    );
 
     // Clear DestinationToCopyPath
     const clearDestBtn = editor.shadowRoot!.querySelector<HTMLElement>(

@@ -189,9 +189,17 @@ export class PageProjectRefData extends PageElement {
     }
     .step-footer-bar label {
       flex-direction: row;
+      flex-wrap: wrap;
       align-items: center;
       gap: 8px;
       margin: 0;
+      max-width: 100%;
+    }
+    .step-footer-bar label select {
+      min-width: 0;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .step-footer-bar .actions {
       gap: 6px;
@@ -990,7 +998,7 @@ export class PageProjectRefData extends PageElement {
       const isTerraform = node.ComponentType === ComponentType.Terraform;
       const kindText = isTerraform
         ? `Terraform / ${node.TerraformSourceType ?? TerraformSourceType.SharedFolder}`
-        : `${node.ComponentType ?? ComponentType.PowerShell}${node.PSVersion ? ` ${node.PSVersion}` : ''}`;
+        : `PowerShell${node.PSVersion ? ` ${node.PSVersion}` : ''}`;
       return {
         id: node.ComponentId ?? 0,
         name: node.ComponentName || 'New component',

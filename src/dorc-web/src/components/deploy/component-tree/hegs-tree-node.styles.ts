@@ -186,6 +186,16 @@ export const addHegsTreeNodeStyles = css`
     color: inherit;
     font-size: inherit;
   }
+  .node-kind-meta {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--dorc-text-secondary-strong, var(--dorc-text-secondary));
+    opacity: 0.85;
+  }
+  .node-select-btn[aria-pressed='true'] .node-kind-meta {
+    color: inherit;
+    opacity: 0.9;
+  }
   .node-badge {
     display: inline-block;
     padding: 0 5px;

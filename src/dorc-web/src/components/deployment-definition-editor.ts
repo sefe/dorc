@@ -154,6 +154,9 @@ export class DeploymentDefinitionEditor extends LitElement {
   }> = [];
   @state() private revealedOptionalParams = new Set<string>();
   @state() private editingCustomRowIds = new Set<number>();
+  @state() private renameDraftKeyByRowId = new Map<number, string>();
+  @state() private renameOriginalKeyByRowId = new Map<number, string>();
+  @state() private renameErrorByRowId = new Map<number, string>();
   @state() private rawJsonInspectorOpen = false;
   private nextDraftArgId = 1;
   private customRowIdByRawIndex = new Map<number, number>();
@@ -441,17 +444,20 @@ export class DeploymentDefinitionEditor extends LitElement {
     }
     .step-top-row {
       grid-column: 1 / -1;
-      display: grid;
-      grid-template-columns: minmax(220px, 1.4fr) auto auto 1fr;
-      align-items: end;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
       gap: var(--lumo-space-s) var(--lumo-space-m);
     }
+    .step-top-row > vaadin-text-field {
+      flex: 1 1 240px;
+    }
     .step-top-row .flags {
-      margin: 0 0 4px;
-      justify-self: end;
+      margin: 0 0 4px auto;
     }
     .ps-version-combo {
       width: 120px;
+      flex: 0 0 120px;
     }
     .param-preview-placeholder {
       color: var(--dorc-text-secondary-strong);
@@ -663,6 +669,69 @@ export class DeploymentDefinitionEditor extends LitElement {
     this.loadProjectEnvironments();
   }
 
+  private computeInitialRevealedOptionalParams(
+    scriptPath: string | null | undefined
+  ): Set<string> {
+    const parsed = parseScriptPathValue(scriptPath);
+    const template = findGenericScriptTemplate(parsed.scriptPath);
+    if (!template) return new Set();
+    const configuredLower = new Set(
+      parsed.arguments.map(a => a.key.trim().toLowerCase())
+    );
+    const hasAnyConfiguredOrRequired =
+      template.parameters.some(
+        p => p.required || configuredLower.has(p.name.toLowerCase())
+      ) || parsed.arguments.length > 0;
+    if (hasAnyConfiguredOrRequired) {
+      return new Set(
+        template.parameters
+          .filter(
+            p => !p.required && configuredLower.has(p.name.toLowerCase())
+          )
+          .map(p => p.name.toLowerCase())
+      );
+    }
+    return new Set(
+      template.parameters
+        .filter(p => !p.required)
+        .map(p => p.name.toLowerCase())
+    );
+  }
+
+  private removeRawArgumentIndices(removedIndices: number[]) {
+    if (removedIndices.length === 0) return;
+    const removedSet = new Set(removedIndices.filter(idx => idx >= 0));
+    if (removedSet.size === 0) return;
+    const sortedRemoved = [...removedSet].sort((a, b) => a - b);
+    const removedRowIds: number[] = [];
+    const nextMap = new Map<number, number>();
+    for (const [idx, rowId] of this.customRowIdByRawIndex.entries()) {
+      if (removedSet.has(idx)) {
+        removedRowIds.push(rowId);
+      } else {
+        const shift = sortedRemoved.filter(r => r < idx).length;
+        nextMap.set(idx - shift, rowId);
+      }
+    }
+    this.customRowIdByRawIndex = nextMap;
+    if (removedRowIds.length > 0) {
+      const nextEditing = new Set(this.editingCustomRowIds);
+      const nextDrafts = new Map(this.renameDraftKeyByRowId);
+      const nextOriginals = new Map(this.renameOriginalKeyByRowId);
+      const nextErrors = new Map(this.renameErrorByRowId);
+      for (const rowId of removedRowIds) {
+        nextEditing.delete(rowId);
+        nextDrafts.delete(rowId);
+        nextOriginals.delete(rowId);
+        nextErrors.delete(rowId);
+      }
+      this.editingCustomRowIds = nextEditing;
+      this.renameDraftKeyByRowId = nextDrafts;
+      this.renameOriginalKeyByRowId = nextOriginals;
+      this.renameErrorByRowId = nextErrors;
+    }
+  }
+
   protected willUpdate(changed: PropertyValues) {
     if (changed.has('component')) {
       if (!this.isApplyingInternalChange) {
@@ -676,8 +745,13 @@ export class DeploymentDefinitionEditor extends LitElement {
         this.inlineCreateParamKey = '';
         this.inlineCreateFeedback = '';
         this.extraCustomArgs = [];
-        this.revealedOptionalParams = new Set();
+        this.revealedOptionalParams = this.computeInitialRevealedOptionalParams(
+          this.component?.ScriptPath
+        );
         this.editingCustomRowIds = new Set();
+        this.renameDraftKeyByRowId = new Map();
+        this.renameOriginalKeyByRowId = new Map();
+        this.renameErrorByRowId = new Map();
         this.rawJsonInspectorOpen = false;
         this.customRowIdByRawIndex.clear();
       } else {
@@ -1547,6 +1621,9 @@ export class DeploymentDefinitionEditor extends LitElement {
     this.extraCustomArgs = [];
     this.revealedOptionalParams = new Set();
     this.editingCustomRowIds = new Set();
+    this.renameDraftKeyByRowId = new Map();
+    this.renameOriginalKeyByRowId = new Map();
+    this.renameErrorByRowId = new Map();
     this.customRowIdByRawIndex.clear();
     if (!templatePath || templatePath === CUSTOM_SCRIPT_OPTION) {
       const parsed = parseScriptPathValue(this.component.ScriptPath);
@@ -1562,6 +1639,8 @@ export class DeploymentDefinitionEditor extends LitElement {
       template.scriptPath,
       parsed.arguments
     );
+    this.revealedOptionalParams =
+      this.computeInitialRevealedOptionalParams(nextScriptPath);
     const nextName =
       !this.component.ComponentName ||
       GENERIC_SCRIPT_TEMPLATES.some(
@@ -1652,22 +1731,15 @@ export class DeploymentDefinitionEditor extends LitElement {
     ];
 
     const allTemplateParams = template?.parameters ?? [];
-    const configuredOrRequiredParams = allTemplateParams.filter(param => {
+    const visibleTemplateParams = allTemplateParams.filter(param => {
       if (param.required) return true;
       const lower = param.name.toLowerCase();
       if (this.revealedOptionalParams.has(lower)) return true;
       return parsed.arguments.some(a => a.key.toLowerCase() === lower);
     });
-    const hasConfiguredArgs =
-      configuredOrRequiredParams.length > 0 || extraArgs.length > 0;
-    const visibleTemplateParams = hasConfiguredArgs
-      ? configuredOrRequiredParams
-      : allTemplateParams;
-    const hiddenOptionalParams = hasConfiguredArgs
-      ? allTemplateParams.filter(
-          param => !visibleTemplateParams.includes(param)
-        )
-      : [];
+    const hiddenOptionalParams = allTemplateParams.filter(
+      param => !visibleTemplateParams.includes(param)
+    );
 
     const templateSelectorCombo = html`
       <vaadin-combo-box
@@ -1930,14 +2002,22 @@ export class DeploymentDefinitionEditor extends LitElement {
                       </tr>
                     </thead>
                     <tbody>
-                      ${visibleTemplateParams.map(param => {
+                      ${repeat(
+                        visibleTemplateParams,
+                        param => param.name.toLowerCase(),
+                        param => {
                         const existingEntry = parsed.arguments.find(
                           a =>
                             a.key.toLowerCase() === param.name.toLowerCase()
                         );
                         const hasExplicitOverride = Boolean(existingEntry);
                         const currentVal = existingEntry?.value ?? '';
-                        const updateParam = (event: Event) =>
+                        const updateParam = (event: Event) => {
+                          const nextRevealed = new Set(
+                            this.revealedOptionalParams
+                          );
+                          nextRevealed.add(param.name.toLowerCase());
+                          this.revealedOptionalParams = nextRevealed;
                           this.setGenericArgument(
                             template!.scriptPath,
                             parsed.arguments,
@@ -1945,6 +2025,7 @@ export class DeploymentDefinitionEditor extends LitElement {
                             (event.currentTarget as HTMLInputElement).value,
                             parsed.isJsonPath
                           );
+                        };
                         const suffixBtn = !this.readonly
                           ? html`<button
                               type="button"
@@ -2077,6 +2158,26 @@ export class DeploymentDefinitionEditor extends LitElement {
                                     theme="small tertiary"
                                     aria-label="Clear ${param.name}"
                                     @click=${() => {
+                                      const removedIndices: number[] = [];
+                                      parsed.arguments.forEach((a, idx) => {
+                                        if (
+                                          a.key.toLowerCase() ===
+                                          param.name.toLowerCase()
+                                        ) {
+                                          removedIndices.push(idx);
+                                        }
+                                      });
+                                      this.removeRawArgumentIndices(
+                                        removedIndices
+                                      );
+                                      const nextRevealed = new Set(
+                                        this.revealedOptionalParams
+                                      );
+                                      nextRevealed.delete(
+                                        param.name.toLowerCase()
+                                      );
+                                      this.revealedOptionalParams =
+                                        nextRevealed;
                                       const nextArgs = parsed.arguments.filter(
                                         a =>
                                           a.key.toLowerCase() !==
@@ -2101,6 +2202,10 @@ export class DeploymentDefinitionEditor extends LitElement {
                         extraArgs,
                         item => item.rowId,
                         ({ rowId, arg, rawIndex, draftIndex, error }, extraIdx) => {
+                          const currentKeyDisplay =
+                            this.renameDraftKeyByRowId.get(rowId) ?? arg.key;
+                          const rowError =
+                            error ?? this.renameErrorByRowId.get(rowId);
                           const updateKey = (event: Event) => {
                             const newKey = (
                               event.currentTarget as HTMLInputElement
@@ -2117,10 +2222,20 @@ export class DeploymentDefinitionEditor extends LitElement {
                                   existing.key.trim().toLowerCase() ===
                                     trimmedLower
                               );
+                            const conflictsWithReservedOriginal =
+                              trimmedLower.length > 0 &&
+                              Array.from(
+                                this.renameOriginalKeyByRowId.entries()
+                              ).some(
+                                ([otherId, origKey]) =>
+                                  otherId !== rowId &&
+                                  origKey.trim().toLowerCase() === trimmedLower
+                              );
                             if (draftIndex >= 0) {
                               if (
                                 conflictsWithTemplate ||
-                                conflictsWithExisting
+                                conflictsWithExisting ||
+                                conflictsWithReservedOriginal
                               ) {
                                 const nextDrafts = [...this.extraCustomArgs];
                                 nextDrafts[draftIndex] = {
@@ -2169,11 +2284,167 @@ export class DeploymentDefinitionEditor extends LitElement {
                               }
                               return;
                             }
+                            if (!trimmedLower) {
+                              const nextDraftKeys = new Map(
+                                this.renameDraftKeyByRowId
+                              );
+                              nextDraftKeys.set(rowId, newKey);
+                              this.renameDraftKeyByRowId = nextDraftKeys;
+                              const originalKey =
+                                this.renameOriginalKeyByRowId.get(rowId);
+                              const originalTaken =
+                                Boolean(originalKey) &&
+                                parsed.arguments.some(
+                                  (existing, idx) =>
+                                    idx !== rawIndex &&
+                                    existing.key.trim().toLowerCase() ===
+                                      originalKey!.trim().toLowerCase()
+                                );
+                              if (!originalKey) {
+                                this.removeRawArgumentIndices([rawIndex]);
+                                const nextEditing = new Set(
+                                  this.editingCustomRowIds
+                                );
+                                nextEditing.add(rowId);
+                                this.editingCustomRowIds = nextEditing;
+                                  this.extraCustomArgs = [
+                                    { id: rowId, key: newKey, value: arg.value },
+                                    ...this.extraCustomArgs.filter(
+                                      d => d.id !== rowId
+                                    )
+                                  ];
+                                const nextArgs = parsed.arguments.filter(
+                                  (_, idx) => idx !== rawIndex
+                                );
+                                this.change({
+                                  ScriptPath: serializeScriptPathValue(
+                                    template?.scriptPath ?? parsed.scriptPath,
+                                    nextArgs,
+                                    true
+                                  )
+                                });
+                              } else if (
+                                !originalTaken &&
+                                arg.key !== originalKey
+                              ) {
+                                const nextArgs = [...parsed.arguments];
+                                nextArgs[rawIndex] = {
+                                  key: originalKey,
+                                  value: arg.value
+                                };
+                                this.change({
+                                  ScriptPath: serializeScriptPathValue(
+                                    template?.scriptPath ?? parsed.scriptPath,
+                                    nextArgs,
+                                    true
+                                  )
+                                });
+                              } else {
+                                this.requestUpdate();
+                              }
+                              return;
+                            }
                             if (
                               conflictsWithTemplate ||
-                              conflictsWithExisting
+                              conflictsWithExisting ||
+                              conflictsWithReservedOriginal
                             ) {
+                              const conflictMsg = conflictsWithTemplate
+                                ? `"${newKey.trim()}" is already a template parameter above.`
+                                : `"${newKey.trim()}" is already defined.`;
+                              const originalKey =
+                                this.renameOriginalKeyByRowId.get(rowId);
+                              const originalTaken =
+                                Boolean(originalKey) &&
+                                parsed.arguments.some(
+                                  (existing, idx) =>
+                                    idx !== rawIndex &&
+                                    existing.key.trim().toLowerCase() ===
+                                      originalKey!.trim().toLowerCase()
+                                );
+                              if (!originalKey) {
+                                this.removeRawArgumentIndices([rawIndex]);
+                                const nextEditing = new Set(
+                                  this.editingCustomRowIds
+                                );
+                                nextEditing.add(rowId);
+                                this.editingCustomRowIds = nextEditing;
+                                this.extraCustomArgs = [
+                                  {
+                                    id: rowId,
+                                    key: newKey,
+                                    value: arg.value,
+                                    error: conflictMsg
+                                  },
+                                  ...this.extraCustomArgs.filter(
+                                    d => d.id !== rowId
+                                  )
+                                ];
+                                const nextArgs = parsed.arguments.filter(
+                                  (_, idx) => idx !== rawIndex
+                                );
+                                this.change({
+                                  ScriptPath: serializeScriptPathValue(
+                                    template?.scriptPath ?? parsed.scriptPath,
+                                    nextArgs,
+                                    true
+                                  )
+                                });
+                              } else {
+                                const nextDraftKeys = new Map(
+                                  this.renameDraftKeyByRowId
+                                );
+                                nextDraftKeys.set(rowId, newKey);
+                                this.renameDraftKeyByRowId = nextDraftKeys;
+                                const nextErrors = new Map(
+                                  this.renameErrorByRowId
+                                );
+                                nextErrors.set(rowId, conflictMsg);
+                                this.renameErrorByRowId = nextErrors;
+                                if (!originalTaken && arg.key !== originalKey) {
+                                  const nextArgs = [...parsed.arguments];
+                                  nextArgs[rawIndex] = {
+                                    key: originalKey,
+                                    value: arg.value
+                                  };
+                                  this.change({
+                                    ScriptPath: serializeScriptPathValue(
+                                      template?.scriptPath ?? parsed.scriptPath,
+                                      nextArgs,
+                                      true
+                                    )
+                                  });
+                                } else {
+                                  this.requestUpdate();
+                                }
+                              }
                               return;
+                            }
+                            if (this.renameDraftKeyByRowId.has(rowId)) {
+                              const nextDraftKeys = new Map(
+                                this.renameDraftKeyByRowId
+                              );
+                              nextDraftKeys.delete(rowId);
+                              this.renameDraftKeyByRowId = nextDraftKeys;
+                            }
+                            if (this.renameErrorByRowId.has(rowId)) {
+                              const nextErrors = new Map(
+                                this.renameErrorByRowId
+                              );
+                              nextErrors.delete(rowId);
+                              this.renameErrorByRowId = nextErrors;
+                            }
+                            if (event.type === 'change') {
+                              const nextOriginals = new Map(
+                                this.renameOriginalKeyByRowId
+                              );
+                              nextOriginals.delete(rowId);
+                              this.renameOriginalKeyByRowId = nextOriginals;
+                              const nextEditing = new Set(
+                                this.editingCustomRowIds
+                              );
+                              nextEditing.delete(rowId);
+                              this.editingCustomRowIds = nextEditing;
                             }
                             if (
                               this.extraCustomArgs.some(d => d.id === rowId)
@@ -2226,7 +2497,8 @@ export class DeploymentDefinitionEditor extends LitElement {
                           };
                           const isEditingKey =
                             draftIndex >= 0 ||
-                            Boolean(error) ||
+                            Boolean(rowError) ||
+                            this.renameDraftKeyByRowId.has(rowId) ||
                             !arg.key.trim() ||
                             this.editingCustomRowIds.has(rowId);
                           return html`<tr
@@ -2241,10 +2513,45 @@ export class DeploymentDefinitionEditor extends LitElement {
                                         aria-label="Additional argument name"
                                         placeholder="Parameter name..."
                                         theme="small"
-                                        .value=${live(arg.key)}
+                                        .value=${live(currentKeyDisplay)}
                                         .readonly=${this.readonly}
                                         @input=${updateKey}
                                         @change=${updateKey}
+                                        @focusout=${() => {
+                                          if (
+                                            rawIndex >= 0 &&
+                                            arg.key.trim().length > 0 &&
+                                            !this.renameDraftKeyByRowId.has(
+                                              rowId
+                                            ) &&
+                                            !this.renameErrorByRowId.has(rowId)
+                                          ) {
+                                            if (
+                                              this.renameOriginalKeyByRowId.has(
+                                                rowId
+                                              )
+                                            ) {
+                                              const nextOriginals = new Map(
+                                                this.renameOriginalKeyByRowId
+                                              );
+                                              nextOriginals.delete(rowId);
+                                              this.renameOriginalKeyByRowId =
+                                                nextOriginals;
+                                            }
+                                            if (
+                                              this.editingCustomRowIds.has(
+                                                rowId
+                                              )
+                                            ) {
+                                              const nextEditing = new Set(
+                                                this.editingCustomRowIds
+                                              );
+                                              nextEditing.delete(rowId);
+                                              this.editingCustomRowIds =
+                                                nextEditing;
+                                            }
+                                          }
+                                        }}
                                       ></vaadin-text-field>`
                                     : html`<div class="param-name-row">
                                         <code class="param-name-code"
@@ -2264,6 +2571,16 @@ export class DeploymentDefinitionEditor extends LitElement {
                                                   next.add(rowId);
                                                   this.editingCustomRowIds =
                                                     next;
+                                                  const nextOriginals = new Map(
+                                                    this
+                                                      .renameOriginalKeyByRowId
+                                                  );
+                                                  nextOriginals.set(
+                                                    rowId,
+                                                    arg.key
+                                                  );
+                                                  this.renameOriginalKeyByRowId =
+                                                    nextOriginals;
                                                   this.requestUpdate();
                                                 }}
                                               >
@@ -2274,9 +2591,9 @@ export class DeploymentDefinitionEditor extends LitElement {
                                       </div>`
                                 }
                                 ${
-                                  error
+                                  rowError
                                     ? html`<span class="param-syntax-hint"
-                                        >${error}</span
+                                        >${rowError}</span
                                       >`
                                     : nothing
                                 }
@@ -2297,7 +2614,7 @@ export class DeploymentDefinitionEditor extends LitElement {
                                   @change=${updateValue}
                                 >
                                   ${
-                                    !this.readonly && arg.key && !error
+                                    !this.readonly && arg.key && !rowError
                                       ? html`<button
                                           type="button"
                                           slot="suffix"
@@ -2340,8 +2657,14 @@ export class DeploymentDefinitionEditor extends LitElement {
                                     ];
                                     nextDrafts.splice(draftIndex, 1);
                                     this.extraCustomArgs = nextDrafts;
+                                    const nextEditing = new Set(
+                                      this.editingCustomRowIds
+                                    );
+                                    nextEditing.delete(rowId);
+                                    this.editingCustomRowIds = nextEditing;
                                     return;
                                   }
+                                  this.removeRawArgumentIndices([rawIndex]);
                                   this.extraCustomArgs =
                                     this.extraCustomArgs.filter(
                                       d =>
@@ -2374,7 +2697,9 @@ export class DeploymentDefinitionEditor extends LitElement {
                         aria-label="Optional script parameters"
                       >
                         <span>Optional parameters:</span>
-                        ${hiddenOptionalParams.map(
+                        ${repeat(
+                          hiddenOptionalParams,
+                          opt => opt.name.toLowerCase(),
                           opt => html`<button
                             type="button"
                             class="optional-param-chip"
