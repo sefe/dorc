@@ -196,12 +196,9 @@ public static class SecretRedactor
 
             foreach (var propsArray in matchingArrays)
             {
-                foreach (var propObj in propsArray.OfType<JsonObject>())
+                foreach (var propObj in propsArray.OfType<JsonObject>().Where(ShouldRedactPropertyObject))
                 {
-                    if (ShouldRedactPropertyObject(propObj))
-                    {
-                        SetCaseInsensitiveProperty(propObj, "PropertyValue", RedactedMarker);
-                    }
+                    SetCaseInsensitiveProperty(propObj, "PropertyValue", RedactedMarker);
                 }
             }
 
@@ -263,12 +260,10 @@ public static class SecretRedactor
                 return true;
             }
 
-            if (string.Equals(kvp.Key, "PropertyName", StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(kvp.Key, "PropertyName", StringComparison.OrdinalIgnoreCase) &&
+                (kvp.Value is null || kvp.Value.GetValueKind() != JsonValueKind.String || IsLikelySensitiveName(kvp.Value.GetValue<string>())))
             {
-                if (kvp.Value is null || kvp.Value.GetValueKind() != JsonValueKind.String || IsLikelySensitiveName(kvp.Value.GetValue<string>()))
-                {
-                    return true;
-                }
+                return true;
             }
         }
 

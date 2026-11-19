@@ -1,5 +1,4 @@
 using System.Net;
-using System.Text;
 using Dorc.ApiModel;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http;
@@ -43,10 +42,7 @@ public sealed class DorcApiGatewayTests
                 "error-with-body" => Task.FromResult(StubHttpMessageHandler.CreateTextResponse("Bad input payload", HttpStatusCode.BadRequest)),
                 "error-empty" => Task.FromResult(StubHttpMessageHandler.CreateTextResponse("   ", HttpStatusCode.Forbidden, "text/plain", "Forbidden")),
                 "string-quoted" => Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("\"Line 1\\nLine 2\"")),
-                "string-quoted-no-content-type" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK)
-                {
-                    Content = new ByteArrayContent(Encoding.UTF8.GetBytes("\"NoContentType\""))
-                }),
+                "string-quoted-no-content-type" => Task.FromResult(StubHttpMessageHandler.CreateTextResponse("\"NoContentType\"", HttpStatusCode.OK, null)),
                 "string-quoted-invalid-json" => Task.FromResult(StubHttpMessageHandler.CreateJsonResponse("\"unterminated\\x\"")),
                 "string-quoted-plaintext" => Task.FromResult(StubHttpMessageHandler.CreateTextResponse("\"C:\\temp\\file.txt\"", HttpStatusCode.OK, "text/plain")),
                 "string-null-literal" => Task.FromResult(StubHttpMessageHandler.CreateTextResponse("Plain unquoted text")),

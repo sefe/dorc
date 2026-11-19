@@ -26,13 +26,18 @@ internal sealed class StubHttpMessageHandler : HttpMessageHandler
     public static HttpResponseMessage CreateTextResponse(
         string text,
         HttpStatusCode statusCode = HttpStatusCode.OK,
-        string mediaType = "text/plain",
+        string? mediaType = "text/plain",
         string? reasonPhrase = null)
     {
         var response = new HttpResponseMessage(statusCode)
         {
-            Content = new StringContent(text, Encoding.UTF8, mediaType)
+            Content = new StringContent(text, Encoding.UTF8, mediaType ?? "text/plain")
         };
+        if (mediaType is null)
+        {
+            response.Content.Headers.ContentType = null;
+        }
+
         if (reasonPhrase is not null)
         {
             response.ReasonPhrase = reasonPhrase;

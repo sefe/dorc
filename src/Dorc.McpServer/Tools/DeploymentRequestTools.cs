@@ -136,12 +136,9 @@ public sealed class DeploymentRequestTools
             return outcome;
         }
 
-        foreach (var attempt in outcome.Data)
+        foreach (var attempt in outcome.Data.Where(a => !string.IsNullOrEmpty(a.Log)))
         {
-            if (!string.IsNullOrEmpty(attempt.Log))
-            {
-                attempt.Log = LogTruncator.TruncateTail(attempt.Log, LogTruncator.DefaultMaxCharacters);
-            }
+            attempt.Log = LogTruncator.TruncateTail(attempt.Log, LogTruncator.DefaultMaxCharacters);
         }
 
         return outcome;
