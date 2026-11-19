@@ -194,8 +194,19 @@ namespace Dorc.Monitor
 
             catch (OperationCanceledException)
             {
-                deploymentResultStatus = DeploymentResultStatus.Cancelled;
-                _logger.LogInformation($"Processing of the component '{component.ComponentName}' is cancelled.");
+                if (IsUserRequestedCancellation(requestId))
+                {
+                    deploymentResultStatus = DeploymentResultStatus.Cancelled;
+                    _logger.LogInformation($"Processing of the component '{component.ComponentName}' is cancelled.");
+                }
+                else
+                {
+                    deploymentResultStatus = DeploymentResultStatus.Running;
+                    _logger.LogWarning(
+                        "Processing of the component '{ComponentName}' was interrupted while request {RequestId} is still Running (monitor shutdown or lock loss); keeping component status Running for recovery.",
+                        component.ComponentName,
+                        requestId);
+                }
                 throw;
             }
             catch (Exception)
@@ -227,5 +238,26 @@ namespace Dorc.Monitor
             return deploymentResultStatus != DeploymentResultStatus.Failed;
         }
 
+        private bool IsUserRequestedCancellation(int requestId)
+        {
+            try
+            {
+                var currentStatus = requestsPersistentSource.GetRequest(requestId)?.Status
+                    ?? requestsPersistentSource.GetRequestStatus(requestId)?.Status;
+
+                // Default to true only when no request status is wired (e.g. unit tests) or when explicitly Cancelling/Cancelled/Abandoned
+                if (string.IsNullOrEmpty(currentStatus))
+                {
+                    return true;
+                }
+
+                return !string.Equals(currentStatus, DeploymentRequestStatus.Running.ToString(), StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to check request {RequestId} status during component cancellation.", requestId);
+                return false;
+            }
+        }
     }
 }

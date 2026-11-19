@@ -40,5 +40,127 @@ namespace Dorc.Monitor.Tests
             requests.DidNotReceiveWithAnyArgs().UpdateResultStatus(default!, default);
             Assert.AreEqual(status, result.Status);
         }
+
+        [TestMethod]
+        public void DeployComponent_InterruptedWhileRequestStillRunning_KeepsResultStatusRunning()
+        {
+            var requests = Substitute.For<IRequestsPersistentSource>();
+            requests.GetRequest(7).Returns(new DeploymentRequestApiModel
+            {
+                Id = 7,
+                Status = DeploymentRequestStatus.Running.ToString()
+            });
+            requests.GetSubmittedScript(7, 1).Returns(new ScriptApiModel { Path = "restore.ps1", NonProdOnly = false });
+
+            var scripts = Substitute.For<IScriptDispatcher>();
+            scripts.Dispatch(
+                Arg.Any<string>(),
+                Arg.Any<ScriptApiModel>(),
+                Arg.Any<IDictionary<string, VariableValue>>(),
+                Arg.Any<int>(),
+                Arg.Any<int>(),
+                Arg.Any<bool>(),
+                Arg.Any<string>(),
+                Arg.Any<System.Text.StringBuilder>(),
+                Arg.Any<CancellationToken>())
+                .Returns(_ => throw new OperationCanceledException());
+
+            var events = Substitute.For<IDeploymentEventsPublisher>();
+            events.PublishResultStatusChangedAsync(Arg.Any<DeploymentResultEventData>()).Returns(Task.CompletedTask);
+
+            var processor = new ComponentProcessor(
+                scripts,
+                Substitute.For<ITerraformDispatcher>(),
+                requests,
+                Substitute.For<IComponentsPersistentSource>(),
+                events,
+                Substitute.For<IConfigValuesPersistentSource>(),
+                Substitute.For<ILogger<ComponentProcessor>>());
+
+            var result = new DeploymentResultApiModel
+            {
+                Id = 42,
+                RequestId = 7,
+                ComponentId = 1,
+                Status = DeploymentResultStatus.Pending.ToString()
+            };
+            var component = new ComponentApiModel
+            {
+                ComponentId = 1,
+                ComponentName = "040 - RVC Restore Database",
+                ComponentType = ComponentType.PowerShell
+            };
+
+            Assert.Throws<OperationCanceledException>(() => processor.DeployComponent(
+                component, result, 7, false, 1, false, "RVC DEV", "C:\\Scripts",
+                new Dictionary<string, VariableValue>(), CancellationToken.None));
+
+            // Must NOT mark result as Cancelled when parent request is still Running
+            requests.DidNotReceive().UpdateResultStatus(
+                result,
+                Arg.Is<DeploymentResultStatus>(s => s.Value == DeploymentResultStatus.Cancelled.Value));
+            requests.Received().UpdateResultStatus(
+                result,
+                Arg.Is<DeploymentResultStatus>(s => s.Value == DeploymentResultStatus.Running.Value));
+        }
+
+        [TestMethod]
+        public void DeployComponent_InterruptedWhenUserCancelling_MarksResultStatusCancelled()
+        {
+            var requests = Substitute.For<IRequestsPersistentSource>();
+            requests.GetRequest(7).Returns(new DeploymentRequestApiModel
+            {
+                Id = 7,
+                Status = DeploymentRequestStatus.Cancelling.ToString()
+            });
+            requests.GetSubmittedScript(7, 1).Returns(new ScriptApiModel { Path = "restore.ps1", NonProdOnly = false });
+
+            var scripts = Substitute.For<IScriptDispatcher>();
+            scripts.Dispatch(
+                Arg.Any<string>(),
+                Arg.Any<ScriptApiModel>(),
+                Arg.Any<IDictionary<string, VariableValue>>(),
+                Arg.Any<int>(),
+                Arg.Any<int>(),
+                Arg.Any<bool>(),
+                Arg.Any<string>(),
+                Arg.Any<System.Text.StringBuilder>(),
+                Arg.Any<CancellationToken>())
+                .Returns(_ => throw new OperationCanceledException());
+
+            var events = Substitute.For<IDeploymentEventsPublisher>();
+            events.PublishResultStatusChangedAsync(Arg.Any<DeploymentResultEventData>()).Returns(Task.CompletedTask);
+
+            var processor = new ComponentProcessor(
+                scripts,
+                Substitute.For<ITerraformDispatcher>(),
+                requests,
+                Substitute.For<IComponentsPersistentSource>(),
+                events,
+                Substitute.For<IConfigValuesPersistentSource>(),
+                Substitute.For<ILogger<ComponentProcessor>>());
+
+            var result = new DeploymentResultApiModel
+            {
+                Id = 42,
+                RequestId = 7,
+                ComponentId = 1,
+                Status = DeploymentResultStatus.Pending.ToString()
+            };
+            var component = new ComponentApiModel
+            {
+                ComponentId = 1,
+                ComponentName = "040 - RVC Restore Database",
+                ComponentType = ComponentType.PowerShell
+            };
+
+            Assert.Throws<OperationCanceledException>(() => processor.DeployComponent(
+                component, result, 7, false, 1, false, "RVC DEV", "C:\\Scripts",
+                new Dictionary<string, VariableValue>(), CancellationToken.None));
+
+            requests.Received().UpdateResultStatus(
+                result,
+                Arg.Is<DeploymentResultStatus>(s => s.Value == DeploymentResultStatus.Cancelled.Value));
+        }
     }
 }
