@@ -8,10 +8,31 @@ namespace Dorc.McpServer.Tools;
 public sealed class PropertyResolutionTools
 {
     private readonly IDorcApiGateway _apiGateway;
+    private readonly ProductionEnvironmentGuard _guard;
 
-    public PropertyResolutionTools(IDorcApiGateway apiGateway)
+    public PropertyResolutionTools(IDorcApiGateway apiGateway, ProductionEnvironmentGuard guard)
     {
         _apiGateway = apiGateway ?? throw new ArgumentNullException(nameof(apiGateway));
+        _guard = guard ?? throw new ArgumentNullException(nameof(guard));
+    }
+
+    [McpServerTool(Name = "dorc_list_properties", ReadOnly = true)]
+    [Description("Lists all property definitions registered in DOrc.")]
+    public Task<McpToolOutcome<List<PropertyApiModel>>> ListPropertiesAsync(
+        CancellationToken cancellationToken = default)
+    {
+        return _apiGateway.GetAsync<List<PropertyApiModel>>("Properties", cancellationToken);
+    }
+
+    [McpServerTool(Name = "dorc_get_property", ReadOnly = true)]
+    [Description("Gets a property definition by numeric ID or property name.")]
+    public Task<McpToolOutcome<PropertyApiModel>> GetPropertyAsync(
+        [Description("Property ID or property name.")] string idOrName,
+        CancellationToken cancellationToken = default)
+    {
+        return _apiGateway.GetAsync<PropertyApiModel>(
+            $"Properties/id={Uri.EscapeDataString(idOrName.Trim())}",
+            cancellationToken);
     }
 
     [McpServerTool(Name = "dorc_get_property_values", ReadOnly = true)]
@@ -169,5 +190,151 @@ public sealed class PropertyResolutionTools
         }
 
         return McpToolOutcome.Success(SecretRedactor.RedactPropertyValuesAudit(outcome.Data), outcome.HttpStatusCode ?? 200);
+    }
+
+    [McpServerTool(Name = "dorc_create_property_value", Destructive = true)]
+    [Description("Creates a non-secret property value for a specific environment scope. Subject to read-only and production guardrails.")]
+    public async Task<McpToolOutcome<List<Response>>> CreatePropertyValueAsync(
+        [Description("Property name.")] string propertyName,
+        [Description("Non-secret property value.")] string value,
+        [Description("Target environment scope name (e.g. 'Endur Dev 1').")] string environmentScope,
+        CancellationToken cancellationToken = default)
+    {
+        var validationError = await ValidatePropertyValueMutationAsync(
+            "dorc_create_property_value",
+            propertyName,
+            environmentScope,
+            cancellationToken).ConfigureAwait(false);
+
+        if (validationError is not null)
+        {
+            return McpToolOutcome.Failure<List<Response>>(validationError);
+        }
+
+        var payload = BuildPropertyValuePayload(null, propertyName, value, environmentScope);
+        return await _apiGateway.PostAsync<List<PropertyValueDto>, List<Response>>(
+            "PropertyValues",
+            payload,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    [McpServerTool(Name = "dorc_update_property_value", Destructive = true)]
+    [Description("Updates an existing non-secret property value for a specific environment scope. Subject to read-only and production guardrails.")]
+    public async Task<McpToolOutcome<List<Response>>> UpdatePropertyValueAsync(
+        [Description("Numeric property value ID to update.")] long propertyValueId,
+        [Description("Property name.")] string propertyName,
+        [Description("Updated non-secret property value.")] string value,
+        [Description("Target environment scope name (e.g. 'Endur Dev 1').")] string environmentScope,
+        CancellationToken cancellationToken = default)
+    {
+        var validationError = await ValidatePropertyValueMutationAsync(
+            "dorc_update_property_value",
+            propertyName,
+            environmentScope,
+            cancellationToken).ConfigureAwait(false);
+
+        if (validationError is not null)
+        {
+            return McpToolOutcome.Failure<List<Response>>(validationError);
+        }
+
+        var payload = BuildPropertyValuePayload(propertyValueId, propertyName, value, environmentScope);
+        return await _apiGateway.PutAsync<List<PropertyValueDto>, List<Response>>(
+            "PropertyValues",
+            payload,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    [McpServerTool(Name = "dorc_delete_property_value", Destructive = true)]
+    [Description("Deletes a non-secret property value for a specific environment scope. Subject to read-only and production guardrails.")]
+    public async Task<McpToolOutcome<List<Response>>> DeletePropertyValueAsync(
+        [Description("Numeric property value ID to delete.")] long propertyValueId,
+        [Description("Property name.")] string propertyName,
+        [Description("Target environment scope name (e.g. 'Endur Dev 1').")] string environmentScope,
+        CancellationToken cancellationToken = default)
+    {
+        var validationError = await ValidatePropertyValueMutationAsync(
+            "dorc_delete_property_value",
+            propertyName,
+            environmentScope,
+            cancellationToken).ConfigureAwait(false);
+
+        if (validationError is not null)
+        {
+            return McpToolOutcome.Failure<List<Response>>(validationError);
+        }
+
+        var payload = BuildPropertyValuePayload(propertyValueId, propertyName, string.Empty, environmentScope);
+        return await _apiGateway.DeleteAsync<List<PropertyValueDto>, List<Response>>(
+            "PropertyValues",
+            payload,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task<string?> ValidatePropertyValueMutationAsync(
+        string operationName,
+        string propertyName,
+        string environmentScope,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(propertyName))
+        {
+            return $"Operation '{operationName}' requires a non-empty propertyName.";
+        }
+
+        var trimmedProperty = propertyName.Trim();
+        if (SecretRedactor.IsLikelySensitiveName(trimmedProperty))
+        {
+            return $"Operation '{operationName}' on sensitive property '{trimmedProperty}' is blocked via MCP to prevent plaintext secret exposure.";
+        }
+
+        var guardError = await _guard.CheckEnvironmentMutationAllowedAsync(
+            operationName,
+            environmentScope,
+            _apiGateway,
+            cancellationToken).ConfigureAwait(false);
+
+        if (guardError is not null)
+        {
+            return guardError;
+        }
+
+        var propOutcome = await _apiGateway.GetAsync<PropertyApiModel>(
+            $"Properties/id={Uri.EscapeDataString(trimmedProperty)}",
+            cancellationToken).ConfigureAwait(false);
+
+        if (!propOutcome.Succeeded || propOutcome.Data is null)
+        {
+            return $"Operation '{operationName}' could not verify metadata for property '{trimmedProperty}' (HTTP {propOutcome.HttpStatusCode?.ToString() ?? "error"}: {propOutcome.Error}).";
+        }
+
+        if (propOutcome.Data.Secure)
+        {
+            return $"Operation '{operationName}' on secure property '{trimmedProperty}' (Secure=True) is blocked via MCP to prevent plaintext secret exposure.";
+        }
+
+        return null;
+    }
+
+    private static List<PropertyValueDto> BuildPropertyValuePayload(
+        long? propertyValueId,
+        string propertyName,
+        string value,
+        string environmentScope)
+    {
+        return
+        [
+            new PropertyValueDto
+            {
+                Id = propertyValueId ?? 0,
+                Value = value,
+                PropertyValueFilter = environmentScope.Trim(),
+                Property = new PropertyApiModel
+                {
+                    Name = propertyName.Trim(),
+                    Secure = false
+                }
+            }
+        ];
     }
 }

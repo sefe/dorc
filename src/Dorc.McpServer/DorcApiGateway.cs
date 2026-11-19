@@ -66,6 +66,23 @@ public sealed class DorcApiGateway : IDorcApiGateway
         return await SendAndReadStringAsync(request, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<McpToolOutcome<TResponse>> DeleteAsync<TRequest, TResponse>(
+        string relativePath,
+        TRequest? body,
+        CancellationToken cancellationToken)
+    {
+        using var request = CreateJsonRequest(HttpMethod.Delete, relativePath, body);
+        return await SendAndDeserializeAsync<TResponse>(request, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<McpToolOutcome<string>> DeleteWithoutResponseBodyAsync(
+        string relativePath,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Delete, relativePath);
+        return await SendAndReadStringAsync(request, cancellationToken).ConfigureAwait(false);
+    }
+
     private HttpRequestMessage CreateJsonRequest<TRequest>(
         HttpMethod method,
         string relativePath,

@@ -137,4 +137,107 @@ public sealed class TerraformCatalogTools
             null,
             cancellationToken).ConfigureAwait(false);
     }
+
+    [McpServerTool(Name = "dorc_recover_terraform_post_apply", Destructive = true)]
+    [Description("Triggers post-apply state and inventory recovery for a Terraform deployment result ID. Subject to read-only and production guardrails.")]
+    public async Task<McpToolOutcome<TerraformDeploymentOutcomeApiModel>> RecoverTerraformPostApplyAsync(
+        [Description("Component deployment result ID.")] int deploymentResultId,
+        [Description("Expected revision of the Terraform deployment outcome for optimistic concurrency.")] long expectedRevision,
+        [Description("Target environment name for production guardrail verification.")] string environmentName,
+        [Description("Whether to recover cloud resource inventory registration (default true).")] bool recoverInventory = true,
+        [Description("Whether to recover the Terraform source archive copy (default true).")] bool recoverArchive = true,
+        CancellationToken cancellationToken = default)
+    {
+        if (!recoverInventory && !recoverArchive)
+        {
+            return McpToolOutcome.Failure<TerraformDeploymentOutcomeApiModel>(
+                "At least one of 'recoverInventory' or 'recoverArchive' must be true.");
+        }
+
+        var guardError = await _guard.CheckTerraformPlanMutationAllowedAsync(
+            "dorc_recover_terraform_post_apply",
+            deploymentResultId,
+            environmentName,
+            _apiGateway,
+            cancellationToken).ConfigureAwait(false);
+
+        if (guardError is not null)
+        {
+            return McpToolOutcome.Failure<TerraformDeploymentOutcomeApiModel>(guardError);
+        }
+
+        var invFlag = recoverInventory ? "true" : "false";
+        var archFlag = recoverArchive ? "true" : "false";
+
+        return await _apiGateway.PostAsync<object?, TerraformDeploymentOutcomeApiModel>(
+            $"Terraform/plan/{deploymentResultId}/recover?expectedRevision={expectedRevision}&recoverInventory={invFlag}&recoverArchive={archFlag}",
+            null,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    [McpServerTool(Name = "dorc_review_terraform_inventory", Destructive = true)]
+    [Description("Reviews a missing Terraform inventory provenance item for a deployment result ID and cloud resource ID. Subject to read-only and production guardrails.")]
+    public async Task<McpToolOutcome<string>> ReviewTerraformInventoryAsync(
+        [Description("Component deployment result ID.")] int deploymentResultId,
+        [Description("Numeric cloud resource ID.")] int cloudResourceId,
+        [Description("Expected revision of the inventory provenance entry.")] long expectedRevision,
+        [Description("Target environment name for production guardrail verification.")] string environmentName,
+        CancellationToken cancellationToken = default)
+    {
+        var guardError = await _guard.CheckTerraformPlanMutationAllowedAsync(
+            "dorc_review_terraform_inventory",
+            deploymentResultId,
+            environmentName,
+            _apiGateway,
+            cancellationToken).ConfigureAwait(false);
+
+        if (guardError is not null)
+        {
+            return McpToolOutcome.Failure<string>(guardError);
+        }
+
+        return await _apiGateway.PostWithoutResponseBodyAsync<object?>(
+            $"Terraform/plan/{deploymentResultId}/inventory/{cloudResourceId}/review?expectedRevision={expectedRevision}",
+            null,
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    [McpServerTool(Name = "dorc_preview_terraform_backend_cutover", ReadOnly = true)]
+    [Description("Previews Terraform state backend cutover eligibility and blockers for a project ID and environment ID.")]
+    public Task<McpToolOutcome<TerraformBackendCutoverPreviewApiModel>> PreviewTerraformBackendCutoverAsync(
+        [Description("Numeric project ID.")] int projectId,
+        [Description("Numeric environment ID.")] int environmentId,
+        CancellationToken cancellationToken = default)
+    {
+        return _apiGateway.GetAsync<TerraformBackendCutoverPreviewApiModel>(
+            $"Projects/{projectId}/terraform-state-backend-cutovers/preview?environmentId={environmentId}",
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "dorc_execute_terraform_backend_cutover", Destructive = true)]
+    [Description("Executes an empty-container Terraform state backend cutover for a project and environment. Subject to read-only and production guardrails.")]
+    public async Task<McpToolOutcome<RefDataApiModel>> ExecuteTerraformBackendCutoverAsync(
+        [Description("Numeric project ID.")] int projectId,
+        [Description("Target environment name for production guardrail verification.")] string environmentName,
+        [Description("Backend cutover request payload including Revision, EnvironmentId, Backend, and VerificationSha256.")] TerraformBackendCutoverApiModel cutover,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(cutover);
+
+        var guardError = await _guard.CheckEnvironmentMutationAllowedAsync(
+            "dorc_execute_terraform_backend_cutover",
+            environmentName,
+            _apiGateway,
+            cancellationToken).ConfigureAwait(false);
+
+        if (guardError is not null)
+        {
+            return McpToolOutcome.Failure<RefDataApiModel>(guardError);
+        }
+
+        return await _apiGateway.PostAsync<TerraformBackendCutoverApiModel, RefDataApiModel>(
+            $"Projects/{projectId}/terraform-state-backend-cutovers",
+            cutover,
+            cancellationToken).ConfigureAwait(false);
+    }
 }

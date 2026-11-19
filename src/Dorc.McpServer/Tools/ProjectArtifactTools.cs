@@ -8,10 +8,12 @@ namespace Dorc.McpServer.Tools;
 public sealed class ProjectArtifactTools
 {
     private readonly IDorcApiGateway _apiGateway;
+    private readonly ProductionEnvironmentGuard _guard;
 
-    public ProjectArtifactTools(IDorcApiGateway apiGateway)
+    public ProjectArtifactTools(IDorcApiGateway apiGateway, ProductionEnvironmentGuard guard)
     {
         _apiGateway = apiGateway ?? throw new ArgumentNullException(nameof(apiGateway));
+        _guard = guard ?? throw new ArgumentNullException(nameof(guard));
     }
 
     [McpServerTool(Name = "dorc_list_projects", ReadOnly = true)]
@@ -133,5 +135,61 @@ public sealed class ProjectArtifactTools
         }
 
         return McpToolOutcome.Success(SecretRedactor.RedactBundledRequests(outcome.Data), outcome.HttpStatusCode ?? 200);
+    }
+
+    [McpServerTool(Name = "dorc_list_make_like_prod_backups", ReadOnly = true)]
+    [Description("Lists available Make-Like-Prod data backups for the source production environment of a project.")]
+    public Task<McpToolOutcome<List<string>>> ListMakeLikeProdBackupsAsync(
+        [Description("Numeric project ID.")] int projectId,
+        CancellationToken cancellationToken = default)
+    {
+        return _apiGateway.GetAsync<List<string>>(
+            $"MakeLikeProd/DataBackups?projectId={projectId}",
+            cancellationToken);
+    }
+
+    [McpServerTool(Name = "dorc_execute_make_like_prod", Destructive = true)]
+    [Description("Queues a Make-Like-Prod bundle execution on a target environment using a selected data backup. Subject to read-only and production guardrails.")]
+    public async Task<McpToolOutcome<string>> ExecuteMakeLikeProdAsync(
+        [Description("Target environment name to refresh.")] string targetEnvironment,
+        [Description("Data backup identifier (from dorc_list_make_like_prod_backups).")] string dataBackup,
+        [Description("Bundle name to execute.")] string bundleName,
+        [Description("Optional non-secret bundle properties to pass to the Make-Like-Prod bundle.")] List<RequestProperty>? bundleProperties = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(dataBackup) || string.IsNullOrWhiteSpace(bundleName))
+        {
+            return McpToolOutcome.Failure<string>("Both 'dataBackup' and 'bundleName' are required to execute Make-Like-Prod.");
+        }
+
+        if (bundleProperties is not null && bundleProperties.Any(p => SecretRedactor.IsLikelySensitiveName(p.PropertyName)))
+        {
+            return McpToolOutcome.Failure<string>(
+                "Passing sensitive or secret property overrides via MCP tool arguments is not permitted. Configure secure properties in DOrc PropertyValues instead.");
+        }
+
+        var guardError = await _guard.CheckEnvironmentMutationAllowedAsync(
+            "dorc_execute_make_like_prod",
+            targetEnvironment,
+            _apiGateway,
+            cancellationToken).ConfigureAwait(false);
+
+        if (guardError is not null)
+        {
+            return McpToolOutcome.Failure<string>(guardError);
+        }
+
+        var payload = new MakeLikeProdRequestDto
+        {
+            TargetEnv = targetEnvironment.Trim(),
+            DataBackup = dataBackup.Trim(),
+            BundleName = bundleName.Trim(),
+            BundleProperties = bundleProperties ?? []
+        };
+
+        return await _apiGateway.PutStringResponseAsync(
+            "MakeLikeProd",
+            payload,
+            cancellationToken).ConfigureAwait(false);
     }
 }

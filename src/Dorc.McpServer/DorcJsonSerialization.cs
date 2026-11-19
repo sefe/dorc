@@ -12,6 +12,7 @@ public static class DorcJsonSerialization
             PropertyNamingPolicy = null,
             PropertyNameCaseInsensitive = true,
             WriteIndented = false,
+            IncludeFields = true,
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
         options.Converters.Add(new JsonStringEnumConverter());

@@ -62,5 +62,56 @@ public sealed class TerraformCatalogToolsTests
         gateway.PostWithoutResponseBodyAsync<object?>("Terraform/plan/77/decline", null, Arg.Any<CancellationToken>())
             .Returns(McpToolOutcome.Success("declined"));
         Assert.IsTrue((await tools.DeclineTerraformPlanAsync(77, "DEV")).Succeeded);
+
+        // RecoverTerraformPostApplyAsync: both flags false, blocked by guard, allowed (both flag combinations)
+        Assert.IsFalse((await tools.RecoverTerraformPostApplyAsync(77, 1, "DEV", false, false)).Succeeded);
+        Assert.IsFalse((await roTools.RecoverTerraformPostApplyAsync(77, 1, "DEV", true, true)).Succeeded);
+        gateway.PostAsync<object?, TerraformDeploymentOutcomeApiModel>(
+                "Terraform/plan/77/recover?expectedRevision=1&recoverInventory=true&recoverArchive=false",
+                null,
+                Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new TerraformDeploymentOutcomeApiModel()));
+        Assert.IsTrue((await tools.RecoverTerraformPostApplyAsync(77, 1, "DEV", true, false)).Succeeded);
+
+        gateway.PostAsync<object?, TerraformDeploymentOutcomeApiModel>(
+                "Terraform/plan/77/recover?expectedRevision=2&recoverInventory=false&recoverArchive=true",
+                null,
+                Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new TerraformDeploymentOutcomeApiModel()));
+        Assert.IsTrue((await tools.RecoverTerraformPostApplyAsync(77, 2, "DEV", false, true)).Succeeded);
+
+        // ReviewTerraformInventoryAsync: blocked by guard, allowed
+        Assert.IsFalse((await roTools.ReviewTerraformInventoryAsync(77, 12, 3, "DEV")).Succeeded);
+        gateway.PostWithoutResponseBodyAsync<object?>(
+                "Terraform/plan/77/inventory/12/review?expectedRevision=3",
+                null,
+                Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(string.Empty));
+        Assert.IsTrue((await tools.ReviewTerraformInventoryAsync(77, 12, 3, "DEV")).Succeeded);
+
+        // PreviewTerraformBackendCutoverAsync
+        gateway.GetAsync<TerraformBackendCutoverPreviewApiModel>(
+                "Projects/5/terraform-state-backend-cutovers/preview?environmentId=10",
+                Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new TerraformBackendCutoverPreviewApiModel()));
+        Assert.IsTrue((await tools.PreviewTerraformBackendCutoverAsync(5, 10)).Succeeded);
+
+        // ExecuteTerraformBackendCutoverAsync: null check, guard blocked, allowed
+        await Assert.ThrowsExactlyAsync<ArgumentNullException>(() =>
+            tools.ExecuteTerraformBackendCutoverAsync(5, "DEV", null!));
+        Assert.IsFalse((await roTools.ExecuteTerraformBackendCutoverAsync(
+            5,
+            "DEV",
+            new TerraformBackendCutoverApiModel())).Succeeded);
+
+        gateway.PostAsync<TerraformBackendCutoverApiModel, RefDataApiModel>(
+                "Projects/5/terraform-state-backend-cutovers",
+                Arg.Any<TerraformBackendCutoverApiModel>(),
+                Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new RefDataApiModel()));
+        Assert.IsTrue((await tools.ExecuteTerraformBackendCutoverAsync(
+            5,
+            "DEV",
+            new TerraformBackendCutoverApiModel())).Succeeded);
     }
 }

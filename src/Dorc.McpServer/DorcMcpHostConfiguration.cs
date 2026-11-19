@@ -199,7 +199,11 @@ public static class DorcMcpHostConfiguration
             .WithTools<EnvironmentCatalogTools>()
             .WithTools<PropertyResolutionTools>()
             .WithTools<TerraformCatalogTools>()
-            .WithTools<DaemonOperationsTools>();
+            .WithTools<DaemonOperationsTools>()
+            .WithTools<DeploymentAnalyticsTools>()
+            .WithTools<DeploymentDefinitionTools>()
+            .WithTools<InfrastructureAuditTools>()
+            .WithTools<InfrastructureTopologyTools>();
 
         if (useHttpTransport)
         {

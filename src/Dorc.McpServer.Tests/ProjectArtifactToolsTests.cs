@@ -11,9 +11,14 @@ public sealed class ProjectArtifactToolsTests
     public async Task ProjectArtifactTools_CoversAllMethodsAndBranches()
     {
         var gateway = Substitute.For<IDorcApiGateway>();
-        Assert.ThrowsExactly<ArgumentNullException>(() => new ProjectArtifactTools(null!));
+        var allowGuard = new ProductionEnvironmentGuard(new DorcMcpOptions { ReadOnly = false, AllowProd = true });
+        var roGuard = new ProductionEnvironmentGuard(new DorcMcpOptions { ReadOnly = true, AllowProd = false });
 
-        var tools = new ProjectArtifactTools(gateway);
+        Assert.ThrowsExactly<ArgumentNullException>(() => new ProjectArtifactTools(null!, allowGuard));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new ProjectArtifactTools(gateway, null!));
+
+        var tools = new ProjectArtifactTools(gateway, allowGuard);
+        var roTools = new ProjectArtifactTools(gateway, roGuard);
 
         gateway.GetAsync<List<ProjectApiModel>>("RefDataProjects", Arg.Any<CancellationToken>())
             .Returns(McpToolOutcome.Success(new List<ProjectApiModel>()));
@@ -71,5 +76,38 @@ public sealed class ProjectArtifactToolsTests
         gateway.GetAsync<List<BundledRequestsApiModel>>("BundledRequests/RequestsForBundle?bundleName=FAIL", Arg.Any<CancellationToken>())
             .Returns(McpToolOutcome.Failure<List<BundledRequestsApiModel>>("err", 500));
         Assert.IsFalse((await tools.ListRequestsForBundleAsync("FAIL")).Succeeded);
+
+        gateway.GetAsync<List<string>>("MakeLikeProd/DataBackups?projectId=1", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<string> { "backup-1" }));
+        Assert.IsTrue((await tools.ListMakeLikeProdBackupsAsync(1)).Succeeded);
+
+        Assert.IsFalse((await tools.ExecuteMakeLikeProdAsync("DEV", " ", "Bundle1")).Succeeded);
+        Assert.IsFalse((await tools.ExecuteMakeLikeProdAsync("DEV", "bk1", " ")).Succeeded);
+        Assert.IsFalse((await tools.ExecuteMakeLikeProdAsync(
+            "DEV",
+            "bk1",
+            "Bundle1",
+            [new RequestProperty { PropertyName = "DbPassword", PropertyValue = "x" }])).Succeeded);
+        Assert.IsFalse((await roTools.ExecuteMakeLikeProdAsync("DEV", "bk1", "Bundle1")).Succeeded);
+
+        MakeLikeProdRequestDto? capturedMlp = null;
+        gateway.PutStringResponseAsync(
+                "MakeLikeProd",
+                Arg.Do<MakeLikeProdRequestDto>(dto => capturedMlp = dto),
+                Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(string.Empty));
+        Assert.IsTrue((await tools.ExecuteMakeLikeProdAsync(" DEV ", " bk1 ", " Bundle1 ", null)).Succeeded);
+        Assert.IsNotNull(capturedMlp);
+        Assert.AreEqual("DEV", capturedMlp.TargetEnv);
+        Assert.AreEqual("bk1", capturedMlp.DataBackup);
+        Assert.AreEqual("Bundle1", capturedMlp.BundleName);
+        Assert.IsEmpty(capturedMlp.BundleProperties);
+
+        Assert.IsTrue((await tools.ExecuteMakeLikeProdAsync(
+            " DEV ",
+            " bk1 ",
+            " Bundle1 ",
+            [new RequestProperty { PropertyName = "NormalProp", PropertyValue = "val" }])).Succeeded);
+        Assert.HasCount(1, capturedMlp.BundleProperties);
     }
 }

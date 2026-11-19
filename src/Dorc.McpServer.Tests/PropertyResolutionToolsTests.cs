@@ -11,9 +11,22 @@ public sealed class PropertyResolutionToolsTests
     public async Task PropertyResolutionTools_CoversAllMethodsAndBranches()
     {
         var gateway = Substitute.For<IDorcApiGateway>();
-        Assert.ThrowsExactly<ArgumentNullException>(() => new PropertyResolutionTools(null!));
+        var allowGuard = new ProductionEnvironmentGuard(new DorcMcpOptions { ReadOnly = false, AllowProd = true });
+        var roGuard = new ProductionEnvironmentGuard(new DorcMcpOptions { ReadOnly = true, AllowProd = false });
 
-        var tools = new PropertyResolutionTools(gateway);
+        Assert.ThrowsExactly<ArgumentNullException>(() => new PropertyResolutionTools(null!, allowGuard));
+        Assert.ThrowsExactly<ArgumentNullException>(() => new PropertyResolutionTools(gateway, null!));
+
+        var tools = new PropertyResolutionTools(gateway, allowGuard);
+        var roTools = new PropertyResolutionTools(gateway, roGuard);
+
+        gateway.GetAsync<List<PropertyApiModel>>("Properties", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<PropertyApiModel>()));
+        Assert.IsTrue((await tools.ListPropertiesAsync()).Succeeded);
+
+        gateway.GetAsync<PropertyApiModel>("Properties/id=AppTimeout", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new PropertyApiModel { Name = "AppTimeout", Secure = false }));
+        Assert.IsTrue((await tools.GetPropertyAsync(" AppTimeout ")).Succeeded);
 
         // GetPropertyValuesAsync: no filters (validation error), both filters, failure
         var noFiltersResult = await tools.GetPropertyValuesAsync(null, null);
@@ -72,5 +85,47 @@ public sealed class PropertyResolutionToolsTests
                 Arg.Any<CancellationToken>())
             .Returns(McpToolOutcome.Failure<GetPropertyValuesAuditListResponseDto>("fail", 500));
         Assert.IsFalse((await tools.SearchPropertyValuesAuditAsync(2, 10)).Succeeded);
+
+        // Create / Update / Delete PropertyValueAsync validation and execution paths
+        Assert.IsFalse((await tools.CreatePropertyValueAsync(" ", "v", "DEV")).Succeeded);
+        Assert.IsFalse((await tools.UpdatePropertyValueAsync(10, "DbPassword", "v", "DEV")).Succeeded);
+        Assert.IsFalse((await roTools.DeletePropertyValueAsync(10, "AppTimeout", "DEV")).Succeeded);
+
+        gateway.GetAsync<PropertyApiModel>("Properties/id=MissingProp", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Failure<PropertyApiModel>("not found", 404));
+        Assert.IsFalse((await tools.CreatePropertyValueAsync("MissingProp", "v", "DEV")).Succeeded);
+
+        gateway.GetAsync<PropertyApiModel>("Properties/id=NoStatusProp", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Failure<PropertyApiModel>("net err", null));
+        Assert.IsFalse((await tools.CreatePropertyValueAsync("NoStatusProp", "v", "DEV")).Succeeded);
+
+        gateway.GetAsync<PropertyApiModel>("Properties/id=NullProp", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success<PropertyApiModel>(null!));
+        Assert.IsFalse((await tools.CreatePropertyValueAsync("NullProp", "v", "DEV")).Succeeded);
+
+        gateway.GetAsync<PropertyApiModel>("Properties/id=SecureFlagProp", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new PropertyApiModel { Name = "SecureFlagProp", Secure = true }));
+        Assert.IsFalse((await tools.CreatePropertyValueAsync("SecureFlagProp", "v", "DEV")).Succeeded);
+
+        gateway.PostAsync<List<PropertyValueDto>, List<Response>>(
+                "PropertyValues",
+                Arg.Any<List<PropertyValueDto>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<Response>()));
+        Assert.IsTrue((await tools.CreatePropertyValueAsync(" AppTimeout ", "30", " DEV ")).Succeeded);
+
+        gateway.PutAsync<List<PropertyValueDto>, List<Response>>(
+                "PropertyValues",
+                Arg.Any<List<PropertyValueDto>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<Response>()));
+        Assert.IsTrue((await tools.UpdatePropertyValueAsync(10, " AppTimeout ", "60", " DEV ")).Succeeded);
+
+        gateway.DeleteAsync<List<PropertyValueDto>, List<Response>>(
+                "PropertyValues",
+                Arg.Any<List<PropertyValueDto>>(),
+                Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<Response>()));
+        Assert.IsTrue((await tools.DeletePropertyValueAsync(10, " AppTimeout ", " DEV ")).Succeeded);
     }
 }

@@ -52,6 +52,10 @@ public sealed class EnvironmentCatalogToolsTests
             .Returns(McpToolOutcome.Success(new List<EnvironmentHistoryApiModel>()));
         Assert.IsTrue((await tools.GetEnvironmentHistoryAsync(5)).Succeeded);
 
+        gateway.GetAsync<List<EnvBuildsApiModel>>("RefDataProjectBuilds?id=DEV", Arg.Any<CancellationToken>())
+            .Returns(McpToolOutcome.Success(new List<EnvBuildsApiModel>()));
+        Assert.IsTrue((await tools.GetEnvironmentComponentStatusesAsync(" DEV ")).Succeeded);
+
         Assert.IsFalse((await roTools.CopyEnvironmentBuildAsync("SRC", "DST", "Proj")).Succeeded);
 
         gateway.PostAsync<CopyEnvBuildDto, CopyEnvBuildResponseDto>("CopyEnvBuild", Arg.Any<CopyEnvBuildDto>(), Arg.Any<CancellationToken>())

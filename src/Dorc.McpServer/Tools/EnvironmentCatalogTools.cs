@@ -94,6 +94,17 @@ public sealed class EnvironmentCatalogTools
             cancellationToken);
     }
 
+    [McpServerTool(Name = "dorc_get_environment_component_statuses", ReadOnly = true)]
+    [Description("Gets live deployed build versions and component statuses for an environment by environment name.")]
+    public Task<McpToolOutcome<List<EnvBuildsApiModel>>> GetEnvironmentComponentStatusesAsync(
+        [Description("Environment name.")] string environmentName,
+        CancellationToken cancellationToken = default)
+    {
+        return _apiGateway.GetAsync<List<EnvBuildsApiModel>>(
+            $"RefDataProjectBuilds?id={Uri.EscapeDataString(environmentName.Trim())}",
+            cancellationToken);
+    }
+
     [McpServerTool(Name = "dorc_copy_environment_build", Destructive = true)]
     [Description("Copies build assignments from a source environment to a target environment. Subject to read-only and production guardrails.")]
     public async Task<McpToolOutcome<CopyEnvBuildResponseDto>> CopyEnvironmentBuildAsync(

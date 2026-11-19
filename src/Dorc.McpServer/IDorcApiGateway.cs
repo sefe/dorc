@@ -25,4 +25,13 @@ public interface IDorcApiGateway
         string relativePath,
         TRequest? body,
         CancellationToken cancellationToken);
+
+    Task<McpToolOutcome<TResponse>> DeleteAsync<TRequest, TResponse>(
+        string relativePath,
+        TRequest? body,
+        CancellationToken cancellationToken);
+
+    Task<McpToolOutcome<string>> DeleteWithoutResponseBodyAsync(
+        string relativePath,
+        CancellationToken cancellationToken);
 }

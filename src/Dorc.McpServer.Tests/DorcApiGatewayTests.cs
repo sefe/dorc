@@ -123,5 +123,12 @@ public sealed class DorcApiGatewayTests
 
         var putStr = await gateway.PutStringResponseAsync("DaemonStatus", new DaemonStatusApiModel { ServerName = "srv" }, CancellationToken.None);
         Assert.IsTrue(putStr.Succeeded);
+
+        var delNoBody = await gateway.DeleteWithoutResponseBodyAsync("RefDataProjectEnvironmentMappings?project=P&environment=E", CancellationToken.None);
+        Assert.IsTrue(delNoBody.Succeeded);
+
+        mode = "json-ok";
+        var delJson = await gateway.DeleteAsync<RequestStatusDto, RequestStatusDto>("PropertyValues", new RequestStatusDto { Id = 7 }, CancellationToken.None);
+        Assert.IsTrue(delJson.Succeeded);
     }
 }
