@@ -352,7 +352,9 @@ namespace Dorc.PersistentData.Sources
             {
                 var envDetail = EnvironmentUnifier.GetEnvironment(context, environmentId);
                 if (envDetail == null) return new List<ServerApiModel>();
-                var result = context.Servers.Include(s => s.TagLinks)
+                var result = context.Servers
+                    .Include(s => s.TagLinks)
+                    .Include(s => s.Environments)
                     .Where(s => s.Environments.Any(e => e.Id == envDetail.Id))
                     .OrderBy(s => s.Name)
                     .Select(s => s);

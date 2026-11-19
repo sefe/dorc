@@ -4,12 +4,15 @@
 		<Property Id="WEB.SITENAME" Value="Default Web Site" />
 		<Property Id="WEB.PORT" Value="80" />
 		<Property Id="DOTNET.VERSION" Value="4.0.30319" />
+		<Property Id="DORC.MCP.READONLY" Value="true" />
+		<Property Id="DORC.MCP.ALLOWPROD" Value="false" />
 
 		<Media Id="1" Cabinet="media1.cab" EmbedCab="yes" />
 
 		<InstallExecuteSequence>
 			<Custom Action="ReconfigureLoadUserProfileOrchestrator" Before="InstallFinalize" Condition="NOT Installed" />
 			<Custom Action="ReconfigureLoadUserProfileRequestApi" Before="InstallFinalize" Condition="NOT Installed" />
+			<Custom Action="ReconfigureLoadUserProfileMcpServer" Before="InstallFinalize" Condition="NOT Installed" />
 		</InstallExecuteSequence>
 
 		<SetDirectory Id="CDrive" Value="C:\" />
@@ -22,6 +25,10 @@
 				<ComponentRef Id="RequestApiComponent" />
 				<ComponentRef Id="RequestApiComponentProd" />
 				<ComponentGroupRef Id="DOrcAPIComGroup" />
+
+				<ComponentRef Id="McpServerComponent" />
+				<ComponentRef Id="McpServerComponentProd" />
+				<ComponentGroupRef Id="DOrcMcpServerComGroup" />
 
 				<ComponentGroupRef Id="DOrcWebComGroup" />
 				<ComponentRef Id="DOrcWebIISComponent" />
@@ -95,6 +102,7 @@
 							</Directory>
 							<Directory Id="ReferenceDataApi" Name="ReferenceDataApi" />
 							<Directory Id="RequestApi" Name="Api" />
+							<Directory Id="McpServerDir" Name="McpServer" />
 						</Directory>
 						<Directory Id="ServicesFolder" Name="Services" />
 						<Directory Id="ToolsFolder" Name="Tools">

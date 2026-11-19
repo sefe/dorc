@@ -358,6 +358,20 @@
           "Value": "[Replace with your DORC API Client Secret]"
         },
         {
+          "AccountNameProperty": "DORC_MCP_READONLY",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "DORC_MCP_READONLY",
+          "Value": "true"
+        },
+        {
+          "AccountNameProperty": "DORC_MCP_ALLOWPROD",
+          "IsPath": false,
+          "IsSecure": false,
+          "Name": "DORC_MCP_ALLOWPROD",
+          "Value": "false"
+        },
+        {
           "AccountNameProperty": "AZURE_SIGNALR_USE",
           "IsPath": false,
           "IsSecure": false,
