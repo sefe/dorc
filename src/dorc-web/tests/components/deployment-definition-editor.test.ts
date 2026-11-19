@@ -331,17 +331,103 @@ describe('deployment-definition-editor', () => {
       ComponentName: 'Deploy DAS Paper',
       ComponentType: ComponentType.PowerShell,
       ScriptPath:
-        '{"ScriptPath":"00 Generic\\\\CopyAndExtractArtifacts.ps1","GenericArguments":[{"buildName":"1.0.0"}]}'
+        '{"ScriptPath":"00 Generic\\\\CopyAndExtractArtifacts.ps1","GenericArguments":[{"DestinationToCopyPath":"${STP_DAS_Paper_DestinationPath}"},{"CustomSavedArg":"val"}]}'
     };
     await editor.updateComplete;
-    const clearBuildNameBtn = editor.shadowRoot!.querySelector<HTMLElement>(
-      'vaadin-button[aria-label="Clear buildName"]'
+    // Configured DestinationToCopyPath is shown in the table, while unset optional params are collapsed into chips
+    expect(
+      editor.shadowRoot!.querySelector('tr[data-param="DestinationToCopyPath"]')
+    ).not.to.equal(null);
+    expect(
+      editor.shadowRoot!.querySelector('tr[data-param="buildName"]')
+    ).to.equal(null);
+    const buildNameChip = [
+      ...editor.shadowRoot!.querySelectorAll<HTMLButtonElement>(
+        '.optional-param-chip'
+      )
+    ].find(btn => btn.textContent?.includes('buildName'));
+    expect(buildNameChip).not.to.equal(undefined);
+    buildNameChip!.click();
+    await editor.updateComplete;
+    expect(
+      editor.shadowRoot!.querySelector('tr[data-param="buildName"]')
+    ).not.to.equal(null);
+
+    // Saved custom argument renders as a fixed code label until Rename is clicked
+    const renameBtn = editor.shadowRoot!.querySelector<HTMLButtonElement>(
+      'button[aria-label="Rename parameter CustomSavedArg"]'
     );
-    expect(clearBuildNameBtn).not.to.equal(null);
-    clearBuildNameBtn!.click();
+    expect(renameBtn).not.to.equal(null);
+    renameBtn!.click();
+    await editor.updateComplete;
+    expect(
+      editor.shadowRoot!.querySelector(
+        'tr.custom-arg-row vaadin-text-field[aria-label="Additional argument name"]'
+      )
+    ).not.to.equal(null);
+
+    // Clear DestinationToCopyPath
+    const clearDestBtn = editor.shadowRoot!.querySelector<HTMLElement>(
+      'vaadin-button[aria-label="Clear DestinationToCopyPath"]'
+    );
+    expect(clearDestBtn).not.to.equal(null);
+    clearDestBtn!.click();
     await editor.updateComplete;
     expect(latestPatch[latestPatch.length - 1].ScriptPath).not.to.include(
-      '"buildName"'
+      '"DestinationToCopyPath"'
     );
+
+    // Saved components render Execution type as an icon badge instead of a disabled combo-box
+    const execBadge = editor.shadowRoot!.querySelector<HTMLElement>(
+      '.execution-type-badge'
+    );
+    expect(execBadge).not.to.equal(null);
+    expect(execBadge!.getAttribute('data-type')).to.equal('PowerShell');
+    expect(
+      execBadge!.querySelector('vaadin-icon')?.getAttribute('icon')
+    ).to.equal('brand:powershell');
+    expect(
+      editor.shadowRoot!.querySelector('vaadin-combo-box[label="Execution type"]')
+    ).to.equal(null);
+
+    // Unsaved draft components (ComponentId: 0) render the Execution type combo-box
+    editor.component = {
+      ComponentId: 0,
+      ComponentName: 'New Step',
+      ComponentType: ComponentType.PowerShell,
+      ScriptPath: ''
+    };
+    await editor.updateComplete;
+    expect(editor.shadowRoot!.querySelector('.execution-type-badge')).to.equal(
+      null
+    );
+    const execCombo = editor.shadowRoot!.querySelector<HTMLElement>(
+      'vaadin-combo-box[label="Execution type"]'
+    );
+    expect(execCombo).not.to.equal(null);
+    execCombo!.dispatchEvent(
+      new CustomEvent('value-changed', {
+        detail: { value: ComponentType.Terraform }
+      })
+    );
+    await editor.updateComplete;
+    expect(latestPatch[latestPatch.length - 1].ComponentType).to.equal(
+      ComponentType.Terraform
+    );
+
+    // Saved Terraform component renders brand:terraform icon badge
+    editor.component = {
+      ComponentId: 202,
+      ComponentName: 'Terraform Network',
+      ComponentType: ComponentType.Terraform
+    };
+    await editor.updateComplete;
+    const tfBadge = editor.shadowRoot!.querySelector<HTMLElement>(
+      '.execution-type-badge'
+    );
+    expect(tfBadge?.getAttribute('data-type')).to.equal('Terraform');
+    expect(
+      tfBadge?.querySelector('vaadin-icon')?.getAttribute('icon')
+    ).to.equal('brand:terraform');
   });
 });

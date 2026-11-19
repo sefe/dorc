@@ -741,8 +741,8 @@ describe('definition history and discovery', () => {
     );
     await settle();
 
-    // Clone Child Apply (which has ParentId 10, PSVersion 7.5, ScriptPath deploy/child.ps1)
-    clickButton(page.shadowRoot!, 'Clone sibling');
+    // Duplicate Child Apply (which has ParentId 10, PSVersion 7.4, ScriptPath nested.ps1)
+    clickButton(page.shadowRoot!, 'Duplicate step');
     await settle();
 
     clickButton(page.shadowRoot!, 'Review changes');

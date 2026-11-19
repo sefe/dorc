@@ -1,9 +1,12 @@
 import '@vaadin/button';
 import '@vaadin/checkbox';
 import '@vaadin/combo-box';
+import '@vaadin/icon';
+import '@vaadin/icons/vaadin-icons';
 import '@vaadin/password-field';
 import '@vaadin/text-area';
 import '@vaadin/text-field';
+import '../icons/brand-icons';
 import './hegs-json-viewer';
 import { css, html, LitElement, nothing, type PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -149,6 +152,8 @@ export class DeploymentDefinitionEditor extends LitElement {
     value: string;
     error?: string;
   }> = [];
+  @state() private revealedOptionalParams = new Set<string>();
+  @state() private editingCustomRowIds = new Set<number>();
   @state() private rawJsonInspectorOpen = false;
   private nextDraftArgId = 1;
   private customRowIdByRawIndex = new Map<number, number>();
@@ -186,6 +191,49 @@ export class DeploymentDefinitionEditor extends LitElement {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: var(--lumo-space-xs) var(--lumo-space-m);
+    }
+    .execution-type-field {
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      gap: 4px;
+      min-width: 0;
+      padding-top: var(--lumo-space-xs);
+    }
+    .execution-type-label {
+      font-size: var(--lumo-font-size-s);
+      font-weight: 500;
+      color: var(--lumo-secondary-text-color);
+      line-height: 1;
+    }
+    .execution-type-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      align-self: flex-start;
+      height: var(--lumo-size-m, 36px);
+      padding: 0 12px;
+      border-radius: 999px;
+      font-size: var(--lumo-font-size-s);
+      font-weight: 600;
+      border: 1px solid var(--dorc-border-color);
+      background: var(--dorc-chip-bg);
+      color: var(--dorc-chip-text);
+    }
+    .execution-type-badge[data-type='PowerShell'] {
+      background: rgba(59, 130, 246, 0.14);
+      border-color: rgba(59, 130, 246, 0.35);
+      color: var(--dorc-link-color, #60a5fa);
+    }
+    .execution-type-badge[data-type='Terraform'] {
+      background: rgba(139, 92, 246, 0.16);
+      border-color: rgba(139, 92, 246, 0.38);
+      color: #c4b5fd;
+    }
+    .execution-type-badge vaadin-icon {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
     }
     vaadin-text-field,
     vaadin-text-area,
@@ -336,6 +384,74 @@ export class DeploymentDefinitionEditor extends LitElement {
       color: var(--dorc-text-secondary-strong);
       font-size: 11px;
       line-height: 1.3;
+    }
+    .optional-params-bar {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      padding: 4px 2px 2px;
+      font-size: var(--lumo-font-size-xs);
+      color: var(--dorc-text-secondary-strong);
+    }
+    .optional-param-chip {
+      font: inherit;
+      font-family: var(--lumo-font-family-monospace, monospace);
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px dashed var(--dorc-border-color);
+      background: transparent;
+      color: var(--dorc-link-color, #60a5fa);
+      cursor: pointer;
+    }
+    .optional-param-chip:hover {
+      background: rgba(59, 130, 246, 0.12);
+      border-style: solid;
+    }
+    .env-prop-pills {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 4px;
+      font-size: 11px;
+      color: var(--dorc-text-secondary-strong);
+    }
+    .env-prop-pill {
+      font-family: var(--lumo-font-family-monospace, monospace);
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(148, 163, 184, 0.12);
+      color: var(--dorc-text-secondary-strong);
+    }
+    .custom-key-edit-btn {
+      font: inherit;
+      font-size: 10px;
+      padding: 0 5px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--dorc-text-secondary-strong);
+      cursor: pointer;
+    }
+    .custom-key-edit-btn:hover {
+      border-color: var(--dorc-border-color);
+      color: var(--dorc-text-primary);
+    }
+    .step-top-row {
+      grid-column: 1 / -1;
+      display: grid;
+      grid-template-columns: minmax(220px, 1.4fr) auto auto 1fr;
+      align-items: end;
+      gap: var(--lumo-space-s) var(--lumo-space-m);
+    }
+    .step-top-row .flags {
+      margin: 0 0 4px;
+      justify-self: end;
+    }
+    .ps-version-combo {
+      width: 120px;
     }
     .param-preview-placeholder {
       color: var(--dorc-text-secondary-strong);
@@ -547,11 +663,7 @@ export class DeploymentDefinitionEditor extends LitElement {
     this.loadProjectEnvironments();
   }
 
-  protected updated(changed: PropertyValues) {
-    if (changed.has('project')) {
-      this.previewEnvironmentName = '';
-      this.loadProjectEnvironments();
-    }
+  protected willUpdate(changed: PropertyValues) {
     if (changed.has('component')) {
       if (!this.isApplyingInternalChange) {
         this.componentSelectionGeneration++;
@@ -564,6 +676,8 @@ export class DeploymentDefinitionEditor extends LitElement {
         this.inlineCreateParamKey = '';
         this.inlineCreateFeedback = '';
         this.extraCustomArgs = [];
+        this.revealedOptionalParams = new Set();
+        this.editingCustomRowIds = new Set();
         this.rawJsonInspectorOpen = false;
         this.customRowIdByRawIndex.clear();
       } else {
@@ -582,6 +696,13 @@ export class DeploymentDefinitionEditor extends LitElement {
         }
       }
       this.isApplyingInternalChange = false;
+    }
+  }
+
+  protected updated(changed: PropertyValues) {
+    if (changed.has('project')) {
+      this.previewEnvironmentName = '';
+      this.loadProjectEnvironments();
     }
     if (
       changed.has('component') ||
@@ -1424,6 +1545,8 @@ export class DeploymentDefinitionEditor extends LitElement {
     this.inlineCreateParamKey = '';
     this.inlineCreateFeedback = '';
     this.extraCustomArgs = [];
+    this.revealedOptionalParams = new Set();
+    this.editingCustomRowIds = new Set();
     this.customRowIdByRawIndex.clear();
     if (!templatePath || templatePath === CUSTOM_SCRIPT_OPTION) {
       const parsed = parseScriptPathValue(this.component.ScriptPath);
@@ -1528,9 +1651,28 @@ export class DeploymentDefinitionEditor extends LitElement {
       }))
     ];
 
-    return html`
+    const allTemplateParams = template?.parameters ?? [];
+    const configuredOrRequiredParams = allTemplateParams.filter(param => {
+      if (param.required) return true;
+      const lower = param.name.toLowerCase();
+      if (this.revealedOptionalParams.has(lower)) return true;
+      return parsed.arguments.some(a => a.key.toLowerCase() === lower);
+    });
+    const hasConfiguredArgs =
+      configuredOrRequiredParams.length > 0 || extraArgs.length > 0;
+    const visibleTemplateParams = hasConfiguredArgs
+      ? configuredOrRequiredParams
+      : allTemplateParams;
+    const hiddenOptionalParams = hasConfiguredArgs
+      ? allTemplateParams.filter(
+          param => !visibleTemplateParams.includes(param)
+        )
+      : [];
+
+    const templateSelectorCombo = html`
       <vaadin-combo-box
         label="Predefined generic script (project-scripts / 00 Generic)"
+        theme=${template || parsed.isJsonPath ? 'small' : ''}
         .items=${templateItems}
         item-label-path="label"
         item-value-path="value"
@@ -1553,6 +1695,10 @@ export class DeploymentDefinitionEditor extends LitElement {
             (event.currentTarget as HTMLInputElement).value
           )}
       ></vaadin-combo-box>
+    `;
+
+    return html`
+      ${!template && !parsed.isJsonPath ? templateSelectorCombo : nothing}
       ${
         template || parsed.isJsonPath
           ? html`
@@ -1563,19 +1709,17 @@ export class DeploymentDefinitionEditor extends LitElement {
               >
                 <div class="generic-script-header">
                   <div class="generic-script-title-group">
-                    <strong>
-                      ${
-                        template
-                          ? `${template.name} — ${template.scriptPath}`
-                          : `JSON ScriptPath arguments — ${parsed.scriptPath}`
-                      }
-                    </strong>
+                    ${templateSelectorCombo}
                     ${
                       template
-                        ? html`<span class="generic-category-badge"
+                        ? html`<span
+                            class="generic-category-badge"
+                            title=${template.description}
                             >${template.category}</span
                           >`
-                        : nothing
+                        : html`<strong>
+                            JSON ScriptPath arguments — ${parsed.scriptPath}
+                          </strong>`
                     }
                   </div>
                   <div
@@ -1606,7 +1750,6 @@ export class DeploymentDefinitionEditor extends LitElement {
                     ></vaadin-combo-box>
                   </div>
                 </div>
-                ${template ? html`<p>${template.description}</p>` : nothing}
                 ${
                   this.inlineCreateFeedback
                     ? html`<p class="env-props" role="status">
@@ -1787,7 +1930,7 @@ export class DeploymentDefinitionEditor extends LitElement {
                       </tr>
                     </thead>
                     <tbody>
-                      ${(template?.parameters ?? []).map(param => {
+                      ${visibleTemplateParams.map(param => {
                         const existingEntry = parsed.arguments.find(
                           a =>
                             a.key.toLowerCase() === param.name.toLowerCase()
@@ -1832,9 +1975,13 @@ export class DeploymentDefinitionEditor extends LitElement {
                                     : nothing
                                 }
                               </div>
-                              <span class="param-caption"
-                                >${param.helperText || param.label}</span
-                              >
+                              ${
+                                param.helperText
+                                  ? html`<span class="param-caption"
+                                      >${param.helperText}</span
+                                    >`
+                                  : nothing
+                              }
                             </div>
                           </td>
                           <td class="arg-col-value">
@@ -2077,21 +2224,55 @@ export class DeploymentDefinitionEditor extends LitElement {
                               )
                             });
                           };
+                          const isEditingKey =
+                            draftIndex >= 0 ||
+                            Boolean(error) ||
+                            !arg.key.trim() ||
+                            this.editingCustomRowIds.has(rowId);
                           return html`<tr
                             class="custom-arg-row"
                             data-custom-arg=${extraIdx}
                           >
                             <td class="arg-col-param">
                               <div class="param-name-meta">
-                                <vaadin-text-field
-                                  aria-label="Additional argument name"
-                                  placeholder="Parameter name..."
-                                  theme="small"
-                                  .value=${live(arg.key)}
-                                  .readonly=${this.readonly}
-                                  @input=${updateKey}
-                                  @change=${updateKey}
-                                ></vaadin-text-field>
+                                ${
+                                  isEditingKey
+                                    ? html`<vaadin-text-field
+                                        aria-label="Additional argument name"
+                                        placeholder="Parameter name..."
+                                        theme="small"
+                                        .value=${live(arg.key)}
+                                        .readonly=${this.readonly}
+                                        @input=${updateKey}
+                                        @change=${updateKey}
+                                      ></vaadin-text-field>`
+                                    : html`<div class="param-name-row">
+                                        <code class="param-name-code"
+                                          >${arg.key}</code
+                                        >
+                                        ${
+                                          !this.readonly
+                                            ? html`<button
+                                                type="button"
+                                                class="custom-key-edit-btn"
+                                                title="Rename parameter ${arg.key}"
+                                                aria-label="Rename parameter ${arg.key}"
+                                                @click=${() => {
+                                                  const next = new Set(
+                                                    this.editingCustomRowIds
+                                                  );
+                                                  next.add(rowId);
+                                                  this.editingCustomRowIds =
+                                                    next;
+                                                  this.requestUpdate();
+                                                }}
+                                              >
+                                                Rename
+                                              </button>`
+                                            : nothing
+                                        }
+                                      </div>`
+                                }
                                 ${
                                   error
                                     ? html`<span class="param-syntax-hint"
@@ -2186,6 +2367,30 @@ export class DeploymentDefinitionEditor extends LitElement {
                     </tbody>
                   </table>
                 </div>
+                ${
+                  hiddenOptionalParams.length > 0 && !this.readonly
+                    ? html`<div
+                        class="optional-params-bar"
+                        aria-label="Optional script parameters"
+                      >
+                        <span>Optional parameters:</span>
+                        ${hiddenOptionalParams.map(
+                          opt => html`<button
+                            type="button"
+                            class="optional-param-chip"
+                            title=${opt.helperText || opt.label}
+                            @click=${() => {
+                              const next = new Set(this.revealedOptionalParams);
+                              next.add(opt.name.toLowerCase());
+                              this.revealedOptionalParams = next;
+                            }}
+                          >
+                            + ${opt.name}
+                          </button>`
+                        )}
+                      </div>`
+                    : nothing
+                }
                 <div class="generic-card-footer">
                   <div style="display:flex; align-items:center; gap:8px;">
                     ${
@@ -2194,10 +2399,16 @@ export class DeploymentDefinitionEditor extends LitElement {
                             id="addCustomGenericArgBtn"
                             theme="small tertiary"
                             @click=${() => {
+                              const id = this.nextDraftArgId++;
+                              const nextEditing = new Set(
+                                this.editingCustomRowIds
+                              );
+                              nextEditing.add(id);
+                              this.editingCustomRowIds = nextEditing;
                               this.extraCustomArgs = [
                                 ...this.extraCustomArgs,
                                 {
-                                  id: this.nextDraftArgId++,
+                                  id,
                                   key: '',
                                   value: ''
                                 }
@@ -2207,22 +2418,19 @@ export class DeploymentDefinitionEditor extends LitElement {
                           >`
                         : nothing
                     }
-                    <span class="env-props">
-                      Use <code>${'{x}'}</code> in any value cell to bind an
-                      existing <code>${'${VariableName}'}</code> or create a new
-                      variable.
-                    </span>
                   </div>
                   ${
                     template?.requiredEnvironmentProperties?.length
-                      ? html`<p class="env-props">
-                          Consumes environment properties:
-                          <code
-                            >${template.requiredEnvironmentProperties.join(
-                              ', '
-                            )}</code
-                          >
-                        </p>`
+                      ? html`<div
+                          class="env-prop-pills"
+                          title="Environment properties consumed by this script"
+                        >
+                          <span>Env properties:</span>
+                          ${template.requiredEnvironmentProperties.map(
+                            prop =>
+                              html`<code class="env-prop-pill">${prop}</code>`
+                          )}
+                        </div>`
                       : nothing
                   }
                 </div>
@@ -2243,46 +2451,146 @@ export class DeploymentDefinitionEditor extends LitElement {
       component.TerraformSourceType === TerraformSourceType.Catalog;
     const sourceType =
       component.TerraformSourceType ?? TerraformSourceType.SharedFolder;
+    const executionType =
+      component.ComponentType ?? ComponentType.PowerShell;
+    const isSavedComponent = Boolean(component.ComponentId);
+    const executionTypeControl = isSavedComponent
+      ? html`
+          <div
+            class="execution-type-field"
+            role="group"
+            aria-label="Execution type"
+          >
+            <span class="execution-type-label">Execution type</span>
+            <span
+              class="execution-type-badge"
+              data-type=${executionType}
+              title="Execution type is fixed once a component is saved"
+            >
+              <vaadin-icon
+                icon=${terraform ? 'brand:terraform' : 'brand:powershell'}
+                aria-hidden="true"
+              ></vaadin-icon>
+              <span>${executionType}</span>
+            </span>
+          </div>
+        `
+      : html`
+          <vaadin-combo-box
+            label="Execution type"
+            .items=${Object.values(ComponentType)}
+            .value=${live(executionType)}
+            .disabled=${this.readonly}
+            helper-text="Choose PowerShell or Terraform before saving this new step."
+            @value-changed=${(event: CustomEvent<{ value: string }>) => {
+              const value =
+                event.detail?.value ??
+                (event.currentTarget as HTMLInputElement).value;
+              if (
+                (value === ComponentType.PowerShell ||
+                  value === ComponentType.Terraform) &&
+                value !== executionType
+              ) {
+                this.change({ ComponentType: value });
+              }
+            }}
+            @input=${(event: Event) => {
+              const value = (event.currentTarget as HTMLInputElement).value;
+              if (
+                value === ComponentType.PowerShell ||
+                value === ComponentType.Terraform
+              ) {
+                this.change({ ComponentType: value });
+              }
+            }}
+            @change=${(event: Event) => {
+              const value = (event.currentTarget as HTMLInputElement).value;
+              if (
+                value === ComponentType.PowerShell ||
+                value === ComponentType.Terraform
+              ) {
+                this.change({ ComponentType: value });
+              }
+            }}
+          ></vaadin-combo-box>
+        `;
+    const flagsGroup = html`
+      <div class="flags">
+        <vaadin-checkbox
+          label="Enabled"
+          .checked=${component.IsEnabled !== false}
+          .disabled=${this.readonly}
+          @change=${(event: Event) =>
+            this.change({
+              IsEnabled: (event.currentTarget as HTMLInputElement).checked
+            })}
+        ></vaadin-checkbox>
+        <vaadin-checkbox
+          label="Stop on failure"
+          .checked=${component.StopOnFailure === true}
+          .disabled=${this.readonly}
+          @change=${(event: Event) =>
+            this.change({
+              StopOnFailure: (event.currentTarget as HTMLInputElement).checked
+            })}
+        ></vaadin-checkbox>
+        ${
+          !terraform
+            ? html`<vaadin-checkbox
+                label="Non-production only"
+                .checked=${component.NonProdOnly === true}
+                .disabled=${this.readonly}
+                @change=${(event: Event) =>
+                  this.change({
+                    NonProdOnly: (event.currentTarget as HTMLInputElement)
+                      .checked
+                  })}
+              ></vaadin-checkbox>`
+            : nothing
+        }
+      </div>
+    `;
     return html`
       <div class="fields">
-        ${this.text('Component name', 'ComponentName', catalog ? 'State identity is stable. Catalog renames require an operator-reviewed migration.' : 'Unique component name.', catalog)}
-        <vaadin-combo-box
-          label="Execution type"
-          .items=${Object.values(ComponentType)}
-          .value=${live(component.ComponentType ?? ComponentType.PowerShell)}
-          .disabled=${this.readonly || Boolean(component.ComponentId)}
-          helper-text="An existing execution identity is not converted to another type here."
-          @value-changed=${(event: CustomEvent<{ value: string }>) => {
-            const value =
-              event.detail?.value ??
-              (event.currentTarget as HTMLInputElement).value;
-            if (
-              (value === ComponentType.PowerShell ||
-                value === ComponentType.Terraform) &&
-              value !== (component.ComponentType ?? ComponentType.PowerShell)
-            ) {
-              this.change({ ComponentType: value });
-            }
-          }}
-          @input=${(event: Event) => {
-            const value = (event.currentTarget as HTMLInputElement).value;
-            if (
-              value === ComponentType.PowerShell ||
-              value === ComponentType.Terraform
-            ) {
-              this.change({ ComponentType: value });
-            }
-          }}
-          @change=${(event: Event) => {
-            const value = (event.currentTarget as HTMLInputElement).value;
-            if (
-              value === ComponentType.PowerShell ||
-              value === ComponentType.Terraform
-            ) {
-              this.change({ ComponentType: value });
-            }
-          }}
-        ></vaadin-combo-box>
+        <div class="step-top-row">
+          ${this.text(
+            'Component name',
+            'ComponentName',
+            catalog
+              ? 'State identity is stable. Catalog renames require an operator-reviewed migration.'
+              : '',
+            catalog
+          )}
+          ${executionTypeControl}
+          ${
+            !terraform
+              ? html`<vaadin-combo-box
+                  class="ps-version-combo"
+                  label="PowerShell version"
+                  .items=${this.powerShellVersions}
+                  .value=${live(component.PSVersion ?? '')}
+                  .disabled=${this.readonly}
+                  @value-changed=${(event: CustomEvent<{ value: string }>) => {
+                    const value =
+                      event.detail?.value ??
+                      (event.currentTarget as HTMLInputElement).value;
+                    if (value && value !== (component.PSVersion ?? '')) {
+                      this.change({ PSVersion: value });
+                    }
+                  }}
+                  @input=${(event: Event) =>
+                    this.change({
+                      PSVersion: (event.currentTarget as HTMLInputElement).value
+                    })}
+                  @change=${(event: Event) =>
+                    this.change({
+                      PSVersion: (event.currentTarget as HTMLInputElement).value
+                    })}
+                ></vaadin-combo-box>`
+              : nothing
+          }
+          ${flagsGroup}
+        </div>
         ${
           terraform
             ? html`
@@ -2321,31 +2629,7 @@ export class DeploymentDefinitionEditor extends LitElement {
                 ></vaadin-combo-box>
                 ${this.text('Source subpath', 'TerraformSubPath', 'Relative path inside the selected source.')}
               `
-            : html`
-                <vaadin-combo-box
-                  label="PowerShell version"
-                  .items=${this.powerShellVersions}
-                  .value=${live(component.PSVersion ?? '')}
-                  .disabled=${this.readonly}
-                  @value-changed=${(event: CustomEvent<{ value: string }>) => {
-                    const value =
-                      event.detail?.value ??
-                      (event.currentTarget as HTMLInputElement).value;
-                    if (value && value !== (component.PSVersion ?? '')) {
-                      this.change({ PSVersion: value });
-                    }
-                  }}
-                  @input=${(event: Event) =>
-                    this.change({
-                      PSVersion: (event.currentTarget as HTMLInputElement).value
-                    })}
-                  @change=${(event: Event) =>
-                    this.change({
-                      PSVersion: (event.currentTarget as HTMLInputElement).value
-                    })}
-                ></vaadin-combo-box>
-                ${this.renderPowerShellGenericSection(component)}
-              `
+            : html`${this.renderPowerShellGenericSection(component)}`
         }
         ${
           !terraform || sourceType === TerraformSourceType.SharedFolder
@@ -2411,30 +2695,6 @@ export class DeploymentDefinitionEditor extends LitElement {
                   </p>
                 </div>
               `
-            : nothing
-        }
-      </div>
-      <div class="flags">
-        <vaadin-checkbox
-          label="Enabled"
-          .checked=${component.IsEnabled !== false}
-          .disabled=${this.readonly}
-          @change=${(event: Event) => this.change({ IsEnabled: (event.currentTarget as HTMLInputElement).checked })}
-        ></vaadin-checkbox>
-        <vaadin-checkbox
-          label="Stop on failure"
-          .checked=${component.StopOnFailure === true}
-          .disabled=${this.readonly}
-          @change=${(event: Event) => this.change({ StopOnFailure: (event.currentTarget as HTMLInputElement).checked })}
-        ></vaadin-checkbox>
-        ${
-          !terraform
-            ? html`<vaadin-checkbox
-                label="Non-production only"
-                .checked=${component.NonProdOnly === true}
-                .disabled=${this.readonly}
-                @change=${(event: Event) => this.change({ NonProdOnly: (event.currentTarget as HTMLInputElement).checked })}
-              ></vaadin-checkbox>`
             : nothing
         }
       </div>

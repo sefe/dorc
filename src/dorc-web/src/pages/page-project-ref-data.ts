@@ -145,23 +145,67 @@ export class PageProjectRefData extends PageElement {
       align-items: center;
       justify-content: space-between;
       gap: var(--lumo-space-s);
-      padding: var(--lumo-space-xs) var(--lumo-space-m);
+      padding: 2px var(--lumo-space-m);
       flex-wrap: wrap;
       border-bottom: 1px solid var(--dorc-border-color);
+      min-height: 42px;
     }
-    header > div:first-child {
+    .header-left {
       display: flex;
       flex-wrap: wrap;
-      align-items: baseline;
+      align-items: center;
       gap: var(--lumo-space-s);
+      min-width: 0;
     }
-    header > div:first-child > span {
-      font-size: var(--lumo-font-size-xs);
-      color: var(--dorc-text-secondary-strong);
+    .header-left vaadin-tabs {
+      min-height: 36px;
+      --lumo-size-m: 34px;
+      box-shadow: none;
     }
-    h1 {
+    .header-left vaadin-tab {
+      padding: 0 var(--lumo-space-s);
+      font-size: var(--lumo-font-size-s);
+    }
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+    .step-footer-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: var(--lumo-space-s) var(--lumo-space-m);
+      margin-top: var(--lumo-space-s);
+      padding-top: var(--lumo-space-s);
+      border-top: 1px solid var(--dorc-border-color);
+    }
+    .step-footer-bar label {
+      flex-direction: row;
+      align-items: center;
+      gap: 8px;
       margin: 0;
-      font-size: var(--lumo-font-size-l);
+    }
+    .step-footer-bar .actions {
+      gap: 6px;
+    }
+    .step-footer-links {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--lumo-space-s);
+      font-size: var(--lumo-font-size-xs);
+      margin-inline-start: var(--lumo-space-xs);
+    }
+    aside > .actions {
+      gap: 6px;
+      font-size: var(--lumo-font-size-xs);
     }
     h2 {
       font-size: var(--lumo-font-size-l);
@@ -943,14 +987,14 @@ export class PageProjectRefData extends PageElement {
     return nodes.map((node, index) => {
       const path = parentPath ? `${parentPath}.${index}` : String(index);
       const children = this.buildTreeNodes(node.Children ?? [], path);
-      const kindText =
-        node.ComponentType === ComponentType.Terraform
-          ? `Terraform / ${node.TerraformSourceType ?? TerraformSourceType.SharedFolder}`
-          : `${node.ComponentType ?? ComponentType.PowerShell}${node.PSVersion ? ` ${node.PSVersion}` : ''}`;
+      const isTerraform = node.ComponentType === ComponentType.Terraform;
+      const kindText = isTerraform
+        ? `Terraform / ${node.TerraformSourceType ?? TerraformSourceType.SharedFolder}`
+        : `${node.ComponentType ?? ComponentType.PowerShell}${node.PSVersion ? ` ${node.PSVersion}` : ''}`;
       return {
         id: node.ComponentId ?? 0,
         name: node.ComponentName || 'New component',
-        icon: '',
+        icon: isTerraform ? 'brand:terraform' : 'brand:powershell',
         open: !this.collapsedPaths.includes(path),
         children,
         numOfChildren: children.length,
@@ -2083,8 +2127,21 @@ export class PageProjectRefData extends PageElement {
         .activeTab=${workspaceActiveTab}
       ></project-workspace-nav>
       <header>
-        <div>
-          <h1>${project?.ProjectName ?? 'Project'} reference data</h1>
+        <div class="header-left">
+          <h1 class="sr-only">${project?.ProjectName ?? 'Project'} reference data</h1>
+          <vaadin-tabs
+            ?hidden=${this.tab === 3 || this.tab === 4}
+            .selected=${live(this.tab <= 2 ? this.tab : 0)}
+            @selected-changed=${(event: CustomEvent<{ value: number }>) => {
+              if (this.tab <= 2) {
+                this.switchTab(event.detail.value);
+              }
+            }}
+          >
+            <vaadin-tab>Definitions</vaadin-tab
+            ><vaadin-tab>Advanced JSON</vaadin-tab
+            ><vaadin-tab>History</vaadin-tab>
+          </vaadin-tabs>
           <span class="dorc-sha-meta">
             <span>Revision:</span>
             ${
@@ -2096,12 +2153,13 @@ export class PageProjectRefData extends PageElement {
         </div>
         <div class="actions">
           <vaadin-button
+            theme="small"
             @click=${() => this.reload()}
             .disabled=${this.loading || this.saving}
             >Reload</vaadin-button
           >
           <vaadin-button
-            theme="primary"
+            theme="small primary"
             @click=${(event: Event) => {
               (event.currentTarget as HTMLElement | null)?.blur();
               this.previewSave();
@@ -2115,18 +2173,6 @@ export class PageProjectRefData extends PageElement {
       ${this.loading ? html`<p class="notice" role="status">Loading project definitions...</p>` : nothing}
       ${this.document && !this.document.CanEdit ? html`<p class="notice">Read-only. Editing requires permission to modify this project.</p>` : nothing}
       ${this.dirty ? html`<p class="notice" role="status">Unsaved changes. Save before deploying; submitted requests keep their original definition revision.</p>` : nothing}
-      <vaadin-tabs
-        ?hidden=${this.tab === 3 || this.tab === 4}
-        .selected=${live(this.tab <= 2 ? this.tab : 0)}
-        @selected-changed=${(event: CustomEvent<{ value: number }>) => {
-          if (this.tab <= 2) {
-            this.switchTab(event.detail.value);
-          }
-        }}
-      >
-        <vaadin-tab>Definitions</vaadin-tab
-        ><vaadin-tab>Advanced JSON</vaadin-tab><vaadin-tab>History</vaadin-tab>
-      </vaadin-tabs>
       <div
         class="workspace"
         style="--tree-pane-width: ${this.treeWidth}px"
@@ -2135,6 +2181,7 @@ export class PageProjectRefData extends PageElement {
         <aside>
           <div class="actions">
             <vaadin-button
+              theme="small"
               @click=${() => this.addComponent()}
               .disabled=${!this.editable}
               >Add component</vaadin-button
@@ -2142,7 +2189,7 @@ export class PageProjectRefData extends PageElement {
             ${
               this.editable
                 ? html`<vaadin-button
-                    theme="tertiary"
+                    theme="small tertiary"
                     @click=${() => this.toggleScriptCatalog()}
                     >Script catalog</vaadin-button
                   >`
@@ -2210,7 +2257,8 @@ export class PageProjectRefData extends PageElement {
           ></deployment-definition-editor>
           ${
             selected
-              ? html` <label
+              ? html`<div class="step-footer-bar">
+                  <label
                     >Parent component
                     <select
                       aria-label="Parent component"
@@ -2239,39 +2287,42 @@ export class PageProjectRefData extends PageElement {
                   </label>
                   <div class="actions">
                     <vaadin-button
+                      theme="small"
                       @click=${() => this.cloneSelectedAsSibling()}
                       .disabled=${!this.editable}
-                      title="Create a new sibling step pre-populated with parent, PowerShell version and script path"
-                      >Clone sibling</vaadin-button
+                      title="Duplicate this step with the same parent, PowerShell version and script path"
+                      >Duplicate step</vaadin-button
                     >
                     <vaadin-button
+                      theme="small"
                       @click=${() => this.addChildToSelected()}
                       .disabled=${!this.editable}
                       title="Create a child step under this component pre-populated with its runtime and script defaults"
                       >Add child</vaadin-button
                     >
                     <vaadin-button
-                      theme="tertiary"
+                      theme="small tertiary"
                       @click=${() => this.moveSelected(-1)}
                       .disabled=${!canMoveUp}
                       title="Move step up within parent"
                       >Move up</vaadin-button
                     >
                     <vaadin-button
-                      theme="tertiary"
+                      theme="small tertiary"
                       @click=${() => this.moveSelected(1)}
                       .disabled=${!canMoveDown}
                       title="Move step down within parent"
                       >Move down</vaadin-button
                     >
                     <vaadin-button
+                      theme="small tertiary error"
                       @click=${() => this.detachSelected()}
                       .disabled=${!this.editable}
                       >Detach from project</vaadin-button
                     >
                     ${
                       selected.ComponentId && !this.dirty
-                        ? html`
+                        ? html`<span class="step-footer-links">
                             ${
                               this.document?.CanDeploy &&
                               selected.IsEnabled !== false
@@ -2286,10 +2337,11 @@ export class PageProjectRefData extends PageElement {
                               >Component history</a
                             >
                             ${this.document?.CanDeploy && selected.TerraformSourceType === TerraformSourceType.Catalog ? html`<a href="${catalogUrl}&amp;template=${encodeURIComponent(selected.TerraformTemplateName ?? '')}&amp;version=${encodeURIComponent(selected.TerraformTemplateVersion ?? '')}&amp;componentId=${selected.ComponentId}">Plan or upgrade module</a>` : nothing}
-                          `
+                          </span>`
                         : nothing
                     }
-                  </div>`
+                  </div>
+                </div>`
               : nothing
           }
         </section>

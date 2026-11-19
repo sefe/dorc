@@ -427,7 +427,16 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
         name: 'destinationFolder',
         label: 'Destination folder (destinationFolder)',
         placeholder: 'e.g. ConsoleApps\\MyService',
-        required: false
+        required: false,
+        helperText: 'Optional relative subfolder under DestinationToCopyPath.'
+      },
+      {
+        name: 'DestinationToCopyPath',
+        label: 'Destination copy path (DestinationToCopyPath)',
+        placeholder: 'e.g. ${STP_DAS_DestinationPath}',
+        required: false,
+        helperText:
+          'Target UNC or directory path (overrides environment DestinationToCopyPath).'
       }
     ],
     requiredEnvironmentProperties: [
