@@ -289,6 +289,59 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
+        public void TraceProperties_GlobalScopeOptionsWithoutEnvironment_ResolvesDatabaseAndServerTagTokens()
+        {
+            _scopeOptionsResolver.When(r => r.SetGlobalPropertyValues(Arg.Any<IVariableResolver>(), Arg.Any<ClaimsPrincipal>()))
+                .Do(call =>
+                {
+                    var resolver = call.Arg<IVariableResolver>();
+                    resolver.SetPropertyValue("DbServer_Audit_DB", "SQL-AUDIT-01");
+                    resolver.SetPropertyValue("DbName_Audit_DB", "END_DB_AUDIT");
+                    resolver.SetPropertyValue("ServerNames_App_Tier", "APP-SRV-01");
+                    resolver.SetPropertyValue("ContainerNames_edge", "trade-ingest-worker");
+                    resolver.SetPropertyValue("CloudResourceNames_messaging", "sb-trading-ut2");
+                    resolver.SetPropertyValue("ApiRegistrationNames_rest", "trade-capture-api");
+                });
+
+            var request = new PropertyResolutionPreviewRequestApiModel
+            {
+                EnvironmentName = null,
+                PropertyNames = new List<string>
+                {
+                    "DbServer_Audit_DB",
+                    "DbName_Audit_DB",
+                    "ServerNames_App_Tier",
+                    "ContainerNames_edge",
+                    "CloudResourceNames_messaging",
+                    "ApiRegistrationNames_rest"
+                }
+            };
+
+            var result = _tracer.TraceProperties(request, null, _user);
+
+            Assert.AreEqual(6, result.Count);
+            Assert.AreEqual("BuiltInScopeOption", result[0].Source);
+            Assert.AreEqual("Default", result[0].ScopeName);
+            Assert.AreEqual("Ok", result[0].Diagnostic);
+            Assert.AreEqual("\"SQL-AUDIT-01\"", result[0].ResolvedValueJson);
+
+            Assert.AreEqual("BuiltInScopeOption", result[1].Source);
+            Assert.AreEqual("\"END_DB_AUDIT\"", result[1].ResolvedValueJson);
+
+            Assert.AreEqual("BuiltInScopeOption", result[2].Source);
+            Assert.AreEqual("\"APP-SRV-01\"", result[2].ResolvedValueJson);
+
+            Assert.AreEqual("BuiltInScopeOption", result[3].Source);
+            Assert.AreEqual("\"trade-ingest-worker\"", result[3].ResolvedValueJson);
+
+            Assert.AreEqual("BuiltInScopeOption", result[4].Source);
+            Assert.AreEqual("\"sb-trading-ut2\"", result[4].ResolvedValueJson);
+
+            Assert.AreEqual("BuiltInScopeOption", result[5].Source);
+            Assert.AreEqual("\"trade-capture-api\"", result[5].ResolvedValueJson);
+        }
+
+        [TestMethod]
         public void TraceProperties_MultiHopInterpolationAndEscapedDollars_ResolvesCorrectly()
         {
             var longText = new string('x', 100);

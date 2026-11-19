@@ -389,6 +389,36 @@ namespace Dorc.Core
                 variableResolver,
                 PropertyValueScopeOptionsFixed.DbName,
                 databases.Select(d => (d.Name, (IEnumerable<string>)(d.Tags ?? Array.Empty<string>()))));
+
+            var containers = (_containersPersistentSource.GetAll() ?? Array.Empty<ContainerApiModel>()).ToArray();
+            if (containers.Length > 0)
+            {
+                SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.EnvironmentContainers, "<EnvironmentContainers>");
+                AddGlobalTagSamples(
+                    variableResolver,
+                    PropertyValueScopeOptionsFixed.ContainerNames,
+                    containers.Select(c => (c.Name, (IEnumerable<string>)TagString.Split(c.Tags))));
+            }
+
+            var cloudResources = (_cloudResourcesPersistentSource.GetAll() ?? Array.Empty<CloudResourceApiModel>()).ToArray();
+            if (cloudResources.Length > 0)
+            {
+                SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.EnvironmentCloudResources, "<EnvironmentCloudResources>");
+                AddGlobalTagSamples(
+                    variableResolver,
+                    PropertyValueScopeOptionsFixed.CloudResourceNames,
+                    cloudResources.Select(c => (c.Name, (IEnumerable<string>)TagString.Split(c.Tags))));
+            }
+
+            var apiRegistrations = (_apiRegistrationsPersistentSource.GetAll() ?? Array.Empty<ApiRegistrationApiModel>()).ToArray();
+            if (apiRegistrations.Length > 0)
+            {
+                SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.EnvironmentApiRegistrations, "<EnvironmentApiRegistrations>");
+                AddGlobalTagSamples(
+                    variableResolver,
+                    PropertyValueScopeOptionsFixed.ApiRegistrationNames,
+                    apiRegistrations.Select(a => (a.Name, (IEnumerable<string>)TagString.Split(a.Tags))));
+            }
         }
 
         private static void SetLiteralScopeSample(IVariableResolver variableResolver, string key, string sampleText)

@@ -261,6 +261,48 @@ namespace Dorc.Core.VariableResolution
                         false);
                 }
             }
+            else if (user != null)
+            {
+                var globalScopeCollector = new ScopeOptionsCollector();
+                try
+                {
+                    _variableScopeOptionsResolver.SetGlobalPropertyValues(globalScopeCollector, user);
+                }
+                catch (InvalidOperationException)
+                {
+                    // Ignore tag collisions during global preview discovery
+                }
+
+                foreach (var kvp in globalScopeCollector.Collected)
+                {
+                    if (entries.ContainsKey(kvp.Key) || RuntimeOnlyProperties.Contains(kvp.Key))
+                    {
+                        continue;
+                    }
+
+                    var valObj = kvp.Value.Value;
+                    if (valObj is string placeholder &&
+                        placeholder.Length > 2 &&
+                        placeholder[0] == '<' &&
+                        placeholder[^1] == '>')
+                    {
+                        continue;
+                    }
+
+                    var valType = GetFriendlyTypeName(kvp.Value.Type);
+                    var strRepr = valObj is string s ? s : JsonSerializer.Serialize(valObj);
+
+                    entries[kvp.Key] = new CandidateEntry(
+                        strRepr,
+                        valObj,
+                        valType,
+                        "BuiltInScopeOption",
+                        "Default",
+                        false,
+                        false,
+                        false);
+                }
+            }
 
             if (request.RequestOverrides != null)
             {

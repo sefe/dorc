@@ -9,6 +9,7 @@ import { css, html, LitElement, nothing, type PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { live } from 'lit/directives/live.js';
 import { ref } from 'lit/directives/ref.js';
+import { repeat } from 'lit/directives/repeat.js';
 import type { HegsJsonViewer } from './hegs-json-viewer';
 import {
   ComponentType,
@@ -142,6 +143,15 @@ export class DeploymentDefinitionEditor extends LitElement {
   @property({ attribute: false }) project: ProjectApiModel | undefined;
   @property({ type: Boolean }) readonly = false;
   @property({ type: Array }) powerShellVersions: string[] = [];
+  @state() private extraCustomArgs: Array<{
+    id: number;
+    key: string;
+    value: string;
+    error?: string;
+  }> = [];
+  @state() private rawJsonInspectorOpen = false;
+  private nextDraftArgId = 1;
+  private customRowIdByRawIndex = new Map<number, number>();
   @state() private previewEnvironmentName = '';
   @state() private availableProperties: PropertyApiModel[] = [];
   @state() private projectEnvironmentNames: string[] = [];
@@ -219,10 +229,29 @@ export class DeploymentDefinitionEditor extends LitElement {
       align-items: center;
       justify-content: space-between;
       flex-wrap: wrap;
+      gap: var(--lumo-space-s);
+      padding-bottom: var(--lumo-space-xs);
+      border-bottom: 1px solid var(--dorc-border-color);
+    }
+    .generic-script-title-group {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
       gap: var(--lumo-space-xs);
+      min-width: 0;
     }
     .generic-script-header strong {
       font-size: var(--lumo-font-size-s);
+    }
+    .generic-header-controls {
+      display: flex;
+      align-items: center;
+      gap: var(--lumo-space-s);
+      flex-wrap: wrap;
+    }
+    .generic-header-controls vaadin-combo-box {
+      width: 240px;
+      max-width: 100%;
     }
     .generic-category-badge {
       display: inline-block;
@@ -233,17 +262,116 @@ export class DeploymentDefinitionEditor extends LitElement {
       background: var(--dorc-chip-bg);
       color: var(--dorc-chip-text);
     }
-    .generic-args-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: var(--lumo-space-xs) var(--lumo-space-m);
+    .generic-args-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--dorc-border-color);
+      border-radius: var(--lumo-border-radius-s);
+      background: var(--dorc-bg-primary, rgba(15, 23, 42, 0.25));
     }
-    .custom-arg-row {
-      grid-column: 1 / -1;
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+    .generic-args-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: var(--lumo-font-size-xs);
+    }
+    .generic-args-table th,
+    .generic-args-table td {
+      padding: 6px 10px;
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid var(--dorc-border-color);
+    }
+    .generic-args-table tbody tr:last-child td {
+      border-bottom: none;
+    }
+    .generic-args-table th {
+      font-weight: 600;
+      color: var(--dorc-text-secondary-strong);
+      background: rgba(148, 163, 184, 0.08);
+      white-space: nowrap;
+    }
+    .arg-col-param {
+      width: 26%;
+      min-width: 170px;
+    }
+    .arg-col-value {
+      width: 36%;
+      min-width: 220px;
+    }
+    .arg-col-preview {
+      width: 28%;
+      min-width: 180px;
+    }
+    .arg-col-actions {
+      width: 10%;
+      white-space: nowrap;
+      text-align: right;
+    }
+    .param-name-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .param-name-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .param-name-code {
+      font-family: var(--lumo-font-family-monospace, monospace);
+      font-weight: 600;
+      font-size: var(--lumo-font-size-xs);
+      color: var(--dorc-text-primary);
+    }
+    .param-req-badge {
+      display: inline-block;
+      padding: 1px 6px;
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 600;
+      background: rgba(59, 130, 246, 0.16);
+      color: var(--dorc-link-color, #60a5fa);
+    }
+    .param-caption {
+      color: var(--dorc-text-secondary-strong);
+      font-size: 11px;
+      line-height: 1.3;
+    }
+    .param-preview-placeholder {
+      color: var(--dorc-text-secondary-strong);
+      opacity: 0.7;
+      font-style: italic;
+      font-size: 11px;
+      display: inline-block;
+      padding-top: 6px;
+    }
+    .generic-card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: var(--lumo-space-xs) var(--lumo-space-m);
+      padding-top: 2px;
+    }
+    .raw-json-inspector {
+      border: 1px solid var(--dorc-border-color);
+      border-radius: var(--lumo-border-radius-m);
+      padding: var(--lumo-space-xs) var(--lumo-space-s);
+      background: var(--dorc-bg-secondary);
+    }
+    .raw-json-inspector > summary {
+      cursor: pointer;
+      font-size: var(--lumo-font-size-xs);
+      font-weight: 600;
+      color: var(--dorc-text-secondary-strong);
+      user-select: none;
+      padding: 2px 0;
+    }
+    .raw-json-inspector-body {
+      margin-top: var(--lumo-space-xs);
+      display: flex;
+      flex-direction: column;
       gap: var(--lumo-space-xs);
-      align-items: end;
     }
     .env-props {
       font-size: var(--lumo-font-size-xs);
@@ -435,6 +563,23 @@ export class DeploymentDefinitionEditor extends LitElement {
         this.pickerFilterText = '';
         this.inlineCreateParamKey = '';
         this.inlineCreateFeedback = '';
+        this.extraCustomArgs = [];
+        this.rawJsonInspectorOpen = false;
+        this.customRowIdByRawIndex.clear();
+      } else {
+        const parsed = parseScriptPathValue(this.component?.ScriptPath);
+        const savedKeysLower = new Set(
+          parsed.arguments.map(a => a.key.trim().toLowerCase())
+        );
+        if (this.extraCustomArgs.length > 0) {
+          const remaining = this.extraCustomArgs.filter(draft => {
+            const trimmed = draft.key.trim().toLowerCase();
+            return !trimmed || draft.error || !savedKeysLower.has(trimmed);
+          });
+          if (remaining.length !== this.extraCustomArgs.length) {
+            this.extraCustomArgs = remaining;
+          }
+        }
       }
       this.isApplyingInternalChange = false;
     }
@@ -1112,29 +1257,28 @@ export class DeploymentDefinitionEditor extends LitElement {
             </div>`
           : nothing
       }
-      <div class="param-cell-actions">
-        ${this.renderParameterResolutionPreviewBadge(currentVal)}
-        ${
-          !this.readonly && paramKey
-            ? html`<button
-                type="button"
-                class="param-action-btn"
-                @click=${() => this.openInlineVariableCreator(paramKey)}
-              >
-                + Create variable for ${paramKey}
-              </button>`
-            : nothing
-        }
-      </div>
     `;
   }
 
-  private renderParameterResolutionPreviewBadge(rawVal: string) {
+  private renderParameterResolutionPreviewCell(
+    rawVal: string,
+    hasExplicitOverride = true
+  ) {
     const preview = evaluateParameterPreview(
       rawVal,
       this.previewTracesByProperty
     );
-    if (!preview) return nothing;
+    if (!preview) {
+      return html`<span class="param-preview-placeholder"
+        >${
+          rawVal.trim()
+            ? 'Literal value'
+            : hasExplicitOverride
+              ? 'Empty override ("")'
+              : 'Default / unset'
+        }</span
+      >`;
+    }
     const scopeSummary =
       preview.detailMessage ||
       preview.traces
@@ -1208,12 +1352,12 @@ export class DeploymentDefinitionEditor extends LitElement {
    */
   private renderScriptPathField(component: ComponentApiModel) {
     const raw = component.ScriptPath ?? '';
+    const parsedPath = parseScriptPathValue(raw);
+    const isEditingRawJsonTextarea =
+      this.shadowRoot?.activeElement?.tagName === 'VAADIN-TEXT-AREA';
     const helper =
       'Existing paths and JSON argument definitions are preserved. Use secure property references for secrets.';
-    if (
-      !parseScriptPathValue(raw).isJsonPath &&
-      this.shadowRoot?.activeElement?.tagName !== 'VAADIN-TEXT-AREA'
-    ) {
+    if (!parsedPath.isJsonPath && !isEditingRawJsonTextarea) {
       return this.text('Script path or JSON path', 'ScriptPath', helper);
     }
     let parsed: unknown = raw;
@@ -1226,7 +1370,8 @@ export class DeploymentDefinitionEditor extends LitElement {
       this.change({
         ScriptPath: (event.currentTarget as HTMLTextAreaElement).value
       });
-    return html`<vaadin-text-area
+    const content = html`<div class="raw-json-inspector-body">
+      <vaadin-text-area
         label="Script path or JSON path"
         .value=${live(raw)}
         .readonly=${this.readonly}
@@ -1246,7 +1391,25 @@ export class DeploymentDefinitionEditor extends LitElement {
           locationKind: 'deployment-definition' as const
         }}
         ${ref(element => (element as HegsJsonViewer | undefined)?.expandAll())}
-      ></hegs-json-viewer>`;
+      ></hegs-json-viewer>
+    </div>`;
+
+    return html`<details
+      class="raw-json-inspector"
+      ?open=${this.rawJsonInspectorOpen || isEditingRawJsonTextarea}
+      @toggle=${(e: Event) => {
+        this.rawJsonInspectorOpen = (
+          e.currentTarget as HTMLDetailsElement
+        ).open;
+      }}
+    >
+      <summary>
+        Raw ScriptPath JSON &amp; Contextual Inspector
+        (${parsedPath.arguments.length}
+        ${parsedPath.arguments.length === 1 ? 'argument' : 'arguments'})
+      </summary>
+      ${content}
+    </details>`;
   }
 
   private selectGenericTemplate(templatePath: string) {
@@ -1260,6 +1423,8 @@ export class DeploymentDefinitionEditor extends LitElement {
     this.pickerFilterText = '';
     this.inlineCreateParamKey = '';
     this.inlineCreateFeedback = '';
+    this.extraCustomArgs = [];
+    this.customRowIdByRawIndex.clear();
     if (!templatePath || templatePath === CUSTOM_SCRIPT_OPTION) {
       const parsed = parseScriptPathValue(this.component.ScriptPath);
       if (findGenericScriptTemplate(parsed.scriptPath)) {
@@ -1328,38 +1493,66 @@ export class DeploymentDefinitionEditor extends LitElement {
     const knownParamNames = new Set(
       (template?.parameters ?? []).map(p => p.name.toLowerCase())
     );
-    const extraArgs = parsed.arguments.filter(
+    const savedExtraArgs = parsed.arguments.filter(
       arg => !knownParamNames.has(arg.key.toLowerCase())
     );
+    const savedExtraKeysLower = new Set(
+      savedExtraArgs.map(arg => arg.key.trim().toLowerCase())
+    );
+    const pendingDraftArgs = this.extraCustomArgs.filter(draft => {
+      const trimmed = draft.key.trim().toLowerCase();
+      return !trimmed || draft.error || !savedExtraKeysLower.has(trimmed);
+    });
+    const extraArgs = [
+      ...savedExtraArgs.map(arg => {
+        const rawIndex = parsed.arguments.indexOf(arg);
+        let rowId = this.customRowIdByRawIndex.get(rawIndex);
+        if (rowId === undefined) {
+          rowId = this.nextDraftArgId++;
+          this.customRowIdByRawIndex.set(rawIndex, rowId);
+        }
+        return {
+          rowId,
+          arg,
+          rawIndex,
+          draftIndex: -1,
+          error: undefined as string | undefined
+        };
+      }),
+      ...pendingDraftArgs.map(draft => ({
+        rowId: draft.id,
+        arg: { key: draft.key, value: draft.value },
+        rawIndex: -1,
+        draftIndex: this.extraCustomArgs.indexOf(draft),
+        error: draft.error
+      }))
+    ];
 
     return html`
-      <div class="full">
-        <vaadin-combo-box
-          label="Predefined generic script (project-scripts / 00 Generic)"
-          .items=${templateItems}
-          item-label-path="label"
-          item-value-path="value"
-          .value=${live(selectedTemplateValue)}
-          .disabled=${this.readonly}
-          helper-text="Choose a reusable 00 Generic PowerShell script to configure its GenericArguments, or leave as Custom project script path."
-          @value-changed=${(event: CustomEvent<{ value: string }>) => {
-            const value =
-              event.detail?.value ??
-              (event.currentTarget as HTMLInputElement).value;
-            if (value && value !== selectedTemplateValue) {
-              this.selectGenericTemplate(value);
-            }
-          }}
-          @input=${(event: Event) =>
-            this.selectGenericTemplate(
-              (event.currentTarget as HTMLInputElement).value
-            )}
-          @change=${(event: Event) =>
-            this.selectGenericTemplate(
-              (event.currentTarget as HTMLInputElement).value
-            )}
-        ></vaadin-combo-box>
-      </div>
+      <vaadin-combo-box
+        label="Predefined generic script (project-scripts / 00 Generic)"
+        .items=${templateItems}
+        item-label-path="label"
+        item-value-path="value"
+        .value=${live(selectedTemplateValue)}
+        .disabled=${this.readonly}
+        @value-changed=${(event: CustomEvent<{ value: string }>) => {
+          const value =
+            event.detail?.value ??
+            (event.currentTarget as HTMLInputElement).value;
+          if (value && value !== selectedTemplateValue) {
+            this.selectGenericTemplate(value);
+          }
+        }}
+        @input=${(event: Event) =>
+          this.selectGenericTemplate(
+            (event.currentTarget as HTMLInputElement).value
+          )}
+        @change=${(event: Event) =>
+          this.selectGenericTemplate(
+            (event.currentTarget as HTMLInputElement).value
+          )}
+      ></vaadin-combo-box>
       ${
         template || parsed.isJsonPath
           ? html`
@@ -1369,52 +1562,51 @@ export class DeploymentDefinitionEditor extends LitElement {
                 aria-label="Generic script arguments"
               >
                 <div class="generic-script-header">
-                  <strong>
+                  <div class="generic-script-title-group">
+                    <strong>
+                      ${
+                        template
+                          ? `${template.name} — ${template.scriptPath}`
+                          : `JSON ScriptPath arguments — ${parsed.scriptPath}`
+                      }
+                    </strong>
                     ${
                       template
-                        ? `${template.name} — ${template.scriptPath}`
-                        : `JSON ScriptPath arguments — ${parsed.scriptPath}`
+                        ? html`<span class="generic-category-badge"
+                            >${template.category}</span
+                          >`
+                        : nothing
                     }
-                  </strong>
-                  ${
-                    template
-                      ? html`<span class="generic-category-badge"
-                          >${template.category}</span
-                        >`
-                      : nothing
-                  }
+                  </div>
+                  <div
+                    class="generic-header-controls"
+                    role="group"
+                    aria-label="Parameter variable tools and preview"
+                  >
+                    <vaadin-combo-box
+                      id="paramPreviewEnvCombo"
+                      aria-label="Preview resolution for environment"
+                      placeholder="Preview env (e.g. STP UT 01)..."
+                      allow-custom-value
+                      clear-button-visible
+                      theme="small"
+                      .items=${this.projectEnvironmentNames}
+                      .value=${live(this.previewEnvironmentName)}
+                      @value-changed=${(
+                        event: CustomEvent<{ value: string }>
+                      ) => {
+                        const nextEnv = event.detail?.value ?? '';
+                        if (nextEnv !== this.previewEnvironmentName) {
+                          this.previewEnvironmentName = nextEnv;
+                        }
+                      }}
+                      @custom-value-set=${(event: CustomEvent<string>) => {
+                        this.previewEnvironmentName = event.detail ?? '';
+                      }}
+                    ></vaadin-combo-box>
+                  </div>
                 </div>
                 ${template ? html`<p>${template.description}</p>` : nothing}
-                <div
-                  class="generic-variable-toolbar"
-                  role="group"
-                  aria-label="Parameter variable tools and preview"
-                >
-                  <vaadin-combo-box
-                    id="paramPreviewEnvCombo"
-                    label="Preview resolution for environment"
-                    placeholder="Select or type environment (e.g. STP UT 01)..."
-                    allow-custom-value
-                    clear-button-visible
-                    theme="small"
-                    .items=${this.projectEnvironmentNames}
-                    .value=${live(this.previewEnvironmentName)}
-                    @value-changed=${(event: CustomEvent<{ value: string }>) => {
-                      const nextEnv = event.detail?.value ?? '';
-                      if (nextEnv !== this.previewEnvironmentName) {
-                        this.previewEnvironmentName = nextEnv;
-                      }
-                    }}
-                    @custom-value-set=${(event: CustomEvent<string>) => {
-                      this.previewEnvironmentName = event.detail ?? '';
-                    }}
-                  ></vaadin-combo-box>
-                  <span class="env-props">
-                    Click <code>${'{x}'}</code> inside any parameter field to
-                    bind an existing <code>${'${VariableName}'}</code> or create
-                    a new variable.
-                  </span>
-                </div>
                 ${
                   this.inlineCreateFeedback
                     ? html`<p class="env-props" role="status">
@@ -1576,45 +1768,82 @@ export class DeploymentDefinitionEditor extends LitElement {
                       `
                     : nothing
                 }
-                ${
-                  template && template.parameters.length > 0
-                    ? html`
-                        <div class="generic-args-grid">
-                          ${template.parameters.map(param => {
-                            const currentVal =
-                              parsed.arguments.find(
-                                a =>
-                                  a.key.toLowerCase() ===
-                                  param.name.toLowerCase()
-                              )?.value ?? '';
-                            const updateParam = (event: Event) =>
-                              this.setGenericArgument(
-                                template.scriptPath,
-                                parsed.arguments,
-                                param.name,
-                                (event.currentTarget as HTMLInputElement).value,
-                                parsed.isJsonPath
-                              );
-                            const suffixBtn = !this.readonly
-                              ? html`<button
-                                  type="button"
-                                  slot="suffix"
-                                  class="param-bind-suffix-btn"
-                                  title="Bind variable (\${VariableName}) to ${param.name}"
-                                  aria-label="Bind variable to ${param.name}"
-                                  @click=${(e: Event) => {
-                                    e.stopPropagation();
-                                    this.toggleParameterPicker(param.name);
-                                  }}
+                <div class="generic-args-table-wrap">
+                  <table
+                    class="generic-args-table"
+                    aria-label="Script GenericArguments"
+                  >
+                    <thead>
+                      <tr>
+                        <th class="arg-col-param">Parameter</th>
+                        <th class="arg-col-value">
+                          Value / <code>${'${Variable}'}</code>
+                        </th>
+                        <th class="arg-col-preview">
+                          Resolved Preview
+                          (${this.previewEnvironmentName || 'Default'})
+                        </th>
+                        <th class="arg-col-actions">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${(template?.parameters ?? []).map(param => {
+                        const existingEntry = parsed.arguments.find(
+                          a =>
+                            a.key.toLowerCase() === param.name.toLowerCase()
+                        );
+                        const hasExplicitOverride = Boolean(existingEntry);
+                        const currentVal = existingEntry?.value ?? '';
+                        const updateParam = (event: Event) =>
+                          this.setGenericArgument(
+                            template!.scriptPath,
+                            parsed.arguments,
+                            param.name,
+                            (event.currentTarget as HTMLInputElement).value,
+                            parsed.isJsonPath
+                          );
+                        const suffixBtn = !this.readonly
+                          ? html`<button
+                              type="button"
+                              slot="suffix"
+                              class="param-bind-suffix-btn"
+                              title="Bind variable (\${VariableName}) or create new variable for ${param.name}"
+                              aria-label="Bind variable to ${param.name}"
+                              @click=${(e: Event) => {
+                                e.stopPropagation();
+                                this.toggleParameterPicker(param.name);
+                              }}
+                            >
+                              ${'{x}'}
+                            </button>`
+                          : nothing;
+                        return html`<tr data-param=${param.name}>
+                          <td class="arg-col-param">
+                            <div class="param-name-meta">
+                              <div class="param-name-row">
+                                <code class="param-name-code"
+                                  >${param.name}</code
                                 >
-                                  ${'{x}'}
-                                </button>`
-                              : nothing;
-                            return html`<div class="param-cell">
+                                ${
+                                  param.required
+                                    ? html`<span class="param-req-badge"
+                                        >Required</span
+                                      >`
+                                    : nothing
+                                }
+                              </div>
+                              <span class="param-caption"
+                                >${param.helperText || param.label}</span
+                              >
+                            </div>
+                          </td>
+                          <td class="arg-col-value">
+                            <div class="param-cell">
                               ${
                                 param.options
                                   ? html`<vaadin-combo-box
-                                      .label=${param.label}
+                                      aria-label=${param.label}
+                                      theme="small"
                                       .items=${
                                         currentVal &&
                                         !param.options.includes(currentVal)
@@ -1624,7 +1853,6 @@ export class DeploymentDefinitionEditor extends LitElement {
                                       allow-custom-value
                                       .value=${live(currentVal)}
                                       .readonly=${this.readonly}
-                                      .helperText=${param.helperText ?? ''}
                                       ?required=${Boolean(param.required)}
                                       @focus=${() => {
                                         this.activeParameterKey = param.name;
@@ -1635,7 +1863,7 @@ export class DeploymentDefinitionEditor extends LitElement {
                                         const customVal = event.detail ?? '';
                                         if (customVal !== currentVal) {
                                           this.setGenericArgument(
-                                            template.scriptPath,
+                                            template!.scriptPath,
                                             parsed.arguments,
                                             param.name,
                                             customVal,
@@ -1653,7 +1881,7 @@ export class DeploymentDefinitionEditor extends LitElement {
                                           ).value;
                                         if (nextVal !== currentVal) {
                                           this.setGenericArgument(
-                                            template.scriptPath,
+                                            template!.scriptPath,
                                             parsed.arguments,
                                             param.name,
                                             nextVal,
@@ -1666,11 +1894,11 @@ export class DeploymentDefinitionEditor extends LitElement {
                                       >${suffixBtn}</vaadin-combo-box
                                     >`
                                   : html`<vaadin-text-field
-                                      .label=${param.label}
+                                      aria-label=${param.label}
+                                      theme="small"
                                       .placeholder=${param.placeholder ?? ''}
                                       .value=${live(currentVal)}
                                       .readonly=${this.readonly}
-                                      .helperText=${param.helperText ?? ''}
                                       ?required=${Boolean(param.required)}
                                       @focus=${() => {
                                         this.activeParameterKey = param.name;
@@ -1681,124 +1909,323 @@ export class DeploymentDefinitionEditor extends LitElement {
                                     >`
                               }
                               ${this.renderParameterVariableControls(
-                                template.scriptPath,
+                                template!.scriptPath,
                                 parsed.arguments,
                                 param.name,
                                 currentVal,
                                 parsed.isJsonPath
                               )}
-                            </div>`;
-                          })}
-                        </div>
-                      `
-                    : nothing
-                }
-                ${extraArgs.map((arg, extraIdx) => {
-                  const rawIndex = parsed.arguments.indexOf(arg);
-                  const updateKey = (event: Event) => {
-                    const nextArgs = [...parsed.arguments];
-                    nextArgs[rawIndex] = {
-                      key: (event.currentTarget as HTMLInputElement).value,
-                      value: arg.value
-                    };
-                    this.change({
-                      ScriptPath: serializeScriptPathValue(
-                        template?.scriptPath ?? parsed.scriptPath,
-                        nextArgs,
-                        true
-                      )
-                    });
-                  };
-                  const updateValue = (event: Event) => {
-                    const nextArgs = [...parsed.arguments];
-                    nextArgs[rawIndex] = {
-                      key: arg.key,
-                      value: (event.currentTarget as HTMLInputElement).value
-                    };
-                    this.change({
-                      ScriptPath: serializeScriptPathValue(
-                        template?.scriptPath ?? parsed.scriptPath,
-                        nextArgs,
-                        true
-                      )
-                    });
-                  };
-                  return html`<div class="custom-arg-row">
-                    <vaadin-text-field
-                      label="Additional argument name"
-                      .value=${live(arg.key)}
-                      .readonly=${this.readonly}
-                      @input=${updateKey}
-                      @change=${updateKey}
-                    ></vaadin-text-field>
-                    <div class="param-cell">
-                      <vaadin-text-field
-                        label="Argument value"
-                        .value=${live(arg.value)}
-                        .readonly=${this.readonly}
-                        @focus=${() => {
-                          this.activeParameterKey = arg.key;
-                        }}
-                        @input=${updateValue}
-                        @change=${updateValue}
-                      >
-                        ${
-                          !this.readonly && arg.key
-                            ? html`<button
-                                type="button"
-                                slot="suffix"
-                                class="param-bind-suffix-btn"
-                                title="Bind variable (\${VariableName}) to ${arg.key}"
-                                aria-label="Bind variable to ${arg.key}"
-                                @click=${(e: Event) => {
-                                  e.stopPropagation();
-                                  this.toggleParameterPicker(arg.key);
+                            </div>
+                          </td>
+                          <td class="arg-col-preview">
+                            ${this.renderParameterResolutionPreviewCell(
+                              currentVal,
+                              hasExplicitOverride
+                            )}
+                          </td>
+                          <td class="arg-col-actions">
+                            ${
+                              hasExplicitOverride && !this.readonly
+                                ? html`<vaadin-button
+                                    theme="small tertiary"
+                                    aria-label="Clear ${param.name}"
+                                    @click=${() => {
+                                      const nextArgs = parsed.arguments.filter(
+                                        a =>
+                                          a.key.toLowerCase() !==
+                                          param.name.toLowerCase()
+                                      );
+                                      this.change({
+                                        ScriptPath: serializeScriptPathValue(
+                                          template!.scriptPath,
+                                          nextArgs,
+                                          parsed.isJsonPath
+                                        )
+                                      });
+                                    }}
+                                    >Clear</vaadin-button
+                                  >`
+                                : nothing
+                            }
+                          </td>
+                        </tr>`;
+                      })}
+                      ${repeat(
+                        extraArgs,
+                        item => item.rowId,
+                        ({ rowId, arg, rawIndex, draftIndex, error }, extraIdx) => {
+                          const updateKey = (event: Event) => {
+                            const newKey = (
+                              event.currentTarget as HTMLInputElement
+                            ).value;
+                            const trimmedLower = newKey.trim().toLowerCase();
+                            const conflictsWithTemplate =
+                              trimmedLower.length > 0 &&
+                              knownParamNames.has(trimmedLower);
+                            const conflictsWithExisting =
+                              trimmedLower.length > 0 &&
+                              parsed.arguments.some(
+                                (existing, idx) =>
+                                  idx !== rawIndex &&
+                                  existing.key.trim().toLowerCase() ===
+                                    trimmedLower
+                              );
+                            if (draftIndex >= 0) {
+                              if (
+                                conflictsWithTemplate ||
+                                conflictsWithExisting
+                              ) {
+                                const nextDrafts = [...this.extraCustomArgs];
+                                nextDrafts[draftIndex] = {
+                                  id: rowId,
+                                  key: newKey,
+                                  value: arg.value,
+                                  error: conflictsWithTemplate
+                                    ? `"${newKey.trim()}" is already a template parameter above.`
+                                    : `"${newKey.trim()}" is already defined.`
+                                };
+                                this.extraCustomArgs = nextDrafts;
+                                return;
+                              }
+                              if (newKey.trim().length > 0) {
+                                const nextDrafts = [...this.extraCustomArgs];
+                                nextDrafts[draftIndex] = {
+                                  id: rowId,
+                                  key: newKey,
+                                  value: arg.value
+                                };
+                                this.extraCustomArgs = nextDrafts;
+                                const newRawIdx = parsed.arguments.length;
+                                this.customRowIdByRawIndex.set(
+                                  newRawIdx,
+                                  rowId
+                                );
+                                const nextArgs = [
+                                  ...parsed.arguments,
+                                  { key: newKey, value: arg.value }
+                                ];
+                                this.change({
+                                  ScriptPath: serializeScriptPathValue(
+                                    template?.scriptPath ?? parsed.scriptPath,
+                                    nextArgs,
+                                    true
+                                  )
+                                });
+                              } else {
+                                const nextDrafts = [...this.extraCustomArgs];
+                                nextDrafts[draftIndex] = {
+                                  id: rowId,
+                                  key: newKey,
+                                  value: arg.value
+                                };
+                                this.extraCustomArgs = nextDrafts;
+                              }
+                              return;
+                            }
+                            if (
+                              conflictsWithTemplate ||
+                              conflictsWithExisting
+                            ) {
+                              return;
+                            }
+                            if (
+                              this.extraCustomArgs.some(d => d.id === rowId)
+                            ) {
+                              this.extraCustomArgs =
+                                this.extraCustomArgs.filter(
+                                  d => d.id !== rowId
+                                );
+                            }
+                            const nextArgs = [...parsed.arguments];
+                            nextArgs[rawIndex] = {
+                              key: newKey,
+                              value: arg.value
+                            };
+                            this.change({
+                              ScriptPath: serializeScriptPathValue(
+                                template?.scriptPath ?? parsed.scriptPath,
+                                nextArgs,
+                                true
+                              )
+                            });
+                          };
+                          const updateValue = (event: Event) => {
+                            const newVal = (
+                              event.currentTarget as HTMLInputElement
+                            ).value;
+                            if (draftIndex >= 0) {
+                              const nextDrafts = [...this.extraCustomArgs];
+                              nextDrafts[draftIndex] = {
+                                id: rowId,
+                                key: arg.key,
+                                value: newVal,
+                                error
+                              };
+                              this.extraCustomArgs = nextDrafts;
+                              return;
+                            }
+                            const nextArgs = [...parsed.arguments];
+                            nextArgs[rawIndex] = {
+                              key: arg.key,
+                              value: newVal
+                            };
+                            this.change({
+                              ScriptPath: serializeScriptPathValue(
+                                template?.scriptPath ?? parsed.scriptPath,
+                                nextArgs,
+                                true
+                              )
+                            });
+                          };
+                          return html`<tr
+                            class="custom-arg-row"
+                            data-custom-arg=${extraIdx}
+                          >
+                            <td class="arg-col-param">
+                              <div class="param-name-meta">
+                                <vaadin-text-field
+                                  aria-label="Additional argument name"
+                                  placeholder="Parameter name..."
+                                  theme="small"
+                                  .value=${live(arg.key)}
+                                  .readonly=${this.readonly}
+                                  @input=${updateKey}
+                                  @change=${updateKey}
+                                ></vaadin-text-field>
+                                ${
+                                  error
+                                    ? html`<span class="param-syntax-hint"
+                                        >${error}</span
+                                      >`
+                                    : nothing
+                                }
+                              </div>
+                            </td>
+                            <td class="arg-col-value">
+                              <div class="param-cell">
+                                <vaadin-text-field
+                                  aria-label="Argument value"
+                                  placeholder="Value or \${Variable}..."
+                                  theme="small"
+                                  .value=${live(arg.value)}
+                                  .readonly=${this.readonly}
+                                  @focus=${() => {
+                                    this.activeParameterKey = arg.key;
+                                  }}
+                                  @input=${updateValue}
+                                  @change=${updateValue}
+                                >
+                                  ${
+                                    !this.readonly && arg.key && !error
+                                      ? html`<button
+                                          type="button"
+                                          slot="suffix"
+                                          class="param-bind-suffix-btn"
+                                          title="Bind variable (\${VariableName}) or create new variable for ${arg.key}"
+                                          aria-label="Bind variable to ${arg.key}"
+                                          @click=${(e: Event) => {
+                                            e.stopPropagation();
+                                            this.toggleParameterPicker(arg.key);
+                                          }}
+                                        >
+                                          ${'{x}'}
+                                        </button>`
+                                      : nothing
+                                  }
+                                </vaadin-text-field>
+                                ${this.renderParameterVariableControls(
+                                  template?.scriptPath ?? parsed.scriptPath,
+                                  parsed.arguments,
+                                  arg.key,
+                                  arg.value,
+                                  true
+                                )}
+                              </div>
+                            </td>
+                            <td class="arg-col-preview">
+                              ${this.renderParameterResolutionPreviewCell(
+                                arg.value
+                              )}
+                            </td>
+                            <td class="arg-col-actions">
+                              <vaadin-button
+                                theme="small tertiary"
+                                .disabled=${this.readonly}
+                                aria-label="Remove argument ${extraIdx + 1}"
+                                @click=${() => {
+                                  if (draftIndex >= 0) {
+                                    const nextDrafts = [
+                                      ...this.extraCustomArgs
+                                    ];
+                                    nextDrafts.splice(draftIndex, 1);
+                                    this.extraCustomArgs = nextDrafts;
+                                    return;
+                                  }
+                                  this.extraCustomArgs =
+                                    this.extraCustomArgs.filter(
+                                      d =>
+                                        d.key.trim().toLowerCase() !==
+                                        arg.key.trim().toLowerCase()
+                                    );
+                                  const nextArgs = parsed.arguments.filter(
+                                    (_, idx) => idx !== rawIndex
+                                  );
+                                  this.change({
+                                    ScriptPath: serializeScriptPathValue(
+                                      template?.scriptPath ?? parsed.scriptPath,
+                                      nextArgs
+                                    )
+                                  });
                                 }}
+                                >Remove</vaadin-button
                               >
-                                ${'{x}'}
-                              </button>`
-                            : nothing
+                            </td>
+                          </tr>`;
                         }
-                      </vaadin-text-field>
-                      ${this.renderParameterVariableControls(
-                        template?.scriptPath ?? parsed.scriptPath,
-                        parsed.arguments,
-                        arg.key,
-                        arg.value,
-                        true
                       )}
-                    </div>
-                    <vaadin-button
-                      theme="tertiary"
-                      .disabled=${this.readonly}
-                      aria-label="Remove argument ${extraIdx + 1}"
-                      @click=${() => {
-                        const nextArgs = parsed.arguments.filter(
-                          (_, idx) => idx !== rawIndex
-                        );
-                        this.change({
-                          ScriptPath: serializeScriptPathValue(
-                            template?.scriptPath ?? parsed.scriptPath,
-                            nextArgs
-                          )
-                        });
-                      }}
-                      >Remove</vaadin-button
-                    >
-                  </div>`;
-                })}
-                ${
-                  template?.requiredEnvironmentProperties?.length
-                    ? html`<p class="env-props">
-                        Consumes DOrc environment properties:
-                        <code
-                          >${template.requiredEnvironmentProperties.join(
-                            ', '
-                          )}</code
-                        >
-                      </p>`
-                    : nothing
-                }
+                    </tbody>
+                  </table>
+                </div>
+                <div class="generic-card-footer">
+                  <div style="display:flex; align-items:center; gap:8px;">
+                    ${
+                      !this.readonly
+                        ? html`<vaadin-button
+                            id="addCustomGenericArgBtn"
+                            theme="small tertiary"
+                            @click=${() => {
+                              this.extraCustomArgs = [
+                                ...this.extraCustomArgs,
+                                {
+                                  id: this.nextDraftArgId++,
+                                  key: '',
+                                  value: ''
+                                }
+                              ];
+                            }}
+                            >+ Add argument</vaadin-button
+                          >`
+                        : nothing
+                    }
+                    <span class="env-props">
+                      Use <code>${'{x}'}</code> in any value cell to bind an
+                      existing <code>${'${VariableName}'}</code> or create a new
+                      variable.
+                    </span>
+                  </div>
+                  ${
+                    template?.requiredEnvironmentProperties?.length
+                      ? html`<p class="env-props">
+                          Consumes environment properties:
+                          <code
+                            >${template.requiredEnvironmentProperties.join(
+                              ', '
+                            )}</code
+                          >
+                        </p>`
+                      : nothing
+                  }
+                </div>
               </div>
             `
           : nothing

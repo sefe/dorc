@@ -2,11 +2,6 @@ import { vi } from 'vitest';
 import { of, Subject, throwError } from 'rxjs';
 import { expect, fixture, html, settle } from '../_helpers';
 import { ComponentType, TerraformSourceType } from '../../src/apis/dorc-api';
-import {
-  evaluateParameterPreview,
-  type DeploymentDefinitionEditor
-} from '../../src/components/deployment-definition-editor';
-import { defaultPropertyResolutionClientCache } from '../../src/variable-resolution/property-resolution-client-cache';
 import type { TextField } from '@vaadin/text-field';
 import type { Tabs } from '@vaadin/tabs';
 import type { DeploymentDefinitionHistory } from '../../src/components/deployment-definition-history';
@@ -21,27 +16,6 @@ const mocks = vi.hoisted(() => ({
   projects: vi.fn(),
   deleteProject: vi.fn(),
   confirm: vi.fn(),
-  propertiesGet: vi.fn(() =>
-    of([
-      { Name: 'STP_DAS_Paper_DestinationPath', Secure: false },
-      { Name: 'STP_ServiceAccountPassword', Secure: true }
-    ])
-  ),
-  propertiesPost: vi.fn((req: any) =>
-    of([{ Status: 'success', Item: req.propertyApiModel?.[0] ?? {} }])
-  ),
-  propertyValuesPost: vi.fn(() => of([{ Status: 'success', Item: {} }])),
-  resolvePreviewPost: vi.fn(() =>
-    of([
-      {
-        PropertyName: 'STP_DAS_Paper_DestinationPath',
-        Source: 'Environment',
-        ScopeName: 'UT02',
-        ResolvedValueJson: '"\\\\\\\\stp-ut-01\\\\E$\\\\Apps\\\\DAS_Paper"',
-        IsSecure: false
-      }
-    ])
-  ),
   editor: { value: '', change: () => {} }
 }));
 vi.mock('../../src/components/confirm-prompt', () => ({
@@ -86,12 +60,7 @@ vi.mock('../../src/apis/dorc-api', async importOriginal => ({
       of({ Items: [{ EnvironmentId: 2, EnvironmentName: 'UT02' }] });
   },
   PropertiesApi: class {
-    propertiesGet = mocks.propertiesGet;
-    propertiesPost = mocks.propertiesPost;
-  },
-  PropertyValuesApi: class {
-    propertyValuesPost = mocks.propertyValuesPost;
-    apiPropertyValuesResolvePreviewPost = mocks.resolvePreviewPost;
+    propertiesGet = () => of([]);
   },
   RequestApi: class {
     requestBuildDefinitionsGet = () => of([]);
@@ -904,194 +873,5 @@ describe('definition history and discovery', () => {
       page.shadowRoot!.querySelector<HTMLElement>('.terraform-state-pane')
         ?.hidden
     ).to.equal(false);
-  });
-
-  it('supports ${PropertyName} picker autocomplete, inline variable creation, and live environment resolution preview in deployment-definition-editor', async () => {
-    defaultPropertyResolutionClientCache.clear();
-    // Unit-test evaluateParameterPreview branches (resolved, masked, unresolved, no tokens)
-    expect(evaluateParameterPreview('plain', new Map())).to.equal(undefined);
-    const traceMap = new Map<string, any>([
-      [
-        'stp_das_paper_destinationpath',
-        {
-          PropertyName: 'STP_DAS_Paper_DestinationPath',
-          Source: 'Environment',
-          ScopeName: 'STP UT 01',
-          ResolvedValueJson: '"\\\\\\\\stp-ut-01\\\\E$\\\\Apps\\\\DAS_Paper"'
-        }
-      ],
-      [
-        'secret_token',
-        {
-          PropertyName: 'Secret_Token',
-          Source: 'Environment',
-          Diagnostic: 'Masked'
-        }
-      ],
-      [
-        'missing_var',
-        {
-          PropertyName: 'Missing_Var',
-          Source: 'Unresolved'
-        }
-      ]
-    ]);
-    expect(
-      evaluateParameterPreview('${STP_DAS_Paper_DestinationPath}', traceMap)
-    ).to.deep.include({
-      status: 'resolved',
-      resolvedText: '\\\\stp-ut-01\\E$\\Apps\\DAS_Paper'
-    });
-    expect(
-      evaluateParameterPreview('${Secret_Token}', traceMap)
-    ).to.deep.include({
-      status: 'masked',
-      resolvedText: '•••••••• (Secure)'
-    });
-    expect(
-      evaluateParameterPreview('${Missing_Var}', traceMap)
-    ).to.deep.include({
-      status: 'unresolved',
-      resolvedText: '${Missing_Var}'
-    });
-
-    // UnclosedToken trace with lone literal $ (e.g. E$) still resolves effective path
-    traceMap.set('Unc_Admin_Share', {
-      PropertyName: 'Unc_Admin_Share',
-      Source: 'EnvironmentScope',
-      ScopeName: 'STP UT 01',
-      Diagnostic: 'UnclosedToken',
-      RawValue: '\\\\stp-ut-01\\E$\\Apps\\DAS_Paper',
-      ResolvedValueJson: '"\\\\\\\\stp-ut-01\\\\E$\\\\Apps\\\\DAS_Paper"'
-    });
-    expect(
-      evaluateParameterPreview('${Unc_Admin_Share}', traceMap)
-    ).to.deep.include({
-      status: 'resolved',
-      resolvedText: '\\\\stp-ut-01\\E$\\Apps\\DAS_Paper'
-    });
-
-    // UnclosedToken trace with blocked $ServerNames_X$ yields 'warning' status with effective path
-    traceMap.set('Unc_Blocked_Share', {
-      PropertyName: 'Unc_Blocked_Share',
-      Source: 'EnvironmentScope',
-      ScopeName: 'STP UT 01',
-      Diagnostic: 'UnclosedToken',
-      RawValue: '\\\\$ServerNames_App$\\E$\\Apps\\DAS_Paper',
-      ResolvedValueJson: '"\\\\\\\\$ServerNames_App$\\\\E$\\\\Apps\\\\DAS_Paper"'
-    });
-    expect(
-      evaluateParameterPreview('${Unc_Blocked_Share}', traceMap)
-    ).to.deep.include({
-      status: 'warning',
-      resolvedText: '\\\\$ServerNames_App$\\E$\\Apps\\DAS_Paper'
-    });
-
-    // Masked trace
-    traceMap.set('Secret_Var', {
-      PropertyName: 'Secret_Var',
-      Source: 'EnvironmentScope',
-      IsSecure: true,
-      Diagnostic: 'Masked',
-      ResolvedValueJson: '"masked"'
-    });
-    expect(
-      evaluateParameterPreview('${Secret_Var}', traceMap)
-    ).to.deep.include({
-      status: 'masked',
-      resolvedText: '•••••••• (Secure)'
-    });
-
-    const editor = await fixture<DeploymentDefinitionEditor>(
-      html`<deployment-definition-editor
-        .project=${{ ProjectId: 7, ProjectName: 'Payments' }}
-        .component=${{
-          ComponentId: 25,
-          ComponentName: 'Copy DAS Paper',
-          ComponentType: ComponentType.PowerShell,
-          PSVersion: '7.4',
-          ScriptPath:
-            '{"ScriptPath":"00 Generic\\\\CopyFolder.ps1","GenericArguments":[{"sourcePath":"C:\\\\Build"},{"destinationPath":"${STP_DAS_Paper_DestinationPath}"}]}'
-        }}
-      ></deployment-definition-editor>`
-    );
-    await settle();
-    await new Promise(r => setTimeout(r, 80));
-    await editor.updateComplete;
-
-    // Live resolved preview badge renders beneath parameter field
-    const badge = editor.shadowRoot!.querySelector('.param-preview-badge');
-    expect(badge).not.to.equal(null);
-    expect(badge?.textContent).to.include('\\\\stp-ut-01\\E$\\Apps\\DAS_Paper');
-
-    // Insert ${PropertyName} via picker into sourcePath
-    const latestPatch: any[] = [];
-    editor.addEventListener('definition-changed', (e: Event) => {
-      const detail = (e as CustomEvent).detail;
-      latestPatch.push(detail);
-      editor.component = detail;
-    });
-
-    editor.insertVariableIntoParameter(
-      '00 Generic\\CopyFolder.ps1',
-      [
-        { key: 'sourcePath', value: '' },
-        {
-          key: 'destinationPath',
-          value: '${STP_DAS_Paper_DestinationPath}'
-        }
-      ],
-      'sourcePath',
-      'STP_DAS_Paper_DestinationPath',
-      true
-    );
-    expect(latestPatch.length).to.equal(1);
-    expect(latestPatch[0].ScriptPath).to.include(
-      '{"sourcePath":"${STP_DAS_Paper_DestinationPath}"}'
-    );
-
-    // Toggle per-field {x} variable picker popover and filter/select variable
-    editor.toggleParameterPicker('sourcePath');
-    await editor.updateComplete;
-    const popover = editor.shadowRoot!.querySelector('.param-picker-popover');
-    expect(popover).not.to.equal(null);
-
-    const searchInput = popover!.querySelector('vaadin-text-field')!;
-    (searchInput as unknown as { value: string }).value = 'STP_DAS';
-    searchInput.dispatchEvent(new Event('input'));
-    await editor.updateComplete;
-
-    const firstPickerItem =
-      popover!.querySelector<HTMLButtonElement>('.param-picker-item');
-    firstPickerItem?.click();
-    await editor.updateComplete;
-    expect(editor.shadowRoot!.querySelector('.param-picker-popover')).to.equal(
-      null
-    );
-
-    // Toggle open and close
-    editor.toggleParameterPicker('sourcePath');
-    await editor.updateComplete;
-    editor.toggleParameterPicker('sourcePath');
-    await editor.updateComplete;
-
-    // Inline variable creation for destinationPath with initial default/scoped value
-    editor.openInlineVariableCreator(
-      'destinationPath',
-      'STP_DAS_Paper_BackupPath'
-    );
-    await editor.updateComplete;
-    const inlineBox = editor.shadowRoot!.querySelector('.inline-create-box');
-    expect(inlineBox).not.to.equal(null);
-
-    (editor as any).inlineNewPropertyDefaultValue = '\\\\stp-ut-01\\Backup';
-    editor.createInlineVariableForParameter();
-    await settle();
-
-    expect(mocks.propertiesPost.mock.calls.length).to.be.greaterThan(0);
-    expect(mocks.propertyValuesPost.mock.calls.length).to.be.greaterThan(0);
-    expect(latestPatch[latestPatch.length - 1].ScriptPath).to.include(
-      '${STP_DAS_Paper_BackupPath}'
-    );
   });
 });

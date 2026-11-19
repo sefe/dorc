@@ -12,6 +12,7 @@ import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
 export function formatServerTagToken(tag: string): string {
   const normalized = tag.trim().replace(/ /g, '_');
+  if (!normalized || !/^[A-Za-z0-9_.-]+$/.test(normalized)) return '';
   return `$ServerNames_${normalized}$`;
 }
 
@@ -109,9 +110,22 @@ export class ServerTags extends LitElement {
   }
 
   private renderTokenHints() {
-    const tokens = Array.from(
-      new Set(this.effectiveTags.map(tag => formatServerTagToken(tag)))
-    );
+    const tagsByToken = new Map<string, string[]>();
+    for (const tag of this.effectiveTags) {
+      const token = formatServerTagToken(tag);
+      if (!token) continue;
+      const key = token.toLowerCase();
+      tagsByToken.set(key, [...(tagsByToken.get(key) ?? []), tag]);
+    }
+    const tokens: string[] = [];
+    const conflicts: string[] = [];
+    for (const group of tagsByToken.values()) {
+      if (group.length > 1) {
+        conflicts.push(group.map(t => `'${t}'`).join(' and '));
+      } else {
+        tokens.push(formatServerTagToken(group[0]));
+      }
+    }
     return html`
       <div
         class="token-hints"
@@ -145,6 +159,14 @@ export class ServerTags extends LitElement {
                 <code>$ServerNames_STP_Strategies$</code> in environment
                 variables.</span
               >`
+        }
+        ${
+          conflicts.length > 0
+            ? html`<div class="token-conflict-hint" role="alert">
+                Conflicting tags normalize to the same variable token:
+                ${conflicts.join('; ')}. Rename one so the token can resolve.
+              </div>`
+            : ''
         }
       </div>
     `;
