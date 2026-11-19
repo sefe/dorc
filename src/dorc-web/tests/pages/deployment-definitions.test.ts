@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   projects: vi.fn(),
   deleteProject: vi.fn(),
   confirm: vi.fn(),
+  psVersions: vi.fn(),
   editor: { value: '', change: () => {} }
 }));
 vi.mock('../../src/components/confirm-prompt', () => ({
@@ -49,7 +50,7 @@ vi.mock('../../src/apis/dorc-api', async importOriginal => ({
     refDataPut = mocks.save;
   },
   PowerShellVersionsApi: class {
-    powerShellVersionsGet = () => of([{ Value: '5.1' }, { Value: '7.4' }]);
+    powerShellVersionsGet = mocks.psVersions;
   },
   RefDataProjectsApi: class {
     refDataProjectsGet = mocks.projects;
@@ -155,6 +156,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   history.replaceState(null, '', '/project-ref-data/7');
   mocks.get.mockReturnValue(of(reference()));
+  mocks.psVersions.mockReturnValue(of([{ Value: 'v5.1' }, { Value: 'v7' }]));
   mocks.save.mockImplementation(({ refDataApiModel }) =>
     of({ ...refDataApiModel, Revision: 'revision-2' })
   );
@@ -848,7 +850,7 @@ describe('definition history and discovery', () => {
       ParentId: 10,
       ScriptPath:
         '{"ScriptPath":"00 Generic\\\\DeployMSI.ps1","GenericArguments":[{"msiName":"Payments.Service.msi"}]}',
-      PSVersion: '5.1'
+      PSVersion: 'v7'
     });
     expect(saved.Components[0].Children[2]).to.include({
       ComponentName: 'Database Backup',
@@ -873,5 +875,735 @@ describe('definition history and discovery', () => {
       page.shadowRoot!.querySelector<HTMLElement>('.terraform-state-pane')
         ?.hidden
     ).to.equal(false);
+  });
+
+  it('defaults newly added PowerShell components and child components under containers to v7', async () => {
+    const data = reference();
+    mocks.get.mockReturnValue(
+      of({
+        ...data,
+        Components: [
+          {
+            ComponentId: 20,
+            ComponentName: 'Container Group',
+            ComponentType: ComponentType.PowerShell,
+            PSVersion: undefined,
+            IsEnabled: true,
+            ScriptPath: '',
+            Children: []
+          }
+        ]
+      })
+    );
+    const page = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+
+    clickButton(page.shadowRoot!, 'Add child');
+    await settle();
+    clickButton(page.shadowRoot!, 'Clone sibling');
+    await settle();
+    clickButton(page.shadowRoot!, 'Add component');
+    await settle();
+
+    clickButton(page.shadowRoot!, 'Review changes');
+    await settle();
+    clickButton(page.shadowRoot!, 'Confirm save');
+    await settle();
+
+    const saved = mocks.save.mock.calls[0][0].refDataApiModel;
+    expect(saved.Components[0].Children[0].PSVersion).to.equal('v7');
+    expect(saved.Components[0].Children[1].PSVersion).to.equal('v7');
+    expect(saved.Components[1].PSVersion).to.equal('v7');
+  });
+
+  it('covers PowerShell version fallbacks on empty/error API responses, URL addScriptPath handoffs, and generic/catalog script fallbacks', async () => {
+    mocks.psVersions
+      .mockReturnValueOnce(of([]))
+      .mockReturnValueOnce(throwError(() => new Error('network error')));
+    mocks.definitions.mockReturnValue(
+      of({
+        Items: [
+          {
+            ProjectId: 7,
+            ProjectName: 'Payments',
+            Component: {
+              ComponentId: 43,
+              ComponentName: 'Unversioned Script',
+              ComponentType: ComponentType.PowerShell,
+              ScriptPath: 'common/unversioned.ps1',
+              PSVersion: undefined,
+              IsEnabled: true,
+              StopOnFailure: true,
+              NonProdOnly: false
+            }
+          }
+        ],
+        TotalItems: 1
+      })
+    );
+
+    // 1. Empty versions list + URL addScriptPath without addPsVersion (uses DEFAULT_POWERSHELL_VERSION)
+    history.replaceState(
+      null,
+      '',
+      '/project-ref-data/7?addScriptPath=common/url-default.ps1&addScriptName=UrlDefault'
+    );
+    const page1 = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+    const editor1 = page1.shadowRoot!.querySelector(
+      'deployment-definition-editor'
+    ) as HTMLElement & { powerShellVersions: string[] };
+    expect(editor1.powerShellVersions).to.deep.equal(['v5.1', 'v7']);
+    clickButton(page1.shadowRoot!, 'Clone sibling');
+    await settle();
+    page1.remove();
+
+    // 2. Error response on powerShellVersionsGet + URL addScriptPath with explicit addPsVersion=v5.1
+    history.replaceState(
+      null,
+      '',
+      '/project-ref-data/7?addScriptPath=common/url-v5.ps1&addScriptName=UrlExplicit&addPsVersion=v5.1'
+    );
+    const page2 = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+    const editor2 = page2.shadowRoot!.querySelector(
+      'deployment-definition-editor'
+    ) as HTMLElement & { powerShellVersions: string[] };
+    expect(editor2.powerShellVersions).to.deep.equal(['v5.1', 'v7']);
+
+    clickButton(page2.shadowRoot!, 'Script catalog');
+    await settle();
+    const dialog = page2.shadowRoot!.querySelector('.script-catalog-dialog')!;
+    expect(dialog.textContent).to.include('common/unversioned.ps1');
+    expect(dialog.textContent).to.include('(v7)');
+
+    const psCombo = [
+      ...dialog.querySelectorAll<
+        HTMLElement & { label: string; value: string }
+      >('vaadin-combo-box')
+    ].find(combo => combo.label === 'PowerShell version')!;
+    psCombo.value = 'v5.1';
+    psCombo.dispatchEvent(new Event('change'));
+    await settle();
+    psCombo.value = '';
+    psCombo.dispatchEvent(new Event('change'));
+    await settle();
+    (
+      page2 as unknown as { genericDialogPsVersion: string }
+    ).genericDialogPsVersion = '';
+
+    const msiField = [
+      ...dialog.querySelectorAll<TextField>('vaadin-text-field')
+    ].find(field => field.label === 'MSI file name (msiName)')!;
+    msiField.value = 'Fallback.Service.msi';
+    msiField.dispatchEvent(new Event('input'));
+    await settle();
+
+    clickButton(page2.shadowRoot!, 'Add "Deploy MSI Package" as sibling');
+    await settle();
+
+    clickButton(page2.shadowRoot!, 'Script catalog');
+    await settle();
+    clickButton(page2.shadowRoot!, 'Insert sibling');
+    await settle();
+
+    clickButton(page2.shadowRoot!, 'Review changes');
+    await settle();
+    clickButton(page2.shadowRoot!, 'Confirm save');
+    await settle();
+
+    const saved = mocks.save.mock.calls[0][0].refDataApiModel;
+    expect(saved.Components[1]).to.include({
+      ComponentName: 'UrlExplicit',
+      ScriptPath: 'common/url-v5.ps1',
+      PSVersion: 'v5.1'
+    });
+    expect(saved.Components[2]).to.include({
+      ComponentName: 'Deploy MSI',
+      PSVersion: 'v7'
+    });
+    expect(saved.Components[3]).to.include({
+      ComponentName: 'Unversioned Script',
+      ScriptPath: 'common/unversioned.ps1',
+      PSVersion: 'v7'
+    });
+  });
+
+  it('keeps every generic script template aligned with its 00 Generic/*.ps1 parameter and environment property contract and renders requirements in the UI', async () => {
+    const {
+      GENERIC_SCRIPT_TEMPLATES,
+      findGenericScriptTemplate,
+      serializeScriptPathValue,
+      parseScriptPathValue
+    } = await import('../../src/script-catalog/generic-scripts');
+
+    // Authoritative contract extracted from 00 Generic/*.ps1 (Test-RequiredProperties + script variable references)
+    const expectedContracts: Record<
+      string,
+      {
+        scriptPath: string;
+        parameters: string[];
+        requiredEnvironmentProperties: string[];
+        testRequiredProperties: string[];
+      }
+    > = {
+      'deploy-msi': {
+        scriptPath: '00 Generic\\DeployMSI.ps1',
+        parameters: [
+          'msiName',
+          'productNames',
+          'ServerTag',
+          'productNamesEnvironment'
+        ],
+        requiredEnvironmentProperties: [
+          'DropFolder',
+          'EnvMgtDBServer',
+          'EnvMgtDBName',
+          'DeploymentServiceAccount',
+          'DeploymentServiceAccountPassword'
+        ],
+        testRequiredProperties: [
+          'DropFolder',
+          'EnvMgtDBServer',
+          'EnvMgtDBName',
+          'msiName',
+          'productNames',
+          'DeploymentServiceAccountPassword',
+          'DeploymentServiceAccount'
+        ]
+      },
+      'control-services': {
+        scriptPath: '00 Generic\\ControlServices.ps1',
+        parameters: ['action', 'serverTypes', 'services'],
+        requiredEnvironmentProperties: [],
+        testRequiredProperties: ['action', 'serverTypes', 'services']
+      },
+      'deploy-dacpac': {
+        scriptPath: '00 Generic\\DeployDacpac.ps1',
+        parameters: ['dacpacName'],
+        requiredEnvironmentProperties: [
+          'DropFolder',
+          'SQLPackagePath',
+          'DACPACPublishProfile',
+          'DACPACBlackList',
+          'DACPACEnvironmentPostSQL',
+          'DACPACRollbackMode'
+        ],
+        testRequiredProperties: [
+          'SQLPackagePath',
+          'DACPACPublishProfile',
+          'DACPACBlackList',
+          'DACPACEnvironmentPostSQL',
+          'DACPACRollbackMode'
+        ]
+      },
+      'deploy-dacpac-azure': {
+        scriptPath: '00 Generic\\DeployDacpacAzure.ps1',
+        parameters: ['dacpacName'],
+        requiredEnvironmentProperties: [
+          'DropFolder',
+          'SQLPackagePath',
+          'DACPACPublishProfile',
+          'DACPACBlackList',
+          'DACPACEnvironmentPostSQL',
+          'DACPACRollbackMode',
+          'DacpacDeployClientId',
+          'DacpacDeployClientSecret',
+          'DacpacDeployTenantDomain',
+          'ResourceUrl'
+        ],
+        testRequiredProperties: [
+          'SQLPackagePath',
+          'DACPACPublishProfile',
+          'DACPACBlackList',
+          'DACPACEnvironmentPostSQL',
+          'DACPACRollbackMode'
+        ]
+      },
+      'apply-permissions': {
+        scriptPath: '00 Generic\\ApplyPermissions.ps1',
+        parameters: ['dacpacName'],
+        requiredEnvironmentProperties: [
+          'DropFolder',
+          'SQLPackagePath',
+          'DACPACPublishProfile',
+          'DACPACBlackList',
+          'DACPACEnvironmentPostSQL',
+          'DACPACRollbackMode'
+        ],
+        testRequiredProperties: [
+          'SQLPackagePath',
+          'DACPACPublishProfile',
+          'DACPACBlackList',
+          'DACPACEnvironmentPostSQL',
+          'DACPACRollbackMode'
+        ]
+      },
+      'restore-database': {
+        scriptPath: '00 Generic\\RestoreDatabase.ps1',
+        parameters: ['dacpacName'],
+        requiredEnvironmentProperties: [
+          'DropFolder',
+          'EnvMgtDBServer',
+          'EnvMgtDBName',
+          'RestoreMode',
+          'RestoreSource',
+          'DORC_RestoreDBExePath',
+          'DORC_DropDBExePath'
+        ],
+        testRequiredProperties: [
+          'DropFolder',
+          'EnvMgtDBServer',
+          'EnvMgtDBName',
+          'RestoreMode',
+          'RestoreSource',
+          'dacpacName',
+          'DORC_RestoreDBExePath',
+          'DORC_DropDBExePath'
+        ]
+      },
+      'snap-restore-database': {
+        scriptPath: '00 Generic\\SnapRestoreDatabase_V1.ps1',
+        parameters: ['dacpacName'],
+        requiredEnvironmentProperties: [
+          'DropFolder',
+          'EnvMgtDBServer',
+          'EnvMgtDBName',
+          'RestoreMode',
+          'RestoreSource',
+          'DBPermsOutput'
+        ],
+        testRequiredProperties: [
+          'DropFolder',
+          'EnvMgtDBServer',
+          'EnvMgtDBName',
+          'RestoreMode',
+          'RestoreSource',
+          'dacpacName',
+          'DBPermsOutput'
+        ]
+      },
+      'restore-database-commvault': {
+        scriptPath: '00 Generic\\RestoreDatabaseCommVault.ps1',
+        parameters: ['dacpacName'],
+        requiredEnvironmentProperties: [
+          'DropFolder',
+          'EnvMgtDBServer',
+          'EnvMgtDBName',
+          'RestoreMode',
+          'RestoreSource',
+          'DORC_DropDBExePath',
+          'CommVaultToken',
+          'DBACommvaultModuleVer',
+          'CommvaultBackupCopy',
+          'CommVaultApiURL'
+        ],
+        testRequiredProperties: [
+          'DropFolder',
+          'EnvMgtDBServer',
+          'EnvMgtDBName',
+          'RestoreMode',
+          'RestoreSource',
+          'DacpacName',
+          'DORC_DropDBExePath',
+          'CommVaultToken',
+          'DBACommvaultModuleVer',
+          'CommvaultBackupCopy',
+          'CommVaultApiURL'
+        ]
+      },
+      'deploy-activebatch-v12': {
+        scriptPath: '00 Generic\\DeployActiveBatchV12.ps1',
+        parameters: ['XmlFile', 'alt_app', 'alt_vertical', 'subFolder'],
+        requiredEnvironmentProperties: ['DropFolder', 'ABDestinationPath'],
+        testRequiredProperties: ['ABDestinationPath', 'XmlFile']
+      },
+      'deploy-activebatch-shared-objects': {
+        scriptPath: '00 Generic\\DeployActiveBatchSharedObjects.ps1',
+        parameters: ['JsonFile'],
+        requiredEnvironmentProperties: ['DropFolder', 'ABDestinationPath'],
+        testRequiredProperties: ['ABDestinationPath', 'JsonFile']
+      },
+      'install-activebatch-v12-agent': {
+        scriptPath: '00 Generic\\InstallActiveBatchV12Agent.ps1',
+        parameters: ['msiName', 'productNames', 'productNamesEnvironment'],
+        requiredEnvironmentProperties: [
+          'AB_Agent_V12_InstallFolder',
+          'AB_Agent_UserName',
+          'EnvMgtDBServer',
+          'EnvMgtDBName',
+          'DeploymentServiceAccount',
+          'DeploymentServiceAccountPassword'
+        ],
+        testRequiredProperties: [
+          'AB_Agent_V12_InstallFolder',
+          'AB_Agent_UserName',
+          'EnvMgtDBServer',
+          'EnvMgtDBName',
+          'msiName',
+          'productNames',
+          'DeploymentServiceAccountPassword',
+          'DeploymentServiceAccount'
+        ]
+      },
+      'control-services-startup-type': {
+        scriptPath: '00 Generic\\ControlServicesStartupType.ps1',
+        parameters: ['ServerTypes', 'Services', 'ServiceStartupType'],
+        requiredEnvironmentProperties: [],
+        testRequiredProperties: [
+          'ServerTypes',
+          'Services',
+          'ServiceStartupType'
+        ]
+      },
+      'remove-product': {
+        scriptPath: '00 Generic\\RemoveProduct.ps1',
+        parameters: ['AppToRemove'],
+        requiredEnvironmentProperties: [],
+        testRequiredProperties: ['AppToRemove']
+      },
+      'copy-and-extract-artifacts': {
+        scriptPath: '00 Generic\\CopyAndExtractArtifacts.ps1',
+        parameters: ['DestinationToCopyPath'],
+        requiredEnvironmentProperties: [
+          'DropFolder',
+          'DestinationToCopyPath',
+          'DeploymentServiceAccount',
+          'DeploymentServiceAccountPassword'
+        ],
+        testRequiredProperties: [
+          'DropFolder',
+          'DeploymentServiceAccountPassword',
+          'DeploymentServiceAccount',
+          'DestinationToCopyPath'
+        ]
+      },
+      'deploy-generic-sf-service': {
+        scriptPath: '00 Generic\\DeployGenericSFService.ps1',
+        parameters: ['sfSvcDef', 'sfUsersEncryptDef'],
+        requiredEnvironmentProperties: [
+          'DropFolder',
+          'Arc_SF_LogFilePath',
+          'Arc_SF_ConnectionEndpoint',
+          'Arc_SF_RelativeDropFolder',
+          'Arc_SF_HistoryPackagesPath',
+          'Arc_SF_SDKSourcePath'
+        ],
+        testRequiredProperties: [
+          'sfSvcDef',
+          'Arc_SF_LogFilePath',
+          'Arc_SF_ConnectionEndpoint',
+          'DropFolder',
+          'Arc_SF_RelativeDropFolder',
+          'Arc_SF_HistoryPackagesPath',
+          'Arc_SF_SDKSourcePath'
+        ]
+      },
+      'deploy-sccm': {
+        scriptPath: '00 Generic\\DeploySCCM.ps1',
+        parameters: ['ClientMSIName'],
+        requiredEnvironmentProperties: ['DropFolder'],
+        testRequiredProperties: []
+      },
+      'deploy-intune-app': {
+        scriptPath: '00 Generic\\DeployIntuneApp.ps1',
+        parameters: ['ClientMSIName'],
+        requiredEnvironmentProperties: ['IntuneAppSecret', 'DropFolder'],
+        testRequiredProperties: ['IntuneAppSecret', 'DropFolder']
+      },
+      'install-chocolatey': {
+        scriptPath: '00 Generic\\InstallChocolatey.ps1',
+        parameters: ['BaseBuildServerType'],
+        requiredEnvironmentProperties: [
+          'BaseBuildServerType',
+          'Choco_InstallRepo',
+          'ProgetAccount',
+          'ProgetAccountPassword'
+        ],
+        testRequiredProperties: ['BaseBuildServerType']
+      },
+      'install-choco-packages': {
+        scriptPath: '00 Generic\\InstallChocoPackages.ps1',
+        parameters: ['BaseBuildServerType', 'Choco_InstallParams'],
+        requiredEnvironmentProperties: [
+          'Choco_PackageRepo',
+          'Choco_BinarySource',
+          'Choco_Packages',
+          'BaseBuildServerType'
+        ],
+        testRequiredProperties: [
+          'Choco_PackageRepo',
+          'Choco_BinarySource',
+          'Choco_Packages',
+          'BaseBuildServerType'
+        ]
+      },
+      'windows-features': {
+        scriptPath: '00 Generic\\WindowsFeatures.ps1',
+        parameters: ['BaseBuildServerType', 'BaseBuildFeatures'],
+        requiredEnvironmentProperties: [
+          'CoreCodeSxSFolder',
+          'BaseBuildFeatures',
+          'DeploymentServiceAccount',
+          'DeploymentServiceAccountPassword'
+        ],
+        testRequiredProperties: [
+          'DeploymentServiceAccount',
+          'DeploymentServiceAccountPassword',
+          'CoreCodeSxSFolder',
+          'BaseBuildFeatures'
+        ]
+      },
+      'install-dotnet-framework': {
+        scriptPath: '00 Generic\\Install .Net Framework.ps1',
+        parameters: ['BaseBuildDotNetVersion', 'Net_TargetServerType'],
+        requiredEnvironmentProperties: [
+          'EnvMgtDBName',
+          'EnvMgtDBServer',
+          'BaseBuildDotNetVersion',
+          'BaseBuildDotNetInstallPath',
+          'Net_TargetServerType'
+        ],
+        testRequiredProperties: [
+          'EnvMgtDBName',
+          'EnvMgtDBServer',
+          'BaseBuildDotNetVersion',
+          'BaseBuildDotNetInstallPath'
+        ]
+      },
+      'recycle-env': {
+        scriptPath: '00 Generic\\RecycleEnv.ps1',
+        parameters: ['RecycleEnv_ServerType'],
+        requiredEnvironmentProperties: [
+          'DropFolder',
+          'RecycleEnv_Action',
+          'DORC_NonProdDeployUsername',
+          'EnvMgtDBServer',
+          'EnvMgtDBName',
+          'RecycleEnv_Username',
+          'RecycleEnv_Password',
+          'DeploymentServiceAccount',
+          'DeploymentServiceAccountPassword'
+        ],
+        testRequiredProperties: [
+          'DropFolder',
+          'RecycleEnv_Action',
+          'DORC_NonProdDeployUsername',
+          'EnvMgtDBServer',
+          'EnvMgtDBName',
+          'RecycleEnv_Username',
+          'RecycleEnv_Password',
+          'DeploymentServiceAccountPassword',
+          'DeploymentServiceAccount'
+        ]
+      },
+      'vmm-software-center-patching': {
+        scriptPath: '00 Generic\\Invoke-VmmSoftwareCenterPatching.ps1',
+        parameters: ['ExecutionMode', 'OwningProjectId'],
+        requiredEnvironmentProperties: [
+          'RefDataApiUrl',
+          'EnvironmentName',
+          'ConfirmOsPatching',
+          'PatchCloudOrder',
+          'DorcCliSecret'
+        ],
+        testRequiredProperties: [
+          'RefDataApiUrl',
+          'EnvironmentName',
+          'ExecutionMode',
+          'DorcCliSecret'
+        ]
+      },
+      'deploy-ssis-packages': {
+        scriptPath: '00 Generic\\DeploySSISPackages.ps1',
+        parameters: ['SSIS_Project'],
+        requiredEnvironmentProperties: ['DropFolder', 'SSIS_Server', 'SSIS_Db'],
+        testRequiredProperties: ['SSIS_Server', 'SSIS_Db']
+      },
+      'deploy-ssis-packages-azure': {
+        scriptPath: '00 Generic\\DeploySSISPackagesAzure.ps1',
+        parameters: ['SSIS_Project'],
+        requiredEnvironmentProperties: [
+          'DropFolder',
+          'SSIS_Server_Azure',
+          'SSIS_Db_Azure',
+          'SSISRunner_Azure_Sql_User',
+          'SSISRunner_Azure_Sql_User_Password'
+        ],
+        testRequiredProperties: [
+          'SSIS_Server_Azure',
+          'SSIS_Db_Azure',
+          'SSISRunner_Azure_Sql_User',
+          'SSISRunner_Azure_Sql_User_Password'
+        ]
+      },
+      'configure-ssis-projects': {
+        scriptPath: '00 Generic\\ConfigureSSISProjects.ps1',
+        parameters: ['SSIS_Project'],
+        requiredEnvironmentProperties: ['DropFolder', 'SSIS_Server', 'SSIS_Db'],
+        testRequiredProperties: ['SSIS_Server', 'SSIS_Db']
+      },
+      'deploy-ssrs-reports': {
+        scriptPath: '00 Generic\\DeploySSRSReportsNew.ps1',
+        parameters: [],
+        requiredEnvironmentProperties: [
+          'SSRS_RootFolder',
+          'SSRS_ReportingServerURI'
+        ],
+        testRequiredProperties: ['SSRS_RootFolder', 'SSRS_ReportingServerURI']
+      },
+      'request-install-bind-cert': {
+        scriptPath: '00 Generic\\RequestInstallBindCert.ps1',
+        parameters: [
+          'CertFriendlyName',
+          'CertBindingPort',
+          'CertSubjectName',
+          'CertDnsNames'
+        ],
+        requiredEnvironmentProperties: [
+          'CertTemplate',
+          'CertSubjectName',
+          'CertDnsNames',
+          'CertServerTag'
+        ],
+        testRequiredProperties: [
+          'CertTemplate',
+          'CertSubjectName',
+          'CertDnsNames',
+          'CertServerTag'
+        ]
+      },
+      'configure-rabbitmq': {
+        scriptPath: '00 Generic\\ConfigureRabbitMQ.ps1',
+        parameters: ['RMQConfigFileName'],
+        requiredEnvironmentProperties: [
+          'DropFolder',
+          'RMQConfigFileName',
+          'RMQConfigUsername',
+          'RMQConfigPassword',
+          'RMQManagementApiUrl'
+        ],
+        testRequiredProperties: [
+          'DropFolder',
+          'RMQConfigFileName',
+          'RMQConfigUsername',
+          'RMQConfigPassword',
+          'RMQManagementApiUrl'
+        ]
+      },
+      'apply-rabbitmq-config': {
+        scriptPath: '00 Generic\\ApplyRabbitMQConfig.ps1',
+        parameters: ['RMQ_ConfigFilesToApply'],
+        requiredEnvironmentProperties: [
+          'DropFolder',
+          'RMQ_ConfigFilesToApply',
+          'RMQManagementApiUrl',
+          'RMQConfigUsername',
+          'RMQConfigPassword'
+        ],
+        testRequiredProperties: [
+          'DropFolder',
+          'RMQManagementApiUrl',
+          'RMQConfigUsername',
+          'RMQConfigPassword'
+        ]
+      }
+    };
+
+    expect(GENERIC_SCRIPT_TEMPLATES.map(t => t.id)).to.deep.equal(
+      Object.keys(expectedContracts)
+    );
+
+    for (const template of GENERIC_SCRIPT_TEMPLATES) {
+      const contract = expectedContracts[template.id];
+      expect(template.scriptPath, `${template.id} scriptPath`).to.equal(
+        contract.scriptPath
+      );
+      expect(
+        template.parameters.map(p => p.name),
+        `${template.id} parameters`
+      ).to.deep.equal(contract.parameters);
+      expect(
+        template.requiredEnvironmentProperties ?? [],
+        `${template.id} requiredEnvironmentProperties`
+      ).to.deep.equal(contract.requiredEnvironmentProperties);
+
+      // Every property checked by Test-RequiredProperties in the .ps1 script MUST be surfaced
+      // either as a template parameter or in requiredEnvironmentProperties (case-insensitive for PowerShell).
+      const exposedLower = new Set(
+        [
+          ...template.parameters.map(p => p.name),
+          ...(template.requiredEnvironmentProperties ?? [])
+        ].map(name => name.toLowerCase())
+      );
+      for (const reqProp of contract.testRequiredProperties) {
+        expect(
+          exposedLower.has(reqProp.toLowerCase()),
+          `${template.id} must expose Test-RequiredProperties item '${reqProp}'`
+        ).to.equal(true);
+      }
+
+      // Verify round-trip lookup and JSON path serialization for each template
+      const sampleArgs = template.parameters.map((p, idx) => ({
+        key: p.name,
+        value: `\${Prop_${idx}}`
+      }));
+      const serialized = serializeScriptPathValue(
+        template.scriptPath,
+        sampleArgs
+      );
+      expect(findGenericScriptTemplate(serialized)?.id).to.equal(template.id);
+      const parsed = parseScriptPathValue(serialized);
+      expect(parsed.scriptPath).to.equal(template.scriptPath);
+      expect(parsed.arguments).to.deep.equal(sampleArgs);
+    }
+
+    // Verify UI rendering in <deployment-definition-editor> when selecting CopyAndExtractArtifacts.ps1
+    const page = await fixture(
+      html`<page-project-ref-data></page-project-ref-data>`
+    );
+    await settle();
+    const editor = page.shadowRoot!.querySelector<
+      HTMLElement & { component: Record<string, unknown> }
+    >('deployment-definition-editor')!;
+    const templateCombo = [
+      ...editor.shadowRoot!.querySelectorAll<
+        HTMLElement & { label: string; value: string }
+      >('vaadin-combo-box')
+    ].find(
+      c =>
+        c.label === 'Predefined generic script (project-scripts / 00 Generic)'
+    )!;
+    templateCombo.value = '00 Generic\\CopyAndExtractArtifacts.ps1';
+    templateCombo.dispatchEvent(
+      new CustomEvent('value-changed', {
+        detail: { value: '00 Generic\\CopyAndExtractArtifacts.ps1' }
+      })
+    );
+    await settle();
+
+    const editorText = editor.shadowRoot!.textContent ?? '';
+    expect(editorText).to.include('DestinationToCopyPath');
+    expect(editorText).to.include('DropFolder');
+    expect(editorText).to.include('DeploymentServiceAccount');
+    expect(editorText).to.include('DeploymentServiceAccountPassword');
+
+    const destField = [
+      ...editor.shadowRoot!.querySelectorAll<TextField>('vaadin-text-field')
+    ].find(f => f.label === 'Destination path (DestinationToCopyPath)')!;
+    expect(destField).not.to.equal(undefined);
+    destField.value = '${STP_DAS_Paper_DestinationPath}';
+    destField.dispatchEvent(new Event('input'));
+    await settle();
+
+    expect(editor.component.ScriptPath).to.equal(
+      '{"ScriptPath":"00 Generic\\\\CopyAndExtractArtifacts.ps1","GenericArguments":[{"DestinationToCopyPath":"${STP_DAS_Paper_DestinationPath}"}]}'
+    );
   });
 });

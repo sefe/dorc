@@ -17,3 +17,4 @@ Example:      :setvar TableName MyTable
 :r ./SetFileShareSourceControlType.sql
 :r ./PopulateTagTables.sql
 :r ./ScopeAivenDatabases.sql
+:r ./MigrateGenericScriptsToPowerShellV7.sql
