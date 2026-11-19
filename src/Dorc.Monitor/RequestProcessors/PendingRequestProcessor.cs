@@ -309,10 +309,9 @@ namespace Dorc.Monitor.RequestProcessors
                                 var currentDbRequestStatus = requestsPersistentSource.GetRequest(requestToExecute.Request.Id)?.Status;
                                 if (string.Equals(currentDbRequestStatus, DeploymentRequestStatus.Running.ToString(), StringComparison.OrdinalIgnoreCase))
                                 {
-                                    var resumed = requestsPersistentSource.SwitchDeploymentRequestStatuses(
-                                        new List<DeploymentRequestApiModel> { requestToExecute.Request },
-                                        DeploymentRequestStatus.Running,
-                                        DeploymentRequestStatus.Pending);
+                                    var resumed = requestsPersistentSource.ResumeInterruptedRunningRequest(
+                                        requestToExecute.Request.Id,
+                                        deploymentStartedTime);
 
                                     if (resumed > 0)
                                     {
@@ -491,11 +490,15 @@ namespace Dorc.Monitor.RequestProcessors
         {
             try
             {
+                var includeRunningResults = requestStatus == DeploymentRequestStatus.Cancelled ||
+                    requestStatus == DeploymentRequestStatus.Pending;
+
                 var pendingResults = requestsPersistentSource
                     .GetDeploymentResultsForRequest(requestId)
                     .Where(r => r.Status == DeploymentResultStatus.Pending.ToString() ||
                         r.Status == DeploymentResultStatus.WaitingConfirmation.ToString() ||
-                        r.Status == DeploymentResultStatus.Confirmed.ToString())
+                        r.Status == DeploymentResultStatus.Confirmed.ToString() ||
+                        (includeRunningResults && r.Status == DeploymentResultStatus.Running.ToString()))
                     .ToList();
 
                 if (pendingResults.Count == 0)
@@ -507,7 +510,23 @@ namespace Dorc.Monitor.RequestProcessors
 
                 foreach (var pendingResult in pendingResults)
                 {
-                    requestsPersistentSource.UpdateResultStatus(pendingResult, DeploymentResultStatus.Cancelled);
+                    bool updated;
+                    if (pendingResult.Status == DeploymentResultStatus.Running.ToString())
+                    {
+                        updated = requestsPersistentSource.UpdateResultStatus(
+                            pendingResult,
+                            DeploymentResultStatus.Cancelled,
+                            DeploymentResultStatus.Running);
+                    }
+                    else
+                    {
+                        updated = requestsPersistentSource.UpdateResultStatus(
+                            pendingResult,
+                            DeploymentResultStatus.Cancelled);
+                    }
+
+                    if (!updated)
+                        continue;
 
                     eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(pendingResult)
                     {

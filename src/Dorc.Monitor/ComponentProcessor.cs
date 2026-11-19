@@ -218,13 +218,17 @@ namespace Dorc.Monitor
             }
             finally
             {
-                deploymentResult.Log = componentResultLogBuilder.ToString();
                 if (preserveRunningStatusOnInterruption)
                 {
-                    requestsPersistentSource.UpdateResultLog(deploymentResult, deploymentResult.Log);
+                    if (componentResultLogBuilder.Length > 0)
+                    {
+                        deploymentResult.Log = componentResultLogBuilder.ToString();
+                        requestsPersistentSource.UpdateResultLog(deploymentResult, deploymentResult.Log);
+                    }
                 }
                 else
                 {
+                    deploymentResult.Log = componentResultLogBuilder.ToString();
                     requestsPersistentSource.UpdateResultStatus(
                         deploymentResult,
                         deploymentResultStatus);
@@ -261,7 +265,7 @@ namespace Dorc.Monitor
 
                 return !string.Equals(currentStatus, DeploymentRequestStatus.Running.ToString(), StringComparison.OrdinalIgnoreCase);
             }
-            catch (InvalidOperationException ex)
+            catch (Exception ex) when (ex is not OutOfMemoryException)
             {
                 _logger.LogWarning(ex, "Failed to check request {RequestId} status during component cancellation.", requestId);
                 return false;
