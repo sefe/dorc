@@ -546,6 +546,9 @@ export class DeployEnv extends LitElement {
     }
 
     const generation = ++this.preflightGeneration;
+    if (this.preflightSummary !== undefined) {
+      this.preflightSummary = undefined;
+    }
 
     try {
       const tracesByProperty =
@@ -1026,28 +1029,40 @@ export class DeployEnv extends LitElement {
     }
     const generation = ++this.componentDefsGeneration;
     const defsApi = new DeploymentDefinitionsApi(dorcApiConfiguration);
-    defsApi
-      .deploymentDefinitionsGet({ projectId, page: 1, limit: 200 })
-      .subscribe({
-        next: (resp: GetDeploymentDefinitionsResponse) => {
-          if (generation !== this.componentDefsGeneration) {
-            return;
-          }
-          const byId = new Map<number, ComponentApiModel>();
-          for (const item of resp?.Items ?? []) {
-            if (item.Component?.ComponentId != null) {
-              byId.set(item.Component.ComponentId, item.Component);
+    const byId = new Map<number, ComponentApiModel>();
+    const pageLimit = 200;
+
+    const fetchPage = (page: number) => {
+      defsApi
+        .deploymentDefinitionsGet({ projectId, page, limit: pageLimit })
+        .subscribe({
+          next: (resp: GetDeploymentDefinitionsResponse) => {
+            if (generation !== this.componentDefsGeneration) {
+              return;
             }
+            const items = resp?.Items ?? [];
+            for (const item of items) {
+              if (item.Component?.ComponentId != null) {
+                byId.set(item.Component.ComponentId, item.Component);
+              }
+            }
+            const totalItems = resp?.TotalItems ?? byId.size;
+            if (items.length === pageLimit && byId.size < totalItems) {
+              fetchPage(page + 1);
+              return;
+            }
+            this.projectComponentDefinitions = new Map(byId);
+          },
+          error: () => {
+            if (generation !== this.componentDefsGeneration) {
+              return;
+            }
+            this.projectComponentDefinitions = new Map();
           }
-          this.projectComponentDefinitions = byId;
-        },
-        error: () => {
-          if (generation !== this.componentDefsGeneration) {
-            return;
-          }
-          this.projectComponentDefinitions = new Map();
-        }
-      });
+        });
+    };
+
+    fetchPage(1);
   }
 
   private createTreeFromList(
