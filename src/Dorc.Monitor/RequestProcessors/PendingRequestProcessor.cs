@@ -510,20 +510,14 @@ namespace Dorc.Monitor.RequestProcessors
 
                 foreach (var pendingResult in pendingResults)
                 {
-                    bool updated;
-                    if (pendingResult.Status == DeploymentResultStatus.Running.ToString())
-                    {
-                        updated = requestsPersistentSource.UpdateResultStatus(
+                    var updated = pendingResult.Status == DeploymentResultStatus.Running.ToString()
+                        ? requestsPersistentSource.UpdateResultStatus(
                             pendingResult,
                             DeploymentResultStatus.Cancelled,
-                            DeploymentResultStatus.Running);
-                    }
-                    else
-                    {
-                        updated = requestsPersistentSource.UpdateResultStatus(
+                            DeploymentResultStatus.Running)
+                        : requestsPersistentSource.UpdateResultStatus(
                             pendingResult,
                             DeploymentResultStatus.Cancelled);
-                    }
 
                     if (!updated)
                         continue;
