@@ -166,14 +166,35 @@ export const addHegsTreeNodeStyles = css`
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 5px;
     color: inherit;
     font-size: var(--lumo-font-size-s);
     font-weight: 500;
   }
+  .node-kind-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: var(--dorc-text-secondary-strong, var(--dorc-text-secondary));
+    opacity: 0.85;
+  }
+  .node-select-btn[aria-pressed='true'] .node-kind-icon {
+    color: inherit;
+    opacity: 1;
+  }
   .node-title {
     color: inherit;
     font-size: inherit;
+  }
+  .node-kind-meta {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--dorc-text-secondary-strong, var(--dorc-text-secondary));
+    opacity: 0.85;
+  }
+  .node-select-btn[aria-pressed='true'] .node-kind-meta {
+    color: inherit;
+    opacity: 0.9;
   }
   .node-badge {
     display: inline-block;

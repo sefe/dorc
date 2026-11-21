@@ -16,7 +16,12 @@ namespace Dorc.Core.Tests
         /// </summary>
         private static JsonSerializerSettings ProductionSettings(bool withConverter = true)
         {
-            var settings = new JsonSerializerSettings
+            if (withConverter)
+            {
+                return AzureDevOpsApiClientFactory.Create("https://dev.azure.com/").SerializerSettings;
+            }
+
+            return new JsonSerializerSettings
             {
                 ConstructorHandling = ConstructorHandling.AllowNonPublicDefaultConstructor,
                 ContractResolver = new DefaultContractResolver
@@ -24,11 +29,6 @@ namespace Dorc.Core.Tests
                     NamingStrategy = new CamelCaseNamingStrategy { OverrideSpecifiedNames = false }
                 }
             };
-            if (withConverter)
-            {
-                settings.Converters.Add(new AzureDevOpsListResponseConverter());
-            }
-            return settings;
         }
 
         /// <summary>
@@ -181,6 +181,29 @@ namespace Dorc.Core.Tests
                 () => JsonConvert.DeserializeObject<List<Build>>(json, ProductionSettings()));
 
             StringAssert.Contains(exception.Message, "but the payload was");
+        }
+
+        [TestMethod]
+        public void ToleratesUnknownAzureDevOpsBuildStatusEnumValuesSuchAsAbandoned()
+        {
+            var definitionsJson = @"{""count"":2,""value"":[{""id"":8730,""name"":""trading-analytics-lng-global-balance"",""latestBuild"":{""id"":1031047,""status"":""abandoned""}},{""id"":8731,""name"":""amp-basebuild"",""latestBuild"":{""id"":1031048,""status"":""completed"",""result"":""succeeded""}}]}";
+
+            var definitions = JsonConvert.DeserializeObject<List<BuildDefinitionReference>>(definitionsJson, ProductionSettings());
+
+            Assert.IsNotNull(definitions);
+            Assert.AreEqual(2, definitions.Count);
+            Assert.IsNull(definitions[0].LatestBuild.Status);
+            Assert.AreEqual(Build.StatusEnum.Completed, definitions[1].LatestBuild.Status);
+            Assert.AreEqual(Build.ResultEnum.Succeeded, definitions[1].LatestBuild.Result);
+
+            var buildsJson = @"{""count"":2,""value"":[{""id"":1031047,""buildNumber"":""20261119.1"",""status"":""abandoned""},{""id"":1031048,""buildNumber"":""20261119.2"",""status"":""completed""}]}";
+
+            var builds = JsonConvert.DeserializeObject<List<Build>>(buildsJson, ProductionSettings());
+
+            Assert.IsNotNull(builds);
+            Assert.AreEqual(2, builds.Count);
+            Assert.IsNull(builds[0].Status);
+            Assert.AreEqual(Build.StatusEnum.Completed, builds[1].Status);
         }
     }
 }

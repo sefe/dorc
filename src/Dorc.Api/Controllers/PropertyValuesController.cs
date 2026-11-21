@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Dorc.Api.Controllers
 {
@@ -24,6 +25,8 @@ namespace Dorc.Api.Controllers
         private readonly IVariableResolver _variableResolver;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IVariableScopeOptionsResolver _variableScopeOptionsResolver;
+        private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
+        private readonly IPropertyResolutionTracer _propertyResolutionTracer;
         private readonly IActiveDirectorySearcher _directorySearcher;
         private readonly ILogger<PropertyValuesController> _logger;
 
@@ -33,7 +36,9 @@ namespace Dorc.Api.Controllers
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IVariableScopeOptionsResolver variableScopeOptionsResolver,
             IDirectorySearcherFactory directorySearcherFactory,
-            ILogger<PropertyValuesController> logger)
+            ILogger<PropertyValuesController> logger,
+            IPropertyResolutionTracer? propertyResolutionTracer = null,
+            ISecurityPrivilegesChecker? securityPrivilegesChecker = null)
         {
             _variableScopeOptionsResolver = variableScopeOptionsResolver;
             _environmentsPersistentSource = environmentsPersistentSource;
@@ -42,6 +47,8 @@ namespace Dorc.Api.Controllers
             _propertyValuesService = propertyValuesService;
             _directorySearcher = directorySearcherFactory.GetEntraSearcher();
             _logger = logger;
+            _propertyResolutionTracer = propertyResolutionTracer!;
+            _securityPrivilegesChecker = securityPrivilegesChecker!;
         }
 
         /// <summary>
@@ -71,6 +78,10 @@ namespace Dorc.Api.Controllers
                         environment.EnvironmentId);
                     return BadRequest(ex.Message);
                 }
+            }
+            else if (string.IsNullOrWhiteSpace(propertyValueScope))
+            {
+                _variableScopeOptionsResolver.SetGlobalPropertyValues(_variableResolver, User);
             }
 
             var props = _variableResolver.LocalProperties();
@@ -131,6 +142,9 @@ namespace Dorc.Api.Controllers
 
         private bool FilterOutNullAndEmpty(KeyValuePair<string, VariableValue> arg)
         {
+            if (string.IsNullOrWhiteSpace(arg.Key) || arg.Key.Contains(';'))
+                return false;
+
             if (arg.Value == null)
                 return false;
 
@@ -263,6 +277,197 @@ namespace Dorc.Api.Controllers
         public IActionResult DeletePropertyValue(IEnumerable<PropertyValueDto> propertyValuesToDelete)
         {
             return Ok(_propertyValuesService.DeletePropertyValues(propertyValuesToDelete, User));
+        }
+
+        /// <summary>
+        /// Resolve property values and provenance trace for contextual preview without executing dynamic expressions
+        /// </summary>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<PropertyResolutionTraceApiModel>))]
+        [HttpPost("ResolvePreview")]
+        public IActionResult ResolvePreview([FromBody] PropertyResolutionPreviewRequestApiModel request)
+        {
+            if (request == null)
+            {
+                return BadRequest("request is required");
+            }
+
+            EnvironmentApiModel? environment = null;
+            if (!string.IsNullOrWhiteSpace(request.EnvironmentName))
+            {
+                var envName = request.EnvironmentName.Trim();
+                if (!_environmentsPersistentSource.EnvironmentExists(envName))
+                {
+                    return BadRequest($"Environment '{envName}' does not exist");
+                }
+
+                environment = _environmentsPersistentSource.GetEnvironment(envName, User);
+                if (environment == null ||
+                    !environment.UserEditable &&
+                    !environment.IsOwner &&
+                    !_securityPrivilegesChecker.CanModifyEnvironment(User, envName) &&
+                    !_securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(User, envName) &&
+                    !_securityPrivilegesChecker.CanReadSecrets(User, envName))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden);
+                }
+
+                EnrichEnvironmentOwnerEmails(environment);
+            }
+
+            var traces = _propertyResolutionTracer.TraceProperties(request, environment, User);
+            return Ok(traces);
+        }
+
+        /// <summary>
+        /// Get dependent property values that reference the specified property name ("Where Used" reverse dependency graph)
+        /// </summary>
+        /// <param name="propertyName"></param>
+        /// <returns></returns>
+        [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(List<PropertyUsageReferenceApiModel>))]
+        [HttpGet("WhereUsed")]
+        public IActionResult GetWhereUsed(string propertyName)
+        {
+            if (string.IsNullOrWhiteSpace(propertyName))
+            {
+                return BadRequest("propertyName is required");
+            }
+
+            var targetPropertyName = propertyName.Trim();
+            var references = new List<PropertyUsageReferenceApiModel>();
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var parser = new PropertyParser();
+            var tokenRegex = new Regex(
+                $@"(?<!\$)(?:\$\{{\s*{Regex.Escape(targetPropertyName)}\s*\}}|\${Regex.Escape(targetPropertyName)}\$)(?!\$)",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+            void TryAddCandidate(string? candidatePropertyName, string? filterScope, string? rawValue, bool isSecure)
+            {
+                if (isSecure ||
+                    string.IsNullOrWhiteSpace(candidatePropertyName) ||
+                    string.IsNullOrWhiteSpace(rawValue))
+                {
+                    return;
+                }
+
+                if (!ReferencesPropertyToken(rawValue, targetPropertyName, parser, tokenRegex))
+                {
+                    return;
+                }
+
+                var normalizedScope = string.IsNullOrWhiteSpace(filterScope) ? "Default" : filterScope.Trim();
+                var dedupKey = $"{candidatePropertyName.Trim()}|{normalizedScope}";
+                if (!seen.Add(dedupKey))
+                {
+                    return;
+                }
+
+                references.Add(new PropertyUsageReferenceApiModel
+                {
+                    PropertyName = candidatePropertyName.Trim(),
+                    Scope = normalizedScope,
+                    PropertyValueFilter = string.IsNullOrWhiteSpace(filterScope) ? string.Empty : filterScope.Trim(),
+                    RawValueSnippet = BuildRawValueSnippet(rawValue)
+                });
+            }
+
+            var globalProperties = _propertyValuesPersistentSource.GetGlobalProperties();
+            if (globalProperties != null)
+            {
+                foreach (var prop in globalProperties)
+                {
+                    TryAddCandidate(
+                        prop?.Property?.Name,
+                        prop?.PropertyValueFilter,
+                        prop?.Value,
+                        prop?.Property?.Secure ?? false);
+                }
+            }
+
+            const int pageSize = 500;
+            var filterOperators = new PagedDataOperators
+            {
+                Filters = new List<PagedDataFilter>
+                {
+                    new PagedDataFilter
+                    {
+                        Path = "PropertyValue",
+                        FilterValue = targetPropertyName
+                    }
+                }
+            };
+
+            for (var page = 1; ; page++)
+            {
+                var pagedSearch = _propertyValuesPersistentSource.GetPropertyValuesForSearchValueByPage(
+                    pageSize,
+                    page,
+                    filterOperators,
+                    User);
+                if (pagedSearch?.Items == null || pagedSearch.Items.Count == 0)
+                {
+                    break;
+                }
+
+                foreach (var item in pagedSearch.Items)
+                {
+                    TryAddCandidate(
+                        item?.Property,
+                        item?.PropertyValueScope,
+                        item?.PropertyValue,
+                        item?.Secure ?? false);
+                }
+
+                if (pagedSearch.Items.Count < pageSize ||
+                    (pagedSearch.TotalPages > 0 && page >= pagedSearch.TotalPages))
+                {
+                    break;
+                }
+            }
+
+            var orderedReferences = references
+                .OrderBy(r => !string.Equals(r.Scope, "Default", StringComparison.OrdinalIgnoreCase))
+                .ThenBy(r => r.Scope, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(r => r.PropertyName, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return Ok(orderedReferences);
+        }
+
+        private static bool ReferencesPropertyToken(
+            string rawValue,
+            string targetPropertyName,
+            PropertyParser parser,
+            Regex tokenRegex)
+        {
+            try
+            {
+                foreach (var token in parser.Parse(rawValue))
+                {
+                    if (token is PropertyToken propertyToken &&
+                        string.Equals(propertyToken.Value, targetPropertyName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // Fallback to regex matching when value contains ${Var} brace syntax or unescaped literal $
+            }
+
+            var withoutEscapedDollarPairs = rawValue.Replace("$$", "\u0000");
+            return tokenRegex.IsMatch(withoutEscapedDollarPairs);
+        }
+
+        private static string BuildRawValueSnippet(string rawValue)
+        {
+            const int maxSnippetLength = 120;
+            var trimmed = rawValue.Trim();
+            return trimmed.Length <= maxSnippetLength
+                ? trimmed
+                : trimmed.Substring(0, maxSnippetLength - 3) + "...";
         }
     }
 }

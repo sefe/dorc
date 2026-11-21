@@ -48,11 +48,29 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
                 <button
                   type="button"
                   class="node-select-btn"
+                  title="${this.data?.subtitle ?? ''}"
                   aria-pressed=${isSelected ? 'true' : 'false'}
                   @click="${this.selectNode}"
                 >
                   <span class="node-title-row">
+                    ${
+                      this.data?.icon
+                        ? html`<vaadin-icon
+                            class="node-kind-icon"
+                            icon="${this.data.icon}"
+                            title="${this.data?.subtitle ?? ''}"
+                            aria-hidden="true"
+                          ></vaadin-icon>`
+                        : nothing
+                    }
                     <span class="node-title">${this.data?.name}</span>
+                    ${
+                      this.data?.subtitle && this.data?.icon
+                        ? html`<span class="node-kind-meta"
+                            >${this.data.subtitle}</span
+                          >`
+                        : nothing
+                    }
                     ${
                       hasChildren
                         ? html`<span
@@ -69,7 +87,7 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
                     }
                   </span>
                   ${
-                    this.data?.subtitle
+                    this.data?.subtitle && !this.data?.icon
                       ? html`<span class="node-subtitle"
                           >${this.data.subtitle}</span
                         >`

@@ -355,6 +355,130 @@ namespace Dorc.Core
 
             return environmentName;
         }
+
+        public void SetGlobalPropertyValues(IVariableResolver variableResolver, System.Security.Principal.IPrincipal user)
+        {
+            SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.EnvironmentName, "<EnvironmentName>");
+            SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.EnvironmentShortName, "<EnvironmentShortName>");
+            SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.AllServers, "<AllServers>");
+            SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.EnvironmentServers, "<EnvironmentServers>");
+            SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.EndurFileShare, "<EndurFileShare>");
+            SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.EndurConfigurationFile, "<EndurConfigurationFile>");
+            SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.EndurDatabaseName, "<EndurDatabaseName>");
+            SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.EndurDatabaseServer, "<EndurDatabaseServer>");
+            SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.ReportingDatabaseName, "<ReportingDatabaseName>");
+            SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.ReportingDatabaseServer, "<ReportingDatabaseServer>");
+            SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.SsisPackageServer, "<SsisPackageServer>");
+            SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.ExternalDatabaseName, "<ExternalDatabaseName>");
+            SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.ExternalDatabaseServer, "<ExternalDatabaseServer>");
+            SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.DatabasePermissions, "<DatabasePermissions>");
+            SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.EnvOwnerEmails, "<EnvOwnerEmails>");
+
+            var servers = (_serversPersistentSource.GetServers(user) ?? Array.Empty<ServerApiModel>()).ToArray();
+            AddGlobalTagSamples(
+                variableResolver,
+                PropertyValueScopeOptionsFixed.ServerNames,
+                servers.Select(s => (s.Name, (IEnumerable<string>)(s.Tags ?? Array.Empty<string>()))));
+
+            var databases = (_databasesPersistentSource.GetDatabases() ?? Array.Empty<DatabaseApiModel>()).ToArray();
+            AddGlobalTagSamples(
+                variableResolver,
+                PropertyValueScopeOptionsFixed.DbServer,
+                databases.Select(d => (d.ServerName, (IEnumerable<string>)(d.Tags ?? Array.Empty<string>()))));
+            AddGlobalTagSamples(
+                variableResolver,
+                PropertyValueScopeOptionsFixed.DbName,
+                databases.Select(d => (d.Name, (IEnumerable<string>)(d.Tags ?? Array.Empty<string>()))));
+
+            var containers = (_containersPersistentSource.GetAll() ?? Array.Empty<ContainerApiModel>()).ToArray();
+            if (containers.Length > 0)
+            {
+                SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.EnvironmentContainers, "<EnvironmentContainers>");
+                AddGlobalTagSamples(
+                    variableResolver,
+                    PropertyValueScopeOptionsFixed.ContainerNames,
+                    containers.Select(c => (c.Name, (IEnumerable<string>)TagString.Split(c.Tags))));
+            }
+
+            var cloudResources = (_cloudResourcesPersistentSource.GetAll() ?? Array.Empty<CloudResourceApiModel>()).ToArray();
+            if (cloudResources.Length > 0)
+            {
+                SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.EnvironmentCloudResources, "<EnvironmentCloudResources>");
+                AddGlobalTagSamples(
+                    variableResolver,
+                    PropertyValueScopeOptionsFixed.CloudResourceNames,
+                    cloudResources.Select(c => (c.Name, (IEnumerable<string>)TagString.Split(c.Tags))));
+            }
+
+            var apiRegistrations = (_apiRegistrationsPersistentSource.GetAll() ?? Array.Empty<ApiRegistrationApiModel>()).ToArray();
+            if (apiRegistrations.Length > 0)
+            {
+                SetLiteralScopeSample(variableResolver, PropertyValueScopeOptionsFixed.EnvironmentApiRegistrations, "<EnvironmentApiRegistrations>");
+                AddGlobalTagSamples(
+                    variableResolver,
+                    PropertyValueScopeOptionsFixed.ApiRegistrationNames,
+                    apiRegistrations.Select(a => (a.Name, (IEnumerable<string>)TagString.Split(a.Tags))));
+            }
+        }
+
+        private static void SetLiteralScopeSample(IVariableResolver variableResolver, string key, string sampleText)
+        {
+            variableResolver.SetRequestSuppliedPropertyValue(key, sampleText);
+        }
+
+        private static void AddGlobalTagSamples(
+            IVariableResolver variableResolver,
+            string prefix,
+            IEnumerable<(string? Name, IEnumerable<string> Tags)> taggedItems)
+        {
+            var byNormalizedToken = new Dictionary<string, List<string>>(TagString.Comparer);
+            var emittedKeys = new Dictionary<string, string>(TagString.Comparer);
+            var collidedKeys = new HashSet<string>(TagString.Comparer);
+            foreach (var (name, tags) in taggedItems)
+            {
+                if (string.IsNullOrWhiteSpace(name))
+                    continue;
+
+                foreach (var tag in tags)
+                {
+                    var normalizedTag = tag.Replace(" ", "_");
+                    if (emittedKeys.TryGetValue(normalizedTag, out var conflictingTag) &&
+                        !string.Equals(conflictingTag, tag, StringComparison.OrdinalIgnoreCase))
+                    {
+                        collidedKeys.Add(normalizedTag);
+                        byNormalizedToken.Remove(normalizedTag);
+                        continue;
+                    }
+                    if (collidedKeys.Contains(normalizedTag))
+                        continue;
+
+                    emittedKeys[normalizedTag] = tag;
+
+                    if (!byNormalizedToken.TryGetValue(normalizedTag, out var list))
+                    {
+                        list = new List<string>();
+                        byNormalizedToken[normalizedTag] = list;
+                    }
+                    if (!list.Contains(name, StringComparer.OrdinalIgnoreCase))
+                        list.Add(name);
+                }
+            }
+
+            foreach (var kvp in byNormalizedToken)
+            {
+                if (kvp.Value.Count > 1)
+                {
+                    var arr = kvp.Value.ToArray();
+                    variableResolver.SetPropertyValue(
+                        $"{prefix}{kvp.Key}",
+                        new VariableValue { Value = arr, Type = arr.GetType() });
+                }
+                else
+                {
+                    SetLiteralScopeSample(variableResolver, $"{prefix}{kvp.Key}", kvp.Value[0]);
+                }
+            }
+        }
     }
 
 }

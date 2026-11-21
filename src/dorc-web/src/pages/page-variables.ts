@@ -30,6 +30,7 @@ import {
   EnvironmentApiModel,
   PropertiesApi,
   PropertyApiModel,
+  PropertyResolutionTraceApiModel,
   PropertyValueDto,
   PropertyValuesApi,
   PropertyValueScopeOptionApiModel,
@@ -43,6 +44,20 @@ import '@vaadin/icons';
 import { navigate } from '../router/router';
 import '@vaadin/tooltip';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
+import { defaultPropertyResolutionClientCache } from '../variable-resolution/property-resolution-client-cache';
+import { parsePropertyTokens } from '../variable-resolution/property-token-parser';
+import {
+  applyDollarTokenCompletion,
+  buildInsertableDollarTokens,
+  detectActiveDollarCompletion,
+  evaluateDollarValuePreview,
+  filterInsertableDollarTokens,
+  formatSampleResolvedPreview,
+  InsertableDollarTokenOption,
+  inspectUnescapedDollars,
+  segmentizeDollarValueWithTraces,
+  synthesizeScopePreviewTraces
+} from '../variable-resolution/resolution-presentation';
 
 @customElement('page-variables')
 export class PageVariables extends PageElement {
@@ -88,6 +103,37 @@ export class PageVariables extends PageElement {
   private propertyName = '';
 
   private newVariableScope = '';
+
+  private scopeOptionsGeneration = 0;
+
+  private variableValuesGeneration = 0;
+
+  private addValueGeneration = 0;
+
+  @state() selectedVariableScopes: string[] = [];
+
+  @state() draftNewVariableValue = '';
+
+  @state() private draftPreviewTraces = new Map<
+    string,
+    PropertyResolutionTraceApiModel
+  >();
+
+  private draftPreviewGeneration = 0;
+
+  private valueSelectionStart: number | null = null;
+
+  private valueSelectionEnd: number | null = null;
+
+  @state() tokenPopoverOpen = false;
+
+  @state() tokenExplorerMode = false;
+
+  @state() inlineDollarQuery = '';
+
+  @state() tokenExplorerSearchQuery = '';
+
+  @state() activeTokenCompletionIndex = 0;
 
   @property({ type: Boolean }) existingPropertySelected = false;
 
@@ -189,6 +235,263 @@ export class PageVariables extends PageElement {
           min-width: 0;
           margin-left: 0;
         }
+      }
+
+      .scope-chips-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        margin-top: 4px;
+        margin-left: 5px;
+      }
+
+      .scope-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--dorc-border-color, rgba(128, 128, 128, 0.3));
+        background: var(--dorc-chip-bg, rgba(59, 130, 246, 0.14));
+        color: var(--dorc-chip-text, inherit);
+        font-size: var(--lumo-font-size-xs, 0.78rem);
+      }
+
+      .scope-chip-remove {
+        border: none;
+        background: transparent;
+        color: inherit;
+        cursor: pointer;
+        padding: 0 2px;
+        font-size: 0.85rem;
+        line-height: 1;
+      }
+
+      .value-resolver-stack {
+        position: relative;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: flex-end;
+        width: 100%;
+      }
+
+      .token-explorer-suffix-btn {
+        border: 1px solid var(--dorc-border-color, rgba(128, 128, 128, 0.35));
+        background: var(--dorc-chip-bg, rgba(59, 130, 246, 0.14));
+        color: var(--dorc-link-color, #2563eb);
+        font-family: monospace;
+        font-size: 0.72rem;
+        font-weight: 700;
+        border-radius: 4px;
+        padding: 1px 5px;
+        cursor: pointer;
+        line-height: 1.3;
+        margin-right: 2px;
+      }
+
+      .token-explorer-suffix-btn:hover:not(:disabled) {
+        background: rgba(59, 130, 246, 0.24);
+      }
+
+      .token-explorer-suffix-btn:disabled {
+        opacity: 0.45;
+        cursor: default;
+      }
+
+      .token-intellisense-popover {
+        position: absolute;
+        top: calc(100% + 2px);
+        left: 0;
+        z-index: 1200;
+        width: min(520px, 100%);
+        max-height: 300px;
+        display: flex;
+        flex-direction: column;
+        background: var(--lumo-base-color, #ffffff);
+        border: 1px solid var(--dorc-border-color, rgba(128, 128, 128, 0.35));
+        border-radius: 8px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+        overflow: hidden;
+      }
+
+      .token-intellisense-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 6px 10px;
+        background: var(--dorc-bg-secondary, rgba(128, 128, 128, 0.08));
+        border-bottom: 1px solid
+          var(--dorc-border-color, rgba(128, 128, 128, 0.2));
+        font-size: var(--lumo-font-size-xxs, 0.72rem);
+        color: var(--lumo-secondary-text-color);
+      }
+
+      .token-intellisense-search {
+        flex: 1;
+        border: 1px solid var(--dorc-border-color, rgba(128, 128, 128, 0.35));
+        border-radius: 4px;
+        padding: 3px 8px;
+        font-size: var(--lumo-font-size-xs, 0.78rem);
+        background: var(--lumo-base-color, #ffffff);
+        color: var(--lumo-body-text-color, inherit);
+      }
+
+      .token-intellisense-list {
+        overflow-y: auto;
+        max-height: 240px;
+      }
+
+      .token-intellisense-item {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 6px 10px;
+        cursor: pointer;
+        border-bottom: 1px solid rgba(128, 128, 128, 0.1);
+      }
+
+      .token-intellisense-item:hover,
+      .token-intellisense-item.active {
+        background: rgba(59, 130, 246, 0.14);
+      }
+
+      .token-intellisense-item-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+
+      .token-intellisense-name {
+        font-family: monospace;
+        font-size: var(--lumo-font-size-xs, 0.8rem);
+        font-weight: 600;
+        color: var(--lumo-body-text-color, inherit);
+      }
+
+      .token-intellisense-category {
+        font-size: 0.68rem;
+        padding: 1px 6px;
+        border-radius: 999px;
+        background: rgba(128, 128, 128, 0.14);
+        color: var(--lumo-secondary-text-color);
+        white-space: nowrap;
+      }
+
+      .token-intellisense-sample {
+        font-size: var(--lumo-font-size-xs, 0.75rem);
+        color: var(--lumo-secondary-text-color);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 380px;
+      }
+
+      .dollar-token-segment-strip {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        margin-top: 4px;
+        padding: 5px 10px;
+        border-radius: 6px;
+        font-family: monospace;
+        font-size: var(--lumo-font-size-xs, 0.78rem);
+        background: rgba(59, 130, 246, 0.08);
+        border: 1px solid rgba(59, 130, 246, 0.28);
+      }
+
+      .dollar-segment-literal {
+        color: var(--lumo-body-text-color, inherit);
+        white-space: pre-wrap;
+      }
+
+      .dollar-token-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 1px 7px;
+        border-radius: 999px;
+        font-family: monospace;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border: 1px solid transparent;
+        cursor: help;
+      }
+
+      .dollar-token-pill-badge {
+        font-size: 0.66rem;
+        font-weight: 500;
+        opacity: 0.88;
+      }
+
+      .dollar-token-pill--resolved {
+        background: rgba(16, 185, 129, 0.16);
+        border-color: rgba(16, 185, 129, 0.45);
+        color: #047857;
+      }
+
+      .dollar-token-pill--fallback,
+      .dollar-token-pill--runtime,
+      .dollar-token-pill--warning {
+        background: rgba(245, 158, 11, 0.16);
+        border-color: rgba(245, 158, 11, 0.45);
+        color: #b45309;
+      }
+
+      .dollar-token-pill--unresolved {
+        background: rgba(239, 68, 68, 0.16);
+        border-color: rgba(239, 68, 68, 0.45);
+        color: #b91c1c;
+      }
+
+      .dollar-token-pill--masked {
+        background: rgba(139, 92, 246, 0.16);
+        border-color: rgba(139, 92, 246, 0.45);
+        color: #6d28d9;
+      }
+
+      .dollar-token-pill--escaped {
+        background: rgba(100, 116, 139, 0.16);
+        border-color: rgba(100, 116, 139, 0.4);
+        color: inherit;
+      }
+
+      .dollar-segment-arrow {
+        color: var(--lumo-secondary-text-color);
+        font-weight: 700;
+      }
+
+      .dollar-segment-resolved {
+        color: var(--lumo-body-text-color, inherit);
+      }
+
+      .dollar-lint-banner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 4px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: var(--lumo-font-size-xs, 0.78rem);
+        background: rgba(245, 158, 11, 0.14);
+        border: 1px solid rgba(245, 158, 11, 0.35);
+      }
+
+      .dollar-lint-btn {
+        border: none;
+        background: transparent;
+        color: var(--dorc-link-color);
+        font-size: var(--lumo-font-size-xs, 0.78rem);
+        font-weight: 600;
+        cursor: pointer;
+        text-decoration: underline;
+        padding: 0;
       }
     `;
   }
@@ -326,17 +629,55 @@ export class PageVariables extends PageElement {
                           : html``
                       }
                     </td>
-                    <td style="vertical-align: center;">
+                    <td style="vertical-align: top;">
                       <vaadin-combo-box
                         id="envScope"
                         @value-changed="${this._newVariableValueScopeChanged}"
                         .items="${this.filteredEnvironments}"
                         ?disabled="${!this.existingPropertySelected}"
+                        clear-button-visible
                         label="Scope"
-                        placeholder="Select Variable Scope"
-                        style="min-width: 400px; margin-left: 5px"
-                        helper-text="Select the environment scope or leave blank for default"
+                        placeholder="Select Variable Scope (or add multiple)"
+                        style="min-width: 340px; margin-left: 5px"
+                        helper-text="Select environment scope(s) or include (default)"
                       ></vaadin-combo-box>
+                      <div class="scope-chips-row" role="group" aria-label="Selected target scopes">
+                        <vaadin-button
+                          id="addDefaultScopeBtn"
+                          theme="small tertiary"
+                          ?disabled="${!this.existingPropertySelected || this.hasDefaultScopedValue()}"
+                          @click="${this.toggleDefaultScopeSelection}"
+                        >
+                          ${
+                            this.selectedVariableScopes.includes('')
+                              ? '✓ (default) queued'
+                              : '+ Queue (default)'
+                          }
+                        </vaadin-button>
+                        <vaadin-button
+                          id="queueCurrentScopeBtn"
+                          theme="small tertiary"
+                          ?disabled="${!this.existingPropertySelected || !this.newVariableScope}"
+                          @click="${this.queueCurrentEnvironmentScope}"
+                        >
+                          + Queue selected scope
+                        </vaadin-button>
+                        ${this.selectedVariableScopes.map(
+                          scope => html`
+                            <span class="scope-chip">
+                              <span>${scope === '' ? '(default)' : scope}</span>
+                              <button
+                                type="button"
+                                class="scope-chip-remove"
+                                aria-label="Remove scope ${scope === '' ? '(default)' : scope}"
+                                @click="${() => this.removeQueuedScope(scope)}"
+                              >
+                                ×
+                              </button>
+                            </span>
+                          `
+                        )}
+                      </div>
                     </td>
                     <td style="vertical-align: center; min-width: 20px">
                       ${
@@ -348,23 +689,71 @@ export class PageVariables extends PageElement {
                           : html``
                       }
                     </td>
-                    <td style="vertical-align: center; width: 100%;">
-                      <vaadin-combo-box
-                        allow-custom-value
-                        .items="${this.propertyValueScopeOptions}"
-                        item-label-path="ValueOption"
-                        item-value-path="ValueOption"
-                        ${comboBoxRenderer(this.comboboxRenderer, [])}
-                        id="newVariableValue"
-                        ?disabled="${!this.existingPropertySelected}"
-                        label="Value"
-                        style="min-width: 400px; width: 100%"
-                        helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
-                      ></vaadin-combo-box>
+                    <td style="vertical-align: top; width: 100%;">
+                      <div class="value-resolver-stack">
+                        <vaadin-text-field
+                          id="newVariableValue"
+                          ?disabled="${!this.existingPropertySelected}"
+                          clear-button-visible
+                          label="Value"
+                          placeholder="Variable value..."
+                          style="min-width: 320px; flex: 1 1 320px;"
+                          helper-text="Type $ or Ctrl+Space for token IntelliSense; $$ escapes a literal $"
+                          @keydown="${this._onNewVariableValueKeyDown}"
+                          @blur="${(e: Event) => {
+                            const target = e.currentTarget as TextField & {
+                              inputElement?: HTMLInputElement;
+                            };
+                            if (target?.inputElement) {
+                              this.valueSelectionStart =
+                                target.inputElement.selectionStart;
+                              this.valueSelectionEnd =
+                                target.inputElement.selectionEnd;
+                            }
+                          }}"
+                          @input="${(e: Event) => {
+                            const target = e.currentTarget as TextField & {
+                              inputElement?: HTMLInputElement;
+                            };
+                            this.handleNewVariableValueInput(target);
+                          }}"
+                          @value-changed="${(e: CustomEvent<{ value?: string }>) => {
+                            const nextVal = e.detail?.value ?? '';
+                            if (nextVal !== this.draftNewVariableValue) {
+                              this.draftNewVariableValue = nextVal;
+                              this.updateInlineDollarTriggerFromValue(
+                                nextVal,
+                                nextVal.length
+                              );
+                              void this.refreshDraftValuePreview();
+                            }
+                          }}"
+                        >
+                          <button
+                            type="button"
+                            id="exploreDollarTokensBtn"
+                            slot="suffix"
+                            class="token-explorer-suffix-btn"
+                            title="Explore $ tokens (or type $ / Ctrl+Space)"
+                            aria-label="Explore $ tokens (or type $ / Ctrl+Space)"
+                            ?disabled="${!this.existingPropertySelected}"
+                            @mousedown="${(e: MouseEvent) => e.preventDefault()}"
+                            @click="${(e: MouseEvent) => {
+                              e.stopPropagation();
+                              this.toggleTokenExplorerPopover();
+                            }}"
+                          >
+                            $x$
+                          </button>
+                        </vaadin-text-field>
+                        ${this.renderTokenIntellisensePopover()}
+                      </div>
+                      ${this.renderNewVariableValueHint()}
                     </td>
                     <td style="vertical-align: center;">
                       <vaadin-button
-                        ?disabled="${!this.existingPropertySelected}"
+                        ?disabled="${!this.existingPropertySelected ||
+                        this.addingVariableValue}"
                         @click="${this._addVariableValueClick}"
                         >Add Variable Value</vaadin-button
                       >
@@ -567,21 +956,6 @@ export class PageVariables extends PageElement {
     `;
   };
 
-  private comboboxRenderer = (
-    scopeOption: PropertyValueScopeOptionApiModel
-  ) => html`
-    <div style="display: flex;">
-      <div>
-        ${scopeOption.ValueOption}
-        <div
-          style="font-size: var(--lumo-font-size-s); color: var(--lumo-secondary-text-color);"
-        >
-          ${JSON.stringify(scopeOption.SampleResolvedValue)}
-        </div>
-      </div>
-    </div>
-  `;
-
   private propertyNameRenderer = (property: PropertyApiModel) =>
     html`<div title="${property.Name}">${property.Name}</div>`;
 
@@ -722,6 +1096,11 @@ export class PageVariables extends PageElement {
       'variable-value-deleted',
       this.variableValueDeleted as EventListener
     );
+    this.addEventListener('variable-value-updated', (() => {
+      defaultPropertyResolutionClientCache.clear();
+      this._editingValueId = undefined;
+      void this.refreshDraftValuePreview();
+    }) as EventListener);
     this.addEventListener('editing-started', ((e: CustomEvent) => {
       this._editingValueId = e.detail.id;
     }) as EventListener);
@@ -730,6 +1109,7 @@ export class PageVariables extends PageElement {
     }) as EventListener);
     this.getAllVariableNames();
     this.getEnvironments();
+    this.loadScopeOptions('');
   }
 
   private getEnvironments() {
@@ -808,12 +1188,22 @@ export class PageVariables extends PageElement {
 
       if (existingProperty) {
         this.existingPropertySelected = true;
+        this.selectedVariableScopes = [];
+        this.addingVariableValue = false;
+        this.addValueGeneration++;
         checkboxSecure.checked = existingProperty?.Secure ?? false;
         this.loadVariableValues();
+        this.loadScopeOptions(this.newVariableScope);
       } else {
+        this.variableValuesGeneration++;
+        this.loadingPropertyValues = false;
+        this.addingVariableValue = false;
+        this.addValueGeneration++;
         this.existingPropertySelected = false;
+        this.selectedVariableScopes = [];
         checkboxSecure.checked = false;
         this.propertyValues = [];
+        this.allPropertyValues = [];
       }
     }
   }
@@ -821,33 +1211,600 @@ export class PageVariables extends PageElement {
   _newVariableValueScopeChanged(data: CustomEvent) {
     if (data) {
       const combo = data.target as ComboBox;
-      this.newVariableScope = combo.value;
-      if (!this.newVariableScope) {
-        return;
-      }
-      this.loadingScopeOptions = true;
-
-      const api = new PropertyValuesApi(dorcApiConfiguration);
-      api
-        .propertyValuesScopeOptionsGet({
-          propertyValueScope: this.newVariableScope
-        })
-        .subscribe({
-          next: (value: PropertyValueScopeOptionApiModel[]) => {
-            this.propertyValueScopeOptions = value.sort((a, b) => {
-              if (String(a.ValueOption) > String(b.ValueOption)) return 1;
-              return -1;
-            });
-            this.loadingScopeOptions = false;
-          },
-          error: (err: any) => {
-            this.loadingScopeOptions = false;
-            this.errorAlert(err);
-          },
-          complete: () =>
-            console.log('done loading variable value scope options')
-        });
+      this.newVariableScope = combo.value ?? '';
+      this.loadScopeOptions(this.newVariableScope);
+      void this.refreshDraftValuePreview();
     }
+  }
+
+  public isSelectedPropertySecure(): boolean {
+    const existingProperty = this.properties?.find(
+      value => value.Name === this.propertyName
+    );
+    return Boolean(existingProperty?.Secure);
+  }
+
+  public async refreshDraftValuePreview() {
+    const generation = ++this.draftPreviewGeneration;
+    if (this.isSelectedPropertySecure() || !this.draftNewVariableValue) {
+      this.draftPreviewTraces = new Map();
+      return;
+    }
+    const referenced = parsePropertyTokens(
+      this.draftNewVariableValue,
+      'standard'
+    )
+      .filter(
+        (t): t is Extract<typeof t, { kind: 'property' }> =>
+          t.kind === 'property'
+      )
+      .map(t => t.propertyName);
+    if (referenced.length === 0) {
+      this.draftPreviewTraces = new Map();
+      return;
+    }
+    const targetScope =
+      this.newVariableScope ||
+      this.selectedVariableScopes.find(s => Boolean(s)) ||
+      undefined;
+    try {
+      const traces = await defaultPropertyResolutionClientCache.resolveProperties(
+        { environmentName: targetScope },
+        referenced
+      );
+      if (generation === this.draftPreviewGeneration) {
+        this.draftPreviewTraces = traces;
+      }
+    } catch {
+      if (generation === this.draftPreviewGeneration) {
+        this.draftPreviewTraces = new Map();
+      }
+    }
+  }
+
+  public loadScopeOptions(scope: string) {
+    const generation = ++this.scopeOptionsGeneration;
+    this.loadingScopeOptions = true;
+    this.propertyValueScopeOptions = [];
+
+    const api = new PropertyValuesApi(dorcApiConfiguration);
+    api
+      .propertyValuesScopeOptionsGet({
+        propertyValueScope: scope || undefined
+      })
+      .subscribe({
+        next: (value: PropertyValueScopeOptionApiModel[]) => {
+          if (generation !== this.scopeOptionsGeneration) return;
+          this.propertyValueScopeOptions = value.sort((a, b) => {
+            if (String(a.ValueOption) > String(b.ValueOption)) return 1;
+            return -1;
+          });
+          this.loadingScopeOptions = false;
+        },
+        error: (err: any) => {
+          if (generation !== this.scopeOptionsGeneration) return;
+          this.propertyValueScopeOptions = [];
+          this.loadingScopeOptions = false;
+          this.errorAlert(err);
+        },
+        complete: () =>
+          console.log('done loading variable value scope options')
+      });
+  }
+
+  private readCaretPosition(
+    textField: (TextField & { inputElement?: HTMLInputElement }) | null
+  ): { start: number; end: number } {
+    const current = textField?.value ?? '';
+    const innerInput =
+      textField?.inputElement ??
+      (textField?.querySelector('input') as HTMLInputElement | null) ??
+      (textField?.shadowRoot?.querySelector('input') as HTMLInputElement | null);
+    if (
+      innerInput &&
+      innerInput.value === current &&
+      typeof innerInput.selectionStart === 'number'
+    ) {
+      return {
+        start: innerInput.selectionStart,
+        end:
+          typeof innerInput.selectionEnd === 'number'
+            ? innerInput.selectionEnd
+            : innerInput.selectionStart
+      };
+    }
+    if (
+      current === this.draftNewVariableValue &&
+      typeof this.valueSelectionStart === 'number' &&
+      this.valueSelectionStart <= current.length
+    ) {
+      return {
+        start: this.valueSelectionStart,
+        end:
+          typeof this.valueSelectionEnd === 'number'
+            ? Math.min(this.valueSelectionEnd, current.length)
+            : this.valueSelectionStart
+      };
+    }
+    return { start: current.length, end: current.length };
+  }
+
+  private handleNewVariableValueInput(
+    target: (TextField & { inputElement?: HTMLInputElement }) | null
+  ) {
+    if (!target) return;
+    const nextVal = target.value ?? '';
+    const innerInput =
+      target.inputElement ??
+      (target.querySelector('input') as HTMLInputElement | null) ??
+      (target.shadowRoot?.querySelector('input') as HTMLInputElement | null);
+    const caret =
+      innerInput &&
+      innerInput.value === nextVal &&
+      typeof innerInput.selectionStart === 'number'
+        ? innerInput.selectionStart
+        : nextVal.length;
+    this.valueSelectionStart = caret;
+    this.valueSelectionEnd =
+      innerInput &&
+      innerInput.value === nextVal &&
+      typeof innerInput.selectionEnd === 'number'
+        ? innerInput.selectionEnd
+        : caret;
+    this.draftNewVariableValue = nextVal;
+    this.updateInlineDollarTriggerFromValue(nextVal, caret);
+    void this.refreshDraftValuePreview();
+  }
+
+  private updateInlineDollarTriggerFromValue(rawValue: string, caret: number) {
+    if (this.isSelectedPropertySecure()) {
+      this.tokenPopoverOpen = false;
+      this.inlineDollarQuery = '';
+      return;
+    }
+    const trigger = detectActiveDollarCompletion(rawValue, caret);
+    if (trigger) {
+      this.tokenPopoverOpen = true;
+      this.tokenExplorerMode = false;
+      this.inlineDollarQuery = trigger.queryText;
+      this.activeTokenCompletionIndex = 0;
+    } else if (!this.tokenExplorerMode) {
+      this.tokenPopoverOpen = false;
+      this.inlineDollarQuery = '';
+    }
+  }
+
+  public openInlineTokenIntelliSense() {
+    if (this.isSelectedPropertySecure()) return;
+    const textField = this.shadowRoot?.querySelector(
+      '#newVariableValue'
+    ) as unknown as (TextField & { inputElement?: HTMLInputElement }) | null;
+    const { start } = this.readCaretPosition(textField);
+    const current = textField?.value ?? this.draftNewVariableValue;
+    const trigger = detectActiveDollarCompletion(current, start);
+    this.tokenPopoverOpen = true;
+    this.tokenExplorerMode = false;
+    this.inlineDollarQuery = trigger?.queryText ?? '';
+    this.activeTokenCompletionIndex = 0;
+  }
+
+  public toggleTokenExplorerPopover() {
+    if (this.isSelectedPropertySecure()) return;
+    if (this.tokenPopoverOpen && this.tokenExplorerMode) {
+      this.closeTokenPopover();
+      return;
+    }
+    this.tokenPopoverOpen = true;
+    this.tokenExplorerMode = true;
+    this.tokenExplorerSearchQuery = '';
+    this.activeTokenCompletionIndex = 0;
+  }
+
+  public closeTokenPopover() {
+    this.tokenPopoverOpen = false;
+    this.tokenExplorerMode = false;
+    this.inlineDollarQuery = '';
+    this.tokenExplorerSearchQuery = '';
+    this.activeTokenCompletionIndex = 0;
+  }
+
+  public getFilteredCompletionTokens(): InsertableDollarTokenOption[] {
+    const allTokens = buildInsertableDollarTokens(
+      this.propertyValueScopeOptions,
+      this.properties,
+      this.propertyName
+    );
+    const query = this.tokenExplorerMode
+      ? this.tokenExplorerSearchQuery
+      : this.inlineDollarQuery;
+    return filterInsertableDollarTokens(allTokens, query);
+  }
+
+  private _onNewVariableValueKeyDown = (e: KeyboardEvent) => {
+    if (e.ctrlKey && (e.key === ' ' || e.code === 'Space')) {
+      e.preventDefault();
+      this.openInlineTokenIntelliSense();
+      return;
+    }
+    if (!this.tokenPopoverOpen) return;
+    const items = this.getFilteredCompletionTokens();
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (items.length > 0) {
+        this.activeTokenCompletionIndex =
+          (this.activeTokenCompletionIndex + 1) % items.length;
+      }
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (items.length > 0) {
+        this.activeTokenCompletionIndex =
+          (this.activeTokenCompletionIndex - 1 + items.length) % items.length;
+      }
+      return;
+    }
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      const chosen = items[this.activeTokenCompletionIndex] ?? items[0];
+      if (chosen) {
+        e.preventDefault();
+        this.insertTokenIntoValue(chosen.ValueOption);
+      }
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      this.closeTokenPopover();
+    }
+  };
+
+  public insertTokenIntoValue(token: string) {
+    if (!token) return;
+    const textField = this.shadowRoot?.querySelector(
+      '#newVariableValue'
+    ) as unknown as (TextField & { inputElement?: HTMLInputElement }) | null;
+    if (!textField) return;
+    const current = textField.value ?? '';
+    const innerInput =
+      textField.inputElement ??
+      (textField.querySelector('input') as HTMLInputElement | null) ??
+      (textField.shadowRoot?.querySelector('input') as HTMLInputElement | null);
+    const { start, end } = this.readCaretPosition(textField);
+    const activeTrigger = detectActiveDollarCompletion(current, start);
+    const { nextValue: nextVal, nextCaretIndex: nextPos } =
+      applyDollarTokenCompletion(current, token, activeTrigger, start, end);
+    textField.value = nextVal;
+    this.valueSelectionStart = nextPos;
+    this.valueSelectionEnd = nextPos;
+    this.closeTokenPopover();
+    if (innerInput) {
+      innerInput.value = nextVal;
+      innerInput.focus();
+      if (typeof innerInput.setSelectionRange === 'function') {
+        innerInput.setSelectionRange(nextPos, nextPos);
+      }
+    } else if (typeof textField.focus === 'function') {
+      textField.focus();
+    }
+    this.draftNewVariableValue = textField.value;
+    void this.refreshDraftValuePreview();
+  }
+
+  public escapeLiteralDollarsInValue() {
+    if (this.isSelectedPropertySecure()) return;
+    const textField = this.shadowRoot?.querySelector(
+      '#newVariableValue'
+    ) as unknown as TextField | null;
+    if (!textField) return;
+    const inspection = inspectUnescapedDollars(textField.value ?? '');
+    textField.value = inspection.escapedSuggestion;
+    this.draftNewVariableValue = inspection.escapedSuggestion;
+    void this.refreshDraftValuePreview();
+  }
+
+  private renderTokenIntellisensePopover() {
+    if (!this.tokenPopoverOpen || this.isSelectedPropertySecure()) {
+      return html``;
+    }
+    const items = this.getFilteredCompletionTokens();
+    return html`
+      <div
+        id="dollarTokenIntellisensePopover"
+        class="token-intellisense-popover"
+        role="listbox"
+        aria-label="$ Token IntelliSense"
+      >
+        <div class="token-intellisense-header">
+          ${this.tokenExplorerMode
+            ? html`
+                <input
+                  id="tokenExplorerSearchInput"
+                  class="token-intellisense-search"
+                  type="text"
+                  placeholder="Explore $ tokens by name, value, or category..."
+                  .value="${this.tokenExplorerSearchQuery}"
+                  @input="${(e: Event) => {
+                    const input = e.currentTarget as HTMLInputElement;
+                    this.tokenExplorerSearchQuery = input.value ?? '';
+                    this.activeTokenCompletionIndex = 0;
+                  }}"
+                  @keydown="${this._onNewVariableValueKeyDown}"
+                />
+              `
+            : html`
+                <span
+                  ><strong>$ Token IntelliSense</strong>
+                  ${this.inlineDollarQuery
+                    ? html`matching
+                        <code
+                          >${this.inlineDollarQuery
+                            .toLowerCase()
+                            .startsWith('fn:')
+                            ? this.inlineDollarQuery
+                            : `$${this.inlineDollarQuery}`}</code
+                        >`
+                    : html``}</span
+                >
+                <span>↑↓ navigate · Tab/Enter insert · Esc close</span>
+              `}
+          <button
+            type="button"
+            class="scope-chip-remove"
+            aria-label="Close token popover"
+            @mousedown="${(e: MouseEvent) => e.preventDefault()}"
+            @click="${() => this.closeTokenPopover()}"
+          >
+            ×
+          </button>
+        </div>
+        <div class="token-intellisense-list">
+          ${items.length === 0
+            ? html`<div
+                style="padding: 8px 10px; font-size: var(--lumo-font-size-xs, 0.78rem); color: var(--lumo-secondary-text-color);"
+              >
+                No matching $ tokens in scope
+              </div>`
+            : items.map((item, idx) => {
+                const sampleText = formatSampleResolvedPreview(
+                  item.SampleResolvedValue
+                );
+                return html`
+                  <div
+                    class="token-intellisense-item ${idx ===
+                    this.activeTokenCompletionIndex
+                      ? 'active'
+                      : ''}"
+                    role="option"
+                    tabindex="-1"
+                    aria-selected="${idx === this.activeTokenCompletionIndex}"
+                    data-token="${item.ValueOption}"
+                    @mousedown="${(e: MouseEvent) => e.preventDefault()}"
+                    @click="${() =>
+                      this.insertTokenIntoValue(item.ValueOption)}"
+                    @keydown="${(e: KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        this.insertTokenIntoValue(item.ValueOption);
+                      }
+                    }}"
+                  >
+                    <div class="token-intellisense-item-top">
+                      <code class="token-intellisense-name"
+                        >${item.ValueOption}</code
+                      >
+                      <span class="token-intellisense-category"
+                        >${item.CategoryLabel}</span
+                      >
+                    </div>
+                    <div
+                      class="token-intellisense-sample"
+                      title="${sampleText}"
+                    >
+                      ${sampleText}
+                    </div>
+                  </div>
+                `;
+              })}
+        </div>
+      </div>
+    `;
+  }
+
+  public renderNewVariableValueHint() {
+    if (this.isSelectedPropertySecure()) return html``;
+    const inspection = inspectUnescapedDollars(this.draftNewVariableValue);
+    const targetScope =
+      this.newVariableScope ||
+      this.selectedVariableScopes.find(s => Boolean(s)) ||
+      'Default';
+    const effectiveTraces = synthesizeScopePreviewTraces(
+      this.draftPreviewTraces,
+      this.propertyValueScopeOptions,
+      this.properties,
+      targetScope
+    );
+    const preview = evaluateDollarValuePreview(
+      this.draftNewVariableValue,
+      effectiveTraces,
+      targetScope
+    );
+    const segments = preview
+      ? segmentizeDollarValueWithTraces(
+          this.draftNewVariableValue,
+          effectiveTraces
+        )
+      : [];
+
+    return html`
+      ${
+        inspection.hasBraceSyntax
+          ? html`<div class="dollar-lint-banner" role="status">
+              <span
+                >Variable values use <code>$VariableName$</code> rather than
+                <code>\${VariableName}</code>.</span
+              >
+              <button
+                type="button"
+                id="convertBraceBtn"
+                class="dollar-lint-btn"
+                @click="${() => {
+                  const textField = this.shadowRoot?.querySelector(
+                    '#newVariableValue'
+                  ) as unknown as TextField | null;
+                  if (textField) {
+                    textField.value = inspection.braceConvertedSuggestion;
+                  }
+                  this.draftNewVariableValue =
+                    inspection.braceConvertedSuggestion;
+                  void this.refreshDraftValuePreview();
+                }}"
+              >
+                Convert to $Variable$
+              </button>
+            </div>`
+          : inspection.hasUnclosedDollar
+            ? html`<div class="dollar-lint-banner" role="status">
+                <span
+                  >${
+                    inspection.hasOtherPropertyTokens
+                      ? 'Unescaped $ (such as E$) will prevent other $Variable$ tokens in this value from expanding.'
+                      : 'Contains a single $ (such as E$). Escape as $$ if you combine this path with $Variable$ tokens.'
+                  }</span
+                >
+                <button
+                  type="button"
+                  id="escapeDollarBtn"
+                  class="dollar-lint-btn"
+                  @click="${() => this.escapeLiteralDollarsInValue()}"
+                >
+                  Escape literal $ as $$
+                </button>
+              </div>`
+            : html``
+      }
+      ${
+        preview
+          ? html`<div
+              id="dollarTokenSegmentStrip"
+              class="dollar-token-segment-strip"
+              title="${preview.scopeSummary}"
+            >
+              ${segments.map(seg => {
+                if (seg.kind === 'literal') {
+                  return html`<span class="dollar-segment-literal"
+                    >${seg.displayText}</span
+                  >`;
+                }
+                if (seg.kind === 'expression-prefix') {
+                  return html`<span
+                    class="dollar-token-pill dollar-token-pill--runtime"
+                    data-token-status="expression-prefix"
+                    title="${seg.tooltip}"
+                    >${seg.displayText}</span
+                  >`;
+                }
+                if (seg.kind === 'escaped-dollar') {
+                  return html`<span
+                    class="dollar-token-pill dollar-token-pill--escaped"
+                    data-token-status="escaped-dollar"
+                    title="${seg.tooltip}"
+                    >$$ → $</span
+                  >`;
+                }
+                if (seg.kind === 'unclosed-dollar') {
+                  return html`<span
+                    class="dollar-token-pill dollar-token-pill--warning"
+                    data-token-status="unclosed-dollar"
+                    title="${seg.tooltip}"
+                    >${seg.displayText}</span
+                  >`;
+                }
+                return html`<span
+                  class="dollar-token-pill dollar-token-pill--${seg.status}"
+                  data-token="${seg.rawToken}"
+                  data-token-status="${seg.status}"
+                  title="${seg.tooltip}"
+                >
+                  <span class="dollar-token-pill-name">${seg.rawToken}</span>
+                  <span class="dollar-token-pill-badge">${seg.badgeLabel}</span>
+                </span>`;
+              })}
+              <span class="dollar-segment-arrow" aria-hidden="true">→</span>
+              <span class="dollar-segment-resolved"
+                >Resolves (${targetScope}):
+                <strong>${preview.resolvedText}</strong></span
+              >
+            </div>`
+          : html``
+      }
+    `;
+  }
+
+  _onScopeOptionPicked(event: CustomEvent<{ value?: string }>) {
+    const picker = event.target as ComboBox | null;
+    const token = event.detail?.value ?? picker?.value ?? '';
+    if (!token) return;
+    this.insertTokenIntoValue(token);
+    if (picker) {
+      picker.value = '';
+    }
+  }
+
+  private hasDefaultScopedValue(): boolean {
+    const sourceValues = this.allPropertyValues?.length
+      ? this.allPropertyValues
+      : this.propertyValues;
+    return Boolean(
+      sourceValues?.some(
+        pv =>
+          pv.PropertyValueFilter === '' ||
+          pv.PropertyValueFilter === undefined ||
+          pv.PropertyValueFilter === null
+      )
+    );
+  }
+
+  public toggleDefaultScopeSelection() {
+    if (this.selectedVariableScopes.includes('')) {
+      this.selectedVariableScopes = this.selectedVariableScopes.filter(
+        s => s !== ''
+      );
+    } else {
+      this.selectedVariableScopes = ['', ...this.selectedVariableScopes];
+    }
+  }
+
+  public queueCurrentEnvironmentScope() {
+    const scope = this.newVariableScope.trim();
+    if (!scope) return;
+    if (!this.selectedVariableScopes.includes(scope)) {
+      this.selectedVariableScopes = [...this.selectedVariableScopes, scope];
+    }
+    const combobox = this.shadowRoot?.querySelector(
+      '#envScope'
+    ) as unknown as ComboBox | null;
+    this.newVariableScope = '';
+    if (combobox) {
+      combobox.value = '';
+    }
+    const fallbackScope =
+      this.selectedVariableScopes.find(s => Boolean(s)) || '';
+    this.loadScopeOptions(fallbackScope);
+    this.draftPreviewTraces = new Map();
+    void this.refreshDraftValuePreview();
+  }
+
+  public removeQueuedScope(scope: string) {
+    this.selectedVariableScopes = this.selectedVariableScopes.filter(
+      s => s !== scope
+    );
+    const activeScope =
+      this.newVariableScope ||
+      this.selectedVariableScopes.find(s => Boolean(s)) ||
+      '';
+    this.loadScopeOptions(activeScope);
+    this.draftPreviewTraces = new Map();
+    void this.refreshDraftValuePreview();
   }
 
   removeItem<T>(arr: Array<T>, value: T): Array<T> {
@@ -860,13 +1817,27 @@ export class PageVariables extends PageElement {
 
   private loadVariableValues() {
     if (this.propertyName !== '') {
+      const requestedProperty = this.propertyName;
+      const generation = ++this.variableValuesGeneration;
       this.loadingPropertyValues = true;
       const api = new PropertyValuesApi(dorcApiConfiguration);
-      api.propertyValuesGet({ propertyName: this.propertyName }).subscribe({
+      api.propertyValuesGet({ propertyName: requestedProperty }).subscribe({
         next: (data: PropertyValueDto[]) => {
+          if (
+            generation !== this.variableValuesGeneration ||
+            this.propertyName !== requestedProperty
+          ) {
+            return;
+          }
           this.setVariableValues(data);
         },
         error: (err: any) => {
+          if (
+            generation !== this.variableValuesGeneration ||
+            this.propertyName !== requestedProperty
+          ) {
+            return;
+          }
           if (err.status !== 404) {
             this.errorAlert(err);
           }
@@ -1008,6 +1979,7 @@ export class PageVariables extends PageElement {
   }
 
   _addVariableValueClick() {
+    if (this.addingVariableValue) return;
     const textField = this.shadowRoot?.querySelector(
       '#newVariableValue'
     ) as unknown as TextField;
@@ -1017,70 +1989,119 @@ export class PageVariables extends PageElement {
     );
     if (existingProperty) {
       this.addingVariableValue = true;
-      const propertyValueDto: PropertyValueDto = {
-        Property: existingProperty,
-        Value: textField.value.trim(),
-        PropertyValueFilter: this.newVariableScope
-      };
-      if (propertyValueDto.PropertyValueFilter === '') {
-        propertyValueDto.PropertyValueFilter = undefined;
-        if (
-          this.propertyValues?.find(
-            pv =>
-              pv.PropertyValueFilter === '' ||
-              pv.PropertyValueFilter === undefined ||
-              pv.PropertyValueFilter === null
-          )
-        ) {
-          const notification = new ErrorNotification();
-          notification.setAttribute(
-            'errorMessage',
-            'This variable already contains a default scoped value!'
-          );
-          this.shadowRoot?.appendChild(notification);
-          notification.open();
-          this.addingVariableValue = false;
-          return;
-        }
+      const targetScopes = Array.from(
+        new Set(
+          this.selectedVariableScopes.length > 0
+            ? [
+                ...this.selectedVariableScopes,
+                ...(this.newVariableScope ? [this.newVariableScope] : [])
+              ]
+            : [this.newVariableScope]
+        )
+      );
+
+      if (targetScopes.includes('') && this.hasDefaultScopedValue()) {
+        const notification = new ErrorNotification();
+        notification.setAttribute(
+          'errorMessage',
+          'This variable already contains a default scoped value!'
+        );
+        this.shadowRoot?.appendChild(notification);
+        notification.open();
+        this.addingVariableValue = false;
+        return;
       }
+
+      const submittedPropertyName = this.propertyName;
+      const submittedGeneration = ++this.addValueGeneration;
+      const submittedRawValue = textField.value;
+      const trimmedValue = submittedRawValue.trim();
+      const dtos: PropertyValueDto[] = targetScopes.map(scope => ({
+        Property: existingProperty,
+        Value: trimmedValue,
+        PropertyValueFilter: scope === '' ? undefined : scope
+      }));
+
       api
         .propertyValuesPost({
-          propertyValueDto: [propertyValueDto]
+          propertyValueDto: dtos
         })
         .subscribe({
           next: (value: Response[]) => {
-            if (value[0].Status === 'success') {
-              value.forEach((repValue: Response) => {
+            const succeededScopes = new Set<string>();
+            const failedResponses: Response[] = [];
+
+            value.forEach((repValue: Response, idx: number) => {
+              const scopeKey = targetScopes[idx] ?? '';
+              if (repValue.Status === 'success') {
                 console.log(repValue.Status);
-              });
-              const pv = value[0].Item as PropertyValueDto;
-
-              const findIndex = this.filteredEnvironments?.findIndex(
-                env => env === pv.PropertyValueFilter
-              );
-              if (findIndex !== undefined) {
-                this.filteredEnvironments?.splice(findIndex, 1);
-                this.filteredEnvironments?.sort();
-                this.filteredEnvironments = JSON.parse(
-                  JSON.stringify(this.filteredEnvironments)
-                );
-                const combobox = this.shadowRoot?.querySelector(
-                  '#envScope'
-                ) as unknown as ComboBox;
-                if (combobox) combobox.value = '';
+                succeededScopes.add(scopeKey);
+                if (
+                  this.propertyName === submittedPropertyName &&
+                  this.addValueGeneration === submittedGeneration
+                ) {
+                  const pv = repValue.Item as PropertyValueDto | undefined;
+                  const envToRemove = pv?.PropertyValueFilter ?? scopeKey;
+                  const findIndex = this.filteredEnvironments?.findIndex(
+                    env => env === envToRemove
+                  );
+                  if (findIndex !== undefined && findIndex >= 0) {
+                    this.filteredEnvironments?.splice(findIndex, 1);
+                  }
+                }
+              } else {
+                failedResponses.push(repValue);
               }
-              if (textField) textField.value = '';
+            });
 
-              this.loadVariableValues();
-              this.addingVariableValue = false;
-            } else {
-              this.errorAlert(value);
+            if (
+              this.propertyName === submittedPropertyName &&
+              this.addValueGeneration === submittedGeneration
+            ) {
+              if (succeededScopes.size > 0) {
+                defaultPropertyResolutionClientCache.clear();
+                if (this.filteredEnvironments) {
+                  this.filteredEnvironments.sort();
+                  this.filteredEnvironments = JSON.parse(
+                    JSON.stringify(this.filteredEnvironments)
+                  );
+                }
+                this.selectedVariableScopes = this.selectedVariableScopes.filter(
+                  s => !succeededScopes.has(s)
+                );
+                if (succeededScopes.has(this.newVariableScope.trim())) {
+                  const combobox = this.shadowRoot?.querySelector(
+                    '#envScope'
+                  ) as unknown as ComboBox;
+                  if (combobox) combobox.value = '';
+                  this.newVariableScope = '';
+                }
+                this.loadVariableValues();
+              }
+
+              if (failedResponses.length === 0) {
+                if (textField && textField.value === submittedRawValue) {
+                  textField.value = '';
+                }
+                this.draftNewVariableValue = '';
+                this.draftPreviewTraces = new Map();
+                this.valueSelectionStart = null;
+                this.valueSelectionEnd = null;
+              }
+              if (failedResponses.length > 0) {
+                this.errorAlert(failedResponses);
+              }
               this.addingVariableValue = false;
             }
           },
           error: (err: any) => {
-            this.addingVariableValue = false;
-            this.errorAlert(err);
+            if (
+              this.propertyName === submittedPropertyName &&
+              this.addValueGeneration === submittedGeneration
+            ) {
+              this.addingVariableValue = false;
+              this.errorAlert(err);
+            }
           },
           complete: () => console.log('done adding variable value')
         });
@@ -1091,6 +2112,7 @@ export class PageVariables extends PageElement {
     if (e.detail.data) {
       const data = e.detail.data as Response[];
       if (data[0].Status === 'success') {
+        defaultPropertyResolutionClientCache.clear();
         const pv = data[0].Item as PropertyValueDto;
         if (pv.PropertyValueFilter !== undefined) {
           this.filteredEnvironments?.push(pv.PropertyValueFilter ?? '');
