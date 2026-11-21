@@ -535,6 +535,19 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public int ResumeInterruptedRunningRequest(int requestId, DateTimeOffset expectedStartedTime)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                return context.DeploymentRequests
+                    .Where(r => r.Id == requestId
+                        && r.Status == DeploymentRequestStatus.Running.ToString()
+                        && r.StartedTime == expectedStartedTime)
+                    .ExecuteUpdate(setters => setters
+                        .SetProperty(r => r.Status, DeploymentRequestStatus.Pending.ToString()));
+            }
+        }
+
         public int SwitchDeploymentResultsStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentResultStatus fromStatus, DeploymentResultStatus toStatus)
         {
             var ids = deploymentRequests.Select(r => r.Id).ToList();

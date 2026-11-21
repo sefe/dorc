@@ -39,6 +39,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
             DateTimeOffset requestedTime);
         int SwitchDeploymentRequestStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus);
         int SwitchDeploymentRequestStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentRequestStatus fromStatus, DeploymentRequestStatus toStatus, DateTimeOffset requestedTime);
+        int ResumeInterruptedRunningRequest(int requestId, DateTimeOffset expectedStartedTime);
         int SwitchDeploymentResultsStatuses(IList<DeploymentRequestApiModel> deploymentRequests, DeploymentResultStatus fromStatus, DeploymentResultStatus toStatus);
 
         DeploymentResultApiModel GetDeploymentResults(int resultId);

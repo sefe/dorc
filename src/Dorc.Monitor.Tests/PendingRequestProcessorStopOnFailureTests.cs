@@ -456,5 +456,146 @@ namespace Dorc.Monitor.Tests
             mockGitHubArtifactDownloader.DidNotReceive().DownloadAndExtract(Arg.Any<string>());
             mockGitHubArtifactDownloader.DidNotReceive().Cleanup(Arg.Any<string>());
         }
+
+        [TestMethod]
+        public void Execute_ResumedRequestWithCancelledComponent_MarksFailedAndHonorsStopOnFailure()
+        {
+            // Regression test for request 2101660 / component 4971:
+            // When Monitor resumes a stale Running request whose in-flight component was left in Cancelled status,
+            // it must NOT leave deploymentRequestStatus as Completed or dispatch subsequent components when StopOnFailure=true.
+            var comp1 = new ComponentApiModel { ComponentId = 4971, ComponentName = "040 - RVC Restore Database", IsEnabled = true, StopOnFailure = true, ComponentType = ComponentType.PowerShell };
+            var comp2 = new ComponentApiModel { ComponentId = 4972, ComponentName = "050 - Run Acceptance Tests", IsEnabled = true, StopOnFailure = false, ComponentType = ComponentType.PowerShell };
+            var components = new List<ComponentApiModel> { comp1, comp2 };
+
+            var cancelledResult = new DeploymentResultApiModel
+            {
+                Id = 10,
+                ComponentId = 4971,
+                RequestId = 100,
+                Status = DeploymentResultStatus.Cancelled.ToString(),
+                Log = "Job 41835857 Running - 95%"
+            };
+            var pendingResult = new DeploymentResultApiModel
+            {
+                Id = 11,
+                ComponentId = 4972,
+                RequestId = 100,
+                Status = DeploymentResultStatus.Pending.ToString()
+            };
+
+            mockRequestsPersistentSource.GetSubmittedComponents(100).Returns(components);
+            mockRequestsPersistentSource.GetDeploymentResultsForRequest(100)
+                .Returns(new List<DeploymentResultApiModel> { cancelledResult, pendingResult });
+
+            sut.Execute(CreateRequest(components), CancellationToken.None, mockLoggerFactory);
+
+            // Downstream component 4972 must NOT be dispatched
+            mockComponentProcessor.DidNotReceiveWithAnyArgs().DeployComponent(
+                default!, default!, default, default, default, default, default!, default!, default!, default);
+
+            // Interrupted Cancelled component is transitioned to Failed with explanation log
+            mockRequestsPersistentSource.Received(1).UpdateResultStatus(
+                cancelledResult,
+                Arg.Is<DeploymentResultStatus>(s => s.Value == DeploymentResultStatus.Failed.Value),
+                Arg.Is<DeploymentResultStatus>(s => s.Value == DeploymentResultStatus.Cancelled.Value));
+
+            // Remaining Pending component is cancelled
+            mockRequestsPersistentSource.Received(1).UpdateResultStatus(
+                pendingResult,
+                Arg.Is<DeploymentResultStatus>(s => s.Value == DeploymentResultStatus.Cancelled.Value));
+
+            // Parent request is marked Failed (never Completed!)
+            mockRequestsPersistentSource.Received(1).SetRequestCompletionStatus(
+                100,
+                DeploymentRequestStatus.Failed,
+                Arg.Any<DateTimeOffset>(),
+                Arg.Any<string?>());
+        }
+
+        [TestMethod]
+        public void Execute_WhenInterruptedWhileRequestStillRunningInDb_LeavesRequestRunningForStartupRecovery()
+        {
+            var comp1 = new ComponentApiModel { ComponentId = 1, ComponentName = "Comp1", IsEnabled = true, StopOnFailure = true };
+            var comp2 = new ComponentApiModel { ComponentId = 2, ComponentName = "Comp2", IsEnabled = true, StopOnFailure = false };
+            var components = new List<ComponentApiModel> { comp1, comp2 };
+
+            var dto = CreateRequest(components);
+            SetupOrderedComponents(components);
+
+            mockComponentProcessor.DeployComponent(
+                comp1, Arg.Any<DeploymentResultApiModel>(),
+                Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
+                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
+                .Returns(_ => throw new OperationCanceledException());
+
+            // Request in DB is still Running (monitor shutdown / lock loss, not user cancellation)
+            mockRequestsPersistentSource.GetRequest(100)
+                .Returns(new DeploymentRequestApiModel { Id = 100, Status = DeploymentRequestStatus.Running.ToString() });
+
+            sut.Execute(dto, CancellationToken.None, mockLoggerFactory);
+
+            // Request must NOT be finalized as Cancelled or Completed; instead it transitions Running -> Pending fenced by StartedTime
+            mockRequestsPersistentSource.DidNotReceiveWithAnyArgs()
+                .SetRequestCompletionStatus(default, default, default, default);
+            mockRequestsPersistentSource.Received(1).ResumeInterruptedRunningRequest(
+                100,
+                Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public void Execute_WhenLockLossInterleavesWithUserCancelling_ReconcilesPreservedRunningResultToCancelled()
+        {
+            var comp1 = new ComponentApiModel { ComponentId = 1, ComponentName = "Comp1", IsEnabled = true, StopOnFailure = true };
+            var comp2 = new ComponentApiModel { ComponentId = 2, ComponentName = "Comp2", IsEnabled = true, StopOnFailure = false };
+            var components = new List<ComponentApiModel> { comp1, comp2 };
+
+            var comp1Result = new DeploymentResultApiModel { Id = 1, ComponentId = 1, RequestId = 100, Status = DeploymentResultStatus.Pending.ToString() };
+            var pendingResult = new DeploymentResultApiModel { Id = 2, ComponentId = 2, RequestId = 100, Status = DeploymentResultStatus.Pending.ToString() };
+
+            var dto = CreateRequest(components);
+            mockRequestsPersistentSource.GetSubmittedComponents(100).Returns(components);
+            mockRequestsPersistentSource.GetDeploymentResultsForRequest(100)
+                .Returns(new List<DeploymentResultApiModel> { comp1Result, pendingResult });
+
+            mockComponentProcessor.DeployComponent(
+                comp1, Arg.Any<DeploymentResultApiModel>(),
+                Arg.Any<int>(), Arg.Any<bool>(), Arg.Any<int>(), Arg.Any<bool>(),
+                Arg.Any<string>(), Arg.Any<string>(),
+                Arg.Any<IDictionary<string, VariableValue>>(), Arg.Any<CancellationToken>())
+                .Returns(_ =>
+                {
+                    // ComponentProcessor marks result Running on start and preserves Running when interrupted while request is still Running
+                    comp1Result.Status = DeploymentResultStatus.Running.ToString();
+                    throw new OperationCanceledException();
+                });
+
+            // Simulate user changing request to Cancelling after ComponentProcessor preserved the result as Running
+            mockRequestsPersistentSource.GetRequest(100)
+                .Returns(new DeploymentRequestApiModel { Id = 100, Status = DeploymentRequestStatus.Cancelling.ToString() });
+            mockRequestsPersistentSource.UpdateResultStatus(
+                Arg.Any<DeploymentResultApiModel>(),
+                Arg.Any<DeploymentResultStatus>(),
+                Arg.Any<DeploymentResultStatus>()).Returns(true);
+            mockRequestsPersistentSource.UpdateResultStatus(
+                Arg.Any<DeploymentResultApiModel>(),
+                Arg.Any<DeploymentResultStatus>()).Returns(true);
+
+            sut.Execute(dto, CancellationToken.None, mockLoggerFactory);
+
+            // Preserved Running result must be transitioned to Cancelled using expected-status Running
+            mockRequestsPersistentSource.Received(1).UpdateResultStatus(
+                comp1Result,
+                Arg.Is<DeploymentResultStatus>(s => s.Value == DeploymentResultStatus.Cancelled.Value),
+                Arg.Is<DeploymentResultStatus>(s => s.Value == DeploymentResultStatus.Running.Value));
+            mockRequestsPersistentSource.Received(1).UpdateResultStatus(
+                pendingResult,
+                Arg.Is<DeploymentResultStatus>(s => s.Value == DeploymentResultStatus.Cancelled.Value));
+            mockRequestsPersistentSource.Received(1).SetRequestCompletionStatus(
+                100,
+                DeploymentRequestStatus.Cancelled,
+                Arg.Any<DateTimeOffset>(),
+                Arg.Any<string?>());
+        }
     }
 }
