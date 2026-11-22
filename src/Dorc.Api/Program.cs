@@ -282,13 +282,15 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
             // RequireClaim it replaces.
             policy.RequireAssertion(context =>
             {
-                if (context.Resource is HttpContext httpContext &&
+                if (!registerOwnReader &&
+                    context.Resource is HttpContext httpContext &&
                     httpContext.GetAuthenticationScheme() != JwtBearerDefaults.AuthenticationScheme)
                 {
                     return true;
                 }
 
-                return context.User.HasClaim("scope", dorcApiGlobalScope);
+                return context.User.FindAll("scope").Any(c =>
+                    c.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(dorcApiGlobalScope));
             });
         });
     });

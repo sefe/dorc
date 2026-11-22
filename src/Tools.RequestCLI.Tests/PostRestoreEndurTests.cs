@@ -22,7 +22,7 @@ public class PostRestoreEndurTests
     public static void Initialize(TestContext _)
     {
         var connection = Environment.GetEnvironmentVariable("ConnectionStrings__DOrcConnectionString")
-            ?? "Server=(localdb)\\MSSQLLocalDB;Database=master;Integrated Security=True;TrustServerCertificate=True;";
+            ?? "Server=(localdb)\\MSSQLLocalDB;Database=master;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;";
 
         var builder = new SqlConnectionStringBuilder(connection)
         {

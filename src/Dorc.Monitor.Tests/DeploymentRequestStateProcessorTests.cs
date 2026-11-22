@@ -857,16 +857,24 @@ namespace Dorc.Monitor.Tests
         // =====================================================================
 
         [TestMethod]
-        public void CancelStaleRequests_WhenHAEnabled_SkipsGlobalRunningReset_AndOnlyResetsWhenLockAcquired()
+        public async Task CancelStaleRequests_WhenHAEnabled_SkipsGlobalRunningReset_AndOnlyResetsWhenLockAcquired()
         {
             // Arrange - when HA is enabled, another peer Monitor node may actively own the environment lock
-            // and be executing the Running request, so CancelStaleRequests must NOT globally reset Running->Pending
-            // without holding the environment lock.
+            // and be executing the Running request, so CancelStaleRequests must NOT reset Running->Pending
+            // when the environment lock cannot be acquired, and MUST reset when the lock is acquired.
             mockDistributedLockService.IsEnabled.Returns(true);
+            var orphanLock = Substitute.For<IDistributedLock>();
+            mockDistributedLockService
+                .TryAcquireLockAsync("env:EnvLockedByPeer", Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IDistributedLock?>(null));
+            mockDistributedLockService
+                .TryAcquireLockAsync("env:EnvOrphaned", Arg.Any<int>(), Arg.Any<CancellationToken>())
+                .Returns(Task.FromResult<IDistributedLock?>(orphanLock));
 
             var staleRunning = new List<DeploymentRequestApiModel>
             {
-                new() { Id = 45, EnvironmentName = "EnvHA", Status = DeploymentRequestStatus.Running.ToString(), IsProd = false, UserName = "testuser" }
+                new() { Id = 45, EnvironmentName = "EnvLockedByPeer", Status = DeploymentRequestStatus.Running.ToString(), IsProd = false, UserName = "testuser" },
+                new() { Id = 46, EnvironmentName = "EnvOrphaned", Status = DeploymentRequestStatus.Running.ToString(), IsProd = false, UserName = "testuser" }
             };
             mockRequestsPersistentSource
                 .GetRequestsWithStatus(DeploymentRequestStatus.Running, false)
@@ -874,18 +882,31 @@ namespace Dorc.Monitor.Tests
             mockRequestsPersistentSource
                 .GetRequestsWithStatus(DeploymentRequestStatus.Requesting, false)
                 .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Is<IList<DeploymentRequestApiModel>>(l => l.Count == 1 && l[0].Id == 46),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Pending)
+                .Returns(1);
 
             // Act
             sut.CancelStaleRequests(false);
+            await Task.WhenAll(publishTasks);
 
-            // Assert - Running request is NOT blindly reset to Pending when HA is enabled
+            // Assert - EnvLockedByPeer (45) is NOT reset; EnvOrphaned (46) IS reset under lock
             mockRequestsPersistentSource.DidNotReceive()
                 .SwitchDeploymentRequestStatuses(
-                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Is<IList<DeploymentRequestApiModel>>(l => l.Any(r => r.Id == 45)),
                     DeploymentRequestStatus.Running,
                     DeploymentRequestStatus.Pending);
-            mockEventPublisher.DidNotReceive()
-                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
+            mockRequestsPersistentSource.Received(1)
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Is<IList<DeploymentRequestApiModel>>(l => l.Count == 1 && l[0].Id == 46),
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Pending);
+            mockEventPublisher.Received(1)
+                .PublishRequestStatusChangedAsync(Arg.Is<DeploymentRequestEventData>(e =>
+                    e.RequestId == 46 && e.Status == DeploymentRequestStatus.Pending.ToString()));
         }
 
         [TestMethod]

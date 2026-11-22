@@ -175,9 +175,58 @@ namespace Dorc.Monitor
                 if (this.distributedLockService.IsEnabled)
                 {
                     this.logger.LogWarning(
-                        "Found {Count} requests in 'Running' state ({Ids}), but distributed locking is enabled. " +
-                        "Each request is guarded by its per-environment lock; skipping global Running->Pending reset on startup so active peer Monitor nodes are not disrupted.",
+                        "Found {Count} requests in 'Running' state ({Ids}) with distributed locking enabled. " +
+                        "Attempting per-environment lock acquisition so only orphaned requests (not held by an active peer Monitor) are resumed as Pending.",
                         runningRequests.Count, runningIdsString);
+
+                    int resumedCount = 0;
+                    var resumedIds = new List<int>();
+                    foreach (var envGroup in runningRequests.GroupBy(r => r.EnvironmentName, StringComparer.OrdinalIgnoreCase))
+                    {
+                        if (string.IsNullOrWhiteSpace(envGroup.Key))
+                            continue;
+
+                        var resourceKey = $"env:{envGroup.Key}";
+                        using var envLock = this.distributedLockService
+                            .TryAcquireLockAsync(resourceKey, 30000, CancellationToken.None)
+                            .GetAwaiter()
+                            .GetResult();
+
+                        if (envLock == null)
+                        {
+                            this.logger.LogInformation(
+                                "Environment '{EnvironmentName}' lock is held by an active peer Monitor; leaving Running request(s) [{Ids}] untouched.",
+                                envGroup.Key, string.Join(',', envGroup.Select(r => r.Id)));
+                            continue;
+                        }
+
+                        foreach (var request in envGroup)
+                        {
+                            int transitioned = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                                new List<DeploymentRequestApiModel> { request },
+                                DeploymentRequestStatus.Running,
+                                DeploymentRequestStatus.Pending);
+
+                            if (transitioned == 0) continue;
+
+                            resumedCount++;
+                            resumedIds.Add(request.Id);
+                            PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
+                                RequestId: request.Id,
+                                Status: DeploymentRequestStatus.Pending.ToString(),
+                                StartedTime: null,
+                                CompletedTime: null,
+                                Timestamp: DateTimeOffset.UtcNow
+                            ));
+                        }
+                    }
+
+                    if (resumedCount > 0)
+                    {
+                        this.logger.LogWarning(
+                            "Resumed {ResumedCount} of {TotalFound} orphaned Running request(s) as Pending under per-environment lock. IDs [{Ids}]",
+                            resumedCount, runningRequests.Count, string.Join(',', resumedIds));
+                    }
                 }
                 else
                 {
@@ -818,7 +867,15 @@ namespace Dorc.Monitor
                     return null;
                 }
             }
-            catch
+            catch (InvalidOperationException)
+            {
+                return null;
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                return null;
+            }
+            catch (NotSupportedException)
             {
                 return null;
             }

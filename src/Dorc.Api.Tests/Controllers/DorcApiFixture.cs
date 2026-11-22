@@ -189,10 +189,12 @@ public sealed class DorcApiFixture : IDisposable
         var batches = Regex.Split(script, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
         using var sql = new SqlConnection(DatabaseConnectionString);
         sql.Open();
-        foreach (var cmd in batches.Where(b => !string.IsNullOrWhiteSpace(b)).Select(batch => new SqlCommand(batch, sql)))
+        foreach (var command in batches.Where(b => !string.IsNullOrWhiteSpace(b)).Select(batch => new SqlCommand(batch, sql)))
         {
-            using var command = cmd;
-            command.ExecuteNonQuery();
+            using (command)
+            {
+                command.ExecuteNonQuery();
+            }
         }
     }
 
@@ -376,8 +378,12 @@ public sealed class DorcApiFixture : IDisposable
 
         protected override Task<AuthenticateResult> HandleAuthenticateAsync()
         {
-            if (!Request.Headers.TryGetValue("Authorization", out var authHeader) ||
-                !authHeader.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+            var hasBearerHeader = Request.Headers.TryGetValue("Authorization", out var authHeader) &&
+                authHeader.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase);
+            var hasHubQueryToken = Request.Path.StartsWithSegments("/hubs", StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrEmpty(Request.Query["access_token"]);
+
+            if (!hasBearerHeader && !hasHubQueryToken)
             {
                 return Task.FromResult(AuthenticateResult.NoResult());
             }
@@ -387,6 +393,9 @@ public sealed class DorcApiFixture : IDisposable
             var roles = Request.Headers.TryGetValue("X-Test-User-Roles", out var roleVal)
                 ? roleVal.ToString().Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
                 : new[] { "Admin" };
+            var scope = Request.Headers.TryGetValue("X-Test-Scope", out var scopeVal)
+                ? scopeVal.ToString()
+                : "dorc-api-np.manage";
 
             var claims = new List<Claim>
             {
@@ -394,9 +403,12 @@ public sealed class DorcApiFixture : IDisposable
                 new("sub", userId),
                 new("preferred_username", email),
                 new("email", email),
-                new("name", email),
-                new("scope", "dorc-api-np.manage")
+                new("name", email)
             };
+            if (!string.Equals(scope, "none", StringComparison.OrdinalIgnoreCase))
+            {
+                claims.Add(new Claim("scope", scope));
+            }
             foreach (var role in roles)
             {
                 claims.Add(new Claim("role", role));

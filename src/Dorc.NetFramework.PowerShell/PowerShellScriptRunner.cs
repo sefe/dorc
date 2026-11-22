@@ -18,6 +18,7 @@ namespace Dorc.NetFramework.PowerShell
         private int deploymentResultId;
         private readonly ScriptGroup evidenceContract;
         private int ordinal;
+        private IReadOnlyList<string> sensitiveValues = Array.Empty<string>();
 
         public StringWriter OutputObjects { get; private set; }
 
@@ -40,6 +41,7 @@ namespace Dorc.NetFramework.PowerShell
 
                 IDictionary<string, VariableValue> scriptProperties = script.Item2;
                 IDictionary<string, VariableValue> combinedProperties = this.CombineProperties(scriptProperties, commonProperties);
+                this.sensitiveValues = CollectSensitiveValues(combinedProperties);
                 try
                 {
 
@@ -105,6 +107,7 @@ namespace Dorc.NetFramework.PowerShell
                                 {
                                     throw;
                                 }
+                                exceptionMessage = RedactSensitiveValues(exceptionMessage);
                                 logger.FileLogger.LogInformation($"Execution of the powershell Script {scriptName} has Errored : {exceptionMessage}");
                                 throw new RemoteException(exceptionMessage, exception);
                             }
@@ -151,6 +154,7 @@ namespace Dorc.NetFramework.PowerShell
             try
             {
                 if (string.IsNullOrWhiteSpace(msg)) return;
+                msg = RedactSensitiveValues(msg);
                 switch (type)
                 {
                     case MessageType.Info:
@@ -192,7 +196,7 @@ namespace Dorc.NetFramework.PowerShell
                 var data = (PSDataCollection<PSObject>)sender;
                 var msg = GetOutput(data[e.Index]);
                 if (string.IsNullOrWhiteSpace(msg)) return;
-                logger.Information(msg);
+                logger.Information(RedactSensitiveValues(msg));
             }
             catch (Exception exception)
             {
@@ -236,6 +240,37 @@ namespace Dorc.NetFramework.PowerShell
             }
 
             return combinedProperties;
+        }
+
+        private static IReadOnlyList<string> CollectSensitiveValues(IDictionary<string, VariableValue> properties)
+        {
+            var values = new List<string>();
+            if (properties == null) return values;
+            foreach (var kvp in properties)
+            {
+                var isSecret = kvp.Key != null &&
+                    (kvp.Key.IndexOf("Password", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     kvp.Key.IndexOf("Secret", StringComparison.OrdinalIgnoreCase) >= 0);
+                if (!isSecret) continue;
+                var raw = kvp.Value?.Value?.ToString();
+                if (!string.IsNullOrWhiteSpace(raw) && !values.Contains(raw))
+                {
+                    values.Add(raw);
+                }
+            }
+            values.Sort((a, b) => b.Length.CompareTo(a.Length));
+            return values;
+        }
+
+        private string RedactSensitiveValues(string message)
+        {
+            if (string.IsNullOrEmpty(message) || sensitiveValues.Count == 0) return message;
+            var redacted = message;
+            foreach (var secret in sensitiveValues)
+            {
+                redacted = redacted.Replace(secret, "[REDACTED]");
+            }
+            return redacted;
         }
 
         private void AddProperties(Runspace runspace, IDictionary<string, VariableValue> properties)

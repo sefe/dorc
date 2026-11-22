@@ -75,7 +75,7 @@ Write-Information ""Deployed to $EndpointUrl with secret $ApiSecretKey""
             var firstResult = requestsSource.GetDeploymentResultsForRequest(seeded.RequestId).Single();
             Assert.IsFalse((firstResult.Log ?? string.Empty).Contains($"TopSecretValue-{ext}", StringComparison.Ordinal),
                 "DeploymentResult.Log must redact secure variable values.");
-            StringAssert.Contains(firstResult.Log ?? string.Empty, "***");
+            StringAssert.Contains(firstResult.Log ?? string.Empty, RequestPropertyRedaction.Marker);
 
             var markerContent = File.ReadAllText(outputMarkerFile);
             Assert.AreEqual(

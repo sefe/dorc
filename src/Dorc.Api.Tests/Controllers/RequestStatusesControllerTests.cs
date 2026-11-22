@@ -145,4 +145,39 @@ public class RequestStatusesControllerTests
         Assert.AreEqual(1, resultsResp.Count);
         Assert.AreEqual(resultId, resultsResp[0].Id);
     }
+
+    [TestMethod]
+    public async Task DeploymentsHub_QueryAccessToken_EnforcesJwtSchemeAndApiScopeInCombinedAuthMode()
+    {
+        Assert.ThrowsExactly<ArgumentException>(() => Dorc.Api.Security.ContextExtensions.GetAuthenticationScheme(null));
+
+        var hubContextWithQueryToken = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+        hubContextWithQueryToken.Request.Path = "/hubs/deployments";
+        hubContextWithQueryToken.Request.QueryString = new Microsoft.AspNetCore.Http.QueryString("?access_token=test-jwt");
+        Assert.AreEqual(
+            Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme,
+            Dorc.Api.Security.ContextExtensions.GetAuthenticationScheme(hubContextWithQueryToken));
+
+        using var rawClient = _fixture.HostFactory.CreateClient();
+
+        // 1. Hub negotiate with query ?access_token=... and valid scope succeeds in OAuth+WinAuth mode
+        using var validHubReq = new HttpRequestMessage(HttpMethod.Post, "/hubs/deployments/negotiate?negotiateVersion=1&access_token=valid-token");
+        validHubReq.Headers.Add("X-Test-User-Id", "admin-oid");
+        validHubReq.Headers.Add("X-Test-User-Email", "admin.user@sefe.eu");
+        using var validHubResp = await rawClient.SendAsync(validHubReq);
+        Assert.AreEqual(HttpStatusCode.OK, validHubResp.StatusCode);
+
+        // 2. Hub negotiate with query ?access_token=... but missing scope claim is rejected with 403 Forbidden
+        using var missingScopeHubReq = new HttpRequestMessage(HttpMethod.Post, "/hubs/deployments/negotiate?negotiateVersion=1&access_token=no-scope-token");
+        missingScopeHubReq.Headers.Add("X-Test-User-Id", "admin-oid");
+        missingScopeHubReq.Headers.Add("X-Test-User-Email", "admin.user@sefe.eu");
+        missingScopeHubReq.Headers.Add("X-Test-Scope", "none");
+        using var missingScopeHubResp = await rawClient.SendAsync(missingScopeHubReq);
+        Assert.AreEqual(HttpStatusCode.Forbidden, missingScopeHubResp.StatusCode);
+
+        // 3. Windows Negotiate principal without scope claim is permitted in OAuth+WinAuth mode
+        using var winClient = _fixture.CreateClientForUser("win-sid", "win.user@sefe.eu", "Admin", "Negotiate");
+        using var winHubResp = await winClient.PostAsync("/hubs/deployments/negotiate?negotiateVersion=1", null);
+        Assert.AreEqual(HttpStatusCode.OK, winHubResp.StatusCode);
+    }
 }

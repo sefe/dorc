@@ -116,9 +116,8 @@ namespace Dorc.Core.Tests
             foreach (var wxsFile in wxsFiles)
             {
                 var doc = XDocument.Load(wxsFile);
-                foreach (var jsonFile in doc.Descendants(JsonNs + "JsonFile"))
+                foreach (var id in doc.Descendants(JsonNs + "JsonFile").Select(jsonFile => (string?)jsonFile.Attribute("Id")))
                 {
-                    var id = (string?)jsonFile.Attribute("Id");
                     if (!string.IsNullOrWhiteSpace(id))
                     {
                         allIds.Add((id, Path.GetRelativePath(setupDorcRoot, wxsFile)));

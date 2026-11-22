@@ -235,13 +235,9 @@ public class TerraformDispatcherTests : MonitorServiceTestBase
         var propSource = provider.GetRequiredService<IPropertyValuesPersistentSource>();
         void AddEnvProp(string name, string val, bool isSecure)
         {
-            try
+            if (propertiesSource.GetProperty(name) == null)
             {
                 propertiesSource.CreateProperty(new PropertyApiModel { Name = name, Secure = isSecure, IsArray = false }, "test");
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Trace.WriteLine($"Property '{name}' already exists: {ex.Message}");
             }
             propSource.AddPropertyValue(new PropertyValueDto
             {

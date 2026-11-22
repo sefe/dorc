@@ -24,88 +24,75 @@ internal sealed class PipeBackedScriptDispatcher : IScriptDispatcher
     private readonly bool useNamedPipeClient;
     private readonly IPowerShellEvidenceCapture evidenceCapture = new PowerShellEvidenceCapture();
 
-    public PipeBackedScriptDispatcher(
-        IScriptGroupPipeServer pipeServer,
-        IRequestsPersistentSource requestsPersistentSource,
-        ILoggerFactory loggerFactory,
-        bool useNamedPipeClient)
-    {
-        this.pipeServer = pipeServer;
-        this.requestsPersistentSource = requestsPersistentSource;
-        this.loggerFactory = loggerFactory;
-        this.useNamedPipeClient = useNamedPipeClient;
-    }
-
-    public bool Dispatch(
-        string scriptsLocation,
-        ScriptApiModel script,
-        IDictionary<string, VariableValue> properties,
-        int requestId,
-        int deploymentResultId,
-        bool isProduction,
-        string environmentName,
-        StringBuilder componentResultLogBuilder,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var pipeName = $"DOrcMonitor-Test-{requestId}-{deploymentResultId}";
-        var currentIdentity = WindowsIdentity.GetCurrent();
-        var currentSid = currentIdentity.User!.Value;
-        var parts = currentIdentity.Name.Split('\\', 2);
-        var readerIdentity = parts.Length == 2
-            ? new ScriptGroupReaderIdentity(parts[0], parts[1])
-            : new ScriptGroupReaderIdentity(string.Empty, currentIdentity.Name);
-
-        var scriptGroup = new ScriptGroup
+        public PipeBackedScriptDispatcher(
+            IScriptGroupPipeServer pipeServer,
+            IRequestsPersistentSource requestsPersistentSource,
+            ILoggerFactory loggerFactory,
+            bool useNamedPipeClient)
         {
-            ID = Guid.NewGuid(),
-            DeployResultId = deploymentResultId,
-            DefinitionRequestId = requestId,
-            PowerShellVersionNumber = script.PowerShellVersionNumber,
-            ScriptsLocation = scriptsLocation,
-            CommonProperties = properties,
-            ScriptProperties = new List<ScriptProperties>
-            {
-                new()
-                {
-                    ScriptPath = Path.Combine(scriptsLocation, script.Path),
-                    Properties = new Dictionary<string, VariableValue>()
-                }
-            }
-        };
-
-        evidenceCapture.Prepare(scriptGroup, script.Revision ?? "rev-1", requestId, 0, readerIdentity.QualifiedAccountName);
-
-        var sensitiveValues = properties
-            .Where(kvp => kvp.Key.Contains("Secret", StringComparison.OrdinalIgnoreCase) || kvp.Key.Contains("Password", StringComparison.OrdinalIgnoreCase))
-            .Select(kvp => kvp.Value?.Value?.ToString())
-            .Where(v => !string.IsNullOrEmpty(v))
-            .Distinct(StringComparer.Ordinal)
-            .ToArray();
-
-        string Redact(string text)
-        {
-            if (string.IsNullOrEmpty(text)) return text;
-            foreach (var secret in sensitiveValues)
-            {
-                text = text.Replace(secret!, "***", StringComparison.Ordinal);
-            }
-            return text;
+            this.pipeServer = pipeServer;
+            this.requestsPersistentSource = requestsPersistentSource;
+            this.loggerFactory = loggerFactory;
+            this.useNamedPipeClient = useNamedPipeClient;
         }
 
-        using var pipeCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        try
+        public bool Dispatch(
+            string scriptsLocation,
+            ScriptApiModel script,
+            IDictionary<string, VariableValue> properties,
+            int requestId,
+            int deploymentResultId,
+            bool isProduction,
+            string environmentName,
+            StringBuilder componentResultLogBuilder,
+            CancellationToken cancellationToken)
         {
-            var serverTask = pipeServer.Start(pipeName, scriptGroup, readerIdentity, pipeCts.Token);
+            cancellationToken.ThrowIfCancellationRequested();
 
-            var runnerLogger = Substitute.For<IRunnerLogger>();
-            var msLogger = loggerFactory.CreateLogger("InProcessRunner");
-            runnerLogger.FileLogger.Returns(msLogger);
-            runnerLogger.When(l => l.Information(Arg.Any<string>()))
-                .Do(c => componentResultLogBuilder.AppendLine(Redact(c.Arg<string>())));
-            runnerLogger.When(l => l.Error(Arg.Any<string>()))
-                .Do(c => componentResultLogBuilder.AppendLine(Redact(c.Arg<string>())));
+            var pipeName = $"DOrcMonitor-Test-{requestId}-{deploymentResultId}";
+            var currentIdentity = WindowsIdentity.GetCurrent();
+            var currentSid = currentIdentity.User!.Value;
+            var parts = currentIdentity.Name.Split('\\', 2);
+            var readerIdentity = parts.Length == 2
+                ? new ScriptGroupReaderIdentity(parts[0], parts[1])
+                : new ScriptGroupReaderIdentity(string.Empty, currentIdentity.Name);
+
+            var req = requestsPersistentSource.GetRequest(requestId);
+            var scriptGroup = new ScriptGroup
+            {
+                ID = Guid.NewGuid(),
+                DeployResultId = deploymentResultId,
+                DefinitionRequestId = requestId,
+                PowerShellVersionNumber = script.PowerShellVersionNumber,
+                ScriptsLocation = scriptsLocation,
+                CommonProperties = properties,
+                SensitivePropertyNames = RequestPropertyRedaction
+                    .GetSensitivePropertyNames(req?.RequestDetails ?? string.Empty)
+                    .ToList(),
+                ScriptProperties = new List<ScriptProperties>
+                {
+                    new()
+                    {
+                        ScriptPath = Path.Combine(scriptsLocation, script.Path),
+                        Properties = new Dictionary<string, VariableValue>()
+                    }
+                }
+            };
+
+            evidenceCapture.Prepare(scriptGroup, script.Revision ?? "rev-1", requestId, 0, readerIdentity.QualifiedAccountName);
+
+            using var pipeCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            try
+            {
+                var serverTask = pipeServer.Start(pipeName, scriptGroup, readerIdentity, pipeCts.Token);
+
+                var runnerLogger = Substitute.For<IRunnerLogger>();
+                var msLogger = loggerFactory.CreateLogger("InProcessRunner");
+                runnerLogger.FileLogger.Returns(msLogger);
+                runnerLogger.When(l => l.Information(Arg.Any<string>()))
+                    .Do(c => componentResultLogBuilder.AppendLine(c.Arg<string>()));
+                runnerLogger.When(l => l.Error(Arg.Any<string>()))
+                    .Do(c => componentResultLogBuilder.AppendLine(c.Arg<string>()));
 
             IScriptGroupPipeClient pipeClient = useNamedPipeClient
                 ? new ScriptGroupPipeClient(runnerLogger, currentSid)

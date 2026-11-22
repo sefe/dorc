@@ -27,9 +27,10 @@ namespace Tests.Acceptance.Support
                 .AddEnvironmentVariables()
                 .Build();
 
-            string apiRoot = configuration.GetSection("DorcApi")["BaseUrl"]
-                ?? configuration.GetSection("AppSettings")["BaseAddress"]
-                ?? string.Empty;
+            var configuredDorcBaseUrl = configuration.GetSection("DorcApi")["BaseUrl"];
+            string apiRoot = !string.IsNullOrWhiteSpace(configuredDorcBaseUrl)
+                ? configuredDorcBaseUrl
+                : (configuration.GetSection("AppSettings")["BaseAddress"] ?? string.Empty);
 
             _bearerToken = AcquireBearerTokenIfConfigured(configuration, apiRoot);
 
@@ -152,16 +153,9 @@ namespace Tests.Acceptance.Support
             {
                 result.IsModelValid = true;
                 result.Message = "Model Valid!";
-                T? model = null;
-                if (typeof(string) == typeof(T))
-                {
-                    model = result.RawJson as T;
-                }
-                else
-                {
-                    model = JsonSerializer.Deserialize<T>(result.RawJson, JsonOptions);
-                }
-                result.Model = model;
+                result.Model = typeof(string) == typeof(T)
+                    ? result.RawJson as T
+                    : JsonSerializer.Deserialize<T>(result.RawJson, JsonOptions);
             }
             catch (JsonException jsonException)
             {
@@ -174,6 +168,47 @@ namespace Tests.Acceptance.Support
             }
 
             return result;
+        }
+
+        public RestResponse ExecuteRaw(
+            string relativePath,
+            Method method,
+            IDictionary<string, string>? queryParameters = null,
+            object? body = null)
+        {
+            var request = new RestRequest(relativePath, method);
+            if (!string.IsNullOrEmpty(_bearerToken))
+            {
+                request.AddHeader("Authorization", $"Bearer {_bearerToken}");
+            }
+
+            if (queryParameters != null)
+            {
+                foreach (var keyValuePair in queryParameters)
+                {
+                    request.AddQueryParameter(keyValuePair.Key, keyValuePair.Value);
+                }
+            }
+
+            if (body != null)
+            {
+                var jsonBody = body is string rawString
+                    ? rawString
+                    : JsonSerializer.Serialize(body, JsonOptions);
+                request.AddStringBody(jsonBody, ContentType.Json);
+            }
+
+            return _client.Execute(request);
+        }
+
+        public static T? Deserialize<T>(string? rawJson)
+        {
+            if (string.IsNullOrWhiteSpace(rawJson))
+            {
+                return default;
+            }
+
+            return JsonSerializer.Deserialize<T>(rawJson, JsonOptions);
         }
 
         private sealed class ApiConfigResponse

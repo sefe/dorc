@@ -153,7 +153,7 @@ namespace Dorc.Monitor.Tests.Init
                 var baseConnStr = !string.IsNullOrWhiteSpace(configuredConnectionString) &&
                                   !configuredConnectionString.Contains("__DORC_TEST_DB_CONNSTR__", StringComparison.Ordinal)
                     ? configuredConnectionString
-                    : "Server=(localdb)\\MSSQLLocalDB;Database=master;Integrated Security=True;TrustServerCertificate=True;";
+                    : "Server=(localdb)\\MSSQLLocalDB;Database=master;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;";
 
                 var builder = new SqlConnectionStringBuilder(baseConnStr)
                 {
@@ -252,16 +252,18 @@ ALTER TABLE [deploy].[DeploymentRequest] ALTER COLUMN [RequestDetails] XML NULL;
                 foreach (var sqlFile in sqlFiles.Where(File.Exists).Select(path => new { Path = path, Script = File.ReadAllText(path) }))
                 {
                     var batches = Regex.Split(sqlFile.Script, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
-                    foreach (var cmd in batches.Where(b => !string.IsNullOrWhiteSpace(b)).Select(batch => new SqlCommand(batch, sqlConn)))
+                    foreach (var command in batches.Where(b => !string.IsNullOrWhiteSpace(b)).Select(batch => new SqlCommand(batch, sqlConn)))
                     {
-                        using var command = cmd;
-                        try
+                        using (command)
                         {
-                            command.ExecuteNonQuery();
-                        }
-                        catch (SqlException ex) when (ex.Number == 2714) // Object already exists
-                        {
-                            System.Diagnostics.Trace.WriteLine($"Skipped existing SQL object in {sqlFile.Path}: {ex.Message}");
+                            try
+                            {
+                                command.ExecuteNonQuery();
+                            }
+                            catch (SqlException ex) when (ex.Number == 2714) // Object already exists
+                            {
+                                System.Diagnostics.Trace.WriteLine($"Skipped existing SQL object in {sqlFile.Path}: {ex.Message}");
+                            }
                         }
                     }
                 }

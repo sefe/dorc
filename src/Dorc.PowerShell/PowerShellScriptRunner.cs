@@ -13,6 +13,7 @@ namespace Dorc.PowerShell
         private readonly IRunnerLogger logger;
         private readonly ScriptGroup evidenceContract;
         private int ordinal;
+        private IReadOnlyList<string> sensitiveValues = Array.Empty<string>();
 
         public PowerShellScriptRunner(IRunnerLogger logger, ScriptGroup evidenceContract = null)
         {
@@ -29,6 +30,7 @@ namespace Dorc.PowerShell
             logger.FileLogger.LogInformation("Starting execution of script '{0}'", scriptName);
 
             IDictionary<string, VariableValue> combinedProperties = CombineProperties(scriptProperties, commonProperties);
+            sensitiveValues = CollectSensitiveValues(combinedProperties);
 
             try
             {
@@ -132,7 +134,7 @@ namespace Dorc.PowerShell
             try
             {
                 if (string.IsNullOrWhiteSpace(message)) return;
-                var psMessage = $"[PS] {message}";
+                var psMessage = $"[PS] {RedactSensitiveValues(message)}";
                 switch (type)
                 {
                     case MessageType.None:
@@ -217,6 +219,38 @@ namespace Dorc.PowerShell
             }
 
             return combinedProperties;
+        }
+
+        private IReadOnlyList<string> CollectSensitiveValues(IDictionary<string, VariableValue> combinedProperties)
+        {
+            var explicitNames = new HashSet<string>(
+                evidenceContract?.SensitivePropertyNames ?? Enumerable.Empty<string>(),
+                StringComparer.OrdinalIgnoreCase);
+
+            return combinedProperties
+                .Where(kvp => explicitNames.Contains(kvp.Key)
+                    || kvp.Key.Contains("Secret", StringComparison.OrdinalIgnoreCase)
+                    || kvp.Key.Contains("Password", StringComparison.OrdinalIgnoreCase)
+                    || kvp.Key.Contains("Token", StringComparison.OrdinalIgnoreCase)
+                    || kvp.Key.Contains("ApiKey", StringComparison.OrdinalIgnoreCase))
+                .Select(kvp => kvp.Value?.Value?.ToString())
+                .Where(v => !string.IsNullOrEmpty(v))
+                .Select(v => v!)
+                .Distinct(StringComparer.Ordinal)
+                .OrderByDescending(v => v.Length)
+                .ToList();
+        }
+
+        private string RedactSensitiveValues(string text)
+        {
+            if (string.IsNullOrEmpty(text) || sensitiveValues.Count == 0)
+                return text;
+
+            foreach (var secret in sensitiveValues)
+            {
+                text = text.Replace(secret, RequestPropertyRedaction.Marker, StringComparison.Ordinal);
+            }
+            return text;
         }
 
         private void AddProperties(Runspace runspace, IDictionary<string, VariableValue> properties)
