@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using System.Text.Json;
 using RestSharp;
 using Tests.Acceptance.Support;
@@ -18,7 +18,7 @@ namespace Tests.Acceptance.StepDefinitions
         [Given(@"I have Created GET request to  RefDataEnvironments")]
         public void GivenIHaveCreatedGetRequestToRefDataEnvironments()
         {
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 _environmentsApiResult = caller.Call<List<EnvironmentShortApiModel>>(Endpoints.RefDataEnvironments, Method.Get);
             }
@@ -49,7 +49,7 @@ namespace Tests.Acceptance.StepDefinitions
         [Given(@"I have created GET request to RefDataEnvironments with query '(.*)'='(.*)'")]
         public void GivenIHaveCreatedGetRequestToRefDataEnvironmentsWithQuery(string envQueryParameter, string environmentName)
         {
-            var caller = new ApiCaller();
+            var caller = new DorcApiClient();
             try
             {
                 var urlQueryParameters = new Dictionary<string, string>
@@ -98,7 +98,7 @@ namespace Tests.Acceptance.StepDefinitions
         [Given(@"I have created POST request with body")]
         public void GivenIHaveCreatedPostRequestWithBody(string multilineText)
         {
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 addEnvironmentApiResult = caller.Call<EnvironmentApiModel>(
                                 Endpoints.RefDataEnvironments,
@@ -112,7 +112,7 @@ namespace Tests.Acceptance.StepDefinitions
         {
             var parentEnvironmentId = new DataAccessor().GetEnvironments(parentEnvName).FirstOrDefault();
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 var childEnvApiResponse = caller.Call<IList<EnvironmentApiModel>>(
                     Endpoints.RefDataEnvironments,

@@ -31,7 +31,7 @@ public class DeployCopyEnvBuildTests
     [TestMethod]
     public void ExecuteCopyEnvBuild_RejectsProductionTargetEnvironment()
     {
-        var api = Substitute.For<IApiCaller>();
+        var api = Substitute.For<IDorcApiClient>();
         api.Call<List<EnvironmentApiModel>>(
                 Endpoints.RefDataEnvironments,
                 Method.Get,
@@ -63,7 +63,7 @@ public class DeployCopyEnvBuildTests
     [TestMethod]
     public void ExecuteCopyEnvBuild_WhenTargetEnvironmentIsNonProd_SubmitsCopyRequestAndReturnsZero()
     {
-        var api = Substitute.For<IApiCaller>();
+        var api = Substitute.For<IDorcApiClient>();
         api.Call<List<EnvironmentApiModel>>(
                 Endpoints.RefDataEnvironments,
                 Method.Get,

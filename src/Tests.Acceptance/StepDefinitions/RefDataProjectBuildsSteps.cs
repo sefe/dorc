@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Reqnroll;
 using RestSharp;
 using Tests.Acceptance.Support;
@@ -38,7 +38,7 @@ namespace Tests.Acceptance.StepDefinitions
         [Given(@"I have created GET request to RefDataProjectBuilds with '(.*)' as id")]
         public void GivenIHaveCreatedGETRequestToRefDataProjectBuildsWithAsId(string environmentBuildId)
         {
-            var caller = new ApiCaller();
+            var caller = new DorcApiClient();
 
             try
             {

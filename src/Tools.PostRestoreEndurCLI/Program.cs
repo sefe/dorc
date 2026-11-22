@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Runtime.CompilerServices;
 using Dorc.Core;
@@ -51,8 +51,8 @@ namespace Tools.PostRestoreEndurCLI
             {
                 try
                 {
-                    var apiCaller = new ApiCaller(new DorcOAuthClientConfiguration(configuration));
-                    var libRefreshEndur = new RefreshEndur(_logger, apiCaller);
+                    var apiClient = new DorcApiClient(new DorcOAuthClientConfiguration(configuration));
+                    var libRefreshEndur = new RefreshEndur(_logger, apiClient);
 
                     Output("Updating User tables to Dummy Values for: " + strEnvironment);
                     libRefreshEndur.UpdateUserTablesToDummyValues(strEnvironment);

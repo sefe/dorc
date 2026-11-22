@@ -1,7 +1,7 @@
 using module ".\EndurUsers.psm1"
 using module ".\Models.psm1"
 using module ".\PropertiesHelper.psm1"
-using module ".\ApiCaller.psm1"
+using module ".\DorcApiClient.psm1"
 
 $script:DOrcIdentityServerAuthorityUrl = $null
 $script:DOrcIdentityServerTokenEndpoint = "/connect/token"
@@ -20,12 +20,12 @@ function Import-DOrcProperties
         [string]$CsvFile
     )
 
-    if ([string]::IsNullOrWhiteSpace([ApiCaller]::AccessToken))
+    if ([string]::IsNullOrWhiteSpace([DorcApiClient]::AccessToken))
     {
         Connect-DOrcIdentityServer -ApiUrl $ApiUrl | Out-Null
     }
 
-    if ([string]::IsNullOrWhiteSpace([ApiCaller]::ImpersonateUser))
+    if ([string]::IsNullOrWhiteSpace([DorcApiClient]::ImpersonateUser))
     {
         Set-DOrcImpersonateUser
     }
@@ -80,7 +80,7 @@ function Export-DOrcProperties
         [string]$CsvFile
     )
 
-    if ([string]::IsNullOrWhiteSpace([ApiCaller]::AccessToken))
+    if ([string]::IsNullOrWhiteSpace([DorcApiClient]::AccessToken))
     {
         Connect-DOrcIdentityServer -ApiUrl $ApiUrl | Out-Null
     }
@@ -128,7 +128,7 @@ function Open-ApiConnection
 
     try
     {
-        $result = [ApiCaller]::InvokeGet($ApiUrl, "")
+        $result = [DorcApiClient]::InvokeGet($ApiUrl, "")
         if ($result.ReturnCode -eq 200)
         {
             $connection = [ApiConnection]::new()
@@ -147,7 +147,7 @@ function Open-ApiConnection
             {
                 Write-Host "[Open-ApiConnection] Message: $($result.Message)" -ForegroundColor Yellow
             }
-            Write-Host "[Open-ApiConnection] Bearer token set: $(-not [string]::IsNullOrWhiteSpace([ApiCaller]::AccessToken))" -ForegroundColor Yellow
+            Write-Host "[Open-ApiConnection] Bearer token set: $(-not [string]::IsNullOrWhiteSpace([DorcApiClient]::AccessToken))" -ForegroundColor Yellow
             throw "API returned non-success status code"
         }
     }
@@ -689,10 +689,10 @@ function Connect-DOrcIdentityServer
             $accessToken = $accessToken -replace '^(?i)Bearer\s+', ''
         }
 
-        [ApiCaller]::SetAccessToken($accessToken)
+        [DorcApiClient]::SetAccessToken($accessToken)
 
         # Audit user: prefer claims from JWT, fall back to Windows identity
-        if ([string]::IsNullOrWhiteSpace([ApiCaller]::ImpersonateUser))
+        if ([string]::IsNullOrWhiteSpace([DorcApiClient]::ImpersonateUser))
         {
             $auditUser = Resolve-DOrcUsernameFromToken -Token $accessToken
             if ([string]::IsNullOrWhiteSpace($auditUser))
@@ -772,7 +772,7 @@ function Set-DOrcImpersonateUser
         $Username = Get-DOrcCurrentUserIdentity
     }
     
-    [ApiCaller]::SetImpersonateUser($Username)
+    [DorcApiClient]::SetImpersonateUser($Username)
     
     Write-Host "Properties are imported by: $Username" -ForegroundColor Green
 }
@@ -790,7 +790,7 @@ function Clear-DOrcImpersonateUser
     Clear-DOrcImpersonateUser
     #>
     
-    [ApiCaller]::ClearImpersonateUser()
+    [DorcApiClient]::ClearImpersonateUser()
     Write-Host "User impersonation cleared" -ForegroundColor Green
 }
 
@@ -807,7 +807,7 @@ function Get-DOrcImpersonateUser
     Get-DOrcImpersonateUser
     #>
     
-    $username = [ApiCaller]::ImpersonateUser
+    $username = [DorcApiClient]::ImpersonateUser
     
     if ([string]::IsNullOrEmpty($username))
     {

@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Reqnroll;
 using RestSharp;
 using Tests.Acceptance.Support;
@@ -18,7 +18,7 @@ namespace Tests.Acceptance.StepDefinitions
                 { idParameterName, id.ToString() }
             };
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 historyApiResult = caller.Call<List<EnvironmentHistoryApiModel>>(
                                 Endpoints.RefDataEnvironmentsHistory,

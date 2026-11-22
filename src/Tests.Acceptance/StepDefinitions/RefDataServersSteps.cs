@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Reqnroll;
 using RestSharp;
 using Tests.Acceptance.Support;
@@ -18,7 +18,7 @@ namespace Tests.Acceptance.StepDefinitions
         [Given(@"I have Created GET request on RefDataServersFeature")]
         public void GivenIHaveCreatedGETRequestOnRefDataServersFeature()
         {
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 getServerResults = caller.Call<List<ServerApiModel>>(
                                 Endpoints.RefDataServers,
@@ -39,7 +39,7 @@ namespace Tests.Acceptance.StepDefinitions
         [Given(@"I have created POST request on RefDataServers with data below in body")]
         public void GivenIHaveCreatedPOSTRequestOnRefDataServersWithDataBelowInBody(string serverModel)
         {
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 postServerResult = caller.Call<ServerApiModel>(
                                 Endpoints.RefDataServers,
@@ -65,7 +65,7 @@ namespace Tests.Acceptance.StepDefinitions
                 serverName
             };
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 getServerResult = caller.Call<ServerApiModel>(
                                 Endpoints.RefDataServers,

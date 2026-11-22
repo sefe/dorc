@@ -22,7 +22,7 @@ namespace Tools.RequestCLI
             try
             {
                 var cliArgs = new CliArgs(args);
-                var api = new ApiCaller(new DorcOAuthClientConfiguration(config));
+                var api = new DorcApiClient(new DorcOAuthClientConfiguration(config));
 
                 Output("============================= Requesting Deploy =============================");
                 Output("=== Project            : " + cliArgs.Request.Project);

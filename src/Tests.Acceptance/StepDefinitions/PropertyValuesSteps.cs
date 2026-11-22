@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Reqnroll;
 using RestSharp;
 using System.Linq;
@@ -36,7 +36,7 @@ namespace Tests.Acceptance.StepDefinitions
                 { query1, queryArgument1 }
             };
 
-            using (var _caller = new ApiCaller())
+            using (var _caller = new DorcApiClient())
             {
                 _propertiesApiResult = _caller.Call<List<PropertyValueDto>>(
                     Endpoints.PropertyValues,

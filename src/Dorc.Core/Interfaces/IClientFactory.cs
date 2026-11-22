@@ -1,7 +1,7 @@
-﻿namespace Dorc.Core.Interfaces
+namespace Dorc.Core.Interfaces
 {
     public interface IClientFactory
     {
-        ApiCaller GetClient(string url);
+        DorcApiClient GetClient(string url);
     }
 }

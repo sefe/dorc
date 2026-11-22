@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using Dorc.ApiModel;
 using FluentAssertions.Execution;
 using Reqnroll;
@@ -33,7 +33,7 @@ namespace Tests.Acceptance.StepDefinitions
                 { "includeRead", "true" }
             };
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 projectApiResult = caller.Call<TemplateApiModel<EnvironmentApiModel>>(
                                 Endpoints.RefDataEnvironmentsDetails,
@@ -66,7 +66,7 @@ namespace Tests.Acceptance.StepDefinitions
         {
             var segments = new List<string> { id.ToString() };
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 environmentApiResult = caller.Call<EnvironmentContentApiModel>(
                                 Endpoints.RefDataEnvironmentsDetails,
@@ -103,7 +103,7 @@ namespace Tests.Acceptance.StepDefinitions
                 { typeParameterName, typeCount.ToString() }
             };
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 switch (typeCount)
                 {
@@ -172,7 +172,7 @@ namespace Tests.Acceptance.StepDefinitions
                 { componentParameterName,component}
             };
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 componentsActionApiResult = caller.Call<ApiBoolResult>(
                                 Endpoints.RefDataEnvironmentsDetails,
@@ -211,7 +211,7 @@ namespace Tests.Acceptance.StepDefinitions
         {
             var parentEnvironmentId = new DataAccessor().GetEnvironments(parentEnvName).FirstOrDefault();
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 var childEnvApiResponse = caller.Call<IList<EnvironmentApiModel>>(
                     Endpoints.RefDataEnvironments,
@@ -247,7 +247,7 @@ namespace Tests.Acceptance.StepDefinitions
 
                 Assert.AreEqual(expectedResult, (setParentApiResult.Model as ApiBoolResult).Result);
 
-                using (var caller = new ApiCaller())
+                using (var caller = new DorcApiClient())
                 {
                     var getEnvActionApiResult = caller.Call<IEnumerable<EnvironmentApiModel>>(
                                     Endpoints.RefDataEnvironments,

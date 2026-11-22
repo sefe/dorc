@@ -56,7 +56,7 @@ public sealed class DorcApiFixture : IDisposable
         var builder = new SqlConnectionStringBuilder(connection)
         {
             InitialCatalog = "master",
-            Encrypt = SqlConnectionEncryptOption.True,
+            Encrypt = SqlConnectionEncryptOption.Mandatory,
             TrustServerCertificate = true
         };
         try

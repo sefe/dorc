@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Reqnroll;
 using RestSharp;
 using Tests.Acceptance.Support;
@@ -23,7 +23,7 @@ namespace Tests.Acceptance.StepDefinitions
                 { environmentIdParameterName, environmentId.ToString() }
             };
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 result = caller.Call<List<UserApiModel>>(
                                 Endpoints.RefDataDatabaseUsers,

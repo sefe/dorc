@@ -1,4 +1,4 @@
-﻿using System.Text.Json;
+using System.Text.Json;
 using Dorc.ApiModel;
 using Reqnroll;
 using RestSharp;
@@ -23,7 +23,7 @@ namespace Tests.Acceptance.StepDefinitions
             };
             string json = JsonSerializer.Serialize(jsonObject);
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 serviceStatusResult = caller.Call<DaemonStatusApiModel>(Endpoints.RefDataServices, Method.Put, body: json);
             }

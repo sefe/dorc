@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Reqnroll;
 using RestSharp;
 using Tests.Acceptance.Support;
@@ -15,9 +15,9 @@ namespace Tests.Acceptance.StepDefinitions
         {
             var urlQueryParameters = new Dictionary<string, string> { { urlQueryParameterName, urlQueryParameterValue } };
 
-            using (var _caller = new ApiCaller())
+            using (var _caller = new DorcApiClient())
             {
-                componenetsApiResult = new ApiCaller().Call<TemplateApiModel<ComponentApiModel>>(
+                componenetsApiResult = new DorcApiClient().Call<TemplateApiModel<ComponentApiModel>>(
                                Endpoints.RefDataComponents,
                                Method.Get,
                                queryParameters: urlQueryParameters);

@@ -1,4 +1,4 @@
-﻿using System.Net;
+using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
@@ -7,13 +7,13 @@ using RestSharp;
 
 namespace Tests.Acceptance.Support
 {
-    public class ApiCaller : IDisposable
+    public class DorcApiClient : IDisposable
     {
         private readonly RestClient _client;
         private readonly string? _bearerToken;
         private bool disposedValue;
 
-        public ApiCaller()
+        public DorcApiClient()
         {
             var configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.test.json")

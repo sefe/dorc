@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Threading;
 using Dorc.ApiModel;
 using Dorc.Core;
@@ -8,7 +8,7 @@ namespace Tools.RequestCLI
 {
     public class RequestMonitor
     {
-        private readonly IApiCaller _api;
+        private readonly IDorcApiClient _api;
         private readonly int _pollIntervalMilliseconds;
         private readonly List<string> _goodStatuses = new() {"Completed"};
         private readonly List<string> _badStatuses = new() { "Errored", "Cancelled", "Failed" };
@@ -17,7 +17,7 @@ namespace Tools.RequestCLI
         public delegate void RequestStatusChanged(string message);
         public event RequestStatusChanged OnRequestStatusChanged;
 
-        public RequestMonitor(IApiCaller api, int pollIntervalMilliseconds = 5000)
+        public RequestMonitor(IDorcApiClient api, int pollIntervalMilliseconds = 5000)
         {
             _api = api;
             _pollIntervalMilliseconds = pollIntervalMilliseconds;

@@ -1,5 +1,5 @@
-﻿using module ".\Models.psm1"
-Class ApiCaller
+using module ".\Models.psm1"
+Class DorcApiClient
 {
         # Static properties
         static [string]$AccessToken = $null
@@ -8,25 +8,25 @@ Class ApiCaller
         # Public static method to set access token
         static [void]SetAccessToken([string]$token)
         {
-                [ApiCaller]::AccessToken = $token
+                [DorcApiClient]::AccessToken = $token
         }
 
         # Public static method to clear access token
         static [void]ClearAccessToken()
         {
-                [ApiCaller]::AccessToken = $null
+                [DorcApiClient]::AccessToken = $null
         }
 
         # Public static method to set impersonate user
         static [void]SetImpersonateUser([string]$username)
         {
-                [ApiCaller]::ImpersonateUser = $username
+                [DorcApiClient]::ImpersonateUser = $username
         }
 
         # Public static method to clear impersonate user
         static [void]ClearImpersonateUser()
         {
-                [ApiCaller]::ImpersonateUser = $null
+                [DorcApiClient]::ImpersonateUser = $null
         }
 
         static [ApiResult]InvokeGet([string]$Path,[string]$queryString)
@@ -35,14 +35,14 @@ Class ApiCaller
                 {
                         $headers = @{}
 
-                        if ([ApiCaller]::AccessToken)
+                        if ([DorcApiClient]::AccessToken)
                         {
-                                $headers["Authorization"] = "Bearer $([ApiCaller]::AccessToken)"
+                                $headers["Authorization"] = "Bearer $([DorcApiClient]::AccessToken)"
                         }
 
-                        if ([ApiCaller]::ImpersonateUser)
+                        if ([DorcApiClient]::ImpersonateUser)
                         {
-                                $headers["X-Impersonate-User"] = [ApiCaller]::ImpersonateUser
+                                $headers["X-Impersonate-User"] = [DorcApiClient]::ImpersonateUser
                         }
 
                         if ($queryString){
@@ -71,14 +71,14 @@ Class ApiCaller
                 {
                         $headers = @{}
 
-                        if ([ApiCaller]::AccessToken)
+                        if ([DorcApiClient]::AccessToken)
                         {
-                                $headers["Authorization"] = "Bearer $([ApiCaller]::AccessToken)"
+                                $headers["Authorization"] = "Bearer $([DorcApiClient]::AccessToken)"
                         }
 
-                        if ([ApiCaller]::ImpersonateUser)
+                        if ([DorcApiClient]::ImpersonateUser)
                         {
-                                $headers["X-Impersonate-User"] = [ApiCaller]::ImpersonateUser
+                                $headers["X-Impersonate-User"] = [DorcApiClient]::ImpersonateUser
                         }
 
                         $response = Invoke-WebRequest -Method POST -Uri $Path -ContentType "application/json; charset=utf-8" -Body $Body -Headers $headers -UseBasicParsing
@@ -103,14 +103,14 @@ Class ApiCaller
                 {
                         $headers = @{}
 
-                        if ([ApiCaller]::AccessToken)
+                        if ([DorcApiClient]::AccessToken)
                         {
-                                $headers["Authorization"] = "Bearer $([ApiCaller]::AccessToken)"
+                                $headers["Authorization"] = "Bearer $([DorcApiClient]::AccessToken)"
                         }
 
-                        if ([ApiCaller]::ImpersonateUser)
+                        if ([DorcApiClient]::ImpersonateUser)
                         {
-                                $headers["X-Impersonate-User"] = [ApiCaller]::ImpersonateUser
+                                $headers["X-Impersonate-User"] = [DorcApiClient]::ImpersonateUser
                         }
 
                         $response = Invoke-WebRequest -Method PUT -Uri $Path -ContentType "application/json; charset=utf-8" -Body $Body -Headers $headers -UseBasicParsing

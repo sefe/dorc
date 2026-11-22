@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Configuration;
 using Microsoft.Extensions.Configuration;
@@ -36,7 +36,7 @@ namespace Tools.PropertyValueCreationCLI
                 var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().AddSerilog(Log.Logger));
                 var logger = loggerFactory.CreateLogger("PropertyValueCreationCLI");
 
-                var api = new ApiCaller(new DorcOAuthClientConfiguration(configuration));
+                var api = new DorcApiClient(new DorcOAuthClientConfiguration(configuration));
                 var app = new Application(api, logger);
                 app.CheckFile(args[0]);
                 app.Run(args[0]);
@@ -59,9 +59,9 @@ namespace Tools.PropertyValueCreationCLI
         public class Application
         {
             private readonly ILogger _log;
-            private readonly IApiCaller _api;
+            private readonly IDorcApiClient _api;
 
-            public Application(IApiCaller api, ILogger log)
+            public Application(IDorcApiClient api, ILogger log)
             {
                 _log = log;
                 _api = api;

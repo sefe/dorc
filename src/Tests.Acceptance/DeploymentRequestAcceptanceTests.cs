@@ -25,7 +25,7 @@ namespace Tests.Acceptance
         [TestMethod]
         public void GetEnvironments_ReturnsNonEmptyListFromLiveDvApi()
         {
-            using var caller = new ApiCaller();
+            using var caller = new DorcApiClient();
             var result = caller.Call<List<EnvironmentApiModel>>(Endpoints.RefDataEnvironments, Method.Get);
 
             Assert.IsTrue(result.IsModelValid, result.Message);
@@ -37,7 +37,7 @@ namespace Tests.Acceptance
         [TestMethod]
         public void GetProjects_ReturnsNonEmptyListFromLiveDvApi()
         {
-            using var caller = new ApiCaller();
+            using var caller = new DorcApiClient();
             var result = caller.Call<List<ProjectApiModel>>(Endpoints.RefDataProjects, Method.Get);
 
             Assert.IsTrue(result.IsModelValid, result.Message);
@@ -63,7 +63,7 @@ namespace Tests.Acceptance
                 return;
             }
 
-            using var caller = new ApiCaller();
+            using var caller = new DorcApiClient();
             var payload = new RequestDto
             {
                 Project = projectName,

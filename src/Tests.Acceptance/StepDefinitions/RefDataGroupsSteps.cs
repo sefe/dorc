@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Reqnroll;
 using RestSharp;
 using Tests.Acceptance.Support;
@@ -14,7 +14,7 @@ namespace Tests.Acceptance.StepDefinitions
         [Given(@"I have created GET request to RefDataGroupsFeature")]
         public void GivenIHaveCreatedGETRequestToRefDataGroupsFeature()
         {
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 groupsListApiResult = caller.Call<List<GroupApiModel>>(Endpoints.RefDataGroups, Method.Get);
             }
@@ -37,7 +37,7 @@ namespace Tests.Acceptance.StepDefinitions
         {
             var segments = new List<string> { groupName };
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 groupApiResult = caller.Call<GroupApiModel>(
                                 Endpoints.RefDataGroups,

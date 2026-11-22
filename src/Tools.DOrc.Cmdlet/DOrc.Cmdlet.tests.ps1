@@ -1,6 +1,6 @@
 BeforeAll {
     $modulePath = Join-Path $PSScriptRoot "DOrc.Cmdlet.psm1"
-    Remove-Module DOrc.Cmdlet, ManageProperty, PropertiesHelper, ApiCaller, Models, EndurUsers -ErrorAction SilentlyContinue
+    Remove-Module DOrc.Cmdlet, ManageProperty, PropertiesHelper, DorcApiClient, Models, EndurUsers -ErrorAction SilentlyContinue
     Import-Module $modulePath -Force
 }
 
@@ -10,7 +10,7 @@ Describe "Open-ApiConnection" {
     }
 
     It "Populates global ApiConnection when endpoint discovery returns HTTP 200" {
-        Mock Invoke-WebRequest -ModuleName ApiCaller {
+        Mock Invoke-WebRequest -ModuleName DorcApiClient {
             [PSCustomObject]@{
                 StatusCode = 200
                 Content    = '{"Property":"https://dorc.local/api/Properties","PropertyValues":"https://dorc.local/api/PropertyValues"}'
@@ -27,7 +27,7 @@ Describe "Open-ApiConnection" {
 Describe "ManageProperty single-property lookup route" {
     It "Uses path segment /id=<escapedName> so PropertyExists distinguishes 404 from 200" {
         $global:CapturedUris = [System.Collections.Generic.List[string]]::new()
-        Mock Invoke-WebRequest -ModuleName ApiCaller {
+        Mock Invoke-WebRequest -ModuleName DorcApiClient {
             param($Method, $Uri)
             $global:CapturedUris.Add($Uri)
             if ($Method -eq "GET" -and $Uri -eq "https://dorc.local/api/Root") {
@@ -68,8 +68,8 @@ Describe "ManageProperty single-property lookup route" {
 Describe "Import-DOrcProperties" {
     BeforeEach {
         InModuleScope DOrc.Cmdlet {
-            [ApiCaller]::SetAccessToken("test-jwt-token")
-            [ApiCaller]::SetImpersonateUser("tester@sefe.eu")
+            [DorcApiClient]::SetAccessToken("test-jwt-token")
+            [DorcApiClient]::SetImpersonateUser("tester@sefe.eu")
         }
     }
 
@@ -104,7 +104,7 @@ Describe "Import-DOrcProperties" {
                 }
             ) | Export-Csv -Path $tempCsv -NoTypeInformation
 
-            Mock Invoke-WebRequest -ModuleName ApiCaller {
+            Mock Invoke-WebRequest -ModuleName DorcApiClient {
                 param($Method, $Uri, $Body)
                 if ($Method -eq "GET" -and $Uri -eq "https://dorc.local/api/Root") {
                     return [PSCustomObject]@{
@@ -149,7 +149,7 @@ Describe "Import-DOrcProperties" {
 Describe "Export-DOrcProperties" {
     BeforeEach {
         InModuleScope DOrc.Cmdlet {
-            [ApiCaller]::SetAccessToken("test-jwt-token")
+            [DorcApiClient]::SetAccessToken("test-jwt-token")
         }
     }
 

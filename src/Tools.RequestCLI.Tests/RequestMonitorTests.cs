@@ -12,7 +12,7 @@ public class RequestMonitorTests
     [TestMethod]
     public void MonitorRequest_PollsUntilCompleted_ReturnsZeroAndRaisesStatusChangedEvents()
     {
-        var api = Substitute.For<IApiCaller>();
+        var api = Substitute.For<IDorcApiClient>();
         api.Call<RequestStatusDto>(Endpoints.Request, Method.Get, Arg.Any<Dictionary<string, string>>(), Arg.Any<string>())
             .Returns(
                 new ApiResult<RequestStatusDto> { IsModelValid = true, Value = new RequestStatusDto { Id = 42, Status = "Pending" } },
@@ -42,7 +42,7 @@ public class RequestMonitorTests
     [DataRow("Cancelled")]
     public void MonitorRequest_WhenTerminalFailureStatusReached_ReturnsNonZeroExitCode(string terminalFailureStatus)
     {
-        var api = Substitute.For<IApiCaller>();
+        var api = Substitute.For<IDorcApiClient>();
         api.Call<RequestStatusDto>(Endpoints.Request, Method.Get, Arg.Any<Dictionary<string, string>>(), Arg.Any<string>())
             .Returns(
                 new ApiResult<RequestStatusDto> { IsModelValid = true, Value = new RequestStatusDto { Id = 99, Status = "Running" } },
@@ -57,7 +57,7 @@ public class RequestMonitorTests
     [TestMethod]
     public void MonitorRequest_WhenApiCallFails_ExitsWithNonZeroCode()
     {
-        var api = Substitute.For<IApiCaller>();
+        var api = Substitute.For<IDorcApiClient>();
         api.Call<RequestStatusDto>(Endpoints.Request, Method.Get, Arg.Any<Dictionary<string, string>>(), Arg.Any<string>())
             .Returns(new ApiResult<RequestStatusDto> { IsModelValid = false, ErrorMessage = "500 Server Error" });
 

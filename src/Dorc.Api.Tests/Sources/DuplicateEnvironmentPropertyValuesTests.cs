@@ -27,7 +27,7 @@ public class DuplicateEnvironmentPropertyValuesTests
         var builder = new SqlConnectionStringBuilder(connection)
         {
             InitialCatalog = "master",
-            Encrypt = SqlConnectionEncryptOption.True,
+            Encrypt = SqlConnectionEncryptOption.Mandatory,
             TrustServerCertificate = true
         };
         try

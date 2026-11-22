@@ -105,7 +105,7 @@ public class PostRestoreEndurTests
     [TestMethod]
     public void RefreshEndur_ScrubsUserTablesRemapsServiceManagerByTagSubstringAndRecordsEnvironmentHistory()
     {
-        var api = Substitute.For<IApiCaller>();
+        var api = Substitute.For<IDorcApiClient>();
         api.Call<DatabaseApiModel>(Endpoints.RefDataDatabasesByTag, Method.Get, Arg.Any<Dictionary<string, string>>(), Arg.Any<string>())
             .Returns(new ApiResult<DatabaseApiModel>
             {

@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Configuration;
 using Microsoft.Extensions.Configuration;
@@ -27,7 +27,7 @@ namespace Tools.DeployCopyEnvBuildCLI
             
             try
             {
-                var api = new ApiCaller(new DorcOAuthClientConfiguration(config));
+                var api = new DorcApiClient(new DorcOAuthClientConfiguration(config));
                 return ExecuteCopyEnvBuild(api, arguments);
             }
             catch (InvalidOperationException configEx) when (configEx.Message.Contains("not configured"))
@@ -47,7 +47,7 @@ namespace Tools.DeployCopyEnvBuildCLI
             }
         }
 
-        internal static int ExecuteCopyEnvBuild(IApiCaller api, Arguments arguments)
+        internal static int ExecuteCopyEnvBuild(IDorcApiClient api, Arguments arguments)
         {
             var targetEnvResult = api.Call<List<EnvironmentApiModel>>(Endpoints.RefDataEnvironments, Method.Get, new Dictionary<string, string> { { "env", arguments.TargetEnv } });
 

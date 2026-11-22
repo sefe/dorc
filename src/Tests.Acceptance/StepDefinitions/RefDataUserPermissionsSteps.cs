@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Reqnroll;
 using RestSharp;
 using Tests.Acceptance.Support;
@@ -16,7 +16,7 @@ namespace Tests.Acceptance.StepDefinitions
         [Given(@"I have created GET request on RefDataPermission")]
         public void GivenIHaveCreatedGETRequestOnRefDataPermission()
         {
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 permissionsListApiResult = caller.Call<List<PermissionDto>>(Endpoints.RefDataPermission, Method.Get);
             }
@@ -48,7 +48,7 @@ namespace Tests.Acceptance.StepDefinitions
                 { environmentIdParameterName, environmentId.ToString() }
             };
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 userPermissionsApiResult = caller.Call<List<UserPermDto>>(
                                 Endpoints.RefDataUserPermissions,
@@ -91,7 +91,7 @@ namespace Tests.Acceptance.StepDefinitions
                 { environmentIdParameterName, environmentId.ToString() }
             };
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 addPermissionApiResult = caller.Call<string>(
                                 Endpoints.RefDataUserPermissions,
@@ -129,7 +129,7 @@ namespace Tests.Acceptance.StepDefinitions
                 { environmentIdParameterName, environmentId.ToString() }
             };
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 deletePermissionApiResult = caller.Call<string>(
                                 Endpoints.RefDataUserPermissions,

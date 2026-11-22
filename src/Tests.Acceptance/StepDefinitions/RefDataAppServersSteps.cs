@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Reqnroll;
 using RestSharp;
 using Tests.Acceptance.Support;
@@ -18,7 +18,7 @@ namespace Tests.Acceptance.StepDefinitions
                 queryArgument1.ToString()
             };
 
-            using (var _caller = new ApiCaller())
+            using (var _caller = new DorcApiClient())
             {
                 _serversApiResult = _caller.Call<List<ServerApiModel>>(
                     Endpoints.RefDataAppServers,

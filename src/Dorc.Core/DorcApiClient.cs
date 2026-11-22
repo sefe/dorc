@@ -1,4 +1,4 @@
-﻿using Dorc.Core.Configuration;
+using Dorc.Core.Configuration;
 using RestSharp;
 using RestSharp.Authenticators.OAuth2;
 using System.Linq;
@@ -8,18 +8,18 @@ using System.Text.Json.Serialization;
 
 namespace Dorc.Core
 {
-    public interface IApiCaller
+    public interface IDorcApiClient
     {
         ApiResult<T> Call<T>(Endpoints endpoint, Method method, Dictionary<string, string> segments = null, string body = null) where T : class;
     }
 
-    public class ApiCaller : IApiCaller
+    public class DorcApiClient : IDorcApiClient
     {
         private RestClient Client;
 
         private readonly IOAuthClientConfiguration _configuration;
 
-        public ApiCaller(IOAuthClientConfiguration configuration)
+        public DorcApiClient(IOAuthClientConfiguration configuration)
         {
             _configuration = configuration;
         }

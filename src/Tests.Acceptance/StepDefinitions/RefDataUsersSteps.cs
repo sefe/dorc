@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Reqnroll;
 using RestSharp;
 using Tests.Acceptance.Support;
@@ -15,7 +15,7 @@ namespace Tests.Acceptance.StepDefinitions
         [Given(@"I have created GET request on RefDataUsers endpoint")]
         public void GivenIHaveCreatedGETRequestOnRefDataUsersEndpoint()
         {
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 _usersAndGroupsListResult = caller.Call<List<UserApiModel>>(Endpoints.RefDataUsers, Method.Get);
             }
@@ -38,7 +38,7 @@ namespace Tests.Acceptance.StepDefinitions
                 { "type", p0.ToString() }
             };
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 _usersListResult = caller.Call<List<UserApiModel>>(Endpoints.RefDataUsers, Method.Get);
             }
@@ -65,7 +65,7 @@ namespace Tests.Acceptance.StepDefinitions
         [Given(@"I have created POST request on RefDataUsers endpoint with following data")]
         public void GivenIHaveCreatedPOSTRequestOnRefDataUsersEndpointWithAsDisplayNameAsLoginTypeAsLanIdTypeAsLanIdAsTeam(string multilineText)
         {
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 _addUserResult = caller.Call<UserApiModel>(Endpoints.RefDataUsers, Method.Post, body: multilineText);
             }
@@ -100,7 +100,7 @@ namespace Tests.Acceptance.StepDefinitions
                 {"userName",p0}
             };
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 _usersListResult = caller.Call<List<UserApiModel>>(Endpoints.RefDataUsers, Method.Get);
             }

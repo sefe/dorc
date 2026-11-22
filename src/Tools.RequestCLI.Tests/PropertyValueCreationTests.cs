@@ -47,7 +47,7 @@ public class PropertyValueCreationTests
                 "App_Port,0,9090,"
             });
 
-            var api = Substitute.For<IApiCaller>();
+            var api = Substitute.For<IDorcApiClient>();
             api.Call<List<EnvironmentApiModel>>(
                     Endpoints.RefDataEnvironments,
                     Method.Get,
@@ -101,7 +101,7 @@ public class PropertyValueCreationTests
         var tempCsv = Path.Combine(Path.GetTempPath(), $"dorc-props-invalid-{Guid.NewGuid():N}.csv");
         try
         {
-            var api = Substitute.For<IApiCaller>();
+            var api = Substitute.For<IDorcApiClient>();
             api.Call<List<EnvironmentApiModel>>(Endpoints.RefDataEnvironments, Method.Get, Arg.Any<Dictionary<string, string>>(), Arg.Any<string>())
                 .Returns(new ApiResult<List<EnvironmentApiModel>>
                 {

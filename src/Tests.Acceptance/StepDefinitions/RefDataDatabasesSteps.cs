@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Reqnroll;
 using RestSharp;
 using Tests.Acceptance.Support;
@@ -17,7 +17,7 @@ namespace Tests.Acceptance.StepDefinitions
         [Given(@"I have created GET request to RefDataDatabases")]
         public void GivenIHaveCreatedGETRequestToRefDataDatabases()
         {
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 databasesApiResult = caller.Call<List<DatabaseApiModel>>(
                                 Endpoints.RefDataDatabases,
@@ -40,7 +40,7 @@ namespace Tests.Acceptance.StepDefinitions
         {
             var segments = new List<string> { id.ToString() };
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 databaseApiResult = caller.Call<DatabaseApiModel>(
                                 Endpoints.RefDataDatabases,
@@ -73,7 +73,7 @@ namespace Tests.Acceptance.StepDefinitions
                 { server, serverValue }
             };
 
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 databasesApiResult = caller.Call<List<DatabaseApiModel>>(
                                 Endpoints.RefDataDatabases,
@@ -110,7 +110,7 @@ namespace Tests.Acceptance.StepDefinitions
         [Given(@"I have created POST request to RefDataDatabases with body below")]
         public void GivenIHaveCreatedPOSTRequestToRefDataDatabasesWithBodyBelow(string multilineText)
         {
-            using (var caller = new ApiCaller())
+            using (var caller = new DorcApiClient())
             {
                 dbAddApiResult = caller.Call<DatabaseApiModel>(
                                 Endpoints.RefDataDatabases,

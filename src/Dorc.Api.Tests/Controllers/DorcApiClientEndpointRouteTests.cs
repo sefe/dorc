@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc.Routing;
 namespace Dorc.Api.Tests.Controllers
 {
     /// <summary>
-    /// ApiCaller maps each <see cref="Endpoints"/> value to a literal URL path, and
+    /// DorcApiClient maps each <see cref="Endpoints"/> value to a literal URL path, and
     /// the in-process CLI tools call the API through that map. Nothing in the compiler
     /// connects those strings to the [Route] attributes they are supposed to address,
     /// so renaming a controller route leaves the map pointing at a 404 and every test
@@ -28,18 +28,18 @@ namespace Dorc.Api.Tests.Controllers
     /// GetByTag(string tag) — is not checked here, because the keys are string
     /// literals at each call site rather than anything this test can enumerate. A
     /// mismatch there fails as a 400 rather than a 404, so it is quieter still;
-    /// closing it properly means giving ApiCaller a typed request surface.
+    /// closing it properly means giving DorcApiClient a typed request surface.
     /// </summary>
     [TestClass]
-    public class ApiCallerEndpointRouteTests
+    public class DorcApiClientEndpointRouteTests
     {
         private static Dictionary<Endpoints, string> EndpointPaths()
         {
-            var field = typeof(ApiCaller).GetField("EndpointPaths",
+            var field = typeof(DorcApiClient).GetField("EndpointPaths",
                 BindingFlags.NonPublic | BindingFlags.Static);
 
             Assert.IsNotNull(field,
-                "ApiCaller.EndpointPaths was renamed or removed - this test reads it by reflection.");
+                "DorcApiClient.EndpointPaths was renamed or removed - this test reads it by reflection.");
 
             return (Dictionary<Endpoints, string>)field.GetValue(null)!;
         }
@@ -96,7 +96,7 @@ namespace Dorc.Api.Tests.Controllers
             foreach (var (endpoint, path) in EndpointPaths())
             {
                 Assert.IsTrue(served.Contains(path.Trim('/')),
-                    $"ApiCaller maps {endpoint} to '{path}', which no controller in Dorc.Api serves.");
+                    $"DorcApiClient maps {endpoint} to '{path}', which no controller in Dorc.Api serves.");
             }
         }
 

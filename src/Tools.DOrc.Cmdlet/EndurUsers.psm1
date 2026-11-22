@@ -1,19 +1,19 @@
 using module ".\Models.psm1"
-using module ".\ApiCaller.psm1"
+using module ".\DorcApiClient.psm1"
 
 class EndurUsers{
-    #[ApiCaller]$api
+    #[DorcApiClient]$api
     hidden [string]$basePath
 
     EndurUsers([string]$url) {
-        #$this.api=[ApiCaller]::new()
+        #$this.api=[DorcApiClient]::new()
         $this.basePath=$url
     }
 
     [bool]UserExists([string] $samAccountName){
         $queryString="userName="+$samAccountName+"&userType=Endur"
         $url=[UserEndpoints]::UsersEndpoint($this.basePath)
-        [ApiResult]$result=[ApiCaller]::InvokeGet($url,$queryString)
+        [ApiResult]$result=[DorcApiClient]::InvokeGet($url,$queryString)
         if ($result.ReturnCode -ne 200){return $false}
         [User]$user=$result.Value
         if ($user.Id -gt 0 ){return $true}
@@ -44,7 +44,7 @@ class EndurUsers{
         $user.Team = $u.Description
         $url=[UserEndpoints]::UsersEndpoint($this.basePath)
         $body=ConvertTo-Json $user
-        [ApiResult]$response=[ApiCaller]::InvokePost($url,$body)
+        [ApiResult]$response=[DorcApiClient]::InvokePost($url,$body)
         if ($response.ReturnCode -eq 200 -and $response.Value.Id -gt 0) {return $true}
         return $false
     }
