@@ -643,6 +643,49 @@ describe('PropertyResolutionClientCache', () => {
     );
     expect(secondBatch.has('MissingProp')).to.equal(false);
 
+    // Mutating caller context or override array while bucket is queued must not affect queued request
+    const mutableOverrides = [
+      { PropertyName: 'Host', PropertyValue: 'initial-override' }
+    ];
+    const mutableContext = {
+      environmentName: 'UT1',
+      projectName: 'Proj',
+      requestOverrides: mutableOverrides
+    };
+    const sentOverridesSnapshots: Array<unknown> = [];
+    const snapshotCache = new PropertyResolutionClientCache({
+      coalesceWindowMs: 10,
+      transport: async req => {
+        sentOverridesSnapshots.push(req.RequestOverrides);
+        return [
+          {
+            PropertyName: 'Host',
+            Source: 'RequestOverride',
+            ResolvedValueJson: JSON.stringify(
+              req.RequestOverrides?.[0]?.PropertyValue ?? ''
+            )
+          }
+        ];
+      }
+    });
+    const pendingSnapshotPromise = snapshotCache.resolveProperties(
+      mutableContext,
+      ['Host']
+    );
+    mutableContext.environmentName = 'MUTATED-ENV';
+    mutableOverrides[0].PropertyValue = 'mutated-in-place';
+    mutableOverrides.push({
+      PropertyName: 'AddedLater',
+      PropertyValue: 'extra'
+    });
+    const snapshotResult = await pendingSnapshotPromise;
+    expect(snapshotResult.get('Host')?.ResolvedValueJson).to.equal(
+      '"initial-override"'
+    );
+    expect(sentOverridesSnapshots).to.deep.equal([
+      [{ PropertyName: 'Host', PropertyValue: 'initial-override' }]
+    ]);
+
     // Hit warm cache for 'Host' without transport call
     const cachedHit = await defaultCache.resolveProperties(
       { environmentName: 'UT1', projectName: 'Proj' },

@@ -928,7 +928,9 @@ namespace Dorc.Api.Tests
             pvList.AddRange(new[] { pvAllow, pvDeny, pvSecAllow, pvGlobalPlain, pvGlobalSec, pvParentSec });
             pvfList.AddRange(new[] { pvfAllow, pvfDeny, pvfSecAllow, pvfParentSec });
 
-            var propSource = new PropertyValuesPersistentSource(_contextFactory, Substitute.For<IPropertyEncryptor>(), _claimsPrincipalReader);
+            var encryptor = Substitute.For<IPropertyEncryptor>();
+            encryptor.DecryptValue(Arg.Any<string>()).Returns(ci => $"dec:{ci.Arg<string>()}");
+            var propSource = new PropertyValuesPersistentSource(_contextFactory, encryptor, _claimsPrincipalReader);
             var scopedAllow = propSource.GetPropertyValuesForScopeByPage(10, 1, new PagedDataOperators(), new EnvironmentApiModel
             {
                 EnvironmentName = "EnvAllow",
@@ -949,6 +951,14 @@ namespace Dorc.Api.Tests
             Assert.IsTrue(searched.Items.Where(i => i.PropertyValueScope == "EnvAllow").All(i => i.UserEditable));
             Assert.IsTrue(searched.Items.Where(i => i.PropertyValueScope == "EnvDeny").All(i => !i.UserEditable));
             Assert.IsTrue(searched.Items.Where(i => i.Secure).All(i => i.PropertyValue == string.Empty));
+
+            var secureEncrypted = propSource.GetSecurePropertyValues(false);
+            Assert.AreEqual(3, secureEncrypted.Length);
+            Assert.IsTrue(secureEncrypted.All(p => p.Property.Secure));
+
+            var secureDecrypted = propSource.GetSecurePropertyValues(true);
+            Assert.AreEqual(3, secureDecrypted.Length);
+            Assert.IsTrue(secureDecrypted.All(p => p.Value.StartsWith("dec:", StringComparison.Ordinal)));
         }
     }
 }

@@ -58,6 +58,17 @@ function defaultTransport(
   );
 }
 
+function snapshotResolutionContext(
+  context: PropertyResolutionContext
+): PropertyResolutionContext {
+  return {
+    ...context,
+    requestOverrides: context.requestOverrides?.map(override => ({
+      ...override
+    }))
+  };
+}
+
 export function computeResolutionContextKey(
   context: PropertyResolutionContext
 ): string {
@@ -156,7 +167,7 @@ export class PropertyResolutionClientCache {
           this.coalesceWindowMs
         );
         bucket = {
-          context,
+          context: snapshotResolutionContext(context),
           generation: this.cacheGeneration,
           propertyNames: new Map(),
           resolvers: [],

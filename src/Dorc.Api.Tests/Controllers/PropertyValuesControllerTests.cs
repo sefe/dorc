@@ -497,9 +497,53 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
-        public void GetWhereUsed_ReturnsNonSecureDependentVariablesMatchingDollarAndBraceTokens()
+        public void GetWhereUsed_MatchesDollarTokensAndIncludesSecureDependentsWithPermissionBasedRedaction()
         {
             var longPrefix = new string('x', 130);
+            _securityPrivilegesChecker.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), string.Empty).Returns(false);
+            _securityPrivilegesChecker.CanModifyProperty(Arg.Any<ClaimsPrincipal>()).Returns(false);
+            _securityPrivilegesChecker.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), "Endur DV 01").Returns(true);
+            _securityPrivilegesChecker.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), "Endur DV 02").Returns(false);
+
+            _propertyValuesPersistentSource.GetSecurePropertyValues(true).Returns(new[]
+            {
+                new PropertyValueDto
+                {
+                    Property = new PropertyApiModel { Name = "SecretConnection", Secure = true },
+                    PropertyValueFilter = null!,
+                    Value = "Server=$DbHost$;Password=secret"
+                },
+                new PropertyValueDto
+                {
+                    Property = new PropertyApiModel { Name = "SecondDefaultSecret", Secure = true },
+                    PropertyValueFilter = "   ",
+                    Value = "Host=$DbHost$;Key=abc"
+                },
+                new PropertyValueDto
+                {
+                    Property = new PropertyApiModel { Name = "ReadableEnvSecretUrl", Secure = true },
+                    PropertyValueFilter = "Endur DV 01",
+                    Value = "https://$DbHost$/readable-secret"
+                },
+                new PropertyValueDto
+                {
+                    Property = new PropertyApiModel { Name = "EnvSecretUrl", Secure = true },
+                    PropertyValueFilter = "Endur DV 02",
+                    Value = "https://$DbHost$/secret"
+                },
+                new PropertyValueDto
+                {
+                    Property = new PropertyApiModel { Name = "UnrelatedSecret", Secure = true },
+                    PropertyValueFilter = "Endur DV 01",
+                    Value = "https://$OtherHost$/secret"
+                },
+                new PropertyValueDto
+                {
+                    Property = null!,
+                    Value = "https://$DbHost$/ignored"
+                }
+            });
+
             _propertyValuesPersistentSource.GetGlobalProperties().Returns(new[]
             {
                 new PropertyValueDto
@@ -509,7 +553,12 @@ namespace Dorc.Api.Tests.Controllers
                 },
                 new PropertyValueDto
                 {
-                    Property = new PropertyApiModel { Name = "BackupEndpoint", Secure = false },
+                    Property = new PropertyApiModel { Name = "FallbackDollarWithUnclosedLiteral", Secure = false },
+                    Value = "Cost=$50;Server=$DbHost$"
+                },
+                new PropertyValueDto
+                {
+                    Property = new PropertyApiModel { Name = "BackupEndpointBraceSyntaxIgnored", Secure = false },
                     Value = "https://${ dbhost }:8443/api"
                 },
                 new PropertyValueDto
@@ -531,6 +580,16 @@ namespace Dorc.Api.Tests.Controllers
                 {
                     Property = new PropertyApiModel { Name = "UnrelatedProperty", Secure = false },
                     Value = "Server=$DbHostSecondary$"
+                },
+                new PropertyValueDto
+                {
+                    Property = new PropertyApiModel { Name = "", Secure = false },
+                    Value = "Server=$DbHost$"
+                },
+                new PropertyValueDto
+                {
+                    Property = null!,
+                    Value = "Server=$DbHost$"
                 }
             });
 
@@ -561,7 +620,7 @@ namespace Dorc.Api.Tests.Controllers
                         {
                             Property = "EnvSecretUrl",
                             PropertyValueScope = "Endur DV 02",
-                            PropertyValue = "https://$DbHost$/secret",
+                            PropertyValue = string.Empty,
                             Secure = true
                         }
                     }
@@ -573,22 +632,104 @@ namespace Dorc.Api.Tests.Controllers
             var okResult = (OkObjectResult)result;
             Assert.IsInstanceOfType(okResult.Value, typeof(List<PropertyUsageReferenceApiModel>));
             var references = (List<PropertyUsageReferenceApiModel>)okResult.Value!;
-            Assert.AreEqual(3, references.Count);
+            Assert.AreEqual(7, references.Count);
 
-            Assert.AreEqual("BackupEndpoint", references[0].PropertyName);
+            Assert.AreEqual("ConnectionString", references[0].PropertyName);
             Assert.AreEqual("Default", references[0].Scope);
             Assert.AreEqual(string.Empty, references[0].PropertyValueFilter);
-            Assert.AreEqual("https://${ dbhost }:8443/api", references[0].RawValueSnippet);
+            Assert.AreEqual("Server=$DbHost$;Database=Main", references[0].RawValueSnippet);
 
-            Assert.AreEqual("ConnectionString", references[1].PropertyName);
+            Assert.AreEqual("FallbackDollarWithUnclosedLiteral", references[1].PropertyName);
             Assert.AreEqual("Default", references[1].Scope);
-            Assert.AreEqual("Server=$DbHost$;Database=Main", references[1].RawValueSnippet);
+            Assert.AreEqual("Cost=$50;Server=$DbHost$", references[1].RawValueSnippet);
 
-            Assert.AreEqual("EnvServiceUrl", references[2].PropertyName);
-            Assert.AreEqual("Endur DV 02", references[2].Scope);
-            Assert.AreEqual("Endur DV 02", references[2].PropertyValueFilter);
-            Assert.AreEqual(120, references[2].RawValueSnippet.Length);
-            StringAssert.EndsWith(references[2].RawValueSnippet, "...");
+            Assert.AreEqual("SecondDefaultSecret", references[2].PropertyName);
+            Assert.AreEqual("Default", references[2].Scope);
+            Assert.AreEqual(RequestPropertyRedaction.Marker, references[2].RawValueSnippet);
+
+            Assert.AreEqual("SecretConnection", references[3].PropertyName);
+            Assert.AreEqual("Default", references[3].Scope);
+            Assert.AreEqual(RequestPropertyRedaction.Marker, references[3].RawValueSnippet);
+
+            Assert.AreEqual("ReadableEnvSecretUrl", references[4].PropertyName);
+            Assert.AreEqual("Endur DV 01", references[4].Scope);
+            Assert.AreEqual("Endur DV 01", references[4].PropertyValueFilter);
+            Assert.AreEqual("https://$DbHost$/readable-secret", references[4].RawValueSnippet);
+
+            Assert.AreEqual("EnvSecretUrl", references[5].PropertyName);
+            Assert.AreEqual("Endur DV 02", references[5].Scope);
+            Assert.AreEqual("Endur DV 02", references[5].PropertyValueFilter);
+            Assert.AreEqual(RequestPropertyRedaction.Marker, references[5].RawValueSnippet);
+
+            Assert.AreEqual("EnvServiceUrl", references[6].PropertyName);
+            Assert.AreEqual("Endur DV 02", references[6].Scope);
+            Assert.AreEqual("Endur DV 02", references[6].PropertyValueFilter);
+            Assert.AreEqual(120, references[6].RawValueSnippet.Length);
+            StringAssert.EndsWith(references[6].RawValueSnippet, "...");
+        }
+
+        [TestMethod]
+        public void GetWhereUsed_WhenCallerCanModifyGlobalProperties_RevealsDefaultScopeSecretSnippet()
+        {
+            _securityPrivilegesChecker.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), string.Empty).Returns(false);
+            _securityPrivilegesChecker.CanModifyProperty(Arg.Any<ClaimsPrincipal>()).Returns(true);
+            _propertyValuesPersistentSource.GetSecurePropertyValues(true).Returns((PropertyValueDto[])null!);
+            _propertyValuesPersistentSource.GetGlobalProperties().Returns(new[]
+            {
+                new PropertyValueDto
+                {
+                    Property = new PropertyApiModel { Name = "GlobalSecretConn", Secure = true },
+                    Value = "Server=$DbHost$;Password=topsecret"
+                }
+            });
+            _propertyValuesPersistentSource.GetPropertyValuesForSearchValueByPage(
+                    Arg.Any<int>(),
+                    Arg.Any<int>(),
+                    Arg.Any<PagedDataOperators>(),
+                    Arg.Any<ClaimsPrincipal>())
+                .Returns((GetScopedPropertyValuesResponseDto)null!);
+
+            var result = (OkObjectResult)_controller.GetWhereUsed("DbHost");
+            var references = (List<PropertyUsageReferenceApiModel>)result.Value!;
+            Assert.AreEqual(1, references.Count);
+            Assert.AreEqual("GlobalSecretConn", references[0].PropertyName);
+            Assert.AreEqual("Server=$DbHost$;Password=topsecret", references[0].RawValueSnippet);
+
+            // Also cover CanReadSecrets(User, string.Empty) == true and multi-page TotalPages termination
+            _securityPrivilegesChecker.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), string.Empty).Returns(true);
+            var fullPageItems = Enumerable.Range(0, 500)
+                .Select(i => new FlatPropertyValueApiModel
+                {
+                    Property = $"ScopedProp_{i}",
+                    PropertyValueScope = "Env1",
+                    PropertyValue = i == 0 ? "https://$DbHost$/page" : "static",
+                    Secure = false
+                })
+                .ToList();
+            _propertyValuesPersistentSource.GetPropertyValuesForSearchValueByPage(
+                    500,
+                    1,
+                    Arg.Any<PagedDataOperators>(),
+                    Arg.Any<ClaimsPrincipal>())
+                .Returns(new GetScopedPropertyValuesResponseDto
+                {
+                    Items = fullPageItems,
+                    TotalPages = 2
+                });
+            _propertyValuesPersistentSource.GetPropertyValuesForSearchValueByPage(
+                    500,
+                    2,
+                    Arg.Any<PagedDataOperators>(),
+                    Arg.Any<ClaimsPrincipal>())
+                .Returns(new GetScopedPropertyValuesResponseDto
+                {
+                    Items = fullPageItems,
+                    TotalPages = 2
+                });
+
+            var pagedResult = (OkObjectResult)_controller.GetWhereUsed("DbHost");
+            var pagedRefs = (List<PropertyUsageReferenceApiModel>)pagedResult.Value!;
+            Assert.AreEqual(2, pagedRefs.Count);
         }
     }
 }

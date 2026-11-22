@@ -154,6 +154,21 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public PropertyValueDto[] GetSecurePropertyValues(bool decryptProperty = false)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                return context.PropertyValues
+                    .Include(pv => pv.Filters)
+                    .Include(pv => pv.Property)
+                    .Where(pv => pv.Property.Secure)
+                    .AsNoTracking()
+                    .ToList()
+                    .Select(pv => MapToPropertyValueDto(pv, decryptProperty))
+                    .ToArray();
+            }
+        }
+
         public void ReassignPropertyValues(IDeploymentContext context, Environment oldEnv, string newEnvName)
         {
             var propertyValueFilters = context.PropertyValueFilters.Where(pvf => pvf.Value == oldEnv.Name).ToList();

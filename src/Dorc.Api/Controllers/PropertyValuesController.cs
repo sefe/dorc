@@ -337,15 +337,30 @@ namespace Dorc.Api.Controllers
             var targetPropertyName = propertyName.Trim();
             var references = new List<PropertyUsageReferenceApiModel>();
             var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var secretScopePermissions = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
             var parser = new PropertyParser();
             var tokenRegex = new Regex(
-                $@"(?<!\$)(?:\$\{{\s*{Regex.Escape(targetPropertyName)}\s*\}}|\${Regex.Escape(targetPropertyName)}\$)(?!\$)",
+                $@"(?<!\$)\${Regex.Escape(targetPropertyName)}\$(?!\$)",
                 RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+            bool CanReadSecretScope(string trimmedScope)
+            {
+                if (secretScopePermissions.TryGetValue(trimmedScope, out var allowed))
+                {
+                    return allowed;
+                }
+
+                allowed = string.IsNullOrEmpty(trimmedScope)
+                    ? _securityPrivilegesChecker.CanReadSecrets(User, string.Empty) ||
+                      _securityPrivilegesChecker.CanModifyProperty(User)
+                    : _securityPrivilegesChecker.CanReadSecrets(User, trimmedScope);
+                secretScopePermissions[trimmedScope] = allowed;
+                return allowed;
+            }
 
             void TryAddCandidate(string? candidatePropertyName, string? filterScope, string? rawValue, bool isSecure)
             {
-                if (isSecure ||
-                    string.IsNullOrWhiteSpace(candidatePropertyName) ||
+                if (string.IsNullOrWhiteSpace(candidatePropertyName) ||
                     string.IsNullOrWhiteSpace(rawValue))
                 {
                     return;
@@ -356,20 +371,38 @@ namespace Dorc.Api.Controllers
                     return;
                 }
 
-                var normalizedScope = string.IsNullOrWhiteSpace(filterScope) ? "Default" : filterScope.Trim();
+                var trimmedScope = string.IsNullOrWhiteSpace(filterScope) ? string.Empty : filterScope.Trim();
+                var normalizedScope = string.IsNullOrEmpty(trimmedScope) ? "Default" : trimmedScope;
                 var dedupKey = $"{candidatePropertyName.Trim()}|{normalizedScope}";
                 if (!seen.Add(dedupKey))
                 {
                     return;
                 }
 
+                var snippet = isSecure && !CanReadSecretScope(trimmedScope)
+                    ? RequestPropertyRedaction.Marker
+                    : BuildRawValueSnippet(rawValue);
+
                 references.Add(new PropertyUsageReferenceApiModel
                 {
                     PropertyName = candidatePropertyName.Trim(),
                     Scope = normalizedScope,
-                    PropertyValueFilter = string.IsNullOrWhiteSpace(filterScope) ? string.Empty : filterScope.Trim(),
-                    RawValueSnippet = BuildRawValueSnippet(rawValue)
+                    PropertyValueFilter = trimmedScope,
+                    RawValueSnippet = snippet
                 });
+            }
+
+            var secureProperties = _propertyValuesPersistentSource.GetSecurePropertyValues(true);
+            if (secureProperties != null)
+            {
+                foreach (var prop in secureProperties)
+                {
+                    TryAddCandidate(
+                        prop.Property?.Name,
+                        prop.PropertyValueFilter,
+                        prop.Value,
+                        true);
+                }
             }
 
             var globalProperties = _propertyValuesPersistentSource.GetGlobalProperties();
@@ -378,10 +411,10 @@ namespace Dorc.Api.Controllers
                 foreach (var prop in globalProperties)
                 {
                     TryAddCandidate(
-                        prop?.Property?.Name,
-                        prop?.PropertyValueFilter,
-                        prop?.Value,
-                        prop?.Property?.Secure ?? false);
+                        prop.Property?.Name,
+                        prop.PropertyValueFilter,
+                        prop.Value,
+                        prop.Property?.Secure ?? false);
                 }
             }
 
@@ -413,14 +446,13 @@ namespace Dorc.Api.Controllers
                 foreach (var item in pagedSearch.Items)
                 {
                     TryAddCandidate(
-                        item?.Property,
-                        item?.PropertyValueScope,
-                        item?.PropertyValue,
-                        item?.Secure ?? false);
+                        item.Property,
+                        item.PropertyValueScope,
+                        item.PropertyValue,
+                        item.Secure);
                 }
 
-                if (pagedSearch.Items.Count < pageSize ||
-                    (pagedSearch.TotalPages > 0 && page >= pagedSearch.TotalPages))
+                if (pagedSearch.Items.Count < pageSize || page >= pagedSearch.TotalPages)
                 {
                     break;
                 }
@@ -451,10 +483,12 @@ namespace Dorc.Api.Controllers
                         return true;
                     }
                 }
+
+                return false;
             }
             catch (InvalidOperationException)
             {
-                // Fallback to regex matching when value contains ${Var} brace syntax or unescaped literal $
+                // Fallback to dollar-token regex matching when value contains an unescaped literal $ alongside a valid $Var$ token
             }
 
             var withoutEscapedDollarPairs = rawValue.Replace("$$", "\u0000");
