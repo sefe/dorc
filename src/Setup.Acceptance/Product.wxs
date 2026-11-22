@@ -17,6 +17,10 @@
               <Component Id="DevOps.DOrc.TESTS.ACCEPTANCE.DLL.CONFIG" DiskId="1" Guid="12C9A816-3BBD-41A0-BE06-B58C0097F8B2" Bitness="always64">
 				<Json:JsonFile Id="RefDataUrlNonProd" ElementPath="$.AppSettings.BaseAddress" File="[#TestAcceptanceConfig]" Value="[DEPLOYAPI.ENDPOINT]/" />
 				<Json:JsonFile Id="SetDbConnectionString" ElementPath="$.ConnectionStrings.DOrcConnectionString" File="[#TestAcceptanceConfig]" Value="Data Source=[DEPLOYMENT.DBSERVER];Initial Catalog=[DEPLOYMENT.DB];Integrated Security=SSPI;MultipleActiveResultSets=true;TrustServerCertificate=true" />
+				<Json:JsonFile Id="TestAcceptanceDorcApiUrl" ElementPath="$.DorcApi.BaseUrl" File="[#TestAcceptanceConfig]" Value="[DEPLOYAPI.ENDPOINT]" />
+				<Json:JsonFile Id="TestAcceptanceDorcApiClientId" ElementPath="$.DorcApi.ClientId" File="[#TestAcceptanceConfig]" Value="[DORC.API.CLIENTID]" />
+				<Json:JsonFile Id="TestAcceptanceDorcApiClientSecret" ElementPath="$.DorcApi.ClientSecret" File="[#TestAcceptanceConfig]" Value="[DORC.API.CLIENTSECRET]" />
+				<Json:JsonFile Id="TestAcceptanceDorcApiScope" ElementPath="$.DorcApi.Scope" File="[#TestAcceptanceConfig]" Value="[DORC.API.SCOPE]" />
                 <CreateFolder />
               </Component>
 

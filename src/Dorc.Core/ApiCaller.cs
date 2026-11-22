@@ -4,6 +4,7 @@ using RestSharp.Authenticators.OAuth2;
 using System.Linq;
 using System.Net;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Dorc.Core
 {
@@ -54,7 +55,7 @@ namespace Dorc.Core
             {
                 if (response.StatusCode == HttpStatusCode.OK)
                 {
-                    result.Value = JsonSerializer.Deserialize<T>(responseContent);
+                    result.Value = JsonSerializer.Deserialize<T>(responseContent, JsonOptions);
                     result.IsModelValid = true;
                 }
                 else
@@ -161,6 +162,14 @@ namespace Dorc.Core
         {
             return EndpointPaths.TryGetValue(value, out var path) ? path : (Enum.GetName(typeof(Endpoints), value) ?? string.Empty);
         }
+
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNamingPolicy = null,
+            IncludeFields = true,
+            MaxDepth = 64,
+            Converters = { new JsonStringEnumConverter() }
+        };
     }
 
 }

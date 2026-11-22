@@ -6,13 +6,9 @@ BEGIN
     SET NOCOUNT ON;
     SET XACT_ABORT ON;
 
-	DECLARE @MaxYearInArchive INT = 0;
 	DECLARE @TotalRequestsArchived INT = 0;
     DECLARE @RowCount INT = 1;
 	DECLARE @BatchStartID INT = 0;
-
-	SELECT @MaxYearInArchive = ISNULL(MAX(YEAR(RequestedTime)), 0)
-	FROM [archive].[DeploymentRequest];
 
     -- Use a loop to process rows in batches
     WHILE @RowCount > 0
@@ -26,7 +22,7 @@ BEGIN
             FROM [deploy].[DeploymentRequest] d WITH (NOLOCK)
 			LEFT JOIN [archive].[DeploymentRequest] a WITH (NOLOCK) ON d.Id = a.Id
             WHERE YEAR(d.RequestedTime) <= @LastYear
-				AND YEAR(d.RequestedTime) >= @MaxYearInArchive
+				AND d.Status IN ('Completed', 'Failed', 'Cancelled', 'Errored')
 				AND a.Id IS NULL
 				AND d.Id > @BatchStartID
             ORDER BY d.Id
@@ -37,6 +33,31 @@ BEGIN
 			BEGIN TRANSACTION;
 			-- Remove DeploymentRequestAttempt rows (DeploymentResultAttempt cascades from DeploymentRequestAttempt)
 			DELETE FROM [deploy].[DeploymentRequestAttempt]
+			WHERE DeploymentRequestId IN (SELECT Id FROM @BatchIDs);
+
+			-- Remove execution receipts, Terraform outcomes/approvals, and catalog/definition records for archived requests
+			DELETE FROM [deploy].[PowerShellExecutionReceipt]
+			WHERE DeploymentRequestId IN (SELECT Id FROM @BatchIDs);
+
+			DELETE FROM [deploy].[TerraformDeploymentOutcome]
+			WHERE DeploymentResultId IN (
+				SELECT Id FROM [deploy].[DeploymentResult]
+				WHERE DeploymentRequestId IN (SELECT Id FROM @BatchIDs)
+			);
+
+			DELETE FROM [deploy].[TerraformDeploymentReceipt]
+			WHERE DeploymentRequestId IN (SELECT Id FROM @BatchIDs);
+
+			DELETE FROM [deploy].[TerraformPlanApproval]
+			WHERE DeploymentRequestId IN (SELECT Id FROM @BatchIDs);
+
+			DELETE FROM [deploy].[CatalogRequestInputs]
+			WHERE DeploymentRequestId IN (SELECT Id FROM @BatchIDs);
+
+			DELETE FROM [deploy].[CatalogSubmission]
+			WHERE DeploymentRequestId IN (SELECT Id FROM @BatchIDs);
+
+			DELETE FROM [deploy].[DeploymentRequestDefinition]
 			WHERE DeploymentRequestId IN (SELECT Id FROM @BatchIDs);
 
 			-- Archive EnvironmentComponentStatus data related to DeploymentRequest

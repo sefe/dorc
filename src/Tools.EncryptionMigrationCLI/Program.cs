@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Dorc.Core.VariableResolution;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Contexts;
@@ -116,6 +117,52 @@ namespace Tools.EncryptionMigrationCLI
 
                         try
                         {
+                            if (property.IsArray)
+                            {
+                                var items = JsonSerializer.Deserialize<string[]>(propertyValue.Value);
+                                if (items == null)
+                                {
+                                    result.Skipped++;
+                                    continue;
+                                }
+
+                                if (items.All(i => i != null && i.StartsWith("v2:")))
+                                {
+                                    _log.LogDebug($"Property value {propertyValue.Id} (array) already migrated to v2");
+                                    result.Skipped++;
+                                    continue;
+                                }
+
+                                if (!force && items.All(i => i != null && (i.StartsWith("v1:") || i.StartsWith("v2:"))))
+                                {
+                                    _log.LogDebug($"Property value {propertyValue.Id} (array) is v1 format but not forced");
+                                    result.Skipped++;
+                                    continue;
+                                }
+
+                                _log.LogInformation($"Migrating array property value {propertyValue.Id}");
+                                var migratedItems = items.Select(item =>
+                                    item == null || item.StartsWith("v2:") || (!force && item.StartsWith("v1:"))
+                                        ? item
+                                        : _encryptor.MigrateFromLegacy(item)).ToArray();
+
+                                if (!dryRun)
+                                {
+                                    propertyValue.Value = JsonSerializer.Serialize(migratedItems);
+                                    batchCount++;
+
+                                    if (batchCount >= _batchSize)
+                                    {
+                                        context.SaveChanges();
+                                        batchCount = 0;
+                                        _log.LogInformation($"Saved batch of {_batchSize} updates");
+                                    }
+                                }
+
+                                result.Migrated++;
+                                continue;
+                            }
+
                             if (propertyValue.Value.StartsWith("v2:"))
                             {
                                 _log.LogDebug($"Property value {propertyValue.Id} already migrated to v2");
@@ -160,6 +207,67 @@ namespace Tools.EncryptionMigrationCLI
                     {
                         context.SaveChanges();
                         _log.LogInformation($"Saved final batch of {batchCount} updates");
+                    }
+                }
+
+                var secureConfigValues = context.ConfigValues
+                    .Where(cv => cv.Secure && cv.Value != null)
+                    .ToList();
+
+                if (secureConfigValues.Count > 0)
+                {
+                    _log.LogInformation($"Found {secureConfigValues.Count} secure config values");
+                    int configBatchCount = 0;
+
+                    foreach (var configValue in secureConfigValues)
+                    {
+                        result.Total++;
+
+                        try
+                        {
+                            if (configValue.Value.StartsWith("v2:"))
+                            {
+                                _log.LogDebug($"Config value '{configValue.Key}' already migrated to v2");
+                                result.Skipped++;
+                                continue;
+                            }
+
+                            if (!force && configValue.Value.StartsWith("v1:"))
+                            {
+                                _log.LogDebug($"Config value '{configValue.Key}' is v1 format but not forced");
+                                result.Skipped++;
+                                continue;
+                            }
+
+                            _log.LogInformation($"Migrating config value '{configValue.Key}'");
+                            var migratedConfigValue = _encryptor.MigrateFromLegacy(configValue.Value);
+
+                            if (!dryRun)
+                            {
+                                configValue.Value = migratedConfigValue;
+                                configBatchCount++;
+
+                                if (configBatchCount >= _batchSize)
+                                {
+                                    context.SaveChanges();
+                                    configBatchCount = 0;
+                                    _log.LogInformation($"Saved batch of {_batchSize} config updates");
+                                }
+                            }
+
+                            result.Migrated++;
+                        }
+                        catch (Exception ex) when (!(ex is OutOfMemoryException || ex is StackOverflowException))
+                        {
+                            _log.LogError(ex, $"Failed to migrate config value '{configValue.Key}'");
+                            result.Failed++;
+                        }
+                    }
+
+                    if (!dryRun && configBatchCount > 0)
+                    {
+                        context.SaveChanges();
+                        _log.LogInformation($"Saved final batch of {configBatchCount} config updates");
                     }
                 }
             }

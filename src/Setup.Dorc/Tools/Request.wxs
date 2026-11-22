@@ -7,6 +7,7 @@
         <Json:JsonFile Id="ToolRequestDorcApiUrl" ElementPath="$.DorcApi.BaseUrl" Value="[DEPLOYAPI.ENDPOINT]" File="[#ToolsRequestConfig]" />
         <Json:JsonFile Id="ToolRequestDorcApiClientId" ElementPath="$.DorcApi.ClientId" Value="[DORC.API.CLIENTID]" File="[#ToolsRequestConfig]" />
         <Json:JsonFile Id="ToolRequestDorcApiClientSecret" ElementPath="$.DorcApi.ClientSecret" Value="[DORC.API.CLIENTSECRET]" File="[#ToolsRequestConfig]" />
+        <Json:JsonFile Id="ToolRequestDorcApiScope" ElementPath="$.DorcApi.Scope" Value="[DORC.API.SCOPE]" File="[#ToolsRequestConfig]" />
 
           <CreateFolder/>
         </Component>

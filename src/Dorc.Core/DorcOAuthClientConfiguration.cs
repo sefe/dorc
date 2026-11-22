@@ -60,7 +60,8 @@ namespace Dorc.Core.Configuration
         {
             get
             {
-                return _config["DorcApi:Scope"] ?? "dorc-api.manage";
+                var configuredScope = _config["DorcApi:Scope"];
+                return !string.IsNullOrWhiteSpace(configuredScope) ? configuredScope : "dorc-api.manage";
             }
         }
     }

@@ -90,5 +90,58 @@ namespace Dorc.Core.Tests
 
             Assert.AreEqual("42", result);
         }
+
+        [DataTestMethod]
+        [DataRow(null, "dorc-api.manage")]
+        [DataRow("", "dorc-api.manage")]
+        [DataRow("   ", "dorc-api.manage")]
+        [DataRow("custom.scope", "custom.scope")]
+        public void DorcOAuthClientConfiguration_Scope_FallsBackWhenNullOrWhitespace(string? configuredScope, string expectedScope)
+        {
+            var settings = new Dictionary<string, string?>
+            {
+                ["DorcApi:BaseUrl"] = "https://dorc.example.com",
+                ["DorcApi:ClientId"] = "client-id",
+                ["DorcApi:ClientSecret"] = "client-secret"
+            };
+            if (configuredScope != null)
+            {
+                settings["DorcApi:Scope"] = configuredScope;
+            }
+
+            var config = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+                .AddInMemoryCollection(settings)
+                .Build();
+
+            var oauthConfig = new DorcOAuthClientConfiguration(config);
+
+            Assert.AreEqual("https://dorc.example.com", oauthConfig.BaseUrl);
+            Assert.AreEqual("client-id", oauthConfig.ClientId);
+            Assert.AreEqual("client-secret", oauthConfig.ClientSecret);
+            Assert.AreEqual(expectedScope, oauthConfig.Scope);
+        }
+
+        [TestMethod]
+        public void ConfigurationSettings_RunnerAndRefDataGetters_ReturnConfiguredValues()
+        {
+            var config = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+                .AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    ["AppSettings:RefDataApiUrl"] = "https://dorc.example.com",
+                    ["AppSettings:RunnerLogPath"] = "D:\\Logs\\Runner",
+                    ["AppSettings:DotNetFrameworkDeploymentRunnerPath"] = "C:\\Runner\\NetFx\\Dorc.NetFramework.Runner.exe",
+                    ["AppSettings:DotNetCoreDeploymentRunnerPath"] = "C:\\Runner\\NetCore\\Dorc.Runner.exe",
+                    ["AppSettings:TerraformDeploymentRunnerPath"] = "C:\\Runner\\Terraform\\Dorc.TerraformRunner.exe"
+                })
+                .Build();
+
+            var settings = new Dorc.Core.Configuration.ConfigurationSettings(config);
+
+            Assert.AreEqual("https://dorc.example.com", settings.GetRefDataApiUrl());
+            Assert.AreEqual("D:\\Logs\\Runner", settings.GetRunnerLogPath());
+            Assert.AreEqual("C:\\Runner\\NetFx\\Dorc.NetFramework.Runner.exe", settings.GetDotNetFrameworkDeploymentRunnerPath());
+            Assert.AreEqual("C:\\Runner\\NetCore\\Dorc.Runner.exe", settings.GetDotNetCoreDeploymentRunnerPath());
+            Assert.AreEqual("C:\\Runner\\Terraform\\Dorc.TerraformRunner.exe", settings.GetTerraformDeploymentRunnerPath());
+        }
     }
 }

@@ -93,6 +93,7 @@ builder.Services.AddTransient<Dorc.PersistentData.Sources.Interfaces.IDeployment
 var configBuilder = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json")
     .AddJsonFile("loggerSettings.json", optional:false, reloadOnChange: true)
+    .AddConfiguration(builder.Configuration)
     .Build();
 
 var configurationSettings = new ConfigurationSettings(configBuilder);
@@ -559,3 +560,5 @@ if (authenticationScheme is ConfigAuthScheme.OAuth or ConfigAuthScheme.Both)
 app.MapHub<DeploymentsHub>("/hubs/deployments");
 
 app.Run();
+
+public partial class Program { }

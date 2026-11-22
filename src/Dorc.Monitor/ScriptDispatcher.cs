@@ -124,8 +124,8 @@ namespace Dorc.Monitor
 
                         using (var securityContext = contextBuilder.Build())
                         {
-                            var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                            .GetSection("AppSettings")["RunnerLogPath"]!;
+                            var runnerLogPathSetting = configurationSettingsEngine.GetRunnerLogPath()
+                                ?? new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["RunnerLogPath"]!;
                             var runnerLogPath = runnerLogPathSetting + $"\\{startedScriptGroupPipeName}.txt";
                             var uncLogPath = runnerLogPath.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
 
@@ -346,13 +346,13 @@ namespace Dorc.Monitor
             if (string.IsNullOrEmpty(powerShellVersionNumber)
                 || powerShellVersionNumber.Equals(PowerShellVersion.V5_1.ToVersionString()))     
             {
-                deploymentRunnerPath = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                .GetSection("AppSettings")["DotNetFrameworkDeploymentRunnerPath"]!;
+                deploymentRunnerPath = configurationSettingsEngine.GetDotNetFrameworkDeploymentRunnerPath()
+                    ?? new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["DotNetFrameworkDeploymentRunnerPath"]!;
             }
             else
             {
-                deploymentRunnerPath = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                .GetSection("AppSettings")["DotNetCoreDeploymentRunnerPath"]!;
+                deploymentRunnerPath = configurationSettingsEngine.GetDotNetCoreDeploymentRunnerPath()
+                    ?? new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["DotNetCoreDeploymentRunnerPath"]!;
             }
 
             if (!File.Exists(deploymentRunnerPath))

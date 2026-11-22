@@ -47,5 +47,11 @@ namespace Dorc.Core.Configuration
         /// </summary>
         bool? GetTerraformSeparateApproverRequired();
         bool GetIsProduction();
+        string GetEnvironment(bool removeSpaces = false);
+        string? GetRefDataApiUrl();
+        string? GetRunnerLogPath();
+        string? GetDotNetFrameworkDeploymentRunnerPath();
+        string? GetDotNetCoreDeploymentRunnerPath();
+        string? GetTerraformDeploymentRunnerPath();
     }
 }

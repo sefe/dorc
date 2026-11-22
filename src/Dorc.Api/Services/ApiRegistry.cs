@@ -34,9 +34,7 @@ namespace Dorc.Api.Services
                 return new ActiveDirectorySearchService(directorySearcher);
             }).Scoped();
             
-            For<IDirectorySearcherFactory>().Use<DirectorySearcherFactory>().Singleton()
-                .Ctor<string>().Is(configSettings.GetConfigurationDomainNameIntra())
-                .Ctor<TimeSpan?>().Is(configSettings.GetADUserCacheTimeSpan());
+            For<IDirectorySearcherFactory>().Use<DirectorySearcherFactory>().Singleton();
             For<IActiveDirectorySearcher>().Use(context =>
             {
                 var factory = context.GetRequiredService<IDirectorySearcherFactory>();

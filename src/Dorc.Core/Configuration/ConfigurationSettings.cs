@@ -193,6 +193,31 @@ namespace Dorc.Core.Configuration
             var value = _configuration.GetSection("AppSettings")["IsProduction"];
             return bool.TryParse(value, out bool isProduction) && isProduction;
         }
+
+        public string? GetRefDataApiUrl()
+        {
+            return _configuration.GetSection("AppSettings")["RefDataApiUrl"];
+        }
+
+        public string? GetRunnerLogPath()
+        {
+            return _configuration.GetSection("AppSettings")["RunnerLogPath"];
+        }
+
+        public string? GetDotNetFrameworkDeploymentRunnerPath()
+        {
+            return _configuration.GetSection("AppSettings")["DotNetFrameworkDeploymentRunnerPath"];
+        }
+
+        public string? GetDotNetCoreDeploymentRunnerPath()
+        {
+            return _configuration.GetSection("AppSettings")["DotNetCoreDeploymentRunnerPath"];
+        }
+
+        public string? GetTerraformDeploymentRunnerPath()
+        {
+            return _configuration.GetSection("AppSettings")["TerraformDeploymentRunnerPath"];
+        }
         #endregion
     }
 }
