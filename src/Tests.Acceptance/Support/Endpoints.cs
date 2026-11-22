@@ -20,6 +20,9 @@
         RefDataDatabases,
         RefDataComponents,
         RefDataAppServers,
-        RefDataDaemons
+        RefDataDaemons,
+        Request,
+        RequestStatuses,
+        DeploymentV2
     }
 }

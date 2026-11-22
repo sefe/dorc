@@ -30,19 +30,20 @@ namespace Dorc.Api.Tests
         [TestMethod]
         public void MetadataController_UsesInjectedConfigurationSettings_WithFallbacks()
         {
-            var logger = NSubstitute.Substitute.For<Microsoft.Extensions.Logging.ILogger<Dorc.Api.Controllers.MetadataController>>();
-            var configSettings = NSubstitute.Substitute.For<Dorc.Core.Configuration.IConfigurationSettings>();
+            var logger = Substitute.For<Microsoft.Extensions.Logging.ILogger<Dorc.Api.Controllers.MetadataController>>();
+            var configSettings = Substitute.For<Dorc.Core.Configuration.IConfigurationSettings>();
             configSettings.GetEnvironment(false).Returns("DV 01");
 
             var controller = new Dorc.Api.Controllers.MetadataController(logger, configSettings);
-            var result = controller.Get() as Microsoft.AspNetCore.Http.HttpResults.Ok<string>;
+            var result = controller.Get();
+            var okResult = result as Microsoft.AspNetCore.Http.HttpResults.Ok<string>;
 
-            Assert.IsNotNull(result);
-            StringAssert.StartsWith(result.Value, "DV 01 - ");
+            Assert.IsInstanceOfType<Microsoft.AspNetCore.Http.HttpResults.Ok<string>>(result);
+            StringAssert.StartsWith(okResult!.Value, "DV 01 - ");
 
             var fallbackController = new Dorc.Api.Controllers.MetadataController(logger);
-            var fallbackResult = fallbackController.Get() as Microsoft.AspNetCore.Http.HttpResults.Ok<string>;
-            Assert.IsNotNull(fallbackResult);
+            var fallbackResult = fallbackController.Get();
+            Assert.IsInstanceOfType<Microsoft.AspNetCore.Http.HttpResults.Ok<string>>(fallbackResult);
         }
 
         [TestMethod]

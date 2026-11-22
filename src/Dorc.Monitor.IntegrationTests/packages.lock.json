@@ -1752,8 +1752,8 @@
       },
       "System.CodeDom": {
         "type": "Transitive",
-        "resolved": "8.0.0",
-        "contentHash": "WTlRjL6KWIMr/pAaq3rYqh0TJlzpouaQ/W1eelssHgtlwHAH25jXTkUphTYx9HaIIf7XA6qs/0+YhtLEQRkJ+Q=="
+        "resolved": "9.0.10",
+        "contentHash": "00dAIR9Zx+F+AaipjaQmudX3VVpzYvT0bKVD3WcJq6om6pKNrldnp5bSR0VV6IlwDBa1HObGD+sTFaT/I9bBng=="
       },
       "System.Collections": {
         "type": "Transitive",
@@ -1973,10 +1973,10 @@
       },
       "System.Management": {
         "type": "Transitive",
-        "resolved": "8.0.0",
-        "contentHash": "jrK22i5LRzxZCfGb+tGmke2VH7oE0DvcDlJ1HAKYU8cPmD8XnpUT0bYn2Gy98GEhGjtfbR/sxKTVb+dE770pfA==",
+        "resolved": "9.0.10",
+        "contentHash": "kJY2C6MjKSqfRkEnc8gn4Jth81Anrgxxpu0MffjEadfpp0Ll/gdGpYnDhRWZd+iFttkfZC0uCjFmCrZARRqq4w==",
         "dependencies": {
-          "System.CodeDom": "8.0.0"
+          "System.CodeDom": "9.0.10"
         }
       },
       "System.Management.Automation": {
@@ -2256,10 +2256,11 @@
       },
       "System.Security.Cryptography.Xml": {
         "type": "Transitive",
-        "resolved": "8.0.5",
-        "contentHash": "vu85aidUbxTh39CXdo/4mgtDlBNQ0h6k7oq5RIBwV2V2QYbRvtY6XlV3ikwYIyLX/LyaOraVvoCVVYnjFbV4/w==",
+        "resolved": "9.0.22",
+        "contentHash": "R3CPBoGomums36+pYIK5G4MSC7gZETkYaVKFklrqum6s+K4iwcQ+k6l5/5S1GGcTQToQeXq/0R8RljWrSfj88w==",
         "dependencies": {
-          "System.Security.Cryptography.Pkcs": "8.0.2"
+          "Microsoft.Bcl.Cryptography": "9.0.22",
+          "System.Security.Cryptography.Pkcs": "9.0.22"
         }
       },
       "System.Security.Permissions": {
@@ -2724,6 +2725,40 @@
           "System.Runtime.Loader": "[4.3.0, )",
           "System.Security.Cryptography.Pkcs": "[9.0.22, )",
           "System.Security.Permissions": "[9.0.10, )",
+          "System.Text.RegularExpressions": "[4.3.1, )"
+        }
+      },
+      "dorc.powershell": {
+        "type": "Project",
+        "dependencies": {
+          "Dorc.ApiModel": "[1.0.0, )",
+          "Dorc.Runner.Logger": "[1.0.0, )",
+          "Microsoft.Extensions.Logging.Abstractions": "[10.0.3, )",
+          "Microsoft.PowerShell.SDK": "[7.4.22, )",
+          "Newtonsoft.Json": "[13.0.4, )",
+          "System.Management.Automation": "[7.4.22, )",
+          "System.Security.Cryptography.Pkcs": "[9.0.22, )",
+          "System.Security.Cryptography.Xml": "[9.0.22, )",
+          "System.Text.RegularExpressions": "[4.3.1, )"
+        }
+      },
+      "dorc.runner": {
+        "type": "Project",
+        "dependencies": {
+          "CommandLineParser": "[2.9.1, )",
+          "Dorc.ApiModel": "[1.0.0, )",
+          "Dorc.PowerShell": "[1.0.0, )",
+          "Dorc.Runner.Logger": "[1.0.0, )",
+          "Lamar": "[15.0.1, )",
+          "Microsoft.Extensions.Configuration": "[9.0.10, )",
+          "Microsoft.Extensions.Configuration.Json": "[9.0.10, )",
+          "Microsoft.Extensions.Logging": "[9.0.22, )",
+          "OpenSearch.Client": "[1.8.0, )",
+          "OpenTelemetry": "[1.15.3, )",
+          "OpenTelemetry.Exporter.Console": "[1.15.3, )",
+          "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.15.3, )",
+          "OpenTelemetry.Extensions.Hosting": "[1.15.3, )",
+          "System.Management": "[9.0.10, )",
           "System.Text.RegularExpressions": "[4.3.1, )"
         }
       },

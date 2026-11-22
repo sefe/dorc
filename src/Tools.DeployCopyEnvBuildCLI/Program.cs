@@ -5,8 +5,11 @@ using Microsoft.Extensions.Configuration;
 using RestSharp;
 using System;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Collections.Generic;
+
+[assembly: InternalsVisibleTo("Tools.RequestCLI.Tests")]
 
 namespace Tools.DeployCopyEnvBuildCLI
 {
@@ -24,68 +27,8 @@ namespace Tools.DeployCopyEnvBuildCLI
             
             try
             {
-                int intReturnCode = 0;
                 var api = new ApiCaller(new DorcOAuthClientConfiguration(config));
-
-                var targetEnvResult = api.Call<List<EnvironmentApiModel>>(Endpoints.RefDataEnvironments, Method.Get, new Dictionary<string, string> { { "env", arguments.TargetEnv } });
-
-                if (!targetEnvResult.IsModelValid || targetEnvResult.Value == null)
-                {
-                    Output(arguments.TargetEnv + " is not a valid target environment.");
-                    return 1;
-                }
-
-                var targetEnv = targetEnvResult.Value.FirstOrDefault();
-
-                if (targetEnv == null)
-                {
-                    Output(arguments.TargetEnv + " is not a valid target environment.");
-                    return 1;
-                }
-
-                if (targetEnv.EnvironmentIsProd)
-                {
-                    Output(arguments.TargetEnv + " is a production environment and cannot be used as a target for CopyEnvBuild.");
-                    return 1;
-                }
-
-                var copyEnvBuildDto = new CopyEnvBuildDto
-                {
-                    SourceEnv = arguments.SourceEnv,
-                    TargetEnv = arguments.TargetEnv,
-                    Project = arguments.Project,
-                    Components = arguments.Components
-                };
-
-                var requestBody = JsonSerializer.Serialize(copyEnvBuildDto);
-                var result = api.Call<CopyEnvBuildResponseDto>(Endpoints.CopyEnvBuild, Method.Post, null, requestBody);
-
-                if (!result.IsModelValid || result.Value == null || !result.Value.Success)
-                {
-                    Output("Error creating requests");
-                    
-                    string errorMessage = "Unknown error";
-                    if (!string.IsNullOrEmpty(result.ErrorMessage))
-                    {
-                        errorMessage = result.ErrorMessage;
-                    }
-                    else if (result.Value != null && !string.IsNullOrEmpty(result.Value.Message))
-                    {
-                        errorMessage = result.Value.Message;
-                    }
-                    
-                    Output(errorMessage);
-                    return 1;
-                }
-
-                Output($"Successfully created {result.Value.RequestIds.Count} request(s):");
-                foreach (var id in result.Value.RequestIds)
-                {
-                    Output($"  - Request ID: {id}");
-                }
-
-                intReturnCode = 0;
-                return intReturnCode;
+                return ExecuteCopyEnvBuild(api, arguments);
             }
             catch (InvalidOperationException configEx) when (configEx.Message.Contains("not configured"))
             {
@@ -104,7 +47,69 @@ namespace Tools.DeployCopyEnvBuildCLI
             }
         }
 
-        private static Arguments ParseArguments(string[] args)
+        internal static int ExecuteCopyEnvBuild(IApiCaller api, Arguments arguments)
+        {
+            var targetEnvResult = api.Call<List<EnvironmentApiModel>>(Endpoints.RefDataEnvironments, Method.Get, new Dictionary<string, string> { { "env", arguments.TargetEnv } });
+
+            if (!targetEnvResult.IsModelValid || targetEnvResult.Value == null)
+            {
+                Output(arguments.TargetEnv + " is not a valid target environment.");
+                return 1;
+            }
+
+            var targetEnv = targetEnvResult.Value.FirstOrDefault();
+
+            if (targetEnv == null)
+            {
+                Output(arguments.TargetEnv + " is not a valid target environment.");
+                return 1;
+            }
+
+            if (targetEnv.EnvironmentIsProd)
+            {
+                Output(arguments.TargetEnv + " is a production environment and cannot be used as a target for CopyEnvBuild.");
+                return 1;
+            }
+
+            var copyEnvBuildDto = new CopyEnvBuildDto
+            {
+                SourceEnv = arguments.SourceEnv,
+                TargetEnv = arguments.TargetEnv,
+                Project = arguments.Project,
+                Components = arguments.Components
+            };
+
+            var requestBody = JsonSerializer.Serialize(copyEnvBuildDto);
+            var result = api.Call<CopyEnvBuildResponseDto>(Endpoints.CopyEnvBuild, Method.Post, null, requestBody);
+
+            if (!result.IsModelValid || result.Value == null || !result.Value.Success)
+            {
+                Output("Error creating requests");
+                
+                string errorMessage = "Unknown error";
+                if (!string.IsNullOrEmpty(result.ErrorMessage))
+                {
+                    errorMessage = result.ErrorMessage;
+                }
+                else if (result.Value != null && !string.IsNullOrEmpty(result.Value.Message))
+                {
+                    errorMessage = result.Value.Message;
+                }
+                
+                Output(errorMessage);
+                return 1;
+            }
+
+            Output($"Successfully created {result.Value.RequestIds.Count} request(s):");
+            foreach (var id in result.Value.RequestIds)
+            {
+                Output($"  - Request ID: {id}");
+            }
+
+            return 0;
+        }
+
+        internal static Arguments ParseArguments(string[] args)
         {
             Arguments arguments= new Arguments();
             foreach (var strArgument in args)

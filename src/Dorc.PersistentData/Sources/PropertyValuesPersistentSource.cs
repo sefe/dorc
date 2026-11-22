@@ -767,9 +767,13 @@ namespace Dorc.PersistentData.Sources
 
         private static PropertyValue MapToPropertyValue(PropertyValueDto pv, Property prop)
         {
+            var rawValue = pv.Value?.ToString() ?? string.Empty;
+            var trimmed = rawValue.TrimStart();
             return new PropertyValue
             {
-                Value = prop.IsArray ? JsonSerializer.Serialize(pv.Value) : pv.Value.ToString(),
+                Value = prop.IsArray && !trimmed.StartsWith("[", StringComparison.Ordinal)
+                    ? JsonSerializer.Serialize(rawValue)
+                    : rawValue,
                 Property = prop,
             };
         }

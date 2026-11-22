@@ -54,6 +54,14 @@ steps:
     verbose: true
     customCommand: 'run build'
 
+- task: Npm@1
+  displayName: 'Run Web Regression Tests'
+  inputs:
+    command: custom
+    workingDir: 'src/dorc-web'
+    verbose: true
+    customCommand: 'test'
+
 - task: PowerShell@1
   displayName: 'Version AssemblyInfo Files'
   inputs:
@@ -146,10 +154,19 @@ steps:
     testAssemblyVer2: |
       **\*tests.dll
       !**\obj\**
-      !**\IntegrationTests\**
     runInParallel: true
     codeCoverageEnabled: true
-  continueOnError: true
+
+- task: PowerShell@1
+  displayName: 'Run DOrc.Cmdlet Pester Tests'
+  inputs:
+    scriptType: 'inlineScript'
+    inlineScript: |
+      Set-Location "$(Build.SourcesDirectory)\src\Tools.DOrc.Cmdlet"
+      $res = Invoke-Pester -Path .\DOrc.Cmdlet.tests.ps1 -PassThru
+      if (-not $res -or $res.FailedCount -gt 0) {
+        throw "DOrc.Cmdlet Pester tests failed ($($res.FailedCount) failures)."
+      }
   
 - task: sonarsource.sonarqube.6D01813A-9589-4B15-8491-8164AEB38055.SonarQubeAnalyze@6.3.2
   displayName: 'Complete the SonarQube analysis'

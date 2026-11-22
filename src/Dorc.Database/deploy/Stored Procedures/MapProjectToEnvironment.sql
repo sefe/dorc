@@ -24,7 +24,7 @@ ELSE IF @EnvironmentID is null
 		RETURN;
 	END
 
-SET @recordsCount =  (SELECT COUNT(id) FROM [deploy].[ProjectEnvironment] WHERE ProjectId = @ProjectID AND EnvironmentId = @EnvironmentID)
+SET @recordsCount =  (SELECT COUNT(*) FROM [deploy].[ProjectEnvironment] WHERE ProjectId = @ProjectID AND EnvironmentId = @EnvironmentID)
 IF @recordsCount = 0
 	BEGIN
 		INSERT INTO [Deploy].[ProjectEnvironment] (ProjectId, EnvironmentId)

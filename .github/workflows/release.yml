@@ -366,15 +366,16 @@ jobs:
         
         # Find test projects (plural *Tests.csproj only — singular *Test.csproj
         # picks up non-test projects like auto-generated client stubs).
-        # IntegrationTests and Acceptance are excluded — they need external resources.
+        # Acceptance is excluded — it runs against live environments / dacpac publish.
+        # Dorc.Monitor.IntegrationTests runs in-process against LocalDB.
+        $env:ConnectionStrings__DOrcConnectionString = "Server=(localdb)\MSSQLLocalDB;Integrated Security=true;TrustServerCertificate=true;"
         $testProjects = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.csproj" |
           Where-Object {
-            $_.FullName -notmatch "IntegrationTests" -and
             $_.FullName -notmatch "Acceptance"
           }
         
         if ($testProjects.Count -gt 0) {
-          Write-Host "Found $($testProjects.Count) test projects (excluding integration/acceptance tests):"
+          Write-Host "Found $($testProjects.Count) test projects (excluding acceptance tests):"
           $testProjects | ForEach-Object { Write-Host "  - $($_.FullName)" }
           
           $failedProjects = @()
@@ -389,6 +390,15 @@ jobs:
               Write-Host "::warning::dotnet test returned exit code $LASTEXITCODE for $($proj.Name)"
               $failedProjects += $proj.Name
             }
+          }
+
+          Write-Host "`nRunning Pester tests for: Tools.DOrc.Cmdlet"
+          Push-Location "${{ github.workspace }}\src\Tools.DOrc.Cmdlet"
+          $pesterResult = Invoke-Pester -Path .\DOrc.Cmdlet.tests.ps1 -PassThru
+          Pop-Location
+          if (-not $pesterResult -or $pesterResult.FailedCount -gt 0) {
+            Write-Host "::warning::Invoke-Pester failed for Tools.DOrc.Cmdlet"
+            $failedProjects += "Tools.DOrc.Cmdlet"
           }
           
           if ($failedProjects.Count -gt 0) {

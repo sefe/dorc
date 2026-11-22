@@ -1,9 +1,12 @@
 ﻿using System;
 using System.IO;
+using System.Runtime.CompilerServices;
 using Dorc.Core;
 using Dorc.Core.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+
+[assembly: InternalsVisibleTo("Tools.RequestCLI.Tests")]
 
 namespace Tools.PostRestoreEndurCLI
 {

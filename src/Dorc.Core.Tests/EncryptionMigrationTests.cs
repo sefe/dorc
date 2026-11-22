@@ -1,4 +1,5 @@
 using Dorc.Core.VariableResolution;
+using NSubstitute;
 using System.Security.Cryptography;
 
 namespace Dorc.Core.Tests
@@ -195,10 +196,13 @@ namespace Dorc.Core.Tests
                 new() { Id = 103, Key = "CfgBad", Secure = true, Value = "invalid-base64-!!!" }
             };
 
+            var propertiesDbSet = CreateQueryableDbSet(properties);
+            var propertyValuesDbSet = CreateQueryableDbSet(propertyValues);
+            var configValuesDbSet = CreateQueryableDbSet(configValues);
             var context = NSubstitute.Substitute.For<Dorc.PersistentData.Contexts.IDeploymentContext>();
-            context.Properties.Returns(CreateQueryableDbSet(properties));
-            context.PropertyValues.Returns(CreateQueryableDbSet(propertyValues));
-            context.ConfigValues.Returns(CreateQueryableDbSet(configValues));
+            context.Properties.Returns(propertiesDbSet);
+            context.PropertyValues.Returns(propertyValuesDbSet);
+            context.ConfigValues.Returns(configValuesDbSet);
 
             var contextFactory = NSubstitute.Substitute.For<Dorc.PersistentData.Contexts.IDeploymentContextFactory>();
             contextFactory.GetContext().Returns(context);

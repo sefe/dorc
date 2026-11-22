@@ -121,7 +121,7 @@ namespace Dorc.Monitor.IntegrationTests.Tests
             }
         }
 
-        // Test 2 Catalog update round-trip.
+        // Test 2 Catalog update round-trip and identity immutability guard.
         [TestMethod]
         public void UpdateComponent_CatalogMode_RoundTripsViaBothGetterPaths()
         {
@@ -154,25 +154,24 @@ namespace Dorc.Monitor.IntegrationTests.Tests
                 componentId = apiComponent.ComponentId ?? 0;
                 Assert.AreNotEqual(0, componentId);
 
-                // Update to sentinel B.
-                apiComponent.TerraformTemplateName = "sql-database";
-                apiComponent.TerraformTemplateVersion = "1.2.0";
+                // Updating mutable component flags preserves catalog identity via UpdateComponent.
+                apiComponent.StopOnFailure = true;
+                apiComponent.IsEnabled = false;
                 manageSource.UpdateComponent(apiComponent, projectId, parentId: null, username: "s001-test");
 
                 // Reload via Site 3.
                 var reloadedByName = componentsSource.GetComponentByName(componentName);
                 Assert.IsNotNull(reloadedByName);
-                Assert.AreEqual("sql-database", reloadedByName.TerraformTemplateName);
-                Assert.AreEqual("1.2.0", reloadedByName.TerraformTemplateVersion);
+                Assert.AreEqual("storage-account", reloadedByName.TerraformTemplateName);
+                Assert.AreEqual("1.0.0", reloadedByName.TerraformTemplateVersion);
+                Assert.IsTrue(reloadedByName.StopOnFailure);
+                Assert.IsFalse(reloadedByName.IsEnabled);
 
-                // Reload via EF entity directly to confirm the persistence layer (not just the projection) updated.
-                var contextFactory = provider.GetRequiredService<IDeploymentContextFactory>();
-                using (var context = contextFactory.GetContext())
-                {
-                    var entity = context.Components.Single(c => c.Id == componentId);
-                    Assert.AreEqual("sql-database", entity.TerraformTemplateName);
-                    Assert.AreEqual("1.2.0", entity.TerraformTemplateVersion);
-                }
+                // Attempting to mutate catalog template/version via reference-data UpdateComponent is rejected.
+                apiComponent.TerraformTemplateName = "sql-database";
+                apiComponent.TerraformTemplateVersion = "1.2.0";
+                Assert.ThrowsExactly<ArgumentException>(() =>
+                    manageSource.UpdateComponent(apiComponent, projectId, parentId: null, username: "s001-test"));
             }
             finally
             {

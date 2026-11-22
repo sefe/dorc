@@ -126,14 +126,14 @@ namespace Tools.EncryptionMigrationCLI
                                     continue;
                                 }
 
-                                if (items.All(i => i != null && i.StartsWith("v2:")))
+                                if (items.All(i => i == null || i.StartsWith("v2:")))
                                 {
                                     _log.LogDebug($"Property value {propertyValue.Id} (array) already migrated to v2");
                                     result.Skipped++;
                                     continue;
                                 }
 
-                                if (!force && items.All(i => i != null && (i.StartsWith("v1:") || i.StartsWith("v2:"))))
+                                if (!force && items.All(i => i == null || i.StartsWith("v1:") || i.StartsWith("v2:")))
                                 {
                                     _log.LogDebug($"Property value {propertyValue.Id} (array) is v1 format but not forced");
                                     result.Skipped++;
@@ -227,19 +227,19 @@ namespace Tools.EncryptionMigrationCLI
                         {
                             if (configValue.Value.StartsWith("v2:"))
                             {
-                                _log.LogDebug($"Config value '{configValue.Key}' already migrated to v2");
+                                _log.LogDebug($"Config value {configValue.Id} already migrated to v2");
                                 result.Skipped++;
                                 continue;
                             }
 
                             if (!force && configValue.Value.StartsWith("v1:"))
                             {
-                                _log.LogDebug($"Config value '{configValue.Key}' is v1 format but not forced");
+                                _log.LogDebug($"Config value {configValue.Id} is v1 format but not forced");
                                 result.Skipped++;
                                 continue;
                             }
 
-                            _log.LogInformation($"Migrating config value '{configValue.Key}'");
+                            _log.LogInformation($"Migrating config value {configValue.Id}");
                             var migratedConfigValue = _encryptor.MigrateFromLegacy(configValue.Value);
 
                             if (!dryRun)
@@ -259,7 +259,7 @@ namespace Tools.EncryptionMigrationCLI
                         }
                         catch (Exception ex) when (!(ex is OutOfMemoryException || ex is StackOverflowException))
                         {
-                            _log.LogError(ex, $"Failed to migrate config value '{configValue.Key}'");
+                            _log.LogError(ex, $"Failed to migrate config value {configValue.Id}");
                             result.Failed++;
                         }
                     }

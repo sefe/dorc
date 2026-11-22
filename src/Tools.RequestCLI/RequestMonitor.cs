@@ -9,6 +9,7 @@ namespace Tools.RequestCLI
     public class RequestMonitor
     {
         private readonly IApiCaller _api;
+        private readonly int _pollIntervalMilliseconds;
         private readonly List<string> _goodStatuses = new() {"Completed"};
         private readonly List<string> _badStatuses = new() { "Errored", "Cancelled", "Failed" };
         private readonly List<string> _validStatuses = new();
@@ -16,9 +17,10 @@ namespace Tools.RequestCLI
         public delegate void RequestStatusChanged(string message);
         public event RequestStatusChanged OnRequestStatusChanged;
 
-        public RequestMonitor(IApiCaller api)
+        public RequestMonitor(IApiCaller api, int pollIntervalMilliseconds = 5000)
         {
             _api = api;
+            _pollIntervalMilliseconds = pollIntervalMilliseconds;
             _validStatuses.AddRange(_goodStatuses);
             _validStatuses.AddRange(_badStatuses);
         }
@@ -38,7 +40,10 @@ namespace Tools.RequestCLI
                     OnRequestStatusChanged($"Request {id} changed status to {status}");
                 }
                 oldStatus = status;
-                Thread.Sleep(5000);
+                if (_pollIntervalMilliseconds > 0)
+                {
+                    Thread.Sleep(_pollIntervalMilliseconds);
+                }
             }
 
             return _goodStatuses.Contains(oldStatus) ? 0 : 2;

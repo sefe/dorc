@@ -3,16 +3,16 @@ using System.Xml.Linq;
 namespace Dorc.Core.Tests
 {
     [TestClass]
-    public class InstallerManifestParityTests
+    public class WixInstallerJsonTransformsTests
     {
-        private static readonly XNamespace WixNs = "http://schemas.microsoft.com/wix/2006/wi";
-        private static readonly XNamespace IisNs = "http://schemas.microsoft.com/wix/IIsExtension";
+        private static readonly XNamespace WixNs = "http://wixtoolset.org/schemas/v4/wxs";
+        private static readonly XNamespace IisNs = "http://wixtoolset.org/schemas/v4/wxs/iis";
         private static readonly XNamespace JsonNs = "http://schemas.hegsie.com/wix/JsonExtension";
 
         private static string GetRepoRoot()
         {
             var dir = new DirectoryInfo(AppContext.BaseDirectory);
-            while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "src", "Setup.Dorc")))
+            while (dir != null && !Directory.Exists(Path.Join(dir.FullName, "src", "Setup.Dorc")))
             {
                 dir = dir.Parent;
             }
@@ -20,10 +20,19 @@ namespace Dorc.Core.Tests
             return dir.FullName;
         }
 
+        private static string JoinUnderRoot(string root, params string[] relativeSegments)
+        {
+            foreach (var segment in relativeSegments)
+            {
+                Assert.IsFalse(Path.IsPathRooted(segment), $"Path segment '{segment}' must be relative.");
+            }
+            return Path.Join(new[] { root }.Concat(relativeSegments).ToArray());
+        }
+
         [TestMethod]
         public void RequestApiWxs_ProdAndNonProd_HaveSymmetricJsonTransformsAndProdUserAccount()
         {
-            var path = Path.Combine(GetRepoRoot(), "src", "Setup.Dorc", "Web", "RequestApi", "RequestApi.wxs");
+            var path = JoinUnderRoot(GetRepoRoot(), "src", "Setup.Dorc", "Web", "RequestApi", "RequestApi.wxs");
             var doc = XDocument.Load(path);
 
             var prodPool = doc.Descendants(IisNs + "WebAppPool")
@@ -52,7 +61,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void DOrcWebWxs_ProdAppPool_ReferencesDOrcWebServiceUserProd()
         {
-            var path = Path.Combine(GetRepoRoot(), "src", "Setup.Dorc", "Web", "Orchestrator", "DOrcWeb.wxs");
+            var path = JoinUnderRoot(GetRepoRoot(), "src", "Setup.Dorc", "Web", "Orchestrator", "DOrcWeb.wxs");
             var doc = XDocument.Load(path);
 
             var prodPool = doc.Descendants(IisNs + "WebAppPool")
@@ -61,14 +70,14 @@ namespace Dorc.Core.Tests
                 "DOrcWebAppPoolProd must reference DOrcWebServiceUserProd.");
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow("Request.wxs")]
         [DataRow("PropertyValueCreation.wxs")]
         [DataRow("PostRestoreEndur.wxs")]
         [DataRow("DeployCopyEnvBuild.wxs")]
         public void CliToolsWxs_StampAllFourDorcApiOAuthProperties(string wxsFileName)
         {
-            var path = Path.Combine(GetRepoRoot(), "src", "Setup.Dorc", "Tools", wxsFileName);
+            var path = JoinUnderRoot(GetRepoRoot(), "src", "Setup.Dorc", "Tools", wxsFileName);
             var doc = XDocument.Load(path);
 
             var elementPaths = doc.Descendants(JsonNs + "JsonFile")
@@ -84,7 +93,7 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void SetupAcceptanceProductWxs_StampsDorcApiSettings()
         {
-            var path = Path.Combine(GetRepoRoot(), "src", "Setup.Acceptance", "Product.wxs");
+            var path = JoinUnderRoot(GetRepoRoot(), "src", "Setup.Acceptance", "Product.wxs");
             var doc = XDocument.Load(path);
 
             var elementPaths = doc.Descendants(JsonNs + "JsonFile")
@@ -95,23 +104,6 @@ namespace Dorc.Core.Tests
                 new[] { "$.DorcApi.BaseUrl", "$.DorcApi.ClientId", "$.DorcApi.ClientSecret", "$.DorcApi.Scope" },
                 elementPaths.ToList(),
                 "Setup.Acceptance Product.wxs must stamp $.DorcApi.* settings into appsettings.test.json.");
-        }
-
-        [TestMethod]
-        public void ArchiveDeploymentRequestsSql_FiltersTerminalStatusesAndCleansDependentTables()
-        {
-            var path = Path.Combine(GetRepoRoot(), "src", "Dorc.Database", "deploy", "Stored Procedures", "ArchiveDeploymentRequests.sql");
-            var sql = File.ReadAllText(path);
-
-            StringAssert.Contains(sql, "d.Status IN ('Completed', 'Failed', 'Cancelled', 'Errored')");
-            Assert.IsFalse(sql.Contains("@MaxYearInArchive"), "ArchiveDeploymentRequests must not skip older unarchived years via @MaxYearInArchive");
-            StringAssert.Contains(sql, "DELETE FROM [deploy].[PowerShellExecutionReceipt]");
-            StringAssert.Contains(sql, "DELETE FROM [deploy].[TerraformDeploymentOutcome]");
-            StringAssert.Contains(sql, "DELETE FROM [deploy].[TerraformDeploymentReceipt]");
-            StringAssert.Contains(sql, "DELETE FROM [deploy].[TerraformPlanApproval]");
-            StringAssert.Contains(sql, "DELETE FROM [deploy].[CatalogRequestInputs]");
-            StringAssert.Contains(sql, "DELETE FROM [deploy].[CatalogSubmission]");
-            StringAssert.Contains(sql, "DELETE FROM [deploy].[DeploymentRequestDefinition]");
         }
     }
 }

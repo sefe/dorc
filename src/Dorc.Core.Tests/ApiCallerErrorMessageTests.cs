@@ -1,4 +1,5 @@
 using Dorc.Core;
+using Microsoft.Extensions.Configuration;
 
 namespace Dorc.Core.Tests
 {
@@ -91,7 +92,7 @@ namespace Dorc.Core.Tests
             Assert.AreEqual("42", result);
         }
 
-        [DataTestMethod]
+        [TestMethod]
         [DataRow(null, "dorc-api.manage")]
         [DataRow("", "dorc-api.manage")]
         [DataRow("   ", "dorc-api.manage")]
@@ -113,7 +114,7 @@ namespace Dorc.Core.Tests
                 .AddInMemoryCollection(settings)
                 .Build();
 
-            var oauthConfig = new DorcOAuthClientConfiguration(config);
+            var oauthConfig = new Dorc.Core.Configuration.DorcOAuthClientConfiguration(config);
 
             Assert.AreEqual("https://dorc.example.com", oauthConfig.BaseUrl);
             Assert.AreEqual("client-id", oauthConfig.ClientId);

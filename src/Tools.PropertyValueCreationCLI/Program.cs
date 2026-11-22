@@ -9,8 +9,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using ILogger = Microsoft.Extensions.Logging.ILogger;
+
+[assembly: InternalsVisibleTo("Tools.RequestCLI.Tests")]
 
 namespace Tools.PropertyValueCreationCLI
 {

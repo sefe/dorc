@@ -15,7 +15,7 @@ namespace Dorc.OpenSearchData
             {
                 var configRoot = ctx.TryGetInstance<IConfigurationRoot>() ?? fallbackConfigRoot;
                 return InitializeOpenSearchLogger(configRoot.GetSection("OpenSearchSettings"));
-            });
+            }).Singleton();
 
             For<IDeploymentLogService>().Use(ctx =>
             {
