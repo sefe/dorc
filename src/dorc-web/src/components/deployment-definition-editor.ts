@@ -1424,15 +1424,15 @@ export class DeploymentDefinitionEditor extends LitElement {
                       type="button"
                       class="param-picker-item"
                       @click=${() => {
-                      this.insertVariableIntoParameter(
-                        baseScriptPath,
-                        currentArgs,
-                        paramKey,
-                        prop.Name ?? '',
-                        isJsonPath
-                      );
-                      this.openPickerParamKey = '';
-                    }}
+                        this.insertVariableIntoParameter(
+                          baseScriptPath,
+                          currentArgs,
+                          paramKey,
+                          prop.Name ?? '',
+                          isJsonPath
+                        );
+                        this.openPickerParamKey = '';
+                      }}
                     >
                       <span>\${${prop.Name}}</span>
                       <span style="opacity:0.7"
@@ -2055,9 +2055,9 @@ export class DeploymentDefinitionEditor extends LitElement {
                                 title="Bind variable (\${VariableName}) or create new variable for ${param.name}"
                                 aria-label="Bind variable to ${param.name}"
                                 @click=${(e: Event) => {
-                                e.stopPropagation();
-                                this.toggleParameterPicker(param.name);
-                              }}
+                                  e.stopPropagation();
+                                  this.toggleParameterPicker(param.name);
+                                }}
                               >
                                 ${'{x}'}
                               </button>`
@@ -2070,45 +2070,45 @@ export class DeploymentDefinitionEditor extends LitElement {
                                     >${param.name}</code
                                   >
                                   ${
-                                  param.required
-                                    ? html`<span class="param-req-badge"
-                                        >Required</span
+                                    param.required
+                                      ? html`<span class="param-req-badge"
+                                          >Required</span
+                                        >`
+                                      : nothing
+                                  }
+                                </div>
+                                ${
+                                  param.helperText
+                                    ? html`<span
+                                        class="param-caption"
+                                        title=${param.helperText}
+                                        >${param.helperText}</span
                                       >`
                                     : nothing
                                 }
-                                </div>
-                                ${
-                                param.helperText
-                                  ? html`<span
-                                      class="param-caption"
-                                      title=${param.helperText}
-                                      >${param.helperText}</span
-                                    >`
-                                  : nothing
-                              }
                               </div>
                             </td>
                             <td class="arg-col-value">
                               <div class="param-cell">
                                 ${
-                                param.options
-                                  ? html`<vaadin-combo-box
-                                      aria-label=${param.label}
-                                      theme="small"
-                                      .items=${
+                                  param.options
+                                    ? html`<vaadin-combo-box
+                                        aria-label=${param.label}
+                                        theme="small"
+                                        .items=${
                                         currentVal &&
                                         !param.options.includes(currentVal)
                                           ? [...param.options, currentVal]
                                           : param.options
                                       }
-                                      allow-custom-value
-                                      .value=${live(currentVal)}
-                                      .readonly=${this.readonly}
-                                      ?required=${Boolean(param.required)}
-                                      @focus=${() => {
+                                        allow-custom-value
+                                        .value=${live(currentVal)}
+                                        .readonly=${this.readonly}
+                                        ?required=${Boolean(param.required)}
+                                        @focus=${() => {
                                         this.activeParameterKey = param.name;
                                       }}
-                                      @custom-value-set=${(
+                                        @custom-value-set=${(
                                         event: CustomEvent<string>
                                       ) => {
                                         const customVal = event.detail ?? '';
@@ -2122,7 +2122,7 @@ export class DeploymentDefinitionEditor extends LitElement {
                                           );
                                         }
                                       }}
-                                      @value-changed=${(
+                                        @value-changed=${(
                                         event: CustomEvent<{ value: string }>
                                       ) => {
                                         const nextVal =
@@ -2140,47 +2140,47 @@ export class DeploymentDefinitionEditor extends LitElement {
                                           );
                                         }
                                       }}
-                                      @input=${updateParam}
-                                      @change=${updateParam}
-                                      >${suffixBtn}</vaadin-combo-box
-                                    >`
-                                  : html`<vaadin-text-field
-                                      aria-label=${param.label}
-                                      theme="small"
-                                      .placeholder=${param.placeholder ?? ''}
-                                      .value=${live(currentVal)}
-                                      .readonly=${this.readonly}
-                                      ?required=${Boolean(param.required)}
-                                      @focus=${() => {
+                                        @input=${updateParam}
+                                        @change=${updateParam}
+                                        >${suffixBtn}</vaadin-combo-box
+                                      >`
+                                    : html`<vaadin-text-field
+                                        aria-label=${param.label}
+                                        theme="small"
+                                        .placeholder=${param.placeholder ?? ''}
+                                        .value=${live(currentVal)}
+                                        .readonly=${this.readonly}
+                                        ?required=${Boolean(param.required)}
+                                        @focus=${() => {
                                         this.activeParameterKey = param.name;
                                       }}
-                                      @input=${updateParam}
-                                      @change=${updateParam}
-                                      >${suffixBtn}</vaadin-text-field
-                                    >`
-                              }
+                                        @input=${updateParam}
+                                        @change=${updateParam}
+                                        >${suffixBtn}</vaadin-text-field
+                                      >`
+                                }
                                 ${this.renderParameterVariableControls(
-                                template!.scriptPath,
-                                parsed.arguments,
-                                param.name,
-                                currentVal,
-                                parsed.isJsonPath
-                              )}
+                                  template!.scriptPath,
+                                  parsed.arguments,
+                                  param.name,
+                                  currentVal,
+                                  parsed.isJsonPath
+                                )}
                               </div>
                             </td>
                             <td class="arg-col-preview">
                               ${this.renderParameterResolutionPreviewCell(
-                              currentVal,
-                              hasExplicitOverride
-                            )}
+                                currentVal,
+                                hasExplicitOverride
+                              )}
                             </td>
                             <td class="arg-col-actions">
                               ${
-                              hasExplicitOverride && !this.readonly
-                                ? html`<vaadin-button
-                                    theme="small tertiary"
-                                    aria-label="Clear ${param.name}"
-                                    @click=${() => {
+                                hasExplicitOverride && !this.readonly
+                                  ? html`<vaadin-button
+                                      theme="small tertiary"
+                                      aria-label="Clear ${param.name}"
+                                      @click=${() => {
                                       const removedIndices: number[] = [];
                                       parsed.arguments.forEach((a, idx) => {
                                         if (
@@ -2214,10 +2214,10 @@ export class DeploymentDefinitionEditor extends LitElement {
                                         )
                                       });
                                     }}
-                                    >Clear</vaadin-button
-                                  >`
-                                : nothing
-                            }
+                                      >Clear</vaadin-button
+                                    >`
+                                  : nothing
+                              }
                             </td>
                           </tr>`;
                         }
@@ -2733,10 +2733,12 @@ export class DeploymentDefinitionEditor extends LitElement {
                               class="optional-param-chip"
                               title=${opt.helperText || opt.label}
                               @click=${() => {
-                              const next = new Set(this.revealedOptionalParams);
-                              next.add(opt.name.toLowerCase());
-                              this.revealedOptionalParams = next;
-                            }}
+                                const next = new Set(
+                                  this.revealedOptionalParams
+                                );
+                                next.add(opt.name.toLowerCase());
+                                this.revealedOptionalParams = next;
+                              }}
                             >
                               + ${opt.name}
                             </button>`
@@ -2833,7 +2835,6 @@ export class DeploymentDefinitionEditor extends LitElement {
             .items=${Object.values(ComponentType)}
             .value=${live(executionType)}
             .disabled=${this.readonly}
-            helper-text="Choose PowerShell or Terraform before saving this new step."
             @value-changed=${(event: CustomEvent<{ value: string }>) => {
               const value =
                 event.detail?.value ??

@@ -37,6 +37,8 @@ import GlobalCache from '../global-cache';
 import {
   GENERIC_SCRIPT_CATEGORIES,
   GENERIC_SCRIPT_TEMPLATES,
+  findGenericScriptTemplate,
+  parseScriptPathValue,
   serializeScriptPathValue,
   type GenericScriptTemplate
 } from '../helpers/generic-scripts';
@@ -90,6 +92,32 @@ function isReferenceDocument(value: unknown): value is ReferenceDocument {
   return value.Components.every(validNode);
 }
 
+function buildGenericTemplateDraft(
+  template: GenericScriptTemplate,
+  psVersion = '5.1'
+): ComponentApiModel {
+  const defaultArgs = template.parameters
+    .filter(param => Boolean(param.required && param.options?.[0]))
+    .map(param => ({ key: param.name, value: param.options![0] }));
+  return {
+    ComponentId: 0,
+    ComponentName: template.defaultStepName,
+    ComponentType: ComponentType.PowerShell,
+    TerraformSourceType: TerraformSourceType.SharedFolder,
+    ScriptPath: serializeScriptPathValue(
+      template.scriptPath,
+      defaultArgs,
+      true
+    ),
+    PSVersion: psVersion,
+    IsEnabled: true,
+    StopOnFailure: true,
+    NonProdOnly: false,
+    ParentId: 0,
+    Children: []
+  };
+}
+
 @customElement('page-project-ref-data')
 export class PageProjectRefData extends PageElement {
   @state() private document: ReferenceDocument | undefined;
@@ -110,12 +138,9 @@ export class PageProjectRefData extends PageElement {
   @state() private scriptCatalogOpen = false;
   @state() private scriptCatalogSearch = '';
   @state() private scriptCatalogCategory = 'All';
-  @state() private selectedGenericTemplateId =
-    GENERIC_SCRIPT_TEMPLATES[0]?.id ?? '';
-  @state() private genericDialogStepName =
-    GENERIC_SCRIPT_TEMPLATES[0]?.defaultStepName ?? 'Deploy MSI';
-  @state() private genericDialogPsVersion = '5.1';
-  @state() private genericDialogArgs: Record<string, string> = {};
+  @state() private selectedGenericTemplateId = GENERIC_SCRIPT_TEMPLATES[0].id;
+  @state() private genericDialogDraft: ComponentApiModel =
+    buildGenericTemplateDraft(GENERIC_SCRIPT_TEMPLATES[0]);
   @state() private scriptCatalogLoading = false;
   @state() private scriptCatalogItems: DeploymentDefinitionApiModel[] = [];
   @state() private isAdmin = false;
@@ -334,8 +359,8 @@ export class PageProjectRefData extends PageElement {
       padding: var(--lumo-space-m);
     }
     .script-catalog-dialog {
-      width: min(980px, 94vw);
-      max-height: 86vh;
+      width: min(1220px, 96vw);
+      max-height: 88vh;
       background: var(--dorc-bg-primary, #ffffff);
       color: var(--dorc-text-primary);
       border: 1px solid var(--dorc-border-color);
@@ -347,37 +372,45 @@ export class PageProjectRefData extends PageElement {
     }
     .script-catalog-dialog-header {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       justify-content: space-between;
       gap: var(--lumo-space-m);
-      padding: var(--lumo-space-m) var(--lumo-space-l);
+      padding: 8px var(--lumo-space-m);
       border-bottom: 1px solid var(--dorc-border-color);
     }
     .script-catalog-dialog-header h2 {
       margin: 0;
-      font-size: var(--lumo-font-size-l);
+      font-size: var(--lumo-font-size-m);
     }
     .script-catalog-dialog-header p {
-      margin: 2px 0 0;
+      margin: 1px 0 0;
       font-size: var(--lumo-font-size-xs);
     }
     .script-catalog-toolbar {
       display: flex;
-      flex-direction: column;
-      gap: var(--lumo-space-xs);
-      padding: var(--lumo-space-s) var(--lumo-space-l);
+      flex-direction: row;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: var(--lumo-space-s);
+      padding: 6px var(--lumo-space-m);
       background: var(--dorc-bg-secondary);
       border-bottom: 1px solid var(--dorc-border-color);
+    }
+    .script-catalog-search {
+      width: 260px;
+      flex: 0 1 260px;
+      padding: 0;
     }
     .script-catalog-categories {
       display: flex;
       flex-wrap: wrap;
-      gap: 6px;
+      gap: 4px;
+      flex: 1;
     }
     .category-pill {
       font: inherit;
-      font-size: var(--lumo-font-size-xs);
-      padding: 3px 10px;
+      font-size: 11px;
+      padding: 2px 9px;
       border-radius: 999px;
       border: 1px solid var(--dorc-border-color);
       background: var(--dorc-bg-primary, #ffffff);
@@ -394,32 +427,32 @@ export class PageProjectRefData extends PageElement {
       flex: 1;
       min-height: 0;
       display: grid;
-      grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+      grid-template-columns: 260px minmax(0, 1fr);
       overflow: hidden;
     }
     .script-catalog-list {
       list-style: none;
       margin: 0;
-      padding: var(--lumo-space-s);
+      padding: 6px 8px;
       overflow-y: auto;
       border-inline-end: 1px solid var(--dorc-border-color);
       display: flex;
       flex-direction: column;
-      gap: 6px;
+      gap: 4px;
     }
     .script-catalog-card {
       width: 100%;
       text-align: start;
       font: inherit;
-      padding: var(--lumo-space-s);
+      padding: 6px 10px;
       background: var(--dorc-bg-primary, #ffffff);
       color: var(--dorc-text-primary);
       border: 1px solid var(--dorc-border-color);
-      border-radius: var(--lumo-border-radius-m);
+      border-radius: var(--lumo-border-radius-s);
       cursor: pointer;
       display: flex;
       flex-direction: column;
-      gap: 3px;
+      gap: 2px;
     }
     .script-catalog-card:hover {
       background: var(--dorc-bg-secondary);
@@ -430,27 +463,51 @@ export class PageProjectRefData extends PageElement {
       border-color: var(--dorc-icon-interactive);
     }
     .script-catalog-card strong {
-      font-size: var(--lumo-font-size-s);
+      font-size: var(--lumo-font-size-xs);
+      line-height: 1.25;
+    }
+    .script-catalog-card-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-size: 11px;
     }
     .script-catalog-card code {
-      font-size: var(--lumo-font-size-xs);
+      font-size: 11px;
       color: var(--dorc-text-secondary-strong);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .script-catalog-card span {
+      font-size: 10px;
+      color: var(--dorc-text-secondary-strong);
+      white-space: nowrap;
     }
     .script-catalog-detail {
-      padding: var(--lumo-space-m) var(--lumo-space-l);
+      padding: var(--lumo-space-s) var(--lumo-space-m);
       overflow-y: auto;
       display: flex;
       flex-direction: column;
+      gap: var(--lumo-space-xs);
+    }
+    .script-catalog-detail-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
       gap: var(--lumo-space-s);
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--dorc-border-color);
     }
     .script-catalog-detail h3 {
       margin: 0;
-      font-size: var(--lumo-font-size-m);
+      font-size: var(--lumo-font-size-s);
     }
-    .script-catalog-detail-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: var(--lumo-space-xs) var(--lumo-space-m);
+    .script-catalog-detail-header p {
+      margin: 1px 0 0;
+      font-size: var(--lumo-font-size-xs);
     }
     .script-catalog-item {
       display: flex;
@@ -643,8 +700,7 @@ export class PageProjectRefData extends PageElement {
       }
       .project-fields,
       .diff,
-      .script-catalog-body,
-      .script-catalog-detail-grid {
+      .script-catalog-body {
         grid-template-columns: 1fr;
       }
       aside {
@@ -1187,51 +1243,54 @@ export class PageProjectRefData extends PageElement {
 
   private toggleScriptCatalog() {
     this.scriptCatalogOpen = !this.scriptCatalogOpen;
-    if (this.scriptCatalogOpen) {
-      if (!this.selectedGenericTemplateId && GENERIC_SCRIPT_TEMPLATES[0]) {
-        this.selectDialogGenericTemplate(GENERIC_SCRIPT_TEMPLATES[0]);
-      }
-      if (this.scriptCatalogItems.length === 0) {
-        this.loadScriptCatalog();
-      }
+    if (this.scriptCatalogOpen && this.scriptCatalogItems.length === 0) {
+      this.loadScriptCatalog();
     }
   }
 
   private selectDialogGenericTemplate(template: GenericScriptTemplate) {
     this.selectedGenericTemplateId = template.id;
-    this.genericDialogStepName = template.defaultStepName;
-    const defaults: Record<string, string> = {};
-    for (const param of template.parameters) {
-      defaults[param.name] = param.options?.[0] ?? '';
-    }
-    this.genericDialogArgs = defaults;
+    this.genericDialogDraft = buildGenericTemplateDraft(
+      template,
+      this.genericDialogDraft.PSVersion!
+    );
   }
 
-  private addConfiguredGenericScript(asSiblingOfSelected: boolean) {
-    const template =
-      GENERIC_SCRIPT_TEMPLATES.find(
-        item => item.id === this.selectedGenericTemplateId
-      ) ?? GENERIC_SCRIPT_TEMPLATES[0];
-    if (!template) return;
+  private onGenericDialogDraftChanged(event: CustomEvent<ComponentApiModel>) {
+    const updated = event.detail;
+    this.genericDialogDraft = updated;
+    const matched = findGenericScriptTemplate(updated.ScriptPath);
+    if (matched) {
+      this.selectedGenericTemplateId = matched.id;
+    }
+  }
+
+  private addConfiguredGenericScript(
+    template: GenericScriptTemplate,
+    asSiblingOfSelected: boolean
+  ) {
+    const draft = this.genericDialogDraft;
+    const parsed = parseScriptPathValue(draft.ScriptPath);
     // Unfilled template parameters are omitted so they fall back to the
     // environment property of the same name rather than shadowing it with "".
-    const args = template.parameters
-      .map(param => ({
-        key: param.name,
-        value: this.genericDialogArgs[param.name] ?? ''
-      }))
-      .filter(arg => arg.value.trim().length > 0);
-    const scriptPath = serializeScriptPathValue(template.scriptPath, args);
+    const args = parsed.arguments.filter(
+      arg => arg.key.trim().length > 0 && arg.value.trim().length > 0
+    );
+    const scriptPath = serializeScriptPathValue(
+      parsed.scriptPath || template.scriptPath,
+      args
+    );
     this.addScriptFromCatalog(
       {
-        ComponentName: this.genericDialogStepName || template.defaultStepName,
-        ScriptPath: scriptPath,
-        PSVersion: this.genericDialogPsVersion || '5.1',
-        IsEnabled: true,
-        StopOnFailure: true,
-        NonProdOnly: false
+        ...draft,
+        ComponentName: draft.ComponentName || template.defaultStepName,
+        ScriptPath: scriptPath
       },
       asSiblingOfSelected
+    );
+    this.genericDialogDraft = buildGenericTemplateDraft(
+      template,
+      draft.PSVersion ?? '5.1'
     );
     this.scriptCatalogOpen = false;
   }
@@ -1849,15 +1908,6 @@ export class PageProjectRefData extends PageElement {
         item => item.id === this.selectedGenericTemplateId
       ) ??
       filteredTemplates[0];
-    const previewScriptPath = activeTemplate
-      ? serializeScriptPathValue(
-          activeTemplate.scriptPath,
-          activeTemplate.parameters.map(param => ({
-            key: param.name,
-            value: this.genericDialogArgs[param.name] ?? ''
-          }))
-        )
-      : '';
 
     return html`
       <div
@@ -1886,13 +1936,13 @@ export class PageProjectRefData extends PageElement {
               </h2>
               <p>
                 Select a predefined PowerShell script from the Azure DevOps
-                <code>project-scripts</code> repository and fill in its
+                <code>project-scripts</code> repository and configure its
                 <code>GenericArguments</code>, or reuse an existing project
                 script step.
               </p>
             </div>
             <vaadin-button
-              theme="tertiary"
+              theme="small tertiary"
               @click=${() => {
                 this.scriptCatalogOpen = false;
               }}
@@ -1901,8 +1951,11 @@ export class PageProjectRefData extends PageElement {
           </div>
           <div class="script-catalog-toolbar">
             <vaadin-text-field
-              label="Filter generic scripts or project steps"
-              placeholder="Search DeployMSI, DACPAC, ControlServices, ActiveBatch, 00 Generic..."
+              class="script-catalog-search"
+              theme="small"
+              clear-button-visible
+              aria-label="Filter generic scripts or project steps"
+              placeholder="Filter scripts or project steps..."
               .value=${this.scriptCatalogSearch}
               @input=${(event: Event) => {
                 this.scriptCatalogSearch = (
@@ -1951,8 +2004,12 @@ export class PageProjectRefData extends PageElement {
                       @click=${() => this.selectDialogGenericTemplate(item)}
                     >
                       <strong>${item.name}</strong>
-                      <code>${item.scriptPath}</code>
-                      <span>${item.category}</span>
+                      <div class="script-catalog-card-meta">
+                        <code title=${item.scriptPath}
+                          >${item.scriptPath.replace(/^00 Generic\\/i, '')}</code
+                        >
+                        <span>${item.category}</span>
+                      </div>
                     </button>
                   </li>
                 `
@@ -1962,108 +2019,54 @@ export class PageProjectRefData extends PageElement {
               ${
                 activeTemplate
                   ? html`
-                      <div>
-                        <h3>${activeTemplate.name}</h3>
-                        <p>${activeTemplate.description}</p>
-                      </div>
-                      <div class="script-catalog-detail-grid">
-                        <vaadin-text-field
-                          label="Step name"
-                          .value=${this.genericDialogStepName}
-                          @input=${(event: Event) => {
-                            this.genericDialogStepName = (
-                              event.currentTarget as HTMLInputElement
-                            ).value;
-                          }}
-                        ></vaadin-text-field>
-                        <vaadin-combo-box
-                          label="PowerShell version"
-                          .items=${
-                            this.powerShellVersions.length
-                              ? this.powerShellVersions
-                              : ['5.1', '7.4']
-                          }
-                          .value=${this.genericDialogPsVersion}
-                          @change=${(event: Event) => {
-                            this.genericDialogPsVersion =
-                              (event.currentTarget as HTMLInputElement).value ||
-                              '5.1';
-                          }}
-                        ></vaadin-combo-box>
-                        ${activeTemplate.parameters.map(param =>
-                          param.options
-                            ? html`<vaadin-combo-box
-                                .label=${param.label}
-                                .items=${param.options}
-                                .value=${this.genericDialogArgs[param.name] ?? ''}
-                                .helperText=${param.helperText ?? ''}
-                                ?required=${Boolean(param.required)}
-                                @change=${(event: Event) => {
-                                  this.genericDialogArgs = {
-                                    ...this.genericDialogArgs,
-                                    [param.name]: (
-                                      event.currentTarget as HTMLInputElement
-                                    ).value
-                                  };
-                                }}
-                              ></vaadin-combo-box>`
-                            : html`<vaadin-text-field
-                                .label=${param.label}
-                                .placeholder=${param.placeholder ?? ''}
-                                .value=${this.genericDialogArgs[param.name] ?? ''}
-                                .helperText=${param.helperText ?? ''}
-                                ?required=${Boolean(param.required)}
-                                @input=${(event: Event) => {
-                                  this.genericDialogArgs = {
-                                    ...this.genericDialogArgs,
-                                    [param.name]: (
-                                      event.currentTarget as HTMLInputElement
-                                    ).value
-                                  };
-                                }}
-                              ></vaadin-text-field>`
-                        )}
-                      </div>
-                      <div>
-                        <p>
-                          Generated <code>ScriptPath</code>:
-                          <code>${previewScriptPath}</code>
-                        </p>
-                        ${
-                          activeTemplate.requiredEnvironmentProperties?.length
-                            ? html`<p>
-                                Standard DOrc environment properties used:
-                                <code
-                                  >${activeTemplate.requiredEnvironmentProperties.join(
-                                    ', '
-                                  )}</code
-                                >
-                              </p>`
-                            : nothing
-                        }
-                      </div>
-                      <div class="actions">
-                        <vaadin-button
-                          theme="primary"
-                          @click=${() =>
-                            this.addConfiguredGenericScript(Boolean(selected))}
-                        >
+                      <div class="script-catalog-detail-header">
+                        <div>
+                          <h3>${activeTemplate.name}</h3>
+                          <p>${activeTemplate.description}</p>
+                        </div>
+                        <div class="actions">
+                          <vaadin-button
+                            theme="small primary"
+                            @click=${() =>
+                              this.addConfiguredGenericScript(
+                                activeTemplate,
+                                Boolean(selected)
+                              )}
+                          >
+                            ${
+                              selected
+                                ? `Add "${activeTemplate.name}" as sibling`
+                                : `Add "${activeTemplate.name}" step`
+                            }
+                          </vaadin-button>
                           ${
                             selected
-                              ? `Add "${activeTemplate.name}" as sibling`
-                              : `Add "${activeTemplate.name}" step`
+                              ? html`<vaadin-button
+                                  theme="small"
+                                  @click=${() =>
+                                    this.addConfiguredGenericScript(
+                                      activeTemplate,
+                                      false
+                                    )}
+                                  >Add at project root</vaadin-button
+                                >`
+                              : nothing
                           }
-                        </vaadin-button>
-                        ${
-                          selected
-                            ? html`<vaadin-button
-                                @click=${() =>
-                                  this.addConfiguredGenericScript(false)}
-                                >Add at project root</vaadin-button
-                              >`
-                            : nothing
-                        }
+                        </div>
                       </div>
+                      <deployment-definition-editor
+                        .component=${this.genericDialogDraft}
+                        .project=${this.document?.Project}
+                        .readonly=${!this.editable}
+                        .powerShellVersions=${
+                          this.powerShellVersions.length
+                            ? this.powerShellVersions
+                            : ['5.1', '7.4']
+                        }
+                        @definition-changed=${(
+                          event: CustomEvent<ComponentApiModel>
+                        ) => this.onGenericDialogDraftChanged(event)}
+                      ></deployment-definition-editor>
                     `
                   : nothing
               }
