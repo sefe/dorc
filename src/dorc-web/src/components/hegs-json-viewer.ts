@@ -441,6 +441,10 @@ export function getTokenBadgeAppearance(
     return { cssClass: 'token-error', badgeLabel: 'Nested $Var$ Missing' };
   }
 
+  if (trace.Diagnostic === 'ScopeResolutionError') {
+    return { cssClass: 'token-error', badgeLabel: 'Scope Options Error' };
+  }
+
   if (trace.IsSecure || trace.Diagnostic === 'Masked') {
     return {
       cssClass: 'token-secure',
@@ -1052,7 +1056,10 @@ export class HegsJsonViewer extends LitElement {
       changedProps.has('resolutionCache')
     ) {
       this.refreshPropertyTraces();
-    } else if (changedProps.has('compareEnvironmentName')) {
+    } else if (
+      changedProps.has('compareEnvironmentName') ||
+      changedProps.has('compareEnvironmentOptions')
+    ) {
       this.refreshCompareTraces();
     }
   }
@@ -1064,6 +1071,14 @@ export class HegsJsonViewer extends LitElement {
     }
     const primaryEnv = this.resolutionContext?.environmentName?.trim() ?? '';
     if (primaryEnv && primaryEnv.toLowerCase() === trimmed.toLowerCase()) {
+      return '';
+    }
+    if (
+      this.compareEnvironmentOptions.length > 0 &&
+      !this.compareEnvironmentOptions.some(
+        opt => opt.trim().toLowerCase() === trimmed.toLowerCase()
+      )
+    ) {
       return '';
     }
     return trimmed;
@@ -1385,9 +1400,11 @@ export class HegsJsonViewer extends LitElement {
               part="compare-diff-badge"
               title="Differs in ${compareEnv}"
               >≠ ${compareEnv}:
-              ${compareEvaluated.status === 'resolved'
-                ? JSON.stringify(compareEvaluated.resolvedValue)
-                : compareEvaluated.resolvedDisplayString}</span
+              ${
+                compareEvaluated.status === 'resolved'
+                  ? JSON.stringify(compareEvaluated.resolvedValue)
+                  : compareEvaluated.resolvedDisplayString
+              }</span
             >`
           : nothing
       }</span
@@ -1434,12 +1451,14 @@ export class HegsJsonViewer extends LitElement {
     if (token.kind === 'unclosed-token') {
       return html`<span
         part="unclosed-token"
-        class="token-chip ${hasBlockedPropertyTokens
-          ? 'token-error'
-          : 'token-default'}"
-        title="${hasBlockedPropertyTokens
-          ? 'Unescaped $ prevents $Variable$ expansion — escape as $$'
-          : 'Literal $ (kept as-is unless combined with $Variable$ tokens)'}"
+        class="token-chip ${
+          hasBlockedPropertyTokens ? 'token-error' : 'token-default'
+        }"
+        title="${
+          hasBlockedPropertyTokens
+            ? 'Unescaped $ prevents $Variable$ expansion — escape as $$'
+            : 'Literal $ (kept as-is unless combined with $Variable$ tokens)'
+        }"
         >${escapeJsonStringSegment(token.rawText)}</span
       >`;
     }
@@ -1464,7 +1483,10 @@ export class HegsJsonViewer extends LitElement {
       if (trace.IsSecure || trace.Diagnostic === 'Masked') {
         secretCount++;
       }
-      if (trace.Source === 'Unresolved' || trace.Diagnostic === 'MissingInScope') {
+      if (
+        trace.Source === 'Unresolved' ||
+        trace.Diagnostic === 'MissingInScope'
+      ) {
         missingCount++;
       } else {
         resolvedCount++;
@@ -1502,7 +1524,8 @@ export class HegsJsonViewer extends LitElement {
           <span class="context-counts-text" part="context-counts">
             ${this.referencedNames.length}
             ${this.referencedNames.length === 1 ? 'property' : 'properties'}
-            (${resolvedCount} resolved${
+            (${resolvedCount}
+            resolved${
               missingCount > 0 ? `, ${missingCount} missing` : ''
             }${secretCount > 0 ? `, ${secretCount} secret` : ''})
           </span>
@@ -1515,7 +1538,6 @@ export class HegsJsonViewer extends LitElement {
               placeholder="Compare env..."
               aria-label="Compare environment"
               .value="${this.compareEnvironmentName}"
-              @input="${this.handleCompareEnvironmentInput}"
               @change="${this.handleCompareEnvironmentInput}"
             />
             ${
@@ -1530,14 +1552,16 @@ export class HegsJsonViewer extends LitElement {
             ${
               compareEnv && this.compareTraces.size > 0
                 ? html`<span
-                    class="compare-summary-pill ${diffCount > 0
-                      ? 'has-diff'
-                      : 'all-match'}"
+                    class="compare-summary-pill ${
+                      diffCount > 0 ? 'has-diff' : 'all-match'
+                    }"
                     part="compare-summary"
                   >
-                    ${diffCount > 0
-                      ? `${diffCount} differ in ${compareEnv}`
-                      : `All match ${compareEnv}`}
+                    ${
+                      diffCount > 0
+                        ? `${diffCount} differ in ${compareEnv}`
+                        : `All match ${compareEnv}`
+                    }
                   </span>`
                 : nothing
             }
@@ -1617,6 +1641,16 @@ export class HegsJsonViewer extends LitElement {
       propName
     )}${rawScope ? `&scope=${encodeURIComponent(rawScope)}` : ''}`;
 
+    const isMaskedOrSecure = Boolean(
+      trace?.IsSecure || trace?.Diagnostic === 'Masked'
+    );
+    const rawDisplay = isMaskedOrSecure
+      ? presented.effectiveDisplayValue
+      : (trace?.RawValue ?? '(not defined)');
+    const safeChain = (trace?.ResolutionChain ?? []).map(hop =>
+      isMaskedOrSecure ? hop.replace(/->\s*.*$/, '-> •••••••• (Secure)') : hop
+    );
+
     return html`
       <div class="inspector-card" part="inspector-card">
         <div class="inspector-header">
@@ -1637,13 +1671,9 @@ export class HegsJsonViewer extends LitElement {
         </div>
         <div class="inspector-grid">
           <span class="inspector-label">Raw</span>
-          <code class="inspector-code"
-            >${trace?.RawValue ?? '(not defined)'}</code
-          >
+          <code class="inspector-code">${rawDisplay}</code>
           <span class="inspector-label">Resolved</span>
-          <code class="inspector-code"
-            >${presented.effectiveDisplayValue}</code
-          >
+          <code class="inspector-code">${presented.effectiveDisplayValue}</code>
           <span class="inspector-label">Diagnostic</span>
           <code class="inspector-code"
             >${
@@ -1663,10 +1693,10 @@ export class HegsJsonViewer extends LitElement {
           }
         </div>
         ${
-          trace?.ResolutionChain && trace.ResolutionChain.length > 0
+          safeChain.length > 0
             ? html`
                 <ol class="inspector-chain">
-                  ${trace.ResolutionChain.map(hop => html`<li>${hop}</li>`)}
+                  ${safeChain.map(hop => html`<li>${hop}</li>`)}
                 </ol>
               `
             : nothing

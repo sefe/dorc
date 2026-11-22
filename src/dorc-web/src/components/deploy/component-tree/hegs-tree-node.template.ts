@@ -48,7 +48,11 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
                 <button
                   type="button"
                   class="node-select-btn"
-                  title="${this.data?.subtitle ?? ''}"
+                  title="${
+                    this.data?.subtitle
+                      ? `${this.data?.name ?? ''} — ${this.data.subtitle}`
+                      : (this.data?.name ?? '')
+                  }"
                   aria-pressed=${isSelected ? 'true' : 'false'}
                   @click="${this.selectNode}"
                 >
@@ -64,13 +68,6 @@ export function addHegsTreeNodeTemplate(this: HegsTreeNode) {
                         : nothing
                     }
                     <span class="node-title">${this.data?.name}</span>
-                    ${
-                      this.data?.subtitle && this.data?.icon
-                        ? html`<span class="node-kind-meta"
-                            >${this.data.subtitle}</span
-                          >`
-                        : nothing
-                    }
                     ${
                       hasChildren
                         ? html`<span

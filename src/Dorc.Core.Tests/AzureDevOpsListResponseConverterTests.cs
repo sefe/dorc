@@ -205,5 +205,27 @@ namespace Dorc.Core.Tests
             Assert.IsNull(builds[0].Status);
             Assert.AreEqual(Build.StatusEnum.Completed, builds[1].Status);
         }
+
+        [TestMethod]
+        public void ExtractContinuationToken_ReturnsTokenOnlyWhenHeaderPresent()
+        {
+            Assert.IsNull(Dorc.Core.AzureDevOpsServer.AzureDevOpsServerWebClient.ExtractContinuationToken(null));
+
+            var page1Headers = new Org.OpenAPITools.Client.Multimap<string, string>
+            {
+                { "Content-Type", "application/json" },
+                { "x-ms-continuationtoken", "token-page-2" }
+            };
+            Assert.AreEqual(
+                "token-page-2",
+                Dorc.Core.AzureDevOpsServer.AzureDevOpsServerWebClient.ExtractContinuationToken(page1Headers));
+
+            var page2Headers = new Org.OpenAPITools.Client.Multimap<string, string>
+            {
+                { "Content-Type", "application/json" }
+            };
+            Assert.IsNull(
+                Dorc.Core.AzureDevOpsServer.AzureDevOpsServerWebClient.ExtractContinuationToken(page2Headers));
+        }
     }
 }

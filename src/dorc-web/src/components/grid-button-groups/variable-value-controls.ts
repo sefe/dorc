@@ -56,13 +56,28 @@ export class VariableValueControls extends LitElement {
         display: flex;
         align-items: center;
         flex-wrap: nowrap;
-        gap: var(--lumo-space-xs);
+        gap: 6px;
         width: 100%;
+        padding-block: 2px;
       }
       vaadin-text-field,
       vaadin-password-field {
         flex: 1;
         min-width: 0;
+        --lumo-text-field-size: var(--lumo-size-s, 30px);
+      }
+      vaadin-text-field::part(value) {
+        font-family: var(--lumo-font-family-monospace, monospace);
+        font-size: var(--lumo-font-size-xs);
+      }
+      vaadin-text-field[readonly]::part(input-field),
+      vaadin-password-field[readonly]::part(input-field) {
+        background-color: transparent;
+        border: 1px solid transparent;
+      }
+      vaadin-text-field:not([readonly])::part(input-field),
+      vaadin-password-field:not([readonly])::part(input-field) {
+        border: 1px solid var(--dorc-icon-interactive, var(--dorc-link-color));
       }
       vaadin-button {
         padding: 0px;
@@ -71,7 +86,8 @@ export class VariableValueControls extends LitElement {
       }
       vaadin-button:disabled,
       vaadin-button[disabled] {
-        background-color: var(--dorc-border-color);
+        opacity: 0.38;
+        background-color: transparent;
       }
       .where-used-badge {
         display: inline-flex;
@@ -280,14 +296,16 @@ export class VariableValueControls extends LitElement {
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
-      ${references !== null
-        ? html`<span
-            class="where-used-badge ${hasDependents ? 'has-dependents' : ''}"
-            role="status"
-            title="${badgeTooltip}"
-            >${badgeSummary}</span
-          >`
-        : html``}
+      ${
+        references !== null
+          ? html`<span
+              class="where-used-badge ${hasDependents ? 'has-dependents' : ''}"
+              role="status"
+              title="${badgeTooltip}"
+              >${badgeSummary}</span
+            >`
+          : html``
+      }
     `;
   }
 

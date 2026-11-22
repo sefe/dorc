@@ -10,11 +10,7 @@ import {
 } from './property-token-parser';
 
 export type ResolutionSeverity =
-  | 'resolved'
-  | 'warning'
-  | 'masked'
-  | 'unresolved'
-  | 'pending';
+  'resolved' | 'warning' | 'masked' | 'unresolved' | 'pending';
 
 export interface PresentedTrace {
   severity: ResolutionSeverity;
@@ -51,12 +47,12 @@ export function lookupTrace(
   traces: ReadonlyMap<string, PropertyResolutionTraceApiModel>,
   propertyName: string
 ): PropertyResolutionTraceApiModel | undefined {
-  return (
-    traces.get(propertyName) ?? traces.get(propertyName.toLowerCase())
-  );
+  return traces.get(propertyName);
 }
 
-export function inspectUnescapedDollars(raw: string): UnescapedDollarInspection {
+export function inspectUnescapedDollars(
+  raw: string
+): UnescapedDollarInspection {
   if (!raw || !raw.includes('$')) {
     return {
       hasUnclosedDollar: false,
@@ -365,6 +361,18 @@ export function presentTrace(
     trace.Source === 'Unresolved' ||
     typeof trace.ResolvedValueJson !== 'string'
   ) {
+    if (trace.Diagnostic === 'ScopeResolutionError') {
+      return {
+        severity: 'unresolved',
+        effectiveDisplayValue: '(scope resolution error)',
+        hasEffectiveValue: false,
+        sourceLabel,
+        diagnosticTitle: 'Scope Options Resolution Error',
+        diagnosticDetail:
+          'An error occurred resolving built-in scope options (such as duplicate server or database tags) for this environment.',
+        hasBlockedTokensByUnescapedDollar: false
+      };
+    }
     return {
       severity: 'unresolved',
       effectiveDisplayValue: '(not defined in this scope)',
@@ -444,6 +452,19 @@ export function presentTrace(
     };
   }
 
+  if (trace.Diagnostic === 'ScopeResolutionError') {
+    return {
+      severity: 'warning',
+      effectiveDisplayValue,
+      hasEffectiveValue: true,
+      sourceLabel,
+      diagnosticTitle: 'Scope Options Resolution Error',
+      diagnosticDetail:
+        'An error occurred resolving built-in scope options (such as duplicate server or database tags) for this environment.',
+      hasBlockedTokensByUnescapedDollar: false
+    };
+  }
+
   if (trace.Diagnostic === 'ValueTruncated') {
     return {
       severity: 'warning',
@@ -461,10 +482,7 @@ export function presentTrace(
     const dollarInfo = inspectUnescapedDollars(
       trace.RawValue ?? effectiveDisplayValue
     );
-    if (
-      dollarInfo.hasUnclosedDollar &&
-      dollarInfo.hasOtherPropertyTokens
-    ) {
+    if (dollarInfo.hasUnclosedDollar && dollarInfo.hasOtherPropertyTokens) {
       return {
         severity: 'warning',
         effectiveDisplayValue,
@@ -593,12 +611,7 @@ export interface DollarValuePreview {
 }
 
 export type DollarTokenSegmentStatus =
-  | 'resolved'
-  | 'fallback'
-  | 'warning'
-  | 'unresolved'
-  | 'masked'
-  | 'runtime';
+  'resolved' | 'fallback' | 'warning' | 'unresolved' | 'masked' | 'runtime';
 
 export type DollarValueSegment =
   | {
@@ -647,9 +660,7 @@ export function formatSampleResolvedPreview(sampleValue: unknown): string {
     return '';
   }
   const raw =
-    typeof sampleValue === 'string'
-      ? sampleValue
-      : JSON.stringify(sampleValue);
+    typeof sampleValue === 'string' ? sampleValue : JSON.stringify(sampleValue);
   return raw.replace(/\s+/g, ' ').trim();
 }
 
@@ -865,6 +876,12 @@ export function synthesizeScopePreviewTraces(
   }
 
   for (const [k, v] of traces.entries()) {
+    if (
+      merged.has(k) &&
+      (v.Source === 'Unresolved' || v.Diagnostic === 'MissingInScope')
+    ) {
+      continue;
+    }
     merged.set(k, v);
   }
 
@@ -1157,7 +1174,9 @@ export function evaluateDollarValuePreview(
     }
 
     const presented = presentTrace(trace);
-    details.push(`$${token.propertyName}$: ${presented.diagnosticTitle} (${presented.sourceLabel})`);
+    details.push(
+      `$${token.propertyName}$: ${presented.diagnosticTitle} (${presented.sourceLabel})`
+    );
 
     if (!presented.hasEffectiveValue) {
       anyMissingEffectiveValue = true;
@@ -1171,7 +1190,10 @@ export function evaluateDollarValuePreview(
       out += presented.hasEffectiveValue
         ? presented.effectiveDisplayValue
         : token.rawText;
-    } else if (presented.severity === 'resolved' && presented.hasEffectiveValue) {
+    } else if (
+      presented.severity === 'resolved' &&
+      presented.hasEffectiveValue
+    ) {
       out += presented.effectiveDisplayValue;
     } else {
       status = 'unresolved';

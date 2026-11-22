@@ -186,9 +186,9 @@ describe('DeployEnv responsive layout', () => {
       );
       expect(withComponentRefs).to.deep.equal(['ComponentDestPath']);
 
-      // Verify non-Ok diagnostics (e.g. CircularReference) do not count as resolved
+      // Verify non-Ok diagnostics (e.g. CircularReference, ScopeResolutionError) count as unresolved, while RuntimeOnly/ExpressionDeferred do not
       const circularSummary = computePreflightResolutionSummary(
-        ['CyclicVar'],
+        ['CyclicVar', 'ScopeErrVar', 'DeferredVar'],
         new Map([
           [
             'CyclicVar',
@@ -197,12 +197,32 @@ describe('DeployEnv responsive layout', () => {
               Source: 'EnvironmentScope',
               Diagnostic: 'CircularReference'
             }
+          ],
+          [
+            'ScopeErrVar',
+            {
+              PropertyName: 'ScopeErrVar',
+              Source: 'Unresolved',
+              Diagnostic: 'ScopeResolutionError'
+            }
+          ],
+          [
+            'DeferredVar',
+            {
+              PropertyName: 'DeferredVar',
+              Source: 'EnvironmentScope',
+              Diagnostic: 'ExpressionDeferred'
+            }
           ]
         ])
       );
-      expect(circularSummary.resolvedInEnvironmentVariableNames).to.deep.equal(
-        []
-      );
+      expect(circularSummary.resolvedInEnvironmentVariableNames).to.deep.equal([
+        'DeferredVar'
+      ]);
+      expect(circularSummary.unresolvedVariableNames).to.deep.equal([
+        'CyclicVar',
+        'ScopeErrVar'
+      ]);
     } finally {
       defaultPropertyResolutionClientCache.resolveProperties = originalResolve;
     }

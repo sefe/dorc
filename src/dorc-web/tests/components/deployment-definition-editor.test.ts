@@ -62,7 +62,10 @@ vi.mock('../../src/apis/dorc-api', async importOriginal => ({
   RefDataProjectEnvironmentMappingsApi: class {
     refDataProjectEnvironmentMappingsGet = () =>
       of({
-        Items: [{ EnvironmentName: 'STP UT 01' }, { EnvironmentName: 'STP PR 01' }]
+        Items: [
+          { EnvironmentName: 'STP UT 01' },
+          { EnvironmentName: 'STP PR 01' }
+        ]
       });
   }
 }));
@@ -93,7 +96,7 @@ describe('deployment-definition-editor', () => {
     expect(evaluateParameterPreview('plain', new Map())).to.equal(undefined);
     const traceMap = new Map<string, any>([
       [
-        'stp_das_paper_destinationpath',
+        'STP_DAS_Paper_DestinationPath',
         {
           PropertyName: 'STP_DAS_Paper_DestinationPath',
           Source: 'Environment',
@@ -102,7 +105,7 @@ describe('deployment-definition-editor', () => {
         }
       ],
       [
-        'secret_token',
+        'Secret_Token',
         {
           PropertyName: 'Secret_Token',
           Source: 'Environment',
@@ -110,7 +113,7 @@ describe('deployment-definition-editor', () => {
         }
       ],
       [
-        'missing_var',
+        'Missing_Var',
         {
           PropertyName: 'Missing_Var',
           Source: 'Unresolved'
@@ -122,6 +125,12 @@ describe('deployment-definition-editor', () => {
     ).to.deep.include({
       status: 'resolved',
       resolvedText: '\\\\stp-ut-01\\E$\\Apps\\DAS_Paper'
+    });
+    expect(
+      evaluateParameterPreview('${stp_das_paper_destinationpath}', traceMap)
+    ).to.deep.include({
+      status: 'unresolved',
+      resolvedText: '${stp_das_paper_destinationpath}'
     });
     expect(
       evaluateParameterPreview('${Secret_Token}', traceMap)
@@ -159,7 +168,8 @@ describe('deployment-definition-editor', () => {
       ScopeName: 'STP UT 01',
       Diagnostic: 'UnclosedToken',
       RawValue: '\\\\$ServerNames_App$\\E$\\Apps\\DAS_Paper',
-      ResolvedValueJson: '"\\\\\\\\$ServerNames_App$\\\\E$\\\\Apps\\\\DAS_Paper"'
+      ResolvedValueJson:
+        '"\\\\\\\\$ServerNames_App$\\\\E$\\\\Apps\\\\DAS_Paper"'
     });
     expect(
       evaluateParameterPreview('${Unc_Blocked_Share}', traceMap)
@@ -176,12 +186,12 @@ describe('deployment-definition-editor', () => {
       Diagnostic: 'Masked',
       ResolvedValueJson: '"masked"'
     });
-    expect(
-      evaluateParameterPreview('${Secret_Var}', traceMap)
-    ).to.deep.include({
-      status: 'masked',
-      resolvedText: '•••••••• (Secure)'
-    });
+    expect(evaluateParameterPreview('${Secret_Var}', traceMap)).to.deep.include(
+      {
+        status: 'masked',
+        resolvedText: '•••••••• (Secure)'
+      }
+    );
 
     const editor = await fixture<DeploymentDefinitionEditor>(
       html`<deployment-definition-editor
@@ -259,8 +269,9 @@ describe('deployment-definition-editor', () => {
     // Unified Arguments Grid renders template rows + custom argument rows and collapsible Raw JSON Inspector
     const argsTable = editor.shadowRoot!.querySelector('.generic-args-table');
     expect(argsTable).not.to.equal(null);
-    const rawInspector =
-      editor.shadowRoot!.querySelector<HTMLDetailsElement>('.raw-json-inspector');
+    const rawInspector = editor.shadowRoot!.querySelector<HTMLDetailsElement>(
+      '.raw-json-inspector'
+    );
     expect(rawInspector).not.to.equal(null);
     expect(rawInspector!.open).to.equal(false);
 
@@ -275,9 +286,8 @@ describe('deployment-definition-editor', () => {
       ).length;
     addArgBtn!.click();
     await editor.updateComplete;
-    const customRows = editor.shadowRoot!.querySelectorAll<HTMLElement>(
-      'tr.custom-arg-row'
-    );
+    const customRows =
+      editor.shadowRoot!.querySelectorAll<HTMLElement>('tr.custom-arg-row');
     expect(customRows.length).to.equal(initialCustomRowCount + 1);
     const lastCustomRow = customRows[customRows.length - 1];
     const customKeyInput = lastCustomRow.querySelector<TextField>(
@@ -291,10 +301,11 @@ describe('deployment-definition-editor', () => {
       editor.shadowRoot!.querySelectorAll<HTMLElement>('tr.custom-arg-row');
     expect(rowsAfterFirstChar.length).to.equal(initialCustomRowCount + 1);
 
-    const renamedKeyInput =
-      rowsAfterFirstChar[rowsAfterFirstChar.length - 1].querySelector<TextField>(
-        'vaadin-text-field[aria-label="Additional argument name"]'
-      )!;
+    const renamedKeyInput = rowsAfterFirstChar[
+      rowsAfterFirstChar.length - 1
+    ].querySelector<TextField>(
+      'vaadin-text-field[aria-label="Additional argument name"]'
+    )!;
     renamedKeyInput.value = 'DestinationToCopyPath';
     renamedKeyInput.dispatchEvent(new Event('input'));
     await editor.updateComplete;
@@ -407,7 +418,9 @@ describe('deployment-definition-editor', () => {
       execBadge!.querySelector('vaadin-icon')?.getAttribute('icon')
     ).to.equal('brand:powershell');
     expect(
-      editor.shadowRoot!.querySelector('vaadin-combo-box[label="Execution type"]')
+      editor.shadowRoot!.querySelector(
+        'vaadin-combo-box[label="Execution type"]'
+      )
     ).to.equal(null);
 
     // Unsaved draft components (ComponentId: 0) render the Execution type combo-box

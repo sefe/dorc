@@ -37,8 +37,8 @@ namespace Dorc.Api.Controllers
             IVariableScopeOptionsResolver variableScopeOptionsResolver,
             IDirectorySearcherFactory directorySearcherFactory,
             ILogger<PropertyValuesController> logger,
-            IPropertyResolutionTracer? propertyResolutionTracer = null,
-            ISecurityPrivilegesChecker? securityPrivilegesChecker = null)
+            IPropertyResolutionTracer propertyResolutionTracer,
+            ISecurityPrivilegesChecker securityPrivilegesChecker)
         {
             _variableScopeOptionsResolver = variableScopeOptionsResolver;
             _environmentsPersistentSource = environmentsPersistentSource;
@@ -47,8 +47,8 @@ namespace Dorc.Api.Controllers
             _propertyValuesService = propertyValuesService;
             _directorySearcher = directorySearcherFactory.GetEntraSearcher();
             _logger = logger;
-            _propertyResolutionTracer = propertyResolutionTracer!;
-            _securityPrivilegesChecker = securityPrivilegesChecker!;
+            _propertyResolutionTracer = propertyResolutionTracer;
+            _securityPrivilegesChecker = securityPrivilegesChecker;
         }
 
         /// <summary>
@@ -142,7 +142,7 @@ namespace Dorc.Api.Controllers
 
         private bool FilterOutNullAndEmpty(KeyValuePair<string, VariableValue> arg)
         {
-            if (string.IsNullOrWhiteSpace(arg.Key) || arg.Key.Contains(';'))
+            if (string.IsNullOrWhiteSpace(arg.Key))
                 return false;
 
             if (arg.Value == null)

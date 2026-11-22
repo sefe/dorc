@@ -141,7 +141,7 @@ export const addHegsTreeNodeStyles = css`
     background: transparent;
     border: 0;
     border-radius: var(--lumo-border-radius-s);
-    padding: var(--lumo-space-xs) var(--lumo-space-s);
+    padding: 4px 8px;
     flex: 1;
     min-width: 0;
     text-align: start;
@@ -150,6 +150,7 @@ export const addHegsTreeNodeStyles = css`
     display: flex;
     flex-direction: column;
     gap: 1px;
+    transition: background-color 0.12s ease;
   }
   .node-select-btn:hover {
     background: var(--dorc-bg-secondary);
@@ -157,6 +158,8 @@ export const addHegsTreeNodeStyles = css`
   .node-select-btn[aria-pressed='true'] {
     background: var(--dorc-chip-bg);
     color: var(--dorc-chip-text);
+    box-shadow: inset 2px 0 0 var(--dorc-icon-interactive);
+    font-weight: 600;
   }
   .node-select-btn:focus-visible {
     outline: 2px solid var(--dorc-icon-interactive);
@@ -165,18 +168,18 @@ export const addHegsTreeNodeStyles = css`
   .node-title-row {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-    gap: 5px;
+    gap: 6px;
     color: inherit;
-    font-size: var(--lumo-font-size-s);
-    font-weight: 500;
+    font-size: var(--lumo-font-size-xs);
+    font-weight: inherit;
+    line-height: 1.35;
   }
   .node-kind-icon {
-    width: 14px;
-    height: 14px;
+    width: 13px;
+    height: 13px;
     flex-shrink: 0;
     color: var(--dorc-text-secondary-strong, var(--dorc-text-secondary));
-    opacity: 0.85;
+    opacity: 0.78;
   }
   .node-select-btn[aria-pressed='true'] .node-kind-icon {
     color: inherit;
@@ -185,25 +188,22 @@ export const addHegsTreeNodeStyles = css`
   .node-title {
     color: inherit;
     font-size: inherit;
-  }
-  .node-kind-meta {
-    font-size: 11px;
-    font-weight: 400;
-    color: var(--dorc-text-secondary-strong, var(--dorc-text-secondary));
-    opacity: 0.85;
-  }
-  .node-select-btn[aria-pressed='true'] .node-kind-meta {
-    color: inherit;
-    opacity: 0.9;
+    flex: 1;
+    min-width: 0;
   }
   .node-badge {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 16px;
     padding: 0 5px;
     border-radius: 999px;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     background: var(--dorc-bg-secondary);
     color: var(--dorc-text-secondary-strong, var(--dorc-text-secondary));
+    flex-shrink: 0;
   }
   .node-subtitle {
     display: block;

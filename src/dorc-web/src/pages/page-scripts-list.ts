@@ -298,8 +298,14 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
           theme="small"
           style="margin-left: 12px; width: 220px;"
           .value="${this.previewEnvironmentName}"
+          @change="${(e: Event) => {
+            const target = e.target as HTMLInputElement;
+            this.previewEnvironmentName = (target.value ?? '').trim();
+          }}"
           @value-changed="${(e: CustomEvent<{ value: string }>) => {
-            this.previewEnvironmentName = e.detail.value ?? '';
+            if (!e.detail.value && this.previewEnvironmentName) {
+              this.previewEnvironmentName = '';
+            }
           }}"
         ></vaadin-text-field>
       </div>

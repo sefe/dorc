@@ -471,9 +471,15 @@ namespace Dorc.Api.Tests.Controllers
             var okResult = (OkObjectResult)result;
             Assert.IsInstanceOfType(okResult.Value, typeof(List<PropertyValueScopeOptionApiModel>));
             var options = (List<PropertyValueScopeOptionApiModel>)okResult.Value!;
-            Assert.AreEqual(2, options.Count);
+            Assert.AreEqual(4, options.Count);
             CollectionAssert.AreEquivalent(
-                new[] { "$ServerNames_TagA$", "$NonStringValueKey$" },
+                new[]
+                {
+                    "$ServerNames_TagA;TagB$",
+                    "$DatabaseServer_One;Two$",
+                    "$ServerNames_TagA$",
+                    "$NonStringValueKey$"
+                },
                 options.Select(o => o.ValueOption).ToArray());
         }
 

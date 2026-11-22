@@ -13,7 +13,8 @@ import {
   formatResolutionSource,
   inspectParameterBindingSyntax,
   inspectUnescapedDollars,
-  presentTrace
+  presentTrace,
+  synthesizeScopePreviewTraces
 } from '../../src/variable-resolution/resolution-presentation';
 import {
   computeResolutionContextKey,
@@ -173,15 +174,15 @@ describe('property-token-parser', () => {
     );
 
     expect(formatResolutionSource(undefined)).to.equal('Resolving…');
-    expect(
-      formatResolutionSource({ Source: 'RequestOverride' })
-    ).to.equal('Request Override');
+    expect(formatResolutionSource({ Source: 'RequestOverride' })).to.equal(
+      'Request Override'
+    );
     expect(
       formatResolutionSource({ Source: 'EnvironmentScope', ScopeName: 'UT1' })
     ).to.equal('Set on UT1');
-    expect(
-      formatResolutionSource({ Source: 'EnvironmentScope' })
-    ).to.equal('Set on Current');
+    expect(formatResolutionSource({ Source: 'EnvironmentScope' })).to.equal(
+      'Set on Current'
+    );
     expect(
       formatResolutionSource({
         Source: 'AncestorEnvironmentScope',
@@ -200,9 +201,9 @@ describe('property-token-parser', () => {
         ValueType: 'Server'
       })
     ).to.equal('Built-in (Server)');
-    expect(
-      formatResolutionSource({ Source: 'BuiltInScopeOption' })
-    ).to.equal('Built-in (Scope)');
+    expect(formatResolutionSource({ Source: 'BuiltInScopeOption' })).to.equal(
+      'Built-in (Scope)'
+    );
     expect(
       formatResolutionSource({ Source: 'ConfigValue', ScopeName: 'Prod' })
     ).to.equal('Config (Prod)');
@@ -242,11 +243,54 @@ describe('property-token-parser', () => {
       }).effectiveDisplayValue
     ).to.equal('(circular reference)');
     expect(
-      presentTrace({ Source: 'RuntimeOnly' }).diagnosticTitle
-    ).to.equal('Populated at Deploy Time');
+      presentTrace({
+        Diagnostic: 'ScopeResolutionError'
+      })
+    ).to.deep.include({
+      severity: 'unresolved',
+      effectiveDisplayValue: '(scope resolution error)',
+      diagnosticTitle: 'Scope Options Resolution Error'
+    });
     expect(
-      presentTrace({ Source: 'Unresolved' }).diagnosticTitle
-    ).to.equal('Not Defined in Scope');
+      presentTrace({
+        Source: 'EnvironmentScope',
+        Diagnostic: 'ScopeResolutionError',
+        ResolvedValueJson: '"partial-val"'
+      })
+    ).to.deep.include({
+      severity: 'warning',
+      effectiveDisplayValue: 'partial-val',
+      diagnosticTitle: 'Scope Options Resolution Error'
+    });
+    const synthMerged = synthesizeScopePreviewTraces(
+      new Map([
+        [
+          'ServerNames_Web',
+          {
+            PropertyName: 'ServerNames_Web',
+            Source: 'Unresolved',
+            Diagnostic: 'MissingInScope'
+          }
+        ]
+      ]),
+      [
+        {
+          ValueOption: '$ServerNames_Web$',
+          SampleResolvedValue: 'web01.dev'
+        }
+      ],
+      [],
+      'Endur-UT1'
+    );
+    expect(synthMerged.get('ServerNames_Web')?.Source).to.equal(
+      'EnvironmentScope'
+    );
+    expect(presentTrace({ Source: 'RuntimeOnly' }).diagnosticTitle).to.equal(
+      'Populated at Deploy Time'
+    );
+    expect(presentTrace({ Source: 'Unresolved' }).diagnosticTitle).to.equal(
+      'Not Defined in Scope'
+    );
     expect(
       presentTrace({
         Source: 'EnvironmentScope',
@@ -323,7 +367,9 @@ describe('property-token-parser', () => {
       kind: 'dollar-syntax',
       suggestedVariableName: 'Valid_Var'
     });
-    expect(inspectParameterBindingSyntax('\\\\host\\E$$\\Apps')).to.deep.include({
+    expect(
+      inspectParameterBindingSyntax('\\\\host\\E$$\\Apps')
+    ).to.deep.include({
       kind: 'mixed-text'
     });
     expect(inspectParameterBindingSyntax('C:\\StaticPath')).to.equal(undefined);
@@ -405,15 +451,15 @@ describe('property-token-parser', () => {
         rawText: '\\\\srv\\C$\\x\\D$\\y'
       }
     ]);
-    expect(parsePropertyTokens('\\\\srv\\ADMIN$\\System32\\IPC$')).to.deep.equal(
-      [
-        {
-          kind: 'static',
-          value: '\\\\srv\\ADMIN$\\System32\\IPC$',
-          rawText: '\\\\srv\\ADMIN$\\System32\\IPC$'
-        }
-      ]
-    );
+    expect(
+      parsePropertyTokens('\\\\srv\\ADMIN$\\System32\\IPC$')
+    ).to.deep.equal([
+      {
+        kind: 'static',
+        value: '\\\\srv\\ADMIN$\\System32\\IPC$',
+        rawText: '\\\\srv\\ADMIN$\\System32\\IPC$'
+      }
+    ]);
 
     expect(parsePropertyTokens('prefix$')).to.deep.equal([
       { kind: 'static', value: 'prefix', rawText: 'prefix' },
@@ -487,13 +533,15 @@ describe('property-token-parser', () => {
       previewTraces,
       'UT1'
     );
-    expect(completePreview?.resolvedText).to.equal('https://app01.corp:8443/api');
+    expect(completePreview?.resolvedText).to.equal(
+      'https://app01.corp:8443/api'
+    );
   });
 
   it('extracts unique case-sensitive referenced property names across objects, arrays, keys, profiles, and skips DOM nodes', () => {
     const domSpan = document.createElement('span');
     const data = {
-      '$KeyProp$': 'https://$Host$:$Port$/$Host$/$host$',
+      $KeyProp$: 'https://$Host$:$Port$/$Host$/$host$',
       EmptyToken: '$   $',
       BraceToken: '${TerraformVar}',
       NestedArray: ['$$literal', '$ArrayProp$', 42, null, domSpan]
@@ -590,7 +638,9 @@ describe('PropertyResolutionClientCache', () => {
     ]);
 
     expect(resolvePreviewPostMock.mock.calls).to.have.length(1);
-    expect(firstBatch.get('Host')?.ResolvedValueJson).to.equal('"ut1.internal"');
+    expect(firstBatch.get('Host')?.ResolvedValueJson).to.equal(
+      '"ut1.internal"'
+    );
     expect(secondBatch.has('MissingProp')).to.equal(false);
 
     // Hit warm cache for 'Host' without transport call
@@ -683,21 +733,18 @@ describe('PropertyResolutionClientCache', () => {
         }))
     });
     for (let i = 0; i < 34; i++) {
-      await longTtlCache.resolveProperties(
-        { environmentName: `ENV-${i}` },
-        ['PropA']
-      );
+      await longTtlCache.resolveProperties({ environmentName: `ENV-${i}` }, [
+        'PropA'
+      ]);
     }
 
-    await evictionCache.resolveProperties(
-      { environmentName: 'TTL-ENV' },
-      ['ShortProp']
-    );
+    await evictionCache.resolveProperties({ environmentName: 'TTL-ENV' }, [
+      'ShortProp'
+    ]);
     await new Promise(r => setTimeout(r, 10));
-    await evictionCache.resolveProperties(
-      { environmentName: 'TTL-ENV-2' },
-      ['ShortProp']
-    );
+    await evictionCache.resolveProperties({ environmentName: 'TTL-ENV-2' }, [
+      'ShortProp'
+    ]);
 
     const failingCache = new PropertyResolutionClientCache({
       coalesceWindowMs: 1,
@@ -785,9 +832,7 @@ describe('hegs-json-viewer contextual property resolution', () => {
     expect(evaluateStringWithTraces('$DeferredExpr$', traces).status).to.equal(
       'unresolved'
     );
-    expect(
-      evaluateStringWithTraces('fn:1 + $Host$', traces)
-    ).to.deep.equal({
+    expect(evaluateStringWithTraces('fn:1 + $Host$', traces)).to.deep.equal({
       status: 'unresolved',
       resolvedValue: 'fn:1 + $Host$',
       resolvedDisplayString: 'fn:1 + $Host$'
@@ -835,9 +880,7 @@ describe('hegs-json-viewer contextual property resolution', () => {
       resolvedValue: '•••••••• (Secure)',
       resolvedDisplayString: '•••••••• (Secure)'
     });
-    expect(
-      evaluateStringWithTraces('pwd=$SecretProp$', traces)
-    ).to.deep.equal({
+    expect(evaluateStringWithTraces('pwd=$SecretProp$', traces)).to.deep.equal({
       status: 'resolved',
       resolvedValue: 'pwd=•••••••• (Secure)',
       resolvedDisplayString: 'pwd=•••••••• (Secure)'
@@ -860,6 +903,9 @@ describe('hegs-json-viewer contextual property resolution', () => {
     expect(
       getTokenBadgeAppearance({ Diagnostic: 'CircularReference' }).badgeLabel
     ).to.equal('Circular Reference');
+    expect(
+      getTokenBadgeAppearance({ Diagnostic: 'ScopeResolutionError' }).badgeLabel
+    ).to.equal('Scope Options Error');
     expect(
       getTokenBadgeAppearance({ IsSecure: true, ScopeName: 'Prod' }).badgeLabel
     ).to.equal('Secret (Prod)');
@@ -1046,6 +1092,16 @@ describe('hegs-json-viewer contextual property resolution', () => {
       root.querySelector<HTMLAnchorElement>('a.inspector-link')?.href ?? '';
     expect(globalHref).to.contain('/variables/value-lookup?name=GlobalProp');
     expect(globalHref).to.not.contain('scope=');
+
+    // Click DbPassword token to verify inspector masks RawValue and ResolutionChain hops when IsSecure is true
+    const secretChip = root.querySelector<HTMLElement>(
+      '[data-property-name="DbPassword"]'
+    )!;
+    secretChip.click();
+    await settle();
+    expect(
+      root.querySelector('[part="inspector-card"]')?.textContent
+    ).to.contain('•••••••• (Secure)');
 
     // Click MissingVar token to inspect a trace with empty ResolutionChain and null ScopeName when environmentName is empty
     el.resolutionContext = {};
@@ -1249,7 +1305,8 @@ describe('hegs-json-viewer contextual property resolution', () => {
         .component=${{
           ComponentName: 'DeployStep',
           ComponentType: 'PowerShell',
-          ScriptPath: '{"ScriptPath":"run.ps1","GenericArguments":[{"Name":"Env","Value":"$TargetEnv$"}]}'
+          ScriptPath:
+            '{"ScriptPath":"run.ps1","GenericArguments":[{"Name":"Env","Value":"$TargetEnv$"}]}'
         }}
       ></deployment-definition-editor>`
     );
@@ -1512,19 +1569,25 @@ describe('hegs-json-viewer contextual property resolution', () => {
       '[part="compare-env-input"]'
     )!;
     expect(compareInput).to.not.equal(null);
-    expect(root.querySelectorAll('#compare-env-datalist option')).to.have.length(
-      2
-    );
+    expect(
+      root.querySelectorAll('#compare-env-datalist option')
+    ).to.have.length(2);
 
     // Setting compareEnvironmentName to same environment as primary is treated as inactive
     compareInput.value = 'Endur-UT1';
-    compareInput.dispatchEvent(new Event('input', { bubbles: true }));
+    compareInput.dispatchEvent(new Event('change', { bubbles: true }));
+    await settle();
+    expect(root.querySelector('[part="compare-summary"]')).to.equal(null);
+
+    // Partial typing or unknown environment not in compareEnvironmentOptions does not trigger compare
+    compareInput.value = 'PR';
+    compareInput.dispatchEvent(new Event('change', { bubbles: true }));
     await settle();
     expect(root.querySelector('[part="compare-summary"]')).to.equal(null);
 
     // Setting compareEnvironmentName to PROD resolves compare traces and shows diff summary + inline diff badge
     compareInput.value = 'PROD';
-    compareInput.dispatchEvent(new Event('input', { bubbles: true }));
+    compareInput.dispatchEvent(new Event('change', { bubbles: true }));
     await settle();
     await new Promise(r => setTimeout(r, 20));
     await settle();
@@ -1540,9 +1603,7 @@ describe('hegs-json-viewer contextual property resolution', () => {
     );
 
     // Inspecting differing property shows Compare (PROD) row with ≠ Differs
-    root
-      .querySelector<HTMLElement>('[data-property-name="ApiHost"]')
-      ?.click();
+    root.querySelector<HTMLElement>('[data-property-name="ApiHost"]')?.click();
     await settle();
     const inspectorCompare = root.querySelector('[part="inspector-compare"]');
     expect(inspectorCompare).to.not.equal(null);

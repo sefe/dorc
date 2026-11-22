@@ -182,24 +182,31 @@ export class PageProjectRefData extends PageElement {
       align-items: center;
       justify-content: space-between;
       flex-wrap: wrap;
-      gap: var(--lumo-space-s) var(--lumo-space-m);
-      margin-top: var(--lumo-space-s);
-      padding-top: var(--lumo-space-s);
-      border-top: 1px solid var(--dorc-border-color);
+      gap: var(--lumo-space-xs) var(--lumo-space-m);
+      margin-top: var(--lumo-space-m);
+      padding: var(--lumo-space-s) var(--lumo-space-m);
+      border: 1px solid var(--dorc-border-color);
+      border-radius: var(--lumo-border-radius-m);
+      background: var(--dorc-bg-secondary);
     }
     .step-footer-bar label {
+      display: inline-flex;
       flex-direction: row;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       align-items: center;
       gap: 8px;
       margin: 0;
       max-width: 100%;
+      white-space: nowrap;
     }
     .step-footer-bar label select {
-      min-width: 0;
-      max-width: 100%;
+      min-width: 180px;
+      max-width: 260px;
       overflow: hidden;
       text-overflow: ellipsis;
+      background: var(--dorc-bg-primary, #ffffff);
+      padding: 4px 8px;
+      font-size: var(--lumo-font-size-xs);
     }
     .step-footer-bar .actions {
       gap: 6px;
@@ -210,10 +217,26 @@ export class PageProjectRefData extends PageElement {
       gap: var(--lumo-space-s);
       font-size: var(--lumo-font-size-xs);
       margin-inline-start: var(--lumo-space-xs);
+      padding-inline-start: var(--lumo-space-s);
+      border-inline-start: 1px solid var(--dorc-border-color);
     }
     aside > .actions {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
       gap: 6px;
       font-size: var(--lumo-font-size-xs);
+      padding-bottom: var(--lumo-space-xs);
+      border-bottom: 1px solid var(--dorc-border-color);
+    }
+    aside > .actions a {
+      font-weight: 500;
+      text-decoration: none;
+      padding: 2px 6px;
+      border-radius: var(--lumo-border-radius-s);
+    }
+    aside > .actions a:hover {
+      background: var(--dorc-bg-secondary);
     }
     h2 {
       font-size: var(--lumo-font-size-l);
@@ -235,8 +258,8 @@ export class PageProjectRefData extends PageElement {
       flex: 1;
       min-height: 0;
       display: grid;
-      grid-template-columns: var(--tree-pane-width, 280px) 8px minmax(0, 1fr);
-      gap: var(--lumo-space-s);
+      grid-template-columns: var(--tree-pane-width, 280px) 12px minmax(0, 1fr);
+      gap: var(--lumo-space-xs);
       padding: var(--lumo-space-s) var(--lumo-space-m);
       overflow: hidden;
     }
@@ -244,6 +267,9 @@ export class PageProjectRefData extends PageElement {
       min-height: 0;
       overflow-y: auto;
       padding-inline-end: var(--lumo-space-xs);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
     .tree-splitter {
       position: relative;
@@ -467,6 +493,9 @@ export class PageProjectRefData extends PageElement {
       min-width: 0;
       min-height: 0;
       overflow-y: auto;
+    }
+    .pane {
+      padding: var(--lumo-space-xs) var(--lumo-space-s) var(--lumo-space-m);
     }
     .project-source-pane,
     .terraform-state-pane {
@@ -2136,7 +2165,9 @@ export class PageProjectRefData extends PageElement {
       ></project-workspace-nav>
       <header>
         <div class="header-left">
-          <h1 class="sr-only">${project?.ProjectName ?? 'Project'} reference data</h1>
+          <h1 class="sr-only">
+            ${project?.ProjectName ?? 'Project'} reference data
+          </h1>
           <vaadin-tabs
             ?hidden=${this.tab === 3 || this.tab === 4}
             .selected=${live(this.tab <= 2 ? this.tab : 0)}

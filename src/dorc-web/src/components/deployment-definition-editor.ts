@@ -57,10 +57,7 @@ export interface ParameterResolutionPreview {
   detailMessage?: string;
 }
 
-const STATUS_PRIORITY: Record<
-  ParameterResolutionPreview['status'],
-  number
-> = {
+const STATUS_PRIORITY: Record<ParameterResolutionPreview['status'], number> = {
   resolved: 0,
   masked: 1,
   warning: 2,
@@ -81,9 +78,7 @@ export function evaluateParameterPreview(
   const segments = parsePropertyTokens(rawText, 'brace-only');
   const tokenNames = segments
     .filter(
-      (
-        seg
-      ): seg is Extract<typeof seg, { kind: 'property' }> =>
+      (seg): seg is Extract<typeof seg, { kind: 'property' }> =>
         seg.kind === 'property'
     )
     .map(seg => seg.propertyName);
@@ -115,10 +110,7 @@ export function evaluateParameterPreview(
       out += presented.effectiveDisplayValue;
       continue;
     }
-    if (
-      presented.severity === 'unresolved' ||
-      !presented.hasEffectiveValue
-    ) {
+    if (presented.severity === 'unresolved' || !presented.hasEffectiveValue) {
       status = promoteStatus(status, 'unresolved');
       out += presented.hasEffectiveValue
         ? presented.effectiveDisplayValue
@@ -193,21 +185,21 @@ export class DeploymentDefinitionEditor extends LitElement {
     .fields {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: var(--lumo-space-xs) var(--lumo-space-m);
+      gap: var(--lumo-space-s) var(--lumo-space-m);
     }
     .execution-type-field {
       display: flex;
       flex-direction: column;
-      justify-content: flex-start;
+      justify-content: flex-end;
       gap: 4px;
       min-width: 0;
-      padding-top: var(--lumo-space-xs);
+      padding-bottom: 4px;
     }
     .execution-type-label {
-      font-size: var(--lumo-font-size-s);
+      font-size: var(--lumo-font-size-xs);
       font-weight: 500;
       color: var(--lumo-secondary-text-color);
-      line-height: 1;
+      line-height: 1.2;
     }
     .execution-type-badge {
       display: inline-flex;
@@ -216,26 +208,26 @@ export class DeploymentDefinitionEditor extends LitElement {
       align-self: flex-start;
       height: var(--lumo-size-m, 36px);
       padding: 0 12px;
-      border-radius: 999px;
-      font-size: var(--lumo-font-size-s);
+      border-radius: var(--lumo-border-radius-m);
+      font-size: var(--lumo-font-size-xs);
       font-weight: 600;
       border: 1px solid var(--dorc-border-color);
       background: var(--dorc-chip-bg);
       color: var(--dorc-chip-text);
     }
     .execution-type-badge[data-type='PowerShell'] {
-      background: rgba(59, 130, 246, 0.14);
-      border-color: rgba(59, 130, 246, 0.35);
+      background: rgba(59, 130, 246, 0.12);
+      border-color: rgba(59, 130, 246, 0.3);
       color: var(--dorc-link-color, #60a5fa);
     }
     .execution-type-badge[data-type='Terraform'] {
-      background: rgba(139, 92, 246, 0.16);
-      border-color: rgba(139, 92, 246, 0.38);
+      background: rgba(139, 92, 246, 0.14);
+      border-color: rgba(139, 92, 246, 0.32);
       color: #c4b5fd;
     }
     .execution-type-badge vaadin-icon {
-      width: 16px;
-      height: 16px;
+      width: 15px;
+      height: 15px;
       flex-shrink: 0;
     }
     vaadin-text-field,
@@ -273,50 +265,59 @@ export class DeploymentDefinitionEditor extends LitElement {
       padding: var(--lumo-space-s) var(--lumo-space-m);
       display: flex;
       flex-direction: column;
-      gap: var(--lumo-space-xs);
+      gap: var(--lumo-space-s);
     }
     .generic-script-header {
       display: flex;
-      align-items: center;
+      align-items: flex-end;
       justify-content: space-between;
       flex-wrap: wrap;
-      gap: var(--lumo-space-s);
+      gap: var(--lumo-space-s) var(--lumo-space-m);
       padding-bottom: var(--lumo-space-xs);
       border-bottom: 1px solid var(--dorc-border-color);
     }
     .generic-script-title-group {
       display: flex;
-      align-items: center;
+      align-items: flex-end;
       flex-wrap: wrap;
-      gap: var(--lumo-space-xs);
+      gap: var(--lumo-space-s);
+      flex: 1 1 340px;
       min-width: 0;
+    }
+    .generic-script-title-group vaadin-combo-box {
+      flex: 1 1 300px;
+      max-width: 440px;
     }
     .generic-script-header strong {
       font-size: var(--lumo-font-size-s);
     }
     .generic-header-controls {
       display: flex;
-      align-items: center;
-      gap: var(--lumo-space-s);
+      align-items: flex-end;
+      gap: var(--lumo-space-xs);
       flex-wrap: wrap;
     }
     .generic-header-controls vaadin-combo-box {
-      width: 240px;
+      width: 210px;
       max-width: 100%;
     }
     .generic-category-badge {
-      display: inline-block;
-      padding: 2px 8px;
+      display: inline-flex;
+      align-items: center;
+      height: 24px;
+      margin-bottom: 4px;
+      padding: 0 9px;
       border-radius: 999px;
-      font-size: var(--lumo-font-size-xs);
+      font-size: 11px;
       font-weight: 600;
       background: var(--dorc-chip-bg);
       color: var(--dorc-chip-text);
+      border: 1px solid var(--dorc-border-color);
     }
     .generic-args-table-wrap {
       overflow-x: auto;
       border: 1px solid var(--dorc-border-color);
-      border-radius: var(--lumo-border-radius-s);
+      border-radius: var(--lumo-border-radius-m);
       background: var(--dorc-bg-primary, rgba(15, 23, 42, 0.25));
     }
     .generic-args-table {
@@ -326,34 +327,40 @@ export class DeploymentDefinitionEditor extends LitElement {
     }
     .generic-args-table th,
     .generic-args-table td {
-      padding: 6px 10px;
+      padding: 7px 12px;
       text-align: left;
-      vertical-align: top;
+      vertical-align: middle;
       border-bottom: 1px solid var(--dorc-border-color);
     }
     .generic-args-table tbody tr:last-child td {
       border-bottom: none;
     }
+    .generic-args-table tbody tr:hover td {
+      background: rgba(148, 163, 184, 0.04);
+    }
     .generic-args-table th {
+      font-size: 11px;
       font-weight: 600;
+      letter-spacing: 0.01em;
       color: var(--dorc-text-secondary-strong);
-      background: rgba(148, 163, 184, 0.08);
+      background: rgba(148, 163, 184, 0.07);
       white-space: nowrap;
+      padding-block: 8px;
     }
     .arg-col-param {
-      width: 26%;
+      width: 25%;
       min-width: 170px;
     }
     .arg-col-value {
-      width: 36%;
-      min-width: 220px;
+      width: 38%;
+      min-width: 230px;
     }
     .arg-col-preview {
-      width: 28%;
+      width: 29%;
       min-width: 180px;
     }
     .arg-col-actions {
-      width: 10%;
+      width: 8%;
       white-space: nowrap;
       text-align: right;
     }
@@ -361,6 +368,7 @@ export class DeploymentDefinitionEditor extends LitElement {
       display: flex;
       flex-direction: column;
       gap: 2px;
+      min-width: 0;
     }
     .param-name-row {
       display: flex;
@@ -380,13 +388,18 @@ export class DeploymentDefinitionEditor extends LitElement {
       border-radius: 999px;
       font-size: 10px;
       font-weight: 600;
-      background: rgba(59, 130, 246, 0.16);
+      background: rgba(59, 130, 246, 0.14);
       color: var(--dorc-link-color, #60a5fa);
     }
     .param-caption {
       color: var(--dorc-text-secondary-strong);
       font-size: 11px;
-      line-height: 1.3;
+      line-height: 1.25;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 260px;
+      opacity: 0.85;
     }
     .optional-params-bar {
       display: flex;
@@ -448,12 +461,17 @@ export class DeploymentDefinitionEditor extends LitElement {
       flex-wrap: wrap;
       align-items: flex-end;
       gap: var(--lumo-space-s) var(--lumo-space-m);
+      padding-bottom: var(--lumo-space-xs);
+      border-bottom: 1px solid var(--dorc-border-color);
     }
     .step-top-row > vaadin-text-field {
       flex: 1 1 240px;
     }
     .step-top-row .flags {
-      margin: 0 0 4px auto;
+      margin: 0 0 6px auto;
+      display: flex;
+      align-items: center;
+      gap: var(--lumo-space-m);
     }
     .ps-version-combo {
       width: 120px;
@@ -461,11 +479,9 @@ export class DeploymentDefinitionEditor extends LitElement {
     }
     .param-preview-placeholder {
       color: var(--dorc-text-secondary-strong);
-      opacity: 0.7;
-      font-style: italic;
+      opacity: 0.65;
       font-size: 11px;
       display: inline-block;
-      padding-top: 6px;
     }
     .generic-card-footer {
       display: flex;
@@ -685,9 +701,7 @@ export class DeploymentDefinitionEditor extends LitElement {
     if (hasAnyConfiguredOrRequired) {
       return new Set(
         template.parameters
-          .filter(
-            p => !p.required && configuredLower.has(p.name.toLowerCase())
-          )
+          .filter(p => !p.required && configuredLower.has(p.name.toLowerCase()))
           .map(p => p.name.toLowerCase())
       );
     }
@@ -880,14 +894,15 @@ export class DeploymentDefinitionEditor extends LitElement {
       return;
     }
     try {
-      const traces = await defaultPropertyResolutionClientCache.resolveProperties(
-        {
-          environmentName: this.previewEnvironmentName || undefined,
-          projectName: this.project?.ProjectName || undefined,
-          locationKind: 'deployment-definition'
-        },
-        Array.from(tokenSet)
-      );
+      const traces =
+        await defaultPropertyResolutionClientCache.resolveProperties(
+          {
+            environmentName: this.previewEnvironmentName || undefined,
+            projectName: this.project?.ProjectName || undefined,
+            locationKind: 'deployment-definition'
+          },
+          Array.from(tokenSet)
+        );
       if (generation === this.previewRequestGeneration) {
         this.previewTracesByProperty = traces;
       }
@@ -961,9 +976,9 @@ export class DeploymentDefinitionEditor extends LitElement {
     this.inlineValueSelectionEnd = completed.nextCaretIndex;
     this.inlineValuePickerOpen = false;
     this.inlineValuePickerFilter = '';
-    const valueField = this.shadowRoot?.querySelector('#inlineNewPropertyValue') as
-      | (HTMLElement & { inputElement?: HTMLInputElement })
-      | null;
+    const valueField = this.shadowRoot?.querySelector(
+      '#inlineNewPropertyValue'
+    ) as (HTMLElement & { inputElement?: HTMLInputElement }) | null;
     const nativeInput = valueField?.inputElement;
     if (nativeInput) {
       nativeInput.focus();
@@ -1026,14 +1041,15 @@ export class DeploymentDefinitionEditor extends LitElement {
               ></vaadin-text-field>
               <div class="param-picker-list">
                 ${filteredTokens.map(
-                  opt => html`<button
-                    type="button"
-                    class="param-picker-item"
-                    @click=${() => this.insertTokenIntoInlineValue(opt.ValueOption)}
-                  >
-                    <span>${opt.ValueOption}</span>
-                    <span style="opacity:0.7">${opt.CategoryLabel}</span>
-                  </button>`
+                  opt =>
+                    html`<button
+                      type="button"
+                      class="param-picker-item"
+                      @click=${() => this.insertTokenIntoInlineValue(opt.ValueOption)}
+                    >
+                      <span>${opt.ValueOption}</span>
+                      <span style="opacity:0.7">${opt.CategoryLabel}</span>
+                    </button>`
                 )}
               </div>
               <div style="display:flex; justify-content:flex-end;">
@@ -1181,9 +1197,9 @@ export class DeploymentDefinitionEditor extends LitElement {
         latestTemplate?.parameters.some(
           p => p.name.toLowerCase() === targetParam.toLowerCase()
         ) ||
-          latestParsed.arguments.some(
-            a => a.key.toLowerCase() === targetParam.toLowerCase()
-          )
+        latestParsed.arguments.some(
+          a => a.key.toLowerCase() === targetParam.toLowerCase()
+        )
       );
       if (
         isValidTarget &&
@@ -1271,10 +1287,11 @@ export class DeploymentDefinitionEditor extends LitElement {
             next: responses => {
               if (responses?.[0]?.Status === 'success') {
                 const returnedItem = responses[0]?.Item as
-                  | PropertyApiModel
-                  | undefined;
+                  PropertyApiModel | undefined;
                 const persistedProp: PropertyApiModel =
-                  returnedItem && typeof returnedItem === 'object' && returnedItem.Name
+                  returnedItem &&
+                  typeof returnedItem === 'object' &&
+                  returnedItem.Name
                     ? returnedItem
                     : newProp;
                 this.availableProperties = [
@@ -1352,9 +1369,7 @@ export class DeploymentDefinitionEditor extends LitElement {
     const filterLower = this.pickerFilterText.trim().toLowerCase();
     const filteredProps = this.availableProperties
       .filter(p =>
-        !filterLower
-          ? true
-          : (p.Name ?? '').toLowerCase().includes(filterLower)
+        !filterLower ? true : (p.Name ?? '').toLowerCase().includes(filterLower)
       )
       .slice(0, 30);
 
@@ -1404,10 +1419,11 @@ export class DeploymentDefinitionEditor extends LitElement {
               ></vaadin-text-field>
               <div class="param-picker-list">
                 ${filteredProps.map(
-                  prop => html`<button
-                    type="button"
-                    class="param-picker-item"
-                    @click=${() => {
+                  prop =>
+                    html`<button
+                      type="button"
+                      class="param-picker-item"
+                      @click=${() => {
                       this.insertVariableIntoParameter(
                         baseScriptPath,
                         currentArgs,
@@ -1417,12 +1433,12 @@ export class DeploymentDefinitionEditor extends LitElement {
                       );
                       this.openPickerParamKey = '';
                     }}
-                  >
-                    <span>\${${prop.Name}}</span>
-                    <span style="opacity:0.7"
-                      >${prop.Secure ? 'Secure' : 'Variable'}</span
                     >
-                  </button>`
+                      <span>\${${prop.Name}}</span>
+                      <span style="opacity:0.7"
+                        >${prop.Secure ? 'Secure' : 'Variable'}</span
+                      >
+                    </button>`
                 )}
               </div>
               <div
@@ -1487,17 +1503,19 @@ export class DeploymentDefinitionEditor extends LitElement {
       data-status=${preview.status}
       title=${scopeSummary}
     >
-      <span
-        >${
-          preview.status === 'unresolved'
-            ? this.previewEnvironmentName
-              ? `Not resolved in ${this.previewEnvironmentName}:`
-              : 'Not resolved (Default):'
-            : this.previewEnvironmentName
-              ? `Resolves in ${this.previewEnvironmentName}:`
-              : 'Resolves (Default):'
-        }</span
-      >
+      ${
+        preview.status === 'unresolved'
+          ? html`<span
+              >${
+                this.previewEnvironmentName
+                  ? `Not resolved in ${this.previewEnvironmentName}:`
+                  : 'Not resolved (Default):'
+              }</span
+            >`
+          : preview.status === 'warning'
+            ? html`<span>Warning:</span>`
+            : nothing
+      }
       <strong>${preview.resolvedText}</strong>
     </div>`;
   }
@@ -1801,8 +1819,9 @@ export class DeploymentDefinitionEditor extends LitElement {
                   >
                     <vaadin-combo-box
                       id="paramPreviewEnvCombo"
+                      label="Preview environment"
                       aria-label="Preview resolution for environment"
-                      placeholder="Preview env (e.g. STP UT 01)..."
+                      placeholder="Default scope..."
                       allow-custom-value
                       clear-button-visible
                       theme="small"
@@ -1878,9 +1897,10 @@ export class DeploymentDefinitionEditor extends LitElement {
                                     this.inlineNewPropertyDefaultValue
                                   )}
                                   @blur=${(e: Event) => {
-                                    const target = e.currentTarget as HTMLElement & {
-                                      inputElement?: HTMLInputElement;
-                                    };
+                                    const target =
+                                      e.currentTarget as HTMLElement & {
+                                        inputElement?: HTMLInputElement;
+                                      };
                                     const nativeInput = target.inputElement;
                                     if (nativeInput) {
                                       this.inlineValueSelectionStart =
@@ -1890,10 +1910,11 @@ export class DeploymentDefinitionEditor extends LitElement {
                                     }
                                   }}
                                   @input=${(e: Event) => {
-                                    const target = e.currentTarget as HTMLElement & {
-                                      value: string;
-                                      inputElement?: HTMLInputElement;
-                                    };
+                                    const target =
+                                      e.currentTarget as HTMLElement & {
+                                        value: string;
+                                        inputElement?: HTMLInputElement;
+                                      };
                                     this.inlineNewPropertyDefaultValue =
                                       target.value;
                                     const caret =
@@ -2006,68 +2027,70 @@ export class DeploymentDefinitionEditor extends LitElement {
                         visibleTemplateParams,
                         param => param.name.toLowerCase(),
                         param => {
-                        const existingEntry = parsed.arguments.find(
-                          a =>
-                            a.key.toLowerCase() === param.name.toLowerCase()
-                        );
-                        const hasExplicitOverride = Boolean(existingEntry);
-                        const currentVal = existingEntry?.value ?? '';
-                        const updateParam = (event: Event) => {
-                          const nextRevealed = new Set(
-                            this.revealedOptionalParams
+                          const existingEntry = parsed.arguments.find(
+                            a =>
+                              a.key.toLowerCase() === param.name.toLowerCase()
                           );
-                          nextRevealed.add(param.name.toLowerCase());
-                          this.revealedOptionalParams = nextRevealed;
-                          this.setGenericArgument(
-                            template!.scriptPath,
-                            parsed.arguments,
-                            param.name,
-                            (event.currentTarget as HTMLInputElement).value,
-                            parsed.isJsonPath
-                          );
-                        };
-                        const suffixBtn = !this.readonly
-                          ? html`<button
-                              type="button"
-                              slot="suffix"
-                              class="param-bind-suffix-btn"
-                              title="Bind variable (\${VariableName}) or create new variable for ${param.name}"
-                              aria-label="Bind variable to ${param.name}"
-                              @click=${(e: Event) => {
+                          const hasExplicitOverride = Boolean(existingEntry);
+                          const currentVal = existingEntry?.value ?? '';
+                          const updateParam = (event: Event) => {
+                            const nextRevealed = new Set(
+                              this.revealedOptionalParams
+                            );
+                            nextRevealed.add(param.name.toLowerCase());
+                            this.revealedOptionalParams = nextRevealed;
+                            this.setGenericArgument(
+                              template!.scriptPath,
+                              parsed.arguments,
+                              param.name,
+                              (event.currentTarget as HTMLInputElement).value,
+                              parsed.isJsonPath
+                            );
+                          };
+                          const suffixBtn = !this.readonly
+                            ? html`<button
+                                type="button"
+                                slot="suffix"
+                                class="param-bind-suffix-btn"
+                                title="Bind variable (\${VariableName}) or create new variable for ${param.name}"
+                                aria-label="Bind variable to ${param.name}"
+                                @click=${(e: Event) => {
                                 e.stopPropagation();
                                 this.toggleParameterPicker(param.name);
                               }}
-                            >
-                              ${'{x}'}
-                            </button>`
-                          : nothing;
-                        return html`<tr data-param=${param.name}>
-                          <td class="arg-col-param">
-                            <div class="param-name-meta">
-                              <div class="param-name-row">
-                                <code class="param-name-code"
-                                  >${param.name}</code
-                                >
-                                ${
+                              >
+                                ${'{x}'}
+                              </button>`
+                            : nothing;
+                          return html`<tr data-param=${param.name}>
+                            <td class="arg-col-param">
+                              <div class="param-name-meta">
+                                <div class="param-name-row">
+                                  <code class="param-name-code"
+                                    >${param.name}</code
+                                  >
+                                  ${
                                   param.required
                                     ? html`<span class="param-req-badge"
                                         >Required</span
                                       >`
                                     : nothing
                                 }
-                              </div>
-                              ${
+                                </div>
+                                ${
                                 param.helperText
-                                  ? html`<span class="param-caption"
+                                  ? html`<span
+                                      class="param-caption"
+                                      title=${param.helperText}
                                       >${param.helperText}</span
                                     >`
                                   : nothing
                               }
-                            </div>
-                          </td>
-                          <td class="arg-col-value">
-                            <div class="param-cell">
-                              ${
+                              </div>
+                            </td>
+                            <td class="arg-col-value">
+                              <div class="param-cell">
+                                ${
                                 param.options
                                   ? html`<vaadin-combo-box
                                       aria-label=${param.label}
@@ -2136,23 +2159,23 @@ export class DeploymentDefinitionEditor extends LitElement {
                                       >${suffixBtn}</vaadin-text-field
                                     >`
                               }
-                              ${this.renderParameterVariableControls(
+                                ${this.renderParameterVariableControls(
                                 template!.scriptPath,
                                 parsed.arguments,
                                 param.name,
                                 currentVal,
                                 parsed.isJsonPath
                               )}
-                            </div>
-                          </td>
-                          <td class="arg-col-preview">
-                            ${this.renderParameterResolutionPreviewCell(
+                              </div>
+                            </td>
+                            <td class="arg-col-preview">
+                              ${this.renderParameterResolutionPreviewCell(
                               currentVal,
                               hasExplicitOverride
                             )}
-                          </td>
-                          <td class="arg-col-actions">
-                            ${
+                            </td>
+                            <td class="arg-col-actions">
+                              ${
                               hasExplicitOverride && !this.readonly
                                 ? html`<vaadin-button
                                     theme="small tertiary"
@@ -2195,13 +2218,17 @@ export class DeploymentDefinitionEditor extends LitElement {
                                   >`
                                 : nothing
                             }
-                          </td>
-                        </tr>`;
-                      })}
+                            </td>
+                          </tr>`;
+                        }
+                      )}
                       ${repeat(
                         extraArgs,
                         item => item.rowId,
-                        ({ rowId, arg, rawIndex, draftIndex, error }, extraIdx) => {
+                        (
+                          { rowId, arg, rawIndex, draftIndex, error },
+                          extraIdx
+                        ) => {
                           const currentKeyDisplay =
                             this.renameDraftKeyByRowId.get(rowId) ?? arg.key;
                           const rowError =
@@ -2307,12 +2334,12 @@ export class DeploymentDefinitionEditor extends LitElement {
                                 );
                                 nextEditing.add(rowId);
                                 this.editingCustomRowIds = nextEditing;
-                                  this.extraCustomArgs = [
-                                    { id: rowId, key: newKey, value: arg.value },
-                                    ...this.extraCustomArgs.filter(
-                                      d => d.id !== rowId
-                                    )
-                                  ];
+                                this.extraCustomArgs = [
+                                  { id: rowId, key: newKey, value: arg.value },
+                                  ...this.extraCustomArgs.filter(
+                                    d => d.id !== rowId
+                                  )
+                                ];
                                 const nextArgs = parsed.arguments.filter(
                                   (_, idx) => idx !== rawIndex
                                 );
@@ -2700,18 +2727,19 @@ export class DeploymentDefinitionEditor extends LitElement {
                         ${repeat(
                           hiddenOptionalParams,
                           opt => opt.name.toLowerCase(),
-                          opt => html`<button
-                            type="button"
-                            class="optional-param-chip"
-                            title=${opt.helperText || opt.label}
-                            @click=${() => {
+                          opt =>
+                            html`<button
+                              type="button"
+                              class="optional-param-chip"
+                              title=${opt.helperText || opt.label}
+                              @click=${() => {
                               const next = new Set(this.revealedOptionalParams);
                               next.add(opt.name.toLowerCase());
                               this.revealedOptionalParams = next;
                             }}
-                          >
-                            + ${opt.name}
-                          </button>`
+                            >
+                              + ${opt.name}
+                            </button>`
                         )}
                       </div>`
                     : nothing
@@ -2776,8 +2804,7 @@ export class DeploymentDefinitionEditor extends LitElement {
       component.TerraformSourceType === TerraformSourceType.Catalog;
     const sourceType =
       component.TerraformSourceType ?? TerraformSourceType.SharedFolder;
-    const executionType =
-      component.ComponentType ?? ComponentType.PowerShell;
+    const executionType = component.ComponentType ?? ComponentType.PowerShell;
     const isSavedComponent = Boolean(component.ComponentId);
     const executionTypeControl = isSavedComponent
       ? html`

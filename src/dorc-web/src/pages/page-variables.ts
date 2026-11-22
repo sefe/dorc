@@ -184,6 +184,10 @@ export class PageVariables extends PageElement {
       vaadin-grid#grid {
         flex: 1;
         min-height: 200px;
+        margin: 8px 16px 12px;
+        border: 1px solid var(--dorc-border-color);
+        border-radius: var(--lumo-border-radius-m);
+        overflow: hidden;
       }
       vaadin-grid#grid::part(variable-value-error) {
         background-color: var(--dorc-highlight-bg);
@@ -201,39 +205,101 @@ export class PageVariables extends PageElement {
         padding: 0px;
       }
 
-      .variable-selector-table {
-        width: fit-content;
-        max-width: 100%;
+      .variables-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--lumo-space-m);
+        padding: 6px 16px;
+        border-bottom: 1px solid var(--dorc-border-color);
+        background: var(--dorc-bg-secondary);
+        flex-shrink: 0;
       }
 
-      .variable-selector-cell {
-        width: auto;
+      .variables-panel {
+        margin: 8px 16px 0;
+        padding: 4px 14px 10px;
+        border: 1px solid var(--dorc-border-color);
+        border-radius: var(--lumo-border-radius-m);
+        background-color: var(--dorc-bg-secondary);
+        flex-shrink: 0;
+      }
+
+      .variables-panel::part(summary) {
+        padding: 4px 0;
+        font-size: var(--lumo-font-size-s);
+        font-weight: 600;
+        color: var(--dorc-text-primary);
+      }
+
+      .variables-panel::part(content) {
+        padding: 4px 0 2px;
+      }
+
+      .variable-selector-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-start;
+        gap: 12px;
+        width: 100%;
       }
 
       .variable-selector-combo {
-        width: clamp(30rem, 46vw, 52rem);
-        min-width: 30rem;
-        max-width: none;
-        margin-left: var(--lumo-space-xs);
+        flex: 1 1 380px;
+        max-width: 680px;
+        min-width: 260px;
       }
 
       .variable-selector-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        padding-top: 25px;
+        white-space: nowrap;
+      }
+
+      .add-value-grid {
+        display: grid;
+        grid-template-columns: minmax(260px, 340px) minmax(280px, 1fr) auto;
+        gap: 6px 12px;
+        align-items: start;
+        width: 100%;
+      }
+
+      .scope-field-col,
+      .value-field-col {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+
+      .scope-field-col vaadin-combo-box,
+      .value-field-col vaadin-text-field {
+        width: 100%;
+      }
+
+      .add-value-action-col {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-top: 25px;
         white-space: nowrap;
       }
 
       @media (max-width: 768px) {
-        .variable-selector-table {
-          width: 100%;
-        }
-
-        .variable-selector-cell {
-          width: 100%;
-        }
-
         .variable-selector-combo {
           width: 100%;
           min-width: 0;
-          margin-left: 0;
+          max-width: none;
+        }
+
+        .variable-selector-actions,
+        .add-value-action-col {
+          padding-top: 4px;
+        }
+
+        .add-value-grid {
+          grid-template-columns: 1fr;
         }
       }
 
@@ -243,7 +309,6 @@ export class PageVariables extends PageElement {
         gap: 6px;
         align-items: center;
         margin-top: 4px;
-        margin-left: 5px;
       }
 
       .scope-chip {
@@ -498,278 +563,234 @@ export class PageVariables extends PageElement {
 
   render() {
     return html`
-      <vaadin-radio-group
-        style="padding-left: 40px; padding-top: 10px"
-        theme="horizontal"
-        .value="${this.radioValue}"
-        @value-changed="${(e: CustomEvent) => {
-          this.radioValue = e.detail.value;
-        }}"
-      >
-        <vaadin-radio-button
-          checked
-          value="existing"
-          label="Edit Existing"
-        ></vaadin-radio-button>
-        <vaadin-radio-button
-          value="new"
-          label="Create New"
-        ></vaadin-radio-button>
-      </vaadin-radio-group>
-      <vaadin-button
-        theme="icon"
-        aria-label="Value Lookup"
-        style="position: fixed; right: 10px"
-        @click="${() => {
-          void navigate('/variables/value-lookup');
-        }}"
-      >
-        <vaadin-tooltip slot="tooltip" text="Value Lookup"></vaadin-tooltip
-        ><vaadin-icon
-          icon="vaadin:search"
-          style="color: var(--dorc-link-color)"
-        ></vaadin-icon
-      ></vaadin-button>
+      <div class="variables-toolbar">
+        <vaadin-radio-group
+          theme="horizontal"
+          .value="${this.radioValue}"
+          @value-changed="${(e: CustomEvent) => {
+            this.radioValue = e.detail.value;
+          }}"
+        >
+          <vaadin-radio-button
+            checked
+            value="existing"
+            label="Edit Existing"
+          ></vaadin-radio-button>
+          <vaadin-radio-button
+            value="new"
+            label="Create New"
+          ></vaadin-radio-button>
+        </vaadin-radio-group>
+        <vaadin-button
+          theme="small tertiary"
+          aria-label="Value Lookup"
+          @click="${() => {
+            void navigate('/variables/value-lookup');
+          }}"
+        >
+          <vaadin-tooltip slot="tooltip" text="Value Lookup"></vaadin-tooltip>
+          <vaadin-icon
+            icon="vaadin:search"
+            style="color: var(--dorc-link-color); margin-inline-end: 4px;"
+          ></vaadin-icon>
+          Value Lookup
+        </vaadin-button>
+      </div>
       ${
         this.radioValue === 'existing'
           ? html`
               <vaadin-details
                 opened
+                class="variables-panel"
                 summary="Select Variable Name"
-                style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
               >
-                <table class="variable-selector-table">
-                  <tr>
-                    <td style="vertical-align: center; min-width: 20px">
-                      ${
-                        this.loadingProperties
-                          ? html`<div
-                              style="vertical-align: center"
-                              class="small-loader"
-                            ></div> `
-                          : html``
-                      }
-                    </td>
-                    <td
-                      class="variable-selector-cell"
-                      style="vertical-align: center;"
+                <div class="variable-selector-row">
+                  <vaadin-combo-box
+                    class="variable-selector-combo"
+                    id="properties"
+                    @value-changed="${this._propNameValueChanged}"
+                    .items="${this.properties}"
+                    ${comboBoxRenderer(this.propertyNameRenderer, [])}
+                    label="Existing Variable Name"
+                    placeholder="Select Variable Name"
+                    clear-button-visible
+                    item-label-path="Name"
+                    item-value-path="Name"
+                    helper-text="${
+                      this.propertyValues
+                        ? `Property contains ${this.propertyValues?.length} value(s)`
+                        : 'Select Variable for info'
+                    }"
+                    ?disabled="${this.deletingVariable}"
+                  ></vaadin-combo-box>
+                  <div class="variable-selector-actions">
+                    <vaadin-checkbox
+                      id="is-variable-secure"
+                      label="Secure"
+                      ?disabled="${!((this.isPowerUser || this.isAdmin) && this.existingPropertySelected)}"
+                      @click="${this.updatePropertySecure}"
+                    ></vaadin-checkbox>
+                    <vaadin-button
+                      theme="tertiary error"
+                      ?disabled="${
+                        !this.canDeleteSelectedVariable() ||
+                        this.deletingVariable ||
+                        !this.existingPropertySelected
+                      }"
+                      @click="${this.deleteVariable}"
+                      >Delete Variable</vaadin-button
                     >
-                      <vaadin-combo-box
-                        class="variable-selector-combo"
-                        id="properties"
-                        @value-changed="${this._propNameValueChanged}"
-                        .items="${this.properties}"
-                        ${comboBoxRenderer(this.propertyNameRenderer, [])}
-                        label="Existing Variable Name"
-                        placeholder="Select Variable Name"
-                        clear-button-visible
-                        item-label-path="Name"
-                        item-value-path="Name"
-                        helper-text="${
-                          this.propertyValues
-                            ? `Property contains ${this.propertyValues?.length} value(s)`
-                            : 'Select Variable for info'
-                        }"
-                        ?disabled="${this.deletingVariable}"
-                      ></vaadin-combo-box>
-                    </td>
-                    <td
-                      class="variable-selector-actions"
-                      style="vertical-align: center;"
-                    >
-                      <vaadin-button
-                        style="--lumo-primary-text-color: var(--dorc-error-color);"
-                        ?disabled="${
-                          !this.canDeleteSelectedVariable() ||
-                          this.deletingVariable ||
-                          !this.existingPropertySelected
-                        }"
-                        @click="${this.deleteVariable}"
-                        >Delete Variable</vaadin-button
-                      >
-                    </td>
-                    <td style="vertical-align: center; min-width: 20px">
-                      ${
-                        this.deletingVariable
-                          ? html`<div
-                              style="vertical-align: center"
-                              class="small-loader"
-                            ></div> `
-                          : html``
-                      }
-                    </td>
-                    <td
-                      class="variable-selector-actions"
-                      style="vertical-align: center;"
-                    >
-                      <vaadin-checkbox
-                        id="is-variable-secure"
-                        label="Secure"
-                        ?disabled="${!((this.isPowerUser || this.isAdmin) && this.existingPropertySelected)}"
-                        @click="${this.updatePropertySecure}"
-                      ></vaadin-checkbox>
-                    </td>
-                  </tr>
-                </table>
+                    ${
+                      this.loadingProperties || this.deletingVariable
+                        ? html`<div class="small-loader"></div>`
+                        : html``
+                    }
+                  </div>
+                </div>
               </vaadin-details>
               <vaadin-details
                 opened
+                class="variables-panel"
                 summary="Add Variable Value"
-                style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
               >
-                <table style="width: 100%">
-                  <tr>
-                    <td style="vertical-align: center; min-width: 20px">
+                <div class="add-value-grid">
+                  <div class="scope-field-col">
+                    <vaadin-combo-box
+                      id="envScope"
+                      @value-changed="${this._newVariableValueScopeChanged}"
+                      .items="${this.filteredEnvironments}"
+                      ?disabled="${!this.existingPropertySelected}"
+                      clear-button-visible
+                      label="Scope"
+                      placeholder="Default or environment scope..."
+                      helper-text="Leave empty for (default) or queue multiple scopes"
+                    ></vaadin-combo-box>
+                    <div
+                      class="scope-chips-row"
+                      role="group"
+                      aria-label="Selected target scopes"
+                    >
+                      <vaadin-button
+                        id="addDefaultScopeBtn"
+                        theme="small tertiary"
+                        ?disabled="${!this.existingPropertySelected || this.hasDefaultScopedValue()}"
+                        @click="${this.toggleDefaultScopeSelection}"
+                      >
+                        ${
+                          this.selectedVariableScopes.includes('')
+                            ? '✓ (default) queued'
+                            : '+ Queue (default)'
+                        }
+                      </vaadin-button>
+                      <vaadin-button
+                        id="queueCurrentScopeBtn"
+                        theme="small tertiary"
+                        ?disabled="${!this.existingPropertySelected || !this.newVariableScope}"
+                        @click="${this.queueCurrentEnvironmentScope}"
+                      >
+                        + Queue selected scope
+                      </vaadin-button>
                       ${
-                        this.loadingScopes
-                          ? html`<div
-                              style="vertical-align: center"
-                              class="small-loader"
-                            ></div> `
+                        this.loadingScopes || this.loadingScopeOptions
+                          ? html`<div class="small-loader"></div>`
                           : html``
                       }
-                    </td>
-                    <td style="vertical-align: top;">
-                      <vaadin-combo-box
-                        id="envScope"
-                        @value-changed="${this._newVariableValueScopeChanged}"
-                        .items="${this.filteredEnvironments}"
+                      ${this.selectedVariableScopes.map(
+                        scope => html`
+                          <span class="scope-chip">
+                            <span>${scope === '' ? '(default)' : scope}</span>
+                            <button
+                              type="button"
+                              class="scope-chip-remove"
+                              aria-label="Remove scope ${scope === '' ? '(default)' : scope}"
+                              @click="${() => this.removeQueuedScope(scope)}"
+                            >
+                              ×
+                            </button>
+                          </span>
+                        `
+                      )}
+                    </div>
+                  </div>
+                  <div class="value-field-col">
+                    <div class="value-resolver-stack">
+                      <vaadin-text-field
+                        id="newVariableValue"
                         ?disabled="${!this.existingPropertySelected}"
                         clear-button-visible
-                        label="Scope"
-                        placeholder="Select Variable Scope (or add multiple)"
-                        style="min-width: 340px; margin-left: 5px"
-                        helper-text="Select environment scope(s) or include (default)"
-                      ></vaadin-combo-box>
-                      <div class="scope-chips-row" role="group" aria-label="Selected target scopes">
-                        <vaadin-button
-                          id="addDefaultScopeBtn"
-                          theme="small tertiary"
-                          ?disabled="${!this.existingPropertySelected || this.hasDefaultScopedValue()}"
-                          @click="${this.toggleDefaultScopeSelection}"
-                        >
-                          ${
-                            this.selectedVariableScopes.includes('')
-                              ? '✓ (default) queued'
-                              : '+ Queue (default)'
+                        label="Value"
+                        placeholder="Variable value (type $ or Ctrl+Space for tokens)..."
+                        helper-text="Use $VariableName$ for references; $$ escapes a literal $"
+                        @keydown="${this._onNewVariableValueKeyDown}"
+                        @blur="${(e: Event) => {
+                          const target = e.currentTarget as TextField & {
+                            inputElement?: HTMLInputElement;
+                          };
+                          if (target?.inputElement) {
+                            this.valueSelectionStart =
+                              target.inputElement.selectionStart;
+                            this.valueSelectionEnd =
+                              target.inputElement.selectionEnd;
                           }
-                        </vaadin-button>
-                        <vaadin-button
-                          id="queueCurrentScopeBtn"
-                          theme="small tertiary"
-                          ?disabled="${!this.existingPropertySelected || !this.newVariableScope}"
-                          @click="${this.queueCurrentEnvironmentScope}"
-                        >
-                          + Queue selected scope
-                        </vaadin-button>
-                        ${this.selectedVariableScopes.map(
-                          scope => html`
-                            <span class="scope-chip">
-                              <span>${scope === '' ? '(default)' : scope}</span>
-                              <button
-                                type="button"
-                                class="scope-chip-remove"
-                                aria-label="Remove scope ${scope === '' ? '(default)' : scope}"
-                                @click="${() => this.removeQueuedScope(scope)}"
-                              >
-                                ×
-                              </button>
-                            </span>
-                          `
-                        )}
-                      </div>
-                    </td>
-                    <td style="vertical-align: center; min-width: 20px">
-                      ${
-                        this.loadingScopeOptions
-                          ? html`<div
-                              style="vertical-align: center"
-                              class="small-loader"
-                            ></div> `
-                          : html``
-                      }
-                    </td>
-                    <td style="vertical-align: top; width: 100%;">
-                      <div class="value-resolver-stack">
-                        <vaadin-text-field
-                          id="newVariableValue"
-                          ?disabled="${!this.existingPropertySelected}"
-                          clear-button-visible
-                          label="Value"
-                          placeholder="Variable value..."
-                          style="min-width: 320px; flex: 1 1 320px;"
-                          helper-text="Type $ or Ctrl+Space for token IntelliSense; $$ escapes a literal $"
-                          @keydown="${this._onNewVariableValueKeyDown}"
-                          @blur="${(e: Event) => {
-                            const target = e.currentTarget as TextField & {
-                              inputElement?: HTMLInputElement;
-                            };
-                            if (target?.inputElement) {
-                              this.valueSelectionStart =
-                                target.inputElement.selectionStart;
-                              this.valueSelectionEnd =
-                                target.inputElement.selectionEnd;
-                            }
-                          }}"
-                          @input="${(e: Event) => {
-                            const target = e.currentTarget as TextField & {
-                              inputElement?: HTMLInputElement;
-                            };
-                            this.handleNewVariableValueInput(target);
-                          }}"
-                          @value-changed="${(e: CustomEvent<{ value?: string }>) => {
-                            const nextVal = e.detail?.value ?? '';
-                            if (nextVal !== this.draftNewVariableValue) {
-                              this.draftNewVariableValue = nextVal;
-                              this.updateInlineDollarTriggerFromValue(
-                                nextVal,
-                                nextVal.length
-                              );
-                              void this.refreshDraftValuePreview();
-                            }
-                          }}"
-                        >
-                          <button
-                            type="button"
-                            id="exploreDollarTokensBtn"
-                            slot="suffix"
-                            class="token-explorer-suffix-btn"
-                            title="Explore $ tokens (or type $ / Ctrl+Space)"
-                            aria-label="Explore $ tokens (or type $ / Ctrl+Space)"
-                            ?disabled="${!this.existingPropertySelected}"
-                            @mousedown="${(e: MouseEvent) => e.preventDefault()}"
-                            @click="${(e: MouseEvent) => {
-                              e.stopPropagation();
-                              this.toggleTokenExplorerPopover();
-                            }}"
-                          >
-                            $x$
-                          </button>
-                        </vaadin-text-field>
-                        ${this.renderTokenIntellisensePopover()}
-                      </div>
-                      ${this.renderNewVariableValueHint()}
-                    </td>
-                    <td style="vertical-align: center;">
-                      <vaadin-button
-                        ?disabled="${!this.existingPropertySelected ||
-                        this.addingVariableValue}"
-                        @click="${this._addVariableValueClick}"
-                        >Add Variable Value</vaadin-button
+                        }}"
+                        @input="${(e: Event) => {
+                          const target = e.currentTarget as TextField & {
+                            inputElement?: HTMLInputElement;
+                          };
+                          this.handleNewVariableValueInput(target);
+                        }}"
+                        @value-changed="${(
+                          e: CustomEvent<{ value?: string }>
+                        ) => {
+                          const nextVal = e.detail?.value ?? '';
+                          if (nextVal !== this.draftNewVariableValue) {
+                            this.draftNewVariableValue = nextVal;
+                            this.updateInlineDollarTriggerFromValue(
+                              nextVal,
+                              nextVal.length
+                            );
+                            void this.refreshDraftValuePreview();
+                          }
+                        }}"
                       >
-                    </td>
-                    <td style="vertical-align: center; min-width: 20px">
-                      ${
+                        <button
+                          type="button"
+                          id="exploreDollarTokensBtn"
+                          slot="suffix"
+                          class="token-explorer-suffix-btn"
+                          title="Explore $ tokens (or type $ / Ctrl+Space)"
+                          aria-label="Explore $ tokens (or type $ / Ctrl+Space)"
+                          ?disabled="${!this.existingPropertySelected}"
+                          @mousedown="${(e: MouseEvent) => e.preventDefault()}"
+                          @click="${(e: MouseEvent) => {
+                            e.stopPropagation();
+                            this.toggleTokenExplorerPopover();
+                          }}"
+                        >
+                          $x$
+                        </button>
+                      </vaadin-text-field>
+                      ${this.renderTokenIntellisensePopover()}
+                    </div>
+                    ${this.renderNewVariableValueHint()}
+                  </div>
+                  <div class="add-value-action-col">
+                    <vaadin-button
+                      theme="primary"
+                      ?disabled="${
+                        !this.existingPropertySelected ||
                         this.addingVariableValue
-                          ? html`<div
-                              style="vertical-align: center"
-                              class="small-loader"
-                            ></div> `
-                          : html``
-                      }
-                    </td>
-                  </tr>
-                </table>
+                      }"
+                      @click="${this._addVariableValueClick}"
+                      >Add Variable Value</vaadin-button
+                    >
+                    ${
+                      this.addingVariableValue
+                        ? html`<div class="small-loader"></div>`
+                        : html``
+                    }
+                  </div>
+                </div>
               </vaadin-details>
               ${
                 this.loadingPropertyValues
@@ -815,52 +836,42 @@ export class PageVariables extends PageElement {
           : html`
               <vaadin-details
                 opened
+                class="variables-panel"
                 summary="Add Variable"
-                style="border-top: 6px solid var(--dorc-link-color); background-color: var(--dorc-bg-secondary); padding-left: 4px; padding-left: 10px"
               >
-                <table>
-                  <tr>
-                    <td style="vertical-align: bottom;">
-                      <vaadin-text-field
-                        id="newVariable"
-                        label="New Variable Name"
-                        style="min-width: 400px"
-                        ?disabled="${!(this.isPowerUser || this.isAdmin || this.hasEditableEnvironment)}"
-                        @value-changed="${this.newVariableChanged}"
-                      ></vaadin-text-field>
-                    </td>
-                    <td style="vertical-align: bottom;">
-                      <vaadin-checkbox
-                        id="variable-secure"
-                        label="Secure"
-                        ?disabled="${!(this.isPowerUser || this.isAdmin || this.hasEditableEnvironment)}"
-                      ></vaadin-checkbox>
-                      <vaadin-checkbox
-                        id="variable-array"
-                        label="is Array"
-                        ?disabled="${!(this.isPowerUser || this.isAdmin || this.hasEditableEnvironment)}"
-                      ></vaadin-checkbox>
-                    </td>
-                    <td style="vertical-align: bottom;">
-                      <vaadin-button
-                        style="margin: 0px"
-                        ?disabled="${this.newVariableButtonDisabled}"
-                        @click="${this.createVariable}"
-                        >Add Variable</vaadin-button
-                      >
-                    </td>
-                    <td style="vertical-align: center;">
-                      ${
-                        this.creatingVariable
-                          ? html`<div
-                              style="vertical-align: bottom"
-                              class="small-loader"
-                            ></div>`
-                          : html``
-                      }
-                    </td>
-                  </tr>
-                </table>
+                <div class="variable-selector-row">
+                  <vaadin-text-field
+                    id="newVariable"
+                    class="variable-selector-combo"
+                    label="New Variable Name"
+                    placeholder="e.g. STP_ServiceAccount_User"
+                    ?disabled="${!(this.isPowerUser || this.isAdmin || this.hasEditableEnvironment)}"
+                    @value-changed="${this.newVariableChanged}"
+                  ></vaadin-text-field>
+                  <div class="variable-selector-actions">
+                    <vaadin-checkbox
+                      id="variable-secure"
+                      label="Secure"
+                      ?disabled="${!(this.isPowerUser || this.isAdmin || this.hasEditableEnvironment)}"
+                    ></vaadin-checkbox>
+                    <vaadin-checkbox
+                      id="variable-array"
+                      label="is Array"
+                      ?disabled="${!(this.isPowerUser || this.isAdmin || this.hasEditableEnvironment)}"
+                    ></vaadin-checkbox>
+                    <vaadin-button
+                      theme="primary"
+                      ?disabled="${this.newVariableButtonDisabled}"
+                      @click="${this.createVariable}"
+                      >Add Variable</vaadin-button
+                    >
+                    ${
+                      this.creatingVariable
+                        ? html`<div class="small-loader"></div>`
+                        : html``
+                    }
+                  </div>
+                </div>
               </vaadin-details>
             `
       }
@@ -1248,10 +1259,11 @@ export class PageVariables extends PageElement {
       this.selectedVariableScopes.find(s => Boolean(s)) ||
       undefined;
     try {
-      const traces = await defaultPropertyResolutionClientCache.resolveProperties(
-        { environmentName: targetScope },
-        referenced
-      );
+      const traces =
+        await defaultPropertyResolutionClientCache.resolveProperties(
+          { environmentName: targetScope },
+          referenced
+        );
       if (generation === this.draftPreviewGeneration) {
         this.draftPreviewTraces = traces;
       }
@@ -1287,8 +1299,7 @@ export class PageVariables extends PageElement {
           this.loadingScopeOptions = false;
           this.errorAlert(err);
         },
-        complete: () =>
-          console.log('done loading variable value scope options')
+        complete: () => console.log('done loading variable value scope options')
       });
   }
 
@@ -1299,7 +1310,9 @@ export class PageVariables extends PageElement {
     const innerInput =
       textField?.inputElement ??
       (textField?.querySelector('input') as HTMLInputElement | null) ??
-      (textField?.shadowRoot?.querySelector('input') as HTMLInputElement | null);
+      (textField?.shadowRoot?.querySelector(
+        'input'
+      ) as HTMLInputElement | null);
     if (
       innerInput &&
       innerInput.value === current &&
@@ -1515,38 +1528,43 @@ export class PageVariables extends PageElement {
         aria-label="$ Token IntelliSense"
       >
         <div class="token-intellisense-header">
-          ${this.tokenExplorerMode
-            ? html`
-                <input
-                  id="tokenExplorerSearchInput"
-                  class="token-intellisense-search"
-                  type="text"
-                  placeholder="Explore $ tokens by name, value, or category..."
-                  .value="${this.tokenExplorerSearchQuery}"
-                  @input="${(e: Event) => {
+          ${
+            this.tokenExplorerMode
+              ? html`
+                  <input
+                    id="tokenExplorerSearchInput"
+                    class="token-intellisense-search"
+                    type="text"
+                    placeholder="Explore $ tokens by name, value, or category..."
+                    .value="${this.tokenExplorerSearchQuery}"
+                    @input="${(e: Event) => {
                     const input = e.currentTarget as HTMLInputElement;
                     this.tokenExplorerSearchQuery = input.value ?? '';
                     this.activeTokenCompletionIndex = 0;
                   }}"
-                  @keydown="${this._onNewVariableValueKeyDown}"
-                />
-              `
-            : html`
-                <span
-                  ><strong>$ Token IntelliSense</strong>
-                  ${this.inlineDollarQuery
-                    ? html`matching
-                        <code
-                          >${this.inlineDollarQuery
-                            .toLowerCase()
-                            .startsWith('fn:')
-                            ? this.inlineDollarQuery
-                            : `$${this.inlineDollarQuery}`}</code
-                        >`
-                    : html``}</span
-                >
-                <span>↑↓ navigate · Tab/Enter insert · Esc close</span>
-              `}
+                    @keydown="${this._onNewVariableValueKeyDown}"
+                  />
+                `
+              : html`
+                  <span
+                    ><strong>$ Token IntelliSense</strong> ${
+                    this.inlineDollarQuery
+                      ? html`matching
+                          <code
+                            >${
+                            this.inlineDollarQuery
+                              .toLowerCase()
+                              .startsWith('fn:')
+                              ? this.inlineDollarQuery
+                              : `$${this.inlineDollarQuery}`
+                          }</code
+                          >`
+                      : html``
+                  }</span
+                  >
+                  <span>↑↓ navigate · Tab/Enter insert · Esc close</span>
+                `
+          }
           <button
             type="button"
             class="scope-chip-remove"
@@ -1558,53 +1576,54 @@ export class PageVariables extends PageElement {
           </button>
         </div>
         <div class="token-intellisense-list">
-          ${items.length === 0
-            ? html`<div
-                style="padding: 8px 10px; font-size: var(--lumo-font-size-xs, 0.78rem); color: var(--lumo-secondary-text-color);"
-              >
-                No matching $ tokens in scope
-              </div>`
-            : items.map((item, idx) => {
-                const sampleText = formatSampleResolvedPreview(
-                  item.SampleResolvedValue
-                );
-                return html`
-                  <div
-                    class="token-intellisense-item ${idx ===
-                    this.activeTokenCompletionIndex
-                      ? 'active'
-                      : ''}"
-                    role="option"
-                    tabindex="-1"
-                    aria-selected="${idx === this.activeTokenCompletionIndex}"
-                    data-token="${item.ValueOption}"
-                    @mousedown="${(e: MouseEvent) => e.preventDefault()}"
-                    @click="${() =>
+          ${
+            items.length === 0
+              ? html`<div
+                  style="padding: 8px 10px; font-size: var(--lumo-font-size-xs, 0.78rem); color: var(--lumo-secondary-text-color);"
+                >
+                  No matching $ tokens in scope
+                </div>`
+              : items.map((item, idx) => {
+                  const sampleText = formatSampleResolvedPreview(
+                    item.SampleResolvedValue
+                  );
+                  return html`
+                    <div
+                      class="token-intellisense-item ${
+                      idx === this.activeTokenCompletionIndex ? 'active' : ''
+                    }"
+                      role="option"
+                      tabindex="-1"
+                      aria-selected="${idx === this.activeTokenCompletionIndex}"
+                      data-token="${item.ValueOption}"
+                      @mousedown="${(e: MouseEvent) => e.preventDefault()}"
+                      @click="${() =>
                       this.insertTokenIntoValue(item.ValueOption)}"
-                    @keydown="${(e: KeyboardEvent) => {
+                      @keydown="${(e: KeyboardEvent) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
                         this.insertTokenIntoValue(item.ValueOption);
                       }
                     }}"
-                  >
-                    <div class="token-intellisense-item-top">
-                      <code class="token-intellisense-name"
-                        >${item.ValueOption}</code
-                      >
-                      <span class="token-intellisense-category"
-                        >${item.CategoryLabel}</span
-                      >
-                    </div>
-                    <div
-                      class="token-intellisense-sample"
-                      title="${sampleText}"
                     >
-                      ${sampleText}
+                      <div class="token-intellisense-item-top">
+                        <code class="token-intellisense-name"
+                          >${item.ValueOption}</code
+                        >
+                        <span class="token-intellisense-category"
+                          >${item.CategoryLabel}</span
+                        >
+                      </div>
+                      <div
+                        class="token-intellisense-sample"
+                        title="${sampleText}"
+                      >
+                        ${sampleText}
+                      </div>
                     </div>
-                  </div>
-                `;
-              })}
+                  `;
+                })
+          }
         </div>
       </div>
     `;
@@ -2066,9 +2085,10 @@ export class PageVariables extends PageElement {
                     JSON.stringify(this.filteredEnvironments)
                   );
                 }
-                this.selectedVariableScopes = this.selectedVariableScopes.filter(
-                  s => !succeededScopes.has(s)
-                );
+                this.selectedVariableScopes =
+                  this.selectedVariableScopes.filter(
+                    s => !succeededScopes.has(s)
+                  );
                 if (succeededScopes.has(this.newVariableScope.trim())) {
                   const combobox = this.shadowRoot?.querySelector(
                     '#envScope'

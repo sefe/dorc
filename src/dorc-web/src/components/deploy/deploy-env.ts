@@ -61,7 +61,9 @@ export interface PreflightResolutionSummary {
   resolvedInEnvironmentVariableNames: string[];
 }
 
-function collectSelectedLeafTreeNodes(nodes: TreeNode[] | undefined): TreeNode[] {
+function collectSelectedLeafTreeNodes(
+  nodes: TreeNode[] | undefined
+): TreeNode[] {
   if (!nodes || nodes.length === 0) {
     return [];
   }
@@ -180,7 +182,12 @@ export function computePreflightResolutionSummary(
     }
 
     const diag = trace.Diagnostic ?? 'Ok';
-    if (diag !== 'Ok' && diag !== 'FallbackToDefault') {
+    if (
+      diag === 'MissingInScope' ||
+      diag === 'CircularReference' ||
+      diag === 'ExpressionBlockedByOverride' ||
+      diag === 'ScopeResolutionError'
+    ) {
       unresolvedVariableNames.push(name);
     } else if (
       diag === 'FallbackToDefault' ||
@@ -535,7 +542,7 @@ export class DeployEnv extends LitElement {
       this.projectComponentDefinitions
     );
     const currentEnvironment =
-      (activeRequestDto?.Environment?.trim() || this.envName.trim());
+      activeRequestDto?.Environment?.trim() || this.envName.trim();
 
     if (referencedNames.length === 0 || !currentEnvironment) {
       this.preflightGeneration++;

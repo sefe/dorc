@@ -73,14 +73,7 @@ namespace Dorc.Core.AzureDevOpsServer
                             $"Failed to retrieve Azure DevOps build definitions for project '{project}' (HTTP {(int)response.StatusCode}): {response.ErrorText}");
                     }
 
-                    foreach (var header in response.Headers)
-                    {
-                        if (header.Key.Equals("X-MS-ContinuationToken", StringComparison.OrdinalIgnoreCase))
-                        {
-                            continuationToken = header.Value.First();
-                            break;
-                        }
-                    }
+                    continuationToken = ExtractContinuationToken(response.Headers);
 
                     buildDefinitions.AddRange(response.Data);
 
@@ -176,14 +169,7 @@ namespace Dorc.Core.AzureDevOpsServer
                             $"Failed to retrieve Azure DevOps builds for project '{project}' (HTTP {(int)response.StatusCode}): {response.ErrorText}");
                     }
 
-                    foreach (var header in response.Headers)
-                    {
-                        if (header.Key.Equals("X-MS-ContinuationToken", StringComparison.OrdinalIgnoreCase))
-                        {
-                            continuationToken = header.Value.First();
-                            break;
-                        }
-                    }
+                    continuationToken = ExtractContinuationToken(response.Headers);
 
                     builds.AddRange(response.Data);
 
@@ -225,20 +211,31 @@ namespace Dorc.Core.AzureDevOpsServer
                             $"Failed to retrieve Azure DevOps builds for '{buildNumber}' in project '{projectName}' (HTTP {(int)response.StatusCode}): {response.ErrorText}");
                     }
 
-                    foreach (var header in response.Headers)
-                    {
-                        if (header.Key.Equals("X-MS-ContinuationToken", StringComparison.OrdinalIgnoreCase))
-                        {
-                            continuationToken = header.Value.First();
-                            break;
-                        }
-                    }
+                    continuationToken = ExtractContinuationToken(response.Headers);
 
                     builds.AddRange(response.Data);
 
                 } while (!string.IsNullOrEmpty(continuationToken));
             }
             return builds;
+        }
+
+        internal static string? ExtractContinuationToken(Org.OpenAPITools.Client.Multimap<string, string>? headers)
+        {
+            if (headers == null)
+            {
+                return null;
+            }
+
+            foreach (var header in headers)
+            {
+                if (header.Key.Equals("X-MS-ContinuationToken", StringComparison.OrdinalIgnoreCase))
+                {
+                    return header.Value.FirstOrDefault();
+                }
+            }
+
+            return null;
         }
 
         public List<Build> FilterBuildsByRegex(List<string> regexList, List<Build> buildsForProject)

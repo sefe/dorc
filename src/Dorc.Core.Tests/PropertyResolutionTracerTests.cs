@@ -18,6 +18,7 @@ namespace Dorc.Core.Tests
         private IConfigValuesPersistentSource _configValuesSource = null!;
         private ISecurityPrivilegesChecker _securityChecker = null!;
         private IPropertyEncryptor _propertyEncryptor = null!;
+        private IRolePrivilegesChecker _roleChecker = null!;
         private PropertyResolutionTracer _tracer = null!;
         private ClaimsPrincipal _user = null!;
 
@@ -29,19 +30,22 @@ namespace Dorc.Core.Tests
             _configValuesSource = Substitute.For<IConfigValuesPersistentSource>();
             _securityChecker = Substitute.For<ISecurityPrivilegesChecker>();
             _propertyEncryptor = Substitute.For<IPropertyEncryptor>();
+            _roleChecker = Substitute.For<IRolePrivilegesChecker>();
             _user = new ClaimsPrincipal(new ClaimsIdentity("TestAuth"));
 
             _propertyValuesSource.GetGlobalProperties().Returns(Array.Empty<PropertyValueDto>());
             _propertyValuesSource.GetEnvironmentProperties(Arg.Any<string>(), Arg.Any<string>())
                 .Returns(Array.Empty<PropertyValueDto>());
             _configValuesSource.GetAllConfigValues(false).Returns(Array.Empty<ConfigValueApiModel>());
+            _roleChecker.IsAdmin(_user).Returns(true);
 
             _tracer = new PropertyResolutionTracer(
                 _propertyValuesSource,
                 _scopeOptionsResolver,
                 _configValuesSource,
                 _securityChecker,
-                _propertyEncryptor);
+                _propertyEncryptor,
+                _roleChecker);
         }
 
         [TestMethod]
@@ -279,13 +283,18 @@ namespace Dorc.Core.Tests
             var request = new PropertyResolutionPreviewRequestApiModel
             {
                 EnvironmentName = "BROKEN-ENV",
-                PropertyNames = new List<string> { "EnvironmentName" }
+                PropertyNames = new List<string> { "EnvironmentName", "IsProd" }
             };
 
             var result = _tracer.TraceProperties(request, env, _user);
 
-            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual(2, result.Count);
             Assert.AreEqual("\"BROKEN-ENV\"", result[0].ResolvedValueJson);
+            Assert.AreEqual("ScopeResolutionError", result[0].Diagnostic);
+            Assert.IsTrue(result[0].ResolutionChain.Any(c => c.Contains("ScopeResolutionError: Duplicate server tag")));
+
+            Assert.AreEqual("\"False\"", result[1].ResolvedValueJson);
+            Assert.AreEqual("ScopeResolutionError", result[1].Diagnostic);
         }
 
         [TestMethod]
@@ -301,6 +310,11 @@ namespace Dorc.Core.Tests
                     resolver.SetPropertyValue("ContainerNames_edge", "trade-ingest-worker");
                     resolver.SetPropertyValue("CloudResourceNames_messaging", "sb-trading-ut2");
                     resolver.SetPropertyValue("ApiRegistrationNames_rest", "trade-capture-api");
+                    resolver.SetPropertyValue(PropertyValueScopeOptionsFixed.EndurFileShare, "<Environment details file share>");
+                    resolver.SetPropertyValue("NonStringGlobalScope", new VariableValue { Value = new[] { "s1" }, Type = typeof(string[]) });
+                    resolver.SetPropertyValue("ShortBracket", "<>");
+                    resolver.SetPropertyValue("OpenBracketOnly", "<notClosed");
+                    resolver.SetPropertyValue("CloseBracketOnly", "notOpened>");
                 });
 
             var request = new PropertyResolutionPreviewRequestApiModel
@@ -313,13 +327,18 @@ namespace Dorc.Core.Tests
                     "ServerNames_App_Tier",
                     "ContainerNames_edge",
                     "CloudResourceNames_messaging",
-                    "ApiRegistrationNames_rest"
+                    "ApiRegistrationNames_rest",
+                    PropertyValueScopeOptionsFixed.EndurFileShare,
+                    "NonStringGlobalScope",
+                    "ShortBracket",
+                    "OpenBracketOnly",
+                    "CloseBracketOnly"
                 }
             };
 
             var result = _tracer.TraceProperties(request, null, _user);
 
-            Assert.AreEqual(6, result.Count);
+            Assert.AreEqual(11, result.Count);
             Assert.AreEqual("BuiltInScopeOption", result[0].Source);
             Assert.AreEqual("Default", result[0].ScopeName);
             Assert.AreEqual("Ok", result[0].Diagnostic);
@@ -339,6 +358,20 @@ namespace Dorc.Core.Tests
 
             Assert.AreEqual("BuiltInScopeOption", result[5].Source);
             Assert.AreEqual("\"trade-capture-api\"", result[5].ResolvedValueJson);
+
+            // Global placeholder <...> is classified as BuiltInScopeOption + RuntimeOnly instead of MissingInScope
+            Assert.AreEqual("BuiltInScopeOption", result[6].Source);
+            Assert.AreEqual("Default", result[6].ScopeName);
+            Assert.AreEqual("RuntimeOnly", result[6].Diagnostic);
+            Assert.AreEqual("<Environment details file share>", result[6].RawValue);
+            Assert.AreEqual(
+                System.Text.Json.JsonSerializer.Serialize("<Environment details file share>"),
+                result[6].ResolvedValueJson);
+
+            Assert.AreEqual("String[]", result[7].ValueType);
+            Assert.AreEqual("<>", result[8].RawValue);
+            Assert.AreEqual("<notClosed", result[9].RawValue);
+            Assert.AreEqual("notOpened>", result[10].RawValue);
         }
 
         [TestMethod]
@@ -682,7 +715,9 @@ namespace Dorc.Core.Tests
                 MakeProperty("DirectSecWithTokens", "EncSecretWithTokens", filter: "QA-CHILD", secure: true),
                 MakeProperty("AncestorSecAllowed", "EncAncestorOk", filter: "QA-PARENT", secure: true),
                 MakeProperty("AncestorSecDenied", "EncAncestorNo", filter: "QA-LOCKED-PARENT", secure: true),
-                MakeProperty("UsesDecryptedSecret", "conn=$DirectSec$", filter: "QA-CHILD")
+                MakeProperty("UsesDecryptedSecret", "conn=$DirectSec$", filter: "QA-CHILD"),
+                MakeProperty("SecWithMissingChild", "conn=$DirectSec$-$MissingChild$", filter: "QA-CHILD"),
+                MakeProperty("SecSafeExpr", "fn:\"$DirectSec$\".ToUpper()", filter: "QA-CHILD")
             });
 
             _configValuesSource.GetAllConfigValues(false).Returns(new[]
@@ -729,7 +764,9 @@ namespace Dorc.Core.Tests
                     "GlobalSecArray",
                     "DirectSecWithTokens",
                     "BuildNumber",
-                    "DropFolder"
+                    "DropFolder",
+                    "SecWithMissingChild",
+                    "SecSafeExpr"
                 },
                 RequestOverrides = new List<RequestProperty>
                 {
@@ -755,15 +792,16 @@ namespace Dorc.Core.Tests
             Assert.IsTrue(res[3].IsSecure);
             Assert.AreEqual("\"[REDACTED]\"", res[3].ResolvedValueJson);
 
-            // UsesDecryptedSecret interpolates PlainDirect and inherits IsSecure = true
+            // UsesDecryptedSecret interpolates PlainDirect, inherits IsSecure = true, and redacts ResolutionChain RHS
             Assert.IsTrue(res[4].IsSecure);
             Assert.AreEqual("\"conn=PlainDirect\"", res[4].ResolvedValueJson);
+            Assert.IsFalse(res[4].ResolutionChain.Any(c => c.Contains("PlainDirect")));
 
             // ExistingProp keeps GlobalDefault, not overwritten by ConfigValue
             Assert.AreEqual("GlobalDefault", res[5].Source);
             Assert.AreEqual("\"FromGlobal\"", res[5].ResolvedValueJson);
 
-            // AnyEnvConfig and NonProdConfig included for non-prod environment
+            // AnyEnvConfig and NonProdConfig included for non-prod environment when user IsAdmin
             Assert.AreEqual("ConfigValue", res[6].Source);
             Assert.AreEqual("\"AnyVal\"", res[6].ResolvedValueJson);
             Assert.AreEqual("ConfigValue", res[7].Source);
@@ -795,8 +833,29 @@ namespace Dorc.Core.Tests
             Assert.AreEqual("RequestOverride", res[13].Source);
             Assert.AreEqual(@"""\\\\custom\\drop""", res[13].ResolvedValueJson);
 
+            // SecWithMissingChild and SecSafeExpr redact secret values inside ResolutionChain hops
+            Assert.IsTrue(res[14].IsSecure);
+            Assert.AreEqual("MissingInScope", res[14].Diagnostic);
+            Assert.IsFalse(res[14].ResolutionChain.Any(c => c.Contains("PlainDirect")));
+
+            Assert.IsTrue(res[15].IsSecure);
+            Assert.AreEqual("\"PLAINDIRECT\"", res[15].ResolvedValueJson);
+            Assert.IsFalse(res[15].ResolutionChain.Any(c => c.Contains("PLAINDIRECT") || c.Contains("PlainDirect")));
+
+            // Non-admin user cannot read plaintext ConfigValues (redacted to [REDACTED])
+            _roleChecker.IsAdmin(_user).Returns(false);
+            var nonAdminConfigRes = _tracer.TraceProperties(new PropertyResolutionPreviewRequestApiModel
+            {
+                EnvironmentName = "QA-CHILD",
+                PropertyNames = new List<string> { "AnyEnvConfig" }
+            }, env, _user);
+            Assert.AreEqual("ConfigValue", nonAdminConfigRes[0].Source);
+            Assert.IsTrue(nonAdminConfigRes[0].IsSecure);
+            Assert.AreEqual("\"[REDACTED]\"", nonAdminConfigRes[0].ResolvedValueJson);
+            _roleChecker.IsAdmin(_user).Returns(true);
+
             // Also verify prod environment includes IsForProd = true and excludes IsForProd = false,
-            // and verify tracer without optional dependencies (null checker / encryptor / config source)
+            // and verify tracer without optional dependencies (null checker / encryptor / config source / role checker)
             var prodEnv = new EnvironmentApiModel
             {
                 EnvironmentName = "PROD-01",
@@ -810,6 +869,21 @@ namespace Dorc.Core.Tests
             }, prodEnv, _user);
             Assert.AreEqual("ConfigValue", prodRes[0].Source);
             Assert.AreEqual("Unresolved", prodRes[1].Source);
+
+            var noRoleCheckerTracer = new PropertyResolutionTracer(
+                _propertyValuesSource,
+                _scopeOptionsResolver,
+                _configValuesSource,
+                _securityChecker,
+                _propertyEncryptor,
+                null);
+            var noRoleCheckerRes = noRoleCheckerTracer.TraceProperties(new PropertyResolutionPreviewRequestApiModel
+            {
+                EnvironmentName = "PROD-01",
+                PropertyNames = new List<string> { "ProdOnlyConfig" }
+            }, prodEnv, _user);
+            Assert.IsTrue(noRoleCheckerRes[0].IsSecure);
+            Assert.AreEqual("\"[REDACTED]\"", noRoleCheckerRes[0].ResolvedValueJson);
 
             var noDepsTracer = new PropertyResolutionTracer(
                 _propertyValuesSource,
