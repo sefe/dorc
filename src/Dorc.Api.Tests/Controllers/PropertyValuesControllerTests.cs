@@ -669,7 +669,7 @@ namespace Dorc.Api.Tests.Controllers
         }
 
         [TestMethod]
-        public void GetWhereUsed_WhenCallerCanModifyGlobalProperties_RevealsDefaultScopeSecretSnippet()
+        public void GetWhereUsed_GatesDefaultScopeSecretSnippetSolelyOnCanReadSecrets()
         {
             _securityPrivilegesChecker.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), string.Empty).Returns(false);
             _securityPrivilegesChecker.CanModifyProperty(Arg.Any<ClaimsPrincipal>()).Returns(true);
@@ -693,9 +693,9 @@ namespace Dorc.Api.Tests.Controllers
             var references = (List<PropertyUsageReferenceApiModel>)result.Value!;
             Assert.AreEqual(1, references.Count);
             Assert.AreEqual("GlobalSecretConn", references[0].PropertyName);
-            Assert.AreEqual("Server=$DbHost$;Password=topsecret", references[0].RawValueSnippet);
+            Assert.AreEqual(RequestPropertyRedaction.Marker, references[0].RawValueSnippet);
 
-            // Also cover CanReadSecrets(User, string.Empty) == true and multi-page TotalPages termination
+            // When CanReadSecrets(User, string.Empty) is true, the default-scope snippet is revealed
             _securityPrivilegesChecker.CanReadSecrets(Arg.Any<ClaimsPrincipal>(), string.Empty).Returns(true);
             var fullPageItems = Enumerable.Range(0, 500)
                 .Select(i => new FlatPropertyValueApiModel
@@ -730,6 +730,7 @@ namespace Dorc.Api.Tests.Controllers
             var pagedResult = (OkObjectResult)_controller.GetWhereUsed("DbHost");
             var pagedRefs = (List<PropertyUsageReferenceApiModel>)pagedResult.Value!;
             Assert.AreEqual(2, pagedRefs.Count);
+            Assert.AreEqual("Server=$DbHost$;Password=topsecret", pagedRefs[0].RawValueSnippet);
         }
     }
 }

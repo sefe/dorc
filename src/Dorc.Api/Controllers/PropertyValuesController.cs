@@ -350,10 +350,7 @@ namespace Dorc.Api.Controllers
                     return allowed;
                 }
 
-                allowed = string.IsNullOrEmpty(trimmedScope)
-                    ? _securityPrivilegesChecker.CanReadSecrets(User, string.Empty) ||
-                      _securityPrivilegesChecker.CanModifyProperty(User)
-                    : _securityPrivilegesChecker.CanReadSecrets(User, trimmedScope);
+                allowed = _securityPrivilegesChecker.CanReadSecrets(User, trimmedScope);
                 secretScopePermissions[trimmedScope] = allowed;
                 return allowed;
             }

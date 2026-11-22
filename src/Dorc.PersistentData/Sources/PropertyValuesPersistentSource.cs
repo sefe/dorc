@@ -164,7 +164,7 @@ namespace Dorc.PersistentData.Sources
                     .Where(pv => pv.Property.Secure)
                     .AsNoTracking()
                     .ToList()
-                    .Select(pv => MapToPropertyValueDto(pv, decryptProperty))
+                    .SelectMany(pv => MapToScopedPropertyValueDtos(pv, decryptProperty))
                     .ToArray();
             }
         }
@@ -756,6 +756,44 @@ namespace Dorc.PersistentData.Sources
             }
 
             return properties;
+        }
+
+        private PropertyValueDto[] MapToScopedPropertyValueDtos(PropertyValue pv, bool decryptProperty)
+        {
+            var resolvedValue = decryptProperty ? GetPropertyValue(pv) : pv.Value;
+            var propertyModel = new PropertyApiModel
+            {
+                Id = pv.Property.Id,
+                Name = pv.Property.Name,
+                Secure = pv.Property.Secure,
+                IsArray = pv.Property.IsArray
+            };
+
+            if (pv.Filters == null || pv.Filters.Count == 0)
+            {
+                return new[]
+                {
+                    new PropertyValueDto
+                    {
+                        Id = pv.Id,
+                        Value = resolvedValue,
+                        Property = propertyModel,
+                        PropertyValueFilter = null,
+                        PropertyValueFilterId = null
+                    }
+                };
+            }
+
+            return pv.Filters
+                .Select(filter => new PropertyValueDto
+                {
+                    Id = pv.Id,
+                    Value = resolvedValue,
+                    Property = propertyModel,
+                    PropertyValueFilter = filter.Value,
+                    PropertyValueFilterId = filter.Id
+                })
+                .ToArray();
         }
 
         private PropertyValueDto MapToPropertyValueDto(PropertyValue pv, bool decryptProperty = false)
