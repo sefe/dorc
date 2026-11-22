@@ -24,7 +24,12 @@ public class ArchiveDeploymentRequestsTests
         var connection = Environment.GetEnvironmentVariable("ConnectionStrings__DOrcConnectionString")
             ?? "Server=(localdb)\\MSSQLLocalDB;Database=master;Integrated Security=True;Encrypt=True;TrustServerCertificate=True;";
 
-        var builder = new SqlConnectionStringBuilder(connection) { InitialCatalog = "master" };
+        var builder = new SqlConnectionStringBuilder(connection)
+        {
+            InitialCatalog = "master",
+            Encrypt = SqlConnectionEncryptOption.True,
+            TrustServerCertificate = true
+        };
         try
         {
             using var probe = new SqlConnection(builder.ConnectionString);
