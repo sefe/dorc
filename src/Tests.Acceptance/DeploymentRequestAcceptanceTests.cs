@@ -369,14 +369,15 @@ namespace Tests.Acceptance
 
             var aclResp = caller.ExecuteRaw("AccessControl", Method.Get, new Dictionary<string, string>
             {
-                ["accessSecureId"] = parentEnv.ObjectId.ToString()
+                ["accessControlType"] = Dorc.ApiModel.AccessControlType.Environment.ToString(),
+                ["accessControlName"] = LiveParentEnvName
             });
             Assert.AreEqual(HttpStatusCode.OK, aclResp.StatusCode, aclResp.Content);
-            var acl = DorcApiClient.Deserialize<AccessSecureObjectsApiModel>(aclResp.Content);
+            var acl = DorcApiClient.Deserialize<AccessSecureApiModel>(aclResp.Content);
             Assert.IsNotNull(acl);
 
             // Verify last-owner protection on live ACL endpoint: attempting to strip all Owner privileges is rejected with 400
-            var stripped = new AccessSecureObjectsApiModel
+            var stripped = new AccessSecureApiModel
             {
                 Name = acl.Name,
                 ObjectId = acl.ObjectId,
@@ -387,7 +388,6 @@ namespace Tests.Acceptance
                     {
                         Id = p.Id,
                         Name = p.Name,
-                        Sid = p.Sid,
                         Pid = p.Pid,
                         Allow = p.Allow & ~4,
                         Deny = p.Deny
@@ -494,6 +494,11 @@ Write-Output 'Downstream component executed.'
 
         private static void GrantEveryoneReadExecuteAndWrite(string directoryPath)
         {
+            if (!OperatingSystem.IsWindows())
+            {
+                return;
+            }
+
             try
             {
                 var dirInfo = new DirectoryInfo(directoryPath);
@@ -504,7 +509,7 @@ Write-Output 'Downstream component executed.'
                     FileSystemRights.Modify | FileSystemRights.Synchronize,
                     InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
                     PropagationFlags.None,
-                    AccessControlType.Allow));
+                    System.Security.AccessControl.AccessControlType.Allow));
                 dirInfo.SetAccessControl(security);
             }
             catch
@@ -535,11 +540,10 @@ Write-Output 'Downstream component executed.'
             if (usersResp.StatusCode == HttpStatusCode.OK)
             {
                 var users = DorcApiClient.Deserialize<List<UserElementApiModel>>(usersResp.Content);
-                var first = users?.FirstOrDefault(u => !string.IsNullOrWhiteSpace(u.Sid) || !string.IsNullOrWhiteSpace(u.Pid));
+                var first = users?.FirstOrDefault(u => !string.IsNullOrWhiteSpace(u.Pid));
                 if (first != null)
                 {
-                    return (first.DisplayName ?? first.Username ?? "ServiceAccount",
-                        !string.IsNullOrWhiteSpace(first.Sid) ? first.Sid : first.Pid);
+                    return (first.DisplayName ?? first.Username ?? "ServiceAccount", first.Pid);
                 }
             }
 
@@ -638,7 +642,7 @@ Write-Output 'Downstream component executed.'
             });
             if (getResp.StatusCode == HttpStatusCode.OK)
             {
-                var mapped = DorcApiClient.Deserialize<EnvironmentApiModelTemplate>(getResp.Content);
+                var mapped = DorcApiClient.Deserialize<TemplateApiModel<EnvironmentApiModel>>(getResp.Content);
                 if (mapped?.Items != null && mapped.Items.Any(e => string.Equals(e.EnvironmentName, envName, StringComparison.OrdinalIgnoreCase)))
                 {
                     return;
@@ -669,6 +673,7 @@ Write-Output 'Downstream component executed.'
                 (CancelWaitComponentName, "cancel-wait.ps1")
             };
 
+            var psV7 = PowerShellVersion.V7.ToVersionString();
             var modified = false;
             foreach (var (name, scriptName) in required)
             {
@@ -685,17 +690,17 @@ Write-Output 'Downstream component executed.'
                         NonProdOnly = true,
                         StopOnFailure = true,
                         ComponentType = ComponentType.PowerShell,
-                        PSVersion = PowerShellVersion.V7,
+                        PSVersion = psV7,
                         Children = new List<ComponentApiModel>()
                     });
                     modified = true;
                 }
                 else if (!string.Equals(existing.ScriptPath, scriptName, StringComparison.OrdinalIgnoreCase) ||
-                         existing.PSVersion != PowerShellVersion.V7 ||
+                         existing.PSVersion != psV7 ||
                          !existing.IsEnabled)
                 {
                     existing.ScriptPath = scriptName;
-                    existing.PSVersion = PowerShellVersion.V7;
+                    existing.PSVersion = psV7;
                     existing.IsEnabled = true;
                     modified = true;
                 }
