@@ -24,7 +24,12 @@ public class PostRestoreEndurTests
         var connection = Environment.GetEnvironmentVariable("ConnectionStrings__DOrcConnectionString")
             ?? "Server=(localdb)\\MSSQLLocalDB;Database=master;Integrated Security=True;TrustServerCertificate=True;";
 
-        var builder = new SqlConnectionStringBuilder(connection) { InitialCatalog = "master" };
+        var builder = new SqlConnectionStringBuilder(connection)
+        {
+            InitialCatalog = "master",
+            Encrypt = SqlConnectionEncryptOption.Mandatory,
+            TrustServerCertificate = true
+        };
         _masterConnectionString = builder.ConnectionString;
         _serverInstance = builder.DataSource;
         _databaseName = "dorc_endur_refresh_" + Guid.NewGuid().ToString("N");

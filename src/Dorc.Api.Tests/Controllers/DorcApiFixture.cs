@@ -189,10 +189,10 @@ public sealed class DorcApiFixture : IDisposable
         var batches = Regex.Split(script, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
         using var sql = new SqlConnection(DatabaseConnectionString);
         sql.Open();
-        foreach (var batch in batches.Where(b => !string.IsNullOrWhiteSpace(b)))
+        foreach (var cmd in batches.Where(b => !string.IsNullOrWhiteSpace(b)).Select(batch => new SqlCommand(batch, sql)))
         {
-            using var cmd = new SqlCommand(batch, sql);
-            cmd.ExecuteNonQuery();
+            using var command = cmd;
+            command.ExecuteNonQuery();
         }
     }
 
@@ -305,23 +305,40 @@ public sealed class DorcApiFixture : IDisposable
                 services.AddSingleton(fakeGroupReaderFactory);
 
                 var fakeSearcher = Substitute.For<IActiveDirectorySearcher>();
-                fakeSearcher.GetUserData(Arg.Any<string>()).Returns(call => new UserElementApiModel
+                static string ResolveDeterministicUserId(string identifier)
                 {
-                    Username = call.Arg<string>(),
-                    DisplayName = call.Arg<string>(),
-                    Pid = "admin-oid",
-                    Sid = "admin-oid",
-                    Email = call.Arg<string>().Contains('@') ? call.Arg<string>() : $"{call.Arg<string>()}@sefe.eu",
-                    IsGroup = false
+                    if (string.IsNullOrWhiteSpace(identifier))
+                        return "admin-oid";
+                    if (identifier.StartsWith("admin", StringComparison.OrdinalIgnoreCase))
+                        return "admin-oid";
+                    return identifier;
+                }
+                fakeSearcher.GetUserData(Arg.Any<string>()).Returns(call =>
+                {
+                    var input = call.Arg<string>();
+                    var resolvedId = ResolveDeterministicUserId(input);
+                    return new UserElementApiModel
+                    {
+                        Username = input,
+                        DisplayName = input,
+                        Pid = resolvedId,
+                        Sid = resolvedId,
+                        Email = input.Contains('@') ? input : $"{input}@sefe.eu",
+                        IsGroup = false
+                    };
                 });
-                fakeSearcher.GetUserDataById(Arg.Any<string>()).Returns(call => new UserElementApiModel
+                fakeSearcher.GetUserDataById(Arg.Any<string>()).Returns(call =>
                 {
-                    Username = call.Arg<string>(),
-                    DisplayName = call.Arg<string>(),
-                    Pid = call.Arg<string>(),
-                    Sid = call.Arg<string>(),
-                    Email = "admin.user@sefe.eu",
-                    IsGroup = false
+                    var id = call.Arg<string>();
+                    return new UserElementApiModel
+                    {
+                        Username = id,
+                        DisplayName = id,
+                        Pid = id,
+                        Sid = id,
+                        Email = id == "admin-oid" ? "admin.user@sefe.eu" : $"{id}@sefe.eu",
+                        IsGroup = false
+                    };
                 });
                 fakeSearcher.Search(Arg.Any<string>()).Returns(new List<UserElementApiModel>
                 {

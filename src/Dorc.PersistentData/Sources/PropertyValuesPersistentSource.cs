@@ -768,14 +768,33 @@ namespace Dorc.PersistentData.Sources
         private static PropertyValue MapToPropertyValue(PropertyValueDto pv, Property prop)
         {
             var rawValue = pv.Value?.ToString() ?? string.Empty;
-            var trimmed = rawValue.TrimStart();
+            if (prop.IsArray && !IsValidJsonArray(rawValue))
+            {
+                rawValue = JsonSerializer.Serialize(new[] { rawValue });
+            }
+
             return new PropertyValue
             {
-                Value = prop.IsArray && !trimmed.StartsWith("[", StringComparison.Ordinal)
-                    ? JsonSerializer.Serialize(rawValue)
-                    : rawValue,
+                Value = rawValue,
                 Property = prop,
             };
+        }
+
+        private static bool IsValidJsonArray(string value)
+        {
+            var trimmed = value.TrimStart();
+            if (!trimmed.StartsWith("[", StringComparison.Ordinal))
+                return false;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(value);
+                return doc.RootElement.ValueKind == JsonValueKind.Array;
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
         }
 
         private string? GetPropertyValue(PropertyValue propertyValue)

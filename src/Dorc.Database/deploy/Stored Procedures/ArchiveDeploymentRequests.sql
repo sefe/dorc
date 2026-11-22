@@ -9,18 +9,20 @@ BEGIN
 	DECLARE @TotalRequestsArchived INT = 0;
     DECLARE @RowCount INT = 1;
 	DECLARE @BatchStartID INT = 0;
+    DECLARE @BatchIDs TABLE (Id INT PRIMARY KEY);
 
     -- Use a loop to process rows in batches
     WHILE @RowCount > 0
     BEGIN
         BEGIN TRY
-            -- Temp table to store IDs for the batch
-            DECLARE @BatchIDs TABLE (Id INT);
+            DELETE FROM @BatchIDs;
+
+            BEGIN TRANSACTION;
 
             INSERT INTO @BatchIDs (Id)
             SELECT d.Id
-            FROM [deploy].[DeploymentRequest] d WITH (NOLOCK)
-			LEFT JOIN [archive].[DeploymentRequest] a WITH (NOLOCK) ON d.Id = a.Id
+            FROM [deploy].[DeploymentRequest] d WITH (UPDLOCK, READPAST)
+			LEFT JOIN [archive].[DeploymentRequest] a ON d.Id = a.Id
             WHERE YEAR(d.RequestedTime) <= @LastYear
 				AND d.Status IN ('Completed', 'Failed', 'Cancelled', 'Errored', 'Abandoned')
 				AND a.Id IS NULL
@@ -30,9 +32,54 @@ BEGIN
 
 			SELECT @BatchStartID = ISNULL(MAX(Id), 0) FROM @BatchIDs;
 
-			BEGIN TRANSACTION;
-			-- Remove DeploymentRequestAttempt rows (DeploymentResultAttempt cascades from DeploymentRequestAttempt)
+            -- Archive DeploymentResultAttempt rows before deleting parent DeploymentRequestAttempt rows
+            DELETE dra
+            OUTPUT
+                DELETED.[Id],
+                DELETED.[DeploymentRequestAttemptId],
+                DELETED.[ComponentId],
+                DELETED.[ComponentName],
+                DELETED.[StartedTime],
+                DELETED.[CompletedTime],
+                DELETED.[Status],
+                DELETED.[DeploymentResultId],
+                DELETED.[Log]
+            INTO [archive].[DeploymentResultAttempt] (
+                [Id],
+                [DeploymentRequestAttemptId],
+                [ComponentId],
+                [ComponentName],
+                [StartedTime],
+                [CompletedTime],
+                [Status],
+                [DeploymentResultId],
+                [Log]
+            )
+            FROM [deploy].[DeploymentResultAttempt] dra
+            INNER JOIN [deploy].[DeploymentRequestAttempt] reqAttempt ON reqAttempt.Id = dra.DeploymentRequestAttemptId
+            WHERE reqAttempt.DeploymentRequestId IN (SELECT Id FROM @BatchIDs);
+
+			-- Archive DeploymentRequestAttempt rows
 			DELETE FROM [deploy].[DeploymentRequestAttempt]
+            OUTPUT
+                DELETED.[Id],
+                DELETED.[DeploymentRequestId],
+                DELETED.[AttemptNumber],
+                DELETED.[StartedTime],
+                DELETED.[CompletedTime],
+                DELETED.[Status],
+                DELETED.[Log],
+                DELETED.[UserName]
+            INTO [archive].[DeploymentRequestAttempt] (
+                [Id],
+                [DeploymentRequestId],
+                [AttemptNumber],
+                [StartedTime],
+                [CompletedTime],
+                [Status],
+                [Log],
+                [UserName]
+            )
 			WHERE DeploymentRequestId IN (SELECT Id FROM @BatchIDs);
 
 			-- Remove execution receipts, Terraform outcomes/approvals, and catalog inputs/submissions for archived requests.
@@ -78,23 +125,25 @@ BEGIN
 
 			DELETE d
 			FROM [deploy].[DeploymentRequestDefinition] d
-			INNER JOIN [deploy].[DeploymentRequest] req ON req.Id = d.DeploymentRequestId
+			LEFT JOIN [deploy].[DeploymentRequest] req ON req.Id = d.DeploymentRequestId
+			LEFT JOIN [archive].[DeploymentRequest] archReq ON archReq.Id = d.DeploymentRequestId
 			WHERE d.DeploymentRequestId IN (SELECT Id FROM @BatchIDs)
 			  AND (
 			      d.IsSkipped = 1
-			      OR req.TerraformBackendRetiredByChangeId IS NOT NULL
-			      OR ISNULL(JSON_VALUE(d.[DefinitionJson], '$.TerraformSourceType'), '') NOT IN ('2', 'Catalog')
+			      OR COALESCE(req.TerraformBackendRetiredByChangeId, archReq.TerraformBackendRetiredByChangeId) IS NOT NULL
+			      OR ISNULL(JSON_VALUE(d.[DefinitionJson], '$.TerraformSourceType'), '') NOT IN ('4', 'Catalog')
 			      OR ISNULL(JSON_VALUE(d.[DefinitionJson], '$.ComponentType'), '') NOT IN ('1', 'Terraform')
 			      OR EXISTS (
 			          SELECT 1
 			          FROM [deploy].[DeploymentRequestDefinition] newerDef
-			          INNER JOIN [deploy].[DeploymentRequest] newerReq ON newerReq.Id = newerDef.DeploymentRequestId
+			          LEFT JOIN [deploy].[DeploymentRequest] newerReq ON newerReq.Id = newerDef.DeploymentRequestId
+			          LEFT JOIN [archive].[DeploymentRequest] newerArchReq ON newerArchReq.Id = newerDef.DeploymentRequestId
 			          WHERE newerDef.DeploymentRequestId > d.DeploymentRequestId
 			            AND newerDef.ProjectId = d.ProjectId
-			            AND newerReq.Environment = req.Environment
+			            AND COALESCE(newerReq.Environment, newerArchReq.Environment, '') = COALESCE(req.Environment, archReq.Environment, '')
 			            AND newerDef.IsSkipped = 0
-			            AND newerReq.TerraformBackendRetiredByChangeId IS NULL
-			            AND JSON_VALUE(newerDef.[DefinitionJson], '$.TerraformSourceType') IN ('2', 'Catalog')
+			            AND COALESCE(newerReq.TerraformBackendRetiredByChangeId, newerArchReq.TerraformBackendRetiredByChangeId) IS NULL
+			            AND JSON_VALUE(newerDef.[DefinitionJson], '$.TerraformSourceType') IN ('4', 'Catalog')
 			            AND JSON_VALUE(newerDef.[DefinitionJson], '$.ComponentType') IN ('1', 'Terraform')
 			            AND newerDef.DeploymentRequestId NOT IN (SELECT Id FROM @BatchIDs)
 			      )
@@ -181,7 +230,8 @@ BEGIN
                 [EnvironmentOwnerEmail],
                 [TerraformBackendRetiredByChangeId]
             )
-            WHERE Id IN (SELECT Id FROM @BatchIDs);
+            WHERE Id IN (SELECT Id FROM @BatchIDs)
+              AND Status IN ('Completed', 'Failed', 'Cancelled', 'Errored', 'Abandoned');
 
             SET @RowCount = @@ROWCOUNT;
             SET @TotalRequestsArchived += @RowCount;
@@ -189,9 +239,8 @@ BEGIN
             COMMIT TRANSACTION;
         END TRY
         BEGIN CATCH
-            -- Handle errors by rolling back any changes
-            ROLLBACK TRANSACTION;
-            -- Log the error or rethrow, or handle it as needed
+            IF @@TRANCOUNT > 0
+                ROLLBACK TRANSACTION;
             THROW;
         END CATCH
 

@@ -72,6 +72,11 @@ Write-Information ""Deployed to $EndpointUrl with secret $ApiSecretKey""
             Assert.AreEqual(DeploymentRequestStatus.Completed.ToString(), updatedReq.Status, $"Expected Completed but got {updatedReq.Status}: {updatedReq.Log}");
             Assert.IsTrue(File.Exists(outputMarkerFile), "PowerShell script should have written the output marker file.");
 
+            var firstResult = requestsSource.GetDeploymentResultsForRequest(seeded.RequestId).Single();
+            Assert.IsFalse((firstResult.Log ?? string.Empty).Contains($"TopSecretValue-{ext}", StringComparison.Ordinal),
+                "DeploymentResult.Log must redact secure variable values.");
+            StringAssert.Contains(firstResult.Log ?? string.Empty, "***");
+
             var markerContent = File.ReadAllText(outputMarkerFile);
             Assert.AreEqual(
                 $"Env={seeded.ChildEnvName}|Region=eu-west-2|Endpoint=https://eu-west-2.{seeded.ChildEnvName}.sefe.internal|Secret=TopSecretValue-{ext}|Tags=alpha,beta",
@@ -111,12 +116,9 @@ Write-Information ""Deployed to $EndpointUrl with secret $ApiSecretKey""
         var ext = RandomNumberGenerator.GetHexString(6);
         var env1 = $"env-ha-1-{ext}";
         var env2 = $"env-ha-2-{ext}";
-        var env3 = $"env-ha-3-{ext}";
 
         var req1 = Dorc.Monitor.Tests.Data.DeploymentRequestData.GetDeploymentRequest(env1, "user1", "proj1");
-        var req2 = Dorc.Monitor.Tests.Data.DeploymentRequestData.GetDeploymentRequest(env2, "user2", "proj2");
-        var req3 = Dorc.Monitor.Tests.Data.DeploymentRequestData.GetDeploymentRequest(env3, "user3", "proj3");
-        AddDeploymentRequests(new[] { req1, req2, req3 });
+        AddDeploymentRequests(new[] { req1 });
 
         try
         {
@@ -133,8 +135,14 @@ Write-Information ""Deployed to $EndpointUrl with secret $ApiSecretKey""
             collection.Replace(ServiceDescriptor.Singleton<IDistributedLockService>(lockService));
 
             var observedCancellationOnLockLoss = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var req1Started = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var releaseReq1 = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var req2Executed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var activeConcurrentCount = 0;
             var maxObservedConcurrent = 0;
+
+            using var engineCts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+            Dorc.PersistentData.Model.DeploymentRequest? req2 = null;
 
             var pendingMock = Substitute.For<IPendingRequestProcessor>();
             pendingMock.When(p => p.Execute(Arg.Any<RequestToProcessDto>(), Arg.Any<CancellationToken>(), Arg.Any<ILoggerFactory>()))
@@ -155,20 +163,26 @@ Write-Information ""Deployed to $EndpointUrl with secret $ApiSecretKey""
                     {
                         if (dto.Request.Id == req1.Id)
                         {
-                            lockLostCts.CancelAfter(100);
+                            var requestsSource = provider.GetRequiredService<IRequestsPersistentSource>();
+                            requestsSource.UpdateRequestStatus(dto.Request.Id, DeploymentRequestStatus.Running);
+                            req1Started.TrySetResult(true);
                             try
                             {
-                                Task.Delay(3000, token).GetAwaiter().GetResult();
+                                releaseReq1.Task.WaitAsync(token).GetAwaiter().GetResult();
                             }
                             catch (OperationCanceledException)
                             {
                                 observedCancellationOnLockLoss.TrySetResult(true);
+                                requestsSource.UpdateRequestStatus(dto.Request.Id, DeploymentRequestStatus.Cancelled);
                                 throw;
                             }
                         }
-                        else
+                        else if (req2 != null && dto.Request.Id == req2.Id)
                         {
-                            Task.Delay(250, token).GetAwaiter().GetResult();
+                            var requestsSource = provider.GetRequiredService<IRequestsPersistentSource>();
+                            requestsSource.UpdateRequestStatus(dto.Request.Id, DeploymentRequestStatus.Completed);
+                            req2Executed.TrySetResult(true);
+                            engineCts.Cancel();
                         }
                     }
                     finally
@@ -181,19 +195,33 @@ Write-Information ""Deployed to $EndpointUrl with secret $ApiSecretKey""
 
             var configMock = Substitute.For<IMonitorConfiguration>();
             configMock.IsProduction.Returns(false);
-            configMock.RequestProcessingIterationDelayMs.Returns(30);
+            configMock.RequestProcessingIterationDelayMs.Returns(20);
             configMock.MaxConcurrentDeployments.Returns(1);
             SubstituteTransientWith(configMock);
 
-            var stateProcessor = provider.GetRequiredService<IDeploymentRequestStateProcessor>();
+            var engine = provider.GetRequiredService<IDeploymentEngine>();
             var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
-            using var engineCts = new CancellationTokenSource();
 
-            var tasks = stateProcessor.ExecuteRequests(false, cancellationSources, engineCts.Token);
-            await Task.WhenAll(tasks);
+            var engineTask = engine.ProcessDeploymentRequestsAsync(false, cancellationSources, engineCts.Token, 20);
+            await req1Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+
+            // Enqueue req2 on a different environment while req1 is in-flight at MaxConcurrentDeployments=1.
+            req2 = Dorc.Monitor.Tests.Data.DeploymentRequestData.GetDeploymentRequest(env2, "user2", "proj2");
+            AddDeploymentRequests(new[] { req2 });
+
+            // Give the engine several poll intervals; req2 must NOT start while req1 holds the single concurrency slot.
+            var startedWhileCapped = await Task.WhenAny(req2Executed.Task, Task.Delay(150)) == req2Executed.Task;
+            Assert.IsFalse(startedWhileCapped, "Second environment request must not start while at MaxConcurrentDeployments=1.");
+
+            // Trigger distributed lock loss on req1; req1 cancels, freeing the slot so req2 runs next.
+            lockLostCts.Cancel();
 
             Assert.IsTrue(await observedCancellationOnLockLoss.Task.WaitAsync(TimeSpan.FromSeconds(5)),
                 "Losing the distributed environment lock must immediately cancel the in-flight deployment token.");
+            Assert.IsTrue(await req2Executed.Task.WaitAsync(TimeSpan.FromSeconds(5)),
+                "Second request should execute once the in-flight deployment terminates.");
+            await engineTask.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.AreEqual(1, maxObservedConcurrent, "MaxConcurrentDeployments=1 must cap concurrent executions at 1.");
         }
         finally
         {

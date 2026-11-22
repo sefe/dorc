@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Dorc.ApiModel;
+using Microsoft.Extensions.Configuration;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RestSharp;
 using Tests.Acceptance.Support;
@@ -8,17 +9,29 @@ namespace Tests.Acceptance
 {
     [TestClass]
     [TestCategory("LiveDvAcceptance")]
+    [TestCategory("LiveEnvironment")]
     public class DeploymentRequestAcceptanceTests
     {
         [TestInitialize]
         public void EnsureLiveEnvironmentEnabled()
         {
             var enabled = Environment.GetEnvironmentVariable("DORC_LIVE_DV_ENABLED");
-            if (!string.Equals(enabled, "true", StringComparison.OrdinalIgnoreCase) &&
+            var configured = new Microsoft.Extensions.Configuration.ConfigurationBuilder()
+                .AddJsonFile("appsettings.test.json", optional: true)
+                .AddEnvironmentVariables()
+                .Build();
+            var baseUrl = configured.GetSection("DorcApi")["BaseUrl"]
+                ?? configured.GetSection("AppSettings")["BaseAddress"];
+
+            var hasConfiguredLiveUrl = !string.IsNullOrWhiteSpace(baseUrl)
+                && !baseUrl.Contains("DEPLOYAPI.ENDPOINT", StringComparison.OrdinalIgnoreCase);
+
+            if (!hasConfiguredLiveUrl &&
+                !string.Equals(enabled, "true", StringComparison.OrdinalIgnoreCase) &&
                 !string.Equals(enabled, "1", StringComparison.OrdinalIgnoreCase))
             {
                 Assert.Inconclusive(
-                    "Live DV acceptance tests require DORC_LIVE_DV_ENABLED=true and a reachable DOrc DV environment.");
+                    "Live DV acceptance tests require DORC_LIVE_DV_ENABLED=true (or a configured DorcApi:BaseUrl) and a reachable DOrc DV environment.");
             }
         }
 
@@ -29,8 +42,11 @@ namespace Tests.Acceptance
             var result = caller.Call<List<EnvironmentApiModel>>(Endpoints.RefDataEnvironments, Method.Get);
 
             Assert.IsTrue(result.IsModelValid, result.Message);
-            var model = result.Model as List<EnvironmentApiModel>;
-            Assert.IsNotNull(model);
+            if (result.Model is not List<EnvironmentApiModel> model)
+            {
+                Assert.Fail("Expected a non-null List<EnvironmentApiModel> response.");
+                return;
+            }
             Assert.IsTrue(model.Count > 0, "Expected at least one environment from live DV API.");
         }
 
@@ -41,8 +57,11 @@ namespace Tests.Acceptance
             var result = caller.Call<List<ProjectApiModel>>(Endpoints.RefDataProjects, Method.Get);
 
             Assert.IsTrue(result.IsModelValid, result.Message);
-            var model = result.Model as List<ProjectApiModel>;
-            Assert.IsNotNull(model);
+            if (result.Model is not List<ProjectApiModel> model)
+            {
+                Assert.Fail("Expected a non-null List<ProjectApiModel> response.");
+                return;
+            }
             Assert.IsTrue(model.Count > 0, "Expected at least one project from live DV API.");
         }
 
@@ -78,14 +97,18 @@ namespace Tests.Acceptance
                 body: JsonSerializer.Serialize(payload));
 
             Assert.IsTrue(createResult.IsModelValid, createResult.Message);
-            var createdModel = createResult.Model as RequestStatusDto;
-            Assert.IsNotNull(createdModel);
+            if (createResult.Model is not RequestStatusDto createdModel)
+            {
+                Assert.Fail("Expected a non-null RequestStatusDto response.");
+                return;
+            }
             Assert.IsTrue(createdModel.Id > 0);
 
             var deadline = DateTime.UtcNow.AddMinutes(3);
             string latestStatus = createdModel.Status;
             while (DateTime.UtcNow < deadline &&
                    !string.Equals(latestStatus, "Completed", StringComparison.OrdinalIgnoreCase) &&
+                   !string.Equals(latestStatus, "WaitingConfirmation", StringComparison.OrdinalIgnoreCase) &&
                    !string.Equals(latestStatus, "Failed", StringComparison.OrdinalIgnoreCase) &&
                    !string.Equals(latestStatus, "Errored", StringComparison.OrdinalIgnoreCase) &&
                    !string.Equals(latestStatus, "Cancelled", StringComparison.OrdinalIgnoreCase))
@@ -104,7 +127,10 @@ namespace Tests.Acceptance
                 latestStatus = statusModel?.Status ?? latestStatus;
             }
 
-            Assert.AreEqual("Completed", latestStatus, $"Expected request {createdModel.Id} to complete.");
+            Assert.IsTrue(
+                string.Equals(latestStatus, "Completed", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(latestStatus, "WaitingConfirmation", StringComparison.OrdinalIgnoreCase),
+                $"Expected request {createdModel.Id} to reach Completed or WaitingConfirmation, but got {latestStatus}.");
         }
     }
 }

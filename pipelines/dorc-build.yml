@@ -55,6 +55,14 @@ steps:
     customCommand: 'run build'
 
 - task: Npm@1
+  displayName: 'Install Playwright Browsers'
+  inputs:
+    command: custom
+    workingDir: 'src/dorc-web'
+    verbose: true
+    customCommand: 'exec playwright install chromium firefox webkit'
+
+- task: Npm@1
   displayName: 'Run Web Regression Tests'
   inputs:
     command: custom
@@ -149,22 +157,28 @@ steps:
 # switched on, since it collects per-test diagnostic data at a real cost and
 # nothing has ever consumed it.
 - task: VSTest@2
-  displayName: 'Test Assemblies **\*tests.dll;-:**\obj\**'
+  displayName: 'Test Assemblies **\*tests.dll;-:**\IntegrationTests\**;-:**\obj\**'
   inputs:
     testAssemblyVer2: |
       **\*tests.dll
+      !**\IntegrationTests\**
       !**\obj\**
     runInParallel: true
     codeCoverageEnabled: true
 
-- task: PowerShell@1
+- task: PowerShell@2
   displayName: 'Run DOrc.Cmdlet Pester Tests'
   inputs:
-    scriptType: 'inlineScript'
-    inlineScript: |
+    targetType: 'inline'
+    pwsh: true
+    script: |
       Set-Location "$(Build.SourcesDirectory)\src\Tools.DOrc.Cmdlet"
+      if (-not (Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -ge [version]'5.0.0' })) {
+        Install-Module -Name Pester -MinimumVersion 5.0.0 -Scope CurrentUser -Force -SkipPublisherCheck
+      }
+      Import-Module Pester -MinimumVersion 5.0.0 -ErrorAction Stop
       $res = Invoke-Pester -Path .\DOrc.Cmdlet.tests.ps1 -PassThru
-      if (-not $res -or $res.FailedCount -gt 0) {
+      if (-not $res -or $res.TotalCount -le 0 -or $res.FailedCount -gt 0) {
         throw "DOrc.Cmdlet Pester tests failed ($($res.FailedCount) failures)."
       }
   

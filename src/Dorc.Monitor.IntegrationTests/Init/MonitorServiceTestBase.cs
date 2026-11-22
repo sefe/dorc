@@ -128,11 +128,19 @@ namespace Dorc.Monitor.Tests.Init
         private static string EnsureTestDatabaseConnectionString(string? configuredConnectionString)
         {
             if (!string.IsNullOrWhiteSpace(configuredConnectionString) &&
-                !configuredConnectionString.Contains("__DORC_TEST_DB_CONNSTR__", StringComparison.Ordinal) &&
-                !string.Equals(new SqlConnectionStringBuilder(configuredConnectionString).InitialCatalog, "master", StringComparison.OrdinalIgnoreCase))
+                !configuredConnectionString.Contains("__DORC_TEST_DB_CONNSTR__", StringComparison.Ordinal))
             {
-                EnsureDatabaseBootstrapped(configuredConnectionString);
-                return configuredConnectionString;
+                var configuredBuilder = new SqlConnectionStringBuilder(configuredConnectionString)
+                {
+                    Encrypt = SqlConnectionEncryptOption.Mandatory,
+                    TrustServerCertificate = true
+                };
+                if (!string.IsNullOrWhiteSpace(configuredBuilder.InitialCatalog) &&
+                    !string.Equals(configuredBuilder.InitialCatalog, "master", StringComparison.OrdinalIgnoreCase))
+                {
+                    EnsureDatabaseBootstrapped(configuredBuilder.ConnectionString);
+                    return configuredBuilder.ConnectionString;
+                }
             }
 
             lock (SharedDatabaseLock)
@@ -149,7 +157,9 @@ namespace Dorc.Monitor.Tests.Init
 
                 var builder = new SqlConnectionStringBuilder(baseConnStr)
                 {
-                    InitialCatalog = $"DorcMonitorIntTest_{Guid.NewGuid():N}"
+                    InitialCatalog = $"DorcMonitorIntTest_{Guid.NewGuid():N}",
+                    Encrypt = SqlConnectionEncryptOption.Mandatory,
+                    TrustServerCertificate = true
                 };
                 sharedDisposableConnectionString = builder.ConnectionString;
                 EnsureDatabaseBootstrapped(sharedDisposableConnectionString);
@@ -160,7 +170,9 @@ namespace Dorc.Monitor.Tests.Init
                     {
                         var masterBuilder = new SqlConnectionStringBuilder(sharedDisposableConnectionString)
                         {
-                            InitialCatalog = "master"
+                            InitialCatalog = "master",
+                            Encrypt = SqlConnectionEncryptOption.Mandatory,
+                            TrustServerCertificate = true
                         };
                         using var conn = new SqlConnection(masterBuilder.ConnectionString);
                         conn.Open();
@@ -173,9 +185,9 @@ BEGIN
 END";
                         cmd.ExecuteNonQuery();
                     }
-                    catch
+                    catch (SqlException ex)
                     {
-                        // Best-effort cleanup on test process exit.
+                        System.Diagnostics.Trace.WriteLine($"Best-effort test database cleanup failed: {ex.Message}");
                     }
                 };
 
@@ -237,19 +249,19 @@ ALTER TABLE [deploy].[DeploymentRequest] ALTER COLUMN [RequestDetails] XML NULL;
 
                 using var sqlConn = new SqlConnection(connectionString);
                 sqlConn.Open();
-                foreach (var sqlFile in sqlFiles.Where(File.Exists))
+                foreach (var sqlFile in sqlFiles.Where(File.Exists).Select(path => new { Path = path, Script = File.ReadAllText(path) }))
                 {
-                    var script = File.ReadAllText(sqlFile);
-                    var batches = Regex.Split(script, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
-                    foreach (var batch in batches.Where(b => !string.IsNullOrWhiteSpace(b)))
+                    var batches = Regex.Split(sqlFile.Script, @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
+                    foreach (var cmd in batches.Where(b => !string.IsNullOrWhiteSpace(b)).Select(batch => new SqlCommand(batch, sqlConn)))
                     {
+                        using var command = cmd;
                         try
                         {
-                            using var cmd = new SqlCommand(batch, sqlConn);
-                            cmd.ExecuteNonQuery();
+                            command.ExecuteNonQuery();
                         }
                         catch (SqlException ex) when (ex.Number == 2714) // Object already exists
                         {
+                            System.Diagnostics.Trace.WriteLine($"Skipped existing SQL object in {sqlFile.Path}: {ex.Message}");
                         }
                     }
                 }

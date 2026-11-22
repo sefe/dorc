@@ -1,6 +1,5 @@
 using Dorc.Core.Events;
 using Dorc.Core.Interfaces;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
@@ -14,7 +13,7 @@ namespace Dorc.Api.Events
     /// You can generate Typescript client for that SignalR hub using the following command:
     /// <code>dotnet tsrts --project Dorc.Core/Dorc.Core.csproj --output Dorc-web/src/services/ServerEvents/DeploymentEventsGenerated</code>
     /// </remarks>
-    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
+    [Authorize]
     public sealed class DeploymentsHub : Hub<IDeploymentsEventsClient>, IDeploymentEventsHub
     {
         private readonly IDeploymentSubscriptionsGroupTracker _tracker;
@@ -67,6 +66,15 @@ namespace Dorc.Api.Events
         // Group management: clients call these to scope updates to a request
         public async Task JoinRequestGroup(int requestId)
         {
+            if (requestId <= 0)
+            {
+                throw new HubException("Invalid requestId");
+            }
+            if (Context.User?.Identity?.IsAuthenticated != true)
+            {
+                throw new HubException("Not authorized");
+            }
+
             var groupName = _tracker.GetGroupName(requestId);
             await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
             _tracker.JoinGroup(Context.ConnectionId, requestId);

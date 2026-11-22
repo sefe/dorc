@@ -239,9 +239,9 @@ public class TerraformDispatcherTests : MonitorServiceTestBase
             {
                 propertiesSource.CreateProperty(new PropertyApiModel { Name = name, Secure = isSecure, IsArray = false }, "test");
             }
-            catch
+            catch (Exception ex)
             {
-                // Property may already exist in shared DB
+                System.Diagnostics.Trace.WriteLine($"Property '{name}' already exists: {ex.Message}");
             }
             propSource.AddPropertyValue(new PropertyValueDto
             {

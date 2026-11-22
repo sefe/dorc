@@ -118,7 +118,7 @@ public class PendingRequestProcessorTests : MonitorServiceTestBase
 
         try
         {
-            File.WriteAllText(Path.Combine(tempScriptDir, "non-idempotent.ps1"), $@"
+            File.WriteAllText(Path.Combine(tempScriptDir, "pass.ps1"), $@"
 Add-Content -Path '{executionCounterFile.Replace("'", "''")}' -Value 'ran'
 ");
 

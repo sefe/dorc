@@ -1,14 +1,21 @@
 using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Identity.Client;
 using RestSharp;
 
 namespace Tests.Acceptance.Support
 {
     public class DorcApiClient : IDisposable
     {
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            PropertyNameCaseInsensitive = true,
+            Converters = { new JsonStringEnumConverter() }
+        };
+
         private readonly RestClient _client;
         private readonly string? _bearerToken;
         private bool disposedValue;
@@ -24,7 +31,7 @@ namespace Tests.Acceptance.Support
                 ?? configuration.GetSection("AppSettings")["BaseAddress"]
                 ?? string.Empty;
 
-            _bearerToken = AcquireBearerTokenIfConfigured(configuration);
+            _bearerToken = AcquireBearerTokenIfConfigured(configuration, apiRoot);
 
             var options = new RestClientOptions
             {
@@ -37,7 +44,7 @@ namespace Tests.Acceptance.Support
             _client = new RestClient(options);
         }
 
-        private static string? AcquireBearerTokenIfConfigured(IConfiguration configuration)
+        private static string? AcquireBearerTokenIfConfigured(IConfiguration configuration, string apiRoot)
         {
             var envToken = Environment.GetEnvironmentVariable("DORC_API_BEARER_TOKEN");
             if (!string.IsNullOrWhiteSpace(envToken))
@@ -49,21 +56,56 @@ namespace Tests.Acceptance.Support
             var clientId = dorcApiSection["ClientId"];
             var clientSecret = dorcApiSection["ClientSecret"];
             var authority = dorcApiSection["Authority"];
-            var scope = dorcApiSection["Scope"] ?? "dorc-api.manage";
+            var scope = dorcApiSection["Scope"];
+            if (string.IsNullOrWhiteSpace(scope))
+            {
+                scope = "dorc-api.manage";
+            }
 
-            if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret) || string.IsNullOrWhiteSpace(authority))
+            if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
             {
                 return null;
             }
 
-            var app = ConfidentialClientApplicationBuilder
-                .Create(clientId)
-                .WithClientSecret(clientSecret)
-                .WithAuthority(new Uri(authority))
-                .Build();
+            if (string.IsNullOrWhiteSpace(authority) && !string.IsNullOrWhiteSpace(apiRoot))
+            {
+                authority = ResolveAuthorityFromApiConfig(apiRoot);
+            }
 
-            var tokenResult = app.AcquireTokenForClient(new[] { scope }).ExecuteAsync().GetAwaiter().GetResult();
-            return tokenResult.AccessToken;
+            if (string.IsNullOrWhiteSpace(authority))
+            {
+                return null;
+            }
+
+            using var http = new HttpClient();
+            var tokenEndpoint = new Uri(authority.TrimEnd('/') + "/connect/token", UriKind.Absolute);
+            using var form = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("grant_type", "client_credentials"),
+                new KeyValuePair<string, string>("client_id", clientId),
+                new KeyValuePair<string, string>("client_secret", clientSecret),
+                new KeyValuePair<string, string>("scope", scope)
+            });
+
+            using var response = http.PostAsync(tokenEndpoint, form).GetAwaiter().GetResult();
+            response.EnsureSuccessStatusCode();
+            var tokenPayload = response.Content.ReadFromJsonAsync<TokenResponse>(JsonOptions).GetAwaiter().GetResult();
+            return tokenPayload?.AccessToken;
+        }
+
+        private static string? ResolveAuthorityFromApiConfig(string apiRoot)
+        {
+            using var http = new HttpClient();
+            var baseUri = new Uri(apiRoot.EndsWith('/') ? apiRoot : apiRoot + "/", UriKind.Absolute);
+            var apiConfigUri = new Uri(baseUri, "ApiConfig");
+            using var response = http.GetAsync(apiConfigUri).GetAwaiter().GetResult();
+            if (!response.IsSuccessStatusCode)
+            {
+                return null;
+            }
+
+            var configRoot = response.Content.ReadFromJsonAsync<ApiConfigResponse>(JsonOptions).GetAwaiter().GetResult();
+            return configRoot?.OAuthAuthority;
         }
 
         public ApiResult<T> Call<T>(Endpoints endpoint, Method method, IEnumerable<string>? segments = null,
@@ -117,7 +159,7 @@ namespace Tests.Acceptance.Support
                 }
                 else
                 {
-                    model = JsonSerializer.Deserialize<T>(result.RawJson);
+                    model = JsonSerializer.Deserialize<T>(result.RawJson, JsonOptions);
                 }
                 result.Model = model;
             }
@@ -132,6 +174,17 @@ namespace Tests.Acceptance.Support
             }
 
             return result;
+        }
+
+        private sealed class ApiConfigResponse
+        {
+            public string? OAuthAuthority { get; set; }
+        }
+
+        private sealed class TokenResponse
+        {
+            [JsonPropertyName("access_token")]
+            public string? AccessToken { get; set; }
         }
 
         private static ApiResult<T> CreateFailureResult<T>(string? msg) where T : class

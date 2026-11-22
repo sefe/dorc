@@ -229,6 +229,10 @@ namespace Dorc.Monitor
                 else
                 {
                     deploymentResult.Log = componentResultLogBuilder.ToString();
+                    if (componentResultLogBuilder.Length > 0)
+                    {
+                        requestsPersistentSource.UpdateResultLog(deploymentResult, deploymentResult.Log);
+                    }
                     requestsPersistentSource.UpdateResultStatus(
                         deploymentResult,
                         deploymentResultStatus);

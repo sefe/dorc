@@ -94,10 +94,10 @@ public class DuplicateEnvironmentPropertyValuesTests
         var batches = Regex.Split(File.ReadAllText(filePath), @"^\s*GO\s*$", RegexOptions.Multiline | RegexOptions.IgnoreCase);
         using var sql = new SqlConnection(_databaseConnectionString);
         sql.Open();
-        foreach (var batch in batches.Where(b => !string.IsNullOrWhiteSpace(b)))
+        foreach (var cmd in batches.Where(b => !string.IsNullOrWhiteSpace(b)).Select(batch => new SqlCommand(batch, sql)))
         {
-            using var cmd = new SqlCommand(batch, sql);
-            cmd.ExecuteNonQuery();
+            using var command = cmd;
+            command.ExecuteNonQuery();
         }
     }
 

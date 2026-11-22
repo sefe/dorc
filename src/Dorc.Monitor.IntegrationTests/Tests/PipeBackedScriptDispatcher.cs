@@ -77,6 +77,23 @@ internal sealed class PipeBackedScriptDispatcher : IScriptDispatcher
 
         evidenceCapture.Prepare(scriptGroup, script.Revision ?? "rev-1", requestId, 0, readerIdentity.QualifiedAccountName);
 
+        var sensitiveValues = properties
+            .Where(kvp => kvp.Key.Contains("Secret", StringComparison.OrdinalIgnoreCase) || kvp.Key.Contains("Password", StringComparison.OrdinalIgnoreCase))
+            .Select(kvp => kvp.Value?.Value?.ToString())
+            .Where(v => !string.IsNullOrEmpty(v))
+            .Distinct(StringComparer.Ordinal)
+            .ToArray();
+
+        string Redact(string text)
+        {
+            if (string.IsNullOrEmpty(text)) return text;
+            foreach (var secret in sensitiveValues)
+            {
+                text = text.Replace(secret!, "***", StringComparison.Ordinal);
+            }
+            return text;
+        }
+
         using var pipeCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         try
         {
@@ -86,9 +103,9 @@ internal sealed class PipeBackedScriptDispatcher : IScriptDispatcher
             var msLogger = loggerFactory.CreateLogger("InProcessRunner");
             runnerLogger.FileLogger.Returns(msLogger);
             runnerLogger.When(l => l.Information(Arg.Any<string>()))
-                .Do(c => componentResultLogBuilder.AppendLine(c.Arg<string>()));
+                .Do(c => componentResultLogBuilder.AppendLine(Redact(c.Arg<string>())));
             runnerLogger.When(l => l.Error(Arg.Any<string>()))
-                .Do(c => componentResultLogBuilder.AppendLine(c.Arg<string>()));
+                .Do(c => componentResultLogBuilder.AppendLine(Redact(c.Arg<string>())));
 
             IScriptGroupPipeClient pipeClient = useNamedPipeClient
                 ? new ScriptGroupPipeClient(runnerLogger, currentSid)

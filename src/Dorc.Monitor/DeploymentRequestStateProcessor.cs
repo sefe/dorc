@@ -172,41 +172,51 @@ namespace Dorc.Monitor
             {
                 var runningIdsString = string.Join(',', runningRequests.Select(r => r.Id));
 
-                this.logger.LogWarning(
-                    "Found {Count} requests in 'Running' state from a previous instance. Resuming as Pending: [{Ids}]",
-                    runningRequests.Count, runningIdsString);
-
-                // Per-request transitions to ensure events are only published for requests this
-                // instance actually transitioned. A batch call returns only a count, making it
-                // impossible to determine which specific IDs were transitioned vs already handled
-                // by a concurrent startup instance (AC-7: event per transition, not per attempt).
-                int resumedCount = 0;
-                var resumedIds = new List<int>();
-                foreach (var request in runningRequests)
-                {
-                    int transitioned = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
-                        new List<DeploymentRequestApiModel> { request },
-                        DeploymentRequestStatus.Running,
-                        DeploymentRequestStatus.Pending);
-
-                    if (transitioned == 0) continue;
-
-                    resumedCount++;
-                    resumedIds.Add(request.Id);
-                    PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
-                        RequestId: request.Id,
-                        Status: DeploymentRequestStatus.Pending.ToString(),
-                        StartedTime: null,
-                        CompletedTime: null,
-                        Timestamp: DateTimeOffset.UtcNow
-                    ));
-                }
-
-                if (resumedCount > 0)
+                if (this.distributedLockService.IsEnabled)
                 {
                     this.logger.LogWarning(
-                        "Resumed {ResumedCount} of {TotalFound} stale Running request(s) as Pending. IDs [{Ids}]",
-                        resumedCount, runningRequests.Count, string.Join(',', resumedIds));
+                        "Found {Count} requests in 'Running' state ({Ids}), but distributed locking is enabled. " +
+                        "Each request is guarded by its per-environment lock; skipping global Running->Pending reset on startup so active peer Monitor nodes are not disrupted.",
+                        runningRequests.Count, runningIdsString);
+                }
+                else
+                {
+                    this.logger.LogWarning(
+                        "Found {Count} requests in 'Running' state from a previous instance. Resuming as Pending: [{Ids}]",
+                        runningRequests.Count, runningIdsString);
+
+                    // Per-request transitions to ensure events are only published for requests this
+                    // instance actually transitioned. A batch call returns only a count, making it
+                    // impossible to determine which specific IDs were transitioned vs already handled
+                    // by a concurrent startup instance (AC-7: event per transition, not per attempt).
+                    int resumedCount = 0;
+                    var resumedIds = new List<int>();
+                    foreach (var request in runningRequests)
+                    {
+                        int transitioned = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                            new List<DeploymentRequestApiModel> { request },
+                            DeploymentRequestStatus.Running,
+                            DeploymentRequestStatus.Pending);
+
+                        if (transitioned == 0) continue;
+
+                        resumedCount++;
+                        resumedIds.Add(request.Id);
+                        PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
+                            RequestId: request.Id,
+                            Status: DeploymentRequestStatus.Pending.ToString(),
+                            StartedTime: null,
+                            CompletedTime: null,
+                            Timestamp: DateTimeOffset.UtcNow
+                        ));
+                    }
+
+                    if (resumedCount > 0)
+                    {
+                        this.logger.LogWarning(
+                            "Resumed {ResumedCount} of {TotalFound} stale Running request(s) as Pending. IDs [{Ids}]",
+                            resumedCount, runningRequests.Count, string.Join(',', resumedIds));
+                    }
                 }
             }
 
@@ -795,7 +805,25 @@ namespace Dorc.Monitor
         private static System.Diagnostics.Process? GetProcByID(int id)
         {
             System.Diagnostics.Process[] processlist = System.Diagnostics.Process.GetProcesses();
-            return processlist.FirstOrDefault(pr => pr.Id == id);
+            var proc = processlist.FirstOrDefault(pr => pr.Id == id);
+            if (proc == null)
+                return null;
+
+            try
+            {
+                var name = proc.ProcessName;
+                if (!name.Contains("Dorc", StringComparison.OrdinalIgnoreCase) &&
+                    !name.Contains("Runner", StringComparison.OrdinalIgnoreCase))
+                {
+                    return null;
+                }
+            }
+            catch
+            {
+                return null;
+            }
+
+            return proc;
         }
     }
 }

@@ -857,9 +857,11 @@ namespace Dorc.Monitor.Tests
         // =====================================================================
 
         [TestMethod]
-        public async Task CancelStaleRequests_WhenHAEnabled_ResumesRunningRequestsAsPending()
+        public void CancelStaleRequests_WhenHAEnabled_SkipsGlobalRunningReset_AndOnlyResetsWhenLockAcquired()
         {
-            // Arrange - HA is enabled; Running → Pending resume is independent of the lock service (S-004 R4)
+            // Arrange - when HA is enabled, another peer Monitor node may actively own the environment lock
+            // and be executing the Running request, so CancelStaleRequests must NOT globally reset Running->Pending
+            // without holding the environment lock.
             mockDistributedLockService.IsEnabled.Returns(true);
 
             var staleRunning = new List<DeploymentRequestApiModel>
@@ -872,28 +874,18 @@ namespace Dorc.Monitor.Tests
             mockRequestsPersistentSource
                 .GetRequestsWithStatus(DeploymentRequestStatus.Requesting, false)
                 .Returns(Enumerable.Empty<DeploymentRequestApiModel>());
-            mockRequestsPersistentSource
-                .SwitchDeploymentRequestStatuses(
-                    Arg.Any<IList<DeploymentRequestApiModel>>(),
-                    DeploymentRequestStatus.Running,
-                    DeploymentRequestStatus.Pending)
-                .Returns(1);
 
             // Act
             sut.CancelStaleRequests(false);
-            await Task.WhenAll(publishTasks);
 
-            // Assert - Running resumed as Pending; lock service not involved in startup recovery
-            mockRequestsPersistentSource.Received(1)
+            // Assert - Running request is NOT blindly reset to Pending when HA is enabled
+            mockRequestsPersistentSource.DidNotReceive()
                 .SwitchDeploymentRequestStatuses(
                     Arg.Any<IList<DeploymentRequestApiModel>>(),
                     DeploymentRequestStatus.Running,
                     DeploymentRequestStatus.Pending);
-            mockDistributedLockService.DidNotReceive()
-                .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
-            mockEventPublisher.Received(1)
-                .PublishRequestStatusChangedAsync(Arg.Is<DeploymentRequestEventData>(e =>
-                    e.RequestId == 45 && e.Status == DeploymentRequestStatus.Pending.ToString()));
+            mockEventPublisher.DidNotReceive()
+                .PublishRequestStatusChangedAsync(Arg.Any<DeploymentRequestEventData>());
         }
 
         [TestMethod]

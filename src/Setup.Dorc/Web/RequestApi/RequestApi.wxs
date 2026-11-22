@@ -161,11 +161,11 @@
 
 			<Json:JsonFile Id="AzureSignalRUseProd" ElementPath="$.Azure.SignalR.IsUseAzureSignalR" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.USE]" />
 			<Json:JsonFile Id="AzureSignalRConnectionStringProd" ElementPath="$.Azure.SignalR.ConnectionString" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.CONNECTIONSTRING]" />
-			<Json:JsonFile Id="AzureStorageAccountTenantIdProd" ElementPath="$.AzureStorageAccount.TenantId" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.TENANTID]" />
-			<Json:JsonFile Id="AzureStorageAccountClientIdProd" ElementPath="$.AzureStorageAccount.ClientId" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTID]" />
-			<Json:JsonFile Id="AzureStorageAccountClientSecretProd" ElementPath="$.AzureStorageAccount.ClientSecret" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTSECRET]" />
-			<Json:JsonFile Id="AzureStorageAccountUriProd" ElementPath="$.AzureStorageAccount.StorageAccountUri" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.URI]" />
-			<Json:JsonFile Id="AzureStorageAccountTerraformBlobsContainerNameProd" ElementPath="$.AzureStorageAccount.TerraformBlobsContainerName" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME]" />
+			<Json:JsonFile Id="RequestApiAzureStorageAccountTenantIdProd" ElementPath="$.AzureStorageAccount.TenantId" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.TENANTID]" />
+			<Json:JsonFile Id="RequestApiAzureStorageAccountClientIdProd" ElementPath="$.AzureStorageAccount.ClientId" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTID]" />
+			<Json:JsonFile Id="RequestApiAzureStorageAccountClientSecretProd" ElementPath="$.AzureStorageAccount.ClientSecret" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTSECRET]" />
+			<Json:JsonFile Id="RequestApiAzureStorageAccountUriProd" ElementPath="$.AzureStorageAccount.StorageAccountUri" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.URI]" />
+			<Json:JsonFile Id="RequestApiAzureStorageAccountTerraformBlobsContainerNameProd" ElementPath="$.AzureStorageAccount.TerraformBlobsContainerName" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME]" />
 
 			<Json:JsonFile Id="ApiOtelUrlProd" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#DeployApiWebConfig]" />
 			<Json:JsonFile Id="PauseDeploymentEnabledApiProd" ElementPath="$.AppSettings.PauseDeploymentEnabled" Value="[PAUSE.DEPLOYMENT.ENABLED]" File="[#DeployApiWebConfig]" />

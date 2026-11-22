@@ -165,6 +165,8 @@ public class TerraformPlanApprovalTests
         var selfApproveResp = await submitterClient.PostAsync(
             $"/Terraform/plan/{confirmResultId}/confirm?planContentSha256={planContentSha}", null);
         Assert.AreEqual(HttpStatusCode.Forbidden, selfApproveResp.StatusCode);
+        var selfApproveBody = await selfApproveResp.Content.ReadAsStringAsync();
+        StringAssert.Contains(selfApproveBody, "A different approver is required for this environment");
 
         // Approver with stale/mismatched planContentSha256 receives 409 Conflict
         var staleApproveResp = await approverClient.PostAsync(

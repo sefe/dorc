@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { of } from 'rxjs';
 import { fixture, html, settle } from '../_helpers';
 
@@ -83,6 +83,9 @@ await import('../../src/components/component-previous-attempts');
 import type { ComponentPreviousAttempts } from '../../src/components/component-previous-attempts';
 
 describe('DeploymentHub and OAuthService', () => {
+  const originalAuthScheme = appConfig.authenticationScheme;
+  const originalDorcApi = appConfig.dorcApi;
+
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
@@ -90,6 +93,11 @@ describe('DeploymentHub and OAuthService', () => {
     capturedHubUrl = '';
     (DeploymentHub as unknown as { hubConnection: unknown }).hubConnection =
       undefined;
+  });
+
+  afterEach(() => {
+    appConfig.authenticationScheme = originalAuthScheme;
+    appConfig.dorcApi = originalDorcApi;
   });
 
   it('deduplicates concurrent silent token renewals and updates signedInUser', async () => {
@@ -218,5 +226,23 @@ describe('DeploymentHub and OAuthService', () => {
     await settle();
     expect(el.dialogOpened).toBe(true);
     expect(el.selectedLog).toBe('Attempt 1 failed log');
+
+    (details[1] as HTMLElement & { opened: boolean }).opened = true;
+    await settle();
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    const viewPlanBtn = Array.from(
+      el.shadowRoot!.querySelectorAll('vaadin-button')
+    ).find(b => b.textContent?.includes('View retained plan')) as HTMLElement;
+    expect(viewPlanBtn).toBeTruthy();
+    viewPlanBtn.click();
+    await settle();
+
+    const planDialog = el.shadowRoot!.querySelector(
+      'terraform-plan-dialog'
+    ) as HTMLElement & { deploymentResultId: number; opened: boolean };
+    expect(planDialog).toBeTruthy();
+    expect(planDialog.deploymentResultId).toBe(901);
+    expect(planDialog.opened).toBe(true);
   });
 });

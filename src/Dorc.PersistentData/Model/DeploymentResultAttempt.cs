@@ -21,5 +21,7 @@ namespace Dorc.PersistentData.Model
         public string Status { get; set; } = null!;
 
         public int? DeploymentResultId { get; set; }
+
+        public string? Log { get; set; }
     }
 }

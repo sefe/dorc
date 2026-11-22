@@ -366,12 +366,16 @@ jobs:
         
         # Find test projects (plural *Tests.csproj only — singular *Test.csproj
         # picks up non-test projects like auto-generated client stubs).
-        # Acceptance is excluded — it runs against live environments / dacpac publish.
+        # Acceptance is excluded from this loop (Database acceptance runs below).
+        # Kafka IntegrationTests are excluded — they run in kafka-integration.yml with a live Kafka broker.
         # Dorc.Monitor.IntegrationTests runs in-process against LocalDB.
+        sqllocaldb start MSSQLLocalDB
         $env:ConnectionStrings__DOrcConnectionString = "Server=(localdb)\MSSQLLocalDB;Integrated Security=true;TrustServerCertificate=true;"
+        $env:DORC_DB_TESTS_REQUIRED = "1"
         $testProjects = Get-ChildItem -Path "${{ github.workspace }}\src" -Recurse -Include "*Tests.csproj" |
           Where-Object {
-            $_.FullName -notmatch "Acceptance"
+            $_.FullName -notmatch "Acceptance" -and
+            $_.FullName -notmatch "Dorc\.Kafka\..*\.IntegrationTests"
           }
         
         if ($testProjects.Count -gt 0) {
@@ -392,13 +396,30 @@ jobs:
             }
           }
 
+          Write-Host "`nRunning Database DACPAC tests for: Tests.Acceptance"
+          dotnet test "${{ github.workspace }}\src\Tests.Acceptance\Tests.Acceptance.csproj" --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --filter "TestCategory=Database" --logger "trx" --results-directory $resultsDir
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::warning::dotnet test returned exit code $LASTEXITCODE for Tests.Acceptance (TestCategory=Database)"
+            $failedProjects += "Tests.Acceptance.csproj (TestCategory=Database)"
+          }
+
           Write-Host "`nRunning Pester tests for: Tools.DOrc.Cmdlet"
           Push-Location "${{ github.workspace }}\src\Tools.DOrc.Cmdlet"
-          $pesterResult = Invoke-Pester -Path .\DOrc.Cmdlet.tests.ps1 -PassThru
-          Pop-Location
-          if (-not $pesterResult -or $pesterResult.FailedCount -gt 0) {
-            Write-Host "::warning::Invoke-Pester failed for Tools.DOrc.Cmdlet"
-            $failedProjects += "Tools.DOrc.Cmdlet"
+          try {
+            if (-not (Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -ge [version]'5.0.0' })) {
+              Install-Module -Name Pester -MinimumVersion 5.0.0 -Scope CurrentUser -Force -SkipPublisherCheck
+            }
+            Import-Module Pester -MinimumVersion 5.0.0 -ErrorAction Stop
+            $pesterResult = Invoke-Pester -Path .\DOrc.Cmdlet.tests.ps1 -PassThru
+            if (-not $pesterResult -or $pesterResult.TotalCount -le 0 -or $pesterResult.FailedCount -gt 0) {
+              Write-Host "::warning::Invoke-Pester failed for Tools.DOrc.Cmdlet"
+              $failedProjects += "Tools.DOrc.Cmdlet (Pester)"
+            }
+          } catch {
+            Write-Host "::warning::Invoke-Pester threw an exception for Tools.DOrc.Cmdlet: $_"
+            $failedProjects += "Tools.DOrc.Cmdlet (Pester)"
+          } finally {
+            Pop-Location
           }
           
           if ($failedProjects.Count -gt 0) {

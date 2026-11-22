@@ -544,8 +544,9 @@ app.UseAuthorization();
 app.UseMiddleware<WinAuthLoggingMiddleware>();
 
 var endpointConventionBuilder = app.MapControllers();
+var hubEndpointBuilder = app.MapHub<DeploymentsHub>("/hubs/deployments");
 // Enforce Authorization Policy [see constant 'apiScopeAuthorizationPolicy'] on all the
-// Controllers. This must cover ConfigAuthScheme.Both as well as OAuth: Both is the distinct
+// Controllers and SignalR Hubs. This must cover ConfigAuthScheme.Both as well as OAuth: Both is the distinct
 // string "OAuth+WinAuth", so an exact match against OAuth alone silently skipped the policy
 // and left bearer tokens unchecked for scope in combined mode. The policy itself exempts
 // Windows-authenticated requests, so applying it in Both mode does not deny them. This only
@@ -554,10 +555,12 @@ var endpointConventionBuilder = app.MapControllers();
 if (authenticationScheme is ConfigAuthScheme.OAuth or ConfigAuthScheme.Both)
 {
     endpointConventionBuilder.RequireAuthorization(apiScopeAuthorizationPolicy);
+    hubEndpointBuilder.RequireAuthorization(apiScopeAuthorizationPolicy);
 }
-
-// Map SignalR hub
-app.MapHub<DeploymentsHub>("/hubs/deployments");
+else
+{
+    hubEndpointBuilder.RequireAuthorization();
+}
 
 app.Run();
 

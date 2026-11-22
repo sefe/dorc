@@ -124,6 +124,14 @@ namespace Dorc.NetFramework.PowerShell
                             {
                                 throw new Exception("PowerShell completed abnormally due to an error. Reason: " + powerShell.InvocationStateInfo.Reason);
                             }
+                            if (host.ShouldExit && host.ExitCode != 0)
+                            {
+                                throw new Exception($"PowerShell script exited with non-zero exit code: {host.ExitCode}");
+                            }
+                            if (TryGetNonZeroLastExitCode(runspace, out int lastExitCode))
+                            {
+                                throw new Exception($"PowerShell script completed with non-zero $LASTEXITCODE: {lastExitCode}");
+                            }
                             logger.FileLogger.LogDebug("Checking InvocationStateInfo...Done");
                         }
                     }
@@ -358,6 +366,29 @@ namespace Dorc.NetFramework.PowerShell
             }
 
             return debugInformation;
+        }
+
+        private static bool TryGetNonZeroLastExitCode(Runspace runspace, out int exitCode)
+        {
+            exitCode = 0;
+            try
+            {
+                var raw = runspace.SessionStateProxy.GetVariable("LASTEXITCODE");
+                if (raw is PSObject psObj)
+                {
+                    raw = psObj.BaseObject;
+                }
+                if (raw is int code && code != 0)
+                {
+                    exitCode = code;
+                    return true;
+                }
+            }
+            catch
+            {
+                // Ignore if runspace variable lookup is unavailable
+            }
+            return false;
         }
 
 

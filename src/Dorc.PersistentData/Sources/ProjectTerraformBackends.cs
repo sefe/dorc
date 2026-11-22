@@ -6,9 +6,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Dorc.PersistentData.Sources;
 
-internal static class ProjectTerraformBackends
+public static class ProjectTerraformBackends
 {
-    internal static IQueryable<DeploymentRequestDefinition> CatalogDefinitions(IDeploymentContext context, int projectId) =>
+    public static IQueryable<DeploymentRequestDefinition> CatalogDefinitions(IDeploymentContext context, int projectId) =>
         context.DeploymentRequestDefinitions.FromSqlRaw(
             "SELECT * FROM [deploy].[DeploymentRequestDefinition] WHERE [ProjectId] = {0} " +
             "AND JSON_VALUE([DefinitionJson], '$.TerraformSourceType') IN ({1}, {2}) " +
@@ -17,7 +17,7 @@ internal static class ProjectTerraformBackends
             nameof(TerraformSourceType.Catalog), ((int)ComponentType.Terraform).ToString(System.Globalization.CultureInfo.InvariantCulture),
             nameof(ComponentType.Terraform));
 
-    internal static void ValidateChange(IDeploymentContext context, Project project,
+    public static void ValidateChange(IDeploymentContext context, Project project,
         IEnumerable<TerraformStateBackendApiModel>? backends)
     {
         var proposed = backends?.ToList() ?? [];
@@ -33,10 +33,22 @@ internal static class ProjectTerraformBackends
 
         var catalogDefinitions = CatalogDefinitions(context, project.Id);
         var scopes = mapped.Select(e => (e.Id, e.Name)).ToList();
-        var submitted = (from definition in catalogDefinitions
-                         join request in context.DeploymentRequests on definition.DeploymentRequestId equals request.Id
-                         where !definition.IsSkipped && request.TerraformBackendRetiredByChangeId == null
-                         select new { request.Environment, definition.ProjectJson }).Distinct().ToList()
+        var activeSubmitted = (from definition in catalogDefinitions
+                               join request in context.DeploymentRequests on definition.DeploymentRequestId equals request.Id
+                               where !definition.IsSkipped && request.TerraformBackendRetiredByChangeId == null
+                               select new { request.Environment, definition.ProjectJson }).ToList();
+        var archivedSubmitted = context.Database.SqlQuery<ArchivedCatalogSnapshotRow>(
+            $"""
+            SELECT req.[Environment] AS [Environment], def.[ProjectJson] AS [ProjectJson]
+            FROM [deploy].[DeploymentRequestDefinition] def
+            INNER JOIN [archive].[DeploymentRequest] req ON req.[Id] = def.[DeploymentRequestId]
+            WHERE def.[ProjectId] = {project.Id}
+              AND def.[IsSkipped] = 0
+              AND req.[TerraformBackendRetiredByChangeId] IS NULL
+              AND JSON_VALUE(def.[DefinitionJson], '$.TerraformSourceType') IN ({((int)TerraformSourceType.Catalog).ToString(System.Globalization.CultureInfo.InvariantCulture)}, {nameof(TerraformSourceType.Catalog)})
+              AND JSON_VALUE(def.[DefinitionJson], '$.ComponentType') IN ({((int)ComponentType.Terraform).ToString(System.Globalization.CultureInfo.InvariantCulture)}, {nameof(ComponentType.Terraform)})
+            """).ToList().Select(r => new { r.Environment, r.ProjectJson });
+        var submitted = activeSubmitted.Concat(archivedSubmitted).Distinct().ToList()
             .Select(row => new
             {
                 row.Environment,
@@ -83,5 +95,11 @@ internal static class ProjectTerraformBackends
                                   r.StateContainerName != next.ContainerName))
                 throw new ArgumentException("Retained Catalog plans identify a different state backend. Adopt the existing account/container or complete an operator-reviewed state migration first.");
         }
+    }
+
+    private sealed class ArchivedCatalogSnapshotRow
+    {
+        public string? Environment { get; set; }
+        public string ProjectJson { get; set; } = string.Empty;
     }
 }

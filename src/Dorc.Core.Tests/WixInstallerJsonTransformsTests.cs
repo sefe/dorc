@@ -105,5 +105,35 @@ namespace Dorc.Core.Tests
                 elementPaths.ToList(),
                 "Setup.Acceptance Product.wxs must stamp $.DorcApi.* settings into appsettings.test.json.");
         }
+
+        [TestMethod]
+        public void SetupDorcWxs_JsonFileIds_AreGloballyUniqueAcrossAllFragments()
+        {
+            var setupDorcRoot = JoinUnderRoot(GetRepoRoot(), "src", "Setup.Dorc");
+            var wxsFiles = Directory.GetFiles(setupDorcRoot, "*.wxs", SearchOption.AllDirectories);
+
+            var allIds = new List<(string Id, string File)>();
+            foreach (var wxsFile in wxsFiles)
+            {
+                var doc = XDocument.Load(wxsFile);
+                foreach (var jsonFile in doc.Descendants(JsonNs + "JsonFile"))
+                {
+                    var id = (string?)jsonFile.Attribute("Id");
+                    if (!string.IsNullOrWhiteSpace(id))
+                    {
+                        allIds.Add((id, Path.GetRelativePath(setupDorcRoot, wxsFile)));
+                    }
+                }
+            }
+
+            var duplicates = allIds
+                .GroupBy(x => x.Id, StringComparer.OrdinalIgnoreCase)
+                .Where(g => g.Count() > 1)
+                .Select(g => $"{g.Key} ({string.Join(", ", g.Select(x => x.File))})")
+                .ToList();
+
+            Assert.AreEqual(0, duplicates.Count,
+                $"Duplicate JsonFile IDs cause WiX WIX0091 compile errors: {string.Join("; ", duplicates)}");
+        }
     }
 }
