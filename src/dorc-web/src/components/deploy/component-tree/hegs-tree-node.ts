@@ -1,4 +1,6 @@
 import '@vaadin/vaadin-lumo-styles/icons.js';
+import '@vaadin/icon';
+import '../../../icons/brand-icons';
 import { LitElement, PropertyValues } from 'lit';
 import { customElement, property, query, state } from 'lit/decorators.js';
 

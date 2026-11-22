@@ -278,6 +278,7 @@ export class EnvApis extends PageEnvBase {
     this.tagsItem
       ? html`<resource-tags
           .tags="${this.tagsItem.Tags}"
+          tokenPrefix="ApiRegistrationNames_"
           @resource-tags-save="${this.saveTags}"
         ></resource-tags>`
       : nothing;

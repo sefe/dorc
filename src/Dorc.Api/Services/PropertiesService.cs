@@ -109,8 +109,8 @@ namespace Dorc.Api.Services
                 try
                 {
                     string username = _claimsPrincipalReader.GetUserFullDomainName(User);
-                    _propertiesPersistentSource.CreateProperty(property, username);
-                    result.Add(new Response { Item = property, Status = "success" });
+                    var created = _propertiesPersistentSource.CreateProperty(property, username);
+                    result.Add(new Response { Item = created ?? property, Status = "success" });
                 }
                 catch (Exception e)
                 {

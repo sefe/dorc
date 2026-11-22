@@ -58,12 +58,23 @@ const variableProjectNames = 'ProjectNames';
  * callback each time is what makes `ref` re-run, since expansion is only
  * exposed as a method.
  */
-const showJson = (raw: string | null | undefined) => (element?: Element) => {
-  if (!element) return;
-  const viewer = element as unknown as HegsJsonViewer & { data?: unknown };
-  viewer.data = parseJson(raw);
-  viewer.expand('**');
-};
+const showJson =
+  (
+    raw: string | null | undefined,
+    environmentName?: string,
+    projectName?: string
+  ) =>
+  (element?: Element) => {
+    if (!element) return;
+    const viewer = element as unknown as HegsJsonViewer;
+    viewer.data = parseJson(raw);
+    viewer.resolutionContext = {
+      environmentName: environmentName || undefined,
+      projectName: projectName || undefined,
+      locationKind: 'script-arguments'
+    };
+    viewer.expand('**');
+  };
 
 /** Malformed JSON renders as the raw string rather than blowing up the grid. */
 function parseJson(raw: string | null | undefined): unknown {
@@ -93,6 +104,7 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
   @state() public userRoles: string[] = [];
   @state() private editing = false;
   @state() private error = '';
+  @state() private previewEnvironmentName = '';
 
   @property({ type: Boolean }) loading = true;
 
@@ -280,6 +292,22 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
         <a href="/deployment-definitions">Deployment definitions</a> includes
         PowerShell and all Terraform sources. This legacy view also retains
         scripts without a component.
+        <vaadin-text-field
+          placeholder="Preview as environment..."
+          clear-button-visible
+          theme="small"
+          style="margin-left: 12px; width: 220px;"
+          .value="${this.previewEnvironmentName}"
+          @change="${(e: Event) => {
+            const target = e.target as HTMLInputElement;
+            this.previewEnvironmentName = (target.value ?? '').trim();
+          }}"
+          @value-changed="${(e: CustomEvent<{ value: string }>) => {
+            if (!e.detail.value && this.previewEnvironmentName) {
+              this.previewEnvironmentName = '';
+            }
+          }}"
+        ></vaadin-text-field>
       </div>
       ${this.error ? html`<div class="error" role="alert">${this.error}</div>` : ''}
       <dorc-spinner
@@ -342,7 +370,9 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
                 resizable
                 width="320px"
                 flex-grow="2"
-                ${columnBodyRenderer(this._jsonRenderer, [])}
+                ${columnBodyRenderer(this._jsonRenderer, [
+                  this.previewEnvironmentName
+                ])}
                 ${columnHeaderRenderer(this.pathHeaderRenderer, [])}
                 ?hidden="${this._narrowScreen}"
               ></vaadin-grid-column>
@@ -543,7 +573,13 @@ export class PageScriptsList extends ResponsiveMixin(PageElement) {
     // the element exists rather than querying it back out of the cell.
     return html`<hegs-json-viewer
       class="path-json"
-      ${ref(showJson(script.Path))}
+      ${ref(
+        showJson(
+          script.Path,
+          this.previewEnvironmentName,
+          script.ProjectNames?.[0] ?? undefined
+        )
+      )}
     ></hegs-json-viewer>`;
   }
 

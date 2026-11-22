@@ -19,6 +19,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
         PropertyValueDto AddPropertyValue(PropertyValueDto propertyValueDto);
         void AddFilter(string filterName, string value);
         List<PropertyValueDto> GetPropertyValues(string propertyName, string environmentName, bool decryptProperty = false);
+        PropertyValueDto[] GetSecurePropertyValues(bool decryptProperty = false);
         bool IsCachedPropertySecure(string propertyName);
         bool RemoveByFilterId(long? propertyValueFilterId);
         GetScopedPropertyValuesResponseDto GetPropertyValuesForScopeByPage(int limit, int page,

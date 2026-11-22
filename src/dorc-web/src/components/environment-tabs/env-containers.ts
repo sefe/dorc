@@ -271,6 +271,7 @@ export class EnvContainers extends PageEnvBase {
     this.tagsItem
       ? html`<resource-tags
           .tags="${this.tagsItem.Tags}"
+          tokenPrefix="ContainerNames_"
           @resource-tags-save="${this.saveTags}"
         ></resource-tags>`
       : nothing;

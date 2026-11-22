@@ -416,8 +416,8 @@ namespace Dorc.Monitor
                 var text = first?.ToString();
                 if (text != null && System.Text.RegularExpressions.Regex.IsMatch(text, @"^\$\{[A-Za-z0-9_.-]+\}$"))
                 {
-                    var propertyName = text.Substring(2, text.Length - 3);
-                    if (!commonProperties.TryGetValue(propertyName, out var resolved))
+                    var propName = text.Substring(2, text.Length - 3);
+                    if (!commonProperties.TryGetValue(propName, out var resolved))
                         throw new InvalidOperationException("A referenced script property is unavailable.");
                     properties.TryAdd(deserializeObjectParam.Keys.First(), resolved);
                     continue;

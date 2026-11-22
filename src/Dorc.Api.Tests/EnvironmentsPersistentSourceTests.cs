@@ -928,7 +928,9 @@ namespace Dorc.Api.Tests
             pvList.AddRange(new[] { pvAllow, pvDeny, pvSecAllow, pvGlobalPlain, pvGlobalSec, pvParentSec });
             pvfList.AddRange(new[] { pvfAllow, pvfDeny, pvfSecAllow, pvfParentSec });
 
-            var propSource = new PropertyValuesPersistentSource(_contextFactory, Substitute.For<IPropertyEncryptor>(), _claimsPrincipalReader);
+            var encryptor = Substitute.For<IPropertyEncryptor>();
+            encryptor.DecryptValue(Arg.Any<string>()).Returns(ci => $"dec:{ci.Arg<string>()}");
+            var propSource = new PropertyValuesPersistentSource(_contextFactory, encryptor, _claimsPrincipalReader);
             var scopedAllow = propSource.GetPropertyValuesForScopeByPage(10, 1, new PagedDataOperators(), new EnvironmentApiModel
             {
                 EnvironmentName = "EnvAllow",
@@ -949,6 +951,24 @@ namespace Dorc.Api.Tests
             Assert.IsTrue(searched.Items.Where(i => i.PropertyValueScope == "EnvAllow").All(i => i.UserEditable));
             Assert.IsTrue(searched.Items.Where(i => i.PropertyValueScope == "EnvDeny").All(i => !i.UserEditable));
             Assert.IsTrue(searched.Items.Where(i => i.Secure).All(i => i.PropertyValue == string.Empty));
+
+            // Attach a second filter to pvSecAllow and a null-Filters secure value to verify multi-filter expansion and null-filter fallback
+            var pvfSecSecondary = new PropertyValueFilter { Id = 5, Value = "EnvSecondary", PropertyFilter = propFilter, PropertyValue = pvSecAllow };
+            pvSecAllow.Filters.Add(pvfSecSecondary);
+            var pvGlobalSecNullFilters = new PropertyValue { Id = 7, Value = "cipher-global-null", Property = globalSecProp, Filters = null! };
+            pvList.Add(pvGlobalSecNullFilters);
+
+            var secureEncrypted = propSource.GetSecurePropertyValues(false);
+            Assert.AreEqual(5, secureEncrypted.Length);
+            Assert.IsTrue(secureEncrypted.All(p => p.Property.Secure));
+            CollectionAssert.AreEquivalent(
+                new[] { "EnvAllow", "EnvSecondary" },
+                secureEncrypted.Where(p => p.Id == pvSecAllow.Id).Select(p => p.PropertyValueFilter).ToArray());
+            Assert.IsTrue(secureEncrypted.Where(p => p.Id == pvGlobalSec.Id || p.Id == pvGlobalSecNullFilters.Id).All(p => p.PropertyValueFilter == null));
+
+            var secureDecrypted = propSource.GetSecurePropertyValues(true);
+            Assert.AreEqual(5, secureDecrypted.Length);
+            Assert.IsTrue(secureDecrypted.All(p => p.Value.StartsWith("dec:", StringComparison.Ordinal)));
         }
     }
 }

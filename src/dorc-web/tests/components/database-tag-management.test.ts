@@ -19,7 +19,19 @@ class FakeTagify {
 (window as any).Tagify = FakeTagify;
 
 import '../../src/components/database-tags.js';
-import type { DatabaseTags } from '../../src/components/database-tags.js';
+import {
+  DatabaseTags,
+  formatDatabaseTagTokens
+} from '../../src/components/database-tags.js';
+import '../../src/components/add-edit-database.js';
+import '../../src/components/resource-tags.js';
+import {
+  ResourceTags,
+  formatResourceTagToken
+} from '../../src/components/resource-tags.js';
+import '../../src/components/add-edit-container.js';
+import '../../src/components/add-edit-cloud-resource.js';
+import '../../src/components/add-edit-api-registration.js';
 import '../../src/components/grid-button-groups/database-controls.js';
 import '../../src/components/grid-button-groups/database-env-controls.js';
 import '../../src/components/attached-databases.js';
@@ -147,5 +159,91 @@ describe('database tag management', () => {
 
     expect(page.manageTagsDialogOpened).to.equal(true);
     expect(page.selectedDatabase.Id).to.equal(3);
+  });
+
+  it('renders exposed $DbServer_<Tag>$ and $DbName_<Tag>$ token chips (plus special Endur tokens) in database-tags and add-edit-database', async () => {
+    expect(formatDatabaseTagTokens('')).to.deep.equal([]);
+    expect(formatDatabaseTagTokens('Audit DB')).to.deep.equal([
+      '$DbServer_Audit_DB$',
+      '$DbName_Audit_DB$'
+    ]);
+    expect(formatDatabaseTagTokens('Endur')).to.deep.equal([
+      '$DbServer_Endur$',
+      '$DbName_Endur$',
+      '$EndurDatabaseServer$',
+      '$EndurDatabaseName$'
+    ]);
+    expect(formatDatabaseTagTokens('Endur Reporting')).to.deep.equal([
+      '$DbServer_Endur_Reporting$',
+      '$DbName_Endur_Reporting$',
+      '$ReportingDatabaseServer$',
+      '$ReportingDatabaseName$',
+      '$SsisPackageServer$'
+    ]);
+    expect(formatDatabaseTagTokens('Endur External')).to.deep.equal([
+      '$DbServer_Endur_External$',
+      '$DbName_Endur_External$',
+      '$ExternalDatabaseServer$',
+      '$ExternalDatabaseName$'
+    ]);
+
+    const el = await fixture<DatabaseTags>(
+      html`<database-tags
+        .database="${{
+          Id: 5,
+          Name: 'D1',
+          ServerName: 'S1',
+          Tags: ['Audit DB', 'Endur']
+        }}"
+      ></database-tags>`
+    );
+    await el.updateComplete;
+
+    const chips = Array.from(
+      el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.token-chip')
+    ).map(btn => btn.textContent?.trim());
+    expect(chips).to.include('$DbServer_Audit_DB$');
+    expect(chips).to.include('$DbName_Audit_DB$');
+    expect(chips).to.include('$EndurDatabaseServer$');
+    expect(chips).to.include('$EndurDatabaseName$');
+
+    // Live update when tags change
+    const tagsInput = el.shadowRoot!.getElementById('tag-input')!;
+    tagsInput.dispatchEvent(
+      new CustomEvent('tags-changed', {
+        detail: { tags: ['CustomTag'] }
+      })
+    );
+    await el.updateComplete;
+    const updatedChips = Array.from(
+      el.shadowRoot!.querySelectorAll<HTMLButtonElement>('.token-chip')
+    ).map(btn => btn.textContent?.trim());
+    expect(updatedChips).to.deep.equal([
+      '$DbServer_CustomTag$',
+      '$DbName_CustomTag$'
+    ]);
+
+    // Also verify resource-tags for Containers, Cloud Resources, and API Registrations
+    expect(formatResourceTagToken('ContainerNames_', 'web tier')).to.equal(
+      '$ContainerNames_web_tier$'
+    );
+    expect(formatResourceTagToken('CloudResourceNames_', 'messaging')).to.equal(
+      '$CloudResourceNames_messaging$'
+    );
+    expect(
+      formatResourceTagToken('ApiRegistrationNames_', 'rest api')
+    ).to.equal('$ApiRegistrationNames_rest_api$');
+
+    const resTags = await fixture<ResourceTags>(
+      html`<resource-tags
+        .tags="${['web tier']}"
+        tokenPrefix="ContainerNames_"
+      ></resource-tags>`
+    );
+    await resTags.updateComplete;
+    const resChips = Array.from(
+      resTags.shadowRoot!.querySelectorAll<HTMLButtonElement>('.token-chip')
+    ).map(btn => btn.textContent?.trim());
+    expect(resChips).to.deep.equal(['$ContainerNames_web_tier$']);
   });
 });

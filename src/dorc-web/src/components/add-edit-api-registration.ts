@@ -10,6 +10,8 @@ import {
 } from '../apis/dorc-api';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import { confirmSharedResourceChange } from '../helpers/shared-resource-confirm';
+import { splitTags } from '../helpers/tag-parser';
+import { resolveResourceTagTokens } from './resource-tags';
 
 /**
  * Create/edit form for an API registration. Fires `api-registration-saved`.
@@ -47,6 +49,103 @@ export class AddEditApiRegistration extends LitElement {
       vaadin-text-field {
         width: 320px;
       }
+      .token-hints {
+        width: 320px;
+        box-sizing: border-box;
+        margin: var(--lumo-space-xs, 4px) 0 8px;
+        padding: 6px 10px;
+        border-radius: var(--lumo-border-radius-m, 6px);
+        background: var(--dorc-bg-secondary, rgba(128, 128, 128, 0.08));
+        border: 1px solid var(--dorc-border-color, rgba(128, 128, 128, 0.2));
+        font-size: var(--lumo-font-size-xs, 0.78rem);
+        color: var(--lumo-secondary-text-color);
+      }
+      .token-hints-label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 4px;
+        color: var(--lumo-body-text-color);
+      }
+      .token-chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+      }
+      .token-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 2px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--dorc-border-color, rgba(128, 128, 128, 0.28));
+        background: var(--dorc-chip-bg, rgba(59, 130, 246, 0.12));
+        color: var(--dorc-chip-text, inherit);
+        font-family: var(--lumo-font-family-monospace, monospace);
+        font-size: var(--lumo-font-size-xs, 0.78rem);
+        cursor: pointer;
+      }
+    `;
+  }
+
+  private async copyToken(token: string) {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(token);
+      Notification.show(`Copied ${token} to clipboard`, {
+        theme: 'contrast',
+        position: 'bottom-start',
+        duration: 2500
+      });
+    }
+  }
+
+  private renderTokenHints() {
+    const { tokens, conflicts } = resolveResourceTagTokens(
+      'ApiRegistrationNames_',
+      splitTags(this._apiRegistration.Tags)
+    );
+    return html`
+      <div
+        class="token-hints"
+        role="region"
+        aria-label="Exposed API registration tag tokens"
+      >
+        <span class="token-hints-label">
+          Built-in variable token${tokens.length === 1 ? '' : 's'} exposed by
+          API registration tags:
+        </span>
+        ${
+          tokens.length > 0
+            ? html`
+                <div class="token-chip-list">
+                  ${tokens.map(
+                    token => html`
+                      <button
+                        type="button"
+                        class="token-chip"
+                        title="Click to copy ${token}"
+                        @click="${() => this.copyToken(token)}"
+                      >
+                        <code>${token}</code>
+                      </button>
+                    `
+                  )}
+                </div>
+              `
+            : html`<span class="token-empty-hint"
+                >Add a tag (e.g. <code>rest</code>) to expose
+                <code>$ApiRegistrationNames_rest$</code> in environment
+                variables.</span
+              >`
+        }
+        ${
+          conflicts.length > 0
+            ? html`<div class="token-conflict-hint" role="alert">
+                Conflicting tags normalize to the same variable token:
+                ${conflicts.join('; ')}. Rename one so the token can resolve.
+              </div>`
+            : ''
+        }
+      </div>
     `;
   }
 
@@ -90,6 +189,7 @@ export class AddEditApiRegistration extends LitElement {
         .value="${this._apiRegistration.Tags ?? ''}"
         @input="${(e: Event) => this.setField('Tags', e)}"
       ></vaadin-text-field>
+      ${this.renderTokenHints()}
       <vaadin-button theme="primary" @click="${this.save}">
         ${this._apiRegistration.Id ? 'Save' : 'Create'}
       </vaadin-button>
@@ -99,6 +199,7 @@ export class AddEditApiRegistration extends LitElement {
   private setField(field: keyof ApiRegistrationApiModel, e: Event) {
     const value = (e.currentTarget as HTMLInputElement).value;
     this._apiRegistration = { ...this._apiRegistration, [field]: value };
+    this.requestUpdate();
   }
 
   private async save() {

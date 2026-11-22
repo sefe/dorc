@@ -741,8 +741,8 @@ describe('definition history and discovery', () => {
     );
     await settle();
 
-    // Clone Child Apply (which has ParentId 10, PSVersion 7.5, ScriptPath deploy/child.ps1)
-    clickButton(page.shadowRoot!, 'Clone sibling');
+    // Duplicate Child Apply (which has ParentId 10, PSVersion 7.4, ScriptPath nested.ps1)
+    clickButton(page.shadowRoot!, 'Duplicate step');
     await settle();
 
     clickButton(page.shadowRoot!, 'Review changes');
@@ -822,9 +822,42 @@ describe('definition history and discovery', () => {
     expect(dialog.textContent).to.include('Deploy MSI Package');
     expect(dialog.textContent).to.include('Database Backup');
 
-    const msiField = [
-      ...dialog.querySelectorAll<TextField>('vaadin-text-field')
-    ].find(field => field.label === 'MSI file name (msiName)')!;
+    // Switch to another template card and back via the shared editor or card list
+    const serviceCard = [
+      ...dialog.querySelectorAll<HTMLButtonElement>('.script-catalog-card')
+    ].find(btn => btn.textContent?.includes('Control Windows Services'))!;
+    serviceCard.click();
+    await settle();
+    const msiCard = [
+      ...dialog.querySelectorAll<HTMLButtonElement>('.script-catalog-card')
+    ].find(btn => btn.textContent?.includes('Deploy MSI Package'))!;
+    msiCard.click();
+    await settle();
+
+    const dialogEditor = dialog.querySelector('deployment-definition-editor')!;
+    expect(dialogEditor).not.to.equal(null);
+
+    // Emit a draft change with empty ComponentName/ScriptPath to exercise fallback branches,
+    // then configure the MSI package step via the embedded editor.
+    dialogEditor.dispatchEvent(
+      new CustomEvent('definition-changed', {
+        detail: {
+          ComponentId: 0,
+          ComponentName: '',
+          ScriptPath: ''
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
+    await settle();
+    msiCard.click();
+    await settle();
+
+    const msiField = dialogEditor.shadowRoot!.querySelector<TextField>(
+      'vaadin-text-field[aria-label="MSI file name (msiName)"]'
+    )!;
+    expect(msiField).not.to.equal(null);
     msiField.value = 'Payments.Service.msi';
     msiField.dispatchEvent(new Event('input'));
     await settle();
@@ -835,6 +868,27 @@ describe('definition history and discovery', () => {
     clickButton(page.shadowRoot!, 'Script catalog');
     await settle();
     clickButton(page.shadowRoot!, 'Insert sibling');
+    await settle();
+
+    clickButton(page.shadowRoot!, 'Script catalog');
+    await settle();
+    // Exercise "Add at project root" when a step is selected, with empty ComponentName/ScriptPath fallbacks
+    const reopenedEditor = page.shadowRoot!.querySelector(
+      '.script-catalog-dialog deployment-definition-editor'
+    )!;
+    reopenedEditor.dispatchEvent(
+      new CustomEvent('definition-changed', {
+        detail: {
+          ComponentId: 0,
+          ComponentName: '',
+          ScriptPath: ''
+        },
+        bubbles: true,
+        composed: true
+      })
+    );
+    await settle();
+    clickButton(page.shadowRoot!, 'Add at project root');
     await settle();
 
     clickButton(page.shadowRoot!, 'Review changes');
@@ -855,6 +909,12 @@ describe('definition history and discovery', () => {
       ParentId: 10,
       ScriptPath: 'common/backup-db.ps1',
       PSVersion: '7.4'
+    });
+    expect(saved.Components[1]).to.include({
+      ComponentName: 'Deploy MSI (copy)',
+      ParentId: 0,
+      ScriptPath: '00 Generic\\DeployMSI.ps1',
+      PSVersion: '5.1'
     });
 
     // Switch to project-source and terraform-state workspace tabs

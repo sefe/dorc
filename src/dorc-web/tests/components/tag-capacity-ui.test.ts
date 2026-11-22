@@ -17,7 +17,7 @@ class FakeTagify {
 }
 (window as any).Tagify = FakeTagify;
 import '../../src/components/server-tags.js';
-import type { ServerTags } from '../../src/components/server-tags.js';
+import { formatServerTagToken, type ServerTags } from '../../src/components/server-tags.js';
 import { RefDataServersApi } from '../../src/apis/dorc-api';
 import { MAX_TAG_LENGTH } from '../../src/helpers/tag-limits';
 
@@ -73,5 +73,66 @@ describe('server-tags per-tag enforcement', () => {
     } finally {
       (RefDataServersApi.prototype as any).refDataServersPut = original;
     }
+  });
+
+  it('surfaces $ServerNames_<Tag_With_Underscores>$ token hints and supports click-to-copy', async () => {
+    expect(formatServerTagToken('STP Strategies')).to.equal(
+      '$ServerNames_STP_Strategies$'
+    );
+    expect(formatServerTagToken('  App_Server 01  ')).to.equal(
+      '$ServerNames_App_Server_01$'
+    );
+
+    const el = await fixture<ServerTags>(html`<server-tags></server-tags>`);
+    await el.updateComplete;
+    expect(el.shadowRoot?.querySelector('.token-empty-hint')?.textContent).to.contain(
+      '$ServerNames_STP_Strategies$'
+    );
+
+    el.setTags({
+      ServerId: 5,
+      Name: 'srv-01',
+      Tags: ['STP Strategies', 'Web Tier']
+    });
+    await el.updateComplete;
+
+    const chips = Array.from(
+      el.shadowRoot?.querySelectorAll<HTMLButtonElement>('.token-chip') ?? []
+    );
+    expect(chips.map(c => c.textContent?.trim())).to.deep.equal([
+      '$ServerNames_STP_Strategies$',
+      '$ServerNames_Web_Tier$'
+    ]);
+
+    // Live update on @tags-changed before saving
+    const tagInput = el.shadowRoot?.querySelector('#tag-input');
+    tagInput?.dispatchEvent(
+      new CustomEvent('tags-changed', {
+        detail: { tags: ['Live Tag 1'] },
+        bubbles: true,
+        composed: true
+      })
+    );
+    await el.updateComplete;
+    const liveChips = Array.from(
+      el.shadowRoot?.querySelectorAll<HTMLButtonElement>('.token-chip') ?? []
+    );
+    expect(liveChips.map(c => c.textContent?.trim())).to.deep.equal([
+      '$ServerNames_Live_Tag_1$'
+    ]);
+
+    let copied = '';
+    Object.defineProperty(navigator, 'clipboard', {
+      value: {
+        writeText: async (text: string) => {
+          copied = text;
+        }
+      },
+      configurable: true
+    });
+    liveChips[0].click();
+    await new Promise(r => setTimeout(r, 30));
+    expect(copied).to.equal('$ServerNames_Live_Tag_1$');
+    document.querySelectorAll('vaadin-notification-card').forEach(c => c.remove());
   });
 });

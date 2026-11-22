@@ -13,19 +13,26 @@ import '@vaadin/icons/vaadin-icons';
 import '@vaadin/notification';
 import '@vaadin/text-field';
 import { TextField } from '@vaadin/text-field';
-import { css, LitElement, PropertyValues } from 'lit';
+import { css, LitElement, nothing, PropertyValues } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import { PropertiesApi, RequestApi } from '../../apis/dorc-api';
-import type { RequestPostRequest } from '../../apis/dorc-api';
 import {
+  ComponentApiModel,
   DeployArtefactDto,
   DeployComponentDto,
+  DeploymentDefinitionsApi,
+  GetDeploymentDefinitionsResponse,
+  PropertiesApi,
   PropertyApiModel,
+  RequestApi,
   RequestProperty,
   RequestStatusDto
 } from '../../apis/dorc-api';
-import type { ProjectApiModel } from '../../apis/dorc-api';
+import type {
+  ProjectApiModel,
+  PropertyResolutionTraceApiModel,
+  RequestPostRequest
+} from '../../apis/dorc-api';
 import '../hegs-json-viewer';
 import './property-override-controls';
 import { ErrorNotification } from '../notifications/error-notification';
@@ -34,11 +41,171 @@ import { HegsTree } from './component-tree/hegs-tree';
 import { TreeNode } from './component-tree/TreeNode';
 import { SuccessfulDeployNotification } from './notifications/successful-deploy-notification';
 import { HegsJsonViewer } from '../hegs-json-viewer';
+import { parseScriptPathValue } from '../../helpers/generic-scripts';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
+import { defaultPropertyResolutionClientCache } from '../../variable-resolution/property-resolution-client-cache';
+import {
+  extractReferencedPropertyNames,
+  parsePropertyTokens
+} from '../../variable-resolution/property-token-parser';
+import { lookupTrace } from '../../variable-resolution/resolution-presentation';
 
 type ConfirmDialogWithOverlay = HTMLElement & {
   _overlayElement?: HTMLElement;
 };
+
+export interface PreflightResolutionSummary {
+  totalReferencedCount: number;
+  unresolvedVariableNames: string[];
+  fallbackToDefaultVariableNames: string[];
+  resolvedInEnvironmentVariableNames: string[];
+}
+
+function collectSelectedLeafTreeNodes(
+  nodes: TreeNode[] | undefined
+): TreeNode[] {
+  if (!nodes || nodes.length === 0) {
+    return [];
+  }
+  const selected: TreeNode[] = [];
+  const visit = (items: TreeNode[]) => {
+    for (const node of items) {
+      if (node.disabled) {
+        continue;
+      }
+      if (node.children && node.children.length > 0) {
+        if (node.checked && !hasDisabledDescendant(node)) {
+          selected.push(node);
+        }
+        visit(node.children);
+      } else if (node.checked) {
+        selected.push(node);
+      }
+    }
+  };
+  visit(nodes);
+  return selected;
+}
+
+function hasDisabledDescendant(node: TreeNode): boolean {
+  if (!node.children || node.children.length === 0) {
+    return false;
+  }
+  return node.children.some(
+    child => Boolean(child.disabled) || hasDisabledDescendant(child)
+  );
+}
+
+export function collectDeployReferencedVariables(
+  requestDto: unknown,
+  propertyOverrides: RequestProperty[] | undefined,
+  componentNodes: TreeNode[] | undefined,
+  componentDefinitionsById?: ReadonlyMap<number, ComponentApiModel>
+): string[] {
+  const seen = new Set<string>();
+  const ordered: string[] = [];
+
+  const addName = (candidate: string | null | undefined) => {
+    const trimmed = candidate?.trim();
+    if (!trimmed || seen.has(trimmed)) {
+      return;
+    }
+    seen.add(trimmed);
+    ordered.push(trimmed);
+  };
+
+  if (requestDto !== undefined) {
+    for (const name of extractReferencedPropertyNames(
+      requestDto,
+      'deploy-request'
+    )) {
+      addName(name);
+    }
+  }
+
+  for (const override of propertyOverrides ?? []) {
+    if (typeof override.PropertyValue === 'string') {
+      for (const token of parsePropertyTokens(
+        override.PropertyValue,
+        'standard'
+      )) {
+        if (token.kind === 'property') {
+          addName(token.propertyName);
+        }
+      }
+    }
+  }
+
+  if (componentNodes && componentNodes.length > 0) {
+    for (const name of extractReferencedPropertyNames(
+      componentNodes,
+      'deploy-request'
+    )) {
+      addName(name);
+    }
+
+    if (componentDefinitionsById && componentDefinitionsById.size > 0) {
+      const selectedNodes = collectSelectedLeafTreeNodes(componentNodes);
+      for (const selectedNode of selectedNodes) {
+        const compDef = componentDefinitionsById.get(selectedNode.id);
+        if (!compDef?.ScriptPath) {
+          continue;
+        }
+        const parsedScript = parseScriptPathValue(compDef.ScriptPath);
+        for (const arg of parsedScript.arguments) {
+          for (const token of parsePropertyTokens(arg.value, 'brace-only')) {
+            if (token.kind === 'property') {
+              addName(token.propertyName);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return ordered;
+}
+
+export function computePreflightResolutionSummary(
+  referencedNames: string[],
+  tracesByProperty: Map<string, PropertyResolutionTraceApiModel>
+): PreflightResolutionSummary {
+  const unresolvedVariableNames: string[] = [];
+  const fallbackToDefaultVariableNames: string[] = [];
+  const resolvedInEnvironmentVariableNames: string[] = [];
+
+  for (const name of referencedNames) {
+    const trace = lookupTrace(tracesByProperty, name);
+    if (!trace || trace.Source === 'Unresolved') {
+      unresolvedVariableNames.push(name);
+      continue;
+    }
+
+    const diag = trace.Diagnostic ?? 'Ok';
+    if (
+      diag === 'MissingInScope' ||
+      diag === 'CircularReference' ||
+      diag === 'ExpressionBlockedByOverride' ||
+      diag === 'ScopeResolutionError'
+    ) {
+      unresolvedVariableNames.push(name);
+    } else if (
+      diag === 'FallbackToDefault' ||
+      trace.Source === 'GlobalDefault'
+    ) {
+      fallbackToDefaultVariableNames.push(name);
+    } else {
+      resolvedInEnvironmentVariableNames.push(name);
+    }
+  }
+
+  return {
+    totalReferencedCount: referencedNames.length,
+    unresolvedVariableNames,
+    fallbackToDefaultVariableNames,
+    resolvedInEnvironmentVariableNames
+  };
+}
 
 @customElement('deploy-env')
 export class DeployEnv extends LitElement {
@@ -97,8 +264,92 @@ export class DeployEnv extends LitElement {
 
   @state() private requestedDeployment: RequestStatusDto | undefined;
 
+  @state()
+  private preflightSummary: PreflightResolutionSummary | undefined;
+
+  @state()
+  private projectComponentDefinitions: Map<number, ComponentApiModel> =
+    new Map();
+
+  private preflightGeneration = 0;
+  private componentDefsGeneration = 0;
+
   static get styles() {
     return css`
+      .preflight-banner {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--lumo-space-s);
+        box-sizing: border-box;
+        width: 100%;
+        max-width: 600px;
+        margin: var(--lumo-space-s) 0 var(--lumo-space-s) var(--lumo-space-s);
+        padding: var(--lumo-space-xs) var(--lumo-space-m);
+        border-radius: var(--lumo-border-radius-m);
+        font-size: var(--lumo-font-size-s);
+      }
+      .preflight-banner--dialog {
+        margin: 0 0 var(--lumo-space-s) 0;
+        max-width: 100%;
+      }
+      .preflight-banner--warning {
+        background: var(--lumo-error-color-10pct, rgba(248, 81, 73, 0.12));
+        border: 1px solid var(--dorc-error-color, #d93025);
+        border-left: 4px solid var(--dorc-error-color, #d93025);
+        color: var(--dorc-text-primary);
+      }
+      .preflight-banner--passed {
+        background: var(--lumo-success-color-10pct, rgba(46, 160, 67, 0.12));
+        border: 1px solid var(--lumo-success-color, #2ea043);
+        border-left: 4px solid var(--lumo-success-color, #2ea043);
+        color: var(--dorc-text-primary);
+      }
+      .preflight-banner__body {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        flex: 1 1 240px;
+        min-width: 0;
+      }
+      .preflight-banner__title {
+        display: flex;
+        align-items: center;
+        gap: var(--lumo-space-xs);
+        font-weight: 600;
+      }
+      .preflight-banner__missing-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 2px;
+      }
+      .preflight-banner__chip {
+        font-family: monospace;
+        font-size: var(--lumo-font-size-xs);
+        padding: 1px 6px;
+        border-radius: var(--lumo-border-radius-s);
+        background: rgba(248, 81, 73, 0.16);
+        color: var(--dorc-text-primary);
+        border: 1px solid rgba(248, 81, 73, 0.35);
+      }
+      .preflight-banner__meta {
+        font-size: var(--lumo-font-size-xs);
+        color: var(--dorc-text-secondary-strong);
+      }
+      .preflight-banner__link {
+        font-weight: 600;
+        color: var(--dorc-link-color);
+        text-decoration: none;
+        white-space: nowrap;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+      }
+      .preflight-banner__link:hover {
+        text-decoration: underline;
+      }
       .catalog-callout {
         display: flex;
         align-items: center;
@@ -249,6 +500,12 @@ export class DeployEnv extends LitElement {
       this.closeDeployDialog
     );
 
+    this.addEventListener('tree-node-changed', () => {
+      requestAnimationFrame(() => {
+        void this.refreshPreflightResolution();
+      });
+    });
+
     const api = new PropertiesApi(dorcApiConfiguration);
     api.propertiesGet().subscribe({
       next: (data: PropertyApiModel[]) => {
@@ -257,6 +514,160 @@ export class DeployEnv extends LitElement {
       error: (err: any) => console.error(err),
       complete: () => console.log('done loading properties')
     });
+  }
+
+  protected updated(changedProperties: PropertyValues) {
+    super.updated(changedProperties);
+    if (
+      changedProperties.has('envName') ||
+      changedProperties.has('data') ||
+      changedProperties.has('propertyOverrides') ||
+      changedProperties.has('req') ||
+      changedProperties.has('project') ||
+      changedProperties.has('dialogOpened') ||
+      changedProperties.has('projectComponentDefinitions')
+    ) {
+      this.refreshPreflightResolution();
+    }
+  }
+
+  public async refreshPreflightResolution(): Promise<void> {
+    const activeRequestDto = this.dialogOpened
+      ? this.req?.requestDto
+      : undefined;
+    const referencedNames = collectDeployReferencedVariables(
+      activeRequestDto,
+      this.propertyOverrides,
+      this.data,
+      this.projectComponentDefinitions
+    );
+    const currentEnvironment =
+      activeRequestDto?.Environment?.trim() || this.envName.trim();
+
+    if (referencedNames.length === 0 || !currentEnvironment) {
+      this.preflightGeneration++;
+      if (this.preflightSummary !== undefined) {
+        this.preflightSummary = undefined;
+      }
+      return;
+    }
+
+    const generation = ++this.preflightGeneration;
+    if (this.preflightSummary !== undefined) {
+      this.preflightSummary = undefined;
+    }
+
+    try {
+      const tracesByProperty =
+        await defaultPropertyResolutionClientCache.resolveProperties(
+          {
+            environmentName: currentEnvironment,
+            projectName:
+              activeRequestDto?.Project ??
+              this.project?.ProjectName ??
+              undefined,
+            requestOverrides:
+              activeRequestDto?.RequestProperties ?? this.propertyOverrides,
+            locationKind: 'deploy-request'
+          },
+          referencedNames
+        );
+      if (generation !== this.preflightGeneration) {
+        return;
+      }
+      this.preflightSummary = computePreflightResolutionSummary(
+        referencedNames,
+        tracesByProperty
+      );
+    } catch (err) {
+      console.error('Preflight variable resolution failed:', err);
+      if (generation !== this.preflightGeneration) {
+        return;
+      }
+      this.preflightSummary = undefined;
+    }
+  }
+
+  private renderPreflightBanner(inDialog: boolean) {
+    const summary = this.preflightSummary;
+    const targetEnv =
+      (inDialog ? this.req?.requestDto?.Environment?.trim() : undefined) ||
+      this.envName.trim();
+    if (!summary || summary.totalReferencedCount === 0 || !targetEnv) {
+      return nothing;
+    }
+
+    const dialogModifier = inDialog ? ' preflight-banner--dialog' : '';
+    const hasMissing = summary.unresolvedVariableNames.length > 0;
+
+    if (hasMissing) {
+      const variablesHref = `/environment/${encodeURIComponent(targetEnv)}/variables`;
+      return html`
+        <div
+          class="preflight-banner preflight-banner--warning${dialogModifier}"
+          role="alert"
+        >
+          <div class="preflight-banner__body">
+            <div class="preflight-banner__title">
+              <vaadin-icon icon="vaadin:warning"></vaadin-icon>
+              <span>
+                Missing or unresolved variables in ${targetEnv}
+                (${summary.unresolvedVariableNames.length} of
+                ${summary.totalReferencedCount})
+              </span>
+            </div>
+            <div class="preflight-banner__missing-list">
+              ${summary.unresolvedVariableNames.map(
+                varName =>
+                  html`<span class="preflight-banner__chip">${varName}</span>`
+              )}
+            </div>
+            ${
+              summary.fallbackToDefaultVariableNames.length > 0
+                ? html`
+                    <div class="preflight-banner__meta">
+                      Using Default fallback:
+                      ${summary.fallbackToDefaultVariableNames.join(', ')}
+                    </div>
+                  `
+                : nothing
+            }
+          </div>
+          <a class="preflight-banner__link" href=${variablesHref}>
+            Configure variables in ${targetEnv}
+          </a>
+        </div>
+      `;
+    }
+
+    return html`
+      <div
+        class="preflight-banner preflight-banner--passed${dialogModifier}"
+        role="status"
+      >
+        <div class="preflight-banner__body">
+          <div class="preflight-banner__title">
+            <vaadin-icon icon="vaadin:check-circle"></vaadin-icon>
+            <span
+              >${`Preflight passed: ${summary.totalReferencedCount} variable(s) resolved for ${targetEnv}`}</span
+            >
+          </div>
+          ${
+            summary.fallbackToDefaultVariableNames.length > 0
+              ? html`
+                  <div class="preflight-banner__meta">
+                    ${summary.resolvedInEnvironmentVariableNames.length} in
+                    environment ·
+                    ${summary.fallbackToDefaultVariableNames.length} using
+                    Default fallback
+                    (${summary.fallbackToDefaultVariableNames.join(', ')})
+                  </div>
+                `
+              : nothing
+          }
+        </div>
+      </div>
+    `;
   }
 
   render() {
@@ -285,6 +696,7 @@ export class DeployEnv extends LitElement {
         <div style="margin-bottom: 5px;">
           Please confirm you want to submit this deployment request?
         </div>
+        ${this.renderPreflightBanner(true)}
         <hegs-json-viewer id="jsonviewer">{}</hegs-json-viewer>
       </vaadin-confirm-dialog>
       <div class="catalog-callout">
@@ -419,6 +831,7 @@ export class DeployEnv extends LitElement {
           </vaadin-grid>
         </vaadin-vertical-layout>
       </vaadin-details>
+      ${this.renderPreflightBanner(false)}
       <vaadin-button
         style="width: 100%; max-width: 600px; margin-left: var(--lumo-space-s); margin-bottom: var(--lumo-space-xl)"
         ?disabled="${this.bundleValidating || this.buildsLoading}"
@@ -609,10 +1022,54 @@ export class DeployEnv extends LitElement {
           if (hegsTree) {
             hegsTree.componentsLoading = false;
           }
+          this.loadProjectExecutableDefinitions(this._project?.ProjectId ?? 0);
         },
         (err: any) => console.error(err),
         () => console.log('done loading project components')
       );
+  }
+
+  private loadProjectExecutableDefinitions(projectId: number) {
+    if (!projectId) {
+      this.projectComponentDefinitions = new Map();
+      return;
+    }
+    const generation = ++this.componentDefsGeneration;
+    const defsApi = new DeploymentDefinitionsApi(dorcApiConfiguration);
+    const byId = new Map<number, ComponentApiModel>();
+    const pageLimit = 200;
+
+    const fetchPage = (page: number) => {
+      defsApi
+        .deploymentDefinitionsGet({ projectId, page, limit: pageLimit })
+        .subscribe({
+          next: (resp: GetDeploymentDefinitionsResponse) => {
+            if (generation !== this.componentDefsGeneration) {
+              return;
+            }
+            const items = resp?.Items ?? [];
+            for (const item of items) {
+              if (item.Component?.ComponentId != null) {
+                byId.set(item.Component.ComponentId, item.Component);
+              }
+            }
+            const totalItems = resp?.TotalItems ?? byId.size;
+            if (items.length === pageLimit && byId.size < totalItems) {
+              fetchPage(page + 1);
+              return;
+            }
+            this.projectComponentDefinitions = new Map(byId);
+          },
+          error: () => {
+            if (generation !== this.componentDefsGeneration) {
+              return;
+            }
+            this.projectComponentDefinitions = new Map();
+          }
+        });
+    };
+
+    fetchPage(1);
   }
 
   private createTreeFromList(
@@ -928,7 +1385,17 @@ export class DeployEnv extends LitElement {
       'jsonviewer'
     ) as HegsJsonViewer | null;
     if (jsonViewer) {
-      Object.assign(jsonViewer.data, this.req.requestDto);
+      jsonViewer.data = { ...this.req.requestDto };
+      jsonViewer.resolutionContext = {
+        environmentName:
+          this.req.requestDto?.Environment ?? this.envName ?? undefined,
+        projectName:
+          this.req.requestDto?.Project ??
+          this.project?.ProjectName ??
+          undefined,
+        requestOverrides: this.req.requestDto?.RequestProperties ?? undefined,
+        locationKind: 'deploy-request'
+      };
       jsonViewer.expand('**');
     }
     this.dialogOpened = true;

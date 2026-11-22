@@ -154,6 +154,21 @@ namespace Dorc.PersistentData.Sources
             }
         }
 
+        public PropertyValueDto[] GetSecurePropertyValues(bool decryptProperty = false)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                return context.PropertyValues
+                    .Include(pv => pv.Filters)
+                    .Include(pv => pv.Property)
+                    .Where(pv => pv.Property.Secure)
+                    .AsNoTracking()
+                    .ToList()
+                    .SelectMany(pv => MapToScopedPropertyValueDtos(pv, decryptProperty))
+                    .ToArray();
+            }
+        }
+
         public void ReassignPropertyValues(IDeploymentContext context, Environment oldEnv, string newEnvName)
         {
             var propertyValueFilters = context.PropertyValueFilters.Where(pvf => pvf.Value == oldEnv.Name).ToList();
@@ -171,6 +186,11 @@ namespace Dorc.PersistentData.Sources
                 var property = context.Properties.First(p =>
                     EF.Functions.Collate(p.Name, DeploymentContext.CaseInsensitiveCollation)
                         == EF.Functions.Collate(propertyValueDto.Property.Name, DeploymentContext.CaseInsensitiveCollation));
+                if (propertyValueDto.Property.Secure && !property.Secure)
+                {
+                    throw new InvalidOperationException(
+                        "Error: property metadata - secure values don't match, and cannot be edited via this API");
+                }
                 var propertyValue = MapToPropertyValue(propertyValueDto, property);
                 if (property.Secure)
                 {
@@ -736,6 +756,44 @@ namespace Dorc.PersistentData.Sources
             }
 
             return properties;
+        }
+
+        private PropertyValueDto[] MapToScopedPropertyValueDtos(PropertyValue pv, bool decryptProperty)
+        {
+            var resolvedValue = decryptProperty ? GetPropertyValue(pv) : pv.Value;
+            var propertyModel = new PropertyApiModel
+            {
+                Id = pv.Property.Id,
+                Name = pv.Property.Name,
+                Secure = pv.Property.Secure,
+                IsArray = pv.Property.IsArray
+            };
+
+            if (pv.Filters == null || pv.Filters.Count == 0)
+            {
+                return new[]
+                {
+                    new PropertyValueDto
+                    {
+                        Id = pv.Id,
+                        Value = resolvedValue,
+                        Property = propertyModel,
+                        PropertyValueFilter = null,
+                        PropertyValueFilterId = null
+                    }
+                };
+            }
+
+            return pv.Filters
+                .Select(filter => new PropertyValueDto
+                {
+                    Id = pv.Id,
+                    Value = resolvedValue,
+                    Property = propertyModel,
+                    PropertyValueFilter = filter.Value,
+                    PropertyValueFilterId = filter.Id
+                })
+                .ToArray();
         }
 
         private PropertyValueDto MapToPropertyValueDto(PropertyValue pv, bool decryptProperty = false)

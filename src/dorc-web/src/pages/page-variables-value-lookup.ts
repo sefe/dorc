@@ -116,6 +116,19 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
     `;
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    const params = new URLSearchParams(window.location.search);
+    const nameParam = params.get('name');
+    const scopeParam = params.get('scope');
+    if (nameParam) {
+      this.nameFilterValue = nameParam;
+    }
+    if (scopeParam) {
+      this.scopeFilterValue = scopeParam;
+    }
+  }
+
   protected firstUpdated(_changedProperties: PropertyValues) {
     super.firstUpdated(_changedProperties);
 
@@ -183,6 +196,7 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
             focus-target
             style="width: 100px"
             theme="small"
+            .value="${this.nameFilterValue}"
             @input="${(e: InputEvent) => {
               const textField = e.target as HTMLInputElement;
               this.nameFilterValue = textField?.value ?? '';
@@ -203,6 +217,7 @@ export class PageVariablesValueLookup extends ResponsiveMixin(PageElement) {
             focus-target
             style="width: 100px"
             theme="small"
+            .value="${this.scopeFilterValue}"
             @input="${(e: InputEvent) => {
               const textField = e.target as HTMLInputElement;
               this.scopeFilterValue = textField?.value ?? '';

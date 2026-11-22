@@ -29,6 +29,7 @@ namespace Dorc.Core.Lamar
 
             For<IEnvBackups>().Use<EnvSnapBackups>();
             For<IPropertyExpressionEvaluator>().Use<PropertyExpressionEvaluator>();
+            For<IPropertyResolutionTracer>().Use<PropertyResolutionTracer>();
         }
     }
 }

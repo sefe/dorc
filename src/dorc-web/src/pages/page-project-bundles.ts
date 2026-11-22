@@ -19,7 +19,8 @@ import {
   BundledRequestsApi,
   BundledRequestsApiModel,
   RefDataProjectEnvironmentMappingsApi,
-  EnvironmentApiModelTemplateApiModel
+  EnvironmentApiModelTemplateApiModel,
+  RequestProperty
 } from '../apis/dorc-api';
 import { ErrorNotification } from '../components/notifications/error-notification.ts';
 import { Grid } from '@vaadin/grid';
@@ -45,12 +46,55 @@ import '../components/project-workspace-nav';
  * callback each time is what makes `ref` re-run, since expansion is only
  * exposed as a method.
  */
-const showJson = (raw: string | null | undefined) => (element?: Element) => {
-  if (!element) return;
-  const viewer = element as unknown as HegsJsonViewer & { data?: unknown };
-  viewer.data = parseJson(raw);
-  viewer.expand('**');
-};
+export function extractBundleRequestOverrides(
+  parsed: unknown,
+  environmentName?: string
+): RequestProperty[] {
+  const overrides: RequestProperty[] = [];
+  if (environmentName) {
+    overrides.push({
+      PropertyName: 'TargetEnvironmentName',
+      PropertyValue: environmentName
+    });
+  }
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    const reqProps = (parsed as { RequestProperties?: RequestProperty[] })
+      .RequestProperties;
+    if (Array.isArray(reqProps)) {
+      for (const rp of reqProps) {
+        if (rp?.PropertyName?.trim()) {
+          overrides.push(rp);
+        }
+      }
+    }
+  }
+  return overrides;
+}
+
+const showJson =
+  (
+    raw: string | null | undefined,
+    environmentName?: string,
+    projectName?: string
+  ) =>
+  (element?: Element) => {
+    if (!element) return;
+    const viewer = element as unknown as HegsJsonViewer;
+    const parsed = parseJson(raw);
+    const requestOverrides = extractBundleRequestOverrides(
+      parsed,
+      environmentName
+    );
+    viewer.data = parsed;
+    viewer.resolutionContext = {
+      environmentName: environmentName || undefined,
+      projectName: projectName || undefined,
+      requestOverrides:
+        requestOverrides.length > 0 ? requestOverrides : undefined,
+      locationKind: 'bundle-request'
+    };
+    viewer.expand('**');
+  };
 
 /** Malformed JSON renders as the raw string rather than blowing up the grid. */
 function parseJson(raw: string | null | undefined): unknown {
@@ -116,6 +160,12 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
 
   @state()
   private uniqueBundleNames: string[] = [];
+
+  @state()
+  private previewEnvironmentName = '';
+
+  @state()
+  private projectEnvironmentNames: string[] = [];
 
   @query('bundle-editor-dialog')
   private bundleEditorDialog!: BundleEditorDialog;
@@ -187,6 +237,17 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
 
       <div class="header">
         <h2>${this.project} Bundles</h2>
+        <vaadin-combo-box
+          clear-button-visible
+          .items="${this.projectEnvironmentNames}"
+          placeholder="Preview as environment..."
+          style="width: 240px"
+          theme="small"
+          .value="${this.previewEnvironmentName}"
+          @value-changed="${(e: CustomEvent<{ value: string }>) => {
+            this.previewEnvironmentName = e.detail.value ?? '';
+          }}"
+        ></vaadin-combo-box>
       </div>
 
       <vaadin-details
@@ -254,7 +315,10 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
           path="Request"
           header="Request"
           resizable
-          ${columnBodyRenderer(this._jsonRenderer, [])}
+          ${columnBodyRenderer(this._jsonRenderer, [
+            this.previewEnvironmentName,
+            this.project
+          ])}
           ?hidden="${this._narrowScreen}"
         ></vaadin-grid-column>
       </vaadin-grid>
@@ -295,6 +359,10 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
         .subscribe(
           (data: EnvironmentApiModelTemplateApiModel) => {
             this.projectData = data;
+            this.projectEnvironmentNames = (data.Items ?? [])
+              .map(e => e.EnvironmentName ?? '')
+              .filter(Boolean)
+              .sort();
             this.fetchBundledRequests();
           },
           (err: any) => {
@@ -364,7 +432,13 @@ export class PageProjectBundles extends ResponsiveMixin(PageElement) {
     // the element exists rather than querying it back out of the cell.
     return html`<hegs-json-viewer
       style="font-size: small"
-      ${ref(showJson(bundle.Request))}
+      ${ref(
+        showJson(
+          bundle.Request,
+          this.previewEnvironmentName,
+          this.project ?? undefined
+        )
+      )}
     ></hegs-json-viewer>`;
   }
 

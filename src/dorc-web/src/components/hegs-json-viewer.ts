@@ -4,46 +4,43 @@ import {
   html,
   LitElement,
   nothing,
+  PropertyValues,
   TemplateResult
 } from 'lit';
-import { property, state } from 'lit/decorators.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
+import { ifDefined } from 'lit/directives/if-defined.js';
+import type { PropertyResolutionTraceApiModel } from '../apis/dorc-api';
+import {
+  defaultPropertyResolutionClientCache,
+  PropertyResolutionClientCache,
+  PropertyResolutionContext
+} from '../variable-resolution/property-resolution-client-cache';
+import {
+  lookupTrace,
+  presentTrace
+} from '../variable-resolution/resolution-presentation';
+import {
+  extractReferencedPropertyNames,
+  ParsedPropertyToken,
+  parsePropertyTokens,
+  PropertyTokenSyntaxProfile,
+  resolveTokenSyntaxProfile
+} from '../variable-resolution/property-token-parser';
 
-import { customElement } from 'lit/decorators.js';
+export type JsonViewerDisplayMode = 'raw' | 'inline' | 'resolved';
 
-/**
- * @since 1.0
- *
- * @csspart object - The object wrapper element.
- * @csspart property - The wrapper element of a property.
- * @csspart key - The key element of a property.
- * @csspart primitive - The primitive value.
- * @csspart primitive--string - Applied when the primitive is a string.
- * @csspart primitive--number - Applied when the primitive is a number.
- * @csspart primitive--boolean - Applied when the primitive is a boolean.
- * @csspart primitive--null - Applied when the primitive is a null.
- * @csspart preview - The value preview of a property.
- * @csspart highlight - The highlighted value.
- *
- * @cssproperty [--background-color] - The component background color.
- * @cssproperty [--color] - The text color.
- * @cssproperty [--font-family] - The font family.
- * @cssproperty [--font-size] - The font size.
- * @cssproperty [--indent-size] - The size of the indentation of nested properties.
- * @cssproperty [--indentguide-size] - The width of the indentation line.
- * @cssproperty [--indentguide-style] - The style of the indentation line.
- * @cssproperty [--indentguide-color] - The color of the indentation line.
- * @cssproperty [--indentguide-color-active] - The color of the indentation line when is active.
- * @cssproperty [--indentguide]
- * @cssproperty [--indentguide-active]
- * @cssproperty [--string-color] - The color of a string type value
- * @cssproperty [--number-color] - The color of a number type value
- * @cssproperty [--boolean-color] - The color of a boolean type value
- * @cssproperty [--null-color] - The color of a null type value
- * @cssproperty [--property-color] - The color of the property key.
- * @cssproperty [--preview-color] - The color of the collapsed property preview.
- * @cssproperty [--highlight-color] - The color of the highlighted value.
- */
+function escapeJsonStringSegment(segment: string): string {
+  return JSON.stringify(segment).slice(1, -1);
+}
+
+function safeParseTraceValue(rawJson: string): unknown {
+  try {
+    return JSON.parse(rawJson);
+  } catch {
+    return rawJson;
+  }
+}
 
 interface JsonViewerState {
   expanded: { [path: string]: boolean };
@@ -60,34 +57,170 @@ const enum SupportedTypes {
   Array = 'array'
 }
 
-type Primitive = string | number | boolean;
-
-function isRegex(obj: RegExp | any): boolean {
+function isRegex(obj: unknown): obj is RegExp {
   return obj instanceof RegExp;
 }
 
-function getType(obj: any): SupportedTypes {
-  return obj === null
-    ? SupportedTypes.Null
-    : Array.isArray(obj)
-      ? SupportedTypes.Array
-      : (obj!.constructor.name.toLowerCase() as SupportedTypes);
+export function getType(obj: unknown): SupportedTypes {
+  if (obj === null) {
+    return SupportedTypes.Null;
+  }
+  if (Array.isArray(obj)) {
+    return SupportedTypes.Array;
+  }
+  return (obj as object).constructor.name.toLowerCase() as SupportedTypes;
 }
 
-function isPrimitive(obj: any): boolean {
+function isPrimitive(obj: unknown): boolean {
   return obj !== Object(obj);
 }
 
-function isNode(obj: any): boolean {
-  return !!obj && !!(obj as Node).nodeType;
+function isNode(obj: unknown): obj is Node {
+  return Boolean(obj && (obj as Node).nodeType);
 }
 
-function isPrimitiveOrNode(obj: any): boolean {
+function isPrimitiveOrNode(obj: unknown): boolean {
   return isPrimitive(obj) || isNode(obj);
 }
 
-function generateNodePreview(
-  node: any,
+export function evaluateStringWithTraces(
+  raw: string,
+  traces: Map<string, PropertyResolutionTraceApiModel>,
+  profile: PropertyTokenSyntaxProfile = 'standard'
+): {
+  status: 'resolved' | 'unresolved' | 'literal';
+  resolvedValue: unknown;
+  resolvedDisplayString: string;
+} {
+  const tokens = parsePropertyTokens(raw, profile);
+  if (tokens.some(t => t.kind === 'expression-prefix')) {
+    return {
+      status: 'unresolved',
+      resolvedValue: raw,
+      resolvedDisplayString: raw
+    };
+  }
+
+  const propTokens = tokens.filter(
+    (t): t is Extract<ParsedPropertyToken, { kind: 'property' }> =>
+      t.kind === 'property'
+  );
+
+  // If an unclosed $ coexists with $Property$ tokens, the backend PropertyEvaluator
+  // leaves the entire string unexpanded; only mark unresolved when property tokens are blocked.
+  if (tokens.some(t => t.kind === 'unclosed-token')) {
+    if (propTokens.length > 0) {
+      return {
+        status: 'unresolved',
+        resolvedValue: raw,
+        resolvedDisplayString: raw
+      };
+    }
+    return {
+      status: 'literal',
+      resolvedValue: raw,
+      resolvedDisplayString: raw
+    };
+  }
+
+  if (propTokens.length === 0) {
+    const unescaped = tokens
+      .map(t => (t.kind === 'escaped-dollar' ? '$' : t.rawText))
+      .join('');
+    return {
+      status: 'literal',
+      resolvedValue: unescaped,
+      resolvedDisplayString: unescaped
+    };
+  }
+
+  for (const pt of propTokens) {
+    const trace = lookupTrace(traces, pt.propertyName);
+    if (!trace) {
+      return {
+        status: 'unresolved',
+        resolvedValue: raw,
+        resolvedDisplayString: raw
+      };
+    }
+    if (trace.IsSecure || trace.Diagnostic === 'Masked') {
+      continue;
+    }
+    if (
+      trace.Source === 'Unresolved' ||
+      trace.Source === 'RuntimeOnly' ||
+      (trace.Diagnostic != null &&
+        trace.Diagnostic !== 'Ok' &&
+        trace.Diagnostic !== 'FallbackToDefault' &&
+        trace.Diagnostic !== 'UnclosedToken' &&
+        trace.Diagnostic !== 'ValueTruncated' &&
+        trace.Diagnostic !== 'NonStringInConcatenation') ||
+      trace.ResolvedValueJson == null
+    ) {
+      return {
+        status: 'unresolved',
+        resolvedValue: raw,
+        resolvedDisplayString: raw
+      };
+    }
+  }
+
+  if (tokens.length === 1 && tokens[0].kind === 'property') {
+    const singleTrace = lookupTrace(traces, tokens[0].propertyName)!;
+    if (singleTrace.IsSecure || singleTrace.Diagnostic === 'Masked') {
+      return {
+        status: 'resolved',
+        resolvedValue: '•••••••• (Secure)',
+        resolvedDisplayString: '•••••••• (Secure)'
+      };
+    }
+    const parsedVal = safeParseTraceValue(singleTrace.ResolvedValueJson!);
+    const displayStr =
+      typeof parsedVal === 'string' ? parsedVal : JSON.stringify(parsedVal);
+    return {
+      status: 'resolved',
+      resolvedValue: parsedVal,
+      resolvedDisplayString: displayStr
+    };
+  }
+
+  let out = '';
+  for (const token of tokens) {
+    if (token.kind === 'property') {
+      const trace = lookupTrace(traces, token.propertyName)!;
+      if (trace.IsSecure || trace.Diagnostic === 'Masked') {
+        out += '•••••••• (Secure)';
+        continue;
+      }
+      const parsedVal = safeParseTraceValue(trace.ResolvedValueJson!);
+      if (
+        typeof parsedVal !== 'string' &&
+        typeof parsedVal !== 'number' &&
+        typeof parsedVal !== 'boolean'
+      ) {
+        return {
+          status: 'unresolved',
+          resolvedValue: raw,
+          resolvedDisplayString: raw
+        };
+      }
+      out += String(parsedVal);
+    } else if (token.kind === 'escaped-dollar') {
+      out += '$';
+    } else {
+      out += token.rawText;
+    }
+  }
+
+  return {
+    status: 'resolved',
+    resolvedValue: out,
+    resolvedDisplayString: out
+  };
+}
+
+export function generateNodePreview(
+  node: Record<string, unknown> | unknown[],
   {
     nodeCount = 3,
     maxLength = 15
@@ -96,46 +229,52 @@ function generateNodePreview(
   const isArray = Array.isArray(node);
   const objectNodes = Object.keys(node);
   const keys = objectNodes.slice(0, nodeCount);
-  const preview = [];
+  const record = node as Record<string, unknown>;
 
-  const getNodePreview = (nodeValue: any) => {
+  const getNodePreview = (nodeValue: unknown): string => {
     const nodeType = getType(nodeValue);
 
     switch (nodeType) {
       case SupportedTypes.Object:
-        return Object.keys(nodeValue).length === 0 ? '{ }' : '{ ... }';
+        return Object.keys(nodeValue as object).length === 0
+          ? '{ }'
+          : '{ ... }';
       case SupportedTypes.Array:
-        return nodeValue.length === 0 ? '[ ]' : '[ ... ]';
-      case SupportedTypes.String:
-        return `"${nodeValue.substring(0, maxLength)}${nodeValue.length > maxLength ? '...' : ''}"`;
+        return (nodeValue as unknown[]).length === 0 ? '[ ]' : '[ ... ]';
+      case SupportedTypes.String: {
+        const strVal = nodeValue as string;
+        return `"${strVal.substring(0, maxLength)}${
+          strVal.length > maxLength ? '...' : ''
+        }"`;
+      }
       default:
         return String(nodeValue);
     }
   };
 
-  const childPreviews = [];
+  const childPreviews: string[] = [];
   for (const key of keys) {
-    const nodePreview = [];
-    const nodeValue = node[key];
-
-    if (!isArray) nodePreview.push(`${key}: `);
-
-    nodePreview.push(getNodePreview(nodeValue));
-    childPreviews.push(nodePreview.join(''));
+    const nodeValue = record[key];
+    const prefix = isArray ? '' : `${key}: `;
+    childPreviews.push(`${prefix}${getNodePreview(nodeValue)}`);
   }
 
   if (objectNodes.length > nodeCount) {
     childPreviews.push('...');
   }
-  preview.push(childPreviews.join(', '));
 
-  const previewText = preview.join('');
-
+  const previewText = childPreviews.join(', ');
   return isArray ? `[ ${previewText} ]` : `{ ${previewText} }`;
 }
 
-function* deepTraverse(obj: any): Generator<[any, string, string[]]> {
-  const stack: Array<[any, string, string[]]> = [[obj, '', []]];
+export function* deepTraverse(
+  obj: unknown
+): Generator<[unknown, string, string[]]> {
+  if (obj === undefined || obj === null) {
+    return;
+  }
+
+  const stack: Array<[unknown, string, string[]]> = [[obj, '', []]];
 
   while (stack.length) {
     const [node, path, parents] = stack.shift()!;
@@ -144,8 +283,10 @@ function* deepTraverse(obj: any): Generator<[any, string, string[]]> {
       yield [node, path, parents];
     }
 
-    if (!isPrimitive(node)) {
-      for (const [key, value] of Object.entries(node)) {
+    if (!isPrimitiveOrNode(node)) {
+      for (const [key, value] of Object.entries(
+        node as Record<string, unknown>
+      )) {
         stack.push([
           value,
           `${path}${path ? '.' : ''}${key}`,
@@ -156,72 +297,67 @@ function* deepTraverse(obj: any): Generator<[any, string, string[]]> {
   }
 }
 
-/**
- * Matches a string using a glob-like syntax)
- */
-function checkGlob(str: string, glob: string): boolean {
+export function checkGlob(str: string, glob: string): boolean {
   const strParts = str.split('.');
-  const globaParts = glob.split('.');
-
-  const isStar = (s: string) => s === '*';
-  const isGlobStar = (s: string) => s === '**';
+  const globParts = glob.split('.');
 
   let strIndex = 0;
   let globIndex = 0;
 
   while (strIndex < strParts.length) {
-    const globPart = globaParts[globIndex];
+    const globPart = globParts[globIndex];
     const strPart = strParts[strIndex];
 
-    if (globPart === strPart || isStar(globPart)) {
+    if (globPart === strPart || globPart === '*') {
       globIndex++;
       strIndex++;
-    } else if (isGlobStar(globPart)) {
+    } else if (globPart === '**') {
       globIndex++;
-      strIndex = strParts.length - (globaParts.length - globIndex);
+      strIndex = strParts.length - (globParts.length - globIndex);
     } else {
       return false;
     }
   }
 
-  return globIndex === globaParts.length;
+  return globIndex === globParts.length;
 }
 
-const JSONConverter: ComplexAttributeConverter = {
-  fromAttribute: (value: string): any => {
+export const JSONConverter: ComplexAttributeConverter = {
+  fromAttribute: (value: string | null): unknown => {
     return value && value.trim() ? JSON.parse(value) : undefined;
   },
-  toAttribute: (value: any): string => {
+  toAttribute: (value: unknown): string => {
     return JSON.stringify(value);
   }
 };
 
-const isDefined = (value: any): boolean => value !== void 0;
+const isDefined = (value: unknown): boolean => value !== void 0;
 
-const isMatchingPath = (path: string, criteria: string | RegExp) =>
-  isRegex(criteria)
-    ? !!path.match(criteria as RegExp)
-    : checkGlob(path, criteria as string);
+export const isMatchingPath = (
+  path: string,
+  criteria: string | RegExp
+): boolean =>
+  isRegex(criteria) ? Boolean(path.match(criteria)) : checkGlob(path, criteria);
 
 const toggleNode =
-  (path: string, expanded?: boolean) =>
+  (path: string) =>
   (state: JsonViewerState): Partial<JsonViewerState> => ({
     expanded: {
       ...state.expanded,
-      [path]: isDefined(expanded) ? !!expanded : !state.expanded[path]
+      [path]: !state.expanded[path]
     }
   });
 
 const expand =
   (regexOrGlob: string | RegExp, isExpanded: boolean) =>
-  (_state: JsonViewerState, el: any): Partial<JsonViewerState> => {
+  (_state: JsonViewerState, el: HegsJsonViewer): Partial<JsonViewerState> => {
     const expanded: Record<string, boolean> = {};
 
-    if (regexOrGlob) {
-      for (const [, path, parents] of deepTraverse(el.data)) {
-        if (isMatchingPath(path, regexOrGlob)) {
-          expanded[path] = isExpanded;
-          parents.forEach((p: string) => (expanded[p] = isExpanded));
+    for (const [, path, parents] of deepTraverse(el.data)) {
+      if (isMatchingPath(path, regexOrGlob)) {
+        expanded[path] = isExpanded;
+        for (const p of parents) {
+          expanded[p] = isExpanded;
         }
       }
     }
@@ -231,17 +367,17 @@ const expand =
 
 const filter =
   (regexOrGlob: string | RegExp) =>
-  (_state: JsonViewerState, el: any): Partial<JsonViewerState> => {
+  (_state: JsonViewerState, el: HegsJsonViewer): Partial<JsonViewerState> => {
     const filtered: Record<string, boolean> = {};
 
-    if (regexOrGlob) {
-      for (const [, path, parents] of deepTraverse(el.data)) {
-        if (isMatchingPath(path, regexOrGlob)) {
-          filtered[path] = false;
-          parents.forEach((p: string) => (filtered[p] = false));
-        } else {
-          filtered[path] = true;
+    for (const [, path, parents] of deepTraverse(el.data)) {
+      if (isMatchingPath(path, regexOrGlob)) {
+        filtered[path] = false;
+        for (const p of parents) {
+          filtered[p] = false;
         }
+      } else {
+        filtered[path] = true;
       }
     }
 
@@ -254,29 +390,137 @@ const highlight = (path: string | null) => (): Partial<JsonViewerState> => ({
   highlight: path
 });
 
+function getBadgeFallback(
+  label: string | null | undefined,
+  fallback: string
+): string {
+  return label ? label : fallback;
+}
+
+export function tracesDifferAcrossEnvironments(
+  primaryTrace: PropertyResolutionTraceApiModel | undefined,
+  compareTrace: PropertyResolutionTraceApiModel | undefined
+): boolean {
+  if (!primaryTrace || !compareTrace) {
+    return false;
+  }
+  const primaryPresented = presentTrace(primaryTrace);
+  const comparePresented = presentTrace(compareTrace);
+  return (
+    primaryPresented.effectiveDisplayValue !==
+      comparePresented.effectiveDisplayValue ||
+    primaryTrace.Source !== compareTrace.Source
+  );
+}
+
+export function getTokenBadgeAppearance(
+  trace: PropertyResolutionTraceApiModel | undefined
+): { cssClass: string; badgeLabel: string } {
+  if (!trace) {
+    return { cssClass: 'token-pending', badgeLabel: 'Resolving...' };
+  }
+
+  if (
+    trace.Diagnostic === 'ExpressionDeferred' ||
+    trace.Diagnostic === 'ExpressionBlockedByOverride'
+  ) {
+    return {
+      cssClass: 'token-expression',
+      badgeLabel:
+        trace.Diagnostic === 'ExpressionBlockedByOverride'
+          ? 'fn: Blocked by Override'
+          : 'fn: Deferred to Deploy'
+    };
+  }
+
+  if (trace.Diagnostic === 'CircularReference') {
+    return { cssClass: 'token-error', badgeLabel: 'Circular Reference' };
+  }
+
+  if (trace.Diagnostic === 'MissingInScope') {
+    return { cssClass: 'token-error', badgeLabel: 'Nested $Var$ Missing' };
+  }
+
+  if (trace.Diagnostic === 'ScopeResolutionError') {
+    return { cssClass: 'token-error', badgeLabel: 'Scope Options Error' };
+  }
+
+  if (trace.IsSecure || trace.Diagnostic === 'Masked') {
+    return {
+      cssClass: 'token-secure',
+      badgeLabel: `Secret (${getBadgeFallback(trace.ScopeName, 'Redacted')})`
+    };
+  }
+
+  if (trace.Diagnostic === 'UnclosedToken') {
+    const presented = presentTrace(trace);
+    if (presented.hasBlockedTokensByUnescapedDollar) {
+      return {
+        cssClass: 'token-default',
+        badgeLabel: 'Blocked by Unescaped $'
+      };
+    }
+  }
+
+  switch (trace.Source) {
+    case 'RequestOverride':
+      return { cssClass: 'token-override', badgeLabel: 'Request Override' };
+    case 'EnvironmentScope':
+      return {
+        cssClass: 'token-env',
+        badgeLabel: `Env (${getBadgeFallback(trace.ScopeName, 'Current')})`
+      };
+    case 'AncestorEnvironmentScope':
+      return {
+        cssClass: 'token-ancestor',
+        badgeLabel: `Inherited (${getBadgeFallback(trace.ScopeName, 'Parent')})`
+      };
+    case 'GlobalDefault':
+      return { cssClass: 'token-default', badgeLabel: 'Default (Global)' };
+    case 'BuiltInScopeOption':
+      return {
+        cssClass: 'token-builtin',
+        badgeLabel: `Built-in (${getBadgeFallback(trace.ValueType, 'Scope')})`
+      };
+    case 'ConfigValue':
+      return {
+        cssClass: 'token-default',
+        badgeLabel: `Config (${getBadgeFallback(trace.ScopeName, 'Fallback')})`
+      };
+    case 'RuntimeOnly':
+      return { cssClass: 'token-runtime', badgeLabel: 'Monitor Runtime' };
+    default:
+      return { cssClass: 'token-error', badgeLabel: 'Missing in Scope' };
+  }
+}
+
 @customElement('hegs-json-viewer')
 export class HegsJsonViewer extends LitElement {
   static get styles() {
     return css`
       :host {
-        --background-color: #2a2f3a;
-        --color: #f8f8f2;
-        --string-color: #a3eea0;
-        --number-color: #d19a66;
-        --boolean-color: #4ba7ef;
-        --null-color: #df9cf3;
-        --property-color: #6fb3d2;
-        --preview-color: rgba(222, 175, 143, 0.9);
-        --highlight-color: #7b0000;
+        --background-color: #181c24;
+        --surface-elevated: #202632;
+        --border-subtle: rgba(255, 255, 255, 0.1);
+        --color: #e6edf3;
+        --string-color: #a5d6ff;
+        --number-color: #f2cc60;
+        --boolean-color: #79c0ff;
+        --null-color: #d2a8ff;
+        --property-color: #7ee787;
+        --preview-color: #8b949e;
+        --highlight-color: rgba(248, 81, 73, 0.35);
 
-        --font-family: monaco, Consolas, 'Lucida Console', monospace;
-        --font-size: 1rem;
+        --font-family:
+          ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas,
+          'Liberation Mono', monospace;
+        --font-size: 0.875rem;
 
-        --indent-size: 1.5em;
+        --indent-size: 1.35em;
         --indentguide-size: 1px;
         --indentguide-style: solid;
-        --indentguide-color: #333;
-        --indentguide-color-active: #666;
+        --indentguide-color: rgba(255, 255, 255, 0.08);
+        --indentguide-color-active: rgba(121, 192, 255, 0.45);
         --indentguide: var(--indentguide-size) var(--indentguide-style)
           var(--indentguide-color);
         --indentguide-active: var(--indentguide-size) var(--indentguide-style)
@@ -287,23 +531,359 @@ export class HegsJsonViewer extends LitElement {
         color: var(--color);
         font-family: var(--font-family);
         font-size: var(--font-size);
-
-        /* This used to sit inside hegs-dialog, whose box was positioned
-           absolutely with no width cap, so the dialog simply grew to fit
-           whatever JSON it was given. Its replacements, vaadin-dialog and
-           vaadin-confirm-dialog, constrain the overlay width, and the
-           overlay's content part has overflow-x visible — so without this a
-           long build number or artefact path is clipped and cannot be
-           scrolled to at all. Reported from DV 02 against the deploy
-           confirmation. */
+        line-height: 1.6;
         overflow: auto;
         max-width: 100%;
         padding: 5px;
+        border-radius: 8px;
+        border: 1px solid var(--border-subtle);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
         box-sizing: border-box;
+        position: relative;
+      }
+
+      .context-toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 6px 10px;
+        margin-bottom: 8px;
+        background: var(--surface-elevated);
+        border: 1px solid var(--border-subtle);
+        border-radius: 6px;
+        font-size: 0.78rem;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+      }
+
+      .context-summary {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .context-env-pill {
+        display: inline-flex;
+        align-items: center;
+        background: rgba(56, 139, 253, 0.16);
+        color: #79c0ff;
+        border: 1px solid rgba(56, 139, 253, 0.4);
+        border-radius: 999px;
+        padding: 2px 10px;
+        font-weight: 600;
+        letter-spacing: 0.01em;
+      }
+
+      .context-counts-text {
+        color: #9ca3af;
+      }
+
+      .compare-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .compare-env-input {
+        background: rgba(0, 0, 0, 0.28);
+        color: #e6edf3;
+        border: 1px solid var(--border-subtle);
+        border-radius: 5px;
+        padding: 2px 8px;
+        font-family: inherit;
+        font-size: 0.76rem;
+        width: 140px;
+      }
+
+      .compare-env-input:focus {
+        outline: 1px solid #58a6ff;
+        border-color: #58a6ff;
+      }
+
+      .compare-summary-pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 2px 9px;
+        font-weight: 600;
+        font-size: 0.74rem;
+      }
+
+      .compare-summary-pill.has-diff {
+        background: rgba(210, 153, 34, 0.2);
+        color: #f2cc60;
+        border: 1px solid rgba(210, 153, 34, 0.5);
+      }
+
+      .compare-summary-pill.all-match {
+        background: rgba(46, 160, 67, 0.18);
+        color: #7ee787;
+        border: 1px solid rgba(46, 160, 67, 0.45);
+      }
+
+      .inline-compare-diff {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 0 6px;
+        border-radius: 4px;
+        background: rgba(248, 81, 73, 0.16);
+        border: 1px solid rgba(248, 81, 73, 0.45);
+        color: #ffa198;
+        font-style: normal;
+        font-size: 0.9em;
+        font-weight: 600;
+      }
+
+      .compare-match-badge {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 0 6px;
+        border-radius: 4px;
+        background: rgba(46, 160, 67, 0.16);
+        border: 1px solid rgba(46, 160, 67, 0.45);
+        color: #7ee787;
+        font-size: 0.76rem;
+        font-weight: 600;
+      }
+
+      .inspector-compare-cell {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .mode-switcher {
+        display: inline-flex;
+        padding: 2px;
+        background: rgba(0, 0, 0, 0.28);
+        border: 1px solid var(--border-subtle);
+        border-radius: 6px;
+        gap: 2px;
+      }
+
+      .mode-btn {
+        background: transparent;
+        color: #9ca3af;
+        border: none;
+        border-radius: 4px;
+        padding: 2px 10px;
+        font-family: inherit;
+        font-size: 0.78rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition:
+          background-color 140ms ease,
+          color 140ms ease;
+      }
+
+      .mode-btn:hover {
+        color: #e6edf3;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .mode-btn:focus-visible {
+        outline: 2px solid #58a6ff;
+        outline-offset: 1px;
+      }
+
+      .mode-btn.active {
+        background: #2f81f7;
+        color: #ffffff;
+        font-weight: 600;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+      }
+
+      .token-chip {
+        display: inline-flex;
+        align-items: center;
+        padding: 0 6px;
+        margin: 0 1px;
+        border-radius: 4px;
+        font-family: inherit;
+        font-size: 0.92em;
+        line-height: 1.4;
+        font-weight: 600;
+        cursor: pointer;
+        border: 1px solid transparent;
+        transition:
+          transform 100ms ease,
+          filter 120ms ease,
+          box-shadow 120ms ease;
+      }
+
+      .token-chip:hover {
+        filter: brightness(1.14);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+      }
+
+      .token-chip:focus-visible {
+        outline: 2px solid #58a6ff;
+        outline-offset: 1px;
+      }
+
+      .token-env {
+        background: rgba(46, 160, 67, 0.2);
+        color: #7ee787;
+        border-color: rgba(46, 160, 67, 0.5);
+      }
+
+      .token-ancestor {
+        background: rgba(57, 197, 207, 0.18);
+        color: #56d4dd;
+        border-color: rgba(57, 197, 207, 0.5);
+      }
+
+      .token-default {
+        background: rgba(210, 153, 34, 0.2);
+        color: #e3b341;
+        border-color: rgba(210, 153, 34, 0.5);
+      }
+
+      .token-override {
+        background: rgba(163, 113, 247, 0.22);
+        color: #d2a8ff;
+        border-color: rgba(163, 113, 247, 0.55);
+      }
+
+      .token-builtin {
+        background: rgba(56, 139, 253, 0.2);
+        color: #79c0ff;
+        border-color: rgba(56, 139, 253, 0.5);
+      }
+
+      .token-runtime,
+      .token-pending {
+        background: rgba(139, 148, 158, 0.2);
+        color: #c9d1d9;
+        border-color: rgba(139, 148, 158, 0.45);
+      }
+
+      .token-expression {
+        background: rgba(137, 87, 229, 0.24);
+        color: #d2a8ff;
+        border-color: rgba(137, 87, 229, 0.55);
+      }
+
+      .token-secure {
+        background: rgba(219, 109, 40, 0.22);
+        color: #ffa657;
+        border-color: rgba(219, 109, 40, 0.55);
+      }
+
+      .token-error {
+        background: rgba(248, 81, 73, 0.24);
+        color: #ff7b72;
+        border-color: rgba(248, 81, 73, 0.65);
+      }
+
+      .inline-resolved-arrow {
+        color: #6e7681;
+        margin: 0 5px;
+        user-select: none;
+      }
+
+      .inline-resolved-val {
+        display: inline-block;
+        padding: 0 6px;
+        border-radius: 4px;
+        background: rgba(227, 179, 65, 0.12);
+        border: 1px dashed rgba(227, 179, 65, 0.35);
+        color: #f2cc60;
+        font-style: normal;
+        font-size: 0.92em;
+      }
+
+      .inspector-card {
+        margin-top: 8px;
+        padding: 10px 12px;
+        background: var(--surface-elevated);
+        border: 1px solid rgba(56, 139, 253, 0.45);
+        border-left: 3px solid #2f81f7;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        color: var(--color);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+      }
+
+      .inspector-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding-bottom: 6px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid var(--border-subtle);
+      }
+
+      .inspector-title {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .inspector-grid {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 4px 10px;
+        align-items: baseline;
+      }
+
+      .inspector-label {
+        color: #8b949e;
+        font-weight: 600;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+      }
+
+      .inspector-code {
+        background: rgba(0, 0, 0, 0.25);
+        padding: 1px 6px;
+        border-radius: 4px;
+        color: #e6edf3;
+        word-break: break-all;
+      }
+
+      .inspector-chain {
+        margin: 8px 0 4px;
+        padding-left: 18px;
+        color: #9ca3af;
+      }
+
+      .inspector-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+        padding-top: 6px;
+        border-top: 1px solid var(--border-subtle);
+      }
+
+      .inspector-link {
+        color: #79c0ff;
+        text-decoration: none;
+        font-weight: 500;
+        cursor: pointer;
+        background: rgba(56, 139, 253, 0.12);
+        border: 1px solid rgba(56, 139, 253, 0.3);
+        border-radius: 4px;
+        padding: 2px 8px;
+        font-family: inherit;
+        font-size: 0.76rem;
+        transition: background-color 120ms ease;
+      }
+
+      .inspector-link:hover {
+        background: rgba(56, 139, 253, 0.24);
       }
 
       .preview {
         color: var(--preview-color);
+        font-style: italic;
+        font-size: 0.92em;
       }
 
       .null {
@@ -313,21 +893,22 @@ export class HegsJsonViewer extends LitElement {
       .key {
         color: var(--property-color);
         display: inline-block;
+        padding: 1px 3px;
+        border-radius: 3px;
       }
 
       .collapsable:before {
         display: inline-block;
-        color: var(--color);
-        font-size: 0.8em;
+        color: var(--property-color);
+        font-size: 0.72em;
         content: '▶';
         line-height: 1em;
-        width: 1em;
+        width: 1.1em;
         height: 1em;
         text-align: center;
-
-        transition: transform 195ms ease-out;
+        margin-right: 2px;
+        transition: transform 160ms cubic-bezier(0.2, 0, 0, 1);
         transform: rotate(90deg);
-        color: var(--property-color);
       }
 
       .collapsable.collapsableCollapsed:before {
@@ -337,6 +918,15 @@ export class HegsJsonViewer extends LitElement {
       .collapsable {
         cursor: pointer;
         user-select: none;
+      }
+
+      .collapsable:hover {
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .collapsable:focus-visible {
+        outline: 2px solid #58a6ff;
+        outline-offset: 1px;
       }
 
       .string {
@@ -353,6 +943,7 @@ export class HegsJsonViewer extends LitElement {
 
       ul {
         padding: 0;
+        margin: 0;
         clear: both;
       }
 
@@ -360,6 +951,10 @@ export class HegsJsonViewer extends LitElement {
       li {
         list-style: none;
         position: relative;
+      }
+
+      li {
+        padding: 1px 0;
       }
 
       li ul > li {
@@ -372,9 +967,10 @@ export class HegsJsonViewer extends LitElement {
         content: '';
         border-left: var(--indentguide);
         position: absolute;
-        left: calc(0.5em - var(--indentguide-size));
-        top: 0.3em;
-        bottom: 0.3em;
+        left: calc(0.45em - var(--indentguide-size));
+        top: 0.25em;
+        bottom: 0.25em;
+        transition: border-color 140ms ease;
       }
 
       ul ul:hover:before {
@@ -383,18 +979,53 @@ export class HegsJsonViewer extends LitElement {
 
       mark {
         background-color: var(--highlight-color);
+        color: inherit;
+        border-radius: 3px;
+        padding: 0 2px;
       }
     `;
   }
 
   @property({ converter: JSONConverter, type: Object })
-  data?: any;
+  data?: unknown;
+
+  @property({ type: Object })
+  resolutionContext?: PropertyResolutionContext;
+
+  @property({ type: String, attribute: 'display-mode' })
+  displayMode: JsonViewerDisplayMode = 'inline';
+
+  @property({ type: String, attribute: 'compare-environment-name' })
+  compareEnvironmentName = '';
+
+  @property({ type: Array })
+  compareEnvironmentOptions: string[] = [];
+
+  @property({ attribute: false })
+  resolutionCache: PropertyResolutionClientCache =
+    defaultPropertyResolutionClientCache;
 
   @state() private state: JsonViewerState = {
     expanded: {},
     filtered: {},
     highlight: null
   };
+
+  @state() private traces: Map<string, PropertyResolutionTraceApiModel> =
+    new Map();
+
+  @state() private compareTraces: Map<string, PropertyResolutionTraceApiModel> =
+    new Map();
+
+  @state() private referencedNames: string[] = [];
+
+  @state() private activeInspectedProperty: string | null = null;
+
+  @state() private activeInspectedRawToken: string | null = null;
+
+  private fetchGeneration = 0;
+
+  private compareFetchGeneration = 0;
 
   private async setState(
     stateFn: (
@@ -418,6 +1049,98 @@ export class HegsJsonViewer extends LitElement {
     super.connectedCallback();
   }
 
+  protected willUpdate(changedProps: PropertyValues<this>) {
+    if (
+      changedProps.has('data') ||
+      changedProps.has('resolutionContext') ||
+      changedProps.has('resolutionCache')
+    ) {
+      this.refreshPropertyTraces();
+    } else if (
+      changedProps.has('compareEnvironmentName') ||
+      changedProps.has('compareEnvironmentOptions')
+    ) {
+      this.refreshCompareTraces();
+    }
+  }
+
+  private getActiveCompareEnvironment(): string {
+    const trimmed = this.compareEnvironmentName.trim();
+    if (!trimmed) {
+      return '';
+    }
+    const primaryEnv = this.resolutionContext?.environmentName?.trim() ?? '';
+    if (primaryEnv && primaryEnv.toLowerCase() === trimmed.toLowerCase()) {
+      return '';
+    }
+    if (
+      this.compareEnvironmentOptions.length > 0 &&
+      !this.compareEnvironmentOptions.some(
+        opt => opt.trim().toLowerCase() === trimmed.toLowerCase()
+      )
+    ) {
+      return '';
+    }
+    return trimmed;
+  }
+
+  private async refreshPropertyTraces(): Promise<void> {
+    const names = extractReferencedPropertyNames(
+      this.data,
+      this.resolutionContext?.locationKind
+    );
+    this.referencedNames = names;
+    this.traces = new Map();
+    this.activeInspectedProperty = null;
+    const gen = ++this.fetchGeneration;
+    this.refreshCompareTraces();
+
+    if (names.length === 0 || !this.resolutionContext) {
+      return;
+    }
+
+    try {
+      const resolvedMap = await this.resolutionCache.resolveProperties(
+        this.resolutionContext,
+        names
+      );
+      if (gen === this.fetchGeneration) {
+        this.traces = resolvedMap;
+      }
+    } catch {
+      if (gen === this.fetchGeneration) {
+        this.traces = new Map();
+      }
+    }
+  }
+
+  private async refreshCompareTraces(): Promise<void> {
+    const compareEnv = this.getActiveCompareEnvironment();
+    this.compareTraces = new Map();
+    const gen = ++this.compareFetchGeneration;
+
+    if (!compareEnv || this.referencedNames.length === 0) {
+      return;
+    }
+
+    try {
+      const resolvedCompare = await this.resolutionCache.resolveProperties(
+        {
+          ...this.resolutionContext,
+          environmentName: compareEnv
+        },
+        this.referencedNames
+      );
+      if (gen === this.compareFetchGeneration) {
+        this.compareTraces = resolvedCompare;
+      }
+    } catch {
+      if (gen === this.compareFetchGeneration) {
+        this.compareTraces = new Map();
+      }
+    }
+  }
+
   handlePropertyClick = (path: string) => (e: Event) => {
     e.preventDefault();
 
@@ -436,6 +1159,27 @@ export class HegsJsonViewer extends LitElement {
 
     this.setState(toggleNode(path));
   };
+
+  private handleDisplayModeSelect = (mode: JsonViewerDisplayMode) => () => {
+    this.displayMode = mode;
+  };
+
+  private handleCompareEnvironmentInput = (e: Event) => {
+    const target = e.target as HTMLInputElement;
+    this.compareEnvironmentName = target.value;
+  };
+
+  private handleInspectToken =
+    (propertyName: string, rawToken?: string) => (e: Event) => {
+      e.stopPropagation();
+      if (this.activeInspectedProperty === propertyName) {
+        this.activeInspectedProperty = null;
+        this.activeInspectedRawToken = null;
+      } else {
+        this.activeInspectedProperty = propertyName;
+        this.activeInspectedRawToken = rawToken ?? null;
+      }
+    };
 
   expand(glob: string | RegExp) {
     this.setState(expand(glob, true));
@@ -458,16 +1202,15 @@ export class HegsJsonViewer extends LitElement {
       if (isPrimitiveOrNode(node) && String(node).includes(criteria)) {
         this.expand(path);
         this.updateComplete.then(() => {
-          const node = this.shadowRoot!.querySelector(
+          const elem = this.shadowRoot!.querySelector(
             `[data-path="${path}"]`
           ) as HTMLElement;
-          node.scrollIntoView({
+          elem.scrollIntoView({
             behavior: 'smooth',
             inline: 'center',
             block: 'center'
           });
-
-          node.focus();
+          elem.focus();
         });
 
         this.setState(highlight(path));
@@ -507,17 +1250,19 @@ export class HegsJsonViewer extends LitElement {
               <span
                 part="key"
                 class="${classMap({
-                  key: key,
+                  key: Boolean(key),
                   collapsable: !isPrimitive,
                   collapsableCollapsed: !this.state.expanded[nodePath]
                 })}"
-                role="${!isPrimitive ? 'button' : nothing}"
-                tabindex="${!isPrimitive ? '0' : nothing}"
-                aria-expanded="${
+                role="${ifDefined(!isPrimitive ? 'button' : undefined)}"
+                tabindex="${ifDefined(!isPrimitive ? 0 : undefined)}"
+                aria-expanded="${ifDefined(
                   !isPrimitive
-                    ? String(Boolean(this.state.expanded[nodePath]))
-                    : nothing
-                }"
+                    ? this.state.expanded[nodePath]
+                      ? 'true'
+                      : 'false'
+                    : undefined
+                )}"
                 @click="${
                   !isPrimitive ? this.handlePropertyClick(nodePath) : null
                 }"
@@ -535,38 +1280,451 @@ export class HegsJsonViewer extends LitElement {
     `;
   }
 
-  renderNode(node: any, path = '') {
+  renderNode(node: unknown, path = '') {
     const isPrimitive = isPrimitiveOrNode(node);
     const isExpanded = !path || this.state.expanded[path] || isPrimitive;
 
     if (isExpanded) {
       return isPrimitive
         ? this.renderPrimitive(node, path)
-        : this.renderObject(node, path);
+        : this.renderObject(node as Record<string, unknown>, path);
     } else {
-      return this.renderNodePreview(node);
+      return this.renderNodePreview(
+        node as Record<string, unknown> | unknown[]
+      );
     }
   }
 
-  renderNodePreview(node: any) {
+  renderNodePreview(node: Record<string, unknown> | unknown[]) {
     return html`
       <span part="preview" class="preview"> ${generateNodePreview(node)} </span>
     `;
   }
 
-  renderPrimitive(node: Primitive | null, path: string) {
+  private renderContextualString(raw: string, path: string): TemplateResult {
+    const profile = resolveTokenSyntaxProfile(
+      this.resolutionContext?.locationKind,
+      path
+    );
+    const tokens = parsePropertyTokens(raw, profile);
+    const hasSpecial = tokens.some(
+      t =>
+        t.kind === 'property' ||
+        t.kind === 'escaped-dollar' ||
+        t.kind === 'expression-prefix' ||
+        t.kind === 'unclosed-token'
+    );
+
+    if (!hasSpecial) {
+      return html`<span
+        part="primitive primitive-string"
+        tabindex="0"
+        class="string"
+        >${JSON.stringify(raw)}</span
+      >`;
+    }
+
+    const hasBlockedPropertyTokens =
+      tokens.some(t => t.kind === 'unclosed-token') &&
+      tokens.some(t => t.kind === 'property');
+
+    if (this.displayMode === 'raw') {
+      return html`<span
+        part="primitive primitive-string"
+        tabindex="0"
+        class="string"
+        >"${tokens.map(token =>
+          this.renderTokenSegment(token, hasBlockedPropertyTokens)
+        )}"</span
+      >`;
+    }
+
+    const evaluated = evaluateStringWithTraces(raw, this.traces, profile);
+
+    if (this.displayMode === 'resolved') {
+      if (evaluated.status === 'resolved' || evaluated.status === 'literal') {
+        return html`<span
+          part="primitive primitive-string"
+          tabindex="0"
+          class="string"
+          title="Raw: ${raw}"
+          >${JSON.stringify(evaluated.resolvedValue)}</span
+        >`;
+      }
+      return html`<span
+        part="primitive primitive-string"
+        tabindex="0"
+        class="string"
+        >"${tokens.map(token =>
+          this.renderTokenSegment(token, hasBlockedPropertyTokens)
+        )}"</span
+      >`;
+    }
+
+    // 'inline' mode: show tokenized raw value + resolved preview when resolved
+    const compareEnv = this.getActiveCompareEnvironment();
+    const propTokens = tokens.filter(
+      (t): t is Extract<ParsedPropertyToken, { kind: 'property' }> =>
+        t.kind === 'property'
+    );
+    const hasCompareDiff =
+      Boolean(compareEnv) &&
+      this.compareTraces.size > 0 &&
+      propTokens.some(pt =>
+        tracesDifferAcrossEnvironments(
+          lookupTrace(this.traces, pt.propertyName),
+          lookupTrace(this.compareTraces, pt.propertyName)
+        )
+      );
+    const compareEvaluated = hasCompareDiff
+      ? evaluateStringWithTraces(raw, this.compareTraces, profile)
+      : undefined;
+
+    return html`<span
+      part="primitive primitive-string"
+      tabindex="0"
+      class="string"
+      >"${tokens.map(token =>
+        this.renderTokenSegment(token, hasBlockedPropertyTokens)
+      )}"${
+        evaluated.status === 'resolved'
+          ? html`<span class="inline-resolved-arrow">→</span
+              ><span class="inline-resolved-val" part="resolved-preview"
+                >${JSON.stringify(evaluated.resolvedValue)}</span
+              >`
+          : nothing
+      }${
+        compareEvaluated
+          ? html`<span
+              class="inline-compare-diff"
+              part="compare-diff-badge"
+              title="Differs in ${compareEnv}"
+              >≠ ${compareEnv}:
+              ${
+                compareEvaluated.status === 'resolved'
+                  ? JSON.stringify(compareEvaluated.resolvedValue)
+                  : compareEvaluated.resolvedDisplayString
+              }</span
+            >`
+          : nothing
+      }</span
+    >`;
+  }
+
+  private renderTokenSegment(
+    token: ParsedPropertyToken,
+    hasBlockedPropertyTokens = false
+  ): TemplateResult {
+    if (token.kind === 'property') {
+      const trace = lookupTrace(this.traces, token.propertyName);
+      const badge = getTokenBadgeAppearance(trace);
+      return html`<button
+        type="button"
+        part="property-token"
+        class="token-chip ${badge.cssClass}"
+        data-property-name="${token.propertyName}"
+        title="${badge.badgeLabel}"
+        @click="${this.handleInspectToken(token.propertyName, token.rawText)}"
+      >
+        ${escapeJsonStringSegment(token.rawText)}
+      </button>`;
+    }
+
+    if (token.kind === 'expression-prefix') {
+      return html`<span
+        part="expression-token"
+        class="token-chip token-expression"
+        title="C# Expression (Evaluated at Deploy Time)"
+        >${escapeJsonStringSegment(token.rawText)}</span
+      >`;
+    }
+
+    if (token.kind === 'escaped-dollar') {
+      return html`<span
+        part="escaped-dollar"
+        class="token-chip token-builtin"
+        title="Escaped literal $"
+        >${escapeJsonStringSegment(token.rawText)}</span
+      >`;
+    }
+
+    if (token.kind === 'unclosed-token') {
+      return html`<span
+        part="unclosed-token"
+        class="token-chip ${
+          hasBlockedPropertyTokens ? 'token-error' : 'token-default'
+        }"
+        title="${
+          hasBlockedPropertyTokens
+            ? 'Unescaped $ prevents $Variable$ expansion — escape as $$'
+            : 'Literal $ (kept as-is unless combined with $Variable$ tokens)'
+        }"
+        >${escapeJsonStringSegment(token.rawText)}</span
+      >`;
+    }
+
+    return html`${escapeJsonStringSegment(token.value)}`;
+  }
+
+  private renderToolbar(): TemplateResult | typeof nothing {
+    if (this.referencedNames.length === 0) {
+      return nothing;
+    }
+
+    let resolvedCount = 0;
+    let missingCount = 0;
+    let secretCount = 0;
+
+    for (const name of this.referencedNames) {
+      const trace = lookupTrace(this.traces, name);
+      if (!trace) {
+        continue;
+      }
+      if (trace.IsSecure || trace.Diagnostic === 'Masked') {
+        secretCount++;
+      }
+      if (
+        trace.Source === 'Unresolved' ||
+        trace.Diagnostic === 'MissingInScope'
+      ) {
+        missingCount++;
+      } else {
+        resolvedCount++;
+      }
+    }
+
+    const envLabel = this.resolutionContext?.environmentName?.trim();
+    const compareEnv = this.getActiveCompareEnvironment();
+    let diffCount = 0;
+    if (compareEnv && this.compareTraces.size > 0) {
+      for (const name of this.referencedNames) {
+        if (
+          tracesDifferAcrossEnvironments(
+            lookupTrace(this.traces, name),
+            lookupTrace(this.compareTraces, name)
+          )
+        ) {
+          diffCount++;
+        }
+      }
+    }
+
+    return html`
+      <div class="context-toolbar" part="context-toolbar">
+        <div class="context-summary">
+          ${
+            envLabel
+              ? html`<span class="context-env-pill" part="context-env"
+                  >Env: ${envLabel}</span
+                >`
+              : html`<span class="context-env-pill" part="context-env"
+                  >Scope: Global Default</span
+                >`
+          }
+          <span class="context-counts-text" part="context-counts">
+            ${this.referencedNames.length}
+            ${this.referencedNames.length === 1 ? 'property' : 'properties'}
+            (${resolvedCount}
+            resolved${
+              missingCount > 0 ? `, ${missingCount} missing` : ''
+            }${secretCount > 0 ? `, ${secretCount} secret` : ''})
+          </span>
+          <div class="compare-controls" part="compare-controls">
+            <input
+              type="text"
+              class="compare-env-input"
+              part="compare-env-input"
+              list="compare-env-datalist"
+              placeholder="Compare env..."
+              aria-label="Compare environment"
+              .value="${this.compareEnvironmentName}"
+              @change="${this.handleCompareEnvironmentInput}"
+            />
+            ${
+              this.compareEnvironmentOptions.length > 0
+                ? html`<datalist id="compare-env-datalist">
+                    ${this.compareEnvironmentOptions.map(
+                      opt => html`<option value="${opt}"></option>`
+                    )}
+                  </datalist>`
+                : nothing
+            }
+            ${
+              compareEnv && this.compareTraces.size > 0
+                ? html`<span
+                    class="compare-summary-pill ${
+                      diffCount > 0 ? 'has-diff' : 'all-match'
+                    }"
+                    part="compare-summary"
+                  >
+                    ${
+                      diffCount > 0
+                        ? `${diffCount} differ in ${compareEnv}`
+                        : `All match ${compareEnv}`
+                    }
+                  </span>`
+                : nothing
+            }
+          </div>
+        </div>
+        <div
+          class="mode-switcher"
+          role="group"
+          aria-label="Property display mode"
+        >
+          ${(['raw', 'inline', 'resolved'] as JsonViewerDisplayMode[]).map(
+            mode => html`
+              <button
+                type="button"
+                class="mode-btn ${this.displayMode === mode ? 'active' : ''}"
+                data-mode="${mode}"
+                aria-pressed="${this.displayMode === mode ? 'true' : 'false'}"
+                @click="${this.handleDisplayModeSelect(mode)}"
+              >
+                ${mode.charAt(0).toUpperCase() + mode.slice(1)}
+              </button>
+            `
+          )}
+        </div>
+      </div>
+    `;
+  }
+
+  private renderInspectorComparisonRow(
+    propName: string,
+    primaryTrace: PropertyResolutionTraceApiModel | undefined,
+    compareEnv: string
+  ): TemplateResult {
+    const compareTrace = lookupTrace(this.compareTraces, propName);
+    const comparePresented = presentTrace(compareTrace);
+    const compareBadge = getTokenBadgeAppearance(compareTrace);
+    const isDiff = tracesDifferAcrossEnvironments(primaryTrace, compareTrace);
+
+    return html`
+      <span class="inspector-label">Compare (${compareEnv})</span>
+      <div class="inspector-compare-cell" part="inspector-compare">
+        <code class="inspector-code"
+          >${comparePresented.effectiveDisplayValue}</code
+        >
+        <span class="token-chip ${compareBadge.cssClass}"
+          >${compareBadge.badgeLabel}</span
+        >
+        ${
+          isDiff
+            ? html`<span class="inline-compare-diff">≠ Differs</span>`
+            : html`<span class="compare-match-badge">= Matches</span>`
+        }
+      </div>
+    `;
+  }
+
+  private renderInspectorCard(): TemplateResult | typeof nothing {
+    if (!this.activeInspectedProperty) {
+      return nothing;
+    }
+
+    const propName = this.activeInspectedProperty;
+    const trace = lookupTrace(this.traces, propName);
+    const badge = getTokenBadgeAppearance(trace);
+    const presented = presentTrace(trace);
+    const usesBraceSyntax =
+      this.resolutionContext?.locationKind === 'deployment-definition' ||
+      this.resolutionContext?.locationKind === 'script-arguments';
+    const tokenDisplayTitle =
+      this.activeInspectedRawToken ??
+      (usesBraceSyntax ? `\${${propName}}` : `$${propName}$`);
+    const rawScope =
+      trace?.Source === 'GlobalDefault'
+        ? ''
+        : (trace?.ScopeName ?? this.resolutionContext?.environmentName ?? '');
+    const lookupHref = `/variables/value-lookup?name=${encodeURIComponent(
+      propName
+    )}${rawScope ? `&scope=${encodeURIComponent(rawScope)}` : ''}`;
+
+    const isMaskedOrSecure = Boolean(
+      trace?.IsSecure || trace?.Diagnostic === 'Masked'
+    );
+    const rawDisplay = isMaskedOrSecure
+      ? presented.effectiveDisplayValue
+      : (trace?.RawValue ?? '(not defined)');
+    const safeChain = (trace?.ResolutionChain ?? []).map(hop =>
+      isMaskedOrSecure ? hop.replace(/->\s*.*$/, '-> •••••••• (Secure)') : hop
+    );
+
+    return html`
+      <div class="inspector-card" part="inspector-card">
+        <div class="inspector-header">
+          <div class="inspector-title">
+            <strong>${tokenDisplayTitle}</strong>
+            <span class="token-chip ${badge.cssClass}"
+              >${badge.badgeLabel}</span
+            >
+          </div>
+          <button
+            type="button"
+            class="inspector-link"
+            data-action="close-inspector"
+            @click="${this.handleInspectToken(propName)}"
+          >
+            Close
+          </button>
+        </div>
+        <div class="inspector-grid">
+          <span class="inspector-label">Raw</span>
+          <code class="inspector-code">${rawDisplay}</code>
+          <span class="inspector-label">Resolved</span>
+          <code class="inspector-code">${presented.effectiveDisplayValue}</code>
+          <span class="inspector-label">Diagnostic</span>
+          <code class="inspector-code"
+            >${
+              trace?.Diagnostic
+                ? `${trace.Diagnostic} — ${presented.diagnosticTitle}`
+                : presented.diagnosticTitle
+            }</code
+          >
+          ${
+            this.getActiveCompareEnvironment()
+              ? this.renderInspectorComparisonRow(
+                  propName,
+                  trace,
+                  this.getActiveCompareEnvironment()
+                )
+              : nothing
+          }
+        </div>
+        ${
+          safeChain.length > 0
+            ? html`
+                <ol class="inspector-chain">
+                  ${safeChain.map(hop => html`<li>${hop}</li>`)}
+                </ol>
+              `
+            : nothing
+        }
+        <div class="inspector-actions">
+          <a class="inspector-link" href="${lookupHref}">
+            Open in Value Lookup →
+          </a>
+        </div>
+      </div>
+    `;
+  }
+
+  renderPrimitive(node: unknown, path: string) {
     const highlight = this.state.highlight;
     const nodeType = getType(node);
     const value = isNode(node)
       ? node
-      : html`
-          <span
-            part="primitive primitive-${nodeType}"
-            tabindex="0"
-            class="${getType(node)}"
-            >${JSON.stringify(node)}</span
-          >
-        `;
+      : typeof node === 'string'
+        ? this.renderContextualString(node, path)
+        : html`
+            <span
+              part="primitive primitive-${nodeType}"
+              tabindex="0"
+              class="${nodeType}"
+              >${JSON.stringify(node)}</span
+            >
+          `;
 
     return path === highlight
       ? html`<mark part="highlight">${value}</mark>`
@@ -576,6 +1734,10 @@ export class HegsJsonViewer extends LitElement {
   render() {
     const data = this.data;
 
-    return isDefined(data) ? this.renderNode(data) : null;
+    return isDefined(data)
+      ? html`${this.renderToolbar()}${this.renderNode(
+          data
+        )}${this.renderInspectorCard()}`
+      : null;
   }
 }

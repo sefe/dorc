@@ -87,7 +87,8 @@ const BRAND_TONES: Record<BrandIcon, string> = {
   clickhouse: 'warning',
   postgresql: 'primary',
   azure: 'primary',
-  terraform: 'contrast'
+  terraform: 'contrast',
+  powershell: 'primary'
 };
 
 const brandIconSvg = (key: BrandIcon) => svg`<svg
