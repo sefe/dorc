@@ -62,17 +62,85 @@ BEGIN
 
 			-- Archive EnvironmentComponentStatus data related to DeploymentRequest
             DELETE FROM [deploy].[EnvironmentComponentStatus]
-            OUTPUT DELETED.* INTO [archive].[EnvironmentComponentStatus]
+            OUTPUT
+                DELETED.[Id],
+                DELETED.[EnvironmentId],
+                DELETED.[ComponentId],
+                DELETED.[Status],
+                DELETED.[UpdateDate],
+                DELETED.[DeploymentRequestId]
+            INTO [archive].[EnvironmentComponentStatus] (
+                [Id],
+                [EnvironmentId],
+                [ComponentId],
+                [Status],
+                [UpdateDate],
+                [DeploymentRequestId]
+            )
             WHERE DeploymentRequestId IN (SELECT Id FROM @BatchIDs);
 
             -- Archive DeploymentResult data related to DeploymentRequest
             DELETE FROM [deploy].[DeploymentResult]
-            OUTPUT DELETED.* INTO [archive].[DeploymentResult]
+            OUTPUT
+                DELETED.[Id],
+                DELETED.[DeploymentRequestId],
+                DELETED.[ComponentId],
+                DELETED.[Log],
+                DELETED.[Status],
+                DELETED.[StartedTime],
+                DELETED.[CompletedTime]
+            INTO [archive].[DeploymentResult] (
+                [Id],
+                [DeploymentRequestId],
+                [ComponentId],
+                [Log],
+                [Status],
+                [StartedTime],
+                [CompletedTime]
+            )
             WHERE DeploymentRequestId IN (SELECT Id FROM @BatchIDs);
 
             -- Delete from DeploymentRequest and output deleted rows into the archive
             DELETE FROM [deploy].[DeploymentRequest]
-            OUTPUT DELETED.* INTO [archive].[DeploymentRequest]
+            OUTPUT
+                DELETED.[Id],
+                DELETED.[RequestDetails],
+                DELETED.[UserName],
+                DELETED.[RequestedTime],
+                DELETED.[StartedTime],
+                DELETED.[CompletedTime],
+                DELETED.[Status],
+                DELETED.[Log],
+                DELETED.[IsProd],
+                DELETED.[Project],
+                DELETED.[Environment],
+                DELETED.[BuildNumber],
+                DELETED.[Components],
+                DELETED.[UNCLogPath],
+                DELETED.[CancelledBy],
+                DELETED.[CancelledTime],
+                DELETED.[EnvironmentOwnerEmail],
+                DELETED.[TerraformBackendRetiredByChangeId]
+            INTO [archive].[DeploymentRequest] (
+                [Id],
+                [RequestDetails],
+                [UserName],
+                [RequestedTime],
+                [StartedTime],
+                [CompletedTime],
+                [Status],
+                [Log],
+                [IsProd],
+                [Project],
+                [Environment],
+                [BuildNumber],
+                [Components],
+                [UNCLogPath],
+                [CancelledBy],
+                [CancelledTime],
+                [EnvironmentOwnerEmail],
+                [TerraformBackendRetiredByChangeId]
+            )
             WHERE Id IN (SELECT Id FROM @BatchIDs);
 
             SET @RowCount = @@ROWCOUNT;

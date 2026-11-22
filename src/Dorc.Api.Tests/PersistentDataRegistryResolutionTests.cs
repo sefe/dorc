@@ -1,6 +1,8 @@
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using Lamar;
+using Microsoft.Extensions.Configuration;
+using NSubstitute;
 
 namespace Dorc.Api.Tests
 {
