@@ -73,7 +73,9 @@ internal sealed class PipeBackedScriptDispatcher : IScriptDispatcher
                 {
                     new()
                     {
-                        ScriptPath = Path.Combine(scriptsLocation, script.Path),
+                        ScriptPath = Path.IsPathRooted(script.Path)
+                            ? script.Path
+                            : Path.Join(scriptsLocation, script.Path),
                         Properties = new Dictionary<string, VariableValue>()
                     }
                 }

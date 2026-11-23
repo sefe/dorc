@@ -62,7 +62,7 @@ namespace Tests.Acceptance
             using var caller = new DorcApiClient();
             var buildDir = EnsureLiveAcceptanceFixture(caller);
             var runToken = Guid.NewGuid().ToString("N")[..10];
-            var outputJsonPath = Path.Combine(buildDir, $"resolved-props-{runToken}.json");
+            var outputJsonPath = Path.Join(buildDir, $"resolved-props-{runToken}.json");
 
             var globalProp = $"AutoReg_Global_{runToken}";
             var parentProp = $"AutoReg_ParentInherited_{runToken}";
@@ -257,7 +257,7 @@ namespace Tests.Acceptance
             var shouldFailProp = "AutoReg_ShouldFail";
             var runTokenProp = "AutoReg_RunToken";
             var runToken = Guid.NewGuid().ToString("N")[..10];
-            var downstreamMarkerPath = Path.Combine(buildDir, $"downstream-ran-{runToken}.txt");
+            var downstreamMarkerPath = Path.Join(buildDir, $"downstream-ran-{runToken}.txt");
 
             try
             {
@@ -405,12 +405,12 @@ namespace Tests.Acceptance
 
         private static string EnsureLiveAcceptanceFixture(DorcApiClient caller)
         {
-            var buildDir = Path.Combine(DropRootPath, BuildFolderName);
+            var buildDir = Path.Join(DropRootPath, BuildFolderName);
             Directory.CreateDirectory(buildDir);
             GrantEveryoneReadExecuteAndWrite(DropRootPath);
             GrantEveryoneReadExecuteAndWrite(buildDir);
 
-            var verifyScriptPath = Path.Combine(buildDir, "verify-properties.ps1");
+            var verifyScriptPath = Path.Join(buildDir, "verify-properties.ps1");
             File.WriteAllText(verifyScriptPath, @"
 $ErrorActionPreference = 'Stop'
 $token = $AutoReg_RunToken
@@ -446,7 +446,7 @@ $outFile = Join-Path $PSScriptRoot ""resolved-props-$token.json""
 Set-Content -Path $outFile -Value $payload -Encoding UTF8
 ");
 
-            var failThenPassScriptPath = Path.Combine(buildDir, "fail-then-pass.ps1");
+            var failThenPassScriptPath = Path.Join(buildDir, "fail-then-pass.ps1");
             File.WriteAllText(failThenPassScriptPath, @"
 $ErrorActionPreference = 'Stop'
 Write-Output ""AutoReg_ShouldFail is '$AutoReg_ShouldFail'""
@@ -457,14 +457,14 @@ if ($AutoReg_ShouldFail -eq 'true') {
 Write-Output 'Deployment succeeded after property update and restart.'
 ");
 
-            var cancelWaitScriptPath = Path.Combine(buildDir, "cancel-wait.ps1");
+            var cancelWaitScriptPath = Path.Join(buildDir, "cancel-wait.ps1");
             File.WriteAllText(cancelWaitScriptPath, @"
 Write-Output 'Starting cancellable wait script...'
 Start-Sleep -Seconds 25
 Write-Output 'Finished wait.'
 ");
 
-            var downstreamScriptPath = Path.Combine(buildDir, "downstream-skipped.ps1");
+            var downstreamScriptPath = Path.Join(buildDir, "downstream-skipped.ps1");
             File.WriteAllText(downstreamScriptPath, @"
 $outFile = Join-Path $PSScriptRoot ""downstream-ran-$AutoReg_RunToken.txt""
 Set-Content -Path $outFile -Value 'RAN' -Encoding UTF8
