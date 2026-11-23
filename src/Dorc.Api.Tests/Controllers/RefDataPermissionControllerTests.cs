@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using Dorc.ApiModel;
+using NSubstitute;
 
 namespace Dorc.Api.Tests.Controllers;
 
@@ -114,5 +115,55 @@ public class RefDataPermissionControllerTests
             PermissionName = permName
         }, _fixture.JsonOptions);
         Assert.AreEqual(HttpStatusCode.OK, adminPermResp.StatusCode);
+    }
+
+    [TestMethod]
+    public void RefDataPermissionAndSqlPortsControllers_EnforceInjectedRolePrivilegesChecker()
+    {
+        var permSource = NSubstitute.Substitute.For<Dorc.PersistentData.Sources.Interfaces.IPermissionsPersistentSource>();
+        var roleChecker = NSubstitute.Substitute.For<Dorc.PersistentData.IRolePrivilegesChecker>();
+        var user = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity("TestAuth"));
+
+        var permController = new Dorc.Api.Controllers.RefDataPermissionController(permSource, roleChecker)
+        {
+            ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+            {
+                HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext { User = user }
+            }
+        };
+
+        var dto = new PermissionDto { Id = 1, DisplayName = "Disp", PermissionName = "Perm" };
+        NSubstitute.SubstituteExtensions.Returns(roleChecker.IsAdmin(user), false);
+        Assert.AreEqual(403, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)permController.Post(dto)).StatusCode);
+        Assert.AreEqual(403, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)permController.Put(1, dto)).StatusCode);
+        Assert.AreEqual(403, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)permController.Delete(1)).StatusCode);
+
+        NSubstitute.SubstituteExtensions.Returns(roleChecker.IsAdmin(user), true);
+        Assert.AreEqual(200, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)permController.Post(dto)).StatusCode);
+        Assert.AreEqual(200, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)permController.Put(1, dto)).StatusCode);
+        Assert.AreEqual(200, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)permController.Delete(1)).StatusCode);
+
+        permSource.When(s => s.CreatePermission(dto)).Do(_ => throw new ArgumentException("Duplicate"));
+        Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)permController.Post(dto)).StatusCode);
+
+        permSource.When(s => s.UpdatePermission(1, dto)).Do(_ => throw new ArgumentException("Duplicate"));
+        Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)permController.Put(1, dto)).StatusCode);
+
+        var sqlPortsSource = NSubstitute.Substitute.For<Dorc.PersistentData.Sources.Interfaces.ISqlPortsPersistentSource>();
+        var sqlController = new Dorc.Api.Controllers.RefDataSqlPortsController(sqlPortsSource, roleChecker)
+        {
+            ControllerContext = new Microsoft.AspNetCore.Mvc.ControllerContext
+            {
+                HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext { User = user }
+            }
+        };
+        var portDto = new SqlPortApiModel { InstanceName = "INST1", SqlPort = "1433" };
+        NSubstitute.SubstituteExtensions.Returns(roleChecker.IsAdmin(user), false);
+        Assert.Throws<UnauthorizedAccessException>(() => sqlController.Post(portDto));
+        Assert.Throws<UnauthorizedAccessException>(() => sqlController.Delete(portDto));
+
+        NSubstitute.SubstituteExtensions.Returns(roleChecker.IsAdmin(user), true);
+        Assert.AreEqual(200, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)sqlController.Post(portDto)).StatusCode);
+        Assert.AreEqual(200, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)sqlController.Delete(portDto)).StatusCode);
     }
 }

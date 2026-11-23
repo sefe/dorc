@@ -23,6 +23,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Dorc.Monitor\Dorc.Monitor.csproj" />
+    <ProjectReference Include="..\Dorc.PowerShell\Dorc.PowerShell.csproj" />
+    <ProjectReference Include="..\Dorc.Runner\Dorc.Runner.csproj" />
+    <ProjectReference Include="..\Dorc.Runner.Logger\Dorc.Runner.Logger.csproj" />
   </ItemGroup>
 
   <ItemGroup>

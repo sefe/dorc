@@ -247,6 +247,10 @@ namespace Dorc.Api.Controllers
             try
             {
                 var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
+                if (deploymentRequest == null)
+                {
+                    return NotFound($"Request with ID {requestId} not found");
+                }
 
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
                 string username = _claimsPrincipalReader.GetUserFullDomainName(User);
@@ -255,6 +259,12 @@ namespace Dorc.Api.Controllers
                     _log.LogInformation($"Forbidden request to restart {requestId} for {deploymentRequest.EnvironmentName} from {username}");
                     return StatusCode(StatusCodes.Status403Forbidden,
                         $"Forbidden request to {deploymentRequest.EnvironmentName} from {username}");
+                }
+
+                if (deploymentRequest.Status == DeploymentRequestStatus.Restarting.ToString())
+                {
+                    return StatusCode(StatusCodes.Status200OK,
+                        new RequestStatusDto { Id = deploymentRequest.Id, Status = deploymentRequest.Status });
                 }
 
                 _requestsPersistentSource.EnsureRequestBackendNotRetired(requestId);
@@ -275,7 +285,7 @@ namespace Dorc.Api.Controllers
                     DeploymentRequestStatus.Restarting,
                     username);
 
-                var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
+                var updated = _requestsPersistentSource.GetRequestForUser(requestId, User) ?? deploymentRequest;
 
                 // Broadcast restart -> Restarting
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
@@ -415,6 +425,11 @@ namespace Dorc.Api.Controllers
             try
             {
                 var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
+                if (deploymentRequest == null)
+                {
+                    return NotFound($"Request with ID {requestId} not found");
+                }
+
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
                 string username = _claimsPrincipalReader.GetUserFullDomainName(User);
                 if (!canModifyEnv)
@@ -434,12 +449,14 @@ namespace Dorc.Api.Controllers
 
                 if (deploymentRequest.Status == DeploymentRequestStatus.Pending.ToString()
                     || deploymentRequest.Status == DeploymentRequestStatus.Restarting.ToString()
-                    || deploymentRequest.Status == DeploymentRequestStatus.Paused.ToString())
+                    || deploymentRequest.Status == DeploymentRequestStatus.Paused.ToString()
+                    || deploymentRequest.Status == DeploymentRequestStatus.WaitingConfirmation.ToString()
+                    || deploymentRequest.Status == DeploymentRequestStatus.Confirmed.ToString())
                 {
                     _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Cancelled, username, cancelledTime);
                 }
 
-                var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
+                var updated = _requestsPersistentSource.GetRequestForUser(requestId, User) ?? deploymentRequest;
 
                 // Broadcast cancel -> Cancelling/Cancelled
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
@@ -479,6 +496,10 @@ namespace Dorc.Api.Controllers
                 }
 
                 var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
+                if (deploymentRequest == null)
+                {
+                    return NotFound($"Request with ID {requestId} not found");
+                }
 
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
                 if (!canModifyEnv)
@@ -497,7 +518,7 @@ namespace Dorc.Api.Controllers
 
                 _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Paused);
 
-                var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
+                var updated = _requestsPersistentSource.GetRequestForUser(requestId, User) ?? deploymentRequest;
 
                 // Broadcast pause -> Paused
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(
@@ -537,6 +558,10 @@ namespace Dorc.Api.Controllers
                 }
 
                 var deploymentRequest = _requestsPersistentSource.GetRequestForUser(requestId, User);
+                if (deploymentRequest == null)
+                {
+                    return NotFound($"Request with ID {requestId} not found");
+                }
 
                 var canModifyEnv = _apiSecurityService.CanModifyEnvironment(User, deploymentRequest.EnvironmentName);
                 if (!canModifyEnv)
@@ -555,7 +580,7 @@ namespace Dorc.Api.Controllers
 
                 _requestsPersistentSource.UpdateRequestStatus(requestId, DeploymentRequestStatus.Pending);
 
-                var updated = _requestsPersistentSource.GetRequestForUser(requestId, User);
+                var updated = _requestsPersistentSource.GetRequestForUser(requestId, User) ?? deploymentRequest;
 
                 // Broadcast resume -> Pending
                 _ = _deploymentEventsPublisher.PublishRequestStatusChangedAsync(

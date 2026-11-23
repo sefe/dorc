@@ -103,16 +103,19 @@ namespace Dorc.Core
                     throw new System.ComponentModel.Win32Exception(ret);
                 }
 
-                List<DaemonStatus> probeResults = [];
-                WindowsIdentity.RunImpersonated(
-                    safeAccessTokenHandle,
-                    () =>
-                    {
-                        probeResults = ProbeDaemonStatuses(daemons);
-                    }
-                );
+                using (safeAccessTokenHandle)
+                {
+                    List<DaemonStatus> probeResults = [];
+                    WindowsIdentity.RunImpersonated(
+                        safeAccessTokenHandle,
+                        () =>
+                        {
+                            probeResults = ProbeDaemonStatuses(daemons);
+                        }
+                    );
 
-                return probeResults;
+                    return probeResults;
+                }
             }
 
             return daemons;
@@ -384,8 +387,25 @@ namespace Dorc.Core
         /// </summary>
         public DaemonStatus? ChangeDaemonState(DaemonStatus daemonStatus, ClaimsPrincipal principal)
         {
+            if (daemonStatus == null || string.IsNullOrWhiteSpace(daemonStatus.EnvName))
+            {
+                throw new ArgumentException("Environment name is required.", nameof(daemonStatus));
+            }
+
             var environment =
                 _environmentsPersistentSource.GetEnvironment(daemonStatus.EnvName, principal);
+            if (environment == null)
+            {
+                throw new InvalidOperationException($"Environment '{daemonStatus.EnvName}' does not exist.");
+            }
+
+            var envServers = _serversPersistentSource.GetServersForEnvId(environment.EnvironmentId)?.ToList();
+            if (envServers == null ||
+                !envServers.Any(s => string.Equals(s.Name, daemonStatus.ServerName, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new UnauthorizedAccessException(
+                    $"Server '{daemonStatus.ServerName}' does not belong to environment '{environment.EnvironmentName}'.");
+            }
 
             GetUsernameAndPassword(environment, out var user, out var pwd);
 
@@ -406,45 +426,48 @@ namespace Dorc.Core
                 throw new System.ComponentModel.Win32Exception(ret);
             }
 
-            return WindowsIdentity.RunImpersonated(
-                safeAccessTokenHandle,
-                () =>
-                {
-                    using var sc = new ServiceController(daemonStatus.DaemonName, daemonStatus.ServerName);
-                    switch (daemonStatus.Status)
+            using (safeAccessTokenHandle)
+            {
+                return WindowsIdentity.RunImpersonated(
+                    safeAccessTokenHandle,
+                    () =>
                     {
-                        case "Starting":
-                            {
-                                sc.Start();
-                                sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
-                                return GetDaemonStatus(daemonStatus.EnvName, daemonStatus.ServerName, daemonStatus.DaemonName);
-                            }
-                        case "Stopping":
-                            {
-                                sc.Stop();
-                                sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
-                                return GetDaemonStatus(daemonStatus.EnvName, daemonStatus.ServerName, daemonStatus.DaemonName);
-                            }
-                        case "Restarting":
-                            {
-                                if (sc.CanStop)
+                        using var sc = new ServiceController(daemonStatus.DaemonName, daemonStatus.ServerName);
+                        switch (daemonStatus.Status)
+                        {
+                            case "Starting":
                                 {
-                                    sc.Stop();
-                                    sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
                                     sc.Start();
                                     sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
                                     return GetDaemonStatus(daemonStatus.EnvName, daemonStatus.ServerName, daemonStatus.DaemonName);
                                 }
+                            case "Stopping":
+                                {
+                                    sc.Stop();
+                                    sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
+                                    return GetDaemonStatus(daemonStatus.EnvName, daemonStatus.ServerName, daemonStatus.DaemonName);
+                                }
+                            case "Restarting":
+                                {
+                                    if (sc.CanStop)
+                                    {
+                                        sc.Stop();
+                                        sc.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
+                                        sc.Start();
+                                        sc.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(30));
+                                        return GetDaemonStatus(daemonStatus.EnvName, daemonStatus.ServerName, daemonStatus.DaemonName);
+                                    }
 
-                                return new DaemonStatus();
-                            }
-                        default:
-                            {
-                                return new DaemonStatus();
-                            }
+                                    return new DaemonStatus();
+                                }
+                            default:
+                                {
+                                    return new DaemonStatus();
+                                }
+                        }
                     }
-                }
-            );
+                );
+            }
         }
 
         private DaemonStatus? GetDaemonStatus(string envName, string server, string daemonName)

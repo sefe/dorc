@@ -104,10 +104,16 @@ namespace Tests.Acceptance.PropertyValuesAndConfiguration
                 Assert.IsNotNull(childVal, "Expected child environment property value.");
                 Assert.AreEqual($"ChildInitial_{suffix}", childVal.Value);
 
-                // 6. PUT /PropertyValues (update child environment value)
+                // 6. PUT /PropertyValues (update child environment value + verify idempotent same-value update)
                 childVal.Value = $"ChildUpdated_{suffix}";
                 var putValResp = caller.ExecuteRaw("PropertyValues", Method.Put, body: new[] { childVal });
                 Assert.AreEqual(HttpStatusCode.OK, putValResp.StatusCode, $"PUT /PropertyValues failed: {putValResp.Content}");
+
+                var idempotentPutValResp = caller.ExecuteRaw("PropertyValues", Method.Put, body: new[] { childVal });
+                Assert.AreEqual(HttpStatusCode.OK, idempotentPutValResp.StatusCode, $"Idempotent PUT /PropertyValues failed: {idempotentPutValResp.Content}");
+                Assert.IsFalse(
+                    (idempotentPutValResp.Content ?? string.Empty).Contains("error", StringComparison.OrdinalIgnoreCase),
+                    $"Idempotent PUT /PropertyValues with unchanged value must succeed without error: {idempotentPutValResp.Content}");
 
                 // 7. PUT /RefDataScopedPropertyValues and PUT /RefDataSearchPropertyValues
                 var scopedResp = caller.ExecuteRaw(
@@ -353,7 +359,7 @@ namespace Tests.Acceptance.PropertyValuesAndConfiguration
                 Assert.IsNotNull(psVersions);
                 Assert.IsNotEmpty(psVersions, "Expected at least one supported PowerShell version from GET /PowerShellVersions.");
 
-                // 6. GET /ApiConfig & GET /Metadata
+                // 6. GET /ApiConfig, GET /Metadata, GET /RefDataProperties, GET /DeploymentV2, and GET / (ApiRoot)
                 var apiConfigResp = caller.ExecuteRaw("ApiConfig", Method.Get);
                 Assert.AreEqual(HttpStatusCode.OK, apiConfigResp.StatusCode, $"GET /ApiConfig failed: {apiConfigResp.Content}");
                 var apiConfig = DorcApiClient.Deserialize<ApiConfigModel>(apiConfigResp.Content);
@@ -363,6 +369,17 @@ namespace Tests.Acceptance.PropertyValuesAndConfiguration
                 var metadataResp = caller.ExecuteRaw("Metadata", Method.Get);
                 Assert.AreEqual(HttpStatusCode.OK, metadataResp.StatusCode, $"GET /Metadata failed: {metadataResp.Content}");
                 Assert.IsFalse(string.IsNullOrWhiteSpace(metadataResp.Content), "Expected non-empty version string from GET /Metadata.");
+
+                var refDataPropsResp = caller.ExecuteRaw("RefDataProperties", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, refDataPropsResp.StatusCode, $"GET /RefDataProperties failed: {refDataPropsResp.Content}");
+                Assert.IsFalse(string.IsNullOrWhiteSpace(refDataPropsResp.Content), "Expected non-empty property list from GET /RefDataProperties.");
+
+                var deploymentV2Resp = caller.ExecuteRaw("DeploymentV2", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, deploymentV2Resp.StatusCode, $"GET /DeploymentV2 failed: {deploymentV2Resp.Content}");
+
+                var apiRootResp = caller.ExecuteRaw("", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, apiRootResp.StatusCode, $"GET / (ApiRoot) failed: {apiRootResp.Content}");
+                StringAssert.Contains(apiRootResp.Content ?? string.Empty, "PropertyValues");
             }
             finally
             {

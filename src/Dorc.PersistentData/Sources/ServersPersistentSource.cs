@@ -236,7 +236,9 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
-                var servers = context.Servers.Include(s => s.TagLinks)
+                var servers = context.Servers
+                    .Include(s => s.TagLinks)
+                    .Include(s => s.Environments)
                     .Where(server => EF.Functions.Collate(server.Name, DeploymentContext.CaseInsensitiveCollation)
                         == EF.Functions.Collate(serverName, DeploymentContext.CaseInsensitiveCollation)).ToList();
                 var svr = servers.FirstOrDefault();
@@ -260,7 +262,7 @@ namespace Dorc.PersistentData.Sources
                                  select privilegeInfo.IsOwner || privilegeInfo.HasPermission ||
                                         isAdmin).ToList();
 
-                serverApiModel.UserEditable = totalEdit.All(e => e);
+                serverApiModel.UserEditable = isAdmin || (totalEdit.Count > 0 && totalEdit.All(e => e));
                 return serverApiModel;
             }
         }
@@ -271,7 +273,10 @@ namespace Dorc.PersistentData.Sources
             {
                 var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
 
-                var servers = context.Servers.Include(s => s.TagLinks).Where(s => s.Id == serverId).ToList();
+                var servers = context.Servers
+                    .Include(s => s.TagLinks)
+                    .Include(s => s.Environments)
+                    .Where(s => s.Id == serverId).ToList();
                 var svr = servers.FirstOrDefault();
                 if (svr == null) return null;
 
@@ -293,7 +298,7 @@ namespace Dorc.PersistentData.Sources
                                  select privilegeInfo.IsOwner || privilegeInfo.HasPermission ||
                                         isAdmin).ToList();
 
-                serverApiModel.UserEditable = totalEdit.All(e => e);
+                serverApiModel.UserEditable = isAdmin || (totalEdit.Count > 0 && totalEdit.All(e => e));
                 return serverApiModel;
             }
         }

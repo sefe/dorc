@@ -19,13 +19,13 @@ public class DeployCopyEnvBuildTests
             "/sourceenv:QA 01",
             "/targetenv:DV 01",
             "/project:Endur",
-            "/components:CompA;CompB"
+            "/components:Group:CompA;Group:CompB"
         });
 
         Assert.AreEqual("QA 01", parsed.SourceEnv);
         Assert.AreEqual("DV 01", parsed.TargetEnv);
         Assert.AreEqual("Endur", parsed.Project);
-        Assert.AreEqual("CompA;CompB", parsed.Components);
+        Assert.AreEqual("Group:CompA;Group:CompB", parsed.Components);
     }
 
     [TestMethod]

@@ -8,7 +8,7 @@ namespace Dorc.Core
             Func<TSource, TKey> keySelector)
         {
             var hasKey = false;
-            var currentKey = default(TKey);
+            var currentKey = default(TKey)!;
 
             var currentBatch = new List<TSource>();
 
@@ -16,13 +16,13 @@ namespace Dorc.Core
             {
                 var key = keySelector(item);
 
-                if (!key.Equals(currentKey))
+                if (!hasKey || !EqualityComparer<TKey>.Default.Equals(key, currentKey))
                 {
                     if (hasKey) yield return new BatchGroup<TKey, TSource>(currentKey, currentBatch);
 
                     hasKey = true;
                     currentKey = key;
-                    currentBatch.Clear();
+                    currentBatch = new List<TSource>();
                 }
 
                 currentBatch.Add(item);

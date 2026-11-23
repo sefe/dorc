@@ -1,4 +1,5 @@
 ﻿using Dorc.ApiModel;
+using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,10 +13,14 @@ namespace Dorc.Api.Controllers
     public class RefDataSqlPortsController : ControllerBase
     {
         private readonly ISqlPortsPersistentSource _sqlPortsPersistentSource;
+        private readonly IRolePrivilegesChecker? _rolePrivilegesChecker;
 
-        public RefDataSqlPortsController(ISqlPortsPersistentSource sqlPortsPersistentSource)
+        public RefDataSqlPortsController(
+            ISqlPortsPersistentSource sqlPortsPersistentSource,
+            IRolePrivilegesChecker? rolePrivilegesChecker = null)
         {
             _sqlPortsPersistentSource = sqlPortsPersistentSource;
+            _rolePrivilegesChecker = rolePrivilegesChecker;
         }
 
         /// <summary>
@@ -56,7 +61,8 @@ namespace Dorc.Api.Controllers
         [HttpPost]
         public IActionResult Post([FromBody] SqlPortApiModel value)
         {
-            if (!User.IsInRole("Admin"))
+            var isAdmin = (_rolePrivilegesChecker?.IsAdmin(User) ?? false) || User.IsInRole("Admin");
+            if (!isAdmin)
                 throw new UnauthorizedAccessException("User must be part of the 'Admin' group to create new SQL Port");
             try
             {
@@ -83,7 +89,8 @@ namespace Dorc.Api.Controllers
         [HttpDelete]
         public IActionResult Delete([FromBody] SqlPortApiModel value)
         {
-            if (!User.IsInRole("Admin"))
+            var isAdmin = (_rolePrivilegesChecker?.IsAdmin(User) ?? false) || User.IsInRole("Admin");
+            if (!isAdmin)
                 throw new UnauthorizedAccessException("User must be part of the 'Admin' group to delete Permissions");
 
             try

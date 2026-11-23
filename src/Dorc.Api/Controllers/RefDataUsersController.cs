@@ -78,12 +78,13 @@ namespace Dorc.Api.Controllers
         public UserApiModel GetByName(string userName)
         {
             if (string.IsNullOrEmpty(userName)) return new UserApiModel();
+            var users = _apiServices.GetUsersList<UserApiModel>();
             //try find user by display name
-            var result = _apiServices.GetUsersList<UserApiModel>().FirstOrDefault(u => u.DisplayName.Equals(userName));
+            var result = users.FirstOrDefault(u => string.Equals(u.DisplayName, userName, StringComparison.OrdinalIgnoreCase));
             if (result != null)
                 return result;
             //try to find user by lan id
-            result = _apiServices.GetUsersList<UserApiModel>().FirstOrDefault(u => u.LanId.Equals(userName));
+            result = users.FirstOrDefault(u => string.Equals(u.LanId, userName, StringComparison.OrdinalIgnoreCase));
 
             return result ?? new UserApiModel();
         }

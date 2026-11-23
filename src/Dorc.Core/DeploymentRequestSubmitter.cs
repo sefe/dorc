@@ -83,6 +83,9 @@ namespace Dorc.Core
             var sourceEnvironment = _environmentsPersistentSource.GetEnvironment(fromEnvironment, user);
             if (sourceEnvironment == null)
                 throw new InvalidOperationException($"Cannot find environment named '{fromEnvironment}'");
+            var targetEnvironment = _environmentsPersistentSource.GetEnvironment(toEnvironment, user);
+            if (targetEnvironment == null)
+                throw new InvalidOperationException($"Cannot find environment named '{toEnvironment}'");
 
             var environmentComponentStatusModels = _environmentsPersistentSource.GetEnvironmentComponentStatuses(sourceEnvironment.EnvironmentId);
 
@@ -90,13 +93,15 @@ namespace Dorc.Core
                 orderedComponents
                     .Join(environmentComponentStatusModels,
                         x => x.ComponentName, x => x.Component,
-                        (c, cs) => new { Component = c, ComponentStatus = cs })
+                        (c, cs) => new { Component = c, ComponentStatus = cs },
+                        StringComparer.OrdinalIgnoreCase)
                     .Where(x => projectComponents.Any(pc =>
                         string.Equals(pc.Component, x.Component.ComponentName, StringComparison.OrdinalIgnoreCase) &&
                         (string.IsNullOrEmpty(pc.Project) ||
                          string.IsNullOrEmpty(x.ComponentStatus.Project) ||
                          string.Equals(pc.Project, x.ComponentStatus.Project, StringComparison.OrdinalIgnoreCase))))
-                    .Batch(x => x.ComponentStatus.BuildNumber);
+                    .Batch(x => (x.ComponentStatus.BuildNumber, x.ComponentStatus.DropLocation, x.ComponentStatus.Uri, x.ComponentStatus.Project))
+                    .ToList();
 
             if (!componentBuilds.Any())
                 throw new InvalidOperationException("No build found");
@@ -598,6 +603,7 @@ namespace Dorc.Core
         {
             var skipComponents = new[] { "" };
             var project = _projectsPersistentSource.GetProject(strProjectName);
+            if (project == null) throw new WrongComponentsException($"Project \"{strProjectName}\" not found.");
             var projComponents = FlattenLeafComponents(_projectsPersistentSource.GetComponentsForProject(project.ProjectId))
                 .Where(x => doDeploy.Any(i => i == x.ComponentId))
                 .Select(x => new ProjectComponentPair { Project = strProjectName, Component = x.ComponentName }).ToArray();
@@ -613,6 +619,7 @@ namespace Dorc.Core
             var dontDeploy = new[] { "" };
             var skipComponents = new[] { "" };
             var project = _projectsPersistentSource.GetProject(projectName);
+            if (project == null) throw new WrongComponentsException($"Project \"{projectName}\" not found.");
             var projComponents = FlattenLeafComponents(_projectsPersistentSource.GetComponentsForProject(project.ProjectId))
                 .Where(x => !dontDeploy.Contains(x.ComponentName))
                 .Select(x => new ProjectComponentPair { Project = projectName, Component = x.ComponentName }).ToArray();

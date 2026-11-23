@@ -368,7 +368,7 @@ Write-Output ""VERIFIED_ALL_PROPERTIES_IN_RUNNER""
 $ErrorActionPreference = 'Stop'
 Write-Output ""AutoReg_ShouldFail is '$AutoReg_ShouldFail'""
 if ($AutoReg_ShouldFail -eq 'true') {
-    Write-Error 'Simulated deployment failure because AutoReg_ShouldFail=true'
+    Write-Output 'Simulated deployment failure via non-zero exit code 1 because AutoReg_ShouldFail=true'
     exit 1
 }
 Write-Output 'Deployment succeeded after property update and restart.'

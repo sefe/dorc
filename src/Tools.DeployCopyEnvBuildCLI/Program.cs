@@ -115,13 +115,13 @@ namespace Tools.DeployCopyEnvBuildCLI
             Arguments arguments= new Arguments();
             foreach (var strArgument in args)
                 if (strArgument.ToLower().Contains("/sourceenv:"))
-                    arguments.SourceEnv = strArgument.Split(':')[1];
+                    arguments.SourceEnv = strArgument.Split(':', 2)[1];
                 else if (strArgument.ToLower().Contains("/targetenv:"))
-                    arguments.TargetEnv = strArgument.Split(':')[1];
+                    arguments.TargetEnv = strArgument.Split(':', 2)[1];
                 else if (strArgument.ToLower().Contains("/project:"))
-                    arguments.Project = strArgument.Split(':')[1];
+                    arguments.Project = strArgument.Split(':', 2)[1];
                 else if (strArgument.ToLower().Contains("/components:"))
-                    arguments.Components = strArgument.Split(':')[1];
+                    arguments.Components = strArgument.Split(':', 2)[1];
 
             Output("===================== Copy Env Build =====================");
             Output("=== Source Environment : " + arguments.SourceEnv);

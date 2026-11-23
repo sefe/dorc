@@ -198,4 +198,41 @@ public class RequestControllerCatalogRoutingTests
         Assert.AreEqual(missingBinding.Value, missingComponent.Value);
         _service.DidNotReceiveWithAnyArgs().CreateRequest(default!, default!);
     }
+
+    [TestMethod]
+    public void LifecycleActions_HandleNotFoundIdempotentRestartAndWaitingConfirmationCancel()
+    {
+        _requests.GetRequestForUser(999, Arg.Any<ClaimsPrincipal>()).Returns((DeploymentRequestApiModel)null!);
+        Assert.AreEqual(404, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)_controller.RestartPost(999)).StatusCode);
+        Assert.AreEqual(404, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)_controller.CancelPut(999)).StatusCode);
+        Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)_controller.PausePut(999)).StatusCode);
+        Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)_controller.ResumePut(999)).StatusCode);
+
+        // Idempotent RestartPost when already Restarting
+        _requests.GetRequestForUser(42, Arg.Any<ClaimsPrincipal>()).Returns(new DeploymentRequestApiModel
+        {
+            Id = 42,
+            EnvironmentName = Environment,
+            Status = DeploymentRequestStatus.Restarting.ToString()
+        });
+        var idempotentRestart = (Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)_controller.RestartPost(42);
+        Assert.AreEqual(200, idempotentRestart.StatusCode);
+        _requests.DidNotReceive().ArchiveCurrentAttempt(42);
+        _requests.DidNotReceive().UpdateRequestStatus(42, DeploymentRequestStatus.Restarting, Arg.Any<string>());
+
+        // CancelPut transitions WaitingConfirmation and Confirmed directly to Cancelled
+        foreach (var status in new[] { DeploymentRequestStatus.WaitingConfirmation, DeploymentRequestStatus.Confirmed })
+        {
+            _requests.ClearReceivedCalls();
+            _requests.GetRequestForUser(43, Arg.Any<ClaimsPrincipal>()).Returns(new DeploymentRequestApiModel
+            {
+                Id = 43,
+                EnvironmentName = Environment,
+                Status = status.ToString()
+            });
+            var cancelWaiting = (Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)_controller.CancelPut(43);
+            Assert.AreEqual(200, cancelWaiting.StatusCode);
+            _requests.Received(1).UpdateRequestStatus(43, DeploymentRequestStatus.Cancelled, Arg.Any<string>(), Arg.Any<DateTimeOffset>());
+        }
+    }
 }

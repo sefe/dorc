@@ -26,7 +26,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var first = context.Users.First(u => u.LanId.Equals(lanId));
+                var first = context.Users.FirstOrDefault(u => u.LanId.Equals(lanId));
                 return MapToUserApiModel(first);
             }
         }
@@ -35,6 +35,11 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
+                if (context.Users.Any(u => u.LanId == user.LanId && u.LoginType == user.LoginType && u.LanIdType == user.LanIdType))
+                {
+                    throw new ArgumentException($"User with LanId '{user.LanId}' already exists.");
+                }
+
                 context.Users.Add(MapToUser(user));
                 context.SaveChanges();
                 return MapToUserApiModel(context.Users.First(u => u.LanId == user.LanId));
@@ -80,12 +85,18 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var dbUsers = context.Databases.Include(d => d.EnvironmentUsers).First(d => d.Id == databaseId).EnvironmentUsers;
+                var db = context.Databases.Include(d => d.EnvironmentUsers).FirstOrDefault(d => d.Id == databaseId);
+                if (db == null)
+                {
+                    return new List<UserApiModel>();
+                }
+
+                var dbUsers = db.EnvironmentUsers;
                 var users = new List<User>();
                 foreach (var databaseUser in dbUsers)
                 {
                     var user = context.Users.Find(databaseUser.UserId);
-                    if (!users.Contains(user))
+                    if (user != null && !users.Contains(user))
                         users.Add(user);
                 }
 

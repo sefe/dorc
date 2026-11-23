@@ -108,7 +108,8 @@ namespace Dorc.PersistentData.Sources
                 var propertyValue = context.PropertyValues
                     .Include(pv => pv.Filters)
                     .Include(pv => pv.Property)
-                    .First(pv => pv.Id == propertyValueId);
+                    .FirstOrDefault(pv => pv.Id == propertyValueId)
+                    ?? throw new ArgumentException($"PropertyValue with ID {propertyValueId} not found.");
                 propertyValue.Value = newValue;
 
                 context.SaveChanges();
@@ -124,9 +125,10 @@ namespace Dorc.PersistentData.Sources
                 {
                     var envProps = GetEnvironmentProperties(environmentName, propertyName).ToList();
                     
-                    if (!envProps.Any(p => p.Property.Name == propertyName))
+                    if (!envProps.Any(p => string.Equals(p.Property.Name, propertyName, StringComparison.OrdinalIgnoreCase)))
                     {
-                        var environmentSecure = context.Environments.First(e => e.Name.Equals(environmentName)).Secure;
+                        var environment = context.Environments.FirstOrDefault(e => e.Name.Equals(environmentName));
+                        var environmentSecure = environment == null || environment.Secure;
                         if (!environmentSecure)
                         {
                             var globalProperties = GetGlobalProperties(propertyName);

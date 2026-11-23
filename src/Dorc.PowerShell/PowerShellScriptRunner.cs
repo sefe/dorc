@@ -34,7 +34,8 @@ namespace Dorc.PowerShell
 
             try
             {
-                using (var runspace = RunspaceFactory.CreateRunspace(InitialSessionState.CreateDefault()))
+                var host = new CustomHost();
+                using (var runspace = RunspaceFactory.CreateRunspace(host, InitialSessionState.CreateDefault()))
                 {
                     runspace.InitialSessionState.AuthorizationManager = new AuthorizationManager("Microsoft.PowerShell");
                     runspace.Open();
@@ -110,6 +111,10 @@ namespace Dorc.PowerShell
                         {
                             throw new Exception("PowerShell completed abnormally due to an error. Reason: " + powerShell.InvocationStateInfo.Reason);
                         }
+                        if (host.ShouldExit && host.ExitCode != 0)
+                        {
+                            throw new Exception($"PowerShell script exited with non-zero exit code: {host.ExitCode}");
+                        }
                         if (TryGetNonZeroLastExitCode(runspace, out int lastExitCode))
                         {
                             throw new Exception($"PowerShell script completed with non-zero exit code: {lastExitCode}");
@@ -122,6 +127,7 @@ namespace Dorc.PowerShell
             {
                 var sanitizedError = new InvalidOperationException(RedactSensitiveValues(e.ToString()));
                 logger.FileLogger.LogError(sanitizedError, "Exception occured in the powershell execution of script {0}", scriptName);
+                logger.Error(sanitizedError.Message);
                 return -1;
             }
             finally

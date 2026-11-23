@@ -126,10 +126,13 @@ namespace Dorc.Api.Controllers
                 throw new System.ComponentModel.Win32Exception(ret);
             }
 
-            return WindowsIdentity.RunImpersonated(
-                safeAccessTokenHandle,
-                // User action  
-                () => _sqlUserPasswordReset.ResetSqlUserPassword(serverName, username));
+            using (safeAccessTokenHandle)
+            {
+                return WindowsIdentity.RunImpersonated(
+                    safeAccessTokenHandle,
+                    // User action  
+                    () => _sqlUserPasswordReset.ResetSqlUserPassword(serverName, username));
+            }
         }
     }
 }

@@ -311,19 +311,21 @@ namespace Dorc.Api.Services
                             ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.EncryptArrayValue(propertyValueDto.Value, _propertyEncryptor)
                             : _propertyEncryptor.EncryptValue(propertyValueDto.Value))
                         : propertyValueDto.Value;
-                    _propertyValuesPersistentSource.UpdatePropertyValue(dbPropertyValueModel.Id,
-                        propertyValueToUpdate);
-                    if (dbPropertyValueModel.Value == propertyValueToUpdate)
-                        continue; // don't update if attempting to set the same value
 
-                    var propertyApiModel = _propertiesPersistentSource.GetProperty(dbPropertyValueModel.Property.Name);
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
-                    _propertyValuesAuditPersistentSource.AddRecord(propertyApiModel.Id,
-                        dbPropertyValueModel.Id, dbPropertyValueModel.Property.Name,
-                        dbPropertyValueModel.PropertyValueFilter, dbPropertyValueModel.Value, propertyValueToUpdate,
-                        username, "Update");
+                    if (dbPropertyValueModel.Value != propertyValueToUpdate)
+                    {
+                        _propertyValuesPersistentSource.UpdatePropertyValue(dbPropertyValueModel.Id,
+                            propertyValueToUpdate);
 
-                    if (propertyApiModel.Secure && !_securityPrivilegesChecker.CanReadSecrets(user, propertyValueDto.PropertyValueFilter))
+                        var propertyApiModel = _propertiesPersistentSource.GetProperty(dbPropertyValueModel.Property.Name);
+                        string username = _claimsPrincipalReader.GetUserFullDomainName(user);
+                        _propertyValuesAuditPersistentSource.AddRecord(propertyApiModel.Id,
+                            dbPropertyValueModel.Id, dbPropertyValueModel.Property.Name,
+                            dbPropertyValueModel.PropertyValueFilter, dbPropertyValueModel.Value, propertyValueToUpdate,
+                            username, "Update");
+                    }
+
+                    if (dbPropertyValueModel.Property.Secure && !_securityPrivilegesChecker.CanReadSecrets(user, propertyValueDto.PropertyValueFilter))
                     {
                         propertyValueDto.Value = string.Empty;
                     }

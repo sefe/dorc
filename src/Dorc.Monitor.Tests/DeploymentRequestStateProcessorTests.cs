@@ -1902,5 +1902,232 @@ namespace Dorc.Monitor.Tests
                 .TryAcquireLockAsync(Arg.Any<string>(), Arg.Any<int>(), Arg.Any<CancellationToken>());
             await mockLock.Received(1).DisposeAsync();
         }
+
+        [TestMethod]
+        public void RestartRequests_TerminatesRunnerProcessesBeforeClearingDeploymentResults()
+        {
+            var requests = CreateRequests(1);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.Restarting, false)
+                .Returns(requests);
+
+            var callOrder = new List<string>();
+            mockRequestsPersistentSource
+                .SwitchDeploymentRequestStatuses(
+                    Arg.Any<IList<DeploymentRequestApiModel>>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DeploymentRequestStatus>())
+                .Returns(_ =>
+                {
+                    callOrder.Add("SwitchStatus");
+                    return 1;
+                });
+            mockProcessesPersistentSource
+                .GetAssociatedRunnerProcessIds(1)
+                .Returns(_ =>
+                {
+                    callOrder.Add("TerminateRunnerProcesses");
+                    return Enumerable.Empty<int>();
+                });
+            mockRequestsPersistentSource
+                .When(x => x.ClearAllDeploymentResults(Arg.Any<IList<int>>()))
+                .Do(_ => callOrder.Add("ClearResults"));
+
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+            using var cts = new CancellationTokenSource();
+            cancellationSources[1] = cts;
+
+            sut.RestartRequests(false, cancellationSources, CancellationToken.None);
+
+            CollectionAssert.AreEqual(
+                new[] { "SwitchStatus", "TerminateRunnerProcesses", "ClearResults" },
+                callOrder);
+            Assert.IsTrue(cts.IsCancellationRequested);
+        }
+
+        [TestMethod]
+        public async Task ExecuteRequests_WhenEnvironmentHasWaitingConfirmationRequest_SkipsEnvironment()
+        {
+            var pendingRequests = new List<DeploymentRequestApiModel>
+            {
+                new()
+                {
+                    Id = 601,
+                    EnvironmentName = "EnvWaitingConfirm",
+                    Status = DeploymentRequestStatus.Pending.ToString(),
+                    IsProd = false,
+                    UserName = "testuser",
+                    RequestDetails = "<DeploymentRequestDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><Components /><ComponentsToSkip /><Properties /></DeploymentRequestDetail>"
+                }
+            };
+            var waitingConfirmRequests = new List<DeploymentRequestApiModel>
+            {
+                new()
+                {
+                    Id = 600,
+                    EnvironmentName = "EnvWaitingConfirm",
+                    Status = DeploymentRequestStatus.WaitingConfirmation.ToString(),
+                    IsProd = false,
+                    UserName = "testuser",
+                    RequestDetails = "<DeploymentRequestDetail xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"><Components /><ComponentsToSkip /><Properties /></DeploymentRequestDetail>"
+                }
+            };
+
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(
+                    DeploymentRequestStatus.Pending,
+                    DeploymentRequestStatus.Running,
+                    DeploymentRequestStatus.Confirmed,
+                    DeploymentRequestStatus.Paused,
+                    false)
+                .Returns(pendingRequests);
+            mockRequestsPersistentSource
+                .GetRequestsWithStatus(DeploymentRequestStatus.WaitingConfirmation, false)
+                .Returns(waitingConfirmRequests);
+
+            mockDistributedLockService.IsEnabled.Returns(false);
+            var cancellationSources = new ConcurrentDictionary<int, CancellationTokenSource>();
+
+            var tasks = sut.ExecuteRequests(false, cancellationSources, CancellationToken.None);
+            await Task.WhenAll(tasks);
+
+            mockRequestsPersistentSource.DidNotReceive()
+                .UpdateNonProcessedRequest(
+                    Arg.Any<DeploymentRequestApiModel>(),
+                    Arg.Any<DeploymentRequestStatus>(),
+                    Arg.Any<DateTimeOffset>());
+        }
+
+        [TestMethod]
+        public void PowerShellScriptRunner_AndCustomHost_EnforceNonZeroExitCodeAndStopSubsequentScripts()
+        {
+            var host = new Dorc.PowerShell.CustomHost();
+            Assert.AreEqual("CustomHost", host.Name);
+            Assert.IsNotNull(host.Version);
+            Assert.AreNotEqual(Guid.Empty, host.InstanceId);
+            Assert.IsNull(host.UI);
+            Assert.IsNotNull(host.CurrentCulture);
+            Assert.IsNotNull(host.CurrentUICulture);
+            Assert.IsFalse(host.ShouldExit);
+            Assert.AreEqual(0, host.ExitCode);
+            Assert.Throws<NotSupportedException>(() => host.EnterNestedPrompt());
+            Assert.Throws<NotSupportedException>(() => host.ExitNestedPrompt());
+            host.NotifyBeginApplication();
+            host.NotifyEndApplication();
+            host.SetShouldExit(42);
+            Assert.IsTrue(host.ShouldExit);
+            Assert.AreEqual(42, host.ExitCode);
+
+            var tempDir = Path.Join(Path.GetTempPath(), $"dorc-ps-exit-{Guid.NewGuid():N}");
+            Directory.CreateDirectory(tempDir);
+            try
+            {
+                var exitZeroScript = Path.Join(tempDir, "exit0.ps1");
+                var exitOneScript = Path.Join(tempDir, "exit1.ps1");
+                var nonTerminatingErrorScript = Path.Join(tempDir, "write-error.ps1");
+                var secondScriptMarker = Path.Join(tempDir, "second-ran.txt");
+                var secondScript = Path.Join(tempDir, "second.ps1");
+
+                File.WriteAllText(exitZeroScript, "Write-Information 'ok'; exit 0");
+                File.WriteAllText(exitOneScript, "Write-Information 'failing'; exit 7");
+                File.WriteAllText(nonTerminatingErrorScript, "Write-Error 'NonTerminatingSecretLeak MySecret123'");
+                File.WriteAllText(secondScript, $"Set-Content -Path '{secondScriptMarker}' -Value 'ran'");
+
+                var runnerLogger = Substitute.For<Dorc.Runner.Logger.IRunnerLogger>();
+                var fileLogger = Substitute.For<Microsoft.Extensions.Logging.ILogger>();
+                runnerLogger.FileLogger.Returns(fileLogger);
+
+                void WriteAllocatedEvidence(int ordinal, string sourcePath)
+                {
+                    var evidencePath = Path.Combine(tempDir, $"{ordinal}.json");
+                    File.WriteAllText(evidencePath, System.Text.Json.JsonSerializer.Serialize(new PowerShellEvidence
+                    {
+                        SchemaVersion = 1,
+                        RequestId = 101,
+                        ResultId = 1,
+                        ScriptOrdinal = ordinal,
+                        DefinitionRevision = "rev1",
+                        Phase = "Allocated",
+                        SourcePath = sourcePath
+                    }));
+                }
+
+                var evidenceContract = new ScriptGroup
+                {
+                    ID = Guid.NewGuid(),
+                    DefinitionRequestId = 101,
+                    DeployResultId = 1,
+                    DefinitionRevision = "rev1",
+                    PowerShellEvidenceDirectory = tempDir,
+                    PowerShellVersionNumber = "7",
+                    EvidenceOrdinalOffset = 0
+                };
+
+                var psRunner = new Dorc.PowerShell.PowerShellScriptRunner(runnerLogger, evidenceContract);
+
+                var props = new Dictionary<string, Dorc.ApiModel.MonitorRunnerApi.VariableValue>
+                {
+                    ["EnvVar1"] = new Dorc.ApiModel.MonitorRunnerApi.VariableValue { Value = "Val1", Type = typeof(string) }
+                };
+                var commonProps = new Dictionary<string, Dorc.ApiModel.MonitorRunnerApi.VariableValue>
+                {
+                    ["DORC_NonProdDeployPassword"] = new Dorc.ApiModel.MonitorRunnerApi.VariableValue { Value = "MySecret123", Type = typeof(string) }
+                };
+
+                // 1. exit 0 returns 0
+                WriteAllocatedEvidence(0, exitZeroScript);
+                var exitZeroCode = psRunner.Run(tempDir, exitZeroScript, props, commonProps);
+                Assert.AreEqual(0, exitZeroCode);
+
+                // 2. Non-terminating Write-Error logs redacted error message via logger.Error
+                WriteAllocatedEvidence(1, nonTerminatingErrorScript);
+                var nonTermCode = psRunner.Run(tempDir, nonTerminatingErrorScript, props, commonProps);
+                Assert.AreEqual(0, nonTermCode);
+                runnerLogger.Received().Error(Arg.Is<string>(msg =>
+                    msg.Contains("[REDACTED]") && !msg.Contains("MySecret123")));
+
+                // 3. exit 7 returns -1 and logs non-zero exit code 7
+                WriteAllocatedEvidence(2, exitOneScript);
+                var exitSevenCode = psRunner.Run(tempDir, exitOneScript, props, commonProps);
+                Assert.AreEqual(-1, exitSevenCode);
+                runnerLogger.Received().Error(Arg.Is<string>(msg =>
+                    msg.Contains("non-zero exit code: 7")));
+
+                // 4. ScriptGroupProcessor stops executing subsequent scripts in the group when an earlier script fails
+                WriteAllocatedEvidence(0, exitOneScript);
+                WriteAllocatedEvidence(1, secondScript);
+                var reader = Substitute.For<Dorc.Runner.Pipes.IScriptGroupPipeClient>();
+                reader.GetScriptGroupProperties(Arg.Any<string>()).Returns(new ScriptGroup
+                {
+                    ID = Guid.NewGuid(),
+                    DefinitionRequestId = 101,
+                    DeployResultId = 1,
+                    DefinitionRevision = "rev1",
+                    PowerShellEvidenceDirectory = tempDir,
+                    PowerShellVersionNumber = "7",
+                    EvidenceOrdinalOffset = 0,
+                    ScriptsLocation = tempDir,
+                    CommonProperties = commonProps,
+                    ScriptProperties = new List<ScriptProperties>
+                    {
+                        new ScriptProperties { ScriptPath = exitOneScript, Properties = props },
+                        new ScriptProperties { ScriptPath = secondScript, Properties = props }
+                    }
+                });
+
+                var processor = new Dorc.Runner.ScriptGroupProcessor(runnerLogger, reader);
+                var groupExitCode = processor.Process("pipe-test", 101);
+                Assert.AreEqual(-1, groupExitCode);
+                Assert.IsFalse(File.Exists(secondScriptMarker),
+                    "Subsequent script in ScriptGroup must NOT execute after an earlier script fails with non-zero exit code.");
+            }
+            finally
+            {
+                if (Directory.Exists(tempDir))
+                {
+                    Directory.Delete(tempDir, recursive: true);
+                }
+            }
+        }
     }
 }

@@ -674,9 +674,9 @@ namespace Tools.PostRestoreEndurCLI
                 var SQLConnection = new SqlConnection(SQLConStr.ConnectionString);
                 SQLConnection.Open();
 
-                UpdatePasswordDates(SQLConnection);
+                var updated = UpdatePasswordDates(SQLConnection);
                 SQLConnection.Close();
-                return true;
+                return updated;
             }
             catch (Exception ex)
             {

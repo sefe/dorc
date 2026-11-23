@@ -494,6 +494,12 @@ namespace Dorc.Monitor
                 var restartedIds = requestsRestartedByThisMonitor.Select(r => r.Id).ToList();
                 var restartedIdsString = string.Join(',', restartedIds);
 
+                restartedIds.ForEach(id =>
+                {
+                    TerminateRequestExecution(id, requestCancellationSources);
+                    TerminateRunnerProcesses(id);
+                });
+
                 // Clear deployment results only for requests we actually restarted.
                 try
                 {
@@ -508,8 +514,6 @@ namespace Dorc.Monitor
 
                 restartedIds.ForEach(id =>
                 {
-                    TerminateRequestExecution(id, requestCancellationSources);
-                    TerminateRunnerProcesses(id);
                     PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
                         RequestId: id,
                         Status: DeploymentRequestStatus.Pending.ToString(),
@@ -545,6 +549,8 @@ namespace Dorc.Monitor
                         DeploymentRequestStatus.Confirmed,
                         DeploymentRequestStatus.Paused,
                         isProduction)
+                .Concat(this.requestsPersistentSource
+                    .GetRequestsWithStatus(DeploymentRequestStatus.WaitingConfirmation, isProduction))
                 .OrderBy(request => request.Id)
                 .ToList();
 
@@ -553,7 +559,7 @@ namespace Dorc.Monitor
                 ReconcileDeferredOrphanRunningRequests(allRelevantRequests, monitorCancellationToken);
             }
 
-            // Group by environment and filter to only environments without Running requests
+            // Group by environment and filter to only environments without Running or WaitingConfirmation requests
             // and where the first request (by ID) is not Paused.
             var environmentRequestGroupsToExecute = allRelevantRequests
                 .GroupBy(
@@ -562,9 +568,10 @@ namespace Dorc.Monitor
                         request,
                         this.serializer.Deserialize(request.RequestDetails)))
                 .Where(environmentRequestGroup =>
-                    // No Running requests in this environment
+                    // No Running or WaitingConfirmation requests in this environment
                     environmentRequestGroup.All(envRequest =>
-                        envRequest.Request.Status != DeploymentRequestStatus.Running.ToString()) &&
+                        envRequest.Request.Status != DeploymentRequestStatus.Running.ToString() &&
+                        envRequest.Request.Status != DeploymentRequestStatus.WaitingConfirmation.ToString()) &&
                     // The first (earliest by ID) request must not be Paused.
                     // If Request 3 is Paused, Requests 4,5 are blocked.
                     // But if Request 4 is Paused, Request 3 can still run (it's before the pause).

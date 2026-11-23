@@ -66,9 +66,16 @@ namespace Dorc.Api.Controllers
         /// <param name="requestId">Request ID</param>
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(string))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
         [HttpGet("Log")]
         public IActionResult GetLog(int requestId)
         {
+            var request = _requestsPersistentSource.GetRequestForUser(requestId, User);
+            if (request == null)
+            {
+                return StatusCode(StatusCodes.Status404NotFound, $"The request with id {requestId} is not found.");
+            }
+
             var result = _requestsPersistentSource.GetRequestLog(requestId);
 
             return StatusCode(StatusCodes.Status200OK, result);
@@ -93,7 +100,8 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception exception)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, exception.ToString());
+                _log.LogError(exception, "Error retrieving request status for {RequestId}", requestId);
+                return StatusCode(StatusCodes.Status500InternalServerError, exception.Message);
             }
 
             if (result == null)

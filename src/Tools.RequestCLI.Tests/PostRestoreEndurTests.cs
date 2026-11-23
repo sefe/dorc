@@ -173,6 +173,21 @@ public class PostRestoreEndurTests
         Assert.AreEqual("DV 01", historyDto.EnvName);
         Assert.AreEqual("backup_2026.bak", historyDto.BackupFile);
         Assert.AreEqual("engineer@sefe.eu", historyDto.UpdatedBy);
+
+        // Verify UpdateEndurUsers returns false when UpdatePasswordDates fails (e.g., personnel table renamed/missing)
+        using (var renameCmd = new SqlCommand("EXEC sp_rename 'dbo.personnel', 'personnel_renamed'", db))
+        {
+            renameCmd.ExecuteNonQuery();
+        }
+        try
+        {
+            Assert.IsFalse(refresh.UpdateEndurUsers("DV 01"));
+        }
+        finally
+        {
+            using var restoreCmd = new SqlCommand("EXEC sp_rename 'dbo.personnel_renamed', 'personnel'", db);
+            restoreCmd.ExecuteNonQuery();
+        }
     }
 
     [TestMethod]

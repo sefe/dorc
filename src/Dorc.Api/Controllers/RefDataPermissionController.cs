@@ -1,4 +1,5 @@
 ﻿using Dorc.ApiModel;
+using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,10 +13,14 @@ namespace Dorc.Api.Controllers
     public class RefDataPermissionController : ControllerBase
     {
         private readonly IPermissionsPersistentSource _permissionsPersistentSource;
+        private readonly IRolePrivilegesChecker? _rolePrivilegesChecker;
 
-        public RefDataPermissionController(IPermissionsPersistentSource permissionsPersistentSource)
+        public RefDataPermissionController(
+            IPermissionsPersistentSource permissionsPersistentSource,
+            IRolePrivilegesChecker? rolePrivilegesChecker = null)
         {
             _permissionsPersistentSource = permissionsPersistentSource;
+            _rolePrivilegesChecker = rolePrivilegesChecker;
         }
 
         /// <summary>
@@ -39,7 +44,11 @@ namespace Dorc.Api.Controllers
         [HttpPost]
         public IActionResult Post([FromBody] PermissionDto value)
         {
-            if (!User.IsInRole("PowerUser") && !User.IsInRole("Admin"))
+            var canCreate = (_rolePrivilegesChecker?.IsPowerUser(User) ?? false) ||
+                            (_rolePrivilegesChecker?.IsAdmin(User) ?? false) ||
+                            User.IsInRole("PowerUser") ||
+                            User.IsInRole("Admin");
+            if (!canCreate)
                 return StatusCode(StatusCodes.Status403Forbidden,
                     "User must be part of the 'PowerUser' or 'Admin' group to create new Permissions");
 
@@ -65,7 +74,8 @@ namespace Dorc.Api.Controllers
         [HttpPut]
         public IActionResult Put(int id, [FromBody] PermissionDto value)
         {
-            if (!User.IsInRole("Admin"))
+            var isAdmin = (_rolePrivilegesChecker?.IsAdmin(User) ?? false) || User.IsInRole("Admin");
+            if (!isAdmin)
                 return StatusCode(StatusCodes.Status403Forbidden,
                     "User must be part of the 'Admin' group to edit Permissions");
             try 
@@ -89,7 +99,8 @@ namespace Dorc.Api.Controllers
         [HttpDelete]
         public IActionResult Delete(int id)
         {
-            if (!User.IsInRole("Admin"))
+            var isAdmin = (_rolePrivilegesChecker?.IsAdmin(User) ?? false) || User.IsInRole("Admin");
+            if (!isAdmin)
                 return StatusCode(StatusCodes.Status403Forbidden,
                     "User must be part of the 'Admin' group to delete Permissions");
 

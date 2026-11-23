@@ -124,6 +124,39 @@ namespace Tests.Acceptance.EnvironmentAccessControl
             Assert.AreEqual(HttpStatusCode.OK, nonExistentGroupResp.StatusCode, nonExistentGroupResp.Content);
             Assert.IsFalse(DorcApiClient.Deserialize<bool>(nonExistentGroupResp.Content), "Non-existent Windows group must return false.");
 
+            var invalidUserAccountTypeResp = caller.ExecuteRaw("Account/userExists", Method.Get, new Dictionary<string, string>
+            {
+                ["userLanId"] = "SVC-LIVE-TFSTEST",
+                ["accountType"] = "InvalidAccountType"
+            });
+            Assert.AreEqual(HttpStatusCode.BadRequest, invalidUserAccountTypeResp.StatusCode, "Invalid accountType on Account/userExists must return 400 BadRequest.");
+
+            var invalidGroupAccountTypeResp = caller.ExecuteRaw("Account/groupExists", Method.Get, new Dictionary<string, string>
+            {
+                ["groupLanId"] = "DOrc",
+                ["accountType"] = "InvalidAccountType"
+            });
+            Assert.AreEqual(HttpStatusCode.BadRequest, invalidGroupAccountTypeResp.StatusCode, "Invalid accountType on Account/groupExists must return 400 BadRequest.");
+
+            var rolesResp = caller.ExecuteRaw("RefDataRoles", Method.Get);
+            Assert.AreEqual(HttpStatusCode.OK, rolesResp.StatusCode, $"GET /RefDataRoles failed: {rolesResp.Content}");
+            var roles = DorcApiClient.Deserialize<List<string>>(rolesResp.Content);
+            Assert.IsNotNull(roles, "Expected non-null role list from GET /RefDataRoles.");
+
+            var groupsResp = caller.ExecuteRaw("RefDataGroups", Method.Get);
+            Assert.AreEqual(HttpStatusCode.OK, groupsResp.StatusCode, $"GET /RefDataGroups failed: {groupsResp.Content}");
+            var groups = DorcApiClient.Deserialize<List<GroupApiModel>>(groupsResp.Content) ?? new List<GroupApiModel>();
+            if (groups.Count > 0 && !string.IsNullOrWhiteSpace(groups[0].GroupName))
+            {
+                var groupByNameResp = caller.ExecuteRaw($"RefDataGroups/{Uri.EscapeDataString(groups[0].GroupName)}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, groupByNameResp.StatusCode, $"GET /RefDataGroups/{groups[0].GroupName} failed: {groupByNameResp.Content}");
+                var singleGroup = DorcApiClient.Deserialize<GroupApiModel>(groupByNameResp.Content);
+                Assert.IsNotNull(singleGroup);
+                Assert.AreEqual(groups[0].GroupName, singleGroup.GroupName);
+            }
+            var unknownGroupResp = caller.ExecuteRaw("RefDataGroups/NonExistentGroup_DOrcReg_99999", Method.Get);
+            Assert.AreEqual(HttpStatusCode.NotFound, unknownGroupResp.StatusCode, "GET /RefDataGroups/{unknown} must return 404 NotFound.");
+
             var searchUsersResp = caller.ExecuteRaw("AccessControl/SearchUsers", Method.Get, new Dictionary<string, string>
             {
                 ["search"] = "drepin"
@@ -276,6 +309,89 @@ namespace Tests.Acceptance.EnvironmentAccessControl
                 var updatedPerm = permsAfterPut.FirstOrDefault(p => p.Id == customPermIdValue);
                 Assert.IsNotNull(updatedPerm);
                 Assert.AreEqual($"Updated Permission {suffix}", updatedPerm.DisplayName);
+
+                // Verify RefDataUserPermissions lifecycle (GET all user perms, 400 for unattached DB, attach DB, PUT/GET/DELETE user DB permission)
+                var allUserPermsResp = caller.ExecuteRaw("RefDataUserPermissions", Method.Get, new Dictionary<string, string>
+                {
+                    ["userId"] = sampleUser.Id.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, allUserPermsResp.StatusCode, $"GET /RefDataUserPermissions?userId={sampleUser.Id} failed: {allUserPermsResp.Content}");
+
+                var unattachedUserPermResp = caller.ExecuteRaw("RefDataUserPermissions", Method.Get, new Dictionary<string, string>
+                {
+                    ["userId"] = sampleUser.Id.ToString(),
+                    ["databaseId"] = "99999999",
+                    ["envId"] = tempEnvId.Value.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.BadRequest, unattachedUserPermResp.StatusCode, "GET /RefDataUserPermissions for unattached databaseId must return 400 BadRequest.");
+
+                var permDbName = $"DOrc_Live_PermDB_{suffix}";
+                var createPermDbResp = caller.ExecuteRaw("RefDataDatabases", Method.Post, body: new DatabaseApiModel
+                {
+                    Name = permDbName,
+                    ServerName = $"SQLPERM_{suffix}",
+                    DatabaseType = DatabaseType.SqlServer,
+                    AdGroup = "everyone"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, createPermDbResp.StatusCode, createPermDbResp.Content);
+                var createdPermDb = DorcApiClient.Deserialize<DatabaseApiModel>(createPermDbResp.Content);
+                Assert.IsNotNull(createdPermDb);
+                Assert.IsTrue(createdPermDb.Id > 0);
+                var permDbId = createdPermDb.Id;
+
+                try
+                {
+                    var attachPermDbResp = caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
+                    {
+                        ["envId"] = tempEnvId.Value.ToString(),
+                        ["componentId"] = permDbId.ToString(),
+                        ["action"] = "attach",
+                        ["component"] = "database"
+                    });
+                    Assert.AreEqual(HttpStatusCode.OK, attachPermDbResp.StatusCode, attachPermDbResp.Content);
+
+                    var putUserPermResp = caller.ExecuteRaw("RefDataUserPermissions", Method.Put, new Dictionary<string, string>
+                    {
+                        ["userId"] = sampleUser.Id.ToString(),
+                        ["permissionId"] = customPermIdValue.ToString(),
+                        ["dbId"] = permDbId.ToString(),
+                        ["envId"] = tempEnvId.Value.ToString()
+                    });
+                    Assert.AreEqual(HttpStatusCode.OK, putUserPermResp.StatusCode, $"PUT /RefDataUserPermissions failed: {putUserPermResp.Content}");
+
+                    var getDbUserPermsResp = caller.ExecuteRaw("RefDataUserPermissions", Method.Get, new Dictionary<string, string>
+                    {
+                        ["userId"] = sampleUser.Id.ToString(),
+                        ["databaseId"] = permDbId.ToString(),
+                        ["envId"] = tempEnvId.Value.ToString()
+                    });
+                    Assert.AreEqual(HttpStatusCode.OK, getDbUserPermsResp.StatusCode, getDbUserPermsResp.Content);
+                    var dbUserPerms = DorcApiClient.Deserialize<List<UserPermDto>>(getDbUserPermsResp.Content) ?? new List<UserPermDto>();
+                    Assert.IsTrue(dbUserPerms.Any(up => up.Id == customPermIdValue), "Expected GET /RefDataUserPermissions to include the newly granted database permission.");
+
+                    var delUserPermResp = caller.ExecuteRaw("RefDataUserPermissions", Method.Delete, new Dictionary<string, string>
+                    {
+                        ["userId"] = sampleUser.Id.ToString(),
+                        ["permissionId"] = customPermIdValue.ToString(),
+                        ["dbId"] = permDbId.ToString(),
+                        ["envId"] = tempEnvId.Value.ToString()
+                    });
+                    Assert.AreEqual(HttpStatusCode.OK, delUserPermResp.StatusCode, $"DELETE /RefDataUserPermissions failed: {delUserPermResp.Content}");
+                }
+                finally
+                {
+                    caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
+                    {
+                        ["envId"] = tempEnvId.Value.ToString(),
+                        ["componentId"] = permDbId.ToString(),
+                        ["action"] = "detach",
+                        ["component"] = "database"
+                    });
+                    caller.ExecuteRaw("RefDataDatabases", Method.Delete, new Dictionary<string, string>
+                    {
+                        ["databaseId"] = permDbId.ToString()
+                    });
+                }
 
                 var deletePermResp = caller.ExecuteRaw("RefDataPermission", Method.Delete, new Dictionary<string, string>
                 {

@@ -8,7 +8,8 @@ namespace Dorc.Core.VariableResolution
         private readonly IPropertyEvaluator _evaluator;
         private readonly IPropertyExpressionEvaluator _expressionEvaluator;
 
-        private readonly ConcurrentDictionary<string, VariableValue?> localProperties = new();
+        private readonly ConcurrentDictionary<string, VariableValue?> localProperties = new(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, byte> _pinnedProperties = new(StringComparer.OrdinalIgnoreCase);
         private readonly RequestSuppliedPropertyTracker _requestSuppliedProperties = new();
         private readonly IBundledRequestVariableLoader _bundledRequestVariableLoader;
 
@@ -22,11 +23,19 @@ namespace Dorc.Core.VariableResolution
 
         public IDictionary<string, VariableValue> LoadProperties()
         {
+            foreach (var existingKey in localProperties.Keys.ToList())
+            {
+                if (!_pinnedProperties.ContainsKey(existingKey))
+                {
+                    localProperties.TryRemove(existingKey, out _);
+                }
+            }
+
             foreach (var propertyValuePair in _bundledRequestVariableLoader.GetVariables())
             {
-                if (!localProperties.ContainsKey(propertyValuePair.PropertyName))
+                if (!_pinnedProperties.ContainsKey(propertyValuePair.PropertyName))
                 {
-                    SetPropertyValue(propertyValuePair.PropertyName, propertyValuePair.PropertyValue);
+                    SetUnpinnedPropertyValue(propertyValuePair.PropertyName, propertyValuePair.PropertyValue);
                 }
             }
 
@@ -38,6 +47,12 @@ namespace Dorc.Core.VariableResolution
 
         public void SetPropertyValue(string property, VariableValue? value)
         {
+            _pinnedProperties[property] = 0;
+            SetUnpinnedPropertyValue(property, value);
+        }
+
+        private void SetUnpinnedPropertyValue(string property, VariableValue? value)
+        {
             if (localProperties.TryAdd(property, value))
             {
                 return;
@@ -48,10 +63,16 @@ namespace Dorc.Core.VariableResolution
 
         public void SetPropertyValue(string property, string value)
         {
+            _pinnedProperties[property] = 0;
+            SetUnpinnedPropertyValue(property, value);
+        }
+
+        private void SetUnpinnedPropertyValue(string property, string value)
+        {
             value ??= string.Empty;
             var variableValue = new VariableValue { Value = value, Type = value.GetType() };
 
-            SetPropertyValue(property, variableValue);
+            SetUnpinnedPropertyValue(property, variableValue);
         }
 
         public void SetRequestSuppliedPropertyValue(string property, string value)

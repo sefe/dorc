@@ -74,6 +74,8 @@ public class DuplicateEnvironmentPropertyValuesTests
         ExecuteSqlFile(Path.Join(_repoRoot, "src", "Dorc.Database", "Schema Objects", "Schemas", "archive", "Tables", "EnvironmentComponentStatus.table.sql"));
         ExecuteSqlFile(Path.Join(_repoRoot, "src", "Dorc.Database", "deploy", "Functions", "SplitTagString.sql"));
         ExecuteSqlFile(Path.Join(_repoRoot, "src", "Dorc.Database", "deploy", "Stored Procedures", "GetFullEnvironmentChain.sql"));
+        ExecuteSqlFile(Path.Join(_repoRoot, "src", "Dorc.Database", "deploy", "Stored Procedures", "get_environment_properties.sql"));
+        ExecuteSqlFile(Path.Join(_repoRoot, "src", "Dorc.Database", "deploy", "Stored Procedures", "get_global_properties.sql"));
         ExecuteSqlFile(Path.Join(_repoRoot, "src", "Dorc.Database", "deploy", "Stored Procedures", "DuplicateEnvironmentPropertyValues.sql"));
     }
 
@@ -227,5 +229,152 @@ public class DuplicateEnvironmentPropertyValuesTests
             Assert.AreEqual("ParentVal1", cloned.PropertyValue.Value);
             Assert.IsTrue(context.Audits.Any(a => a.EnvironmentName == childName && a.ToValue == "ParentVal1"));
         }
+    }
+
+    [TestMethod]
+    public void PersistentSources_GuardDuplicateNullAndOrphanedAccessControlCases()
+    {
+        var claimsReader = NSubstitute.Substitute.For<Dorc.PersistentData.IClaimsPrincipalReader>();
+        var roleChecker = NSubstitute.Substitute.For<Dorc.PersistentData.IRolePrivilegesChecker>();
+        var envSource = NSubstitute.Substitute.For<Dorc.PersistentData.Sources.Interfaces.IEnvironmentsPersistentSource>();
+        var encryptor = NSubstitute.Substitute.For<Dorc.PersistentData.IPropertyEncryptor>();
+        var nonAdminUser = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity("TestAuth"));
+        var adminUser = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity("TestAuth"));
+        NSubstitute.SubstituteExtensions.Returns(
+            claimsReader.GetUserFullDomainName(NSubstitute.Arg.Any<System.Security.Principal.IPrincipal>()),
+            "DOMAIN\\tester");
+        NSubstitute.SubstituteExtensions.Returns(
+            claimsReader.GetSidsForUser(NSubstitute.Arg.Any<System.Security.Principal.IPrincipal>()),
+            new List<string> { "S-1-5-21-999" });
+        NSubstitute.SubstituteExtensions.Returns(roleChecker.IsAdmin(nonAdminUser), false);
+        NSubstitute.SubstituteExtensions.Returns(roleChecker.IsAdmin(adminUser), true);
+
+        // 1. ProjectsPersistentSource.DeleteProject removes orphaned AccessControl rows matching project.ObjectId
+        var allowList = new Dorc.PersistentData.Security.SourceHostAllowList(
+            new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build());
+        var projectsSource = new Dorc.PersistentData.Sources.ProjectsPersistentSource(
+            _factory,
+            envSource,
+            NSubstitute.Substitute.For<Microsoft.Extensions.Logging.ILogger<Dorc.PersistentData.Sources.ProjectsPersistentSource>>(),
+            claimsReader,
+            allowList);
+
+        int projId;
+        Guid projObjId;
+        using (var ctx = _factory.GetContext())
+        {
+            ctx.Database.ExecuteSqlRaw("IF OBJECT_ID('deploy.FK_AccessControl_Environment_ObjectId', 'F') IS NOT NULL ALTER TABLE [deploy].[AccessControl] DROP CONSTRAINT [FK_AccessControl_Environment_ObjectId];");
+            var proj = new Project { Name = "DelProj_" + Guid.NewGuid().ToString("N")[..8] };
+            ctx.Projects.Add(proj);
+            ctx.SaveChanges();
+            projId = proj.Id;
+            projObjId = proj.ObjectId;
+            ctx.AccessControls.Add(new AccessControl { ObjectId = projObjId, Name = "ACL1", Sid = "S-1-5-21-999", Allow = 1 });
+            ctx.SaveChanges();
+        }
+        projectsSource.DeleteProject(projId);
+        using (var ctx = _factory.GetContext())
+        {
+            Assert.IsFalse(ctx.Projects.Any(p => p.Id == projId));
+            Assert.IsFalse(ctx.AccessControls.Any(ac => ac.ObjectId == projObjId));
+        }
+
+        // 2. ServersPersistentSource.GetServer(string) and GetServer(int) include Environments and set UserEditable=false on unattached server for non-admin
+        var serversSource = new Dorc.PersistentData.Sources.ServersPersistentSource(_factory, roleChecker, claimsReader);
+        int unattachedSrvId;
+        int attachedSrvId;
+        string unattachedSrvName = "SRV_UNATTACHED_" + Guid.NewGuid().ToString("N")[..6];
+        string attachedSrvName = "SRV_ATTACHED_" + Guid.NewGuid().ToString("N")[..6];
+        string attachedEnvName = "ENV_ATTACHED_" + Guid.NewGuid().ToString("N")[..6];
+        using (var ctx = _factory.GetContext())
+        {
+            var envObjId = Guid.NewGuid();
+            var env = new Dorc.PersistentData.Model.Environment { Name = attachedEnvName, ObjectId = envObjId };
+            ctx.AccessControls.Add(new AccessControl { ObjectId = envObjId, Name = "EnvACL", Sid = "S-1-5-21-999", Allow = 1 });
+            var s1 = new Server { Name = unattachedSrvName, OsName = "Win2022" };
+            var s2 = new Server { Name = attachedSrvName, OsName = "Win2022" };
+            s2.Environments.Add(env);
+            ctx.Environments.Add(env);
+            ctx.Servers.AddRange(s1, s2);
+            ctx.SaveChanges();
+            unattachedSrvId = s1.Id;
+            attachedSrvId = s2.Id;
+        }
+        var unattachedByName = serversSource.GetServer(unattachedSrvName, nonAdminUser);
+        var unattachedById = serversSource.GetServer(unattachedSrvId, nonAdminUser);
+        Assert.IsNotNull(unattachedByName);
+        Assert.IsNotNull(unattachedById);
+        Assert.IsFalse(unattachedByName.UserEditable);
+        Assert.IsFalse(unattachedById.UserEditable);
+        Assert.IsTrue(serversSource.GetServer(unattachedSrvName, adminUser)!.UserEditable);
+
+        var attachedByName = serversSource.GetServer(attachedSrvName, nonAdminUser);
+        var attachedById = serversSource.GetServer(attachedSrvId, nonAdminUser);
+        Assert.IsTrue(attachedByName!.UserEditable);
+        Assert.IsTrue(attachedById!.UserEditable);
+        CollectionAssert.Contains(attachedByName.EnvironmentNames.ToList(), attachedEnvName);
+
+        // 3. PermissionsPersistentSource
+        var permSource = new Dorc.PersistentData.Sources.PermissionsPersistentSource(_factory);
+        Assert.IsNull(permSource.GetPermissions(999999));
+        var permKey = "Perm_" + Guid.NewGuid().ToString("N")[..6];
+        permSource.CreatePermission(new Dorc.ApiModel.PermissionDto { DisplayName = permKey + "_Disp", PermissionName = permKey });
+        var createdPerm = permSource.GetAllPermissions().Single(p => p.PermissionName == permKey);
+        Assert.IsNotNull(permSource.GetPermissions(createdPerm.Id));
+
+        Assert.Throws<ArgumentException>(() => permSource.CreatePermission(
+            new Dorc.ApiModel.PermissionDto { DisplayName = "OtherDisp", PermissionName = permKey }));
+        Assert.Throws<ArgumentException>(() => permSource.UpdatePermission(
+            999999, new Dorc.ApiModel.PermissionDto { DisplayName = "Missing", PermissionName = "Missing" }));
+
+        var permKey2 = "Perm2_" + Guid.NewGuid().ToString("N")[..6];
+        permSource.CreatePermission(new Dorc.ApiModel.PermissionDto { DisplayName = permKey2 + "_Disp", PermissionName = permKey2 });
+        var createdPerm2 = permSource.GetAllPermissions().Single(p => p.PermissionName == permKey2);
+        Assert.Throws<ArgumentException>(() => permSource.UpdatePermission(
+            createdPerm2.Id, new Dorc.ApiModel.PermissionDto { DisplayName = "UniqueDisp", PermissionName = permKey }));
+
+        permSource.UpdatePermission(createdPerm2.Id, new Dorc.ApiModel.PermissionDto { DisplayName = permKey2 + "_Upd", PermissionName = permKey2 + "_Upd" });
+        permSource.DeletePermission(999999);
+        permSource.DeletePermission(createdPerm2.Id);
+        Assert.IsNull(permSource.GetPermissions(createdPerm2.Id));
+
+        // 4. PropertyValuesPersistentSource
+        var propValSource = new Dorc.PersistentData.Sources.PropertyValuesPersistentSource(_factory, encryptor, claimsReader);
+        Assert.Throws<ArgumentException>(() => propValSource.UpdatePropertyValue(999999999, "val"));
+        var propName = "CaseProp_" + Guid.NewGuid().ToString("N")[..6];
+        using (var ctx = _factory.GetContext())
+        {
+            var p = new Property { Name = propName, Secure = false, IsArray = false };
+            ctx.Properties.Add(p);
+            ctx.SaveChanges();
+            ctx.PropertyValues.Add(new PropertyValue { Property = p, Value = "DefaultVal" });
+            ctx.SaveChanges();
+        }
+        var caseInsensitiveVals = propValSource.GetPropertyValues(propName.ToUpperInvariant(), attachedEnvName, false);
+        Assert.AreEqual(1, caseInsensitiveVals.Count);
+        Assert.AreEqual("DefaultVal", caseInsensitiveVals[0].Value);
+
+        // 5. UsersPersistentSource
+        var usersSource = new Dorc.PersistentData.Sources.UsersPersistentSource(_factory, claimsReader);
+        Assert.IsNull(usersSource.GetUser("missing_lan_id_" + Guid.NewGuid().ToString("N")));
+        var lanId = "lan_" + Guid.NewGuid().ToString("N")[..8];
+        var addedUser = usersSource.AddUser(new Dorc.ApiModel.UserApiModel
+        {
+            LanId = lanId,
+            DisplayName = "Test User",
+            LoginType = "Windows",
+            LanIdType = "USER",
+            Team = "Core"
+        });
+        Assert.IsNotNull(usersSource.GetUser(lanId));
+        Assert.Throws<ArgumentException>(() => usersSource.AddUser(new Dorc.ApiModel.UserApiModel
+        {
+            LanId = lanId,
+            DisplayName = "Test User Dup",
+            LoginType = "Windows",
+            LanIdType = "USER",
+            Team = "Core"
+        }));
+        Assert.AreEqual(0, usersSource.GetDatabaseUsers(999999).Count());
     }
 }

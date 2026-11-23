@@ -40,18 +40,23 @@ public class RequestMonitorTests
     [DataRow("Failed")]
     [DataRow("Errored")]
     [DataRow("Cancelled")]
+    [DataRow("Abandoned")]
     public void MonitorRequest_WhenTerminalFailureStatusReached_ReturnsNonZeroExitCode(string terminalFailureStatus)
     {
         var api = Substitute.For<IDorcApiClient>();
         api.Call<RequestStatusDto>(Endpoints.Request, Method.Get, Arg.Any<Dictionary<string, string>>(), Arg.Any<string>())
             .Returns(
                 new ApiResult<RequestStatusDto> { IsModelValid = true, Value = new RequestStatusDto { Id = 99, Status = "Running" } },
+                new ApiResult<RequestStatusDto> { IsModelValid = true, Value = new RequestStatusDto { Id = 99, Status = "Running" } },
                 new ApiResult<RequestStatusDto> { IsModelValid = true, Value = new RequestStatusDto { Id = 99, Status = terminalFailureStatus } });
 
         var monitor = new RequestMonitor(api, pollIntervalMilliseconds: 0);
+        var events = new List<string>();
+        monitor.OnRequestStatusChanged += msg => events.Add(msg);
         var exitCode = monitor.MonitorRequest(99);
 
         Assert.AreEqual(2, exitCode);
+        CollectionAssert.AreEqual(new[] { $"Request 99 changed status to {terminalFailureStatus}" }, events);
     }
 
     [TestMethod]

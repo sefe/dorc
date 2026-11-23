@@ -1349,6 +1349,39 @@ namespace Dorc.Api.Tests
             }, user).Single();
             Assert.AreEqual("success", putWithRead.Status);
             Assert.AreEqual("updated-secret", ((PropertyValueDto)putWithRead.Item).Value);
+
+            // 5. Idempotent PUT (unchanged value) skips DB/audit writes, returns Status="success", and masks secret when !CanReadSecrets
+            mockedPropertyValuesPersistentSource.ClearReceivedCalls();
+            mockedAuditsPersistentSource.ClearReceivedCalls();
+            mockedPropertyEncryptor.EncryptValue("decrypted-secret").Returns("encrypted-secret");
+            mockedPropertyValuesPersistentSource.GetPropertyValuesByName("SecretProp")
+                .Returns(new[]
+                {
+                    new PropertyValueDto
+                    {
+                        Id = 101,
+                        Property = new PropertyApiModel { Id = 1, Name = "SecretProp", Secure = true },
+                        PropertyValueFilter = "DevEnv",
+                        PropertyValueFilterId = 55,
+                        Value = "encrypted-secret"
+                    }
+                });
+
+            mockedApiSecurityService.CanReadSecrets(user, "DevEnv").Returns(false);
+            var idempotentNoRead = testService.PutPropertyValues(new List<PropertyValueDto>
+            {
+                new PropertyValueDto
+                {
+                    Id = 101,
+                    Property = new PropertyApiModel { Name = "SecretProp", Secure = true },
+                    PropertyValueFilter = "DevEnv",
+                    Value = "decrypted-secret"
+                }
+            }, user).Single();
+            Assert.AreEqual("success", idempotentNoRead.Status);
+            Assert.AreEqual(string.Empty, ((PropertyValueDto)idempotentNoRead.Item).Value);
+            mockedPropertyValuesPersistentSource.DidNotReceiveWithAnyArgs().UpdatePropertyValue(default, default!);
+            mockedAuditsPersistentSource.DidNotReceiveWithAnyArgs().AddRecord(default, default, default!, default!, default!, default!, default!, default!);
         }
     }
 }

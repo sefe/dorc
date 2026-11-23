@@ -381,6 +381,101 @@ namespace Dorc.Api.Tests.Controllers
             _propertyValuesService.GetPropertyValues(null!, "ErrorEnv", Arg.Any<ClaimsPrincipal>())
                 .Returns(_ => throw new InvalidOperationException("Export failure"));
             Assert.AreEqual(StatusCodes.Status500InternalServerError, ((ObjectResult)_controller.DownloadNonSecurePropertyValues("ErrorEnv")).StatusCode);
+
+            // 5. RefDataAppServersController RBAC & reboot branches
+            var serversSource = Substitute.For<IServersPersistentSource>();
+            var roleChecker = Substitute.For<Dorc.PersistentData.IRolePrivilegesChecker>();
+            var appServersController = new RefDataAppServersController(
+                serversSource,
+                securityChecker,
+                roleChecker)
+            {
+                ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = nonAdminUser } }
+            };
+
+            serversSource.GetServer("MissingSrv", nonAdminUser).Returns((ServerApiModel)null!);
+            roleChecker.IsAdmin(nonAdminUser).Returns(false);
+            Assert.IsInstanceOfType<NotFoundObjectResult>(appServersController.PutServerReboot("MissingSrv"));
+
+            serversSource.GetServer("SRV01", nonAdminUser).Returns(new ServerApiModel
+            {
+                ServerId = 1,
+                Name = "SRV01",
+                EnvironmentNames = new List<string> { "Env1" }
+            });
+            serversSource.GetEnvironmentNamesForServerId(1).Returns(new List<string> { "Env1" });
+            securityChecker.CanModifyEnvironment(nonAdminUser, "Env1").Returns(false);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((ObjectResult)appServersController.PutServerReboot("SRV01")).StatusCode);
+
+            // 6. RefDataEnvironmentsHistoryController RBAC & null guards
+            var envHistorySource = Substitute.For<IEnvironmentHistoryPersistentSource>();
+            var envHistoryController = new RefDataEnvironmentsHistoryController(envHistorySource, securityChecker)
+            {
+                ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = nonAdminUser } }
+            };
+
+            Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)envHistoryController.Put(null!)).StatusCode);
+            securityChecker.CanModifyEnvironment(nonAdminUser, "Env1").Returns(false);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)envHistoryController.Put(new EnvironmentHistoryApiModel { Id = 1, EnvName = "Env1", Comment = "c" })).StatusCode);
+
+            securityChecker.CanModifyEnvironment(nonAdminUser, "Env1").Returns(true);
+            Assert.AreEqual(200, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)envHistoryController.Put(new EnvironmentHistoryApiModel { Id = 1, EnvName = "Env1", Comment = "c" })).StatusCode);
+
+            Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)envHistoryController.Post(null!)).StatusCode);
+            Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)envHistoryController.Post(new UpdateEnvironmentHistoryRequest { EnvName = " " })).StatusCode);
+            securityChecker.CanModifyEnvironment(nonAdminUser, "EnvForbidden").Returns(false);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)envHistoryController.Post(new UpdateEnvironmentHistoryRequest { EnvName = "EnvForbidden" })).StatusCode);
+            Assert.AreEqual(200, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)envHistoryController.Post(new UpdateEnvironmentHistoryRequest { EnvName = "Env1" })).StatusCode);
+
+            // 7. RequestStatusesController GetLog & Get error sanitization
+            var requestsSource = Substitute.For<IRequestsPersistentSource>();
+            var requestsStatusSource = Substitute.For<IRequestsStatusPersistentSource>();
+            var reqStatusesController = new RequestStatusesController(
+                requestsSource,
+                requestsStatusSource,
+                roleChecker,
+                Substitute.For<ILogger<RequestStatusesController>>())
+            {
+                ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = nonAdminUser } }
+            };
+            requestsSource.GetRequestForUser(500, nonAdminUser).Returns((DeploymentRequestApiModel)null!);
+            Assert.AreEqual(404, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)reqStatusesController.GetLog(500)).StatusCode);
+
+            requestsSource.GetRequestForUser(501, nonAdminUser).Returns(new DeploymentRequestApiModel { Id = 501 });
+            requestsSource.GetRequestLog(501).Returns("LogLine1");
+            Assert.AreEqual(StatusCodes.Status200OK, ((ObjectResult)reqStatusesController.GetLog(501)).StatusCode);
+
+            requestsSource.GetRequestForUser(502, nonAdminUser).Returns(_ => throw new InvalidOperationException("DB connection error"));
+            var statusErr = (ObjectResult)reqStatusesController.Get(502);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, statusErr.StatusCode);
+            Assert.AreEqual("DB connection error", statusErr.Value);
+
+            // 8. RefDataGroupsController, RefDataScopedPropertyValuesController, RefDataUsersController
+            var adGroupSource = Substitute.For<IAdGroupPersistentSource>();
+            var groupsController = new RefDataGroupsController(adGroupSource);
+            adGroupSource.GetAdGroup("MissingGroup").Returns((Dorc.PersistentData.Model.AdGroup)null!);
+            Assert.AreEqual(404, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)groupsController.Get("MissingGroup")).StatusCode);
+            adGroupSource.GetAdGroup("FoundGroup").Returns(new Dorc.PersistentData.Model.AdGroup { Id = 5, Name = "FoundGroup" });
+            Assert.AreEqual(StatusCodes.Status200OK, ((ObjectResult)groupsController.Get("FoundGroup")).StatusCode);
+
+            var scopedController = new RefDataScopedPropertyValuesController(
+                Substitute.For<IPropertyValuesPersistentSource>(),
+                envSource,
+                roleChecker)
+            {
+                ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = nonAdminUser } }
+            };
+            envSource.EnvironmentExists("RestrictedEnv").Returns(true);
+            envSource.GetEnvironment("RestrictedEnv", nonAdminUser).Returns((EnvironmentApiModel)null!);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((ObjectResult)scopedController.Put(new PagedDataOperators(), "RestrictedEnv")).StatusCode);
+
+            var manageUsersForController = Substitute.For<IManageUsers>();
+            manageUsersForController.GetUsersList<UserApiModel>().Returns(new List<UserApiModel>
+            {
+                new UserApiModel { DisplayName = null!, LanId = "DOMAIN\\alice" }
+            });
+            var usersController = new RefDataUsersController(manageUsersForController);
+            Assert.AreEqual("DOMAIN\\alice", usersController.GetByName("domain\\ALICE").LanId);
         }
     }
 }
