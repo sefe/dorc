@@ -52,15 +52,19 @@ namespace Tests.Acceptance.TerraformCatalogue
                 });
                 Assert.AreEqual(HttpStatusCode.OK, instantiateResp.StatusCode, $"Instantiate failed: {instantiateResp.Content}");
                 var instantiated = DorcApiClient.Deserialize<TerraformTemplateInstantiateResponseApiModel>(instantiateResp.Content);
-                Assert.IsNotNull(instantiated?.Component?.ComponentId);
-                createdComponentId = instantiated.Component.ComponentId.Value;
-                Assert.IsGreaterThan(0, createdComponentId.Value);
+                Assert.IsNotNull(instantiated);
+                Assert.IsNotNull(instantiated.Component);
+                var componentId = instantiated.Component.ComponentId;
+                Assert.IsTrue(componentId.HasValue, "Instantiated Terraform component ID should not be null.");
+                var createdComponentIdValue = componentId.Value;
+                createdComponentId = createdComponentIdValue;
+                Assert.IsGreaterThan(0, createdComponentIdValue);
 
                 var resolutionResp = caller.ExecuteRaw("Terraform/templates/service-bus/1.0.0/resolution", Method.Get, new Dictionary<string, string>
                 {
                     ["projectId"] = project.ProjectId.ToString(),
                     ["environmentName"] = LiveChildEnvName,
-                    ["componentId"] = createdComponentId.Value.ToString()
+                    ["componentId"] = createdComponentIdValue.ToString()
                 });
                 Assert.AreEqual(HttpStatusCode.OK, resolutionResp.StatusCode, resolutionResp.Content);
                 var resolution = DorcApiClient.Deserialize<TerraformTemplateResolutionApiModel>(resolutionResp.Content);
@@ -72,7 +76,7 @@ namespace Tests.Acceptance.TerraformCatalogue
                 var configQuery = new Dictionary<string, string>
                 {
                     ["projectId"] = project.ProjectId.ToString(),
-                    ["componentId"] = createdComponentId.Value.ToString(),
+                    ["componentId"] = createdComponentIdValue.ToString(),
                     ["environmentName"] = LiveChildEnvName
                 };
                 var invalidConfigResp = caller.ExecuteRaw(
@@ -122,7 +126,7 @@ namespace Tests.Acceptance.TerraformCatalogue
                 // Verify GET & POST /Terraform/components/{componentId}/upgrade/{name}/{version}?projectId={projectId}
                 // Upgrading to the same version must return 400 BadRequest ("Choose a newer stable version of this module.")
                 var upgradeSameVersionPreviewResp = caller.ExecuteRaw(
-                    $"Terraform/components/{createdComponentId.Value}/upgrade/service-bus/1.0.0",
+                    $"Terraform/components/{createdComponentIdValue}/upgrade/service-bus/1.0.0",
                     Method.Get,
                     new Dictionary<string, string> { ["projectId"] = project.ProjectId.ToString() });
                 Assert.AreEqual(
@@ -131,7 +135,7 @@ namespace Tests.Acceptance.TerraformCatalogue
                     $"Expected 400 BadRequest when previewing upgrade to same version 1.0.0, got {upgradeSameVersionPreviewResp.StatusCode}: {upgradeSameVersionPreviewResp.Content}");
 
                 var upgradeUnconfirmedResp = caller.ExecuteRaw(
-                    $"Terraform/components/{createdComponentId.Value}/upgrade/service-bus/1.0.0",
+                    $"Terraform/components/{createdComponentIdValue}/upgrade/service-bus/1.0.0",
                     Method.Post,
                     new Dictionary<string, string> { ["projectId"] = project.ProjectId.ToString() },
                     body: new CatalogUpgradeRequestApiModel
@@ -166,7 +170,7 @@ namespace Tests.Acceptance.TerraformCatalogue
             }
             finally
             {
-                if (createdComponentId.HasValue)
+                if (createdComponentId is int componentIdToDelete)
                 {
                     var refResp = caller.ExecuteRaw($"RefData/{project.ProjectId}", Method.Get);
                     if (refResp.StatusCode == HttpStatusCode.OK)
@@ -175,7 +179,7 @@ namespace Tests.Acceptance.TerraformCatalogue
                         if (refData?.Components != null)
                         {
                             refData.Components = refData.Components
-                                .Where(c => c.ComponentId != createdComponentId.Value &&
+                                .Where(c => c.ComponentId != componentIdToDelete &&
                                             !string.Equals(c.ComponentName, tempComponentName, StringComparison.OrdinalIgnoreCase))
                                 .ToList();
                             caller.ExecuteRaw("RefData", Method.Put, body: refData);

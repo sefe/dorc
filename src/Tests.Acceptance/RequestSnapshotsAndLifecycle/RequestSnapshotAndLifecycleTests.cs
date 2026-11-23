@@ -225,22 +225,26 @@ namespace Tests.Acceptance.RequestSnapshotsAndLifecycle
                 });
                 Assert.AreEqual(HttpStatusCode.OK, defsResp.StatusCode, $"GET /DeploymentDefinitions failed: {defsResp.Content}");
                 var defsPage = DorcApiClient.Deserialize<GetDeploymentDefinitionsResponse>(defsResp.Content);
-                Assert.IsNotNull(defsPage?.Items);
-                var snapshotDef = defsPage!.Items.FirstOrDefault(d =>
+                Assert.IsNotNull(defsPage);
+                Assert.IsNotNull(defsPage.Items);
+                var snapshotDef = defsPage.Items.FirstOrDefault(d =>
                     d.Component != null && string.Equals(d.Component.ComponentName, SnapshotComponentName, StringComparison.OrdinalIgnoreCase));
-                Assert.IsNotNull(snapshotDef?.Component?.ComponentId, $"Expected GET /DeploymentDefinitions to include '{SnapshotComponentName}'.");
+                Assert.IsNotNull(snapshotDef);
+                Assert.IsNotNull(snapshotDef.Component);
+                Assert.IsNotNull(snapshotDef.Component.ComponentId, $"Expected GET /DeploymentDefinitions to include '{SnapshotComponentName}'.");
 
                 var defHistoryResp = caller.ExecuteRaw("DeploymentDefinitions/history", Method.Get, new Dictionary<string, string>
                 {
                     ["projectId"] = project.ProjectId.ToString(),
-                    ["componentId"] = snapshotDef!.Component!.ComponentId!.Value.ToString(),
+                    ["componentId"] = snapshotDef.Component.ComponentId.Value.ToString(),
                     ["page"] = "1",
                     ["limit"] = "50"
                 });
                 Assert.AreEqual(HttpStatusCode.OK, defHistoryResp.StatusCode, $"GET /DeploymentDefinitions/history failed: {defHistoryResp.Content}");
                 var defHistoryPage = DorcApiClient.Deserialize<GetDeploymentDefinitionHistoryResponse>(defHistoryResp.Content);
-                Assert.IsNotNull(defHistoryPage?.Items);
-                Assert.IsGreaterThanOrEqualTo(2, defHistoryPage!.Items.Count, "Expected at least 2 definition history versions (V1 and V2) for SnapshotComponent.");
+                Assert.IsNotNull(defHistoryPage);
+                Assert.IsNotNull(defHistoryPage.Items);
+                Assert.IsGreaterThanOrEqualTo(2, defHistoryPage.Items.Count, "Expected at least 2 definition history versions (V1 and V2) for SnapshotComponent.");
 
                 // Verify GET /Request/{requestId}/attempts/log?deploymentResultId={id}
                 var results1Resp = caller.ExecuteRaw("ResultStatuses", Method.Get, new Dictionary<string, string>

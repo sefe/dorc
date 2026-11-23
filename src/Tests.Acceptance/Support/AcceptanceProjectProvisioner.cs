@@ -96,8 +96,9 @@ namespace Tests.Acceptance.Support
             var getResp = caller.ExecuteRaw($"RefData/{projectId}", Method.Get);
             Assert.AreEqual(HttpStatusCode.OK, getResp.StatusCode, getResp.Content);
             var refData = DorcApiClient.Deserialize<RefDataApiModel>(getResp.Content);
-            Assert.IsNotNull(refData?.Components);
-            var comp = refData!.Components.FirstOrDefault(c =>
+            Assert.IsNotNull(refData);
+            Assert.IsNotNull(refData.Components);
+            var comp = refData.Components.FirstOrDefault(c =>
                 string.Equals(c.ComponentName, componentName, StringComparison.OrdinalIgnoreCase));
             Assert.IsNotNull(comp, $"Component '{componentName}' not found in project {projectId}.");
             comp.ScriptPath = scriptPath;

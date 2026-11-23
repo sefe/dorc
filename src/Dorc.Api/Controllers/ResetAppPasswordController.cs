@@ -93,7 +93,10 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Failed to reset password for user '{Username}' in environment '{EnvName}' with filter '{EnvFilter}'", username, envName, envFilter);
+                var safeUsername = (username ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty);
+                var safeEnvName = (envName ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty);
+                var safeEnvFilter = (envFilter ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty);
+                _logger.LogError(e, "Failed to reset password for user '{Username}' in environment '{EnvName}' with filter '{EnvFilter}'", safeUsername, safeEnvName, safeEnvFilter);
                 return StatusCode(StatusCodes.Status500InternalServerError, e.Message);
             }
         }

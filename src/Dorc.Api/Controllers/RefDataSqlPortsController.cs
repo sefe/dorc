@@ -64,7 +64,11 @@ namespace Dorc.Api.Controllers
 
                 return StatusCode(StatusCodes.Status200OK);
             }
-            catch (Exception ex)
+            catch (ArgumentException ex)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, ex.Message);
+            }
+            catch (InvalidOperationException ex)
             {
                 return StatusCode(StatusCodes.Status400BadRequest, ex.Message);
             }
@@ -87,7 +91,11 @@ namespace Dorc.Api.Controllers
                 _sqlPortsPersistentSource.DeleteSqlPort(value);
                 return StatusCode(StatusCodes.Status200OK);
             }
-            catch (Exception ex)
+            catch (ArgumentException ex)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, ex.Message);
+            }
+            catch (InvalidOperationException ex)
             {
                 return StatusCode(StatusCodes.Status400BadRequest, ex.Message);
             }

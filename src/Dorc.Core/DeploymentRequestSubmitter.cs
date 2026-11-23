@@ -579,11 +579,8 @@ namespace Dorc.Core
             if (components == null)
                 yield break;
 
-            foreach (var component in components)
+            foreach (var component in components.Where(component => component != null))
             {
-                if (component == null)
-                    continue;
-
                 if (component.Children != null && component.Children.Any())
                 {
                     foreach (var leaf in FlattenLeafComponents(component.Children))

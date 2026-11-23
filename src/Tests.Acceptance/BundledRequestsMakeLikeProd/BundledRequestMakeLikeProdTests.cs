@@ -283,16 +283,19 @@ namespace Tests.Acceptance.BundledRequestsMakeLikeProd
                 var refDataResp = caller.ExecuteRaw($"RefData/{project.ProjectId}", Method.Get);
                 Assert.AreEqual(HttpStatusCode.OK, refDataResp.StatusCode, refDataResp.Content);
                 var refData = DorcApiClient.Deserialize<RefDataApiModel>(refDataResp.Content);
-                var snapshotComp = refData?.Components?.FirstOrDefault(c =>
+                Assert.IsNotNull(refData);
+                Assert.IsNotNull(refData.Components);
+                var snapshotComp = refData.Components.FirstOrDefault(c =>
                     string.Equals(c.ComponentName, SnapshotComponentName, StringComparison.OrdinalIgnoreCase));
-                Assert.IsNotNull(snapshotComp?.ComponentId, "Expected SnapshotComponentId in RefData.");
+                Assert.IsNotNull(snapshotComp, "Expected SnapshotComponent in RefData.");
+                Assert.IsNotNull(snapshotComp.ComponentId, "Expected SnapshotComponentId in RefData.");
 
                 var copyEnvBuildResp = caller.ExecuteRaw("CopyEnvBuild", Method.Post, body: new CopyEnvBuildDto
                 {
                     SourceEnv = LiveParentEnvName,
                     TargetEnv = LiveChildEnvName,
                     Project = LiveProjectName,
-                    Components = snapshotComp!.ComponentId!.Value.ToString()
+                    Components = snapshotComp.ComponentId.Value.ToString()
                 });
                 Assert.AreEqual(HttpStatusCode.OK, copyEnvBuildResp.StatusCode, $"POST /CopyEnvBuild failed: {copyEnvBuildResp.Content}");
                 var copyEnvBuildResult = DorcApiClient.Deserialize<CopyEnvBuildResponseDto>(copyEnvBuildResp.Content);
@@ -302,8 +305,22 @@ namespace Tests.Acceptance.BundledRequestsMakeLikeProd
             }
             finally
             {
-                try { if (Directory.Exists(validBundleDir)) Directory.Delete(validBundleDir, true); } catch { }
-                try { if (Directory.Exists(invalidBundleDir)) Directory.Delete(invalidBundleDir, true); } catch { }
+                foreach (var dir in new[] { validBundleDir, invalidBundleDir })
+                {
+                    try
+                    {
+                        if (Directory.Exists(dir))
+                            Directory.Delete(dir, true);
+                    }
+                    catch (IOException ex)
+                    {
+                        Assert.Inconclusive($"Best-effort cleanup could not remove '{dir}': {ex.Message}");
+                    }
+                    catch (UnauthorizedAccessException ex)
+                    {
+                        Assert.Inconclusive($"Best-effort cleanup could not remove '{dir}': {ex.Message}");
+                    }
+                }
             }
         }
     }

@@ -128,9 +128,10 @@ namespace Tests.Acceptance.PropertyValuesAndConfiguration
                     });
                 Assert.AreEqual(HttpStatusCode.OK, scopedResp.StatusCode, $"PUT /RefDataScopedPropertyValues failed: {scopedResp.Content}");
                 var scopedPage = DorcApiClient.Deserialize<GetScopedPropertyValuesResponseDto>(scopedResp.Content);
-                Assert.IsNotNull(scopedPage?.Items);
+                Assert.IsNotNull(scopedPage);
+                Assert.IsNotNull(scopedPage.Items);
                 Assert.IsTrue(
-                    scopedPage!.Items.Any(i =>
+                    scopedPage.Items.Any(i =>
                         string.Equals(i.Property, plainProp, StringComparison.OrdinalIgnoreCase) &&
                         string.Equals(i.PropertyValue, $"ChildUpdated_{suffix}", StringComparison.Ordinal)),
                     $"Expected RefDataScopedPropertyValues to contain updated '{plainProp}', got: {scopedResp.Content}");
@@ -152,8 +153,9 @@ namespace Tests.Acceptance.PropertyValuesAndConfiguration
                     });
                 Assert.AreEqual(HttpStatusCode.OK, searchResp.StatusCode, $"PUT /RefDataSearchPropertyValues failed: {searchResp.Content}");
                 var searchPage = DorcApiClient.Deserialize<GetScopedPropertyValuesResponseDto>(searchResp.Content);
-                Assert.IsNotNull(searchPage?.Items);
-                Assert.IsGreaterThanOrEqualTo(3, searchPage!.Items.Count, $"Expected at least 3 scopes (Default, Parent, Child) for '{plainProp}' in RefDataSearchPropertyValues.");
+                Assert.IsNotNull(searchPage);
+                Assert.IsNotNull(searchPage.Items);
+                Assert.IsGreaterThanOrEqualTo(3, searchPage.Items.Count, $"Expected at least 3 scopes (Default, Parent, Child) for '{plainProp}' in RefDataSearchPropertyValues.");
 
                 // 8. PUT /PropertyValuesAudit (verify Insert and Update audit history)
                 var auditResp = caller.ExecuteRaw(
@@ -174,9 +176,10 @@ namespace Tests.Acceptance.PropertyValuesAndConfiguration
                     });
                 Assert.AreEqual(HttpStatusCode.OK, auditResp.StatusCode, $"PUT /PropertyValuesAudit failed: {auditResp.Content}");
                 var audits = DorcApiClient.Deserialize<GetPropertyValuesAuditListResponseDto>(auditResp.Content);
-                Assert.IsNotNull(audits?.Items);
+                Assert.IsNotNull(audits);
+                Assert.IsNotNull(audits.Items);
                 Assert.IsTrue(
-                    audits!.Items.Any(a =>
+                    audits.Items.Any(a =>
                         string.Equals(a.PropertyName, plainProp, StringComparison.OrdinalIgnoreCase) &&
                         string.Equals(a.ToValue, $"ChildUpdated_{suffix}", StringComparison.Ordinal)),
                     $"Expected PropertyValuesAudit to record update to 'ChildUpdated_{suffix}'.");

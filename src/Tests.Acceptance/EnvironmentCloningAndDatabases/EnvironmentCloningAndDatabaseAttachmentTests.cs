@@ -398,7 +398,9 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 Assert.AreEqual(dbName, createdDb.Name);
                 Assert.AreEqual(dbServerName, createdDb.ServerName);
                 Assert.AreEqual("OTHER", createdDb.AdGroup);
-                dbId = createdDb.Id;
+                var createdDbId = createdDb.Id;
+                dbId = createdDbId;
+                Assert.IsTrue(dbId.HasValue, "Created database id should not be null.");
 
                 var getDbListResp = caller.ExecuteRaw("RefDataDatabases", Method.Get, new Dictionary<string, string>
                 {
@@ -463,8 +465,9 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 var dbByPage = DorcApiClient.Deserialize<GetDatabaseApiModelListResponseDto>(dbByPageResp.Content);
                 Assert.IsNotNull(dbByPage);
                 Assert.IsNotNull(dbByPage.Items);
+                Assert.IsTrue(dbId.HasValue, "Created database id should not be null.");
                 var dbByPageItems = dbByPage.Items;
-                Assert.IsTrue(dbByPageItems.Any(d => d.Id == dbId.Value), "PUT /RefDataDatabases/ByPage must return the newly created database.");
+                Assert.IsTrue(dbByPageItems.Any(d => d.Id == createdDbId), "PUT /RefDataDatabases/ByPage must return the newly created database.");
 
                 var dbServerListResp = caller.ExecuteRaw("RefDataDatabases/GetDatabasServerNameslist", Method.Get);
                 Assert.AreEqual(HttpStatusCode.OK, dbServerListResp.StatusCode, dbServerListResp.Content);
@@ -621,7 +624,8 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 var envDbsDto = DorcApiClient.Deserialize<EnvironmentComponentsDto<DatabaseApiModel>>(envDbsResp.Content);
                 Assert.IsNotNull(envDbsDto);
                 Assert.IsNotNull(envDbsDto.Result);
-                Assert.IsTrue(envDbsDto.Result.Any(d => d.Id == dbId.Value && string.Equals(d.Name, dbName, StringComparison.OrdinalIgnoreCase)));
+                Assert.IsTrue(dbId.HasValue, "Expected dbId to be set before verifying attached databases.");
+                Assert.IsTrue(envDbsDto.Result.Any(d => d.Id == createdDbId && string.Equals(d.Name, dbName, StringComparison.OrdinalIgnoreCase)));
 
                 var envsForDbResp = caller.ExecuteRaw("RefDataEnvironmentsDetails/GetEnvironmentsForDatabase", Method.Get, new Dictionary<string, string>
                 {
