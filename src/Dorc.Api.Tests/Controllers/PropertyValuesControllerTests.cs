@@ -306,7 +306,7 @@ namespace Dorc.Api.Tests.Controllers
             dbSource.GetApplicationDatabaseForEnvFilter("targetuser", "Endur", "Env1").Returns(_ => throw new InvalidOperationException("DB lookup failed"));
             var resetError = (ObjectResult)resetController.Put("Endur", "Env1", "targetuser");
             Assert.AreEqual(StatusCodes.Status500InternalServerError, resetError.StatusCode);
-            Assert.AreEqual("DB lookup failed", resetError.Value);
+            Assert.AreEqual("An error occurred while resetting the application password.", resetError.Value);
 
             // 2. RefDataEnvironmentsUsersController
             var manageUsers = Substitute.For<IManageUsers>();
