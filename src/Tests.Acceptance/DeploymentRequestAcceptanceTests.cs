@@ -104,6 +104,7 @@ namespace Tests.Acceptance
                 {
                     Project = LiveProjectName,
                     Environment = LiveChildEnvName,
+                    BuildNum = BuildFolderName,
                     BuildUrl = buildUri,
                     Components = new List<string> { VerifyPropsComponentName },
                     RequestProperties = new List<RequestProperty>
@@ -210,6 +211,7 @@ namespace Tests.Acceptance
             {
                 Project = LiveProjectName,
                 Environment = LiveChildEnvName,
+                BuildNum = BuildFolderName,
                 BuildUrl = buildUri,
                 Components = new List<string> { FailThenPassComponentName }
             };
@@ -269,6 +271,7 @@ namespace Tests.Acceptance
                 {
                     Project = LiveProjectName,
                     Environment = LiveChildEnvName,
+                    BuildNum = BuildFolderName,
                     BuildUrl = buildUri,
                     Components = new List<string>
                     {
@@ -314,6 +317,7 @@ namespace Tests.Acceptance
             {
                 Project = LiveProjectName,
                 Environment = LiveChildEnvName,
+                BuildNum = BuildFolderName,
                 BuildUrl = buildUri,
                 Components = new List<string> { CancelWaitComponentName }
             };
@@ -354,7 +358,7 @@ namespace Tests.Acceptance
 
             var usersResp = caller.ExecuteRaw("DirectorySearch/users", Method.Get, new Dictionary<string, string>
             {
-                ["userSearchCriteria"] = "svc"
+                ["userSearchCriteria"] = "apolezhaev"
             });
             Assert.AreEqual(HttpStatusCode.OK, usersResp.StatusCode, usersResp.Content);
 
@@ -389,6 +393,7 @@ namespace Tests.Acceptance
                         Id = p.Id,
                         Name = p.Name,
                         Pid = p.Pid,
+                        Sid = p.Sid,
                         Allow = p.Allow & ~4,
                         Deny = p.Deny
                     })

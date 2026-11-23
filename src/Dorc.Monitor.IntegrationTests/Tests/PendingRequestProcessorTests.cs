@@ -25,13 +25,13 @@ public class PendingRequestProcessorTests : MonitorServiceTestBase
     public void ComponentTreeOrchestration_HonorsStopOnFailure_AndSkipsNonProdOnlyOnProduction()
     {
         var ext = RandomNumberGenerator.GetHexString(6);
-        var tempScriptDir = Path.Combine(Path.GetTempPath(), $"dorc-ws3-tree-{ext}");
+        var tempScriptDir = Path.Join(Path.GetTempPath(), $"dorc-ws3-tree-{ext}");
         Directory.CreateDirectory(tempScriptDir);
 
         try
         {
-            File.WriteAllText(Path.Combine(tempScriptDir, "pass.ps1"), "Write-Information 'Component succeeded'");
-            File.WriteAllText(Path.Combine(tempScriptDir, "fail.ps1"), "throw 'Simulated component failure'");
+            File.WriteAllText(Path.Join(tempScriptDir, "pass.ps1"), "Write-Information 'Component succeeded'");
+            File.WriteAllText(Path.Join(tempScriptDir, "fail.ps1"), "throw 'Simulated component failure'");
 
             var pipeServer = new ScriptGroupPipeServer(provider.GetRequiredService<ILogger<ScriptGroupPipeServer>>());
             SubstituteScopedWith<IScriptDispatcher>(new PipeBackedScriptDispatcher(
@@ -112,13 +112,13 @@ public class PendingRequestProcessorTests : MonitorServiceTestBase
     public void CrashRecovery_CancelStaleRequests_FailsInterruptedComponentWithoutReRunningScript()
     {
         var ext = RandomNumberGenerator.GetHexString(6);
-        var tempScriptDir = Path.Combine(Path.GetTempPath(), $"dorc-ws3-crash-{ext}");
-        var executionCounterFile = Path.Combine(tempScriptDir, "exec-count.txt");
+        var tempScriptDir = Path.Join(Path.GetTempPath(), $"dorc-ws3-crash-{ext}");
+        var executionCounterFile = Path.Join(tempScriptDir, "exec-count.txt");
         Directory.CreateDirectory(tempScriptDir);
 
         try
         {
-            File.WriteAllText(Path.Combine(tempScriptDir, "pass.ps1"), $@"
+            File.WriteAllText(Path.Join(tempScriptDir, "pass.ps1"), $@"
 Add-Content -Path '{executionCounterFile.Replace("'", "''")}' -Value 'ran'
 ");
 
@@ -256,7 +256,7 @@ Add-Content -Path '{executionCounterFile.Replace("'", "''")}' -Value 'ran'
                 Script = new Script
                 {
                     Name = comp1Name,
-                    Path = Path.Combine(scriptDir, firstComponentFails ? "fail.ps1" : "pass.ps1"),
+                    Path = Path.Join(scriptDir, firstComponentFails ? "fail.ps1" : "pass.ps1"),
                     NonProdOnly = false,
                     IsPathJSON = false,
                     PowerShellVersionNumber = "v7"
@@ -272,7 +272,7 @@ Add-Content -Path '{executionCounterFile.Replace("'", "''")}' -Value 'ran'
                 Script = new Script
                 {
                     Name = comp2Name,
-                    Path = Path.Combine(scriptDir, "pass.ps1"),
+                    Path = Path.Join(scriptDir, "pass.ps1"),
                     NonProdOnly = secondComponentNonProdOnly,
                     IsPathJSON = false,
                     PowerShellVersionNumber = "v7"

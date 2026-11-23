@@ -111,7 +111,29 @@ namespace Dorc.Api.Controllers
                 _projectsPersistentSource.ProjectArtifactsUriFileValid(project))
             {
                 string username = _claimsPrincipalReader.GetUserLogin(User);
-                var adSearch = _activeDirectorySearcher.GetUserData(username);
+                UserElementApiModel adSearch;
+                try
+                {
+                    adSearch = _activeDirectorySearcher.GetUserData(username);
+                }
+                catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+                {
+                    string userId = _claimsPrincipalReader.GetUserId(User);
+                    string displayName = _claimsPrincipalReader.GetUserName(User);
+                    if (string.IsNullOrWhiteSpace(displayName))
+                    {
+                        displayName = username;
+                    }
+
+                    adSearch = new UserElementApiModel
+                    {
+                        Sid = userId,
+                        Pid = userId,
+                        DisplayName = displayName,
+                        Username = username
+                    };
+                }
+
                 var saved = _definitions.CreateProject(project, _claimsPrincipalReader.GetUserFullDomainName(User),
                     new AccessControlApiModel
                     { Sid = adSearch.Sid, Pid = adSearch.Pid, Name = adSearch.DisplayName, Allow = (int)(AccessLevel.Owner | AccessLevel.Write), Deny = 0 },

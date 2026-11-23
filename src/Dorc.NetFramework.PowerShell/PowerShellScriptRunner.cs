@@ -276,12 +276,9 @@ namespace Dorc.NetFramework.PowerShell
                         var elements = JsonConvert.DeserializeObject<string[]>(raw);
                         if (elements != null)
                         {
-                            foreach (var element in elements.Where(element => !string.IsNullOrWhiteSpace(element)))
+                            foreach (var element in elements.Where(element => !string.IsNullOrWhiteSpace(element) && !values.Contains(element)))
                             {
-                                if (!values.Contains(element))
-                                {
-                                    values.Add(element);
-                                }
+                                values.Add(element);
                             }
                         }
                     }
