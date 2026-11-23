@@ -8,6 +8,7 @@ using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 namespace Tests.Acceptance.ProjectRefDataConcurrency
 {
     [TestClass]
+    [TestCategory("LiveEnvironment")]
     [TestCategory("ProjectRefDataConcurrency")]
     public class ProjectRefDataConcurrencyTests
     {

@@ -19,7 +19,7 @@ namespace Tools.PropertyValueCreationCLI
 {
     internal class Program
     {
-        private static void Main(string[] args)
+        internal static int Main(string[] args)
         {
             try
             {
@@ -40,11 +40,14 @@ namespace Tools.PropertyValueCreationCLI
                 var app = new Application(api, logger);
                 app.CheckFile(args[0]);
                 app.Run(args[0]);
+                return 0;
             }
             catch (InvalidOperationException configEx) when (configEx.Message.Contains("not configured"))
             {
                 Console.WriteLine(DateTime.Now + " - Configuration Error: " + configEx.Message);
                 Console.WriteLine(DateTime.Now + " - appsettings error");
+                Environment.ExitCode = 1;
+                return 1;
             }
             catch (Exception e)
             {
@@ -53,6 +56,8 @@ namespace Tools.PropertyValueCreationCLI
                 {
                     Console.WriteLine(DateTime.Now + " - Inner Error: " + e.InnerException.Message);
                 }
+                Environment.ExitCode = 1;
+                return 1;
             }
         }
 

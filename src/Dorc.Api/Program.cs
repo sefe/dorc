@@ -260,6 +260,21 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
             options.ClientId = dorcApiResourceName;
             options.ClientSecret = dorcApiSecret;
             options.NameClaimType = "name";
+            options.TokenRetriever = request =>
+            {
+                var headerToken = IdentityModel.AspNetCore.OAuth2Introspection.TokenRetrieval.FromAuthorizationHeader()(request);
+                if (!string.IsNullOrEmpty(headerToken))
+                {
+                    return headerToken;
+                }
+
+                if (request.Path.StartsWithSegments("/hubs", StringComparison.OrdinalIgnoreCase))
+                {
+                    return IdentityModel.AspNetCore.OAuth2Introspection.TokenRetrieval.FromQueryString("access_token")(request);
+                }
+
+                return null;
+            };
         });
 
     builder.Services.AddAuthorization(options =>

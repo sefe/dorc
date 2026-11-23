@@ -157,11 +157,11 @@ steps:
 # switched on, since it collects per-test diagnostic data at a real cost and
 # nothing has ever consumed it.
 - task: VSTest@2
-  displayName: 'Test Assemblies **\*tests.dll;-:**\IntegrationTests\**;-:**\obj\**'
+  displayName: 'Test Assemblies **\*tests.dll;-:**\*Kafka*IntegrationTests*.dll;-:**\obj\**'
   inputs:
     testAssemblyVer2: |
       **\*tests.dll
-      !**\IntegrationTests\**
+      !**\*Kafka*IntegrationTests*.dll
       !**\obj\**
     runInParallel: true
     codeCoverageEnabled: true

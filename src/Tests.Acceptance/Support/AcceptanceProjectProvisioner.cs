@@ -440,11 +440,24 @@ if ($files.Count -le 0) {
 
         private static void WriteScriptIfChanged(string path, string content)
         {
-            if (File.Exists(path))
+            if (string.IsNullOrWhiteSpace(path) ||
+                path.Contains("..", StringComparison.Ordinal) ||
+                path.Contains('/', StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException($"Refusing to access script path containing traversal segments: '{path}'.");
+            }
+
+            var fullPath = Path.GetFullPath(path);
+            var fileName = Path.GetFileName(fullPath);
+            var directory = Path.GetDirectoryName(fullPath)
+                ?? throw new InvalidOperationException($"Unable to resolve directory for script path '{path}'.");
+            var safePath = Path.Combine(directory, fileName);
+
+            if (File.Exists(safePath))
             {
                 try
                 {
-                    var existing = File.ReadAllText(path);
+                    var existing = File.ReadAllText(safePath);
                     if (string.Equals(existing, content, StringComparison.Ordinal))
                     {
                         return;
@@ -460,7 +473,7 @@ if ($files.Count -le 0) {
                 }
             }
 
-            File.WriteAllText(path, content);
+            File.WriteAllText(safePath, content);
         }
 
         private static string GetConfiguredScriptRoot(DorcApiClient caller)

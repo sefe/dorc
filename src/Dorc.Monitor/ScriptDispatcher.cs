@@ -88,11 +88,22 @@ namespace Dorc.Monitor
                 properties,
                 deploymentRequestId);
 
+            var domainName = configurationSettingsEngine.GetConfigurationDomainNameIntra();
+            var requestRecord = requestsPersistentSource.GetRequest(requestId);
+            var sensitivePropertyNames = RequestPropertyRedaction
+                .GetSensitivePropertyNames(requestRecord?.RequestDetails ?? string.Empty)
+                .Concat((propertiesPersistentSource?.GetAllProperties() ?? Enumerable.Empty<PropertyApiModel>())
+                    .Where(p => p.Secure && !string.IsNullOrWhiteSpace(p.Name))
+                    .Select(p => p.Name))
+                .Concat((_configValuesPersistentSource.GetAllConfigValues(false) ?? Enumerable.Empty<ConfigValueApiModel>())
+                    .Where(c => c.Secure && !string.IsNullOrWhiteSpace(c.Key))
+                    .Select(c => c.Key))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
             var ordinalOffset = 0;
             foreach (ScriptGroup scriptGroup in scriptGroups)
             {
-                var domainName = configurationSettingsEngine.GetConfigurationDomainNameIntra();
-
                 //Create named pipe server for each process that is for each script group
                 using (var pipeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                 {
@@ -103,18 +114,8 @@ namespace Dorc.Monitor
                     // process security context below rather than assumed to be the Monitor's
                     // own identity.
                     var readerIdentity = new ScriptGroupReaderIdentity(domainName, processAccountName);
-                    var requestRecord = requestsPersistentSource.GetRequest(requestId);
                     scriptGroup.SourceBuildIdentity = requestRecord?.BuildNumber;
-                    scriptGroup.SensitivePropertyNames = RequestPropertyRedaction
-                        .GetSensitivePropertyNames(requestRecord?.RequestDetails ?? string.Empty)
-                        .Concat((propertiesPersistentSource?.GetAllProperties() ?? Enumerable.Empty<PropertyApiModel>())
-                            .Where(p => p.Secure && !string.IsNullOrWhiteSpace(p.Name))
-                            .Select(p => p.Name))
-                        .Concat((_configValuesPersistentSource.GetAllConfigValues(false) ?? Enumerable.Empty<ConfigValueApiModel>())
-                            .Where(c => c.Secure && !string.IsNullOrWhiteSpace(c.Key))
-                            .Select(c => c.Key))
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .ToList();
+                    scriptGroup.SensitivePropertyNames = sensitivePropertyNames;
                     evidenceCapture.Prepare(scriptGroup, script.Revision, requestId,
                         ordinalOffset, readerIdentity.QualifiedAccountName);
                     ordinalOffset += scriptGroup.ScriptProperties.Count;

@@ -8,6 +8,7 @@ using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 namespace Tests.Acceptance.PowerShellRunnerExecution
 {
     [TestClass]
+    [TestCategory("LiveEnvironment")]
     [TestCategory("PowerShellRunnerExecution")]
     public class PowerShellRunnerExecutionTests
     {

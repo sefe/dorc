@@ -8,6 +8,7 @@ using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 namespace Tests.Acceptance.DaemonStatusAndExecutionLogs
 {
     [TestClass]
+    [TestCategory("LiveEnvironment")]
     [TestCategory("DaemonStatusAndExecutionLogs")]
     public class DaemonStatusAndExecutionLogTests
     {
@@ -117,7 +118,8 @@ namespace Tests.Acceptance.DaemonStatusAndExecutionLogs
                 Assert.IsGreaterThan(0, createdDaemon.Id);
                 Assert.AreEqual(syntheticDaemonName, createdDaemon.Name);
                 Assert.AreEqual(syntheticDisplayName, createdDaemon.DisplayName);
-                syntheticDaemonId = createdDaemon.Id;
+                var createdDaemonId = createdDaemon.Id;
+                syntheticDaemonId = createdDaemonId;
 
                 var dupDaemonResp = caller.ExecuteRaw("RefDataDaemons", Method.Post, body: new DaemonApiModel
                 {
@@ -131,7 +133,7 @@ namespace Tests.Acceptance.DaemonStatusAndExecutionLogs
                 var mismatchPutResp = caller.ExecuteRaw(
                     "RefDataDaemons",
                     Method.Put,
-                    new Dictionary<string, string> { ["id"] = (syntheticDaemonId.Value + 999).ToString() },
+                    new Dictionary<string, string> { ["id"] = (createdDaemonId + 999).ToString() },
                     body: createdDaemon);
                 Assert.AreEqual(HttpStatusCode.BadRequest, mismatchPutResp.StatusCode, "Mismatched route id and body Id must return 400 BadRequest.");
 
@@ -152,10 +154,10 @@ namespace Tests.Acceptance.DaemonStatusAndExecutionLogs
                 var updateDaemonResp = caller.ExecuteRaw(
                     "RefDataDaemons",
                     Method.Put,
-                    new Dictionary<string, string> { ["id"] = syntheticDaemonId.Value.ToString() },
+                    new Dictionary<string, string> { ["id"] = createdDaemonId.ToString() },
                     body: new DaemonApiModel
                     {
-                        Id = syntheticDaemonId.Value,
+                        Id = createdDaemonId,
                         Name = syntheticDaemonName,
                         DisplayName = updatedDisplayName,
                         AccountName = "Local System Account",
@@ -173,44 +175,46 @@ namespace Tests.Acceptance.DaemonStatusAndExecutionLogs
                     UserEditable = true
                 });
                 Assert.AreEqual(HttpStatusCode.OK, createSrvResp.StatusCode, createSrvResp.Content);
-                tempServerId = DorcApiClient.Deserialize<ServerApiModel>(createSrvResp.Content)?.ServerId;
-                Assert.IsNotNull(tempServerId);
+                var createdServer = DorcApiClient.Deserialize<ServerApiModel>(createSrvResp.Content);
+                Assert.IsNotNull(createdServer);
+                var createdServerId = createdServer.ServerId;
+                tempServerId = createdServerId;
 
                 var attachDaemonResp = caller.ExecuteRaw("ServerDaemons", Method.Post, new Dictionary<string, string>
                 {
-                    ["serverId"] = tempServerId.Value.ToString(),
-                    ["daemonId"] = syntheticDaemonId.Value.ToString()
+                    ["serverId"] = createdServerId.ToString(),
+                    ["daemonId"] = createdDaemonId.ToString()
                 });
                 Assert.AreEqual(HttpStatusCode.OK, attachDaemonResp.StatusCode, attachDaemonResp.Content);
 
-                var getServerDaemonsResp = caller.ExecuteRaw($"ServerDaemons/{tempServerId.Value}", Method.Get);
+                var getServerDaemonsResp = caller.ExecuteRaw($"ServerDaemons/{createdServerId}", Method.Get);
                 Assert.AreEqual(HttpStatusCode.OK, getServerDaemonsResp.StatusCode, getServerDaemonsResp.Content);
                 var serverDaemons = DorcApiClient.Deserialize<List<DaemonApiModel>>(getServerDaemonsResp.Content) ?? new List<DaemonApiModel>();
-                Assert.IsTrue(serverDaemons.Any(d => d.Id == syntheticDaemonId.Value && string.Equals(d.DisplayName, updatedDisplayName, StringComparison.Ordinal)));
+                Assert.IsTrue(serverDaemons.Any(d => d.Id == createdDaemonId && string.Equals(d.DisplayName, updatedDisplayName, StringComparison.Ordinal)));
 
-                var getServersByDaemonResp = caller.ExecuteRaw($"ServerDaemons/by-daemon/{syntheticDaemonId.Value}", Method.Get);
+                var getServersByDaemonResp = caller.ExecuteRaw($"ServerDaemons/by-daemon/{createdDaemonId}", Method.Get);
                 Assert.AreEqual(HttpStatusCode.OK, getServersByDaemonResp.StatusCode, getServersByDaemonResp.Content);
                 var daemonServers = DorcApiClient.Deserialize<List<ServerApiModel>>(getServersByDaemonResp.Content) ?? new List<ServerApiModel>();
-                Assert.IsTrue(daemonServers.Any(s => s.ServerId == tempServerId.Value));
+                Assert.IsTrue(daemonServers.Any(s => s.ServerId == createdServerId));
 
                 var detachDaemonResp = caller.ExecuteRaw("ServerDaemons", Method.Delete, new Dictionary<string, string>
                 {
-                    ["serverId"] = tempServerId.Value.ToString(),
-                    ["daemonId"] = syntheticDaemonId.Value.ToString()
+                    ["serverId"] = createdServerId.ToString(),
+                    ["daemonId"] = createdDaemonId.ToString()
                 });
                 Assert.AreEqual(HttpStatusCode.OK, detachDaemonResp.StatusCode, detachDaemonResp.Content);
 
-                var getServerDaemonsAfterDetachResp = caller.ExecuteRaw($"ServerDaemons/{tempServerId.Value}", Method.Get);
+                var getServerDaemonsAfterDetachResp = caller.ExecuteRaw($"ServerDaemons/{createdServerId}", Method.Get);
                 Assert.AreEqual(HttpStatusCode.OK, getServerDaemonsAfterDetachResp.StatusCode, getServerDaemonsAfterDetachResp.Content);
                 var serverDaemonsAfterDetach = DorcApiClient.Deserialize<List<DaemonApiModel>>(getServerDaemonsAfterDetachResp.Content) ?? new List<DaemonApiModel>();
-                Assert.IsFalse(serverDaemonsAfterDetach.Any(d => d.Id == syntheticDaemonId.Value));
+                Assert.IsFalse(serverDaemonsAfterDetach.Any(d => d.Id == createdDaemonId));
 
                 var daemonAuditResp = caller.ExecuteRaw(
                     "DaemonAudit",
                     Method.Put,
                     new Dictionary<string, string>
                     {
-                        ["daemonId"] = syntheticDaemonId.Value.ToString(),
+                        ["daemonId"] = createdDaemonId.ToString(),
                         ["page"] = "1",
                         ["limit"] = "20"
                     },
@@ -221,13 +225,13 @@ namespace Tests.Acceptance.DaemonStatusAndExecutionLogs
 
                 var deleteDaemonResp = caller.ExecuteRaw("RefDataDaemons", Method.Delete, new Dictionary<string, string>
                 {
-                    ["id"] = syntheticDaemonId.Value.ToString()
+                    ["id"] = createdDaemonId.ToString()
                 });
                 Assert.AreEqual(HttpStatusCode.OK, deleteDaemonResp.StatusCode, deleteDaemonResp.Content);
 
                 var deleteDaemonAgainResp = caller.ExecuteRaw("RefDataDaemons", Method.Delete, new Dictionary<string, string>
                 {
-                    ["id"] = syntheticDaemonId.Value.ToString()
+                    ["id"] = createdDaemonId.ToString()
                 });
                 Assert.AreEqual(HttpStatusCode.NotFound, deleteDaemonAgainResp.StatusCode, "Deleting an already-deleted daemon must return 404 NotFound.");
                 syntheticDaemonId = null;

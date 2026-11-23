@@ -9,6 +9,7 @@ using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 namespace Tests.Acceptance.BundledRequestsMakeLikeProd
 {
     [TestClass]
+    [TestCategory("LiveEnvironment")]
     [TestCategory("BundledRequestsMakeLikeProd")]
     public class BundledRequestMakeLikeProdTests
     {
@@ -73,12 +74,13 @@ namespace Tests.Acceptance.BundledRequestsMakeLikeProd
                 Assert.AreEqual(HttpStatusCode.OK, listBundleResp.StatusCode, listBundleResp.Content);
                 var bundleItems = DorcApiClient.Deserialize<List<BundledRequestsApiModel>>(listBundleResp.Content) ?? new List<BundledRequestsApiModel>();
                 Assert.HasCount(1, bundleItems);
-                createdBundleId = bundleItems[0].Id;
+                var bundleId = bundleItems[0].Id;
+                createdBundleId = bundleId;
 
                 var byProjectResp = caller.ExecuteRaw($"BundledRequests?projectNames={Uri.EscapeDataString(LiveProjectName)}", Method.Get);
                 Assert.AreEqual(HttpStatusCode.OK, byProjectResp.StatusCode, byProjectResp.Content);
                 var projectBundles = DorcApiClient.Deserialize<List<BundledRequestsApiModel>>(byProjectResp.Content) ?? new List<BundledRequestsApiModel>();
-                var matchingBundle = projectBundles.FirstOrDefault(b => b.Id == createdBundleId.Value);
+                var matchingBundle = projectBundles.FirstOrDefault(b => b.Id == bundleId);
                 Assert.IsNotNull(matchingBundle, "Expected GET /BundledRequests?projectNames=... to include the created bundle.");
                 Assert.AreEqual(bundleName, matchingBundle.BundleName);
                 Assert.AreEqual(project.ProjectId, matchingBundle.ProjectId);
@@ -89,6 +91,25 @@ namespace Tests.Acceptance.BundledRequestsMakeLikeProd
                 var parsedInnerRequest = DorcApiClient.Deserialize<RequestDto>(matchingBundle.Request);
                 Assert.IsNotNull(parsedInnerRequest, "Expected BundledRequestsApiModel.Request to contain valid serialized RequestDto JSON.");
                 Assert.AreEqual(LiveProjectName, parsedInnerRequest.Project);
+
+                var preStatusesResp = caller.ExecuteRaw(
+                    "RequestStatuses",
+                    Method.Put,
+                    new Dictionary<string, string> { ["page"] = "1", ["limit"] = "20" },
+                    body: new PagedDataOperators
+                    {
+                        Filters = new List<PagedDataFilter>
+                        {
+                            new PagedDataFilter { Path = "EnvironmentName", FilterValue = LiveChildEnvName },
+                            new PagedDataFilter { Path = "Project", FilterValue = LiveProjectName }
+                        },
+                        SortOrders = new List<PagedDataSorting>
+                        {
+                            new PagedDataSorting { Path = "Id", Direction = "desc" }
+                        }
+                    });
+                var preStatusPage = DorcApiClient.Deserialize<GetRequestStatusesListResponseDto>(preStatusesResp.Content);
+                var preCallMaxRequestId = preStatusPage?.Items?.Any() == true ? preStatusPage.Items.Max(i => i.Id) : 0;
 
                 var mlpResp = caller.ExecuteRaw("MakeLikeProd", Method.Put, body: new
                 {
@@ -119,6 +140,7 @@ namespace Tests.Acceptance.BundledRequestsMakeLikeProd
                 Assert.AreEqual(HttpStatusCode.OK, statusesResp.StatusCode, statusesResp.Content);
                 var statusPage = DorcApiClient.Deserialize<GetRequestStatusesListResponseDto>(statusesResp.Content);
                 var dispatched = statusPage?.Items?
+                    .Where(i => i.Id > preCallMaxRequestId)
                     .OrderByDescending(i => i.Id)
                     .FirstOrDefault(i => (i.Components ?? string.Empty).Contains(BundleJobComponentName, StringComparison.OrdinalIgnoreCase));
                 Assert.IsNotNull(dispatched, "Expected PUT /MakeLikeProd to queue a deployment request for BundleJobComponentName.");

@@ -100,6 +100,26 @@ Write-Information ""Deployed to $EndpointUrl with secret $ApiSecretKey""
             var updatedSecondReq = requestsSource.GetRequest(secondRequestId);
             Assert.AreEqual(DeploymentRequestStatus.Completed.ToString(), updatedSecondReq.Status, $"Expected Completed on file transport but got {updatedSecondReq.Status}: {updatedSecondReq.Log}");
             Assert.IsTrue(File.Exists(outputMarkerFile), "PowerShell script should have executed via ScriptGroupFileReader.");
+
+            // 3. Terminating PowerShell exception ('throw $ApiSecretKey') must redact secret values in logs and exception output
+            File.WriteAllText(scriptPath, @"
+throw ""Terminating failure leaking $ApiSecretKey""
+");
+            var thirdRequestId = CreatePinnedDeploymentRequest(seeded.ProjectName, seeded.ChildEnvName, seeded.ComponentName, tempScriptDir);
+            var thirdReqModel = requestsSource.GetRequest(thirdRequestId);
+            pendingProcessor = provider.GetRequiredService<IPendingRequestProcessor>();
+            pendingProcessor.Execute(
+                new RequestToProcessDto(thirdReqModel, serializer.Deserialize(thirdReqModel.RequestDetails)),
+                CancellationToken.None,
+                loggerFactory);
+
+            var updatedThirdReq = requestsSource.GetRequest(thirdRequestId);
+            Assert.AreEqual(DeploymentRequestStatus.Failed.ToString(), updatedThirdReq.Status);
+            var thirdResult = requestsSource.GetDeploymentResultsForRequest(thirdRequestId).Single();
+            Assert.IsFalse((thirdResult.Log ?? string.Empty).Contains($"TopSecretValue-{ext}", StringComparison.Ordinal),
+                "Terminating PowerShell exception must redact secure variable values in DeploymentResult.Log.");
+            Assert.IsFalse((updatedThirdReq.Log ?? string.Empty).Contains($"TopSecretValue-{ext}", StringComparison.Ordinal),
+                "Terminating PowerShell exception must redact secure variable values in DeploymentRequest.Log.");
         }
         finally
         {

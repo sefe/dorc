@@ -123,4 +123,13 @@ public class PropertyValueCreationTests
                 File.Delete(tempCsv);
         }
     }
+
+    [TestMethod]
+    public void ProgramMain_WithEmptyArgs_ReturnsNonZeroExitCode()
+    {
+        var exitCode = Tools.PropertyValueCreationCLI.Program.Main(Array.Empty<string>());
+        Assert.AreEqual(1, exitCode);
+        Assert.AreEqual(1, Environment.ExitCode);
+        Environment.ExitCode = 0;
+    }
 }

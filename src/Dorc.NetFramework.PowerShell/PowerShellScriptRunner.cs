@@ -106,11 +106,12 @@ namespace Dorc.NetFramework.PowerShell
 
                                 if (string.IsNullOrEmpty(exceptionMessage))
                                 {
-                                    throw;
+                                    throw new InvalidOperationException(RedactSensitiveValues(exception.Message));
                                 }
                                 exceptionMessage = RedactSensitiveValues(exceptionMessage);
+                                var redactedReason = RedactSensitiveValues(exception.Message);
                                 logger.FileLogger.LogInformation($"Execution of the powershell Script {scriptName} has Errored : {exceptionMessage}");
-                                throw new RemoteException(exceptionMessage, exception);
+                                throw new RemoteException(exceptionMessage, new InvalidOperationException(redactedReason));
                             }
 
                             logger.FileLogger.LogDebug("Checking runspace State");
@@ -143,8 +144,9 @@ namespace Dorc.NetFramework.PowerShell
                 }
                 catch (Exception e)
                 {
-                    logger.FileLogger.LogError(e, $"Exception occured in the powershell execution of script {scriptName}");
-                    throw;
+                    var sanitizedError = new InvalidOperationException(RedactSensitiveValues(e.ToString()));
+                    logger.FileLogger.LogError(sanitizedError, $"Exception occured in the powershell execution of script {scriptName}");
+                    throw sanitizedError;
                 }
                 logger.FileLogger.LogInformation($" Execution of the powershell Script {scriptName} was successful");
             }
@@ -254,15 +256,19 @@ namespace Dorc.NetFramework.PowerShell
 
             foreach (var kvp in properties)
             {
-                var isSecret = kvp.Key != null &&
-                    (explicitNames.Contains(kvp.Key) ||
-                     kvp.Key.IndexOf("Password", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                     kvp.Key.IndexOf("Secret", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                     kvp.Key.IndexOf("Token", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                     kvp.Key.IndexOf("ApiKey", StringComparison.OrdinalIgnoreCase) >= 0);
-                if (!isSecret) continue;
                 var raw = kvp.Value?.Value?.ToString();
                 if (string.IsNullOrWhiteSpace(raw)) continue;
+
+                var isExplicitlySecret = kvp.Key != null && explicitNames.Contains(kvp.Key);
+                var isHeuristicSecret = kvp.Key != null
+                    && explicitNames.Count == 0
+                    && raw.Length >= 4
+                    && !long.TryParse(raw, out _)
+                    && (kvp.Key.IndexOf("Password", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        kvp.Key.IndexOf("Secret", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        kvp.Key.IndexOf("Token", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        kvp.Key.IndexOf("ApiKey", StringComparison.OrdinalIgnoreCase) >= 0);
+                if (!isExplicitlySecret && !isHeuristicSecret) continue;
 
                 if (!values.Contains(raw))
                 {

@@ -8,6 +8,7 @@ using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 namespace Tests.Acceptance.EnvironmentAccessControl
 {
     [TestClass]
+    [TestCategory("LiveEnvironment")]
     [TestCategory("EnvironmentAccessControl")]
     public class EnvironmentAccessControlTests
     {
@@ -44,6 +45,7 @@ namespace Tests.Acceptance.EnvironmentAccessControl
             var acl = DorcApiClient.Deserialize<AccessSecureApiModel>(aclResp.Content);
             Assert.IsNotNull(acl);
 
+#pragma warning disable CS0618
             var stripped = new AccessSecureApiModel
             {
                 Name = acl.Name,
@@ -56,11 +58,13 @@ namespace Tests.Acceptance.EnvironmentAccessControl
                         Id = p.Id,
                         Name = p.Name,
                         Pid = p.Pid,
+                        Sid = p.Sid,
                         Allow = p.Allow & ~4,
                         Deny = p.Deny
                     })
                     .ToList()
             };
+#pragma warning restore CS0618
             var badAclResp = caller.ExecuteRaw("AccessControl", Method.Put, body: stripped);
             Assert.AreEqual(HttpStatusCode.BadRequest, badAclResp.StatusCode, "Removing the last owner must return 400 BadRequest.");
         }
@@ -199,13 +203,15 @@ namespace Tests.Acceptance.EnvironmentAccessControl
                 });
                 Assert.AreEqual(HttpStatusCode.OK, putGrantResp.StatusCode, $"PUT /AccessControl (grant) failed: {putGrantResp.Content}");
                 var grantedAcl = DorcApiClient.Deserialize<AccessSecureApiModel>(putGrantResp.Content);
-                Assert.IsNotNull(grantedAcl?.Privileges);
-                var grantedEntry = grantedAcl.Privileges.FirstOrDefault(p =>
+                Assert.IsNotNull(grantedAcl);
+                Assert.IsNotNull(grantedAcl.Privileges);
+                var grantedPrivileges = grantedAcl.Privileges;
+                var grantedEntry = grantedPrivileges.FirstOrDefault(p =>
                     string.Equals(p.Pid, targetPrincipal.Pid, StringComparison.OrdinalIgnoreCase));
                 Assert.IsNotNull(grantedEntry, $"Expected PUT /AccessControl to persist privilege for '{targetPrincipal.Pid}'.");
                 Assert.AreEqual(1, grantedEntry.Allow);
 
-                var privilegesAfterRevoke = grantedAcl.Privileges
+                var privilegesAfterRevoke = grantedPrivileges
                     .Where(p => !string.Equals(p.Pid, targetPrincipal.Pid, StringComparison.OrdinalIgnoreCase))
                     .ToList();
 
@@ -219,9 +225,11 @@ namespace Tests.Acceptance.EnvironmentAccessControl
                 });
                 Assert.AreEqual(HttpStatusCode.OK, putRevokeResp.StatusCode, $"PUT /AccessControl (revoke) failed: {putRevokeResp.Content}");
                 var revokedAcl = DorcApiClient.Deserialize<AccessSecureApiModel>(putRevokeResp.Content);
-                Assert.IsNotNull(revokedAcl?.Privileges);
+                Assert.IsNotNull(revokedAcl);
+                Assert.IsNotNull(revokedAcl.Privileges);
+                var revokedPrivileges = revokedAcl.Privileges;
                 Assert.IsFalse(
-                    revokedAcl.Privileges.Any(p =>
+                    revokedPrivileges.Any(p =>
                         string.Equals(p.Pid, targetPrincipal.Pid, StringComparison.OrdinalIgnoreCase)),
                     $"Expected PUT /AccessControl to remove revoked privilege for '{targetPrincipal.Pid}'.");
 

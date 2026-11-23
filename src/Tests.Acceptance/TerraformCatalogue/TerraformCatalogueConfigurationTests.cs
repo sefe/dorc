@@ -8,6 +8,7 @@ using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 namespace Tests.Acceptance.TerraformCatalogue
 {
     [TestClass]
+    [TestCategory("LiveEnvironment")]
     [TestCategory("TerraformCatalogue")]
     public class TerraformCatalogueConfigurationTests
     {

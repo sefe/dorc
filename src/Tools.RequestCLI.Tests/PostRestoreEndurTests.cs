@@ -174,4 +174,18 @@ public class PostRestoreEndurTests
         Assert.AreEqual("backup_2026.bak", historyDto.BackupFile);
         Assert.AreEqual("engineer@sefe.eu", historyDto.UpdatedBy);
     }
+
+    [TestMethod]
+    public void ProgramMain_WithInvalidArgsOrUnconfiguredAppSettings_ReturnsNonZeroExitCode()
+    {
+        var invalidArgsCode = Tools.PostRestoreEndurCLI.Program.Main(Array.Empty<string>());
+        Assert.AreEqual(1, invalidArgsCode);
+        Assert.AreEqual(1, Environment.ExitCode);
+        Environment.ExitCode = 0;
+
+        var unconfiguredCode = Tools.PostRestoreEndurCLI.Program.Main(new[] { "/environment:DV 01" });
+        Assert.AreEqual(1, unconfiguredCode);
+        Assert.AreEqual(1, Environment.ExitCode);
+        Environment.ExitCode = 0;
+    }
 }

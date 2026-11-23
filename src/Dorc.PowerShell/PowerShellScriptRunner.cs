@@ -88,10 +88,12 @@ namespace Dorc.PowerShell
 
                             if (string.IsNullOrEmpty(exceptionMessage))
                             {
-                                throw;
+                                throw new InvalidOperationException(RedactSensitiveValues(exception.Message));
                             }
-                            logger.FileLogger.LogInformation("Execution of the powershell Script {0} has Errored : {1}", scriptName, exception.Message);
-                            throw new RemoteException(exceptionMessage, exception);
+                            var redactedExceptionMessage = RedactSensitiveValues(exceptionMessage);
+                            var redactedReason = RedactSensitiveValues(exception.Message);
+                            logger.FileLogger.LogInformation("Execution of the powershell Script {0} has Errored : {1}", scriptName, redactedReason);
+                            throw new RemoteException(redactedExceptionMessage, new InvalidOperationException(redactedReason));
                         }
 
                         logger.FileLogger.LogDebug("Checking runspace State");
@@ -118,7 +120,8 @@ namespace Dorc.PowerShell
             }
             catch (Exception e)
             {
-                logger.FileLogger.LogError(e, "Exception occured in the powershell execution of script {0}", scriptName);
+                var sanitizedError = new InvalidOperationException(RedactSensitiveValues(e.ToString()));
+                logger.FileLogger.LogError(sanitizedError, "Exception occured in the powershell execution of script {0}", scriptName);
                 return -1;
             }
             finally
@@ -230,18 +233,21 @@ namespace Dorc.PowerShell
             var values = new HashSet<string>(StringComparer.Ordinal);
             foreach (var kvp in combinedProperties)
             {
-                var isSensitive = explicitNames.Contains(kvp.Key)
-                    || kvp.Key.Contains("Secret", StringComparison.OrdinalIgnoreCase)
-                    || kvp.Key.Contains("Password", StringComparison.OrdinalIgnoreCase)
-                    || kvp.Key.Contains("Token", StringComparison.OrdinalIgnoreCase)
-                    || kvp.Key.Contains("ApiKey", StringComparison.OrdinalIgnoreCase);
-                if (!isSensitive)
+                var raw = kvp.Value?.Value?.ToString();
+                if (string.IsNullOrEmpty(raw))
                 {
                     continue;
                 }
 
-                var raw = kvp.Value?.Value?.ToString();
-                if (string.IsNullOrEmpty(raw))
+                var isExplicitlySensitive = explicitNames.Contains(kvp.Key);
+                var isHeuristicSensitive = explicitNames.Count == 0
+                    && raw.Length >= 4
+                    && !long.TryParse(raw, out _)
+                    && (kvp.Key.Contains("Secret", StringComparison.OrdinalIgnoreCase)
+                        || kvp.Key.Contains("Password", StringComparison.OrdinalIgnoreCase)
+                        || kvp.Key.Contains("Token", StringComparison.OrdinalIgnoreCase)
+                        || kvp.Key.Contains("ApiKey", StringComparison.OrdinalIgnoreCase));
+                if (!isExplicitlySensitive && !isHeuristicSensitive)
                 {
                     continue;
                 }

@@ -8,6 +8,7 @@ using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 namespace Tests.Acceptance.RequestSnapshotsAndLifecycle
 {
     [TestClass]
+    [TestCategory("LiveEnvironment")]
     [TestCategory("RequestSnapshotsAndLifecycle")]
     public class RequestSnapshotAndLifecycleTests
     {

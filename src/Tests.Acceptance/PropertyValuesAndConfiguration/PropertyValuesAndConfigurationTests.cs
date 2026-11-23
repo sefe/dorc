@@ -7,6 +7,7 @@ using Tests.Acceptance.Support;
 namespace Tests.Acceptance.PropertyValuesAndConfiguration
 {
     [TestClass]
+    [TestCategory("LiveEnvironment")]
     [TestCategory("PropertyValuesAndConfiguration")]
     public class PropertyValuesAndConfigurationTests
     {

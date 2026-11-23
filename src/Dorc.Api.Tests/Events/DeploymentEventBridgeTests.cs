@@ -112,5 +112,30 @@ namespace Dorc.Api.Tests.Events
 
             await others.Received(1).OnDeploymentResultStatusChanged(ev);
         }
+
+        [TestMethod]
+        public void ReferenceTokenSelector_HubsQueryStringAndAuthorizationHeader_ForwardsReferenceTokensOnly()
+        {
+            var selector = Dorc.Api.Security.ReferenceTokenSelector.ForwardReferenceToken("introspection");
+
+            var hubRefCtx = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+            hubRefCtx.Request.Path = "/hubs/deployments";
+            hubRefCtx.Request.QueryString = new Microsoft.AspNetCore.Http.QueryString("?access_token=opaque_ref_token_without_dot");
+            Assert.AreEqual("introspection", selector(hubRefCtx));
+
+            var hubJwtCtx = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+            hubJwtCtx.Request.Path = "/hubs/deployments";
+            hubJwtCtx.Request.QueryString = new Microsoft.AspNetCore.Http.QueryString("?access_token=header.payload.signature");
+            Assert.IsNull(selector(hubJwtCtx));
+
+            var nonHubQueryCtx = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+            nonHubQueryCtx.Request.Path = "/RefDataProjects";
+            nonHubQueryCtx.Request.QueryString = new Microsoft.AspNetCore.Http.QueryString("?access_token=opaque_ref_token_without_dot");
+            Assert.IsNull(selector(nonHubQueryCtx));
+
+            var malformedHeaderCtx = new Microsoft.AspNetCore.Http.DefaultHttpContext();
+            malformedHeaderCtx.Request.Headers["Authorization"] = "BearerOnlyOnePart";
+            Assert.IsNull(selector(malformedHeaderCtx));
+        }
     }
 }

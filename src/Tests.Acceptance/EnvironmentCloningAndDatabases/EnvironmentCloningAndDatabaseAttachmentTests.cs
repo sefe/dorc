@@ -8,6 +8,7 @@ using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 namespace Tests.Acceptance.EnvironmentCloningAndDatabases
 {
     [TestClass]
+    [TestCategory("LiveEnvironment")]
     [TestCategory("EnvironmentCloningAndDatabases")]
     public class EnvironmentCloningAndDatabaseAttachmentTests
     {
@@ -95,12 +96,14 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 });
                 Assert.AreEqual(HttpStatusCode.OK, createDb2Resp.StatusCode, createDb2Resp.Content);
                 var createdDb2 = DorcApiClient.Deserialize<DatabaseApiModel>(createDb2Resp.Content);
-                db2Id = createdDb2?.Id;
+                Assert.IsNotNull(createdDb2);
+                var createdDb2Id = createdDb2.Id;
+                db2Id = createdDb2Id;
 
                 var attachDb2Resp = caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
                 {
                     ["envId"] = childEnv.EnvironmentId.ToString(),
-                    ["componentId"] = db2Id!.Value.ToString(),
+                    ["componentId"] = createdDb2Id.ToString(),
                     ["action"] = "attach",
                     ["component"] = "database"
                 });
@@ -118,7 +121,7 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
                 {
                     ["envId"] = childEnv.EnvironmentId.ToString(),
-                    ["componentId"] = db2Id.Value.ToString(),
+                    ["componentId"] = createdDb2Id.ToString(),
                     ["action"] = "detach",
                     ["component"] = "database"
                 });
@@ -142,6 +145,35 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 var clonedDbsResp = caller.ExecuteRaw($"RefDataDatabases/ByEnvId/{clonedEnvId.Value}", Method.Get);
                 Assert.AreEqual(HttpStatusCode.OK, clonedDbsResp.StatusCode, clonedDbsResp.Content);
                 StringAssert.Contains(clonedDbsResp.Content ?? string.Empty, db1Name);
+
+                // Verify 2-level environment hierarchy invariant (legacy RefDataEnvironmentsDetails.feature:
+                // a child environment cannot become the parent of a third environment, while a root parent can).
+                var parentEnv = GetEnvironmentByName(caller, LiveParentEnvName);
+                Assert.IsNotNull(parentEnv);
+
+                var invalidGrandchildResp = caller.ExecuteRaw("RefDataEnvironmentsDetails/SetParentForEnvironment", Method.Put, new Dictionary<string, string>
+                {
+                    ["parentEnvId"] = childEnv.EnvironmentId.ToString(),
+                    ["childEnvId"] = clonedEnvId.Value.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, invalidGrandchildResp.StatusCode, invalidGrandchildResp.Content);
+                var invalidGrandchildResult = DorcApiClient.Deserialize<ApiBoolResult>(invalidGrandchildResp.Content);
+                Assert.IsFalse(invalidGrandchildResult?.Result ?? true, "Setting a child environment as the parent of another environment must fail (Result=false).");
+
+                var validSetParentResp = caller.ExecuteRaw("RefDataEnvironmentsDetails/SetParentForEnvironment", Method.Put, new Dictionary<string, string>
+                {
+                    ["parentEnvId"] = parentEnv.EnvironmentId.ToString(),
+                    ["childEnvId"] = clonedEnvId.Value.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, validSetParentResp.StatusCode, validSetParentResp.Content);
+                Assert.IsTrue(DorcApiClient.Deserialize<ApiBoolResult>(validSetParentResp.Content)?.Result ?? false, "Setting a valid root parent environment must succeed.");
+
+                var detachParentResp = caller.ExecuteRaw("RefDataEnvironmentsDetails/SetParentForEnvironment", Method.Put, new Dictionary<string, string>
+                {
+                    ["childEnvId"] = clonedEnvId.Value.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, detachParentResp.StatusCode, detachParentResp.Content);
+                Assert.IsTrue(DorcApiClient.Deserialize<ApiBoolResult>(detachParentResp.Content)?.Result ?? false, "Detaching parent environment (parentEnvId=null) must succeed.");
             }
             finally
             {
@@ -305,12 +337,14 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 });
                 Assert.AreEqual(HttpStatusCode.OK, envSrvsResp.StatusCode, envSrvsResp.Content);
                 var envSrvsDto = DorcApiClient.Deserialize<EnvironmentComponentsDto<ServerApiModel>>(envSrvsResp.Content);
-                Assert.IsNotNull(envSrvsDto?.Result);
+                Assert.IsNotNull(envSrvsDto);
+                Assert.IsNotNull(envSrvsDto.Result);
+                var envSrvsResult = envSrvsDto.Result;
                 Assert.AreEqual(
                     1,
-                    envSrvsDto.Result.Count(s => s.ServerId == serverId.Value),
+                    envSrvsResult.Count(s => s.ServerId == serverId.Value),
                     "Re-attaching an already-attached server must be idempotent and never create duplicate environment-server rows.");
-                var attachedSrv = envSrvsDto.Result.Single(s => s.ServerId == serverId.Value);
+                var attachedSrv = envSrvsResult.Single(s => s.ServerId == serverId.Value);
                 Assert.AreEqual(serverName, attachedSrv.Name);
                 CollectionAssert.Contains(attachedSrv.Tags.ToList(), "DevOpsTest");
 
@@ -424,8 +458,10 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                     });
                 Assert.AreEqual(HttpStatusCode.OK, dbByPageResp.StatusCode, dbByPageResp.Content);
                 var dbByPage = DorcApiClient.Deserialize<GetDatabaseApiModelListResponseDto>(dbByPageResp.Content);
-                Assert.IsNotNull(dbByPage?.Items);
-                Assert.IsTrue(dbByPage.Items.Any(d => d.Id == dbId.Value), "PUT /RefDataDatabases/ByPage must return the newly created database.");
+                Assert.IsNotNull(dbByPage);
+                Assert.IsNotNull(dbByPage.Items);
+                var dbByPageItems = dbByPage.Items;
+                Assert.IsTrue(dbByPageItems.Any(d => d.Id == dbId.Value), "PUT /RefDataDatabases/ByPage must return the newly created database.");
 
                 var dbServerListResp = caller.ExecuteRaw("RefDataDatabases/GetDatabasServerNameslist", Method.Get);
                 Assert.AreEqual(HttpStatusCode.OK, dbServerListResp.StatusCode, dbServerListResp.Content);
