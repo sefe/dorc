@@ -231,12 +231,13 @@ namespace Tests.Acceptance.RequestSnapshotsAndLifecycle
                     d.Component != null && string.Equals(d.Component.ComponentName, SnapshotComponentName, StringComparison.OrdinalIgnoreCase));
                 Assert.IsNotNull(snapshotDef);
                 Assert.IsNotNull(snapshotDef.Component);
-                Assert.IsNotNull(snapshotDef.Component.ComponentId, $"Expected GET /DeploymentDefinitions to include '{SnapshotComponentName}'.");
+                var snapshotDefComponentId = snapshotDef.Component.ComponentId;
+                Assert.IsTrue(snapshotDefComponentId.HasValue, $"Expected GET /DeploymentDefinitions to include '{SnapshotComponentName}'.");
 
                 var defHistoryResp = caller.ExecuteRaw("DeploymentDefinitions/history", Method.Get, new Dictionary<string, string>
                 {
                     ["projectId"] = project.ProjectId.ToString(),
-                    ["componentId"] = snapshotDef.Component.ComponentId.Value.ToString(),
+                    ["componentId"] = snapshotDefComponentId.Value.ToString(),
                     ["page"] = "1",
                     ["limit"] = "50"
                 });

@@ -97,7 +97,7 @@ namespace Dorc.Api.Controllers
                 var safeEnvName = (envName ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty);
                 var safeEnvFilter = (envFilter ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty);
                 _logger.LogError(e, "Failed to reset password for user '{Username}' in environment '{EnvName}' with filter '{EnvFilter}'", safeUsername, safeEnvName, safeEnvFilter);
-                return StatusCode(StatusCodes.Status500InternalServerError, e.Message);
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while resetting the application password.");
             }
         }
 

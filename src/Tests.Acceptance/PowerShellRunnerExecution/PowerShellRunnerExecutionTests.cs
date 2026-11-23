@@ -140,11 +140,13 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
                                 $"Cleartext secret leaked in runner log file '{logFile}'.");
                         }
                     }
-                    catch (UnauthorizedAccessException)
+                    catch (UnauthorizedAccessException ex)
                     {
+                        Console.WriteLine($"Skipping inaccessible runner log file under '{runnerLogDir}': {ex.Message}");
                     }
-                    catch (IOException)
+                    catch (IOException ex)
                     {
+                        Console.WriteLine($"Skipping transient IO error reading runner log file under '{runnerLogDir}': {ex.Message}");
                     }
                 }
             }

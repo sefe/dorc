@@ -26,21 +26,24 @@ namespace Dorc.Monitor.IntegrationTests.Tests;
 [SupportedOSPlatform("windows")]
 internal sealed class DirectoryBackedAzureStorageWorker(string rootDir) : IAzureStorageAccountWorker
 {
+    private string ResolveBlobPath(string nameOrPath) =>
+        Path.Join(rootDir, Path.GetFileName(nameOrPath).TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+
     public void SaveFileToBlobs(string fileName)
     {
-        var dest = Path.Combine(rootDir, Path.GetFileName(fileName));
+        var dest = ResolveBlobPath(fileName);
         File.Copy(fileName, dest, overwrite: true);
     }
 
     public string LoadFileFromBlobs(string blobName) =>
-        File.ReadAllText(Path.Combine(rootDir, Path.GetFileName(blobName)));
+        File.ReadAllText(ResolveBlobPath(blobName));
 
     public void DownloadFileFromBlobs(string blobName, string filePath) =>
-        File.Copy(Path.Combine(rootDir, Path.GetFileName(blobName)), filePath, overwrite: true);
+        File.Copy(ResolveBlobPath(blobName), filePath, overwrite: true);
 
     public string GetFileSha256FromBlobs(string blobName)
     {
-        using var stream = File.OpenRead(Path.Combine(rootDir, Path.GetFileName(blobName)));
+        using var stream = File.OpenRead(ResolveBlobPath(blobName));
         return Convert.ToHexString(SHA256.HashData(stream));
     }
 
@@ -48,7 +51,7 @@ internal sealed class DirectoryBackedAzureStorageWorker(string rootDir) : IAzure
         LoadFileFromBlobs(blobName);
 
     public void CopyVerifiedBlob(string sourceBlobName, string destinationBlobName, string expectedSha256) =>
-        File.Copy(Path.Combine(rootDir, sourceBlobName), Path.Combine(rootDir, destinationBlobName), overwrite: true);
+        File.Copy(ResolveBlobPath(sourceBlobName), ResolveBlobPath(destinationBlobName), overwrite: true);
 }
 
 [SupportedOSPlatform("windows")]

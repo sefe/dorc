@@ -288,14 +288,15 @@ namespace Tests.Acceptance.BundledRequestsMakeLikeProd
                 var snapshotComp = refData.Components.FirstOrDefault(c =>
                     string.Equals(c.ComponentName, SnapshotComponentName, StringComparison.OrdinalIgnoreCase));
                 Assert.IsNotNull(snapshotComp, "Expected SnapshotComponent in RefData.");
-                Assert.IsNotNull(snapshotComp.ComponentId, "Expected SnapshotComponentId in RefData.");
+                var snapshotComponentId = snapshotComp.ComponentId;
+                Assert.IsTrue(snapshotComponentId.HasValue, "Expected SnapshotComponentId in RefData.");
 
                 var copyEnvBuildResp = caller.ExecuteRaw("CopyEnvBuild", Method.Post, body: new CopyEnvBuildDto
                 {
                     SourceEnv = LiveParentEnvName,
                     TargetEnv = LiveChildEnvName,
                     Project = LiveProjectName,
-                    Components = snapshotComp.ComponentId.Value.ToString()
+                    Components = snapshotComponentId.Value.ToString()
                 });
                 Assert.AreEqual(HttpStatusCode.OK, copyEnvBuildResp.StatusCode, $"POST /CopyEnvBuild failed: {copyEnvBuildResp.Content}");
                 var copyEnvBuildResult = DorcApiClient.Deserialize<CopyEnvBuildResponseDto>(copyEnvBuildResp.Content);
