@@ -3,7 +3,7 @@ using Dorc.ApiModel;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RestSharp;
 using Tests.Acceptance.Support;
-using static Tests.Acceptance.Support.LiveEnvironmentFixture;
+using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 
 namespace Tests.Acceptance.DaemonStatusAndExecutionLogs
 {
@@ -78,6 +78,323 @@ namespace Tests.Acceptance.DaemonStatusAndExecutionLogs
                     ["action"] = "detach",
                     ["component"] = "server"
                 });
+            }
+        }
+
+        [TestMethod]
+        public void CreateAttachProbeAndControlDaemons_RefDataDaemonsServerDaemonsAuditAndServiceState_VerifiesLifecycleAuditAndStopStart()
+        {
+            using var caller = new DorcApiClient();
+            EnsureProvisioned(caller);
+
+            var childEnv = GetEnvironmentByName(caller, LiveChildEnvName);
+            Assert.IsNotNull(childEnv);
+
+            var suffix = Guid.NewGuid().ToString("N")[..8];
+            var syntheticDaemonName = $"DOrc_Live_Daemon_{suffix}";
+            var syntheticDisplayName = $"DOrc Live Daemon {suffix}";
+            var updatedDisplayName = $"DOrc Live Daemon Updated {suffix}";
+            var tempServerName = $"DORCDAEMONSRV_{suffix}";
+
+            int? syntheticDaemonId = null;
+            int? tempServerId = null;
+            int? netTcpDaemonId = null;
+            bool createdNetTcpDaemon = false;
+            ServerApiModel? targetServer = null;
+
+            try
+            {
+                var createDaemonResp = caller.ExecuteRaw("RefDataDaemons", Method.Post, body: new DaemonApiModel
+                {
+                    Name = syntheticDaemonName,
+                    DisplayName = syntheticDisplayName,
+                    AccountName = "Local System Account",
+                    ServiceType = "Windows Service"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, createDaemonResp.StatusCode, $"POST /RefDataDaemons failed: {createDaemonResp.Content}");
+                var createdDaemon = DorcApiClient.Deserialize<DaemonApiModel>(createDaemonResp.Content);
+                Assert.IsNotNull(createdDaemon);
+                Assert.IsGreaterThan(0, createdDaemon.Id);
+                Assert.AreEqual(syntheticDaemonName, createdDaemon.Name);
+                Assert.AreEqual(syntheticDisplayName, createdDaemon.DisplayName);
+                syntheticDaemonId = createdDaemon.Id;
+
+                var dupDaemonResp = caller.ExecuteRaw("RefDataDaemons", Method.Post, body: new DaemonApiModel
+                {
+                    Name = syntheticDaemonName,
+                    DisplayName = syntheticDisplayName,
+                    AccountName = "Local System Account",
+                    ServiceType = "Windows Service"
+                });
+                Assert.AreEqual(HttpStatusCode.Conflict, dupDaemonResp.StatusCode, "Creating a duplicate daemon must return 409 Conflict.");
+
+                var mismatchPutResp = caller.ExecuteRaw(
+                    "RefDataDaemons",
+                    Method.Put,
+                    new Dictionary<string, string> { ["id"] = (syntheticDaemonId.Value + 999).ToString() },
+                    body: createdDaemon);
+                Assert.AreEqual(HttpStatusCode.BadRequest, mismatchPutResp.StatusCode, "Mismatched route id and body Id must return 400 BadRequest.");
+
+                var notFoundPutResp = caller.ExecuteRaw(
+                    "RefDataDaemons",
+                    Method.Put,
+                    new Dictionary<string, string> { ["id"] = "99999999" },
+                    body: new DaemonApiModel
+                    {
+                        Id = 99999999,
+                        Name = "NonExistentDaemon",
+                        DisplayName = "NonExistentDaemon",
+                        AccountName = "Local System Account",
+                        ServiceType = "Windows Service"
+                    });
+                Assert.AreEqual(HttpStatusCode.NotFound, notFoundPutResp.StatusCode, "Updating a non-existent daemon must return 404 NotFound.");
+
+                var updateDaemonResp = caller.ExecuteRaw(
+                    "RefDataDaemons",
+                    Method.Put,
+                    new Dictionary<string, string> { ["id"] = syntheticDaemonId.Value.ToString() },
+                    body: new DaemonApiModel
+                    {
+                        Id = syntheticDaemonId.Value,
+                        Name = syntheticDaemonName,
+                        DisplayName = updatedDisplayName,
+                        AccountName = "Local System Account",
+                        ServiceType = "Windows Service"
+                    });
+                Assert.AreEqual(HttpStatusCode.OK, updateDaemonResp.StatusCode, updateDaemonResp.Content);
+                var updatedDaemon = DorcApiClient.Deserialize<DaemonApiModel>(updateDaemonResp.Content);
+                Assert.IsNotNull(updatedDaemon);
+                Assert.AreEqual(updatedDisplayName, updatedDaemon.DisplayName);
+
+                var createSrvResp = caller.ExecuteRaw("RefDataServers", Method.Post, body: new ServerApiModel
+                {
+                    Name = tempServerName,
+                    OsName = "Windows Server 2022 Standard",
+                    UserEditable = true
+                });
+                Assert.AreEqual(HttpStatusCode.OK, createSrvResp.StatusCode, createSrvResp.Content);
+                tempServerId = DorcApiClient.Deserialize<ServerApiModel>(createSrvResp.Content)?.ServerId;
+                Assert.IsNotNull(tempServerId);
+
+                var attachDaemonResp = caller.ExecuteRaw("ServerDaemons", Method.Post, new Dictionary<string, string>
+                {
+                    ["serverId"] = tempServerId.Value.ToString(),
+                    ["daemonId"] = syntheticDaemonId.Value.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, attachDaemonResp.StatusCode, attachDaemonResp.Content);
+
+                var getServerDaemonsResp = caller.ExecuteRaw($"ServerDaemons/{tempServerId.Value}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getServerDaemonsResp.StatusCode, getServerDaemonsResp.Content);
+                var serverDaemons = DorcApiClient.Deserialize<List<DaemonApiModel>>(getServerDaemonsResp.Content) ?? new List<DaemonApiModel>();
+                Assert.IsTrue(serverDaemons.Any(d => d.Id == syntheticDaemonId.Value && string.Equals(d.DisplayName, updatedDisplayName, StringComparison.Ordinal)));
+
+                var getServersByDaemonResp = caller.ExecuteRaw($"ServerDaemons/by-daemon/{syntheticDaemonId.Value}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getServersByDaemonResp.StatusCode, getServersByDaemonResp.Content);
+                var daemonServers = DorcApiClient.Deserialize<List<ServerApiModel>>(getServersByDaemonResp.Content) ?? new List<ServerApiModel>();
+                Assert.IsTrue(daemonServers.Any(s => s.ServerId == tempServerId.Value));
+
+                var detachDaemonResp = caller.ExecuteRaw("ServerDaemons", Method.Delete, new Dictionary<string, string>
+                {
+                    ["serverId"] = tempServerId.Value.ToString(),
+                    ["daemonId"] = syntheticDaemonId.Value.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, detachDaemonResp.StatusCode, detachDaemonResp.Content);
+
+                var getServerDaemonsAfterDetachResp = caller.ExecuteRaw($"ServerDaemons/{tempServerId.Value}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getServerDaemonsAfterDetachResp.StatusCode, getServerDaemonsAfterDetachResp.Content);
+                var serverDaemonsAfterDetach = DorcApiClient.Deserialize<List<DaemonApiModel>>(getServerDaemonsAfterDetachResp.Content) ?? new List<DaemonApiModel>();
+                Assert.IsFalse(serverDaemonsAfterDetach.Any(d => d.Id == syntheticDaemonId.Value));
+
+                var daemonAuditResp = caller.ExecuteRaw(
+                    "DaemonAudit",
+                    Method.Put,
+                    new Dictionary<string, string>
+                    {
+                        ["daemonId"] = syntheticDaemonId.Value.ToString(),
+                        ["page"] = "1",
+                        ["limit"] = "20"
+                    },
+                    body: new PagedDataOperators());
+                Assert.AreEqual(HttpStatusCode.OK, daemonAuditResp.StatusCode, daemonAuditResp.Content);
+                StringAssert.Contains(daemonAuditResp.Content ?? string.Empty, syntheticDaemonName);
+                StringAssert.Contains(daemonAuditResp.Content ?? string.Empty, updatedDisplayName);
+
+                var deleteDaemonResp = caller.ExecuteRaw("RefDataDaemons", Method.Delete, new Dictionary<string, string>
+                {
+                    ["id"] = syntheticDaemonId.Value.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, deleteDaemonResp.StatusCode, deleteDaemonResp.Content);
+
+                var deleteDaemonAgainResp = caller.ExecuteRaw("RefDataDaemons", Method.Delete, new Dictionary<string, string>
+                {
+                    ["id"] = syntheticDaemonId.Value.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.NotFound, deleteDaemonAgainResp.StatusCode, "Deleting an already-deleted daemon must return 404 NotFound.");
+                syntheticDaemonId = null;
+
+                var badStatusByIdResp = caller.ExecuteRaw("DaemonStatus", Method.Get, new Dictionary<string, string>
+                {
+                    ["id"] = "0"
+                });
+                Assert.AreEqual(HttpStatusCode.BadRequest, badStatusByIdResp.StatusCode);
+
+                var allDaemonsResp = caller.ExecuteRaw("RefDataDaemons", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, allDaemonsResp.StatusCode, allDaemonsResp.Content);
+                var allDaemons = DorcApiClient.Deserialize<List<DaemonApiModel>>(allDaemonsResp.Content) ?? new List<DaemonApiModel>();
+                var netTcpDaemon = allDaemons.FirstOrDefault(d => string.Equals(d.Name, "NetTcpActivator", StringComparison.OrdinalIgnoreCase));
+                if (netTcpDaemon == null)
+                {
+                    var createNetTcpResp = caller.ExecuteRaw("RefDataDaemons", Method.Post, body: new DaemonApiModel
+                    {
+                        Name = "NetTcpActivator",
+                        DisplayName = "Net.Tcp Listener Adapter",
+                        AccountName = "Local System Account",
+                        ServiceType = "Windows Service"
+                    });
+                    Assert.AreEqual(HttpStatusCode.OK, createNetTcpResp.StatusCode, createNetTcpResp.Content);
+                    netTcpDaemon = DorcApiClient.Deserialize<DaemonApiModel>(createNetTcpResp.Content);
+                    createdNetTcpDaemon = true;
+                }
+                Assert.IsNotNull(netTcpDaemon);
+                netTcpDaemonId = netTcpDaemon.Id;
+
+                var serversResp = caller.ExecuteRaw("RefDataServers/GetAll", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, serversResp.StatusCode, serversResp.Content);
+                var servers = DorcApiClient.Deserialize<List<ServerApiModel>>(serversResp.Content) ?? new List<ServerApiModel>();
+                targetServer = servers.FirstOrDefault(s =>
+                    string.Equals(s.Name, Environment.MachineName, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(s.Name, "DEPAPP01DV", StringComparison.OrdinalIgnoreCase));
+                Assert.IsNotNull(targetServer);
+
+                caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
+                {
+                    ["envId"] = childEnv.EnvironmentId.ToString(),
+                    ["componentId"] = targetServer.ServerId.ToString(),
+                    ["action"] = "attach",
+                    ["component"] = "server"
+                });
+
+                var stopResp = caller.ExecuteRaw("DaemonStatus", Method.Put, body: new DaemonStatusApiModel
+                {
+                    EnvName = LiveChildEnvName,
+                    ServerName = targetServer.Name,
+                    DaemonName = "NetTcpActivator",
+                    Status = "Stopping"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, stopResp.StatusCode, $"PUT /DaemonStatus (Stopping) failed: {stopResp.Content}");
+                var stoppedDto = DorcApiClient.Deserialize<DaemonStatusApiModel>(stopResp.Content);
+                Assert.IsNotNull(stoppedDto);
+                Assert.AreEqual("Stopped", stoppedDto.Status);
+
+                var statusAfterStopResp = caller.ExecuteRaw($"DaemonStatus/{Uri.EscapeDataString(LiveChildEnvName)}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, statusAfterStopResp.StatusCode, statusAfterStopResp.Content);
+                var statusesAfterStop = DorcApiClient.Deserialize<List<DaemonStatusApiModel>>(statusAfterStopResp.Content) ?? new List<DaemonStatusApiModel>();
+                var probedStopped = statusesAfterStop.FirstOrDefault(s =>
+                    string.Equals(s.ServerName, targetServer.Name, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(s.DaemonName, "NetTcpActivator", StringComparison.OrdinalIgnoreCase));
+                Assert.IsNotNull(probedStopped);
+                Assert.AreEqual("Stopped", probedStopped.Status);
+
+                var startResp = caller.ExecuteRaw("DaemonStatus", Method.Put, body: new DaemonStatusApiModel
+                {
+                    EnvName = LiveChildEnvName,
+                    ServerName = targetServer.Name,
+                    DaemonName = "NetTcpActivator",
+                    Status = "Starting"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, startResp.StatusCode, $"PUT /DaemonStatus (Starting) failed: {startResp.Content}");
+                var startedDto = DorcApiClient.Deserialize<DaemonStatusApiModel>(startResp.Content);
+                Assert.IsNotNull(startedDto);
+                Assert.AreEqual("Running", startedDto.Status);
+
+                var statusAfterStartResp = caller.ExecuteRaw($"DaemonStatus/{Uri.EscapeDataString(LiveChildEnvName)}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, statusAfterStartResp.StatusCode, statusAfterStartResp.Content);
+                var statusesAfterStart = DorcApiClient.Deserialize<List<DaemonStatusApiModel>>(statusAfterStartResp.Content) ?? new List<DaemonStatusApiModel>();
+                var probedRunning = statusesAfterStart.FirstOrDefault(s =>
+                    string.Equals(s.ServerName, targetServer.Name, StringComparison.OrdinalIgnoreCase) &&
+                    string.Equals(s.DaemonName, "NetTcpActivator", StringComparison.OrdinalIgnoreCase));
+                Assert.IsNotNull(probedRunning);
+                Assert.AreEqual("Running", probedRunning.Status);
+
+                var observationsResp = caller.ExecuteRaw("DaemonObservation", Method.Get, new Dictionary<string, string>
+                {
+                    ["daemonId"] = netTcpDaemonId.Value.ToString(),
+                    ["serverId"] = targetServer.ServerId.ToString(),
+                    ["page"] = "1",
+                    ["limit"] = "10"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, observationsResp.StatusCode, observationsResp.Content);
+                StringAssert.Contains(observationsResp.Content ?? string.Empty, "Running");
+
+                // Analytics* endpoints (Postman collection & 12-month commit d13903fa)
+                foreach (var analyticsRoute in new[]
+                {
+                    "AnalyticsDeploymentsMonth",
+                    "AnalyticsDeploymentSummary",
+                    "AnalyticsEnvironmentUsage",
+                    "AnalyticsUserActivity",
+                    "AnalyticsTimePattern",
+                    "AnalyticsComponentUsage",
+                    "AnalyticsDuration"
+                })
+                {
+                    var analyticsResp = caller.ExecuteRaw(analyticsRoute, Method.Get);
+                    Assert.AreEqual(HttpStatusCode.OK, analyticsResp.StatusCode, $"GET /{analyticsRoute} failed: {analyticsResp.Content}");
+                    Assert.IsFalse(string.IsNullOrWhiteSpace(analyticsResp.Content), $"Expected non-empty payload from GET /{analyticsRoute}.");
+                }
+            }
+            finally
+            {
+                if (targetServer != null)
+                {
+                    caller.ExecuteRaw("DaemonStatus", Method.Put, body: new DaemonStatusApiModel
+                    {
+                        EnvName = LiveChildEnvName,
+                        ServerName = targetServer.Name,
+                        DaemonName = "NetTcpActivator",
+                        Status = "Starting"
+                    });
+                    caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
+                    {
+                        ["envId"] = childEnv.EnvironmentId.ToString(),
+                        ["componentId"] = targetServer.ServerId.ToString(),
+                        ["action"] = "detach",
+                        ["component"] = "server"
+                    });
+                }
+
+                if (createdNetTcpDaemon && netTcpDaemonId.HasValue)
+                {
+                    caller.ExecuteRaw("RefDataDaemons", Method.Delete, new Dictionary<string, string>
+                    {
+                        ["id"] = netTcpDaemonId.Value.ToString()
+                    });
+                }
+
+                if (syntheticDaemonId.HasValue && tempServerId.HasValue)
+                {
+                    caller.ExecuteRaw("ServerDaemons", Method.Delete, new Dictionary<string, string>
+                    {
+                        ["serverId"] = tempServerId.Value.ToString(),
+                        ["daemonId"] = syntheticDaemonId.Value.ToString()
+                    });
+                }
+
+                if (syntheticDaemonId.HasValue)
+                {
+                    caller.ExecuteRaw("RefDataDaemons", Method.Delete, new Dictionary<string, string>
+                    {
+                        ["id"] = syntheticDaemonId.Value.ToString()
+                    });
+                }
+
+                if (tempServerId.HasValue)
+                {
+                    caller.ExecuteRaw("RefDataServers", Method.Delete, new Dictionary<string, string>
+                    {
+                        ["serverId"] = tempServerId.Value.ToString()
+                    });
+                }
             }
         }
     }

@@ -4,7 +4,7 @@ using Dorc.ApiModel;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RestSharp;
 using Tests.Acceptance.Support;
-using static Tests.Acceptance.Support.LiveEnvironmentFixture;
+using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 
 namespace Tests.Acceptance.BundledRequestsMakeLikeProd
 {
@@ -75,6 +75,21 @@ namespace Tests.Acceptance.BundledRequestsMakeLikeProd
                 Assert.HasCount(1, bundleItems);
                 createdBundleId = bundleItems[0].Id;
 
+                var byProjectResp = caller.ExecuteRaw($"BundledRequests?projectNames={Uri.EscapeDataString(LiveProjectName)}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, byProjectResp.StatusCode, byProjectResp.Content);
+                var projectBundles = DorcApiClient.Deserialize<List<BundledRequestsApiModel>>(byProjectResp.Content) ?? new List<BundledRequestsApiModel>();
+                var matchingBundle = projectBundles.FirstOrDefault(b => b.Id == createdBundleId.Value);
+                Assert.IsNotNull(matchingBundle, "Expected GET /BundledRequests?projectNames=... to include the created bundle.");
+                Assert.AreEqual(bundleName, matchingBundle.BundleName);
+                Assert.AreEqual(project.ProjectId, matchingBundle.ProjectId);
+                Assert.AreEqual(BundledRequestType.JobRequest, matchingBundle.Type);
+                Assert.AreEqual("LiveBundleJobStep1", matchingBundle.RequestName);
+                Assert.AreEqual(1, matchingBundle.Sequence);
+                Assert.IsFalse(string.IsNullOrWhiteSpace(matchingBundle.Request));
+                var parsedInnerRequest = DorcApiClient.Deserialize<RequestDto>(matchingBundle.Request);
+                Assert.IsNotNull(parsedInnerRequest, "Expected BundledRequestsApiModel.Request to contain valid serialized RequestDto JSON.");
+                Assert.AreEqual(LiveProjectName, parsedInnerRequest.Project);
+
                 var mlpResp = caller.ExecuteRaw("MakeLikeProd", Method.Put, body: new
                 {
                     TargetEnv = LiveChildEnvName,
@@ -83,6 +98,7 @@ namespace Tests.Acceptance.BundledRequestsMakeLikeProd
                     BundleProperties = new List<RequestProperty>()
                 });
                 Assert.AreEqual(HttpStatusCode.OK, mlpResp.StatusCode, $"PUT /MakeLikeProd failed: {mlpResp.Content}");
+                StringAssert.Contains(mlpResp.Content ?? string.Empty, "The requests have been passed to DOrc");
 
                 var statusesResp = caller.ExecuteRaw(
                     "RequestStatuses",
@@ -127,6 +143,116 @@ namespace Tests.Acceptance.BundledRequestsMakeLikeProd
                         ["id"] = createdBundleId.Value.ToString()
                     });
                 }
+            }
+        }
+
+        [TestMethod]
+        public void Request_BundleManifestDiscoveryAndValidation_ResolvesValidComponentsRejectsUnknownComponentsAndExpandsBundleDeployments()
+        {
+            using var caller = new DorcApiClient();
+            var buildUri = EnsureProvisioned(caller);
+
+            var projectResp = caller.ExecuteRaw($"RefDataProjects/{Uri.EscapeDataString(LiveProjectName)}", Method.Get);
+            Assert.AreEqual(HttpStatusCode.OK, projectResp.StatusCode, projectResp.Content);
+            var project = DorcApiClient.Deserialize<ProjectApiModel>(projectResp.Content);
+            Assert.IsNotNull(project);
+
+            var baseBuildLocalPath = new Uri(buildUri).LocalPath;
+            var parentShareDir = Path.GetDirectoryName(baseBuildLocalPath) ?? baseBuildLocalPath;
+            var runId = Guid.NewGuid().ToString("N")[..8];
+            var validBundleDir = Path.Combine(parentShareDir, $"DOrc_Bundle_Valid_{runId}_bundle.json");
+            var invalidBundleDir = Path.Combine(parentShareDir, $"DOrc_Bundle_Invalid_{runId}_bundle.json");
+
+            try
+            {
+                Directory.CreateDirectory(validBundleDir);
+                Directory.CreateDirectory(invalidBundleDir);
+
+                var validManifestJson = JsonSerializer.Serialize(new
+                {
+                    Items = new[]
+                    {
+                        new { Component = SnapshotComponentName, BuildDefinition = "BundleDefA", Build = $"BundleBuild_A_{runId}" },
+                        new { Component = NetFxRunnerComponentName, BuildDefinition = "BundleDefB", Build = $"BundleBuild_B_{runId}" },
+                        new { Component = SnapshotComponentName, BuildDefinition = "BundleDefA", Build = $"BundleBuild_A_{runId}" }
+                    }
+                });
+                File.WriteAllText(Path.Combine(validBundleDir, "bundle.json"), validManifestJson);
+
+                var invalidManifestJson = JsonSerializer.Serialize(new
+                {
+                    Items = new[]
+                    {
+                        new { Component = SnapshotComponentName, BuildDefinition = "BundleDefA", Build = $"BundleBuild_A_{runId}" },
+                        new { Component = $"Unknown_Bundle_Component_{runId}", BuildDefinition = "BundleDefX", Build = $"BundleBuild_X_{runId}" }
+                    }
+                });
+                File.WriteAllText(Path.Combine(invalidBundleDir, "bundle.json"), invalidManifestJson);
+
+                var validBundleUri = new Uri(validBundleDir).AbsoluteUri;
+                var invalidBundleUri = new Uri(invalidBundleDir).AbsoluteUri;
+
+                // 1. GET /Request/BundleComponents with empty buildUrl returns 200 OK with empty list
+                var emptyBundleResp = caller.ExecuteRaw("Request/BundleComponents", Method.Get, new Dictionary<string, string>
+                {
+                    ["projectId"] = project.ProjectId.ToString(),
+                    ["buildDefinitionName"] = "BundleRelease",
+                    ["buildUrl"] = string.Empty
+                });
+                Assert.AreEqual(HttpStatusCode.OK, emptyBundleResp.StatusCode, emptyBundleResp.Content);
+                var emptyComponents = DorcApiClient.Deserialize<List<string>>(emptyBundleResp.Content) ?? new List<string>();
+                Assert.IsEmpty(emptyComponents, "Expected empty buildUrl to return an empty component list.");
+
+                // 2. GET /Request/BundleComponents with valid bundle.json returns distinct project component names
+                var validBundleResp = caller.ExecuteRaw("Request/BundleComponents", Method.Get, new Dictionary<string, string>
+                {
+                    ["projectId"] = project.ProjectId.ToString(),
+                    ["buildDefinitionName"] = "BundleRelease",
+                    ["buildUrl"] = validBundleUri
+                });
+                Assert.AreEqual(HttpStatusCode.OK, validBundleResp.StatusCode, $"GET /Request/BundleComponents (valid) failed: {validBundleResp.Content}");
+                var resolvedComponents = DorcApiClient.Deserialize<List<string>>(validBundleResp.Content) ?? new List<string>();
+                Assert.HasCount(2, resolvedComponents, $"Expected 2 distinct components from valid bundle.json, got: {string.Join(", ", resolvedComponents)}");
+                CollectionAssert.Contains(resolvedComponents, SnapshotComponentName);
+                CollectionAssert.Contains(resolvedComponents, NetFxRunnerComponentName);
+
+                // 3. GET /Request/BundleComponents with unknown component in bundle.json returns 400 BadRequest (commit 58147d1b)
+                var invalidBundleResp = caller.ExecuteRaw("Request/BundleComponents", Method.Get, new Dictionary<string, string>
+                {
+                    ["projectId"] = project.ProjectId.ToString(),
+                    ["buildDefinitionName"] = "BundleRelease",
+                    ["buildUrl"] = invalidBundleUri
+                });
+                Assert.AreEqual(HttpStatusCode.BadRequest, invalidBundleResp.StatusCode,
+                    $"Expected 400 BadRequest when bundle.json references non-existent component, got {(int)invalidBundleResp.StatusCode}: {invalidBundleResp.Content}");
+                StringAssert.Contains(invalidBundleResp.Content ?? string.Empty, "Bundle validation failed");
+                StringAssert.Contains(invalidBundleResp.Content ?? string.Empty, $"Unknown_Bundle_Component_{runId}");
+
+                // 4. POST /Request with valid bundle.json expands into separate requests per Build group in bundle.json (commit 625b048d)
+                var submitBundleResp = caller.ExecuteRaw("Request", Method.Post, body: new RequestDto
+                {
+                    Project = LiveProjectName,
+                    Environment = LiveParentEnvName,
+                    BuildUrl = validBundleUri,
+                    BuildText = "BundleRelease",
+                    BuildNum = $"Bundle_{runId}",
+                    Components = new List<string> { SnapshotComponentName, NetFxRunnerComponentName }
+                });
+                Assert.AreEqual(HttpStatusCode.OK, submitBundleResp.StatusCode, $"POST /Request with bundle.json failed: {submitBundleResp.Content}");
+                var createdFirst = DorcApiClient.Deserialize<RequestStatusDto>(submitBundleResp.Content);
+                Assert.IsNotNull(createdFirst);
+                Assert.IsGreaterThan(0, createdFirst.Id, $"Expected positive request ID for expanded bundle deployment: {submitBundleResp.Content}");
+
+                var finalFirst = WaitForTerminalRequestStatus(caller, createdFirst.Id, TimeSpan.FromMinutes(3));
+                Assert.AreEqual("Completed", finalFirst.Status,
+                    $"Expected first expanded bundle request {createdFirst.Id} to complete, got '{finalFirst.Status}'. Log: {GetCombinedRequestLog(caller, createdFirst.Id)}");
+                Assert.AreEqual($"BundleBuild_A_{runId}", finalFirst.BuildNumber,
+                    "Expected expanded bundle request to carry the component's per-item Build number from bundle.json.");
+            }
+            finally
+            {
+                try { if (Directory.Exists(validBundleDir)) Directory.Delete(validBundleDir, true); } catch { }
+                try { if (Directory.Exists(invalidBundleDir)) Directory.Delete(invalidBundleDir, true); } catch { }
             }
         }
     }

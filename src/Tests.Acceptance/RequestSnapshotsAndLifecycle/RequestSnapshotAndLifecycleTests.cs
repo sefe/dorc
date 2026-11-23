@@ -3,7 +3,7 @@ using Dorc.ApiModel;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RestSharp;
 using Tests.Acceptance.Support;
-using static Tests.Acceptance.Support.LiveEnvironmentFixture;
+using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 
 namespace Tests.Acceptance.RequestSnapshotsAndLifecycle
 {
@@ -141,6 +141,33 @@ namespace Tests.Acceptance.RequestSnapshotsAndLifecycle
                 Assert.AreEqual(HttpStatusCode.OK, create1Resp.StatusCode, create1Resp.Content);
                 var created1 = DorcApiClient.Deserialize<RequestStatusDto>(create1Resp.Content);
                 Assert.IsNotNull(created1);
+                Assert.IsGreaterThan(0, created1.Id);
+                Assert.IsTrue(
+                    new[] { "Pending", "Running", "Completed" }.Contains(created1.Status, StringComparer.OrdinalIgnoreCase),
+                    $"Expected POST /Request initial status to be Pending/Running/Completed, got '{created1.Status}'.");
+
+                var statusLookupResp = caller.ExecuteRaw("RequestStatuses", Method.Get, new Dictionary<string, string>
+                {
+                    ["requestId"] = created1.Id.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, statusLookupResp.StatusCode, statusLookupResp.Content);
+                var statusLookup = DorcApiClient.Deserialize<DeploymentRequestApiModel>(statusLookupResp.Content);
+                Assert.IsNotNull(statusLookup);
+                Assert.AreEqual(created1.Id, statusLookup.Id);
+                Assert.AreEqual(LiveProjectName, statusLookup.Project);
+                Assert.AreEqual(LiveChildEnvName, statusLookup.EnvironmentName);
+
+                var requestLookupResp = caller.ExecuteRaw("Request", Method.Get, new Dictionary<string, string>
+                {
+                    ["id"] = created1.Id.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, requestLookupResp.StatusCode, requestLookupResp.Content);
+                var requestLookup = DorcApiClient.Deserialize<RequestStatusDto>(requestLookupResp.Content);
+                Assert.IsNotNull(requestLookup);
+                Assert.AreEqual(created1.Id, requestLookup.Id);
+                Assert.IsTrue(
+                    new[] { "Pending", "Running", "Completed" }.Contains(requestLookup.Status, StringComparer.OrdinalIgnoreCase),
+                    $"Expected GET /Request?id={created1.Id} status to be Pending/Running/Completed, got '{requestLookup.Status}'.");
 
                 var final1 = WaitForTerminalRequestStatus(caller, created1.Id, TimeSpan.FromMinutes(3));
                 Assert.AreEqual("Completed", final1.Status, $"Expected Request #1 ({created1.Id}) to complete.");

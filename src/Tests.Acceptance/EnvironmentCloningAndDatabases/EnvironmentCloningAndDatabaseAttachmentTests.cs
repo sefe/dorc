@@ -3,7 +3,7 @@ using Dorc.ApiModel;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RestSharp;
 using Tests.Acceptance.Support;
-using static Tests.Acceptance.Support.LiveEnvironmentFixture;
+using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 
 namespace Tests.Acceptance.EnvironmentCloningAndDatabases
 {
@@ -186,6 +186,505 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                         ["component"] = "database"
                     });
                     caller.ExecuteRaw($"RefDataDatabases/{db1Id.Value}", Method.Delete);
+                }
+            }
+        }
+
+        [TestMethod]
+        public void CreateAttachDetachAndDeleteServerAndDatabase_RefDataServersAndDatabasesLifecycle_VerifiesTagsAttachmentUsersAuditAndDeletionNoContent()
+        {
+            using var caller = new DorcApiClient();
+            EnsureProvisioned(caller);
+
+            var childEnv = GetEnvironmentByName(caller, LiveChildEnvName);
+            Assert.IsNotNull(childEnv);
+
+            var suffix = Guid.NewGuid().ToString("N")[..8];
+            var serverName = $"DORCSRV_{suffix}";
+            var dbName = $"DORCDB_{suffix}";
+            var dbServerName = $"DORCSQL_{suffix}\\INST01";
+
+            int? serverId = null;
+            int? dbId = null;
+            int? secondDbId = null;
+
+            try
+            {
+                var createSrvResp = caller.ExecuteRaw("RefDataServers", Method.Post, body: new ServerApiModel
+                {
+                    Name = serverName,
+                    OsName = "Windows Server 2022 Standard",
+                    UserEditable = true
+                });
+                Assert.AreEqual(HttpStatusCode.OK, createSrvResp.StatusCode, $"POST /RefDataServers failed: {createSrvResp.Content}");
+                var createdSrv = DorcApiClient.Deserialize<ServerApiModel>(createSrvResp.Content);
+                Assert.IsNotNull(createdSrv);
+                Assert.IsGreaterThan(0, createdSrv.ServerId);
+                Assert.AreEqual(serverName, createdSrv.Name);
+                Assert.AreEqual("Windows Server 2022 Standard", createdSrv.OsName);
+                serverId = createdSrv.ServerId;
+
+                var dupSrvResp = caller.ExecuteRaw("RefDataServers", Method.Post, body: new ServerApiModel
+                {
+                    Name = serverName,
+                    OsName = "Windows Server 2022 Standard",
+                    UserEditable = true
+                });
+                if (dupSrvResp.StatusCode == HttpStatusCode.OK)
+                {
+                    var dupSrv = DorcApiClient.Deserialize<ServerApiModel>(dupSrvResp.Content);
+                    Assert.AreEqual(0, dupSrv?.ServerId ?? 0, "Duplicate server creation must not assign a new positive ServerId.");
+                }
+
+                var getSrvByNameResp = caller.ExecuteRaw($"RefDataServers/{Uri.EscapeDataString(serverName)}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getSrvByNameResp.StatusCode, getSrvByNameResp.Content);
+                var srvByName = DorcApiClient.Deserialize<ServerApiModel>(getSrvByNameResp.Content);
+                Assert.IsNotNull(srvByName);
+                Assert.AreEqual(serverId.Value, srvByName.ServerId);
+                Assert.AreEqual(serverName, srvByName.Name);
+
+                var getSrvByIdResp = caller.ExecuteRaw($"RefDataServers/ById/{serverId.Value}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getSrvByIdResp.StatusCode, getSrvByIdResp.Content);
+                var srvById = DorcApiClient.Deserialize<ServerApiModel>(getSrvByIdResp.Content);
+                Assert.IsNotNull(srvById);
+                Assert.AreEqual(serverId.Value, srvById.ServerId);
+                Assert.AreEqual(serverName, srvById.Name);
+
+                var updateSrvResp = caller.ExecuteRaw(
+                    "RefDataServers",
+                    Method.Put,
+                    new Dictionary<string, string> { ["id"] = serverId.Value.ToString() },
+                    body: new ServerApiModel
+                    {
+                        ServerId = serverId.Value,
+                        Name = serverName,
+                        OsName = "Windows Server 2022 Standard",
+                        UserEditable = true,
+                        Tags = new[] { "DevOpsTest", "AppTier" }
+                    });
+                Assert.AreEqual(HttpStatusCode.OK, updateSrvResp.StatusCode, $"PUT /RefDataServers failed: {updateSrvResp.Content}");
+                var updatedSrv = DorcApiClient.Deserialize<ServerApiModel>(updateSrvResp.Content);
+                Assert.IsNotNull(updatedSrv);
+                CollectionAssert.Contains(updatedSrv.Tags.ToList(), "DevOpsTest");
+                CollectionAssert.Contains(updatedSrv.Tags.ToList(), "AppTier");
+
+                var attachSrvResp = caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
+                {
+                    ["envId"] = childEnv.EnvironmentId.ToString(),
+                    ["componentId"] = serverId.Value.ToString(),
+                    ["action"] = "attach",
+                    ["component"] = "server"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, attachSrvResp.StatusCode, attachSrvResp.Content);
+                var attachSrvResult = DorcApiClient.Deserialize<ApiBoolResult>(attachSrvResp.Content);
+                Assert.IsTrue(attachSrvResult?.Result ?? false, $"Expected server attach Result=true, got: {attachSrvResp.Content}");
+
+                var dupAttachSrvResp = caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
+                {
+                    ["envId"] = childEnv.EnvironmentId.ToString(),
+                    ["componentId"] = serverId.Value.ToString(),
+                    ["action"] = "attach",
+                    ["component"] = "server"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, dupAttachSrvResp.StatusCode, dupAttachSrvResp.Content);
+
+                var badActionSrvResp = caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
+                {
+                    ["envId"] = childEnv.EnvironmentId.ToString(),
+                    ["componentId"] = serverId.Value.ToString(),
+                    ["action"] = "invalid_action",
+                    ["component"] = "server"
+                });
+                var badActionSrvResult = DorcApiClient.Deserialize<ApiBoolResult>(badActionSrvResp.Content);
+                Assert.IsFalse(badActionSrvResult?.Result ?? true, "Invalid component action must return Result=false.");
+
+                var envSrvsResp = caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Get, new Dictionary<string, string>
+                {
+                    ["id"] = childEnv.EnvironmentId.ToString(),
+                    ["type"] = "1"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, envSrvsResp.StatusCode, envSrvsResp.Content);
+                var envSrvsDto = DorcApiClient.Deserialize<EnvironmentComponentsDto<ServerApiModel>>(envSrvsResp.Content);
+                Assert.IsNotNull(envSrvsDto?.Result);
+                Assert.AreEqual(
+                    1,
+                    envSrvsDto.Result.Count(s => s.ServerId == serverId.Value),
+                    "Re-attaching an already-attached server must be idempotent and never create duplicate environment-server rows.");
+                var attachedSrv = envSrvsDto.Result.Single(s => s.ServerId == serverId.Value);
+                Assert.AreEqual(serverName, attachedSrv.Name);
+                CollectionAssert.Contains(attachedSrv.Tags.ToList(), "DevOpsTest");
+
+                var srvAuditResp = caller.ExecuteRaw(
+                    "ServerAudit",
+                    Method.Put,
+                    new Dictionary<string, string> { ["page"] = "1", ["limit"] = "20" },
+                    body: new PagedDataOperators());
+                Assert.AreEqual(HttpStatusCode.OK, srvAuditResp.StatusCode, srvAuditResp.Content);
+                StringAssert.Contains(srvAuditResp.Content ?? string.Empty, serverName);
+
+                var detachSrvResp = caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
+                {
+                    ["envId"] = childEnv.EnvironmentId.ToString(),
+                    ["componentId"] = serverId.Value.ToString(),
+                    ["action"] = "detach",
+                    ["component"] = "server"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, detachSrvResp.StatusCode, detachSrvResp.Content);
+                Assert.IsTrue(DorcApiClient.Deserialize<ApiBoolResult>(detachSrvResp.Content)?.Result ?? false);
+
+                var deleteSrvResp = caller.ExecuteRaw("RefDataServers", Method.Delete, new Dictionary<string, string>
+                {
+                    ["serverId"] = serverId.Value.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, deleteSrvResp.StatusCode, deleteSrvResp.Content);
+                Assert.IsTrue(DorcApiClient.Deserialize<ApiBoolResult>(deleteSrvResp.Content)?.Result ?? false);
+
+                var getDeletedSrvByName = caller.ExecuteRaw($"RefDataServers/{Uri.EscapeDataString(serverName)}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.NoContent, getDeletedSrvByName.StatusCode, "GET /RefDataServers/{name} after deletion must return 204 NoContent.");
+                var getDeletedSrvById = caller.ExecuteRaw($"RefDataServers/ById/{serverId.Value}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.NotFound, getDeletedSrvById.StatusCode, "GET /RefDataServers/ById/{id} after deletion must return 404 NotFound.");
+                StringAssert.Contains(getDeletedSrvById.Content ?? string.Empty, "Server not found");
+                serverId = null;
+
+                var createDbResp = caller.ExecuteRaw("RefDataDatabases", Method.Post, body: new DatabaseApiModel
+                {
+                    Name = dbName,
+                    ServerName = dbServerName,
+                    DatabaseType = DatabaseType.SqlServer,
+                    AdGroup = "OTHER",
+                    Tags = new[] { "DevOpsDbTag" }
+                });
+                Assert.AreEqual(HttpStatusCode.OK, createDbResp.StatusCode, $"POST /RefDataDatabases failed: {createDbResp.Content}");
+                var createdDb = DorcApiClient.Deserialize<DatabaseApiModel>(createDbResp.Content);
+                Assert.IsNotNull(createdDb);
+                Assert.IsGreaterThan(0, createdDb.Id);
+                Assert.AreEqual(dbName, createdDb.Name);
+                Assert.AreEqual(dbServerName, createdDb.ServerName);
+                Assert.AreEqual("OTHER", createdDb.AdGroup);
+                dbId = createdDb.Id;
+
+                var getDbListResp = caller.ExecuteRaw("RefDataDatabases", Method.Get, new Dictionary<string, string>
+                {
+                    ["name"] = dbName,
+                    ["server"] = dbServerName
+                });
+                Assert.AreEqual(HttpStatusCode.OK, getDbListResp.StatusCode, getDbListResp.Content);
+                var dbList = DorcApiClient.Deserialize<List<DatabaseApiModel>>(getDbListResp.Content) ?? new List<DatabaseApiModel>();
+                Assert.HasCount(1, dbList);
+                Assert.AreEqual(dbId.Value, dbList[0].Id);
+                Assert.AreEqual(dbName, dbList[0].Name);
+
+                var getDbByIdResp = caller.ExecuteRaw($"RefDataDatabases/{dbId.Value}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getDbByIdResp.StatusCode, getDbByIdResp.Content);
+                var dbById = DorcApiClient.Deserialize<DatabaseApiModel>(getDbByIdResp.Content);
+                Assert.IsNotNull(dbById);
+                Assert.AreEqual(dbId.Value, dbById.Id);
+                Assert.AreEqual(dbName, dbById.Name);
+
+                var unattachedDbUsersResp = caller.ExecuteRaw("RefDataDatabaseUsers", Method.Get, new Dictionary<string, string>
+                {
+                    ["id"] = dbId.Value.ToString(),
+                    ["envId"] = childEnv.EnvironmentId.ToString()
+                });
+                Assert.AreEqual(
+                    HttpStatusCode.BadRequest,
+                    unattachedDbUsersResp.StatusCode,
+                    "GET /RefDataDatabaseUsers for a database not attached to the environment must return 400 BadRequest.");
+
+                // RelatedResources before environment attachment (#967 / commit ba22d7a8)
+                var relatedUnattachedResp = caller.ExecuteRaw("RefDataDatabases/RelatedResources", Method.Get, new Dictionary<string, string>
+                {
+                    ["id"] = dbId.Value.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, relatedUnattachedResp.StatusCode, relatedUnattachedResp.Content);
+                var relatedUnattached = DorcApiClient.Deserialize<DatabaseRelatedResourcesApiModel>(relatedUnattachedResp.Content);
+                Assert.IsNotNull(relatedUnattached);
+                Assert.IsEmpty(relatedUnattached.Environments ?? Array.Empty<EnvironmentShortApiModel>(), "Unattached database must report zero related environments.");
+
+                var relatedBadParamsResp = caller.ExecuteRaw("RefDataDatabases/RelatedResources", Method.Get);
+                Assert.AreEqual(HttpStatusCode.BadRequest, relatedBadParamsResp.StatusCode, "GET /RefDataDatabases/RelatedResources without id or name must return 400 BadRequest.");
+
+                var relatedNotFoundResp = caller.ExecuteRaw("RefDataDatabases/RelatedResources", Method.Get, new Dictionary<string, string>
+                {
+                    ["id"] = "99999999"
+                });
+                Assert.AreEqual(HttpStatusCode.NotFound, relatedNotFoundResp.StatusCode, "GET /RefDataDatabases/RelatedResources for unknown id must return 404 NotFound.");
+
+                // Put ByPage and GetDatabasServerNameslist
+                var dbByPageResp = caller.ExecuteRaw(
+                    "RefDataDatabases/ByPage",
+                    Method.Put,
+                    new Dictionary<string, string> { ["page"] = "1", ["limit"] = "20" },
+                    body: new PagedDataOperators
+                    {
+                        Filters = new List<PagedDataFilter>
+                        {
+                            new PagedDataFilter { Path = "Name", FilterValue = dbName }
+                        }
+                    });
+                Assert.AreEqual(HttpStatusCode.OK, dbByPageResp.StatusCode, dbByPageResp.Content);
+                var dbByPage = DorcApiClient.Deserialize<GetDatabaseApiModelListResponseDto>(dbByPageResp.Content);
+                Assert.IsNotNull(dbByPage?.Items);
+                Assert.IsTrue(dbByPage.Items.Any(d => d.Id == dbId.Value), "PUT /RefDataDatabases/ByPage must return the newly created database.");
+
+                var dbServerListResp = caller.ExecuteRaw("RefDataDatabases/GetDatabasServerNameslist", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, dbServerListResp.StatusCode, dbServerListResp.Content);
+                var dbServerNames = DorcApiClient.Deserialize<List<string>>(dbServerListResp.Content) ?? new List<string>();
+                Assert.IsTrue(dbServerNames.Any(s => string.Equals(s, dbServerName, StringComparison.OrdinalIgnoreCase)),
+                    "GET /RefDataDatabases/GetDatabasServerNameslist must include the created database server name.");
+
+                var attachDbResp = caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
+                {
+                    ["envId"] = childEnv.EnvironmentId.ToString(),
+                    ["componentId"] = dbId.Value.ToString(),
+                    ["action"] = "attach",
+                    ["component"] = "database"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, attachDbResp.StatusCode, attachDbResp.Content);
+                Assert.IsTrue(DorcApiClient.Deserialize<ApiBoolResult>(attachDbResp.Content)?.Result ?? false);
+
+                // RelatedResources after environment attachment (by id and by name+server)
+                var relatedAttachedByIdResp = caller.ExecuteRaw("RefDataDatabases/RelatedResources", Method.Get, new Dictionary<string, string>
+                {
+                    ["id"] = dbId.Value.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, relatedAttachedByIdResp.StatusCode, relatedAttachedByIdResp.Content);
+                var relatedAttachedById = DorcApiClient.Deserialize<DatabaseRelatedResourcesApiModel>(relatedAttachedByIdResp.Content);
+                Assert.IsNotNull(relatedAttachedById?.Environments);
+                Assert.IsTrue(relatedAttachedById.Environments.Any(e => string.Equals(e.EnvironmentName, LiveChildEnvName, StringComparison.OrdinalIgnoreCase)));
+
+                var relatedAttachedByNameResp = caller.ExecuteRaw("RefDataDatabases/RelatedResources", Method.Get, new Dictionary<string, string>
+                {
+                    ["name"] = dbName,
+                    ["server"] = dbServerName
+                });
+                Assert.AreEqual(HttpStatusCode.OK, relatedAttachedByNameResp.StatusCode, relatedAttachedByNameResp.Content);
+                var relatedAttachedByName = DorcApiClient.Deserialize<DatabaseRelatedResourcesApiModel>(relatedAttachedByNameResp.Content);
+                Assert.IsNotNull(relatedAttachedByName?.Environments);
+                Assert.IsTrue(relatedAttachedByName.Environments.Any(e => string.Equals(e.EnvironmentName, LiveChildEnvName, StringComparison.OrdinalIgnoreCase)));
+
+                // RefDataDatabases/ByTag: valid tag, missing tag, invalid semicolon tag, and duplicate/ambiguous tag collision (commits 4ff050e2 & 0f432a71)
+                var dbByTagOkResp = caller.ExecuteRaw("RefDataDatabases/ByTag", Method.Get, new Dictionary<string, string>
+                {
+                    ["envName"] = LiveChildEnvName,
+                    ["tag"] = "DevOpsDbTag"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, dbByTagOkResp.StatusCode, dbByTagOkResp.Content);
+                var dbByTagModel = DorcApiClient.Deserialize<DatabaseApiModel>(dbByTagOkResp.Content);
+                Assert.IsNotNull(dbByTagModel);
+                Assert.AreEqual(dbId.Value, dbByTagModel.Id);
+
+                var dbByTagNotFoundResp = caller.ExecuteRaw("RefDataDatabases/ByTag", Method.Get, new Dictionary<string, string>
+                {
+                    ["envName"] = LiveChildEnvName,
+                    ["tag"] = "NonExistentTag_XYZ"
+                });
+                Assert.AreEqual(HttpStatusCode.NotFound, dbByTagNotFoundResp.StatusCode);
+
+                var dbByTagInvalidResp = caller.ExecuteRaw("RefDataDatabases/ByTag", Method.Get, new Dictionary<string, string>
+                {
+                    ["envName"] = LiveChildEnvName,
+                    ["tag"] = "Invalid;MultiTag"
+                });
+                Assert.AreEqual(HttpStatusCode.BadRequest, dbByTagInvalidResp.StatusCode);
+
+                // Attach a second DB with the same tag "DevOpsDbTag" to verify deterministic 400 BadRequest on ambiguous tag match
+                var createSecondDbResp = caller.ExecuteRaw("RefDataDatabases", Method.Post, body: new DatabaseApiModel
+                {
+                    Name = $"{dbName}_2",
+                    ServerName = dbServerName,
+                    DatabaseType = DatabaseType.SqlServer,
+                    AdGroup = "OTHER",
+                    Tags = new[] { "DevOpsDbTag" }
+                });
+                Assert.AreEqual(HttpStatusCode.OK, createSecondDbResp.StatusCode, createSecondDbResp.Content);
+                var createdSecondDb = DorcApiClient.Deserialize<DatabaseApiModel>(createSecondDbResp.Content);
+                Assert.IsNotNull(createdSecondDb);
+                secondDbId = createdSecondDb.Id;
+
+                var attachSecondDbResp = caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
+                {
+                    ["envId"] = childEnv.EnvironmentId.ToString(),
+                    ["componentId"] = secondDbId.Value.ToString(),
+                    ["action"] = "attach",
+                    ["component"] = "database"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, attachSecondDbResp.StatusCode, attachSecondDbResp.Content);
+
+                var dbByTagAmbiguousResp = caller.ExecuteRaw("RefDataDatabases/ByTag", Method.Get, new Dictionary<string, string>
+                {
+                    ["envName"] = LiveChildEnvName,
+                    ["tag"] = "DevOpsDbTag"
+                });
+                Assert.AreEqual(HttpStatusCode.BadRequest, dbByTagAmbiguousResp.StatusCode,
+                    $"Expected 400 BadRequest when multiple databases in '{LiveChildEnvName}' share tag 'DevOpsDbTag', got {(int)dbByTagAmbiguousResp.StatusCode}: {dbByTagAmbiguousResp.Content}");
+
+                // Detach and delete the second DB immediately after verifying ambiguous tag rejection
+                caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
+                {
+                    ["envId"] = childEnv.EnvironmentId.ToString(),
+                    ["componentId"] = secondDbId.Value.ToString(),
+                    ["action"] = "detach",
+                    ["component"] = "database"
+                });
+                caller.ExecuteRaw("RefDataDatabases", Method.Delete, new Dictionary<string, string>
+                {
+                    ["databaseId"] = secondDbId.Value.ToString()
+                });
+                secondDbId = null;
+
+                // RefDataEnvironmentsHistory, RefDataSqlPorts, and ResetAppPassword/ForUser (Postman endpoints)
+                var envHistResp = caller.ExecuteRaw("RefDataEnvironmentsHistory", Method.Get, new Dictionary<string, string>
+                {
+                    ["id"] = childEnv.EnvironmentId.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, envHistResp.StatusCode, envHistResp.Content);
+                var envHistory = DorcApiClient.Deserialize<List<EnvironmentHistoryApiModel>>(envHistResp.Content) ?? new List<EnvironmentHistoryApiModel>();
+                Assert.IsNotEmpty(envHistory, "Expected environment history entries after server/database attach operations.");
+                var latestHistory = envHistory[0];
+                var putHistResp = caller.ExecuteRaw("RefDataEnvironmentsHistory", Method.Put, body: new EnvironmentHistoryApiModel
+                {
+                    Id = latestHistory.Id,
+                    EnvName = LiveChildEnvName,
+                    Comment = $"Live regression comment {suffix}"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, putHistResp.StatusCode, putHistResp.Content);
+
+                var sqlPortsResp = caller.ExecuteRaw("RefDataSqlPorts", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, sqlPortsResp.StatusCode, sqlPortsResp.Content);
+
+                var sqlPortNotFoundResp = caller.ExecuteRaw("RefDataSqlPorts/ByInstance", Method.Get, new Dictionary<string, string>
+                {
+                    ["instanceName"] = "NotExistingSqlInstance_XYZ"
+                });
+                Assert.AreEqual(HttpStatusCode.NotFound, sqlPortNotFoundResp.StatusCode);
+
+                var resetPwdResp = caller.ExecuteRaw("ResetAppPassword/ForUser", Method.Put, new Dictionary<string, string>
+                {
+                    ["envFilter"] = "Endur",
+                    ["envName"] = LiveChildEnvName,
+                    ["username"] = "SVC-LIVE-TFSTEST"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, resetPwdResp.StatusCode, resetPwdResp.Content);
+                var resetPwdResult = DorcApiClient.Deserialize<ApiBoolResult>(resetPwdResp.Content);
+                Assert.IsNotNull(resetPwdResult);
+                Assert.IsFalse(resetPwdResult.Result, "Expected ResetAppPassword/ForUser to return Result=false when no matching tag database is attached.");
+                StringAssert.Contains(resetPwdResult.Message ?? string.Empty, "No application database found");
+
+                var envDbsResp = caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Get, new Dictionary<string, string>
+                {
+                    ["id"] = childEnv.EnvironmentId.ToString(),
+                    ["type"] = "0"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, envDbsResp.StatusCode, envDbsResp.Content);
+                var envDbsDto = DorcApiClient.Deserialize<EnvironmentComponentsDto<DatabaseApiModel>>(envDbsResp.Content);
+                Assert.IsNotNull(envDbsDto?.Result);
+                Assert.IsTrue(envDbsDto.Result.Any(d => d.Id == dbId.Value && string.Equals(d.Name, dbName, StringComparison.OrdinalIgnoreCase)));
+
+                var envsForDbResp = caller.ExecuteRaw("RefDataEnvironmentsDetails/GetEnvironmentsForDatabase", Method.Get, new Dictionary<string, string>
+                {
+                    ["serverName"] = dbServerName,
+                    ["databaseName"] = dbName
+                });
+                Assert.AreEqual(HttpStatusCode.OK, envsForDbResp.StatusCode, envsForDbResp.Content);
+                StringAssert.Contains(envsForDbResp.Content ?? string.Empty, LiveChildEnvName);
+
+                var attachedDbUsersResp = caller.ExecuteRaw("RefDataDatabaseUsers", Method.Get, new Dictionary<string, string>
+                {
+                    ["id"] = dbId.Value.ToString(),
+                    ["envId"] = childEnv.EnvironmentId.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, attachedDbUsersResp.StatusCode, attachedDbUsersResp.Content);
+
+                var dbPermsOkResp = caller.ExecuteRaw("RefDataDatabaseUsers/GetDbUsersPermissions", Method.Get, new Dictionary<string, string>
+                {
+                    ["serverName"] = dbServerName,
+                    ["databaseName"] = dbName
+                });
+                Assert.AreEqual(HttpStatusCode.OK, dbPermsOkResp.StatusCode, dbPermsOkResp.Content);
+
+                var dbPermsBadTagResp = caller.ExecuteRaw("RefDataDatabaseUsers/GetDbUsersPermissions", Method.Get, new Dictionary<string, string>
+                {
+                    ["serverName"] = dbServerName,
+                    ["databaseName"] = dbName,
+                    ["tag"] = "Invalid;MultiTag"
+                });
+                Assert.AreEqual(HttpStatusCode.BadRequest, dbPermsBadTagResp.StatusCode);
+
+                var dbAuditResp = caller.ExecuteRaw(
+                    "DatabaseAudit",
+                    Method.Put,
+                    new Dictionary<string, string> { ["page"] = "1", ["limit"] = "20" },
+                    body: new PagedDataOperators());
+                Assert.AreEqual(HttpStatusCode.OK, dbAuditResp.StatusCode, dbAuditResp.Content);
+                StringAssert.Contains(dbAuditResp.Content ?? string.Empty, dbName);
+
+                var detachDbResp = caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
+                {
+                    ["envId"] = childEnv.EnvironmentId.ToString(),
+                    ["componentId"] = dbId.Value.ToString(),
+                    ["action"] = "detach",
+                    ["component"] = "database"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, detachDbResp.StatusCode, detachDbResp.Content);
+                Assert.IsTrue(DorcApiClient.Deserialize<ApiBoolResult>(detachDbResp.Content)?.Result ?? false);
+
+                var deleteDbResp = caller.ExecuteRaw("RefDataDatabases", Method.Delete, new Dictionary<string, string>
+                {
+                    ["databaseId"] = dbId.Value.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, deleteDbResp.StatusCode, deleteDbResp.Content);
+                Assert.IsTrue(DorcApiClient.Deserialize<ApiBoolResult>(deleteDbResp.Content)?.Result ?? false);
+
+                var getDeletedDbById = caller.ExecuteRaw($"RefDataDatabases/{dbId.Value}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.NoContent, getDeletedDbById.StatusCode, "GET /RefDataDatabases/{id} after deletion must return 204 NoContent.");
+                dbId = null;
+            }
+            finally
+            {
+                if (serverId.HasValue)
+                {
+                    caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
+                    {
+                        ["envId"] = childEnv.EnvironmentId.ToString(),
+                        ["componentId"] = serverId.Value.ToString(),
+                        ["action"] = "detach",
+                        ["component"] = "server"
+                    });
+                    caller.ExecuteRaw("RefDataServers", Method.Delete, new Dictionary<string, string>
+                    {
+                        ["serverId"] = serverId.Value.ToString()
+                    });
+                }
+
+                if (secondDbId.HasValue)
+                {
+                    caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
+                    {
+                        ["envId"] = childEnv.EnvironmentId.ToString(),
+                        ["componentId"] = secondDbId.Value.ToString(),
+                        ["action"] = "detach",
+                        ["component"] = "database"
+                    });
+                    caller.ExecuteRaw("RefDataDatabases", Method.Delete, new Dictionary<string, string>
+                    {
+                        ["databaseId"] = secondDbId.Value.ToString()
+                    });
+                }
+
+                if (dbId.HasValue)
+                {
+                    caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
+                    {
+                        ["envId"] = childEnv.EnvironmentId.ToString(),
+                        ["componentId"] = dbId.Value.ToString(),
+                        ["action"] = "detach",
+                        ["component"] = "database"
+                    });
+                    caller.ExecuteRaw("RefDataDatabases", Method.Delete, new Dictionary<string, string>
+                    {
+                        ["databaseId"] = dbId.Value.ToString()
+                    });
                 }
             }
         }

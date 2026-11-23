@@ -3,7 +3,7 @@ using Dorc.ApiModel;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RestSharp;
 using Tests.Acceptance.Support;
-using static Tests.Acceptance.Support.LiveEnvironmentFixture;
+using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 
 namespace Tests.Acceptance.TerraformCatalogue
 {

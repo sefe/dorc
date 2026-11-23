@@ -6,7 +6,7 @@ using RestSharp;
 
 namespace Tests.Acceptance.Support
 {
-    internal static class LiveEnvironmentFixture
+    internal static class AcceptanceProjectProvisioner
     {
         internal const string LiveProjectName = "DOrc_Live_Acceptance_Project";
         internal const string LiveParentEnvName = "DOrc_Live_Acceptance_Parent_Env";
@@ -373,6 +373,63 @@ if ([string]::IsNullOrWhiteSpace($AllRequestIds) -or ($AllRequestIds -notmatch '
 Write-Output ""BundleJob executed. StartingRequestId='$StartingRequestId' AllRequestIds='$AllRequestIds' DataBackup='$DataBackup'""
 Write-Output 'VERIFIED_MAKE_LIKE_PROD_BUNDLE_EXECUTION'
 ");
+
+                WriteScriptIfChanged(Path.Join(scriptSubfolder, "verify-ado-build-and-cli.ps1"), @"
+$ErrorActionPreference = 'Stop'
+Write-Output ""ADO_DEPLOY_VERIFIED|ENV=$EnvironmentName|BUILD=$BuildNumber|DROP=$DropFolder""
+if ([string]::IsNullOrWhiteSpace($DropFolder) -or ($DropFolder -notlike 'https://dev.azure.com/sefe/*' -and $DropFolder -notlike '\\*' -and $DropFolder -notlike 'file:*')) {
+    throw ""Expected Azure DevOps drop path or URL in DropFolder, got: $DropFolder""
+}
+$propCliDir = 'C:\Program Files\DOrc\Deploy\Tools\PropertyValueCreation'
+$propCliExe = Join-Path $propCliDir 'Tools.PropertyValueCreationCLI.exe'
+$reqCliDir = 'C:\Program Files\DOrc\Deploy\Tools\Request'
+$reqCliExe = Join-Path $reqCliDir 'Tools.RequestCLI.exe'
+if (-not (Test-Path $propCliExe)) {
+    throw ""Missing installed Tools.PropertyValueCreationCLI.exe at $propCliExe""
+}
+if (-not (Test-Path $reqCliExe)) {
+    throw ""Missing installed Tools.RequestCLI.exe at $reqCliExe""
+}
+$csvTemp = Join-Path $env:TEMP ""dorc_cli_props_$AutoReg_CliPropName.csv""
+Set-Content -Path $csvTemp -Value ""$AutoReg_CliPropName,0,CliCreatedValue_$AutoReg_CliPropName,$EnvironmentName"" -Encoding UTF8
+try {
+    Push-Location $propCliDir
+    try {
+        $propOut = & $propCliExe $csvTemp 2>&1 | Out-String
+        Write-Output ""PROP_CLI_OUT=$($propOut.Trim())""
+        if ($LASTEXITCODE -ne 0) {
+            throw ""Tools.PropertyValueCreationCLI.exe failed with exit code $LASTEXITCODE : $propOut""
+        }
+    } finally {
+        Pop-Location
+    }
+    Push-Location $reqCliDir
+    try {
+        $reqOut = & $reqCliExe '/project:DOrc_Live_Acceptance_Project' ""/targetenv:$EnvironmentName"" ""/builduri:$AutoReg_FileShareBuildUri"" '/buildnum:DOrc Regression Testing' '/components:DOrc_Live_Acceptance_SnapshotComponent' '/wait:false' 2>&1 | Out-String
+        Write-Output ""REQ_CLI_OUT=$($reqOut.Trim())""
+        if ($LASTEXITCODE -ne 0) {
+            throw ""Tools.RequestCLI.exe failed with exit code $LASTEXITCODE : $reqOut""
+        }
+    } finally {
+        Pop-Location
+    }
+} finally {
+    Remove-Item -Path $csvTemp -Force -ErrorAction SilentlyContinue
+}
+");
+
+                WriteScriptIfChanged(Path.Join(scriptSubfolder, "verify-github-build.ps1"), @"
+$ErrorActionPreference = 'Stop'
+$extractedDrop = Join-Path $DropFolder 'drop'
+if (-not (Test-Path $extractedDrop)) {
+    throw ""Expected extracted GitHub artifact folder at $extractedDrop""
+}
+$files = @(Get-ChildItem -Path $extractedDrop -Recurse -File)
+Write-Output ""GITHUB_DEPLOY_VERIFIED|ENV=$EnvironmentName|BUILD=$BuildNumber|FILE_COUNT=$($files.Count)""
+if ($files.Count -le 0) {
+    throw ""Expected extracted GitHub artifact files in $extractedDrop""
+}
+");
             }
             catch (UnauthorizedAccessException)
             {
@@ -460,6 +517,12 @@ Write-Output 'VERIFIED_MAKE_LIKE_PROD_BUNDLE_EXECUTION'
             var existing = GetEnvironmentByName(caller, envName);
             if (existing != null && existing.EnvironmentId > 0)
             {
+                if (existing.Details != null && string.IsNullOrWhiteSpace(existing.Details.ThinClient))
+                {
+                    existing.Details.ThinClient = "Endur";
+                    var putResp = caller.ExecuteRaw("RefDataEnvironments", Method.Put, body: existing);
+                    Assert.AreEqual(HttpStatusCode.OK, putResp.StatusCode, $"Failed updating ThinClient on '{envName}': {putResp.Content}");
+                }
                 return existing;
             }
 
@@ -476,7 +539,7 @@ Write-Output 'VERIFIED_MAKE_LIKE_PROD_BUNDLE_EXECUTION'
                     FileShare = string.Empty,
                     Notes = "Managed by Tests.Acceptance",
                     RestoredFromSourceDb = string.Empty,
-                    ThinClient = string.Empty
+                    ThinClient = "Endur"
                 }
             };
 
