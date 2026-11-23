@@ -139,6 +139,22 @@ namespace Dorc.Core.Tests
 
             Assert.ThrowsExactly<WrongComponentsException>(() =>
                 submitter.DeployCopyEnvBuildWithComponentNames("SourceEnv", "TargetEnv", "HierProj", "NonExistentComp", user));
+
+            // Verify that component statuses belonging to a different project are not copied into this project's request
+            environmentsPersistentSource.GetEnvironmentComponentStatuses(1)
+                .Returns(new List<EnvironmentComponentStatusModel>
+                {
+                    new EnvironmentComponentStatusModel
+                    {
+                        Component = "502",
+                        BuildNumber = "9.9.9",
+                        DropLocation = "\\\\share\\other",
+                        Uri = "vstfs:///Build/Build/99",
+                        Project = "OtherProject"
+                    }
+                });
+            Assert.ThrowsExactly<InvalidOperationException>(() =>
+                submitter.DeployCopyEnvBuildWithComponentNames("SourceEnv", "TargetEnv", "HierProj", "502", user));
         }
     }
 }

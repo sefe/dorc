@@ -91,6 +91,11 @@ namespace Dorc.Core
                     .Join(environmentComponentStatusModels,
                         x => x.ComponentName, x => x.Component,
                         (c, cs) => new { Component = c, ComponentStatus = cs })
+                    .Where(x => projectComponents.Any(pc =>
+                        string.Equals(pc.Component, x.Component.ComponentName, StringComparison.OrdinalIgnoreCase) &&
+                        (string.IsNullOrEmpty(pc.Project) ||
+                         string.IsNullOrEmpty(x.ComponentStatus.Project) ||
+                         string.Equals(pc.Project, x.ComponentStatus.Project, StringComparison.OrdinalIgnoreCase))))
                     .Batch(x => x.ComponentStatus.BuildNumber);
 
             if (!componentBuilds.Any())

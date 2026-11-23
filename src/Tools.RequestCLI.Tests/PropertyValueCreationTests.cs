@@ -132,4 +132,37 @@ public class PropertyValueCreationTests
         Assert.AreEqual(1, Environment.ExitCode);
         Environment.ExitCode = 0;
     }
+
+    [TestMethod]
+    public void Application_Run_WhenPropertyValuesPostReturnsNonSuccessItem_ThrowsInvalidOperationException()
+    {
+        var tempCsv = Path.Combine(Path.GetTempPath(), $"dorc-props-fail-{Guid.NewGuid():N}.csv");
+        try
+        {
+            File.WriteAllLines(tempCsv, new[] { "App_Port,0,8080,DV 01" });
+
+            var api = Substitute.For<IDorcApiClient>();
+            api.Call<List<Response>>(Endpoints.Properties, Method.Post, Arg.Any<Dictionary<string, string>>(), Arg.Any<string>())
+                .Returns(new ApiResult<List<Response>>
+                {
+                    IsModelValid = true,
+                    Value = new List<Response> { new() { Item = "App_Port", Status = "success" } }
+                });
+            api.Call<List<Response>>(Endpoints.PropertyValues, Method.Post, Arg.Any<Dictionary<string, string>>(), Arg.Any<string>())
+                .Returns(new ApiResult<List<Response>>
+                {
+                    IsModelValid = true,
+                    Value = new List<Response> { new() { Item = "App_Port", Status = "User does not have write permission for environment 'DV 01'" } }
+                });
+
+            var app = new Tools.PropertyValueCreationCLI.Program.Application(api, NullLogger.Instance);
+            var ex = Assert.ThrowsExactly<InvalidOperationException>(() => app.Run(tempCsv));
+            StringAssert.Contains(ex.Message, "App_Port");
+        }
+        finally
+        {
+            if (File.Exists(tempCsv))
+                File.Delete(tempCsv);
+        }
+    }
 }

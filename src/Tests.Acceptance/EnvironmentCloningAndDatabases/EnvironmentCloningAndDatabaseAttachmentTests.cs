@@ -320,10 +320,13 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 });
                 Assert.AreEqual(HttpStatusCode.OK, dupAttachSrvResp.StatusCode, dupAttachSrvResp.Content);
 
+                Assert.IsTrue(serverId.HasValue, "Expected serverId to have a value before server environment detail checks.");
+                var serverIdValue = serverId.Value;
+
                 var badActionSrvResp = caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
                 {
                     ["envId"] = childEnv.EnvironmentId.ToString(),
-                    ["componentId"] = serverId.Value.ToString(),
+                    ["componentId"] = serverIdValue.ToString(),
                     ["action"] = "invalid_action",
                     ["component"] = "server"
                 });
@@ -342,9 +345,9 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 var envSrvsResult = envSrvsDto.Result;
                 Assert.AreEqual(
                     1,
-                    envSrvsResult.Count(s => s.ServerId == serverId.Value),
+                    envSrvsResult.Count(s => s.ServerId == serverIdValue),
                     "Re-attaching an already-attached server must be idempotent and never create duplicate environment-server rows.");
-                var attachedSrv = envSrvsResult.Single(s => s.ServerId == serverId.Value);
+                var attachedSrv = envSrvsResult.Single(s => s.ServerId == serverIdValue);
                 Assert.AreEqual(serverName, attachedSrv.Name);
                 CollectionAssert.Contains(attachedSrv.Tags.ToList(), "DevOpsTest");
 
@@ -486,7 +489,8 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 });
                 Assert.AreEqual(HttpStatusCode.OK, relatedAttachedByIdResp.StatusCode, relatedAttachedByIdResp.Content);
                 var relatedAttachedById = DorcApiClient.Deserialize<DatabaseRelatedResourcesApiModel>(relatedAttachedByIdResp.Content);
-                Assert.IsNotNull(relatedAttachedById?.Environments);
+                Assert.IsNotNull(relatedAttachedById);
+                Assert.IsNotNull(relatedAttachedById.Environments);
                 Assert.IsTrue(relatedAttachedById.Environments.Any(e => string.Equals(e.EnvironmentName, LiveChildEnvName, StringComparison.OrdinalIgnoreCase)));
 
                 var relatedAttachedByNameResp = caller.ExecuteRaw("RefDataDatabases/RelatedResources", Method.Get, new Dictionary<string, string>
@@ -496,7 +500,8 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 });
                 Assert.AreEqual(HttpStatusCode.OK, relatedAttachedByNameResp.StatusCode, relatedAttachedByNameResp.Content);
                 var relatedAttachedByName = DorcApiClient.Deserialize<DatabaseRelatedResourcesApiModel>(relatedAttachedByNameResp.Content);
-                Assert.IsNotNull(relatedAttachedByName?.Environments);
+                Assert.IsNotNull(relatedAttachedByName);
+                Assert.IsNotNull(relatedAttachedByName.Environments);
                 Assert.IsTrue(relatedAttachedByName.Environments.Any(e => string.Equals(e.EnvironmentName, LiveChildEnvName, StringComparison.OrdinalIgnoreCase)));
 
                 // RefDataDatabases/ByTag: valid tag, missing tag, invalid semicolon tag, and duplicate/ambiguous tag collision (commits 4ff050e2 & 0f432a71)
@@ -614,7 +619,8 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 });
                 Assert.AreEqual(HttpStatusCode.OK, envDbsResp.StatusCode, envDbsResp.Content);
                 var envDbsDto = DorcApiClient.Deserialize<EnvironmentComponentsDto<DatabaseApiModel>>(envDbsResp.Content);
-                Assert.IsNotNull(envDbsDto?.Result);
+                Assert.IsNotNull(envDbsDto);
+                Assert.IsNotNull(envDbsDto.Result);
                 Assert.IsTrue(envDbsDto.Result.Any(d => d.Id == dbId.Value && string.Equals(d.Name, dbName, StringComparison.OrdinalIgnoreCase)));
 
                 var envsForDbResp = caller.ExecuteRaw("RefDataEnvironmentsDetails/GetEnvironmentsForDatabase", Method.Get, new Dictionary<string, string>

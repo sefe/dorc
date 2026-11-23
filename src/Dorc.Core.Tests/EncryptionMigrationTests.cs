@@ -185,7 +185,9 @@ namespace Dorc.Core.Tests
                 new() { Id = 20, Property = propArray, Value = legacyArrayJson },
                 new() { Id = 21, Property = propArray, Value = v2ArrayJson },
                 new() { Id = 22, Property = propArray, Value = v1ArrayJson },
-                new() { Id = 23, Property = propArray, Value = "null" }
+                new() { Id = 23, Property = propArray, Value = "null" },
+                new() { Id = 24, Property = propArray, Value = _legacyEncryptor.EncryptValue("[\"whole-blob-1\",\"whole-blob-2\"]") },
+                new() { Id = 25, Property = propArray, Value = _encryptor.EncryptValue("[\"whole-blob-v2\"]") }
             };
 
             var configValues = new List<Dorc.PersistentData.Model.ConfigValue>
@@ -212,19 +214,21 @@ namespace Dorc.Core.Tests
 
             // 1. Dry run without force
             var dryRunResult = migrator.MigratePropertyValues(dryRun: true, force: false);
-            Assert.AreEqual(12, dryRunResult.Total);
-            Assert.AreEqual(3, dryRunResult.Migrated);
-            Assert.AreEqual(7, dryRunResult.Skipped);
+            Assert.AreEqual(14, dryRunResult.Total);
+            Assert.AreEqual(4, dryRunResult.Migrated);
+            Assert.AreEqual(8, dryRunResult.Skipped);
             Assert.AreEqual(2, dryRunResult.Failed);
             Assert.AreEqual(legacyScalar, propertyValues[0].Value, "Dry run must not mutate values");
 
             // 2. Live run without force (batchSize=1 exercises batch saving)
             var liveResult = migrator.MigratePropertyValues(dryRun: false, force: false);
-            Assert.AreEqual(3, liveResult.Migrated);
-            Assert.AreEqual(7, liveResult.Skipped);
+            Assert.AreEqual(4, liveResult.Migrated);
+            Assert.AreEqual(8, liveResult.Skipped);
             Assert.AreEqual(2, liveResult.Failed);
             Assert.IsTrue(propertyValues[0].Value.StartsWith("v2:"));
             Assert.AreEqual("scalar-val", _encryptor.DecryptValue(propertyValues[0].Value));
+            Assert.IsTrue(propertyValues[8].Value.StartsWith("v2:"), "Whole-blob encrypted array should fall through to scalar migration.");
+            Assert.AreEqual("[\"whole-blob-1\",\"whole-blob-2\"]", _encryptor.DecryptValue(propertyValues[8].Value));
 
             var migratedArray = System.Text.Json.JsonSerializer.Deserialize<string?[]>(propertyValues[4].Value)!;
             Assert.IsTrue(migratedArray[0]!.StartsWith("v2:"));

@@ -119,48 +119,58 @@ namespace Tools.EncryptionMigrationCLI
                         {
                             if (property.IsArray)
                             {
-                                var items = JsonSerializer.Deserialize<string[]>(propertyValue.Value);
-                                if (items == null)
+                                var trimmedValue = propertyValue.Value.Trim();
+                                if (string.Equals(trimmedValue, "null", StringComparison.OrdinalIgnoreCase))
                                 {
                                     result.Skipped++;
                                     continue;
                                 }
 
-                                if (items.All(i => i == null || i.StartsWith("v2:")))
+                                if (trimmedValue.StartsWith("[", StringComparison.Ordinal))
                                 {
-                                    _log.LogDebug($"Property value {propertyValue.Id} (array) already migrated to v2");
-                                    result.Skipped++;
-                                    continue;
-                                }
-
-                                if (!force && items.All(i => i == null || i.StartsWith("v1:") || i.StartsWith("v2:")))
-                                {
-                                    _log.LogDebug($"Property value {propertyValue.Id} (array) is v1 format but not forced");
-                                    result.Skipped++;
-                                    continue;
-                                }
-
-                                _log.LogInformation($"Migrating array property value {propertyValue.Id}");
-                                var migratedItems = items.Select(item =>
-                                    item == null || item.StartsWith("v2:") || (!force && item.StartsWith("v1:"))
-                                        ? item
-                                        : _encryptor.MigrateFromLegacy(item)).ToArray();
-
-                                if (!dryRun)
-                                {
-                                    propertyValue.Value = JsonSerializer.Serialize(migratedItems);
-                                    batchCount++;
-
-                                    if (batchCount >= _batchSize)
+                                    var items = JsonSerializer.Deserialize<string[]>(propertyValue.Value);
+                                    if (items == null)
                                     {
-                                        context.SaveChanges();
-                                        batchCount = 0;
-                                        _log.LogInformation($"Saved batch of {_batchSize} updates");
+                                        result.Skipped++;
+                                        continue;
                                     }
-                                }
 
-                                result.Migrated++;
-                                continue;
+                                    if (items.All(i => i == null || i.StartsWith("v2:")))
+                                    {
+                                        _log.LogDebug($"Property value {propertyValue.Id} (array) already migrated to v2");
+                                        result.Skipped++;
+                                        continue;
+                                    }
+
+                                    if (!force && items.All(i => i == null || i.StartsWith("v1:") || i.StartsWith("v2:")))
+                                    {
+                                        _log.LogDebug($"Property value {propertyValue.Id} (array) is v1 format but not forced");
+                                        result.Skipped++;
+                                        continue;
+                                    }
+
+                                    _log.LogInformation($"Migrating array property value {propertyValue.Id}");
+                                    var migratedItems = items.Select(item =>
+                                        item == null || item.StartsWith("v2:") || (!force && item.StartsWith("v1:"))
+                                            ? item
+                                            : _encryptor.MigrateFromLegacy(item)).ToArray();
+
+                                    if (!dryRun)
+                                    {
+                                        propertyValue.Value = JsonSerializer.Serialize(migratedItems);
+                                        batchCount++;
+
+                                        if (batchCount >= _batchSize)
+                                        {
+                                            context.SaveChanges();
+                                            batchCount = 0;
+                                            _log.LogInformation($"Saved batch of {_batchSize} updates");
+                                        }
+                                    }
+
+                                    result.Migrated++;
+                                    continue;
+                                }
                             }
 
                             if (propertyValue.Value.StartsWith("v2:"))

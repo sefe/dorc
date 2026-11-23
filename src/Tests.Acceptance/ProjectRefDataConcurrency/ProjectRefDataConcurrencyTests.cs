@@ -189,9 +189,12 @@ namespace Tests.Acceptance.ProjectRefDataConcurrency
                 });
                 Assert.AreEqual(HttpStatusCode.OK, mappingsAfterAddResp.StatusCode, mappingsAfterAddResp.Content);
                 var mappingsAfterAdd = DorcApiClient.Deserialize<TemplateApiModel<EnvironmentApiModel>>(mappingsAfterAddResp.Content);
-                Assert.IsNotNull(mappingsAfterAdd?.Items);
+                Assert.IsNotNull(mappingsAfterAdd);
+                Assert.IsNotNull(mappingsAfterAdd.Items);
+                Assert.IsTrue(tempEnvId.HasValue);
+                var mappedTempEnvId = tempEnvId.Value;
                 Assert.IsTrue(
-                    mappingsAfterAdd.Items.Any(e => e.EnvironmentId == tempEnvId.Value && string.Equals(e.EnvironmentName, tempEnvName, StringComparison.OrdinalIgnoreCase)),
+                    mappingsAfterAdd.Items.Any(e => e.EnvironmentId == mappedTempEnvId && string.Equals(e.EnvironmentName, tempEnvName, StringComparison.OrdinalIgnoreCase)),
                     $"Expected GET /RefDataProjectEnvironmentMappings to include newly mapped environment '{tempEnvName}'.");
 
                 var possibleChildrenResp = caller.ExecuteRaw("RefDataEnvironmentsDetails/GetPossibleEnvironmentChildren", Method.Get, new Dictionary<string, string>
@@ -247,9 +250,10 @@ namespace Tests.Acceptance.ProjectRefDataConcurrency
                 });
                 Assert.AreEqual(HttpStatusCode.OK, mappingsAfterDeleteResp.StatusCode, mappingsAfterDeleteResp.Content);
                 var mappingsAfterDelete = DorcApiClient.Deserialize<TemplateApiModel<EnvironmentApiModel>>(mappingsAfterDeleteResp.Content);
-                Assert.IsNotNull(mappingsAfterDelete?.Items);
+                Assert.IsNotNull(mappingsAfterDelete);
+                Assert.IsNotNull(mappingsAfterDelete.Items);
                 Assert.IsFalse(
-                    mappingsAfterDelete.Items.Any(e => e.EnvironmentId == tempEnvId.Value || string.Equals(e.EnvironmentName, tempEnvName, StringComparison.OrdinalIgnoreCase)),
+                    mappingsAfterDelete.Items.Any(e => (tempEnvId.HasValue && e.EnvironmentId == tempEnvId.Value) || string.Equals(e.EnvironmentName, tempEnvName, StringComparison.OrdinalIgnoreCase)),
                     $"Expected unmapped environment '{tempEnvName}' to be absent from GET /RefDataProjectEnvironmentMappings.");
 
                 // RefDataComponents and RefDataScripts/edit Postman & global shared script edit endpoints
@@ -259,7 +263,8 @@ namespace Tests.Acceptance.ProjectRefDataConcurrency
                 });
                 Assert.AreEqual(HttpStatusCode.OK, refDataComponentsResp.StatusCode, refDataComponentsResp.Content);
                 var refDataComponents = DorcApiClient.Deserialize<TemplateApiModel<ComponentApiModel>>(refDataComponentsResp.Content);
-                Assert.IsNotNull(refDataComponents?.Items);
+                Assert.IsNotNull(refDataComponents);
+                Assert.IsNotNull(refDataComponents.Items);
                 var verifyPropsComp = refDataComponents.Items.FirstOrDefault(c => string.Equals(c.ComponentName, VerifyPropsComponentName, StringComparison.OrdinalIgnoreCase));
                 Assert.IsNotNull(verifyPropsComp, $"Expected GET /RefDataComponents?id={LiveProjectName} to include '{VerifyPropsComponentName}'.");
 

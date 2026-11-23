@@ -196,12 +196,20 @@ namespace Tools.PropertyValueCreationCLI
 
                 if (valueResult.Value != null)
                 {
+                    var failedItems = new List<string>();
                     foreach (var result in valueResult.Value)
                     {
                         if (result.Status != "success")
                         {
                             _log.LogWarning($"Failed to create property value: {result.Item} - {result.Status}");
+                            failedItems.Add($"{result.Item}: {result.Status}");
                         }
+                    }
+
+                    if (failedItems.Count > 0)
+                    {
+                        throw new InvalidOperationException(
+                            $"Failed to create {failedItems.Count} property value(s): {string.Join("; ", failedItems)}");
                     }
                 }
             }
