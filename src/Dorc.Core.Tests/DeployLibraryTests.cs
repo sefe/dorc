@@ -625,6 +625,34 @@ namespace Dorc.Core.Tests
             var idsAll = lib.CopyEnvBuildAllComponents("SourceEnv", "TargetEnv", "HierProj", user);
             Assert.AreEqual(1, idsAll.Count);
 
+            // Verify that a numeric-named component takes precedence over another component whose numeric ComponentId matches the token
+            var numericNamedLeaf = new ComponentApiModel
+            {
+                ComponentId = 999,
+                ComponentName = "502",
+                IsEnabled = true,
+                Children = new List<ComponentApiModel>()
+            };
+            parentGroup.Children.Add(numericNamedLeaf);
+            var requestedPairs = new List<string>();
+            manageProjectsSource.GetOrderedComponents(Arg.Do<IEnumerable<string>>(names => requestedPairs = new List<string>(names)))
+                .Returns(new List<ComponentApiModel> { numericNamedLeaf });
+            _environmentsPersistentSource.GetEnvironmentComponentStatuses(1)
+                .Returns(new List<EnvironmentComponentStatusModel>
+                {
+                    new EnvironmentComponentStatusModel
+                    {
+                        Component = "502",
+                        BuildNumber = "1.0.0",
+                        DropLocation = "\\\\share\\drop",
+                        Uri = "vstfs:///Build/Build/1",
+                        Project = "HierProj"
+                    }
+                });
+            var idsNumericNamePrecedence = lib.DeployCopyEnvBuildWithComponentNames("SourceEnv", "TargetEnv", "HierProj", "502", user);
+            Assert.AreEqual(1, idsNumericNamePrecedence.Count);
+            CollectionAssert.AreEqual(new[] { "502" }, requestedPairs);
+
             Assert.ThrowsExactly<Dorc.Core.Exceptions.WrongComponentsException>(() =>
                 lib.DeployCopyEnvBuildWithComponentNames("SourceEnv", "TargetEnv", "HierProj", "NonExistentComp", user));
         }

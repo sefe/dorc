@@ -148,7 +148,7 @@ namespace Dorc.PersistentData.Sources
                 if (property == null)
                     return false;
 
-                if (property.IsArray != prop.IsArray && context.PropertyValues.Any(pv => pv.PropertyId == property.Id))
+                if (property.IsArray != prop.IsArray && context.PropertyValues.Any(pv => pv.Property != null && pv.Property.Id == property.Id))
                 {
                     throw new InvalidOperationException($"Cannot change IsArray flag on property '{property.Name}' while property values exist.");
                 }
