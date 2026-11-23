@@ -23,20 +23,14 @@ namespace Dorc.Core.VariableResolution
 
         public IDictionary<string, VariableValue> LoadProperties()
         {
-            foreach (var existingKey in localProperties.Keys.ToList())
+            foreach (var existingKey in localProperties.Keys.Where(existingKey => !_pinnedProperties.ContainsKey(existingKey)).ToList())
             {
-                if (!_pinnedProperties.ContainsKey(existingKey))
-                {
-                    localProperties.TryRemove(existingKey, out _);
-                }
+                localProperties.TryRemove(existingKey, out _);
             }
 
-            foreach (var propertyValuePair in _bundledRequestVariableLoader.GetVariables())
+            foreach (var propertyValuePair in _bundledRequestVariableLoader.GetVariables().Where(p => !_pinnedProperties.ContainsKey(p.PropertyName)))
             {
-                if (!_pinnedProperties.ContainsKey(propertyValuePair.PropertyName))
-                {
-                    SetUnpinnedPropertyValue(propertyValuePair.PropertyName, propertyValuePair.PropertyValue);
-                }
+                SetUnpinnedPropertyValue(propertyValuePair.PropertyName, propertyValuePair.PropertyValue);
             }
 
             var dictionary = localProperties.Keys.AsParallel()

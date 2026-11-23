@@ -2039,7 +2039,7 @@ namespace Dorc.Monitor.Tests
 
                 void WriteAllocatedEvidence(int ordinal, string sourcePath)
                 {
-                    var evidencePath = Path.Combine(tempDir, $"{ordinal}.json");
+                    var evidencePath = Path.Join(tempDir, $"{ordinal}.json");
                     File.WriteAllText(evidencePath, System.Text.Json.JsonSerializer.Serialize(new PowerShellEvidence
                     {
                         SchemaVersion = 1,

@@ -376,5 +376,33 @@ public class DuplicateEnvironmentPropertyValuesTests
             Team = "Core"
         }));
         Assert.AreEqual(0, usersSource.GetDatabaseUsers(999999).Count());
+
+        // 6. EnvironmentHistoryPersistentSource.GetEnvironmentNameForHistoryId
+        var envHistorySource = new Dorc.PersistentData.Sources.EnvironmentHistoryPersistentSource(
+            NSubstitute.Substitute.For<Microsoft.Extensions.Logging.ILogger<Dorc.PersistentData.Sources.EnvironmentHistoryPersistentSource>>(),
+            _factory);
+        Assert.IsNull(envHistorySource.GetEnvironmentNameForHistoryId(999999999));
+        Assert.IsTrue(envHistorySource.UpdateHistory(attachedEnvName, "bkp.bak", "History comment", "tester", "Deploy"));
+        var envHistories = envHistorySource.GetEnvironmentDetailHistory(attachedEnv.EnvironmentId);
+        Assert.IsTrue(envHistories.Count > 0);
+        Assert.AreEqual(attachedEnvName, envHistorySource.GetEnvironmentNameForHistoryId(envHistories[0].Id));
+
+        int orphanHistoryId;
+        using (var ctx = _factory.GetContext())
+        {
+            var orphanHistory = new EnvironmentHistory
+            {
+                EnvId = null,
+                Environment = null,
+                UpdateDate = DateTime.UtcNow,
+                UpdateType = "DeletedEnv",
+                UpdatedBy = "tester",
+                ToValue = "v1"
+            };
+            ctx.EnvironmentHistories.Add(orphanHistory);
+            ctx.SaveChanges();
+            orphanHistoryId = orphanHistory.Id;
+        }
+        Assert.IsNull(envHistorySource.GetEnvironmentNameForHistoryId(orphanHistoryId));
     }
 }

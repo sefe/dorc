@@ -421,6 +421,11 @@ namespace Dorc.Api.Tests.Controllers
             securityChecker.CanModifyEnvironment(nonAdminUser, "Env1").Returns(true);
             Assert.AreEqual(200, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)envHistoryController.Put(new EnvironmentHistoryApiModel { Id = 1, EnvName = "Env1", Comment = "c" })).StatusCode);
 
+            // Spoofed EnvName in payload when persisted history row belongs to a different restricted environment
+            envHistorySource.GetEnvironmentNameForHistoryId(2).Returns("RestrictedHistoryEnv");
+            securityChecker.CanModifyEnvironment(nonAdminUser, "RestrictedHistoryEnv").Returns(false);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)envHistoryController.Put(new EnvironmentHistoryApiModel { Id = 2, EnvName = "Env1", Comment = "spoofed" })).StatusCode);
+
             Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)envHistoryController.Post(null!)).StatusCode);
             Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)envHistoryController.Post(new UpdateEnvironmentHistoryRequest { EnvName = " " })).StatusCode);
             securityChecker.CanModifyEnvironment(nonAdminUser, "EnvForbidden").Returns(false);

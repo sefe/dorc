@@ -48,12 +48,18 @@ namespace Dorc.Api.Controllers
                 return BadRequest("Environment history payload is required.");
             }
 
-            if (_securityPrivilegesChecker != null &&
-                !string.IsNullOrWhiteSpace(history.EnvName) &&
-                !_securityPrivilegesChecker.CanModifyEnvironment(User, history.EnvName))
+            if (_securityPrivilegesChecker != null)
             {
-                return StatusCode(StatusCodes.Status403Forbidden,
-                    $"You do not have permission to modify environment '{history.EnvName}'.");
+                var persistedEnvName = _environmentHistoryPersistentSource.GetEnvironmentNameForHistoryId(history.Id);
+                var targetEnvName = !string.IsNullOrWhiteSpace(persistedEnvName)
+                    ? persistedEnvName
+                    : history.EnvName;
+                if (!string.IsNullOrWhiteSpace(targetEnvName) &&
+                    !_securityPrivilegesChecker.CanModifyEnvironment(User, targetEnvName))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden,
+                        $"You do not have permission to modify environment '{targetEnvName}'.");
+                }
             }
 
             _environmentHistoryPersistentSource.UpdateEnvironmentDetailHistoryComment(history.Id, history.Comment);
