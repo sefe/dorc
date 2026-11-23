@@ -283,6 +283,7 @@ public class DuplicateEnvironmentPropertyValuesTests
         var serversSource = new Dorc.PersistentData.Sources.ServersPersistentSource(_factory, roleChecker, claimsReader);
         int unattachedSrvId;
         int attachedSrvId;
+        int attachedEnvId;
         string unattachedSrvName = "SRV_UNATTACHED_" + Guid.NewGuid().ToString("N")[..6];
         string attachedSrvName = "SRV_ATTACHED_" + Guid.NewGuid().ToString("N")[..6];
         string attachedEnvName = "ENV_ATTACHED_" + Guid.NewGuid().ToString("N")[..6];
@@ -299,6 +300,7 @@ public class DuplicateEnvironmentPropertyValuesTests
             ctx.SaveChanges();
             unattachedSrvId = s1.Id;
             attachedSrvId = s2.Id;
+            attachedEnvId = env.Id;
         }
         var unattachedByName = serversSource.GetServer(unattachedSrvName, nonAdminUser);
         var unattachedById = serversSource.GetServer(unattachedSrvId, nonAdminUser);
@@ -383,7 +385,7 @@ public class DuplicateEnvironmentPropertyValuesTests
             _factory);
         Assert.IsNull(envHistorySource.GetEnvironmentNameForHistoryId(999999999));
         Assert.IsTrue(envHistorySource.UpdateHistory(attachedEnvName, "bkp.bak", "History comment", "tester", "Deploy"));
-        var envHistories = envHistorySource.GetEnvironmentDetailHistory(attachedEnv.EnvironmentId);
+        var envHistories = envHistorySource.GetEnvironmentDetailHistory(attachedEnvId);
         Assert.IsTrue(envHistories.Count > 0);
         Assert.AreEqual(attachedEnvName, envHistorySource.GetEnvironmentNameForHistoryId(envHistories[0].Id));
 
