@@ -638,8 +638,10 @@ namespace Dorc.Core
             foreach (var token in requestedTokens)
             {
                 var matched = projComponents.FirstOrDefault(c =>
-                    string.Equals(c.ComponentName, token, StringComparison.OrdinalIgnoreCase) ||
-                    (int.TryParse(token, out var componentId) && c.ComponentId == componentId));
+                    string.Equals(c.ComponentName, token, StringComparison.OrdinalIgnoreCase))
+                    ?? (int.TryParse(token, out var componentId)
+                        ? projComponents.FirstOrDefault(c => c.ComponentId == componentId)
+                        : null);
 
                 if (matched == null)
                 {

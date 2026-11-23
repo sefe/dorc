@@ -271,13 +271,15 @@ namespace Tests.Acceptance.EnvironmentAccessControl
                 var getPermsAfterPutResp = caller.ExecuteRaw("RefDataPermission", Method.Get);
                 Assert.AreEqual(HttpStatusCode.OK, getPermsAfterPutResp.StatusCode, getPermsAfterPutResp.Content);
                 var permsAfterPut = DorcApiClient.Deserialize<List<PermissionDto>>(getPermsAfterPutResp.Content) ?? new List<PermissionDto>();
-                var updatedPerm = permsAfterPut.FirstOrDefault(p => p.Id == customPermId.Value);
+                Assert.IsTrue(customPermId.HasValue, "Expected customPermId to have a value.");
+                var customPermIdValue = customPermId.Value;
+                var updatedPerm = permsAfterPut.FirstOrDefault(p => p.Id == customPermIdValue);
                 Assert.IsNotNull(updatedPerm);
                 Assert.AreEqual($"Updated Permission {suffix}", updatedPerm.DisplayName);
 
                 var deletePermResp = caller.ExecuteRaw("RefDataPermission", Method.Delete, new Dictionary<string, string>
                 {
-                    ["id"] = customPermId.Value.ToString()
+                    ["id"] = customPermIdValue.ToString()
                 });
                 Assert.AreEqual(HttpStatusCode.OK, deletePermResp.StatusCode, $"DELETE /RefDataPermission failed: {deletePermResp.Content}");
                 customPermId = null;

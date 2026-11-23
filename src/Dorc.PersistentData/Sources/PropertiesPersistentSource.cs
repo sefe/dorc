@@ -148,6 +148,11 @@ namespace Dorc.PersistentData.Sources
                 if (property == null)
                     return false;
 
+                if (property.IsArray != prop.IsArray && context.PropertyValues.Any(pv => pv.PropertyId == property.Id))
+                {
+                    throw new InvalidOperationException($"Cannot change IsArray flag on property '{property.Name}' while property values exist.");
+                }
+
                 MapToProperty(prop, property);
                 context.SaveChanges();
                 return true;
