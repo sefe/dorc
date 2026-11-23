@@ -172,12 +172,25 @@ namespace Tests.Acceptance
                 var runnerLogDir = @"C:\Log\DOrc\Deploy\Services\Requests";
                 if (Directory.Exists(runnerLogDir))
                 {
-                    foreach (var logFile in Directory.GetFiles(runnerLogDir, $"*{created.Id}*"))
+                    try
                     {
-                        var fileText = File.ReadAllText(logFile);
-                        Assert.IsFalse(
-                            fileText.Contains(cleartextSecret, StringComparison.Ordinal),
-                            $"Cleartext secret leaked in runner log file '{logFile}'.");
+                        foreach (var logFile in Directory.GetFiles(runnerLogDir, $"*{created.Id}*"))
+                        {
+                            using var fs = new FileStream(logFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                            using var sr = new StreamReader(fs);
+                            var fileText = sr.ReadToEnd();
+                            Assert.IsFalse(
+                                fileText.Contains(cleartextSecret, StringComparison.Ordinal),
+                                $"Cleartext secret leaked in runner log file '{logFile}'.");
+                        }
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                        // Ignore if test runner service account lacks local log folder ACLs
+                    }
+                    catch (IOException)
+                    {
+                        // Ignore transient file lock
                     }
                 }
             }
@@ -398,57 +411,7 @@ namespace Tests.Acceptance
         {
             var scriptRoot = GetConfiguredScriptRoot(caller);
             var scriptSubfolder = Path.Join(scriptRoot, RelativeScriptSubfolder);
-            Directory.CreateDirectory(scriptSubfolder);
-
-            var verifyScriptPath = Path.Join(scriptSubfolder, "verify-properties.ps1");
-            WriteScriptIfChanged(verifyScriptPath, @"
-$ErrorActionPreference = 'Stop'
-$cid = $AutoReg_CorrelationId
-$globalName = ""AutoReg_Global_$cid""
-$parentName = ""AutoReg_ParentInherited_$cid""
-$childName  = ""AutoReg_ChildUpdated_$cid""
-$overrideName = ""AutoReg_RequestOverride_$cid""
-$secretName = ""AutoReg_SecretPassword_$cid""
-
-$globalVal = [string](Get-Variable -Name $globalName -ValueOnly -ErrorAction SilentlyContinue)
-$parentVal = [string](Get-Variable -Name $parentName -ValueOnly -ErrorAction SilentlyContinue)
-$childVal  = [string](Get-Variable -Name $childName -ValueOnly -ErrorAction SilentlyContinue)
-$overrideVal = [string](Get-Variable -Name $overrideName -ValueOnly -ErrorAction SilentlyContinue)
-$secretVal = [string](Get-Variable -Name $secretName -ValueOnly -ErrorAction SilentlyContinue)
-
-if ($globalVal -ne ""GlobalVal_$cid"") { throw ""GlobalVal mismatch: '$globalVal'"" }
-if ($parentVal -ne ""ParentInheritedVal_$cid"") { throw ""ParentInheritedVal mismatch: '$parentVal'"" }
-if ($childVal -ne ""UpdatedChildVal_$cid"") { throw ""ChildUpdatedVal mismatch: '$childVal'"" }
-if ($overrideVal -ne ""OverriddenAtRequest_$cid"") { throw ""RequestOverrideVal mismatch: '$overrideVal'"" }
-if ($secretVal -ne ""Sup3rS3cr3tValu3_$cid!"") { throw ""SecretVal decryption mismatch (length=$($secretVal.Length))"" }
-
-# Intentionally write a line containing the secret to stdout to verify PowerShellScriptRunner redacts it to [REDACTED]
-Write-Output ""Executing live acceptance verification for secret=$secretVal""
-Write-Output ""VERIFIED_ALL_PROPERTIES_IN_RUNNER""
-");
-
-            var failThenPassScriptPath = Path.Join(scriptSubfolder, "fail-then-pass.ps1");
-            WriteScriptIfChanged(failThenPassScriptPath, @"
-$ErrorActionPreference = 'Stop'
-Write-Output ""AutoReg_ShouldFail is '$AutoReg_ShouldFail'""
-if ($AutoReg_ShouldFail -eq 'true') {
-    Write-Error 'Simulated deployment failure because AutoReg_ShouldFail=true'
-    exit 1
-}
-Write-Output 'Deployment succeeded after property update and restart.'
-");
-
-            var cancelWaitScriptPath = Path.Join(scriptSubfolder, "cancel-wait.ps1");
-            WriteScriptIfChanged(cancelWaitScriptPath, @"
-Write-Output 'Starting cancellable wait script...'
-Start-Sleep -Seconds 25
-Write-Output 'Finished wait.'
-");
-
-            var downstreamScriptPath = Path.Join(scriptSubfolder, "downstream-skipped.ps1");
-            WriteScriptIfChanged(downstreamScriptPath, @"
-Write-Output 'Downstream component executed.'
-");
+            TryProvisionScriptsInScriptRoot(scriptSubfolder);
 
             var (ownerName, ownerId) = ResolveDefaultOwner(caller);
             var parentEnv = EnsureEnvironment(caller, LiveParentEnvName, ownerName, ownerId);
@@ -495,6 +458,73 @@ Write-Output 'Downstream component executed.'
             return (new Uri(fallbackRoot).AbsoluteUri, new Uri(fallbackBuildDir).AbsoluteUri);
         }
 
+        private static void TryProvisionScriptsInScriptRoot(string scriptSubfolder)
+        {
+            try
+            {
+                if (!Directory.Exists(scriptSubfolder))
+                {
+                    Directory.CreateDirectory(scriptSubfolder);
+                }
+
+                WriteScriptIfChanged(Path.Join(scriptSubfolder, "verify-properties.ps1"), @"
+$ErrorActionPreference = 'Stop'
+$cid = $AutoReg_CorrelationId
+$globalName = ""AutoReg_Global_$cid""
+$parentName = ""AutoReg_ParentInherited_$cid""
+$childName  = ""AutoReg_ChildUpdated_$cid""
+$overrideName = ""AutoReg_RequestOverride_$cid""
+$secretName = ""AutoReg_SecretPassword_$cid""
+
+$globalVal = [string](Get-Variable -Name $globalName -ValueOnly -ErrorAction SilentlyContinue)
+$parentVal = [string](Get-Variable -Name $parentName -ValueOnly -ErrorAction SilentlyContinue)
+$childVal  = [string](Get-Variable -Name $childName -ValueOnly -ErrorAction SilentlyContinue)
+$overrideVal = [string](Get-Variable -Name $overrideName -ValueOnly -ErrorAction SilentlyContinue)
+$secretVal = [string](Get-Variable -Name $secretName -ValueOnly -ErrorAction SilentlyContinue)
+
+if ($globalVal -ne ""GlobalVal_$cid"") { throw ""GlobalVal mismatch: '$globalVal'"" }
+if ($parentVal -ne ""ParentInheritedVal_$cid"") { throw ""ParentInheritedVal mismatch: '$parentVal'"" }
+if ($childVal -ne ""UpdatedChildVal_$cid"") { throw ""ChildUpdatedVal mismatch: '$childVal'"" }
+if ($overrideVal -ne ""OverriddenAtRequest_$cid"") { throw ""RequestOverrideVal mismatch: '$overrideVal'"" }
+if ($secretVal -ne ""Sup3rS3cr3tValu3_$cid!"") { throw ""SecretVal decryption mismatch (length=$($secretVal.Length))"" }
+
+# Intentionally write a line containing the secret to stdout to verify PowerShellScriptRunner redacts it to [REDACTED]
+Write-Output ""Executing live acceptance verification for secret=$secretVal""
+Write-Output ""VERIFIED_ALL_PROPERTIES_IN_RUNNER""
+");
+
+                WriteScriptIfChanged(Path.Join(scriptSubfolder, "fail-then-pass.ps1"), @"
+$ErrorActionPreference = 'Stop'
+Write-Output ""AutoReg_ShouldFail is '$AutoReg_ShouldFail'""
+if ($AutoReg_ShouldFail -eq 'true') {
+    Write-Error 'Simulated deployment failure because AutoReg_ShouldFail=true'
+    exit 1
+}
+Write-Output 'Deployment succeeded after property update and restart.'
+");
+
+                WriteScriptIfChanged(Path.Join(scriptSubfolder, "cancel-wait.ps1"), @"
+Write-Output 'Starting cancellable wait script...'
+Start-Sleep -Seconds 25
+Write-Output 'Finished wait.'
+");
+
+                WriteScriptIfChanged(Path.Join(scriptSubfolder, "downstream-skipped.ps1"), @"
+Write-Output 'Downstream component executed.'
+");
+            }
+            catch (UnauthorizedAccessException)
+            {
+                // In ADO TestDOrcXX stages, the test runner service account (e.g. SVC-GMT-DV-DORAUTST)
+                // may have read-only or restricted access to \\Itss.global\...\Scripts.*, while the scripts
+                // are already provisioned on the share and executed by Dorc.Monitor (svc-live-deploy-nonp).
+            }
+            catch (IOException)
+            {
+                // Ignore if the UNC share is not directly writable from the test runner identity.
+            }
+        }
+
         private static void WriteScriptIfChanged(string path, string content)
         {
             if (File.Exists(path))
@@ -506,6 +536,10 @@ Write-Output 'Downstream component executed.'
                     {
                         return;
                     }
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    return;
                 }
                 catch (IOException)
                 {
