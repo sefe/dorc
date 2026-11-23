@@ -179,14 +179,23 @@ namespace Tests.Acceptance.BundledRequestsMakeLikeProd
             var project = DorcApiClient.Deserialize<ProjectApiModel>(projectResp.Content);
             Assert.IsNotNull(project);
 
-            var baseBuildLocalPath = new Uri(buildUri).LocalPath;
-            var parentShareDir = Path.GetDirectoryName(baseBuildLocalPath) ?? baseBuildLocalPath;
+            var originalArtefactsUrl = project.ArtefactsUrl ?? string.Empty;
+            var writableBundleRoot = ResolveWritableBundleDropDirectory(caller);
             var runId = Guid.NewGuid().ToString("N")[..8];
-            var validBundleDir = Path.Combine(parentShareDir, $"DOrc_Bundle_Valid_{runId}_bundle.json");
-            var invalidBundleDir = Path.Combine(parentShareDir, $"DOrc_Bundle_Invalid_{runId}_bundle.json");
+            var validBundleFolderName = $"DOrc_Bundle_Valid_{runId}_bundle.json";
+            var invalidBundleFolderName = $"DOrc_Bundle_Invalid_{runId}_bundle.json";
+            var validBundleDir = Path.Join(writableBundleRoot, validBundleFolderName);
+            var invalidBundleDir = Path.Join(writableBundleRoot, invalidBundleFolderName);
 
             try
             {
+                if (!originalArtefactsUrl.Contains(LocalBundleDropRootUri, StringComparison.OrdinalIgnoreCase))
+                {
+                    project.ArtefactsUrl = $"{originalArtefactsUrl};{LocalBundleDropRootUri}";
+                    var putProjResp = caller.ExecuteRaw("RefDataProjects", Method.Put, body: project);
+                    Assert.AreEqual(HttpStatusCode.OK, putProjResp.StatusCode, $"Failed adding bundle root to project: {putProjResp.Content}");
+                }
+
                 Directory.CreateDirectory(validBundleDir);
                 Directory.CreateDirectory(invalidBundleDir);
 
@@ -199,7 +208,7 @@ namespace Tests.Acceptance.BundledRequestsMakeLikeProd
                         new { Component = SnapshotComponentName, BuildDefinition = "BundleDefA", Build = $"BundleBuild_A_{runId}" }
                     }
                 });
-                File.WriteAllText(Path.Combine(validBundleDir, "bundle.json"), validManifestJson);
+                File.WriteAllText(Path.Join(validBundleDir, "bundle.json"), validManifestJson);
 
                 var invalidManifestJson = JsonSerializer.Serialize(new
                 {
@@ -209,10 +218,10 @@ namespace Tests.Acceptance.BundledRequestsMakeLikeProd
                         new { Component = $"Unknown_Bundle_Component_{runId}", BuildDefinition = "BundleDefX", Build = $"BundleBuild_X_{runId}" }
                     }
                 });
-                File.WriteAllText(Path.Combine(invalidBundleDir, "bundle.json"), invalidManifestJson);
+                File.WriteAllText(Path.Join(invalidBundleDir, "bundle.json"), invalidManifestJson);
 
-                var validBundleUri = new Uri(validBundleDir).AbsoluteUri;
-                var invalidBundleUri = new Uri(invalidBundleDir).AbsoluteUri;
+                var validBundleUri = new Uri(Path.Join(LocalBundleDropDirectory, validBundleFolderName)).AbsoluteUri;
+                var invalidBundleUri = new Uri(Path.Join(LocalBundleDropDirectory, invalidBundleFolderName)).AbsoluteUri;
 
                 // 1. GET /Request/BundleComponents with empty buildUrl returns 200 OK with empty list
                 var emptyBundleResp = caller.ExecuteRaw("Request/BundleComponents", Method.Get, new Dictionary<string, string>
@@ -306,6 +315,12 @@ namespace Tests.Acceptance.BundledRequestsMakeLikeProd
             }
             finally
             {
+                if (!string.Equals(project.ArtefactsUrl, originalArtefactsUrl, StringComparison.OrdinalIgnoreCase))
+                {
+                    project.ArtefactsUrl = originalArtefactsUrl;
+                    caller.ExecuteRaw("RefDataProjects", Method.Put, body: project);
+                }
+
                 foreach (var dir in new[] { validBundleDir, invalidBundleDir })
                 {
                     try

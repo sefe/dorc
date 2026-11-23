@@ -203,6 +203,62 @@ namespace Dorc.Core.Tests
             _buildServerClientFactory.Received(1).Create(SourceControlType.GitHub);
         }
 
+        [TestMethod]
+        public async Task GetBuildsAsync_FileShareProjectWithMultipleRoots_EnumeratesAllRootsAndOrdersByDate()
+        {
+            var root1 = Path.Join(Path.GetTempPath(), $"dorc_builds_r1_{Guid.NewGuid():N}");
+            var root2 = Path.Join(Path.GetTempPath(), $"dorc_builds_r2_{Guid.NewGuid():N}");
+            var buildA = Path.Join(root1, "Build_A");
+            var buildB = Path.Join(root2, "Build_B");
+            Directory.CreateDirectory(buildA);
+            Directory.CreateDirectory(buildB);
+
+            try
+            {
+                Directory.SetLastWriteTimeUtc(buildA, new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc));
+                Directory.SetLastWriteTimeUtc(buildB, new DateTime(2026, 2, 1, 0, 0, 0, DateTimeKind.Utc));
+
+                var project = new ProjectApiModel
+                {
+                    ProjectId = 1,
+                    ProjectName = "MultiRootShareProject",
+                    ArtefactsUrl = $"{new Uri(root1).AbsoluteUri};{new Uri(root2).AbsoluteUri}",
+                    SourceControlType = SourceControlType.FileShare
+                };
+                _projectsPds.GetProject(1).Returns(project);
+
+                var sut = CreateSut();
+                var result = (await sut.GetBuildsAsync(1, "dev", "Not a CI/CD Server Project")).ToList();
+
+                Assert.AreEqual(2, result.Count);
+                Assert.AreEqual("Build_B", result[0].Name);
+                Assert.AreEqual("Build_A", result[1].Name);
+            }
+            finally
+            {
+                if (Directory.Exists(root1)) Directory.Delete(root1, recursive: true);
+                if (Directory.Exists(root2)) Directory.Delete(root2, recursive: true);
+            }
+        }
+
+        [TestMethod]
+        public async Task GetBuildsAsync_FileShareProjectInvalidRoot_LogsAndRethrows()
+        {
+            var missingRoot = Path.Join(Path.GetTempPath(), $"dorc_missing_root_{Guid.NewGuid():N}");
+            var project = new ProjectApiModel
+            {
+                ProjectId = 1,
+                ProjectName = "MissingRootShareProject",
+                ArtefactsUrl = new Uri(missingRoot).AbsoluteUri,
+                SourceControlType = SourceControlType.FileShare
+            };
+            _projectsPds.GetProject(1).Returns(project);
+
+            var sut = CreateSut();
+            await Assert.ThrowsExactlyAsync<DirectoryNotFoundException>(() =>
+                sut.GetBuildsAsync(1, "dev", "Not a CI/CD Server Project"));
+        }
+
         // --- GetComponents ---
 
         [TestMethod]

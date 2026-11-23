@@ -153,16 +153,19 @@ namespace Dorc.Core
             try
             {
                 var result = new List<DeployableArtefact>();
-                var folderUri = new Uri(project.ArtefactsUrl);
-                var folder = folderUri.LocalPath;
-                var builds = Directory.EnumerateDirectories(folder)
-                    .Select(f => new DeployableArtefact
-                    {
-                        Id = f,
-                        Name = Path.GetFileName(f),
-                        Date = File.GetLastWriteTime(f)
-                    });
-                result.AddRange(builds);
+                foreach (var root in Security.PathConfinement.SplitRoots(project.ArtefactsUrl))
+                {
+                    var folderUri = new Uri(root);
+                    var folder = folderUri.LocalPath;
+                    var builds = Directory.EnumerateDirectories(folder)
+                        .Select(f => new DeployableArtefact
+                        {
+                            Id = f,
+                            Name = Path.GetFileName(f),
+                            Date = File.GetLastWriteTime(f)
+                        });
+                    result.AddRange(builds);
+                }
 
                 return result;
             }

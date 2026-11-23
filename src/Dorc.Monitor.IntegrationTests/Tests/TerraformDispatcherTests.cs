@@ -27,17 +27,17 @@ public class TerraformDispatcherTests : MonitorServiceTestBase
     public void TwoPhaseTerraformLifecycle_CreatesPlan_VerifiesArtifactIntegrity_AppliesImmutableSnapshot_AndRegistersCloudResources()
     {
         var ext = RandomNumberGenerator.GetHexString(6);
-        var tempRoot = Path.Combine(Path.GetTempPath(), $"dorc-ws4-tf-{ext}");
-        var sourceRepoDir = Path.Combine(tempRoot, "module-repo");
-        var blobStoreDir = Path.Combine(tempRoot, "blobs");
-        var workingRootDir = Path.Combine(tempRoot, "runner-work");
+        var tempRoot = Path.Join(Path.GetTempPath(), $"dorc-ws4-tf-{ext}");
+        var sourceRepoDir = Path.Join(tempRoot, "module-repo");
+        var blobStoreDir = Path.Join(tempRoot, "blobs");
+        var workingRootDir = Path.Join(tempRoot, "runner-work");
         Directory.CreateDirectory(sourceRepoDir);
         Directory.CreateDirectory(blobStoreDir);
         Directory.CreateDirectory(workingRootDir);
 
         try
         {
-            File.WriteAllText(Path.Combine(sourceRepoDir, "main.tf"), """
+            File.WriteAllText(Path.Join(sourceRepoDir, "main.tf"), """
                 variable "storage_account_name" { type = string }
                 variable "access_key" { type = string }
                 resource "azurerm_storage_account" "primary" {
@@ -87,7 +87,7 @@ public class TerraformDispatcherTests : MonitorServiceTestBase
             Assert.IsFalse(planContent.Contains("SuperSecretAccessKey!99", StringComparison.Ordinal), "Sensitive parameter must be redacted in stored plan text.");
 
             // Mutate the live module directory after plan creation to prove Apply uses the immutable .source.zip snapshot
-            File.WriteAllText(Path.Combine(sourceRepoDir, "main.tf"), "# MUTATED SOURCE THAT MUST NOT BE APPLIED");
+            File.WriteAllText(Path.Join(sourceRepoDir, "main.tf"), "# MUTATED SOURCE THAT MUST NOT BE APPLIED");
 
             // Confirm the plan with matching artifact SHA-256 digests
             var digests = TerraformPlanArtifactIntegrity.Calculate(storageWorker, result.Id);
@@ -108,7 +108,7 @@ public class TerraformDispatcherTests : MonitorServiceTestBase
             Assert.IsTrue(confirmed);
 
             // Tamper check: corrupting the plan blob before Apply must be rejected by TerraformPlanArtifactIntegrity.Verify
-            var planBlobPath = Path.Combine(blobStoreDir, result.Id.CreateTerraformPlanBlobName());
+            var planBlobPath = Path.Join(blobStoreDir, result.Id.CreateTerraformPlanBlobName());
             var originalPlanBytes = File.ReadAllBytes(planBlobPath);
             File.WriteAllBytes(planBlobPath, "tampered-binary-plan"u8.ToArray());
 
@@ -118,7 +118,7 @@ public class TerraformDispatcherTests : MonitorServiceTestBase
                     scenario.RequestId,
                     result.Id,
                     planBlobPath,
-                    Path.Combine(blobStoreDir, result.Id.CreateTerraformPlanBlobName() + ".source.zip")));
+                    Path.Join(blobStoreDir, result.Id.CreateTerraformPlanBlobName() + ".source.zip")));
 
             // Restore intact plan binary and execute Phase 2 (ApplyPlan)
             File.WriteAllBytes(planBlobPath, originalPlanBytes);

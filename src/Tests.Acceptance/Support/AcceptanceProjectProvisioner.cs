@@ -20,6 +20,8 @@ namespace Tests.Acceptance.Support
         internal const string BundleJobComponentName = "DOrc_Live_Acceptance_BundleJob";
         internal const string RelativeScriptSubfolder = @"Test\DOrc_Live_Acceptance";
         internal const string BuildFolderName = "DOrc Regression Testing";
+        internal const string LocalBundleDropDirectory = @"C:\Log\DOrc\LiveAcceptanceBundles";
+        internal const string LocalBundleDropRootUri = "file:///C:/Log/DOrc/LiveAcceptanceBundles";
 
         internal static void AssertLiveEnvironmentEnabled()
         {
@@ -73,8 +75,48 @@ namespace Tests.Acceptance.Support
             EnsureEnvironmentMappedToProject(caller, LiveProjectName, LiveParentEnvName);
             EnsureEnvironmentMappedToProject(caller, LiveProjectName, LiveChildEnvName);
             EnsureProjectComponents(caller, project.ProjectId);
+            EnsureDeploymentMonitorDaemonRunning(caller);
 
             return buildUri;
+        }
+
+        internal static string ResolveWritableBundleDropDirectory(DorcApiClient caller)
+        {
+            var apiHost = new Uri(caller.ApiRoot).Host;
+            var serverName = string.Equals(apiHost, "localhost", StringComparison.OrdinalIgnoreCase)
+                ? Environment.MachineName
+                : apiHost.Split('.')[0];
+
+            var targetPath = string.Equals(serverName, Environment.MachineName, StringComparison.OrdinalIgnoreCase)
+                ? LocalBundleDropDirectory
+                : $@"\\{apiHost}\c$\Log\DOrc\LiveAcceptanceBundles";
+
+            Directory.CreateDirectory(targetPath);
+            return targetPath;
+        }
+
+        private static bool _monitorDaemonChecked;
+
+        private static void EnsureDeploymentMonitorDaemonRunning(DorcApiClient caller)
+        {
+            if (_monitorDaemonChecked)
+            {
+                return;
+            }
+
+            _monitorDaemonChecked = true;
+            var apiHost = new Uri(caller.ApiRoot).Host;
+            var serverName = string.Equals(apiHost, "localhost", StringComparison.OrdinalIgnoreCase)
+                ? Environment.MachineName
+                : apiHost.Split('.')[0];
+
+            caller.ExecuteRaw("DaemonStatus", Method.Put, body: new DaemonStatusApiModel
+            {
+                EnvName = LiveChildEnvName,
+                ServerName = serverName,
+                DaemonName = "DeploymentActionServiceNonProd",
+                Status = "Starting"
+            });
         }
 
         internal static EnvironmentApiModel? GetEnvironmentByName(DorcApiClient caller, string envName)
@@ -452,7 +494,7 @@ if ($files.Count -le 0) {
             var fileName = Path.GetFileName(fullPath);
             var directory = Path.GetDirectoryName(fullPath)
                 ?? throw new InvalidOperationException($"Unable to resolve directory for script path '{path}'.");
-            var safePath = Path.Combine(directory, fileName);
+            var safePath = Path.Join(directory, fileName);
 
             if (File.Exists(safePath))
             {

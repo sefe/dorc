@@ -28,13 +28,13 @@ public class ScriptDispatcherTests : MonitorServiceTestBase
     public void NamedPipeAndFileTransport_ExecutePowerShellScript_WithVariableInterpolationAndRedaction()
     {
         var ext = RandomNumberGenerator.GetHexString(6);
-        var tempScriptDir = Path.Combine(Path.GetTempPath(), $"dorc-ws3-scripts-{ext}");
-        var outputMarkerFile = Path.Combine(tempScriptDir, "output-marker.txt");
+        var tempScriptDir = Path.Join(Path.GetTempPath(), $"dorc-ws3-scripts-{ext}");
+        var outputMarkerFile = Path.Join(tempScriptDir, "output-marker.txt");
         Directory.CreateDirectory(tempScriptDir);
 
         try
         {
-            var scriptPath = Path.Combine(tempScriptDir, "deploy-step.ps1");
+            var scriptPath = Path.Join(tempScriptDir, "deploy-step.ps1");
             File.WriteAllText(scriptPath, @"
 $parsedTags = $TagList | ConvertFrom-Json
 $summary = ""Env=$EnvironmentName|Region=$Region|Endpoint=$EndpointUrl|Secret=$ApiSecretKey|Tags=$($parsedTags -join ',')""
@@ -322,7 +322,7 @@ throw ""Terminating failure leaking $ApiSecretKey""
             var script = new Script
             {
                 Name = componentName,
-                Path = Path.Combine(scriptDir, scriptFileName),
+                Path = Path.Join(scriptDir, scriptFileName),
                 NonProdOnly = nonProdOnly,
                 IsPathJSON = false,
                 PowerShellVersionNumber = psVersion

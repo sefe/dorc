@@ -142,14 +142,14 @@ internal sealed class PipeBackedTerraformDispatcher : ITerraformDispatcher
             currentIdentity.Last());
         var serverTask = pipeServer.Start(pipeName, scriptGroup, readerIdentity, pipeCts.Token);
 
-        var stageDir = Path.Combine(_workingRootDir, $"stage-{deploymentResult.Id}-{terreformOperation}");
+        var stageDir = Path.Join(_workingRootDir, $"stage-{deploymentResult.Id}-{terreformOperation}");
         Directory.CreateDirectory(stageDir);
-        var planFilePath = Path.Combine(stageDir, deploymentResult.Id.CreateTerraformPlanBlobName());
+        var planFilePath = Path.Join(stageDir, deploymentResult.Id.CreateTerraformPlanBlobName());
         var planSourceArchivePath = planFilePath + ".source.zip";
-        var planContentFilePath = Path.Combine(stageDir, deploymentResult.Id.CreateTerraformPlanContentBlobName());
-        var lockFilePath = Path.Combine(stageDir, $"{deploymentResult.Id}.terraform.lock.hcl");
-        var appliedResourcesPath = Path.Combine(stageDir, $"{deploymentResult.Id}.applied-resources.json");
-        var deployedSourceArchivePath = Path.Combine(stageDir, $"{deploymentResult.Id}.terraform-source.zip");
+        var planContentFilePath = Path.Join(stageDir, deploymentResult.Id.CreateTerraformPlanContentBlobName());
+        var lockFilePath = Path.Join(stageDir, $"{deploymentResult.Id}.terraform.lock.hcl");
+        var appliedResourcesPath = Path.Join(stageDir, $"{deploymentResult.Id}.applied-resources.json");
+        var deployedSourceArchivePath = Path.Join(stageDir, $"{deploymentResult.Id}.terraform-source.zip");
 
         try
         {
@@ -294,7 +294,7 @@ internal sealed class PipeBackedTerraformDispatcher : ITerraformDispatcher
                     var targetDir = call.ArgAt<string>(1);
                     foreach (var file in Directory.GetFiles(sourceRepoDir))
                     {
-                        File.Copy(file, Path.Combine(targetDir, Path.GetFileName(file)), overwrite: true);
+                        File.Copy(file, Path.Join(targetDir, Path.GetFileName(file)), overwrite: true);
                     }
                     return Task.CompletedTask;
                 });
@@ -305,7 +305,7 @@ internal sealed class PipeBackedTerraformDispatcher : ITerraformDispatcher
 
         protected override string CreateTerraformWorkingDirectory(int requestId)
         {
-            var dir = Path.Combine(_workingRoot, $"exec-{requestId}-{Guid.NewGuid():N}");
+            var dir = Path.Join(_workingRoot, $"exec-{requestId}-{Guid.NewGuid():N}");
             Directory.CreateDirectory(dir);
             return dir;
         }
@@ -318,7 +318,7 @@ internal sealed class PipeBackedTerraformDispatcher : ITerraformDispatcher
         {
             if (command == TerraformCommand.Init)
             {
-                var lockFile = Path.Combine(workingDir, ".terraform.lock.hcl");
+                var lockFile = Path.Join(workingDir, ".terraform.lock.hcl");
                 if (!File.Exists(lockFile))
                 {
                     File.WriteAllText(lockFile, "# provider lock v1");
@@ -340,7 +340,7 @@ internal sealed class PipeBackedTerraformDispatcher : ITerraformDispatcher
 
             if (command == TerraformCommand.Apply)
             {
-                AppliedMainTf = File.ReadAllText(Path.Combine(workingDir, "main.tf"));
+                AppliedMainTf = File.ReadAllText(Path.Join(workingDir, "main.tf"));
                 return Task.FromResult("Apply complete! Resources: 1 added, 0 changed, 0 destroyed.");
             }
 
