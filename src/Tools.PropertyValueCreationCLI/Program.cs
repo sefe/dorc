@@ -24,7 +24,7 @@ namespace Tools.PropertyValueCreationCLI
             try
             {
                 var configuration = new ConfigurationBuilder()
-                    .SetBasePath(Directory.GetCurrentDirectory())
+                    .SetBasePath(AppContext.BaseDirectory)
                     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                     .AddJsonFile("loggerSettings.json", optional: false, reloadOnChange: true)
                     .Build();

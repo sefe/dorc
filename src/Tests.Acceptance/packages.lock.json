@@ -142,39 +142,6 @@
           "MSTest.Analyzers": "4.0.1"
         }
       },
-      "Reqnroll": {
-        "type": "Direct",
-        "requested": "[3.2.0, )",
-        "resolved": "3.2.0",
-        "contentHash": "DpNsTy68QmFMmYNEqAUurP7R/o8MynhS+dEQizd2lv7VoyVXSu1S2ewprGwCzo2zv4rjjN9zd4bpR6FHx6SXlg==",
-        "dependencies": {
-          "Cucumber.CucumberExpressions": "17.1.0",
-          "Cucumber.HtmlFormatter": "21.15.1",
-          "Cucumber.Messages": "29.0.1",
-          "Gherkin": "35.0.0",
-          "Microsoft.Bcl.AsyncInterfaces": "9.0.6",
-          "Microsoft.Extensions.DependencyModel": "8.0.2",
-          "System.Text.Json": "8.0.5",
-          "System.Threading.Channels": "9.0.6"
-        }
-      },
-      "Reqnroll.MsTest": {
-        "type": "Direct",
-        "requested": "[3.2.0, )",
-        "resolved": "3.2.0",
-        "contentHash": "RhHhJjpjMBgXOY+2Y1ABhX/cJvv2bTwLGjzfetPEn61C/1G8TwutL1zsZWgVRv4HvYG+tej3X0IONn1+h8QK2Q==",
-        "dependencies": {
-          "MSTest.TestFramework": "2.2.8",
-          "Reqnroll": "[3.2.0]",
-          "Reqnroll.Tools.MsBuild.Generation": "[3.2.0]"
-        }
-      },
-      "Reqnroll.Tools.MsBuild.Generation": {
-        "type": "Direct",
-        "requested": "[3.2.0, )",
-        "resolved": "3.2.0",
-        "contentHash": "QF4d1k2Lq0j8fBks+Tgt3IXYuTG7+RT4SM5vhbpMdsBf8nPfmPpaSifgke9qtExVsqCnAKfNo4bC2V1S0e4Mlg=="
-      },
       "RestSharp": {
         "type": "Direct",
         "requested": "[112.1.0, )",
@@ -271,36 +238,10 @@
           "System.Reflection.Metadata": "5.0.0"
         }
       },
-      "Cucumber.CucumberExpressions": {
-        "type": "Transitive",
-        "resolved": "17.1.0",
-        "contentHash": "IZFDLLwrUCKuGDXQzmAWZa+kQFpVmVwWD8wEl0UWGOR83UQfzqg8hZeSSNUOXlW0Kh3vMO6kEm3FpNC4amKMaw=="
-      },
-      "Cucumber.HtmlFormatter": {
-        "type": "Transitive",
-        "resolved": "21.15.1",
-        "contentHash": "At28t7VZsS8ccscrD0zjUpp02QeRz2MrBLvpSzO4eL6OD76HoPdCSN4aNyg3q5RD+t21uYpIQq0N2XR6J0MB0A==",
-        "dependencies": {
-          "Cucumber.Messages": "29.0.1"
-        }
-      },
-      "Cucumber.Messages": {
-        "type": "Transitive",
-        "resolved": "29.0.1",
-        "contentHash": "R2oo/wR3mXrbdK04Yraf+KhB01f/lyBkLQZcdxYt9XKE6tV+Af45MEk+jfbsew1SVvrAO0WvkIRwGYUozKCJvQ=="
-      },
       "FastExpressionCompiler": {
         "type": "Transitive",
         "resolved": "5.1.1",
         "contentHash": "oRzJ5PzMZCZiEbFjLmEh/XzvGnL+uIWJHihyCvlFUiE4NLujLNC8a9MBF4DMEQlQaXZM40iSNdckNaW1VQt72Q=="
-      },
-      "Gherkin": {
-        "type": "Transitive",
-        "resolved": "35.0.0",
-        "contentHash": "ha+QNevQsXEESbzazUceHTCtKOjoBTBa8kLFdKpu6vSEbb3UMt3a55RG78tIoU/C4qzIqX3jQxaIdIcYGO+IWQ==",
-        "dependencies": {
-          "Cucumber.Messages": "29.0.1"
-        }
       },
       "ImTools": {
         "type": "Transitive",
@@ -562,11 +503,6 @@
         "type": "Transitive",
         "resolved": "10.0.3",
         "contentHash": "bwGMrRcAMWx2s/RDgja97p27rxSz2pEQW0+rX5cWAUWVETVJ/eyxGfjAl8vuG5a+lckWmPIE+vcuaZNVB5YDdw=="
-      },
-      "Microsoft.Extensions.DependencyModel": {
-        "type": "Transitive",
-        "resolved": "8.0.2",
-        "contentHash": "mUBDZZRgZrSyFOsJ2qJJ9fXfqd/kXJwf3AiDoqLD9m6TjY5OO/vLNOb9fb4juC0487eq4hcGN/M2Rh/CKS7QYw=="
       },
       "Microsoft.Extensions.Diagnostics": {
         "type": "Transitive",
@@ -1587,11 +1523,6 @@
           "System.Runtime": "4.3.0",
           "System.Threading.Tasks": "4.3.0"
         }
-      },
-      "System.Threading.Channels": {
-        "type": "Transitive",
-        "resolved": "9.0.6",
-        "contentHash": "2MaNJVkG2yJiXQbZrrcYoJ55ehV+aX0zqR6rWJkO/Qj7jTsArWthrQ7iWywUf/sE5ylJWX/iLH2kKfwSRdkWsA=="
       },
       "System.Threading.Tasks": {
         "type": "Transitive",

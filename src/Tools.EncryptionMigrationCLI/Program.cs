@@ -28,7 +28,7 @@ namespace Tools.EncryptionMigrationCLI
                 _log.LogInformation("Starting encryption migration tool...");
 
                 var configuration = new ConfigurationBuilder()
-                    .SetBasePath(Directory.GetCurrentDirectory())
+                    .SetBasePath(AppContext.BaseDirectory)
                     .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                     .Build();
 

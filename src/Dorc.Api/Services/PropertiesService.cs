@@ -131,14 +131,25 @@ namespace Dorc.Api.Services
             {
                 try
                 {
+                    var lookupName = !string.IsNullOrWhiteSpace(propertyUpdateEntry.Key)
+                        ? propertyUpdateEntry.Key
+                        : propertyUpdateEntry.Value.Name;
+                    if (string.IsNullOrWhiteSpace(propertyUpdateEntry.Value.Name))
+                    {
+                        propertyUpdateEntry.Value.Name = lookupName;
+                    }
+
                     // Get the current property state before update
-                    var currentProperty = _propertiesPersistentSource.GetProperty(propertyUpdateEntry.Value.Name);
+                    var currentProperty = _propertiesPersistentSource.GetProperty(lookupName)
+                                          ?? _propertiesPersistentSource.GetProperty(propertyUpdateEntry.Value.Name);
                     if (currentProperty == null)
                     {
                         result.Add(new Response
                         { Item = propertyUpdateEntry, Status = "error: variable does not exist - please use POST to create it" });
                         continue;
                     }
+
+                    propertyUpdateEntry.Value.Id = currentProperty.Id;
 
                     // Check if property is being changed from non-secure to secure
                     bool shouldEncryptExistingValues = !currentProperty.Secure && propertyUpdateEntry.Value.Secure;

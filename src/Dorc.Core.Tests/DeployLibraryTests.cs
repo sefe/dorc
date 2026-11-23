@@ -536,6 +536,99 @@ namespace Dorc.Core.Tests
             StringAssert.Contains(extracted, "Comp1");
         }
 
+        [TestMethod]
+        public void DeployCopyEnvBuildWithComponentNames_FlattensHierarchyAndMatchesByNameOrIdAcrossDistinctInstances()
+        {
+            var user = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "DOMAIN\\tester") }, "TestAuth"));
+            var project = new ProjectApiModel { ProjectId = 10, ProjectName = "HierProj" };
+            _projectsPersistentSource!.GetProject("HierProj").Returns(project);
+            _projectsPersistentSource!.GetProject(10).Returns(project);
+
+            var leafChildA = new ComponentApiModel
+            {
+                ComponentId = 501,
+                ComponentName = "ChildLeafA",
+                IsEnabled = true,
+                Children = new List<ComponentApiModel>()
+            };
+            var leafChildB = new ComponentApiModel
+            {
+                ComponentId = 502,
+                ComponentName = "ChildLeafB",
+                IsEnabled = true,
+                Children = new List<ComponentApiModel>()
+            };
+            var parentGroup = new ComponentApiModel
+            {
+                ComponentId = 500,
+                ComponentName = "ParentGroup",
+                IsEnabled = true,
+                Children = new List<ComponentApiModel> { leafChildA, leafChildB }
+            };
+
+            // Return distinct ComponentApiModel instances to verify value/name/ID matching rather than reference equality
+            _projectsPersistentSource.GetComponentsForProject(10).Returns(new List<ComponentApiModel> { parentGroup });
+            _componentsPersistentSource!.GetComponentByName("ChildLeafA").Returns(new ComponentApiModel
+            {
+                ComponentId = 501,
+                ComponentName = "ChildLeafA",
+                IsEnabled = true,
+                Children = new List<ComponentApiModel>()
+            });
+
+            var manageProjectsSource = Substitute.For<IManageProjectsPersistentSource>();
+            manageProjectsSource.GetOrderedComponents(Arg.Any<IEnumerable<string>>())
+                .Returns(new List<ComponentApiModel> { leafChildA, leafChildB });
+
+            _environmentsPersistentSource!.GetEnvironment("SourceEnv", user)
+                .Returns(new EnvironmentApiModel { EnvironmentId = 1, EnvironmentName = "SourceEnv" });
+            _environmentsPersistentSource.GetEnvironmentComponentStatuses(1)
+                .Returns(new List<EnvironmentComponentStatusModel>
+                {
+                    new EnvironmentComponentStatusModel
+                    {
+                        Component = "ChildLeafA",
+                        BuildNumber = "1.0.0",
+                        DropLocation = "\\\\share\\drop",
+                        Uri = "vstfs:///Build/Build/1",
+                        Project = "HierProj"
+                    },
+                    new EnvironmentComponentStatusModel
+                    {
+                        Component = "ChildLeafB",
+                        BuildNumber = "1.0.0",
+                        DropLocation = "\\\\share\\drop",
+                        Uri = "vstfs:///Build/Build/1",
+                        Project = "HierProj"
+                    }
+                });
+            _requestsPersistentSource!.SubmitRequest(Arg.Any<DeploymentRequest>()).Returns(777);
+
+            var lib = new DeployLibrary(
+                _projectsPersistentSource,
+                _componentsPersistentSource,
+                manageProjectsSource,
+                _environmentsPersistentSource,
+                Substitute.For<Microsoft.Extensions.Logging.ILoggerFactory>(),
+                _requestsPersistentSource,
+                Substitute.For<Dorc.PersistentData.IClaimsPrincipalReader>(),
+                Substitute.For<Dorc.Core.Interfaces.IDeploymentEventsPublisher>(),
+                _buildServerClientFactory!);
+
+            var idsByNameAndId = lib.DeployCopyEnvBuildWithComponentNames("SourceEnv", "TargetEnv", "HierProj", "ChildLeafA;502", user);
+            Assert.AreEqual(1, idsByNameAndId.Count);
+            Assert.AreEqual(777, idsByNameAndId[0]);
+
+            var idsByIds = lib.CopyEnvBuildWithComponentIds("SourceEnv", "TargetEnv", "HierProj", new[] { 501 }, user);
+            Assert.AreEqual(1, idsByIds.Count);
+
+            var idsAll = lib.CopyEnvBuildAllComponents("SourceEnv", "TargetEnv", "HierProj", user);
+            Assert.AreEqual(1, idsAll.Count);
+
+            Assert.ThrowsExactly<Dorc.Core.Exceptions.WrongComponentsException>(() =>
+                lib.DeployCopyEnvBuildWithComponentNames("SourceEnv", "TargetEnv", "HierProj", "NonExistentComp", user));
+        }
+
         private void StubArtifactConfiguredGitHubProject(ClaimsPrincipal user)
         {
             var project = new ProjectApiModel

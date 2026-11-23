@@ -46,6 +46,20 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
+        /// Reset the password for the current user
+        /// </summary>
+        /// <param name="envFilter"></param>
+        /// <param name="envName"></param>
+        /// <returns></returns>
+        [Produces(typeof(ApiBoolResult))]
+        [HttpPut]
+        public IActionResult Put(string envFilter, string envName)
+        {
+            string username = _claimsPrincipalReader.GetUserLogin(User);
+            return ResetPassword(envFilter, envName, username);
+        }
+
+        /// <summary>
         /// Reset the password for the specified user
         /// </summary>
         /// <param name="envFilter"></param>
@@ -80,7 +94,7 @@ namespace Dorc.Api.Controllers
             catch (Exception e)
             {
                 _logger.LogError(e, "Failed to reset password for user '{Username}' in environment '{EnvName}' with filter '{EnvFilter}'", username, envName, envFilter);
-                return StatusCode(StatusCodes.Status500InternalServerError, e);
+                return StatusCode(StatusCodes.Status500InternalServerError, e.Message);
             }
         }
 

@@ -419,11 +419,16 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var environmentDetails = context.Environments.Include(ed => ed.Databases)
-                    .First(environmentDetails =>
+                    .FirstOrDefault(environmentDetails =>
                         EF.Functions.Collate(environmentDetails.Name, DeploymentContext.CaseInsensitiveCollation)
                         == EF.Functions.Collate(envName, DeploymentContext.CaseInsensitiveCollation)
                         && EF.Functions.Collate(environmentDetails.ThinClientServer, DeploymentContext.CaseInsensitiveCollation)
                         == EF.Functions.Collate(envFilter, DeploymentContext.CaseInsensitiveCollation));
+
+                if (environmentDetails == null)
+                {
+                    return null;
+                }
 
                 var dbIds = environmentDetails.Databases.Select(d => d.Id).ToList();
 
@@ -434,7 +439,7 @@ namespace Dorc.PersistentData.Sources
                         dbIds.Contains(eu.Database.Id) && eu.User.LoginId.Equals(username) &&
                         eu.User.LoginType.Equals(envFilter)).Select(eu => eu.Database).FirstOrDefault();
 
-                return MapToDatabaseApiModel(database);
+                return database != null ? MapToDatabaseApiModel(database) : null;
             }
         }
 

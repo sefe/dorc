@@ -77,7 +77,7 @@ namespace Dorc.Api.Controllers
             catch (Exception e)
             {
                 _log.LogError(e, "api/Request/:id");
-                var result = StatusCode(StatusCodes.Status500InternalServerError, e);
+                var result = StatusCode(StatusCodes.Status500InternalServerError, e.Message);
                 return result;
             }
         }
@@ -194,7 +194,7 @@ namespace Dorc.Api.Controllers
             catch (Exception e)
             {
                 _log.LogError(e, "api/Request/Components");
-                var result = StatusCode(StatusCodes.Status500InternalServerError, e);
+                var result = StatusCode(StatusCodes.Status500InternalServerError, e.Message);
                 return result;
             }
         }
@@ -294,7 +294,7 @@ namespace Dorc.Api.Controllers
             catch (Exception e)
             {
                 _log.LogError(e, "api/Request/restart");
-                var result = StatusCode(StatusCodes.Status500InternalServerError, e);
+                var result = StatusCode(StatusCodes.Status500InternalServerError, e.Message);
                 return result;
             }
         }
@@ -357,7 +357,7 @@ namespace Dorc.Api.Controllers
             catch (Exception e)
             {
                 _log.LogError(e, "api/Request/{requestId}/attempts");
-                var result = StatusCode(StatusCodes.Status500InternalServerError, e);
+                var result = StatusCode(StatusCodes.Status500InternalServerError, e.Message);
                 return result;
             }
         }
@@ -397,7 +397,7 @@ namespace Dorc.Api.Controllers
             catch (Exception e)
             {
                 _log.LogError(e, "api/Request/{RequestId}/attempts/log?deploymentResultId={DeploymentResultId}", requestId, deploymentResultId);
-                return StatusCode(StatusCodes.Status500InternalServerError, e);
+                return StatusCode(StatusCodes.Status500InternalServerError, e.Message);
             }
         }
 
@@ -454,7 +454,7 @@ namespace Dorc.Api.Controllers
             catch (Exception e)
             {
                 _log.LogError(e, "api/Request/cancel");
-                var result = StatusCode(StatusCodes.Status500InternalServerError, e);
+                var result = StatusCode(StatusCodes.Status500InternalServerError, e.Message);
                 return result;
             }
         }
@@ -512,7 +512,7 @@ namespace Dorc.Api.Controllers
             catch (Exception e)
             {
                 _log.LogError(e, "api/Request/pause");
-                var result = StatusCode(StatusCodes.Status500InternalServerError, e);
+                var result = StatusCode(StatusCodes.Status500InternalServerError, e.Message);
                 return result;
             }
         }
@@ -570,7 +570,7 @@ namespace Dorc.Api.Controllers
             catch (Exception e)
             {
                 _log.LogError(e, "api/Request/resume");
-                var result = StatusCode(StatusCodes.Status500InternalServerError, e);
+                var result = StatusCode(StatusCodes.Status500InternalServerError, e.Message);
                 return result;
             }
         }
@@ -702,7 +702,7 @@ namespace Dorc.Api.Controllers
             catch (Exception e)
             {
                 _log.LogError(e, "api/Request/post");
-                var result = StatusCode(StatusCodes.Status500InternalServerError, e);
+                var result = StatusCode(StatusCodes.Status500InternalServerError, e.Message);
                 return result;
             }
         }

@@ -24,9 +24,6 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.2" />
     <PackageReference Include="Microsoft.SqlServer.DacFx" Version="170.0.0" />
-    <PackageReference Include="Reqnroll" Version="3.2.0" />
-    <PackageReference Include="Reqnroll.MsTest" Version="3.2.0" />
-    <PackageReference Include="Reqnroll.Tools.MsBuild.Generation" Version="3.2.0" />
     <PackageReference Include="RestSharp" Version="112.1.0" />
     <PackageReference Include="MSTest.TestAdapter" Version="4.0.1" />
     <PackageReference Include="MSTest.TestFramework" Version="4.0.1" />

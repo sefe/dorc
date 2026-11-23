@@ -393,18 +393,13 @@ if (-not (Test-Path $reqCliExe)) {
 $csvTemp = Join-Path $env:TEMP ""dorc_cli_props_$AutoReg_CliPropName.csv""
 Set-Content -Path $csvTemp -Value ""$AutoReg_CliPropName,0,CliCreatedValue_$AutoReg_CliPropName,$EnvironmentName"" -Encoding UTF8
 try {
-    Push-Location $propCliDir
+    Push-Location $env:TEMP
     try {
         $propOut = & $propCliExe $csvTemp 2>&1 | Out-String
         Write-Output ""PROP_CLI_OUT=$($propOut.Trim())""
         if ($LASTEXITCODE -ne 0) {
             throw ""Tools.PropertyValueCreationCLI.exe failed with exit code $LASTEXITCODE : $propOut""
         }
-    } finally {
-        Pop-Location
-    }
-    Push-Location $reqCliDir
-    try {
         $reqOut = & $reqCliExe '/project:DOrc_Live_Acceptance_Project' ""/targetenv:$EnvironmentName"" ""/builduri:$AutoReg_FileShareBuildUri"" '/buildnum:DOrc Regression Testing' '/components:DOrc_Live_Acceptance_SnapshotComponent' '/wait:false' 2>&1 | Out-String
         Write-Output ""REQ_CLI_OUT=$($reqOut.Trim())""
         if ($LASTEXITCODE -ne 0) {

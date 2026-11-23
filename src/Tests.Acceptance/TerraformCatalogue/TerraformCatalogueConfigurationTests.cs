@@ -108,6 +108,60 @@ namespace Tests.Acceptance.TerraformCatalogue
                     HttpStatusCode.Conflict,
                     staleConfigResp.StatusCode,
                     $"Expected 409 Conflict for stale ExpectedRevision, got {staleConfigResp.StatusCode}: {staleConfigResp.Content}");
+
+                // Verify GET /Terraform/templates/{name} and GET /Terraform/templates/{name}/{version}
+                var latestTplResp = caller.ExecuteRaw("Terraform/templates/service-bus", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, latestTplResp.StatusCode, $"GET /Terraform/templates/service-bus failed: {latestTplResp.Content}");
+                StringAssert.Contains(latestTplResp.Content ?? string.Empty, "service-bus");
+
+                var versionedTplResp = caller.ExecuteRaw("Terraform/templates/service-bus/1.0.0", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, versionedTplResp.StatusCode, $"GET /Terraform/templates/service-bus/1.0.0 failed: {versionedTplResp.Content}");
+                StringAssert.Contains(versionedTplResp.Content ?? string.Empty, "1.0.0");
+
+                // Verify GET & POST /Terraform/components/{componentId}/upgrade/{name}/{version}?projectId={projectId}
+                // Upgrading to the same version must return 400 BadRequest ("Choose a newer stable version of this module.")
+                var upgradeSameVersionPreviewResp = caller.ExecuteRaw(
+                    $"Terraform/components/{createdComponentId.Value}/upgrade/service-bus/1.0.0",
+                    Method.Get,
+                    new Dictionary<string, string> { ["projectId"] = project.ProjectId.ToString() });
+                Assert.AreEqual(
+                    HttpStatusCode.BadRequest,
+                    upgradeSameVersionPreviewResp.StatusCode,
+                    $"Expected 400 BadRequest when previewing upgrade to same version 1.0.0, got {upgradeSameVersionPreviewResp.StatusCode}: {upgradeSameVersionPreviewResp.Content}");
+
+                var upgradeUnconfirmedResp = caller.ExecuteRaw(
+                    $"Terraform/components/{createdComponentId.Value}/upgrade/service-bus/1.0.0",
+                    Method.Post,
+                    new Dictionary<string, string> { ["projectId"] = project.ProjectId.ToString() },
+                    body: new CatalogUpgradeRequestApiModel
+                    {
+                        ConfirmImpact = false,
+                        EnvironmentIds = new List<int> { childEnv.EnvironmentId },
+                        ConfigurationRevisions = new Dictionary<string, long>()
+                    });
+                Assert.AreEqual(
+                    HttpStatusCode.BadRequest,
+                    upgradeUnconfirmedResp.StatusCode,
+                    $"Expected 400 BadRequest when ConfirmImpact=false on POST /Terraform/components/.../upgrade, got {upgradeUnconfirmedResp.StatusCode}: {upgradeUnconfirmedResp.Content}");
+
+                // Verify GET /Projects/{projectId}/terraform-state-backend-cutovers/preview?environmentId={envId}
+                var cutoverPreviewResp = caller.ExecuteRaw(
+                    $"Projects/{project.ProjectId}/terraform-state-backend-cutovers/preview",
+                    Method.Get,
+                    new Dictionary<string, string> { ["environmentId"] = childEnv.EnvironmentId.ToString() });
+                Assert.IsTrue(
+                    cutoverPreviewResp.StatusCode == HttpStatusCode.OK || cutoverPreviewResp.StatusCode == HttpStatusCode.BadRequest,
+                    $"Unexpected status from terraform-state-backend-cutovers/preview: {cutoverPreviewResp.StatusCode} {cutoverPreviewResp.Content}");
+
+                // Verify Terraform plan lifecycle endpoints guard against non-existent deploymentResultId
+                var missingPlanResp = caller.ExecuteRaw("Terraform/plan/999999999", Method.Get);
+                Assert.IsTrue(
+                    missingPlanResp.StatusCode == HttpStatusCode.NotFound || missingPlanResp.StatusCode == HttpStatusCode.BadRequest,
+                    $"Expected 404/400 for missing Terraform plan 999999999, got {missingPlanResp.StatusCode}");
+                var missingInventoryResp = caller.ExecuteRaw("Terraform/plan/999999999/inventory", Method.Get);
+                Assert.IsTrue(
+                    missingInventoryResp.StatusCode == HttpStatusCode.NotFound || missingInventoryResp.StatusCode == HttpStatusCode.BadRequest,
+                    $"Expected 404/400 for missing Terraform plan inventory 999999999, got {missingInventoryResp.StatusCode}");
             }
             finally
             {

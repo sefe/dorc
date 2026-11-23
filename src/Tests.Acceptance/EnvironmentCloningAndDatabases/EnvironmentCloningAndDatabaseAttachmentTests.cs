@@ -688,5 +688,270 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 }
             }
         }
+
+        [TestMethod]
+        public void ManageEnvironmentResourcesAndSqlPorts_ApiRegistrationsCloudResourcesContainersAuditsAppServersAndSqlPorts_PersistsAndCleansUp()
+        {
+            AssertLiveEnvironmentEnabled();
+
+            using var caller = new DorcApiClient();
+            EnsureProvisioned(caller);
+
+            var childEnv = GetEnvironmentByName(caller, LiveChildEnvName);
+            Assert.IsNotNull(childEnv);
+
+            var suffix = Guid.NewGuid().ToString("N")[..8];
+            var apiRegName = $"DOrc_Live_ApiReg_{suffix}";
+            var cloudResName = $"DOrc_Live_CloudRes_{suffix}";
+            var containerName = $"DOrc_Live_Container_{suffix}";
+            var sqlInstanceName = $"DORCSQLPORT_{suffix}\\INST01";
+            var sqlPortVal = "14433";
+
+            int? apiRegId = null;
+            int? cloudResId = null;
+            int? containerId = null;
+            bool createdSqlPort = false;
+
+            try
+            {
+                // 1. RefDataApiRegistrations + ApiRegistrationAudit full lifecycle
+                var postApiRegResp = caller.ExecuteRaw("RefDataApiRegistrations", Method.Post, body: new ApiRegistrationApiModel
+                {
+                    Name = apiRegName,
+                    BaseUrl = $"https://api-{suffix}.internal.local",
+                    Version = "1.0.0",
+                    HealthCheckUrl = $"https://api-{suffix}.internal.local/health",
+                    Tags = "Regression;ApiTier"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, postApiRegResp.StatusCode, $"POST /RefDataApiRegistrations failed: {postApiRegResp.Content}");
+                var createdApiReg = DorcApiClient.Deserialize<ApiRegistrationApiModel>(postApiRegResp.Content);
+                Assert.IsNotNull(createdApiReg);
+                Assert.IsGreaterThan(0, createdApiReg.Id);
+                apiRegId = createdApiReg.Id;
+
+                var getApiRegsResp = caller.ExecuteRaw("RefDataApiRegistrations", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getApiRegsResp.StatusCode, getApiRegsResp.Content);
+
+                var getApiRegByIdResp = caller.ExecuteRaw($"RefDataApiRegistrations/ById/{apiRegId.Value}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getApiRegByIdResp.StatusCode, getApiRegByIdResp.Content);
+                var fetchedApiReg = DorcApiClient.Deserialize<ApiRegistrationApiModel>(getApiRegByIdResp.Content);
+                Assert.IsNotNull(fetchedApiReg);
+
+                fetchedApiReg.Version = "1.1.0";
+                var putApiRegResp = caller.ExecuteRaw($"RefDataApiRegistrations/{apiRegId.Value}", Method.Put, body: fetchedApiReg);
+                Assert.AreEqual(HttpStatusCode.OK, putApiRegResp.StatusCode, $"PUT /RefDataApiRegistrations/{apiRegId.Value} failed: {putApiRegResp.Content}");
+                var updatedApiReg = DorcApiClient.Deserialize<ApiRegistrationApiModel>(putApiRegResp.Content);
+                Assert.IsNotNull(updatedApiReg);
+                Assert.AreEqual("1.1.0", updatedApiReg.Version);
+
+                var putApiRegTagsResp = caller.ExecuteRaw($"RefDataApiRegistrations/{apiRegId.Value}/tags", Method.Put, body: new
+                {
+                    ExpectedTags = updatedApiReg.Tags,
+                    Tags = "Regression;ApiTier;UpdatedTag"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, putApiRegTagsResp.StatusCode, $"PUT /RefDataApiRegistrations/{apiRegId.Value}/tags failed: {putApiRegTagsResp.Content}");
+
+                var attachApiRegResp = caller.ExecuteRaw($"RefDataApiRegistrations/{apiRegId.Value}/environments/{childEnv.EnvironmentId}", Method.Put);
+                Assert.AreEqual(HttpStatusCode.OK, attachApiRegResp.StatusCode, $"Attach ApiRegistration failed: {attachApiRegResp.Content}");
+
+                var getApiRegByEnvResp = caller.ExecuteRaw($"RefDataApiRegistrations/ByEnvId/{childEnv.EnvironmentId}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getApiRegByEnvResp.StatusCode, getApiRegByEnvResp.Content);
+                StringAssert.Contains(getApiRegByEnvResp.Content ?? string.Empty, apiRegName);
+
+                var getApiRegCapResp = caller.ExecuteRaw($"RefDataApiRegistrations/Capabilities/{childEnv.EnvironmentId}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getApiRegCapResp.StatusCode, getApiRegCapResp.Content);
+
+                var apiRegAuditResp = caller.ExecuteRaw(
+                    "ApiRegistrationAudit",
+                    Method.Put,
+                    new Dictionary<string, string>
+                    {
+                        ["apiRegistrationId"] = apiRegId.Value.ToString(),
+                        ["page"] = "1",
+                        ["limit"] = "20"
+                    },
+                    body: new PagedDataOperators());
+                Assert.AreEqual(HttpStatusCode.OK, apiRegAuditResp.StatusCode, $"PUT /ApiRegistrationAudit failed: {apiRegAuditResp.Content}");
+                StringAssert.Contains(apiRegAuditResp.Content ?? string.Empty, apiRegName);
+
+                var detachApiRegResp = caller.ExecuteRaw($"RefDataApiRegistrations/{apiRegId.Value}/environments/{childEnv.EnvironmentId}", Method.Delete);
+                Assert.AreEqual(HttpStatusCode.OK, detachApiRegResp.StatusCode, $"Detach ApiRegistration failed: {detachApiRegResp.Content}");
+
+                var delApiRegResp = caller.ExecuteRaw($"RefDataApiRegistrations/{apiRegId.Value}", Method.Delete);
+                Assert.AreEqual(HttpStatusCode.OK, delApiRegResp.StatusCode, $"DELETE /RefDataApiRegistrations/{apiRegId.Value} failed: {delApiRegResp.Content}");
+                apiRegId = null;
+
+                // 2. RefDataCloudResources + CloudResourceAudit full lifecycle
+                var postCloudResResp = caller.ExecuteRaw("RefDataCloudResources", Method.Post, body: new CloudResourceApiModel
+                {
+                    Name = cloudResName,
+                    Provider = "Azure",
+                    ResourceType = "Microsoft.ServiceBus/namespaces",
+                    ResourceIdentifier = $"/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-dorc/providers/Microsoft.ServiceBus/namespaces/{cloudResName}",
+                    Subscription = "sub-dorc-nonprod",
+                    Tags = "Regression;CloudTier"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, postCloudResResp.StatusCode, $"POST /RefDataCloudResources failed: {postCloudResResp.Content}");
+                var createdCloudRes = DorcApiClient.Deserialize<CloudResourceApiModel>(postCloudResResp.Content);
+                Assert.IsNotNull(createdCloudRes);
+                Assert.IsGreaterThan(0, createdCloudRes.Id);
+                cloudResId = createdCloudRes.Id;
+
+                var getCloudResByIdResp = caller.ExecuteRaw($"RefDataCloudResources/ById/{cloudResId.Value}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getCloudResByIdResp.StatusCode, getCloudResByIdResp.Content);
+                var fetchedCloudRes = DorcApiClient.Deserialize<CloudResourceApiModel>(getCloudResByIdResp.Content);
+                Assert.IsNotNull(fetchedCloudRes);
+
+                fetchedCloudRes.Subscription = "sub-dorc-updated";
+                var putCloudResResp = caller.ExecuteRaw($"RefDataCloudResources/{cloudResId.Value}", Method.Put, body: fetchedCloudRes);
+                Assert.AreEqual(HttpStatusCode.OK, putCloudResResp.StatusCode, $"PUT /RefDataCloudResources/{cloudResId.Value} failed: {putCloudResResp.Content}");
+
+                var attachCloudResResp = caller.ExecuteRaw($"RefDataCloudResources/{cloudResId.Value}/environments/{childEnv.EnvironmentId}", Method.Put);
+                Assert.AreEqual(HttpStatusCode.OK, attachCloudResResp.StatusCode, $"Attach CloudResource failed: {attachCloudResResp.Content}");
+
+                var getCloudResByEnvResp = caller.ExecuteRaw($"RefDataCloudResources/ByEnvId/{childEnv.EnvironmentId}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getCloudResByEnvResp.StatusCode, getCloudResByEnvResp.Content);
+                StringAssert.Contains(getCloudResByEnvResp.Content ?? string.Empty, cloudResName);
+
+                var cloudResAuditResp = caller.ExecuteRaw(
+                    "CloudResourceAudit",
+                    Method.Put,
+                    new Dictionary<string, string>
+                    {
+                        ["cloudResourceId"] = cloudResId.Value.ToString(),
+                        ["page"] = "1",
+                        ["limit"] = "20"
+                    },
+                    body: new PagedDataOperators());
+                Assert.AreEqual(HttpStatusCode.OK, cloudResAuditResp.StatusCode, $"PUT /CloudResourceAudit failed: {cloudResAuditResp.Content}");
+                StringAssert.Contains(cloudResAuditResp.Content ?? string.Empty, cloudResName);
+
+                var detachCloudResResp = caller.ExecuteRaw($"RefDataCloudResources/{cloudResId.Value}/environments/{childEnv.EnvironmentId}", Method.Delete);
+                Assert.AreEqual(HttpStatusCode.OK, detachCloudResResp.StatusCode, $"Detach CloudResource failed: {detachCloudResResp.Content}");
+
+                var delCloudResResp = caller.ExecuteRaw($"RefDataCloudResources/{cloudResId.Value}", Method.Delete);
+                Assert.AreEqual(HttpStatusCode.OK, delCloudResResp.StatusCode, $"DELETE /RefDataCloudResources/{cloudResId.Value} failed: {delCloudResResp.Content}");
+                cloudResId = null;
+
+                // 3. RefDataContainers + ContainerAudit full lifecycle
+                var postContainerResp = caller.ExecuteRaw("RefDataContainers", Method.Post, body: new ContainerApiModel
+                {
+                    Name = containerName,
+                    Image = $"proget.internal.local/dorc/{containerName}:1.0.0",
+                    Registry = "proget.internal.local",
+                    HostServerName = "DEPAPP01DV",
+                    Tags = "Regression;ContainerTier"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, postContainerResp.StatusCode, $"POST /RefDataContainers failed: {postContainerResp.Content}");
+                var createdContainer = DorcApiClient.Deserialize<ContainerApiModel>(postContainerResp.Content);
+                Assert.IsNotNull(createdContainer);
+                Assert.IsGreaterThan(0, createdContainer.Id);
+                containerId = createdContainer.Id;
+
+                var getContainerByIdResp = caller.ExecuteRaw($"RefDataContainers/ById/{containerId.Value}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getContainerByIdResp.StatusCode, getContainerByIdResp.Content);
+                var fetchedContainer = DorcApiClient.Deserialize<ContainerApiModel>(getContainerByIdResp.Content);
+                Assert.IsNotNull(fetchedContainer);
+
+                fetchedContainer.Image = $"proget.internal.local/dorc/{containerName}:1.1.0";
+                var putContainerResp = caller.ExecuteRaw($"RefDataContainers/{containerId.Value}", Method.Put, body: fetchedContainer);
+                Assert.AreEqual(HttpStatusCode.OK, putContainerResp.StatusCode, $"PUT /RefDataContainers/{containerId.Value} failed: {putContainerResp.Content}");
+
+                var attachContainerResp = caller.ExecuteRaw($"RefDataContainers/{containerId.Value}/environments/{childEnv.EnvironmentId}", Method.Put);
+                Assert.AreEqual(HttpStatusCode.OK, attachContainerResp.StatusCode, $"Attach Container failed: {attachContainerResp.Content}");
+
+                var getContainerByEnvResp = caller.ExecuteRaw($"RefDataContainers/ByEnvId/{childEnv.EnvironmentId}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getContainerByEnvResp.StatusCode, getContainerByEnvResp.Content);
+                StringAssert.Contains(getContainerByEnvResp.Content ?? string.Empty, containerName);
+
+                var containerAuditResp = caller.ExecuteRaw(
+                    "ContainerAudit",
+                    Method.Put,
+                    new Dictionary<string, string>
+                    {
+                        ["containerId"] = containerId.Value.ToString(),
+                        ["page"] = "1",
+                        ["limit"] = "20"
+                    },
+                    body: new PagedDataOperators());
+                Assert.AreEqual(HttpStatusCode.OK, containerAuditResp.StatusCode, $"PUT /ContainerAudit failed: {containerAuditResp.Content}");
+                StringAssert.Contains(containerAuditResp.Content ?? string.Empty, containerName);
+
+                var detachContainerResp = caller.ExecuteRaw($"RefDataContainers/{containerId.Value}/environments/{childEnv.EnvironmentId}", Method.Delete);
+                Assert.AreEqual(HttpStatusCode.OK, detachContainerResp.StatusCode, $"Detach Container failed: {detachContainerResp.Content}");
+
+                var delContainerResp = caller.ExecuteRaw($"RefDataContainers/{containerId.Value}", Method.Delete);
+                Assert.AreEqual(HttpStatusCode.OK, delContainerResp.StatusCode, $"DELETE /RefDataContainers/{containerId.Value} failed: {delContainerResp.Content}");
+                containerId = null;
+
+                // 4. RefDataAppServers (GET /RefDataAppServers/{envId} & PUT /RefDataAppServers with safe empty server no-op)
+                var getAppSrvsResp = caller.ExecuteRaw($"RefDataAppServers/{childEnv.EnvironmentId}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getAppSrvsResp.StatusCode, $"GET /RefDataAppServers/{childEnv.EnvironmentId} failed: {getAppSrvsResp.Content}");
+
+                var putAppSrvNoOpResp = caller.ExecuteRaw("RefDataAppServers", Method.Put, new Dictionary<string, string>
+                {
+                    ["server"] = string.Empty
+                });
+                Assert.IsTrue(
+                    putAppSrvNoOpResp.StatusCode == HttpStatusCode.OK || putAppSrvNoOpResp.StatusCode == HttpStatusCode.NoContent,
+                    $"PUT /RefDataAppServers (empty no-op) failed with {putAppSrvNoOpResp.StatusCode}: {putAppSrvNoOpResp.Content}");
+
+                // 5. RefDataSqlPorts full CRUD lifecycle (POST, GET /ByInstance, DELETE)
+                var postSqlPortResp = caller.ExecuteRaw("RefDataSqlPorts", Method.Post, body: new SqlPortApiModel
+                {
+                    InstanceName = sqlInstanceName,
+                    SqlPort = sqlPortVal
+                });
+                Assert.AreEqual(HttpStatusCode.OK, postSqlPortResp.StatusCode, $"POST /RefDataSqlPorts failed: {postSqlPortResp.Content}");
+                createdSqlPort = true;
+
+                var getSqlPortByInstResp = caller.ExecuteRaw("RefDataSqlPorts/ByInstance", Method.Get, new Dictionary<string, string>
+                {
+                    ["instanceName"] = sqlInstanceName
+                });
+                Assert.AreEqual(HttpStatusCode.OK, getSqlPortByInstResp.StatusCode, $"GET /RefDataSqlPorts/ByInstance failed: {getSqlPortByInstResp.Content}");
+                Assert.AreEqual(sqlPortVal, (getSqlPortByInstResp.Content ?? string.Empty).Trim('"'));
+
+                var delSqlPortResp = caller.ExecuteRaw("RefDataSqlPorts", Method.Delete, body: new SqlPortApiModel
+                {
+                    InstanceName = sqlInstanceName,
+                    SqlPort = sqlPortVal
+                });
+                Assert.AreEqual(HttpStatusCode.OK, delSqlPortResp.StatusCode, $"DELETE /RefDataSqlPorts failed: {delSqlPortResp.Content}");
+                createdSqlPort = false;
+
+                var getDeletedSqlPortResp = caller.ExecuteRaw("RefDataSqlPorts/ByInstance", Method.Get, new Dictionary<string, string>
+                {
+                    ["instanceName"] = sqlInstanceName
+                });
+                Assert.AreEqual(HttpStatusCode.NotFound, getDeletedSqlPortResp.StatusCode, "GET /RefDataSqlPorts/ByInstance after DELETE must return 404 NotFound.");
+            }
+            finally
+            {
+                if (apiRegId.HasValue)
+                {
+                    caller.ExecuteRaw($"RefDataApiRegistrations/{apiRegId.Value}/environments/{childEnv.EnvironmentId}", Method.Delete);
+                    caller.ExecuteRaw($"RefDataApiRegistrations/{apiRegId.Value}", Method.Delete);
+                }
+                if (cloudResId.HasValue)
+                {
+                    caller.ExecuteRaw($"RefDataCloudResources/{cloudResId.Value}/environments/{childEnv.EnvironmentId}", Method.Delete);
+                    caller.ExecuteRaw($"RefDataCloudResources/{cloudResId.Value}", Method.Delete);
+                }
+                if (containerId.HasValue)
+                {
+                    caller.ExecuteRaw($"RefDataContainers/{containerId.Value}/environments/{childEnv.EnvironmentId}", Method.Delete);
+                    caller.ExecuteRaw($"RefDataContainers/{containerId.Value}", Method.Delete);
+                }
+                if (createdSqlPort)
+                {
+                    caller.ExecuteRaw("RefDataSqlPorts", Method.Delete, body: new SqlPortApiModel
+                    {
+                        InstanceName = sqlInstanceName,
+                        SqlPort = sqlPortVal
+                    });
+                }
+            }
+        }
     }
 }

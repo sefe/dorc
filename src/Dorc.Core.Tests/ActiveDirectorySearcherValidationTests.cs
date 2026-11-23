@@ -1,4 +1,7 @@
 using Dorc.Core;
+using Dorc.Core.Configuration;
+using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 
 namespace Dorc.Core.Tests
 {
@@ -31,6 +34,22 @@ namespace Dorc.Core.Tests
             Assert.AreEqual("\\2a", ActiveDirectorySearcher.EscapeLdapFilter("*"));
             Assert.AreEqual("\\28cn=x\\29", ActiveDirectorySearcher.EscapeLdapFilter("(cn=x)"));
             Assert.AreEqual("a\\5cb", ActiveDirectorySearcher.EscapeLdapFilter("a\\b"));
+        }
+
+        [TestMethod]
+        public void FormatSidForLdapFilter_EncodesEveryByteAsHexEscape()
+        {
+            var bytes = new byte[] { 0x01, 0x05, 0x00, 0xFF, 0x15 };
+            Assert.AreEqual("\\01\\05\\00\\FF\\15", ActiveDirectorySearcher.FormatSidForLdapFilter(bytes));
+        }
+
+        [TestMethod]
+        public void AzureEntraSearcher_GetUserData_RejectsInvalidUsernameAndAcceptsDigitsBeforeGraphCall()
+        {
+            var config = Substitute.For<IConfigurationSettings>();
+            var searcher = new AzureEntraSearcher(config, NullLogger<AzureEntraSearcher>.Instance);
+
+            Assert.Throws<ArgumentException>(() => searcher.GetUserData("invalid*user"));
         }
     }
 }

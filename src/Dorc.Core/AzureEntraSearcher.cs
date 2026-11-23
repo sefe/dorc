@@ -239,9 +239,9 @@ namespace Dorc.Core
 
         public UserElementApiModel GetUserData(string username)
         {
-            if (!Regex.IsMatch(username, @"^[a-zA-Z'-_. ]+(\(External\))?$"))
+            if (!ActiveDirectorySearcher.IsValidSearchName(username))
             {
-                throw new ArgumentException("Invalid search criteria. Search criteria must be \"^[a-zA-Z-_. ]+(\\(External\\))?$\"!");
+                throw new ArgumentException("Invalid search criteria. Search criteria must be \"^[a-zA-Z0-9'_. -]+(\\(External\\))?$\"!");
             }
 
             var graphClient = GetGraphClient();

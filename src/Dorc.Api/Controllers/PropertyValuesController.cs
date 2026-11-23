@@ -166,11 +166,11 @@ namespace Dorc.Api.Controllers
             }
             catch (NonEnoughRightsException e)
             {
-                return StatusCode(StatusCodes.Status403Forbidden, e);
+                return StatusCode(StatusCodes.Status403Forbidden, e.Message);
             }
             catch (Exception e)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, e);
+                return StatusCode(StatusCodes.Status500InternalServerError, e.Message);
             }
         }
 
@@ -213,11 +213,11 @@ namespace Dorc.Api.Controllers
             }
             catch (NonEnoughRightsException e)
             {
-                return StatusCode(StatusCodes.Status403Forbidden, e);
+                return StatusCode(StatusCodes.Status403Forbidden, e.Message);
             }
             catch (Exception e)
             {
-                return StatusCode(StatusCodes.Status500InternalServerError, e);
+                return StatusCode(StatusCodes.Status500InternalServerError, e.Message);
             }
         }
 

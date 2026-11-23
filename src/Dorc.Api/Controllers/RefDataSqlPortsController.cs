@@ -82,7 +82,15 @@ namespace Dorc.Api.Controllers
             if (!User.IsInRole("Admin"))
                 throw new UnauthorizedAccessException("User must be part of the 'Admin' group to delete Permissions");
 
-            return StatusCode(StatusCodes.Status501NotImplemented);
+            try
+            {
+                _sqlPortsPersistentSource.DeleteSqlPort(value);
+                return StatusCode(StatusCodes.Status200OK);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, ex.Message);
+            }
         }
     }
 }

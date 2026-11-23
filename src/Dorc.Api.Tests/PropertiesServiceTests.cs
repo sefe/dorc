@@ -420,6 +420,53 @@ namespace Dorc.Api.Tests
         }
 
         [TestMethod]
+        public void PutPropertiesResolvesByDictionaryKeyWhenRenamingPropertyAndPreservesId()
+        {
+            var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
+            var mockPvs = Substitute.For<IPropertyValuesService>();
+            var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+            var mockPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
+            var mockPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
+            var mockLogger = Substitute.For<ILogger<PropertiesService>>();
+
+            var existingProperty = new PropertyApiModel
+            {
+                Id = 42,
+                Name = "OriginalName",
+                Secure = false,
+                IsArray = true
+            };
+            var renamedPayload = new PropertyApiModel
+            {
+                Id = 0,
+                Name = "RenamedName",
+                Secure = false,
+                IsArray = true
+            };
+
+            mockPropertiesPersistentSource.GetProperty("OriginalName").Returns(existingProperty);
+            mockPropertiesPersistentSource.UpdateProperty(Arg.Is<PropertyApiModel>(p => p.Id == 42 && p.Name == "RenamedName" && p.IsArray)).Returns(true);
+
+            var service = new PropertiesService(
+                mockPropertiesPersistentSource,
+                mockPvs,
+                mockClaimsPrincipalReader,
+                mockPropertyValuesPersistentSource,
+                mockPropertyEncryptor,
+                mockLogger);
+
+            var result = service.PutProperties(new Dictionary<string, PropertyApiModel>
+            {
+                ["OriginalName"] = renamedPayload
+            }, _user).ToList();
+
+            Assert.AreEqual(1, result.Count);
+            Assert.AreEqual("success", result[0].Status);
+            Assert.AreEqual(42, renamedPayload.Id);
+            mockPropertiesPersistentSource.Received(1).UpdateProperty(Arg.Is<PropertyApiModel>(p => p.Id == 42 && p.Name == "RenamedName" && p.IsArray));
+        }
+
+        [TestMethod]
         public void ImportPropertiesReturnsErrorWhenPropertyNameOrValueBlank()
         {
             var service = new PropertiesService(

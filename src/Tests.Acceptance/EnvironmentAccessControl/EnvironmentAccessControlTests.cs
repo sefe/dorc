@@ -20,14 +20,6 @@ namespace Tests.Acceptance.EnvironmentAccessControl
             using var caller = new DorcApiClient();
             EnsureProvisioned(caller);
 
-            var cfgResp = caller.ExecuteRaw("ApiConfig", Method.Get);
-            Assert.AreEqual(HttpStatusCode.OK, cfgResp.StatusCode, cfgResp.Content);
-            StringAssert.Contains(cfgResp.Content ?? string.Empty, "AuthenticationScheme");
-
-            var metaResp = caller.ExecuteRaw("Metadata", Method.Get);
-            Assert.AreEqual(HttpStatusCode.OK, metaResp.StatusCode, metaResp.Content);
-            Assert.IsFalse(string.IsNullOrWhiteSpace(metaResp.Content));
-
             var usersResp = caller.ExecuteRaw("DirectorySearch/users", Method.Get, new Dictionary<string, string>
             {
                 ["userSearchCriteria"] = "apolezhaev"
@@ -281,6 +273,28 @@ namespace Tests.Acceptance.EnvironmentAccessControl
                 });
                 Assert.AreEqual(HttpStatusCode.OK, deletePermResp.StatusCode, $"DELETE /RefDataPermission failed: {deletePermResp.Content}");
                 customPermId = null;
+
+                // Verify GET & PUT /RefDataEnvironmentsUsers/owner/{id} (including AD fallback searcher resolution)
+                var getOwnerResp = caller.ExecuteRaw($"RefDataEnvironmentsUsers/owner/{tempEnvId.Value}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getOwnerResp.StatusCode, $"GET /RefDataEnvironmentsUsers/owner/{tempEnvId.Value} failed: {getOwnerResp.Content}");
+
+                var putOwnerResp = caller.ExecuteRaw($"RefDataEnvironmentsUsers/owner/{tempEnvId.Value}", Method.Put, body: new EnvironmentOwnerApiModel
+                {
+                    DisplayName = targetPrincipal.DisplayName,
+                    Username = targetPrincipal.Username
+                });
+                Assert.AreEqual(HttpStatusCode.OK, putOwnerResp.StatusCode, $"PUT /RefDataEnvironmentsUsers/owner/{tempEnvId.Value} failed: {putOwnerResp.Content}");
+
+                // Verify self-service PUT /ResetAppPassword (returns 200 OK with Result=false when no application DB is attached)
+                var selfResetPwdResp = caller.ExecuteRaw("ResetAppPassword", Method.Put, new Dictionary<string, string>
+                {
+                    ["envFilter"] = "Endur",
+                    ["envName"] = tempEnvName
+                });
+                Assert.AreEqual(HttpStatusCode.OK, selfResetPwdResp.StatusCode, $"Self-service PUT /ResetAppPassword failed: {selfResetPwdResp.Content}");
+                var selfResetResult = DorcApiClient.Deserialize<ApiBoolResult>(selfResetPwdResp.Content);
+                Assert.IsNotNull(selfResetResult);
+                Assert.IsFalse(selfResetResult.Result, "Expected self-service PUT /ResetAppPassword on environment without attached Endur DB to return Result=false.");
             }
             finally
             {

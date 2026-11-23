@@ -248,6 +248,35 @@ namespace Tests.Acceptance.BundledRequestsMakeLikeProd
                     $"Expected first expanded bundle request {createdFirst.Id} to complete, got '{finalFirst.Status}'. Log: {GetCombinedRequestLog(caller, createdFirst.Id)}");
                 Assert.AreEqual($"BundleBuild_A_{runId}", finalFirst.BuildNumber,
                     "Expected expanded bundle request to carry the component's per-item Build number from bundle.json.");
+
+                // 5. POST /ReleaseInformation for the completed request
+                var releaseInfoResp = caller.ExecuteRaw("ReleaseInformation", Method.Post, body: new
+                {
+                    RequestIds = new[] { createdFirst.Id }
+                });
+                Assert.AreEqual(HttpStatusCode.OK, releaseInfoResp.StatusCode, $"POST /ReleaseInformation failed: {releaseInfoResp.Content}");
+                StringAssert.Contains(releaseInfoResp.Content ?? string.Empty, LiveProjectName);
+
+                // 6. POST /CopyEnvBuild from LiveParentEnvName to LiveChildEnvName for SnapshotComponentName
+                var refDataResp = caller.ExecuteRaw($"RefData/{project.ProjectId}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, refDataResp.StatusCode, refDataResp.Content);
+                var refData = DorcApiClient.Deserialize<RefDataApiModel>(refDataResp.Content);
+                var snapshotComp = refData?.Components?.FirstOrDefault(c =>
+                    string.Equals(c.ComponentName, SnapshotComponentName, StringComparison.OrdinalIgnoreCase));
+                Assert.IsNotNull(snapshotComp?.ComponentId, "Expected SnapshotComponentId in RefData.");
+
+                var copyEnvBuildResp = caller.ExecuteRaw("CopyEnvBuild", Method.Post, body: new CopyEnvBuildDto
+                {
+                    SourceEnv = LiveParentEnvName,
+                    TargetEnv = LiveChildEnvName,
+                    Project = LiveProjectName,
+                    Components = snapshotComp!.ComponentId!.Value.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, copyEnvBuildResp.StatusCode, $"POST /CopyEnvBuild failed: {copyEnvBuildResp.Content}");
+                var copyEnvBuildResult = DorcApiClient.Deserialize<CopyEnvBuildResponseDto>(copyEnvBuildResp.Content);
+                Assert.IsNotNull(copyEnvBuildResult);
+                Assert.IsTrue(copyEnvBuildResult.Success, $"Expected CopyEnvBuildResponseDto.Success=true, got: {copyEnvBuildResp.Content}");
+                Assert.IsNotEmpty(copyEnvBuildResult.RequestIds, "Expected CopyEnvBuildResponseDto.RequestIds to contain the created request ID.");
             }
             finally
             {

@@ -72,10 +72,14 @@ namespace Dorc.Api.Controllers
         {
             // DO NOT use the USERS table here!
             var ownerId = _environmentsPersistentSource.GetEnvironmentOwnerId(id);
+            if (string.IsNullOrWhiteSpace(ownerId))
+            {
+                return StatusCode(StatusCodes.Status200OK, new EnvironmentOwnerApiModel { DisplayName = string.Empty });
+            }
 
             var userIdActiveDirectory = _activeDirectorySearcher.GetUserDataById(ownerId);
 
-            return StatusCode(StatusCodes.Status200OK, new EnvironmentOwnerApiModel { DisplayName = userIdActiveDirectory.DisplayName });
+            return StatusCode(StatusCodes.Status200OK, new EnvironmentOwnerApiModel { DisplayName = userIdActiveDirectory?.DisplayName ?? string.Empty });
         }
 
         /// <summary>
@@ -89,11 +93,16 @@ namespace Dorc.Api.Controllers
         [HttpPut]
         public IActionResult UpdateOwner(int id, [FromBody] EnvironmentOwnerApiModel newOwner)
         {
+            if (string.IsNullOrWhiteSpace(newOwner?.DisplayName))
+            {
+                return BadRequest("Owner DisplayName is required.");
+            }
+
             var environment = _environmentsPersistentSource.GetEnvironment(id, User);
             if (environment == null || !_securityService.IsEnvironmentOwnerOrAdmin(User, environment.EnvironmentName))
             {
                 return StatusCode(StatusCodes.Status403Forbidden,
-                    new NonEnoughRightsException("User doesn't have \"Modify\" permission for this action!"));
+                    "User doesn't have \"Modify\" permission for this action!");
             }
 
             var userIdActiveDirectory = _activeDirectorySearcher.GetUserData(newOwner.DisplayName);

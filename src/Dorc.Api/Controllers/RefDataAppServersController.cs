@@ -42,7 +42,7 @@ namespace Dorc.Api.Controllers
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(string))]
         [HttpPut]
-        public IActionResult PutServerReboot(string server)
+        public IActionResult PutServerReboot(string? server = null)
         {
             if (!string.IsNullOrWhiteSpace(server))
             {

@@ -569,13 +569,34 @@ namespace Dorc.Core
             }
         }
 
+        private static IEnumerable<ComponentApiModel> FlattenLeafComponents(IEnumerable<ComponentApiModel>? components)
+        {
+            if (components == null)
+                yield break;
+
+            foreach (var component in components)
+            {
+                if (component == null)
+                    continue;
+
+                if (component.Children != null && component.Children.Any())
+                {
+                    foreach (var leaf in FlattenLeafComponents(component.Children))
+                        yield return leaf;
+                }
+                else
+                {
+                    yield return component;
+                }
+            }
+        }
+
         public List<int> CopyEnvBuildWithComponentIds(string sourceEnv, string targetEnv, string strProjectName,
             int[] doDeploy, ClaimsPrincipal user)
         {
             var skipComponents = new[] { "" };
             var project = _projectsPersistentSource.GetProject(strProjectName);
-            var projComponents = _projectsPersistentSource.GetComponentsForProject(project.ProjectId)
-                .Where(x => !x.Children.Any())
+            var projComponents = FlattenLeafComponents(_projectsPersistentSource.GetComponentsForProject(project.ProjectId))
                 .Where(x => doDeploy.Any(i => i == x.ComponentId))
                 .Select(x => new ProjectComponentPair { Project = strProjectName, Component = x.ComponentName }).ToArray();
             var requestProperties = new RequestProperty[] { };
@@ -590,8 +611,7 @@ namespace Dorc.Core
             var dontDeploy = new[] { "" };
             var skipComponents = new[] { "" };
             var project = _projectsPersistentSource.GetProject(projectName);
-            var projComponents = _projectsPersistentSource.GetComponentsForProject(project.ProjectId)
-                .Where(x => !x.Children.Any())
+            var projComponents = FlattenLeafComponents(_projectsPersistentSource.GetComponentsForProject(project.ProjectId))
                 .Where(x => !dontDeploy.Contains(x.ComponentName))
                 .Select(x => new ProjectComponentPair { Project = projectName, Component = x.ComponentName }).ToArray();
             var requestProperties = new RequestProperty[] { };
@@ -609,15 +629,36 @@ namespace Dorc.Core
             var skipComponents = new[] { "" };
             var project = _projectsPersistentSource.GetProject(projectName);
             if (project == null) throw new WrongComponentsException($"Project \"{projectName}\" not found.");
-            var componentsNames = components.Split(';').ToList();
-            var projComponents = _projectsPersistentSource.GetComponentsForProject(project.ProjectId)
-                .Where(x => !x.Children.Any())
-                .Where(x => !dontDeploy.Contains(x.ComponentName));
-            foreach (var component in componentsNames)
-                if (!projComponents.Contains(_componentsPersistentSource.GetComponentByName(component)))
-                    throw new WrongComponentsException($"Component \"{component}\" doesn't belong to the project.");
+            var requestedTokens = components.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+            var projComponents = FlattenLeafComponents(_projectsPersistentSource.GetComponentsForProject(project.ProjectId))
+                .Where(x => !dontDeploy.Contains(x.ComponentName))
+                .ToList();
 
-            var selectedComponents = componentsNames
+            var resolvedComponentNames = new List<string>();
+            foreach (var token in requestedTokens)
+            {
+                var matched = projComponents.FirstOrDefault(c =>
+                    string.Equals(c.ComponentName, token, StringComparison.OrdinalIgnoreCase) ||
+                    (int.TryParse(token, out var componentId) && c.ComponentId == componentId));
+
+                if (matched == null)
+                {
+                    var byName = _componentsPersistentSource.GetComponentByName(token);
+                    if (byName != null)
+                    {
+                        matched = projComponents.FirstOrDefault(c =>
+                            c.ComponentId == byName.ComponentId ||
+                            string.Equals(c.ComponentName, byName.ComponentName, StringComparison.OrdinalIgnoreCase));
+                    }
+                }
+
+                if (matched == null)
+                    throw new WrongComponentsException($"Component \"{token}\" doesn't belong to the project.");
+
+                resolvedComponentNames.Add(matched.ComponentName);
+            }
+
+            var selectedComponents = resolvedComponentNames
                 .Select(x => new ProjectComponentPair { Project = projectName, Component = x }).ToArray();
 
             var requestProperties = new RequestProperty[] { };

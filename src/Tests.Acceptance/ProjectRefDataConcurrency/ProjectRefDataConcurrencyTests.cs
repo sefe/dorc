@@ -251,7 +251,7 @@ namespace Tests.Acceptance.ProjectRefDataConcurrency
                     mappingsAfterDelete.Items.Any(e => e.EnvironmentId == tempEnvId.Value || string.Equals(e.EnvironmentName, tempEnvName, StringComparison.OrdinalIgnoreCase)),
                     $"Expected unmapped environment '{tempEnvName}' to be absent from GET /RefDataProjectEnvironmentMappings.");
 
-                // RefDataComponents and Metadata Postman endpoints
+                // RefDataComponents and RefDataScripts/edit Postman & global shared script edit endpoints
                 var refDataComponentsResp = caller.ExecuteRaw("RefDataComponents", Method.Get, new Dictionary<string, string>
                 {
                     ["id"] = LiveProjectName
@@ -259,12 +259,53 @@ namespace Tests.Acceptance.ProjectRefDataConcurrency
                 Assert.AreEqual(HttpStatusCode.OK, refDataComponentsResp.StatusCode, refDataComponentsResp.Content);
                 var refDataComponents = DorcApiClient.Deserialize<TemplateApiModel<ComponentApiModel>>(refDataComponentsResp.Content);
                 Assert.IsNotNull(refDataComponents?.Items);
-                Assert.IsTrue(refDataComponents.Items.Any(c => string.Equals(c.ComponentName, VerifyPropsComponentName, StringComparison.OrdinalIgnoreCase)),
-                    $"Expected GET /RefDataComponents?id={LiveProjectName} to include '{VerifyPropsComponentName}'.");
+                var verifyPropsComp = refDataComponents.Items.FirstOrDefault(c => string.Equals(c.ComponentName, VerifyPropsComponentName, StringComparison.OrdinalIgnoreCase));
+                Assert.IsNotNull(verifyPropsComp, $"Expected GET /RefDataComponents?id={LiveProjectName} to include '{VerifyPropsComponentName}'.");
 
-                var metadataResp = caller.ExecuteRaw("Metadata", Method.Get);
-                Assert.AreEqual(HttpStatusCode.OK, metadataResp.StatusCode, metadataResp.Content);
-                StringAssert.Contains(metadataResp.Content ?? string.Empty, " - ");
+                var scriptsFilteredResp = caller.ExecuteRaw(
+                    "RefDataScripts",
+                    Method.Put,
+                    new Dictionary<string, string> { ["page"] = "1", ["limit"] = "50" },
+                    body: new PagedDataOperators
+                    {
+                        Filters = new List<PagedDataFilter>
+                        {
+                            new PagedDataFilter { Path = "Path", FilterValue = "verify-properties.ps1" }
+                        }
+                    });
+                Assert.AreEqual(HttpStatusCode.OK, scriptsFilteredResp.StatusCode, scriptsFilteredResp.Content);
+                var scriptsFilteredPage = DorcApiClient.Deserialize<GetScriptsListResponseDto>(scriptsFilteredResp.Content);
+                var scriptToEdit = scriptsFilteredPage?.Items?.FirstOrDefault(s =>
+                    s.Path != null && s.Path.EndsWith("verify-properties.ps1", StringComparison.OrdinalIgnoreCase));
+                Assert.IsNotNull(scriptToEdit, "Expected to find verify-properties.ps1 in PUT /RefDataScripts.");
+
+                var missingRevEditScriptResp = caller.ExecuteRaw("RefDataScripts/edit", Method.Put, body: new ScriptApiModel
+                {
+                    Id = scriptToEdit.Id,
+                    Name = scriptToEdit.Name,
+                    Path = scriptToEdit.Path,
+                    IsPathJSON = scriptToEdit.IsPathJSON,
+                    NonProdOnly = scriptToEdit.NonProdOnly
+                });
+                Assert.AreEqual(
+                    HttpStatusCode.PreconditionRequired,
+                    missingRevEditScriptResp.StatusCode,
+                    $"Expected 428 PreconditionRequired when ExpectedRevision is omitted from PUT /RefDataScripts/edit, got {missingRevEditScriptResp.StatusCode}: {missingRevEditScriptResp.Content}");
+
+                var editScriptResp = caller.ExecuteRaw("RefDataScripts/edit", Method.Put, body: new ScriptApiModel
+                {
+                    Id = scriptToEdit.Id,
+                    Name = scriptToEdit.Name,
+                    Path = scriptToEdit.Path,
+                    IsPathJSON = scriptToEdit.IsPathJSON,
+                    NonProdOnly = scriptToEdit.NonProdOnly,
+                    Revision = scriptToEdit.Revision,
+                    ConfirmImpact = true,
+                    AffectedProjectIds = scriptToEdit.AffectedProjectIds,
+                    IsEnabled = scriptToEdit.IsEnabled,
+                    PowerShellVersionNumber = scriptToEdit.PowerShellVersionNumber
+                });
+                Assert.AreEqual(HttpStatusCode.OK, editScriptResp.StatusCode, $"PUT /RefDataScripts/edit failed: {editScriptResp.Content}");
             }
             finally
             {

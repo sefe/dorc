@@ -201,6 +201,80 @@ namespace Tests.Acceptance.RequestSnapshotsAndLifecycle
                 var log2 = GetCombinedRequestLog(caller, created2.Id);
                 StringAssert.Contains(log2, "IMMUTABLE_DEF_VERSION_V2_EXECUTED");
                 StringAssert.Contains(log2, "snapshot-v2.ps1");
+
+                // Verify GET /Request/Components?projectId={projectId}
+                var reqCompsResp = caller.ExecuteRaw("Request/Components", Method.Get, new Dictionary<string, string>
+                {
+                    ["projectId"] = project.ProjectId.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, reqCompsResp.StatusCode, $"GET /Request/Components failed: {reqCompsResp.Content}");
+                var reqComps = DorcApiClient.Deserialize<List<DeployComponentDto>>(reqCompsResp.Content);
+                Assert.IsNotNull(reqComps);
+                var snapshotComp = reqComps.FirstOrDefault(c => string.Equals(c.Name, SnapshotComponentName, StringComparison.OrdinalIgnoreCase));
+                Assert.IsNotNull(snapshotComp, $"Expected GET /Request/Components to include '{SnapshotComponentName}'.");
+
+                // Verify GET /DeploymentDefinitions and GET /DeploymentDefinitions/history
+                var defsResp = caller.ExecuteRaw("DeploymentDefinitions", Method.Get, new Dictionary<string, string>
+                {
+                    ["projectId"] = project.ProjectId.ToString(),
+                    ["componentType"] = "PowerShell",
+                    ["search"] = SnapshotComponentName,
+                    ["page"] = "1",
+                    ["limit"] = "50"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, defsResp.StatusCode, $"GET /DeploymentDefinitions failed: {defsResp.Content}");
+                var defsPage = DorcApiClient.Deserialize<GetDeploymentDefinitionsResponse>(defsResp.Content);
+                Assert.IsNotNull(defsPage?.Items);
+                var snapshotDef = defsPage!.Items.FirstOrDefault(d =>
+                    d.Component != null && string.Equals(d.Component.ComponentName, SnapshotComponentName, StringComparison.OrdinalIgnoreCase));
+                Assert.IsNotNull(snapshotDef?.Component?.ComponentId, $"Expected GET /DeploymentDefinitions to include '{SnapshotComponentName}'.");
+
+                var defHistoryResp = caller.ExecuteRaw("DeploymentDefinitions/history", Method.Get, new Dictionary<string, string>
+                {
+                    ["projectId"] = project.ProjectId.ToString(),
+                    ["componentId"] = snapshotDef!.Component!.ComponentId!.Value.ToString(),
+                    ["page"] = "1",
+                    ["limit"] = "50"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, defHistoryResp.StatusCode, $"GET /DeploymentDefinitions/history failed: {defHistoryResp.Content}");
+                var defHistoryPage = DorcApiClient.Deserialize<GetDeploymentDefinitionHistoryResponse>(defHistoryResp.Content);
+                Assert.IsNotNull(defHistoryPage?.Items);
+                Assert.IsGreaterThanOrEqualTo(2, defHistoryPage!.Items.Count, "Expected at least 2 definition history versions (V1 and V2) for SnapshotComponent.");
+
+                // Verify GET /Request/{requestId}/attempts/log?deploymentResultId={id}
+                var results1Resp = caller.ExecuteRaw("ResultStatuses", Method.Get, new Dictionary<string, string>
+                {
+                    ["requestId"] = created1.Id.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, results1Resp.StatusCode, results1Resp.Content);
+                var results1 = DorcApiClient.Deserialize<List<DeploymentResultApiModel>>(results1Resp.Content) ?? new List<DeploymentResultApiModel>();
+                Assert.IsNotEmpty(results1);
+                var attemptLogResp = caller.ExecuteRaw($"Request/{created1.Id}/attempts/log", Method.Get, new Dictionary<string, string>
+                {
+                    ["deploymentResultId"] = results1[0].Id.ToString()
+                });
+                Assert.IsTrue(
+                    attemptLogResp.StatusCode == HttpStatusCode.OK || attemptLogResp.StatusCode == HttpStatusCode.NotFound,
+                    $"Unexpected status from GET /Request/{created1.Id}/attempts/log: {attemptLogResp.StatusCode} {attemptLogResp.Content}");
+
+                // Verify PUT /Request/pause and PUT /Request/resume contract
+                var pauseResp = caller.ExecuteRaw("Request/pause", Method.Put, new Dictionary<string, string>
+                {
+                    ["requestId"] = created2.Id.ToString()
+                });
+                Assert.AreEqual(
+                    HttpStatusCode.BadRequest,
+                    pauseResp.StatusCode,
+                    $"Pausing a terminal Completed request (or when PauseDeploymentEnabled is false) must return 400 BadRequest: {pauseResp.Content}");
+
+                var resumeResp = caller.ExecuteRaw("Request/resume", Method.Put, new Dictionary<string, string>
+                {
+                    ["requestId"] = created2.Id.ToString()
+                });
+                Assert.AreEqual(
+                    HttpStatusCode.BadRequest,
+                    resumeResp.StatusCode,
+                    $"Resuming a non-Paused request (or when PauseDeploymentEnabled is false) must return 400 BadRequest: {resumeResp.Content}");
             }
             finally
             {

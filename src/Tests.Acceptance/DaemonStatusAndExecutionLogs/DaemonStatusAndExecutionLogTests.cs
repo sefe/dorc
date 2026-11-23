@@ -326,7 +326,7 @@ namespace Tests.Acceptance.DaemonStatusAndExecutionLogs
                 Assert.AreEqual(HttpStatusCode.OK, observationsResp.StatusCode, observationsResp.Content);
                 StringAssert.Contains(observationsResp.Content ?? string.Empty, "Running");
 
-                // Analytics* endpoints (Postman collection & 12-month commit d13903fa)
+                // Analytics* endpoints (all 12 Analytics controllers)
                 foreach (var analyticsRoute in new[]
                 {
                     "AnalyticsDeploymentsMonth",
@@ -335,13 +335,31 @@ namespace Tests.Acceptance.DaemonStatusAndExecutionLogs
                     "AnalyticsUserActivity",
                     "AnalyticsTimePattern",
                     "AnalyticsComponentUsage",
-                    "AnalyticsDuration"
+                    "AnalyticsDuration",
+                    "AnalyticsMonthlyOutcome",
+                    "AnalyticsEnvironmentWait",
+                    "AnalyticsProjectDuration",
+                    "AnalyticsComponentReliability",
+                    "AnalyticsRecoveryTime"
                 })
                 {
                     var analyticsResp = caller.ExecuteRaw(analyticsRoute, Method.Get);
                     Assert.AreEqual(HttpStatusCode.OK, analyticsResp.StatusCode, $"GET /{analyticsRoute} failed: {analyticsResp.Content}");
                     Assert.IsFalse(string.IsNullOrWhiteSpace(analyticsResp.Content), $"Expected non-empty payload from GET /{analyticsRoute}.");
                 }
+
+                // GET /DaemonStatus/discover/{envName}
+                var discoverResp = caller.ExecuteRaw($"DaemonStatus/discover/{Uri.EscapeDataString(LiveChildEnvName)}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, discoverResp.StatusCode, $"GET /DaemonStatus/discover/{LiveChildEnvName} failed: {discoverResp.Content}");
+
+                // SignalR DeploymentsHub negotiate endpoint
+                var negotiateResp = caller.ExecuteRaw("hubs/deployments/negotiate", Method.Post, new Dictionary<string, string>
+                {
+                    ["negotiateVersion"] = "1"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, negotiateResp.StatusCode, $"POST /hubs/deployments/negotiate failed: {negotiateResp.Content}");
+                StringAssert.Contains(negotiateResp.Content ?? string.Empty, "connectionId");
+                StringAssert.Contains(negotiateResp.Content ?? string.Empty, "availableTransports");
             }
             finally
             {

@@ -271,5 +271,116 @@ namespace Dorc.Api.Tests.Controllers
             propValuesSource.GetPropertyValuesByName("MySecret").Returns(new[] { new PropertyValueDto { Id = 1 } });
             Assert.AreEqual(StatusCodes.Status200OK, (controller.DeleteProperties(deleteNames) as ObjectResult)?.StatusCode);
         }
+
+        [TestMethod]
+        public void ResetAppPassword_EnvironmentUsers_SqlPorts_AndErrorSerialization_BranchesCovered()
+        {
+            var user = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "TestUser"), new Claim(ClaimTypes.Role, "Admin") }, "TestAuth"));
+            var nonAdminUser = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.Name, "TestUser") }, "TestAuth"));
+
+            // 1. ResetAppPasswordController
+            var dbSource = Substitute.For<IDatabasesPersistentSource>();
+            var sqlReset = Substitute.For<Dorc.Core.Interfaces.ISqlUserPasswordReset>();
+            var configValues = Substitute.For<IConfigValuesPersistentSource>();
+            var resetLogger = Substitute.For<ILogger<ResetAppPasswordController>>();
+            var securityChecker = Substitute.For<Dorc.Core.Interfaces.ISecurityPrivilegesChecker>();
+            var configSettings = Substitute.For<Dorc.Core.Configuration.IConfigurationSettings>();
+            var claimsReader = Substitute.For<Dorc.PersistentData.IClaimsPrincipalReader>();
+            claimsReader.GetUserLogin(user).Returns("testlogin");
+
+            var resetController = new ResetAppPasswordController(dbSource, sqlReset, configValues, resetLogger, securityChecker, configSettings, claimsReader)
+            {
+                ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
+            };
+
+            // Self-service Put when db is null
+            dbSource.GetApplicationDatabaseForEnvFilter("testlogin", "Endur", "Env1").Returns((DatabaseApiModel?)null);
+            var selfResetNullDb = (OkObjectResult)resetController.Put("Endur", "Env1");
+            Assert.IsFalse(((ApiBoolResult)selfResetNullDb.Value!).Result);
+
+            // ForUser Put when forbidden vs authorized vs exception
+            securityChecker.CanModifyEnvironment(user, "Env1").Returns(false);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((ObjectResult)resetController.Put("Endur", "Env1", "targetuser")).StatusCode);
+
+            securityChecker.CanModifyEnvironment(user, "Env1").Returns(true);
+            dbSource.GetApplicationDatabaseForEnvFilter("targetuser", "Endur", "Env1").Returns(_ => throw new InvalidOperationException("DB lookup failed"));
+            var resetError = (ObjectResult)resetController.Put("Endur", "Env1", "targetuser");
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, resetError.StatusCode);
+            Assert.AreEqual("DB lookup failed", resetError.Value);
+
+            // 2. RefDataEnvironmentsUsersController
+            var manageUsers = Substitute.For<IManageUsers>();
+            var envSource = Substitute.For<IEnvironmentsPersistentSource>();
+            var adSearcher = Substitute.For<IActiveDirectorySearcher>();
+            var envMapper = Substitute.For<IEnvironmentMapper>();
+
+            var envUsersController = new RefDataEnvironmentsUsersController(manageUsers, securityChecker, envSource, adSearcher, envMapper)
+            {
+                ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
+            };
+
+            envSource.GetEnvironmentOwnerId(10).Returns(string.Empty);
+            var emptyOwnerResult = (ObjectResult)envUsersController.GetOwner(10);
+            Assert.AreEqual(string.Empty, ((EnvironmentOwnerApiModel)emptyOwnerResult.Value!).DisplayName);
+
+            envSource.GetEnvironmentOwnerId(11).Returns("S-1-5-21-123");
+            adSearcher.GetUserDataById("S-1-5-21-123").Returns(new UserElementApiModel { DisplayName = "Owner Name" });
+            var foundOwnerResult = (ObjectResult)envUsersController.GetOwner(11);
+            Assert.AreEqual("Owner Name", ((EnvironmentOwnerApiModel)foundOwnerResult.Value!).DisplayName);
+
+            adSearcher.GetUserDataById("S-1-5-21-123").Returns((UserElementApiModel)null!);
+            var nullOwnerResult = (ObjectResult)envUsersController.GetOwner(11);
+            Assert.AreEqual(string.Empty, ((EnvironmentOwnerApiModel)nullOwnerResult.Value!).DisplayName);
+
+            Assert.IsInstanceOfType<BadRequestObjectResult>(envUsersController.UpdateOwner(11, null!));
+            Assert.IsInstanceOfType<BadRequestObjectResult>(envUsersController.UpdateOwner(11, new EnvironmentOwnerApiModel { DisplayName = " " }));
+
+            envSource.GetEnvironment(11, user).Returns((EnvironmentApiModel)null!);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((ObjectResult)envUsersController.UpdateOwner(11, new EnvironmentOwnerApiModel { DisplayName = "NewOwner" })).StatusCode);
+
+            envSource.GetEnvironment(11, user).Returns(new EnvironmentApiModel { EnvironmentId = 11, EnvironmentName = "Env1" });
+            securityChecker.IsEnvironmentOwnerOrAdmin(user, "Env1").Returns(false);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((ObjectResult)envUsersController.UpdateOwner(11, new EnvironmentOwnerApiModel { DisplayName = "NewOwner" })).StatusCode);
+
+            securityChecker.IsEnvironmentOwnerOrAdmin(user, "Env1").Returns(true);
+            var ownerElement = new UserElementApiModel { Pid = "sid-1", DisplayName = "NewOwner" };
+            adSearcher.GetUserData("NewOwner").Returns(ownerElement);
+            envSource.SetEnvironmentOwner(user, 11, ownerElement).Returns(true);
+            Assert.AreEqual(StatusCodes.Status200OK, ((ObjectResult)envUsersController.UpdateOwner(11, new EnvironmentOwnerApiModel { DisplayName = "NewOwner" })).StatusCode);
+
+            // 3. RefDataSqlPortsController
+            var sqlPortsSource = Substitute.For<ISqlPortsPersistentSource>();
+            var sqlPortsController = new RefDataSqlPortsController(sqlPortsSource)
+            {
+                ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = nonAdminUser } }
+            };
+            var portModel = new SqlPortApiModel { InstanceName = "SQL01", SqlPort = "1433" };
+            Assert.Throws<UnauthorizedAccessException>(() => sqlPortsController.Delete(portModel));
+
+            sqlPortsController.ControllerContext.HttpContext.User = user;
+            Assert.AreEqual(StatusCodes.Status200OK, ((StatusCodeResult)sqlPortsController.Delete(portModel)).StatusCode);
+
+            sqlPortsSource.When(s => s.DeleteSqlPort(portModel)).Do(_ => throw new ArgumentException("Port not found"));
+            var badDelete = (ObjectResult)sqlPortsController.Delete(portModel);
+            Assert.AreEqual(StatusCodes.Status400BadRequest, badDelete.StatusCode);
+            Assert.AreEqual("Port not found", badDelete.Value);
+
+            // 4. PropertyValuesController error branches
+            _propertyValuesService.GetPropertyValues("P1", "E1", Arg.Any<ClaimsPrincipal>())
+                .Returns(_ => throw new Dorc.Api.Services.NonEnoughRightsException("No rights"));
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((ObjectResult)_controller.GetPropertyValues("P1", "E1")).StatusCode);
+
+            _propertyValuesService.GetPropertyValues("P2", "E1", Arg.Any<ClaimsPrincipal>())
+                .Returns(_ => throw new InvalidOperationException("Unexpected failure"));
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, ((ObjectResult)_controller.GetPropertyValues("P2", "E1")).StatusCode);
+
+            _propertyValuesService.GetPropertyValues(null!, "ForbiddenEnv", Arg.Any<ClaimsPrincipal>())
+                .Returns(_ => throw new Dorc.Api.Services.NonEnoughRightsException("No export rights"));
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((ObjectResult)_controller.DownloadNonSecurePropertyValues("ForbiddenEnv")).StatusCode);
+
+            _propertyValuesService.GetPropertyValues(null!, "ErrorEnv", Arg.Any<ClaimsPrincipal>())
+                .Returns(_ => throw new InvalidOperationException("Export failure"));
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, ((ObjectResult)_controller.DownloadNonSecurePropertyValues("ErrorEnv")).StatusCode);
+        }
     }
 }

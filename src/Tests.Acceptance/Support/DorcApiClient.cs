@@ -20,6 +20,9 @@ namespace Tests.Acceptance.Support
         private readonly string? _bearerToken;
         private bool disposedValue;
 
+        public string ApiRoot { get; }
+        public string? BearerToken => _bearerToken;
+
         public DorcApiClient()
         {
             var configuration = new ConfigurationBuilder()
@@ -31,6 +34,7 @@ namespace Tests.Acceptance.Support
             string apiRoot = !string.IsNullOrWhiteSpace(configuredDorcBaseUrl)
                 ? configuredDorcBaseUrl
                 : (configuration.GetSection("AppSettings")["BaseAddress"] ?? string.Empty);
+            ApiRoot = apiRoot;
 
             _bearerToken = AcquireBearerTokenIfConfigured(configuration, apiRoot);
 
@@ -109,71 +113,6 @@ namespace Tests.Acceptance.Support
             return configRoot?.OAuthAuthority;
         }
 
-        public ApiResult<T> Call<T>(Endpoints endpoint, Method method, IEnumerable<string>? segments = null,
-            IDictionary<string, string>? queryParameters = null, string? body = null) where T : class
-        {
-            var result = new ApiResult<T>();
-
-            string? urlString = GetEndpointPath(endpoint);
-
-            if (segments != null)
-            {
-                foreach (var segment in segments)
-                {
-                    urlString += "/" + segment;
-                }
-            }
-
-            var request = new RestRequest(urlString, method);
-            if (!string.IsNullOrEmpty(_bearerToken))
-            {
-                request.AddHeader("Authorization", $"Bearer {_bearerToken}");
-            }
-
-            if (queryParameters != null)
-                foreach (var keyValuePair in queryParameters)
-                    request.AddQueryParameter(keyValuePair.Key, keyValuePair.Value);
-            if (body != null)
-            {
-                // For more details see https://restsharp.dev/v107/#body-parameters.
-                request.AddStringBody($"{body}", ContentType.Json);
-            }
-
-            var response = _client.Execute(request);
-            result.RawJson = response.Content;
-            if (response.StatusCode != HttpStatusCode.OK)
-                return CreateFailureResult<T>(response.Content);
-
-            if (result.RawJson == null)
-            {
-                return CreateFailureResult<T>("Content is null.");
-            }
-
-            try
-            {
-                result.IsModelValid = true;
-                result.Message = "Model Valid!";
-                result.Model = typeof(string) == typeof(T)
-                    ? result.RawJson as T
-                    : JsonSerializer.Deserialize<T>(result.RawJson, JsonOptions);
-            }
-            catch (JsonException jsonException)
-            {
-                result.IsModelValid = false;
-                result.Message = jsonException.Message;
-            }
-            catch (NotSupportedException e)
-            {
-                return CreateFailureResult<T>(e.Message);
-            }
-            catch (ArgumentException e)
-            {
-                return CreateFailureResult<T>(e.Message);
-            }
-
-            return result;
-        }
-
         public RestResponse ExecuteRaw(
             string relativePath,
             Method method,
@@ -224,16 +163,6 @@ namespace Tests.Acceptance.Support
         {
             [JsonPropertyName("access_token")]
             public string? AccessToken { get; set; }
-        }
-
-        private static ApiResult<T> CreateFailureResult<T>(string? msg) where T : class
-        {
-            return new ApiResult<T> { IsModelValid = false, Message = msg };
-        }
-
-        private string? GetEndpointPath(Endpoints value)
-        {
-            return Enum.GetName(typeof(Endpoints), value);
         }
 
         protected virtual void Dispose(bool disposing)
