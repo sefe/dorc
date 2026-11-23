@@ -37,7 +37,7 @@ public class PropertyValueCreationTests
     [TestMethod]
     public void Application_CheckFileAndRun_ValidatesEnvironmentsAnd64CharLimit_ThenPostsPropertiesAndValues()
     {
-        var tempCsv = Path.Combine(Path.GetTempPath(), $"dorc-props-{Guid.NewGuid():N}.csv");
+        var tempCsv = Path.Join(Path.GetTempPath(), $"dorc-props-{Guid.NewGuid():N}.csv");
         try
         {
             File.WriteAllLines(tempCsv, new[]
@@ -98,7 +98,7 @@ public class PropertyValueCreationTests
     [TestMethod]
     public void Application_CheckFile_RejectsMissingEnvironmentAndOverlongPropertyName()
     {
-        var tempCsv = Path.Combine(Path.GetTempPath(), $"dorc-props-invalid-{Guid.NewGuid():N}.csv");
+        var tempCsv = Path.Join(Path.GetTempPath(), $"dorc-props-invalid-{Guid.NewGuid():N}.csv");
         try
         {
             var api = Substitute.For<IDorcApiClient>();
@@ -136,7 +136,7 @@ public class PropertyValueCreationTests
     [TestMethod]
     public void Application_Run_WhenPropertyValuesPostReturnsNonSuccessItem_ThrowsInvalidOperationException()
     {
-        var tempCsv = Path.Combine(Path.GetTempPath(), $"dorc-props-fail-{Guid.NewGuid():N}.csv");
+        var tempCsv = Path.Join(Path.GetTempPath(), $"dorc-props-fail-{Guid.NewGuid():N}.csv");
         try
         {
             File.WriteAllLines(tempCsv, new[] { "App_Port,0,8080,DV 01" });
