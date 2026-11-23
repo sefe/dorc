@@ -10622,6 +10622,46 @@
         }
       }
     },
+    "/ResetAppPassword": {
+      "put": {
+        "tags": [
+          "ResetAppPassword"
+        ],
+        "parameters": [
+          {
+            "name": "envFilter",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "envName",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              },
+              "text/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiBoolResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ResetAppPassword/ForUser": {
       "put": {
         "tags": [
