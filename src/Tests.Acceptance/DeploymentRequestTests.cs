@@ -19,17 +19,17 @@ namespace Tests.Acceptance
     [TestClass]
     [TestCategory("LiveDvAcceptance")]
     [TestCategory("LiveEnvironment")]
-    public class DeploymentRequestAcceptanceTests
+    public class DeploymentRequestTests
     {
         private const string LiveProjectName = "DOrc_Live_Acceptance_Project";
         private const string LiveParentEnvName = "DOrc_Live_Acceptance_Parent_Env";
         private const string LiveChildEnvName = "DOrc_Live_Acceptance_Child_Env";
         private const string VerifyPropsComponentName = "DOrc_Live_Acceptance_VerifyProps";
         private const string FailThenPassComponentName = "DOrc_Live_Acceptance_FailThenPass";
-        private const string DownstreamSkippedComponentName = "DOrc_Live_Acceptance_DownstreamSkipped";
+        private const string DownstreamSkippedComponentName = "DOrc_Live_Acceptance_Z_DownstreamSkipped";
         private const string CancelWaitComponentName = "DOrc_Live_Acceptance_CancelWait";
-        private const string DropRootPath = @"C:\ProgramData\SEFE\DOrc\LiveAcceptanceDrop";
-        private const string BuildFolderName = "Build_1_0_0";
+        private const string RelativeScriptSubfolder = @"Test\DOrc_Live_Acceptance";
+        private const string BuildFolderName = "DOrc Regression Testing";
 
         [TestInitialize]
         public void EnsureLiveEnvironmentEnabled()
@@ -57,27 +57,26 @@ namespace Tests.Acceptance
         }
 
         [TestMethod]
-        public void EndToEndUserJourney_UpdatePropertyAndInheritanceAndSecretRedaction_InjectsResolvedValuesIntoLiveRunner()
+        public void CreateDeploymentRequest_UpdatedPropertyHierarchyInheritanceAndSecretRedaction_InjectsResolvedValuesIntoRunner()
         {
             using var caller = new DorcApiClient();
-            var buildDir = EnsureLiveAcceptanceFixture(caller);
-            var runToken = Guid.NewGuid().ToString("N")[..10];
-            var outputJsonPath = Path.Join(buildDir, $"resolved-props-{runToken}.json");
+            var buildUri = EnsureLiveAcceptanceFixture(caller);
+            var correlationId = Guid.NewGuid().ToString("N")[..10];
 
-            var globalProp = $"AutoReg_Global_{runToken}";
-            var parentProp = $"AutoReg_ParentInherited_{runToken}";
-            var childUpdatedProp = $"AutoReg_ChildUpdated_{runToken}";
-            var overrideProp = $"AutoReg_RequestOverride_{runToken}";
-            var secretProp = $"AutoReg_SecretPassword_{runToken}";
-            var runTokenProp = "AutoReg_RunToken";
+            var globalProp = $"AutoReg_Global_{correlationId}";
+            var parentProp = $"AutoReg_ParentInherited_{correlationId}";
+            var childUpdatedProp = $"AutoReg_ChildUpdated_{correlationId}";
+            var overrideProp = $"AutoReg_RequestOverride_{correlationId}";
+            var secretProp = $"AutoReg_SecretPassword_{correlationId}";
+            var correlationProp = "AutoReg_CorrelationId";
 
-            var expectedGlobalVal = $"GlobalVal_{runToken}";
-            var expectedParentVal = $"ParentInheritedVal_{runToken}";
-            var initialChildVal = $"InitialChildVal_{runToken}";
-            var updatedChildVal = $"UpdatedChildVal_{runToken}";
-            var defaultOverrideVal = $"DefaultEnvVal_{runToken}";
-            var expectedOverrideVal = $"OverriddenAtRequest_{runToken}";
-            var cleartextSecret = $"Sup3rS3cr3tValu3_{runToken}!";
+            var expectedGlobalVal = $"GlobalVal_{correlationId}";
+            var expectedParentVal = $"ParentInheritedVal_{correlationId}";
+            var initialChildVal = $"InitialChildVal_{correlationId}";
+            var updatedChildVal = $"UpdatedChildVal_{correlationId}";
+            var defaultOverrideVal = $"DefaultEnvVal_{correlationId}";
+            var expectedOverrideVal = $"OverriddenAtRequest_{correlationId}";
+            var cleartextSecret = $"Sup3rS3cr3tValu3_{correlationId}!";
 
             try
             {
@@ -86,20 +85,19 @@ namespace Tests.Acceptance
                 EnsurePropertyDefinition(caller, childUpdatedProp, secure: false);
                 EnsurePropertyDefinition(caller, overrideProp, secure: false);
                 EnsurePropertyDefinition(caller, secretProp, secure: true);
-                EnsurePropertyDefinition(caller, runTokenProp, secure: false);
+                EnsurePropertyDefinition(caller, correlationProp, secure: false);
 
                 UpsertPropertyValue(caller, globalProp, secure: false, envFilter: null, value: expectedGlobalVal);
                 UpsertPropertyValue(caller, parentProp, secure: false, envFilter: LiveParentEnvName, value: expectedParentVal);
                 UpsertPropertyValue(caller, childUpdatedProp, secure: false, envFilter: LiveChildEnvName, value: initialChildVal);
                 UpsertPropertyValue(caller, overrideProp, secure: false, envFilter: LiveChildEnvName, value: defaultOverrideVal);
                 UpsertPropertyValue(caller, secretProp, secure: true, envFilter: LiveChildEnvName, value: cleartextSecret);
-                UpsertPropertyValue(caller, runTokenProp, secure: false, envFilter: LiveChildEnvName, value: runToken);
+                UpsertPropertyValue(caller, correlationProp, secure: false, envFilter: LiveChildEnvName, value: correlationId);
 
                 // End-user action: update the existing property value on the child environment via PUT /PropertyValues
                 // and verify the updated value (not the initial value) is injected into the live runner.
                 UpsertPropertyValue(caller, childUpdatedProp, secure: false, envFilter: LiveChildEnvName, value: updatedChildVal);
 
-                var buildUri = new Uri(buildDir).AbsoluteUri;
                 var requestPayload = new RequestDto
                 {
                     Project = LiveProjectName,
@@ -121,7 +119,7 @@ namespace Tests.Acceptance
                 Assert.AreEqual(HttpStatusCode.OK, createResp.StatusCode, $"POST /Request failed: {createResp.Content}");
                 var created = DorcApiClient.Deserialize<RequestStatusDto>(createResp.Content);
                 Assert.IsNotNull(created, $"Unexpected POST /Request body: {createResp.Content}");
-                Assert.IsTrue(created.Id > 0, $"Expected positive RequestId, got {created.Id} ({createResp.Content})");
+                Assert.IsGreaterThan(0, created.Id, $"Expected positive RequestId, got {created.Id} ({createResp.Content})");
 
                 var finalRequest = WaitForTerminalRequestStatus(caller, created.Id, TimeSpan.FromMinutes(3));
                 var resultsResp = caller.ExecuteRaw("ResultStatuses", Method.Get, new Dictionary<string, string>
@@ -130,34 +128,31 @@ namespace Tests.Acceptance
                 });
                 Assert.AreEqual(HttpStatusCode.OK, resultsResp.StatusCode, resultsResp.Content);
                 var results = DorcApiClient.Deserialize<List<DeploymentResultApiModel>>(resultsResp.Content) ?? new List<DeploymentResultApiModel>();
-                Assert.AreEqual(1, results.Count, $"Expected 1 component result for request {created.Id}.");
+                Assert.HasCount(1, results, $"Expected 1 component result for request {created.Id}.");
 
                 var resultLogResp = caller.ExecuteRaw("ResultStatuses/Log", Method.Get, new Dictionary<string, string>
                 {
                     ["requestId"] = created.Id.ToString(),
                     ["resultId"] = results[0].Id.ToString()
                 });
-                var resultLogText = resultLogResp.Content ?? string.Empty;
+                var resultLogText = !string.IsNullOrWhiteSpace(resultLogResp.Content)
+                    ? resultLogResp.Content
+                    : (results[0].Log ?? string.Empty);
 
                 Assert.AreEqual(
                     "Completed",
                     finalRequest.Status,
                     $"Expected request {created.Id} to reach Completed, but got '{finalRequest.Status}'. Result status='{results[0].Status}', previewLog='{results[0].Log}', fullLog='{resultLogText}'");
 
-                Assert.IsTrue(
-                    File.Exists(outputJsonPath),
-                    $"Expected live runner script to write resolved properties artifact '{outputJsonPath}'. Full log: {resultLogText}");
-
-                var resolvedJson = File.ReadAllText(outputJsonPath);
-                using var doc = JsonDocument.Parse(resolvedJson);
-                var root = doc.RootElement;
-
-                Assert.AreEqual(expectedGlobalVal, root.GetProperty("GlobalVal").GetString(), "Global property value was not injected into live runner.");
-                Assert.AreEqual(expectedParentVal, root.GetProperty("ParentInheritedVal").GetString(), "Parent-environment inherited property value was not injected into live runner.");
-                Assert.AreEqual(updatedChildVal, root.GetProperty("ChildUpdatedVal").GetString(), "Updated child-environment property value was not injected into live runner.");
-                Assert.AreEqual(expectedOverrideVal, root.GetProperty("RequestOverrideVal").GetString(), "Request-time override property value was not injected into live runner.");
-                Assert.AreEqual(cleartextSecret.Length, root.GetProperty("SecretLength").GetInt32(), "Encrypted secret property was not decrypted before injection into live runner.");
-                Assert.IsTrue(root.GetProperty("SecretVerified").GetBoolean(), "Decrypted secret prefix/suffix verification failed inside live runner.");
+                var combinedLog = $"{results[0].Log}\n{resultLogText}";
+                StringAssert.Contains(
+                    combinedLog,
+                    "VERIFIED_ALL_PROPERTIES_IN_RUNNER",
+                    $"Expected live runner to verify all resolved properties in-process. Full log: {combinedLog}");
+                StringAssert.Contains(
+                    combinedLog,
+                    "[REDACTED]",
+                    $"Expected PowerShellScriptRunner to redact secret value to '[REDACTED]' in stdout log. Full log: {combinedLog}");
 
                 // Verify cleartext secret never leaks in API status responses, OpenSearch logs, or local runner log files
                 var requestRaw = caller.ExecuteRaw("RequestStatuses", Method.Get, new Dictionary<string, string>
@@ -188,25 +183,20 @@ namespace Tests.Acceptance
             }
             finally
             {
-                if (File.Exists(outputJsonPath))
-                {
-                    File.Delete(outputJsonPath);
-                }
                 DeletePropertiesBestEffort(caller, globalProp, parentProp, childUpdatedProp, overrideProp, secretProp);
             }
         }
 
         [TestMethod]
-        public void EndToEndUserJourney_DeployFailsThenUserUpdatesPropertyAndRestarts_CompletesOnSecondAttempt()
+        public void RestartDeploymentRequest_FailedComponentAfterPropertyUpdate_CompletesOnSecondAttempt()
         {
             using var caller = new DorcApiClient();
-            var buildDir = EnsureLiveAcceptanceFixture(caller);
+            var buildUri = EnsureLiveAcceptanceFixture(caller);
             var shouldFailProp = "AutoReg_ShouldFail";
 
             EnsurePropertyDefinition(caller, shouldFailProp, secure: false);
             UpsertPropertyValue(caller, shouldFailProp, secure: false, envFilter: LiveChildEnvName, value: "true");
 
-            var buildUri = new Uri(buildDir).AbsoluteUri;
             var requestPayload = new RequestDto
             {
                 Project = LiveProjectName,
@@ -220,7 +210,7 @@ namespace Tests.Acceptance
             Assert.AreEqual(HttpStatusCode.OK, createResp.StatusCode, $"POST /Request failed: {createResp.Content}");
             var created = DorcApiClient.Deserialize<RequestStatusDto>(createResp.Content);
             Assert.IsNotNull(created);
-            Assert.IsTrue(created.Id > 0);
+            Assert.IsGreaterThan(0, created.Id);
 
             // 1. First execution should fail because AutoReg_ShouldFail == "true"
             var failedState = WaitForTerminalRequestStatus(caller, created.Id, TimeSpan.FromMinutes(3));
@@ -250,23 +240,17 @@ namespace Tests.Acceptance
         }
 
         [TestMethod]
-        public void EndToEndUserJourney_MultiComponentStopOnFailure_HaltsDownstreamComponentInLiveMonitor()
+        public void CreateDeploymentRequest_MultiComponentWithStopOnFailure_HaltsDownstreamComponent()
         {
             using var caller = new DorcApiClient();
-            var buildDir = EnsureLiveAcceptanceFixture(caller);
+            var buildUri = EnsureLiveAcceptanceFixture(caller);
             var shouldFailProp = "AutoReg_ShouldFail";
-            var runTokenProp = "AutoReg_RunToken";
-            var runToken = Guid.NewGuid().ToString("N")[..10];
-            var downstreamMarkerPath = Path.Join(buildDir, $"downstream-ran-{runToken}.txt");
 
             try
             {
                 EnsurePropertyDefinition(caller, shouldFailProp, secure: false);
-                EnsurePropertyDefinition(caller, runTokenProp, secure: false);
                 UpsertPropertyValue(caller, shouldFailProp, secure: false, envFilter: LiveChildEnvName, value: "true");
-                UpsertPropertyValue(caller, runTokenProp, secure: false, envFilter: LiveChildEnvName, value: runToken);
 
-                var buildUri = new Uri(buildDir).AbsoluteUri;
                 var requestPayload = new RequestDto
                 {
                     Project = LiveProjectName,
@@ -284,7 +268,7 @@ namespace Tests.Acceptance
                 Assert.AreEqual(HttpStatusCode.OK, createResp.StatusCode, $"POST /Request failed: {createResp.Content}");
                 var created = DorcApiClient.Deserialize<RequestStatusDto>(createResp.Content);
                 Assert.IsNotNull(created);
-                Assert.IsTrue(created.Id > 0);
+                Assert.IsGreaterThan(0, created.Id);
 
                 var finalState = WaitForTerminalRequestStatus(caller, created.Id, TimeSpan.FromMinutes(3));
                 Assert.IsTrue(
@@ -292,26 +276,34 @@ namespace Tests.Acceptance
                     string.Equals(finalState.Status, "Errored", StringComparison.OrdinalIgnoreCase),
                     $"Expected multi-component request {created.Id} to fail when upstream StopOnFailure component fails, but got '{finalState.Status}'.");
 
+                var resultsResp = caller.ExecuteRaw("ResultStatuses", Method.Get, new Dictionary<string, string>
+                {
+                    ["requestId"] = created.Id.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, resultsResp.StatusCode, resultsResp.Content);
+                var results = DorcApiClient.Deserialize<List<DeploymentResultApiModel>>(resultsResp.Content) ?? new List<DeploymentResultApiModel>();
+                var downstreamResult = results.FirstOrDefault(r =>
+                    string.Equals(r.ComponentName, DownstreamSkippedComponentName, StringComparison.OrdinalIgnoreCase));
+                Assert.IsNotNull(downstreamResult, "Expected result record for downstream component.");
+                Assert.IsTrue(
+                    string.Equals(downstreamResult.Status, "Cancelled", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(downstreamResult.Status, "Pending", StringComparison.OrdinalIgnoreCase),
+                    $"Downstream component should be 'Cancelled' or 'Pending' when upstream StopOnFailure=true component fails, but got '{downstreamResult.Status}'.");
                 Assert.IsFalse(
-                    File.Exists(downstreamMarkerPath),
-                    "Downstream component should NOT execute when upstream component with StopOnFailure=true fails.");
+                    (downstreamResult.Log ?? string.Empty).Contains("Downstream component executed.", StringComparison.Ordinal),
+                    "Downstream component script must not execute when upstream StopOnFailure=true component fails.");
             }
             finally
             {
-                if (File.Exists(downstreamMarkerPath))
-                {
-                    File.Delete(downstreamMarkerPath);
-                }
                 UpsertPropertyValue(caller, shouldFailProp, secure: false, envFilter: LiveChildEnvName, value: "false");
             }
         }
 
         [TestMethod]
-        public void EndToEndUserJourney_CancelDeploymentRequest_TransitionsToCancelledInLiveMonitor()
+        public void CancelDeploymentRequest_InFlightExecution_TransitionsToCancelled()
         {
             using var caller = new DorcApiClient();
-            var buildDir = EnsureLiveAcceptanceFixture(caller);
-            var buildUri = new Uri(buildDir).AbsoluteUri;
+            var buildUri = EnsureLiveAcceptanceFixture(caller);
 
             var requestPayload = new RequestDto
             {
@@ -326,7 +318,7 @@ namespace Tests.Acceptance
             Assert.AreEqual(HttpStatusCode.OK, createResp.StatusCode, $"POST /Request failed: {createResp.Content}");
             var created = DorcApiClient.Deserialize<RequestStatusDto>(createResp.Content);
             Assert.IsNotNull(created);
-            Assert.IsTrue(created.Id > 0);
+            Assert.IsGreaterThan(0, created.Id);
 
             // Wait briefly for monitor pickup or request it to cancel immediately while Pending/Running
             var cancelResp = caller.ExecuteRaw("Request/cancel", Method.Put, new Dictionary<string, string>
@@ -343,7 +335,7 @@ namespace Tests.Acceptance
         }
 
         [TestMethod]
-        public void LiveEnvironmentIntegration_OAuthApiConfigActiveDirectoryAndEnvironmentAcl_ValidatesLiveSeams()
+        public void GetRefDataAndAccessControl_OAuthActiveDirectoryAndEnvironmentAcl_EnforcesOwnerIntegrity()
         {
             using var caller = new DorcApiClient();
             EnsureLiveAcceptanceFixture(caller);
@@ -393,7 +385,6 @@ namespace Tests.Acceptance
                         Id = p.Id,
                         Name = p.Name,
                         Pid = p.Pid,
-                        Sid = p.Sid,
                         Allow = p.Allow & ~4,
                         Deny = p.Deny
                     })
@@ -405,49 +396,39 @@ namespace Tests.Acceptance
 
         private static string EnsureLiveAcceptanceFixture(DorcApiClient caller)
         {
-            var buildDir = Path.Join(DropRootPath, BuildFolderName);
-            Directory.CreateDirectory(buildDir);
-            GrantEveryoneReadExecuteAndWrite(DropRootPath);
-            GrantEveryoneReadExecuteAndWrite(buildDir);
+            var scriptRoot = GetConfiguredScriptRoot(caller);
+            var scriptSubfolder = Path.Join(scriptRoot, RelativeScriptSubfolder);
+            Directory.CreateDirectory(scriptSubfolder);
 
-            var verifyScriptPath = Path.Join(buildDir, "verify-properties.ps1");
-            File.WriteAllText(verifyScriptPath, @"
+            var verifyScriptPath = Path.Join(scriptSubfolder, "verify-properties.ps1");
+            WriteScriptIfChanged(verifyScriptPath, @"
 $ErrorActionPreference = 'Stop'
-$token = $AutoReg_RunToken
-$globalName = ""AutoReg_Global_$token""
-$parentName = ""AutoReg_ParentInherited_$token""
-$childName  = ""AutoReg_ChildUpdated_$token""
-$overrideName = ""AutoReg_RequestOverride_$token""
-$secretName = ""AutoReg_SecretPassword_$token""
+$cid = $AutoReg_CorrelationId
+$globalName = ""AutoReg_Global_$cid""
+$parentName = ""AutoReg_ParentInherited_$cid""
+$childName  = ""AutoReg_ChildUpdated_$cid""
+$overrideName = ""AutoReg_RequestOverride_$cid""
+$secretName = ""AutoReg_SecretPassword_$cid""
 
-$globalVal = (Get-Variable -Name $globalName -ValueOnly -ErrorAction SilentlyContinue)
-$parentVal = (Get-Variable -Name $parentName -ValueOnly -ErrorAction SilentlyContinue)
-$childVal  = (Get-Variable -Name $childName -ValueOnly -ErrorAction SilentlyContinue)
-$overrideVal = (Get-Variable -Name $overrideName -ValueOnly -ErrorAction SilentlyContinue)
+$globalVal = [string](Get-Variable -Name $globalName -ValueOnly -ErrorAction SilentlyContinue)
+$parentVal = [string](Get-Variable -Name $parentName -ValueOnly -ErrorAction SilentlyContinue)
+$childVal  = [string](Get-Variable -Name $childName -ValueOnly -ErrorAction SilentlyContinue)
+$overrideVal = [string](Get-Variable -Name $overrideName -ValueOnly -ErrorAction SilentlyContinue)
 $secretVal = [string](Get-Variable -Name $secretName -ValueOnly -ErrorAction SilentlyContinue)
 
-$expectedPrefix = ""Sup3rS3cr3tValu3_""
-$secretVerified = ($secretVal.StartsWith($expectedPrefix) -and $secretVal.EndsWith('!'))
+if ($globalVal -ne ""GlobalVal_$cid"") { throw ""GlobalVal mismatch: '$globalVal'"" }
+if ($parentVal -ne ""ParentInheritedVal_$cid"") { throw ""ParentInheritedVal mismatch: '$parentVal'"" }
+if ($childVal -ne ""UpdatedChildVal_$cid"") { throw ""ChildUpdatedVal mismatch: '$childVal'"" }
+if ($overrideVal -ne ""OverriddenAtRequest_$cid"") { throw ""RequestOverrideVal mismatch: '$overrideVal'"" }
+if ($secretVal -ne ""Sup3rS3cr3tValu3_$cid!"") { throw ""SecretVal decryption mismatch (length=$($secretVal.Length))"" }
 
 # Intentionally write a line containing the secret to stdout to verify PowerShellScriptRunner redacts it to [REDACTED]
-Write-Output ""Executing live acceptance verification for token=$token secret=$secretVal""
-Write-Output ""RESOLVED: Global=$globalVal | Parent=$parentVal | ChildUpdated=$childVal | Override=$overrideVal""
-
-$payload = @{
-    GlobalVal = [string]$globalVal
-    ParentInheritedVal = [string]$parentVal
-    ChildUpdatedVal = [string]$childVal
-    RequestOverrideVal = [string]$overrideVal
-    SecretLength = $secretVal.Length
-    SecretVerified = [bool]$secretVerified
-} | ConvertTo-Json -Compress
-
-$outFile = Join-Path $PSScriptRoot ""resolved-props-$token.json""
-Set-Content -Path $outFile -Value $payload -Encoding UTF8
+Write-Output ""Executing live acceptance verification for secret=$secretVal""
+Write-Output ""VERIFIED_ALL_PROPERTIES_IN_RUNNER""
 ");
 
-            var failThenPassScriptPath = Path.Join(buildDir, "fail-then-pass.ps1");
-            File.WriteAllText(failThenPassScriptPath, @"
+            var failThenPassScriptPath = Path.Join(scriptSubfolder, "fail-then-pass.ps1");
+            WriteScriptIfChanged(failThenPassScriptPath, @"
 $ErrorActionPreference = 'Stop'
 Write-Output ""AutoReg_ShouldFail is '$AutoReg_ShouldFail'""
 if ($AutoReg_ShouldFail -eq 'true') {
@@ -457,17 +438,15 @@ if ($AutoReg_ShouldFail -eq 'true') {
 Write-Output 'Deployment succeeded after property update and restart.'
 ");
 
-            var cancelWaitScriptPath = Path.Join(buildDir, "cancel-wait.ps1");
-            File.WriteAllText(cancelWaitScriptPath, @"
+            var cancelWaitScriptPath = Path.Join(scriptSubfolder, "cancel-wait.ps1");
+            WriteScriptIfChanged(cancelWaitScriptPath, @"
 Write-Output 'Starting cancellable wait script...'
 Start-Sleep -Seconds 25
 Write-Output 'Finished wait.'
 ");
 
-            var downstreamScriptPath = Path.Join(buildDir, "downstream-skipped.ps1");
-            File.WriteAllText(downstreamScriptPath, @"
-$outFile = Join-Path $PSScriptRoot ""downstream-ran-$AutoReg_RunToken.txt""
-Set-Content -Path $outFile -Value 'RAN' -Encoding UTF8
+            var downstreamScriptPath = Path.Join(scriptSubfolder, "downstream-skipped.ps1");
+            WriteScriptIfChanged(downstreamScriptPath, @"
 Write-Output 'Downstream component executed.'
 ");
 
@@ -488,51 +467,64 @@ Write-Output 'Downstream component executed.'
                 Assert.AreEqual(HttpStatusCode.OK, setParentResp.StatusCode, $"SetParentForEnvironment failed: {setParentResp.Content}");
             }
 
-            var dropRootUri = new Uri(DropRootPath).AbsoluteUri;
+            var (dropRootUri, buildUri) = ResolveConfiguredArtefactDrop(caller);
             var project = EnsureProject(caller, LiveProjectName, dropRootUri);
             EnsureEnvironmentMappedToProject(caller, LiveProjectName, LiveParentEnvName);
             EnsureEnvironmentMappedToProject(caller, LiveProjectName, LiveChildEnvName);
             EnsureProjectComponents(caller, project.ProjectId);
 
-            return buildDir;
+            return buildUri;
         }
 
-        private static void GrantEveryoneReadExecuteAndWrite(string directoryPath)
+        private static (string DropRootUri, string BuildUri) ResolveConfiguredArtefactDrop(DorcApiClient caller)
         {
-            if (!OperatingSystem.IsWindows())
+            var devOpsResp = caller.ExecuteRaw("RefDataProjects/DevOps", Method.Get);
+            if (devOpsResp.StatusCode == HttpStatusCode.OK)
             {
-                return;
+                var devOpsProject = DorcApiClient.Deserialize<ProjectApiModel>(devOpsResp.Content);
+                if (devOpsProject != null && !string.IsNullOrWhiteSpace(devOpsProject.ArtefactsUrl))
+                {
+                    var rootUri = devOpsProject.ArtefactsUrl.Split(';')[0].TrimEnd('/');
+                    return (rootUri, $"{rootUri}/{BuildFolderName}");
+                }
             }
 
-            try
+            var fallbackRoot = @"C:\ProgramData\SEFE\DOrc\LiveAcceptanceDrop";
+            var fallbackBuildDir = Path.Join(fallbackRoot, BuildFolderName);
+            Directory.CreateDirectory(fallbackBuildDir);
+            return (new Uri(fallbackRoot).AbsoluteUri, new Uri(fallbackBuildDir).AbsoluteUri);
+        }
+
+        private static void WriteScriptIfChanged(string path, string content)
+        {
+            if (File.Exists(path))
             {
-                var dirInfo = new DirectoryInfo(directoryPath);
-                var security = dirInfo.GetAccessControl();
-                var everyoneSid = new SecurityIdentifier(WellKnownSidType.WorldSid, null);
-                security.AddAccessRule(new FileSystemAccessRule(
-                    everyoneSid,
-                    FileSystemRights.Modify | FileSystemRights.Synchronize,
-                    InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
-                    PropagationFlags.None,
-                    System.Security.AccessControl.AccessControlType.Allow));
-                dirInfo.SetAccessControl(security);
+                try
+                {
+                    var existing = File.ReadAllText(path);
+                    if (string.Equals(existing, content, StringComparison.Ordinal))
+                    {
+                        return;
+                    }
+                }
+                catch (IOException)
+                {
+                    return;
+                }
             }
-            catch (UnauthorizedAccessException)
-            {
-                // Best-effort ACL adjustment for local runner service account
-            }
-            catch (System.Security.SecurityException)
-            {
-                // Best-effort ACL adjustment for local runner service account
-            }
-            catch (IOException)
-            {
-                // Best-effort ACL adjustment for local runner service account
-            }
-            catch (PlatformNotSupportedException)
-            {
-                // Best-effort ACL adjustment for local runner service account
-            }
+
+            File.WriteAllText(path, content);
+        }
+
+        private static string GetConfiguredScriptRoot(DorcApiClient caller)
+        {
+            var configResp = caller.ExecuteRaw("RefDataConfig", Method.Get);
+            Assert.AreEqual(HttpStatusCode.OK, configResp.StatusCode, $"GET /RefDataConfig failed: {configResp.Content}");
+            var configs = DorcApiClient.Deserialize<List<ConfigValueApiModel>>(configResp.Content);
+            var scriptRootCfg = configs?.FirstOrDefault(c => string.Equals(c.Key, "ScriptRoot", StringComparison.OrdinalIgnoreCase));
+            Assert.IsNotNull(scriptRootCfg, "Expected ScriptRoot entry in GET /RefDataConfig.");
+            Assert.IsFalse(string.IsNullOrWhiteSpace(scriptRootCfg.Value), "Expected non-empty ScriptRoot value in RefDataConfig.");
+            return scriptRootCfg.Value;
         }
 
         private static (string OwnerName, string OwnerId) ResolveDefaultOwner(DorcApiClient caller)
@@ -561,7 +553,7 @@ Write-Output 'Downstream component executed.'
                 var first = users?.FirstOrDefault(u => !string.IsNullOrWhiteSpace(u.Pid));
                 if (first != null)
                 {
-                    return (first.DisplayName ?? first.Username ?? "ServiceAccount", first.Pid);
+                    return (first.DisplayName ?? first.Username ?? "DirectoryIdentity", first.Pid);
                 }
             }
 
@@ -611,7 +603,7 @@ Write-Output 'Downstream component executed.'
             Assert.AreEqual(HttpStatusCode.OK, postResp.StatusCode, $"Failed creating environment '{envName}': {postResp.Content}");
             var created = DorcApiClient.Deserialize<EnvironmentApiModel>(postResp.Content);
             Assert.IsNotNull(created);
-            Assert.IsTrue(created.EnvironmentId > 0, $"Expected EnvironmentId > 0 for '{envName}', got {postResp.Content}");
+            Assert.IsGreaterThan(0, created.EnvironmentId, $"Expected EnvironmentId > 0 for '{envName}', got {postResp.Content}");
             return created;
         }
 
@@ -647,7 +639,7 @@ Write-Output 'Downstream component executed.'
             Assert.AreEqual(HttpStatusCode.OK, postResp.StatusCode, $"Failed creating project '{projectName}': {postResp.Content}");
             var created = DorcApiClient.Deserialize<ProjectApiModel>(postResp.Content);
             Assert.IsNotNull(created);
-            Assert.IsTrue(created.ProjectId > 0);
+            Assert.IsGreaterThan(0, created.ProjectId);
             return created;
         }
 
@@ -685,10 +677,10 @@ Write-Output 'Downstream component executed.'
 
             var required = new (string Name, string ScriptName)[]
             {
-                (VerifyPropsComponentName, "verify-properties.ps1"),
-                (FailThenPassComponentName, "fail-then-pass.ps1"),
-                (DownstreamSkippedComponentName, "downstream-skipped.ps1"),
-                (CancelWaitComponentName, "cancel-wait.ps1")
+                (VerifyPropsComponentName, Path.Join(RelativeScriptSubfolder, "verify-properties.ps1")),
+                (FailThenPassComponentName, Path.Join(RelativeScriptSubfolder, "fail-then-pass.ps1")),
+                (DownstreamSkippedComponentName, Path.Join(RelativeScriptSubfolder, "downstream-skipped.ps1")),
+                (CancelWaitComponentName, Path.Join(RelativeScriptSubfolder, "cancel-wait.ps1"))
             };
 
             var psV7 = PowerShellVersion.V7.ToVersionString();
