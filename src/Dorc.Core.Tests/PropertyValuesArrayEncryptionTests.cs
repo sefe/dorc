@@ -53,5 +53,18 @@ namespace Dorc.Core.Tests
             Assert.AreNotEqual(items[0], items[1],
                 "Each element must be encrypted individually, not the serialized array.");
         }
+
+        [TestMethod]
+        public void EncryptAndDecryptArrayValue_HandlesScalarInputAndLegacySingleBlobFallback()
+        {
+            var enc = new ReversibleEncryptor();
+
+            var wrappedAndEncrypted = PropertyValuesPersistentSource.EncryptArrayValue("scalar-secret", enc);
+            var items = JsonSerializer.Deserialize<string[]>(wrappedAndEncrypted)!;
+            CollectionAssert.AreEqual(new[] { "enc:scalar-secret" }, items);
+
+            var legacyDecrypted = PropertyValuesPersistentSource.DecryptArrayValue("enc:legacy-blob", enc);
+            Assert.AreEqual("legacy-blob", legacyDecrypted);
+        }
     }
 }

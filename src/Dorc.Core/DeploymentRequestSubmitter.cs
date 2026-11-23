@@ -16,7 +16,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Dorc.Core
 {
-    public class DeployLibrary : IDeployLibrary
+    public class DeploymentRequestSubmitter : IDeploymentRequestSubmitter
     {
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IComponentsPersistentSource _componentsPersistentSource;
@@ -28,7 +28,7 @@ namespace Dorc.Core
         private readonly IDeploymentEventsPublisher _deploymentEventsPublisher;
         private readonly IBuildServerClientFactory _buildServerClientFactory;
 
-        public DeployLibrary(IProjectsPersistentSource projectsPersistentSource,
+        public DeploymentRequestSubmitter(IProjectsPersistentSource projectsPersistentSource,
             IComponentsPersistentSource componentsPersistentSource,
             IManageProjectsPersistentSource manageProjectsPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,

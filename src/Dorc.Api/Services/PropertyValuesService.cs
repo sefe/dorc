@@ -71,7 +71,9 @@ namespace Dorc.Api.Services
 
                 if (canReadTargetSecrets && canReadSourceSecrets)
                 {
-                    propertyValueDto.Value = _propertyEncryptor.DecryptValue(propertyValueDto.Value);
+                    propertyValueDto.Value = propertyValueDto.Property.IsArray
+                        ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.DecryptArrayValue(propertyValueDto.Value, _propertyEncryptor)
+                        : _propertyEncryptor.DecryptValue(propertyValueDto.Value);
                 }
                 else
                 {
@@ -304,8 +306,10 @@ namespace Dorc.Api.Services
                         continue;
                     }
 
-                    var propertyValueToUpdate = propertyValueDto.Property.Secure
-                        ? _propertyEncryptor.EncryptValue(propertyValueDto.Value)
+                    var propertyValueToUpdate = dbPropertyValueModel.Property.Secure
+                        ? (dbPropertyValueModel.Property.IsArray
+                            ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.EncryptArrayValue(propertyValueDto.Value, _propertyEncryptor)
+                            : _propertyEncryptor.EncryptValue(propertyValueDto.Value))
                         : propertyValueDto.Value;
                     _propertyValuesPersistentSource.UpdatePropertyValue(dbPropertyValueModel.Id,
                         propertyValueToUpdate);

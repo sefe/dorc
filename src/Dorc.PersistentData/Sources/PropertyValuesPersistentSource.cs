@@ -834,22 +834,22 @@ namespace Dorc.PersistentData.Sources
         // Secure array values are stored as a JSON array of per-element ciphertexts. Encrypt and
         // decrypt must be symmetric: encrypt each element, decrypt each element. (A previous
         // version encrypted the whole serialized array for every element, corrupting the data.)
-        internal static string EncryptArrayValue(string serializedArray, IPropertyEncryptor encryptor)
+        public static string EncryptArrayValue(string serializedArray, IPropertyEncryptor encryptor)
         {
-            var items = JsonSerializer.Deserialize<string[]>(serializedArray);
-            if (items == null)
-                return serializedArray;
-
+            var normalized = IsValidJsonArray(serializedArray ?? string.Empty)
+                ? serializedArray!
+                : JsonSerializer.Serialize(new[] { serializedArray ?? string.Empty });
+            var items = JsonSerializer.Deserialize<string[]>(normalized)!;
             var encrypted = items.Select(encryptor.EncryptValue).ToList();
             return JsonSerializer.Serialize(encrypted);
         }
 
-        internal static string DecryptArrayValue(string serializedArray, IPropertyEncryptor encryptor)
+        public static string DecryptArrayValue(string serializedArray, IPropertyEncryptor encryptor)
         {
-            var items = JsonSerializer.Deserialize<string[]>(serializedArray);
-            if (items == null)
-                return serializedArray;
+            if (!IsValidJsonArray(serializedArray ?? string.Empty))
+                return encryptor.DecryptValue(serializedArray);
 
+            var items = JsonSerializer.Deserialize<string[]>(serializedArray)!;
             var decrypted = items.Select(encryptor.DecryptValue).ToList();
             return JsonSerializer.Serialize(decrypted);
         }

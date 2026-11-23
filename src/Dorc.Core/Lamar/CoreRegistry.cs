@@ -12,7 +12,7 @@ namespace Dorc.Core.Lamar
         {
             For<IDaemonStatusProbe>().Use<DaemonStatusProbe>();
 
-            For<IDeployLibrary>().Use<DeployLibrary>();
+            For<IDeploymentRequestSubmitter>().Use<DeploymentRequestSubmitter>();
 
             For<IPropertyEncryptor>().Use(x =>
             {

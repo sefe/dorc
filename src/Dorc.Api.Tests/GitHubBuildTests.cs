@@ -14,7 +14,7 @@ namespace Dorc.Api.Tests
         private IBuildServerClient _mockedBuildServerClient = null!;
         private IBuildServerClientFactory _mockedBuildServerClientFactory = null!;
         private IProjectsPersistentSource _mockedProjectsPds = null!;
-        private IDeployLibrary _mockedDeployLibrary = null!;
+        private IDeploymentRequestSubmitter _mockedRequestSubmitter = null!;
         private IRequestsPersistentSource _mockedReqPs = null!;
         private MockedLog<GitHubDeployableBuild> _mockedLog = null!;
 
@@ -25,7 +25,7 @@ namespace Dorc.Api.Tests
             _mockedBuildServerClientFactory = Substitute.For<IBuildServerClientFactory>();
             _mockedBuildServerClientFactory.Create(SourceControlType.GitHub).Returns(_mockedBuildServerClient);
             _mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
-            _mockedDeployLibrary = Substitute.For<IDeployLibrary>();
+            _mockedRequestSubmitter = Substitute.For<IDeploymentRequestSubmitter>();
             _mockedReqPs = Substitute.For<IRequestsPersistentSource>();
             _mockedLog = new MockedLog<GitHubDeployableBuild>();
 
@@ -43,7 +43,7 @@ namespace Dorc.Api.Tests
         private GitHubDeployableBuild CreateSut()
         {
             return new GitHubDeployableBuild(_mockedBuildServerClientFactory, _mockedLog,
-                _mockedProjectsPds, _mockedDeployLibrary, _mockedReqPs);
+                _mockedProjectsPds, _mockedRequestSubmitter, _mockedReqPs);
         }
 
         [TestMethod]
@@ -115,7 +115,7 @@ namespace Dorc.Api.Tests
             };
 
             var sut = CreateSut();
-            // Default SourceControlType (AzureDevOps) so type will be TfsBuild, not GitHubBuild
+            // Default SourceControlType (AzureDevOps) so type will be AzureDevOpsBuild, not GitHubBuild
             var buildDetails = new BuildDetails(request);
             var result = sut.IsValid(buildDetails);
 

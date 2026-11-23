@@ -21,12 +21,12 @@ namespace Dorc.Api.Services
     public class CatalogDeployableBuild : IDeployableBuild
     {
         private readonly IRequestsPersistentSource _requestsPersistentSource;
-        private readonly IDeployLibrary _deployLibrary;
+        private readonly IDeploymentRequestSubmitter _requestSubmitter;
         private string _validationMessage = string.Empty;
 
-        public CatalogDeployableBuild(IDeployLibrary deployLibrary, IRequestsPersistentSource requestsPersistentSource)
+        public CatalogDeployableBuild(IDeploymentRequestSubmitter requestSubmitter, IRequestsPersistentSource requestsPersistentSource)
         {
-            _deployLibrary = deployLibrary;
+            _requestSubmitter = requestSubmitter;
             _requestsPersistentSource = requestsPersistentSource;
         }
 
@@ -54,7 +54,7 @@ namespace Dorc.Api.Services
             // No artifact URL is forwarded to the deploy library. Components
             // resolve their source via Dorc.TerraformRunner's
             // CatalogReferenceCodeSourceProvider at dispatch time.
-            var id = _deployLibrary.SubmitRequest(
+            var id = _requestSubmitter.SubmitRequest(
                 projectName: request.Project,
                 environmentName: request.Environment,
                 uri: string.Empty,
@@ -66,7 +66,7 @@ namespace Dorc.Api.Services
                 catalogSubmission: request.CatalogSubmission);
 
             return id <= 0
-                ? new RequestStatusDto() { Id = 0, Status = "DeployLibrary has returned zero result" }
+                ? new RequestStatusDto() { Id = 0, Status = "DeploymentRequestSubmitter has returned zero result" }
                 : _requestsPersistentSource.GetRequestStatus(id);
         }
     }

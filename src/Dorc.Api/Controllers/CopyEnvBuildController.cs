@@ -18,18 +18,18 @@ namespace Dorc.Api.Controllers
         private readonly ISecurityPrivilegesChecker _apiSecurityService;
         private readonly ILogger<CopyEnvBuildController> _log;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
-        private readonly IDeployLibrary _deployLibrary;
+        private readonly IDeploymentRequestSubmitter _requestSubmitter;
 
         public CopyEnvBuildController(
             ISecurityPrivilegesChecker apiSecurityService,
             ILogger<CopyEnvBuildController> log,
             IClaimsPrincipalReader claimsPrincipalReader,
-            IDeployLibrary deployLibrary)
+            IDeploymentRequestSubmitter requestSubmitter)
         {
             _apiSecurityService = apiSecurityService;
             _log = log;
             _claimsPrincipalReader = claimsPrincipalReader;
-            _deployLibrary = deployLibrary;
+            _requestSubmitter = requestSubmitter;
         }
 
         /// <summary>
@@ -55,7 +55,7 @@ namespace Dorc.Api.Controllers
 
                 if (!string.IsNullOrEmpty(copyEnvBuildDto.Components))
                 {
-                    requestIds = _deployLibrary.DeployCopyEnvBuildWithComponentNames(
+                    requestIds = _requestSubmitter.DeployCopyEnvBuildWithComponentNames(
                         copyEnvBuildDto.SourceEnv,
                         copyEnvBuildDto.TargetEnv,
                         copyEnvBuildDto.Project,
@@ -64,7 +64,7 @@ namespace Dorc.Api.Controllers
                 }
                 else
                 {
-                    requestIds = _deployLibrary.CopyEnvBuildAllComponents(
+                    requestIds = _requestSubmitter.CopyEnvBuildAllComponents(
                         copyEnvBuildDto.SourceEnv,
                         copyEnvBuildDto.TargetEnv,
                         copyEnvBuildDto.Project,

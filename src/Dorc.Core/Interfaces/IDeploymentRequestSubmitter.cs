@@ -3,7 +3,7 @@ using System.Security.Claims;
 
 namespace Dorc.Core.Interfaces
 {
-    public interface IDeployLibrary
+    public interface IDeploymentRequestSubmitter
     {
         int SubmitRequest(string projectName, string environmentName, string uri,
             string buildDefinitionName, List<string> requestComponents, List<RequestProperty> requestProperties,

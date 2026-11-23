@@ -19,18 +19,18 @@ namespace Dorc.Api.Services
         private readonly IBuildServerClient _buildServerClient;
         private readonly ILogger _log;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
-        private readonly IDeployLibrary _deployLibrary;
+        private readonly IDeploymentRequestSubmitter _requestSubmitter;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private string _validationMessage = string.Empty;
         private string _buildUri = string.Empty;
         private string _definitionName = string.Empty;
 
         public GitHubDeployableBuild(IBuildServerClientFactory buildServerClientFactory, ILogger<GitHubDeployableBuild> log,
-            IProjectsPersistentSource projectsPersistentSource, IDeployLibrary deployLibrary,
+            IProjectsPersistentSource projectsPersistentSource, IDeploymentRequestSubmitter requestSubmitter,
             IRequestsPersistentSource requestsPersistentSource)
         {
             _requestsPersistentSource = requestsPersistentSource;
-            _deployLibrary = deployLibrary;
+            _requestSubmitter = requestSubmitter;
             _projectsPersistentSource = projectsPersistentSource;
             _log = log;
             _buildServerClient = buildServerClientFactory.Create(SourceControlType.GitHub);
@@ -97,7 +97,7 @@ namespace Dorc.Api.Services
             if (string.IsNullOrEmpty(_buildUri))
                 return new RequestStatusDto { Id = 0, Status = "Build validation must succeed before processing" };
 
-            var requestId = _deployLibrary.SubmitRequest(
+            var requestId = _requestSubmitter.SubmitRequest(
                 request.Project,
                 request.Environment,
                 _buildUri,
@@ -121,7 +121,7 @@ namespace Dorc.Api.Services
                 return new RequestStatusDto
                 {
                     Id = 0,
-                    Status = "DeployLibrary has returned zero result"
+                    Status = "DeploymentRequestSubmitter has returned zero result"
                 };
             }
 

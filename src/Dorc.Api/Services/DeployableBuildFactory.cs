@@ -14,17 +14,17 @@ namespace Dorc.Api.Services
         private readonly IFileSystemHelper _fileSystemHelper;
         private readonly ILoggerFactory _loggerFactory;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
-        private readonly IDeployLibrary _deployLibrary;
+        private readonly IDeploymentRequestSubmitter _requestSubmitter;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly Func<GitHubDeployableBuild> _gitHubDeployableBuildFactory;
 
         public DeployableBuildFactory(IFileSystemHelper fileSystemHelper, ILoggerFactory loggerFactory,
-            IProjectsPersistentSource projectsPersistentSource, IDeployLibrary deployLibrary,
+            IProjectsPersistentSource projectsPersistentSource, IDeploymentRequestSubmitter requestSubmitter,
             IRequestsPersistentSource requestsPersistentSource,
             Func<GitHubDeployableBuild> gitHubDeployableBuildFactory)
         {
             _requestsPersistentSource = requestsPersistentSource;
-            _deployLibrary = deployLibrary;
+            _requestSubmitter = requestSubmitter;
             _projectsPersistentSource = projectsPersistentSource;
             _loggerFactory = loggerFactory;
             _fileSystemHelper = fileSystemHelper;
@@ -42,21 +42,21 @@ namespace Dorc.Api.Services
             switch (buildDetail.Type)
             {
                 case BuildType.FileShareBuild:
-                    return new FileShareDeployableBuild(_fileSystemHelper, _deployLibrary, _requestsPersistentSource, _projectsPersistentSource);
+                    return new FileShareDeployableBuild(_fileSystemHelper, _requestSubmitter, _requestsPersistentSource, _projectsPersistentSource);
 
-                case BuildType.TfsBuild:
+                case BuildType.AzureDevOpsBuild:
                     {
-                        var tfsUrl = project.ArtefactsUrl;
+                        var azureDevOpsUrl = project.ArtefactsUrl;
                         var webClientLogger = _loggerFactory.CreateLogger<AzureDevOpsServerWebClient>();
                         var buildLogger = _loggerFactory.CreateLogger<AzureDevOpsDeployableBuild>();
-                        return new AzureDevOpsDeployableBuild(new AzureDevOpsServerWebClient(tfsUrl, webClientLogger), buildLogger, _projectsPersistentSource, _deployLibrary, _requestsPersistentSource);
+                        return new AzureDevOpsDeployableBuild(new AzureDevOpsServerWebClient(azureDevOpsUrl, webClientLogger), buildLogger, _projectsPersistentSource, _requestSubmitter, _requestsPersistentSource);
                     }
 
                 case BuildType.GitHubBuild:
                     return _gitHubDeployableBuildFactory();
 
                 case BuildType.Catalog:
-                    return new CatalogDeployableBuild(_deployLibrary, _requestsPersistentSource);
+                    return new CatalogDeployableBuild(_requestSubmitter, _requestsPersistentSource);
 
                 case BuildType.UnknownBuildType:
                 default:

@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using Dorc.ApiModel;
+using Dorc.PersistentData.Sources.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Dorc.Api.Tests.Controllers;
 
@@ -98,6 +100,32 @@ public class RefDataEnvironmentsDetailsControllerTests
         Assert.IsNotNull(cycleResult);
         Assert.IsFalse(cycleResult.Result);
 
+        var grandChildResp = await adminClient.PostAsJsonAsync("/RefDataEnvironments", new EnvironmentApiModel
+        {
+            EnvironmentName = "EnvGrandChild_" + Guid.NewGuid().ToString("N")[..8],
+            EnvironmentIsProd = false,
+            EnvironmentSecure = false,
+            Details = new EnvironmentDetailsApiModel { EnvironmentOwner = "admin.user@sefe.eu" }
+        }, _fixture.JsonOptions);
+        var grandChildEnv = await grandChildResp.Content.ReadFromJsonAsync<EnvironmentApiModel>(_fixture.JsonOptions);
+        Assert.IsNotNull(grandChildEnv);
+
+        var childAsParentResp = await adminClient.PutAsync(
+            $"/RefDataEnvironmentsDetails/SetParentForEnvironment?parentEnvId={childEnv.EnvironmentId}&childEnvId={grandChildEnv.EnvironmentId}",
+            null);
+        var childAsParentResult = await childAsParentResp.Content.ReadFromJsonAsync<ApiBoolResult>(_fixture.JsonOptions);
+        Assert.IsNotNull(childAsParentResult);
+        Assert.IsFalse(childAsParentResult.Result);
+        StringAssert.Contains(childAsParentResult.Message, "Not allowed to have more than 1 level of environment hierarchy");
+
+        var parentAsChildResp = await adminClient.PutAsync(
+            $"/RefDataEnvironmentsDetails/SetParentForEnvironment?parentEnvId={grandChildEnv.EnvironmentId}&childEnvId={parentEnv.EnvironmentId}",
+            null);
+        var parentAsChildResult = await parentAsChildResp.Content.ReadFromJsonAsync<ApiBoolResult>(_fixture.JsonOptions);
+        Assert.IsNotNull(parentAsChildResult);
+        Assert.IsFalse(parentAsChildResult.Result);
+        StringAssert.Contains(parentAsChildResult.Message, "cannot have both parent and children");
+
         var inheritedPropName = "InheritedProp_" + Guid.NewGuid().ToString("N")[..8];
         var overriddenPropName = "OverriddenProp_" + Guid.NewGuid().ToString("N")[..8];
         var secureArrayPropName = "SecureArrayProp_" + Guid.NewGuid().ToString("N")[..8];
@@ -160,6 +188,41 @@ public class RefDataEnvironmentsDetailsControllerTests
         StringAssert.Contains(csvText, overriddenPropName);
         Assert.IsFalse(csvText.Contains(secureArrayPropName, StringComparison.OrdinalIgnoreCase));
         Assert.IsFalse(csvText.Contains("sec1", StringComparison.OrdinalIgnoreCase));
+
+        var updateSecureArrayResp = await adminClient.PutAsJsonAsync("/PropertyValues", new[]
+        {
+            new PropertyValueDto
+            {
+                Property = new PropertyApiModel { Name = secureArrayPropName, Secure = true, IsArray = true },
+                PropertyValueFilter = childName,
+                Value = "[\"sec3\",\"sec4\"]"
+            }
+        }, _fixture.JsonOptions);
+        Assert.AreEqual(HttpStatusCode.OK, updateSecureArrayResp.StatusCode);
+
+        var secureArrayReadResp = await adminClient.GetFromJsonAsync<PropertyValueDto[]>(
+            $"/PropertyValues?propertyName={secureArrayPropName}&environmentName={childName}", _fixture.JsonOptions);
+        Assert.IsNotNull(secureArrayReadResp);
+        Assert.AreEqual(1, secureArrayReadResp.Length);
+        Assert.AreEqual("[\"sec3\",\"sec4\"]", secureArrayReadResp[0].Value);
+
+        var toggleIsArrayResp = await adminClient.PutAsJsonAsync("/Properties", new Dictionary<string, PropertyApiModel>
+        {
+            [secureArrayPropName] = new PropertyApiModel { Name = secureArrayPropName, Secure = true, IsArray = false }
+        }, _fixture.JsonOptions);
+        Assert.AreEqual(HttpStatusCode.OK, toggleIsArrayResp.StatusCode);
+        var toggleResults = await toggleIsArrayResp.Content.ReadFromJsonAsync<Response[]>(_fixture.JsonOptions);
+        Assert.IsNotNull(toggleResults);
+        StringAssert.Contains(toggleResults[0].Status, "while property values exist");
+
+        var propsSource = _fixture.HostFactory.Services.GetRequiredService<IPropertiesPersistentSource>();
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            propsSource.UpdateProperty(new PropertyApiModel { Name = secureArrayPropName, Secure = true, IsArray = false }));
+        StringAssert.Contains(ex.Message, "while property values exist");
+
+        var emptyPropName = "EmptyProp_" + Guid.NewGuid().ToString("N")[..8];
+        propsSource.CreateProperty(new PropertyApiModel { Name = emptyPropName, Secure = false, IsArray = false }, "admin.user@sefe.eu");
+        Assert.IsTrue(propsSource.UpdateProperty(new PropertyApiModel { Name = emptyPropName, Secure = false, IsArray = true }));
 
         var scopedResp = await adminClient.PutAsJsonAsync(
             $"/RefDataScopedPropertyValues?scope={childName}&page=1&limit=50",

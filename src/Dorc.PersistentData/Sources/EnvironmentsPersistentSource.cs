@@ -1039,7 +1039,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                     .ThenInclude(p => p.Environments)
                     .Where(e => e.Id == id)
                     .SelectMany(e => e.Projects.SelectMany(p => p.Environments)) // Get all environments from all related projects
-                    .Where(e => e.Id != id && e.ParentId == null); // Exclude the parent and all children
+                    .Where(e => e.Id != id && e.ParentId == null && !e.ChildEnvironments.Any()); // Exclude the parent, children, and environments that already have children
 
                 var filteredByAccessLevelEnvs = allRelatedEnvs
                     .Where(environment =>
@@ -1093,6 +1093,11 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                     if (parentEnv.ParentId is not null)
                     {
                         throw new ArgumentException($"Not allowed to have more than 1 level of environment hierarchy. Environment {parentEnv.Name} is already a child ");
+                    }
+
+                    if (childEnv.ChildEnvironments?.Any() == true || context.Environments.Any(e => e.ParentId == childEnvId))
+                    {
+                        throw new ArgumentException($"Not allowed to have more than 1 level of environment hierarchy. Environment {childEnv.Name} cannot have both parent and children.");
                     }
 
                     childEnv.ParentId = parentEnvId;

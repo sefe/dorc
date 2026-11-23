@@ -9,9 +9,9 @@ namespace Dorc.Api.Tests
         [TestMethod]
         public void BuildTypeTest()
         {
-            var tfsBuildUrl = "http://tfdv/tfs/somebuild";
-            var tfsBuildDetails = new BuildDetails(tfsBuildUrl);
-            Assert.AreEqual(BuildType.TfsBuild, tfsBuildDetails.Type);
+            var azureDevOpsBuildUrl = "http://dev.azure.com/org/somebuild";
+            var azureDevOpsBuildDetails = new BuildDetails(azureDevOpsBuildUrl);
+            Assert.AreEqual(BuildType.AzureDevOpsBuild, azureDevOpsBuildDetails.Type);
             var fileShareBuildUrl = "file://path_to_some_share";
             var fileShareBuildDetails = new BuildDetails(fileShareBuildUrl);
             Assert.AreEqual(BuildType.FileShareBuild, fileShareBuildDetails.Type);
@@ -48,20 +48,20 @@ namespace Dorc.Api.Tests
         }
 
         [TestMethod]
-        public void BuildType_AzureDevOps_HttpUrl_ReturnsTfsBuild()
+        public void BuildType_AzureDevOps_HttpUrl_ReturnsAzureDevOpsBuild()
         {
-            var request = new RequestDto { BuildUrl = "http://tfs/tfs/build" };
+            var request = new RequestDto { BuildUrl = "http://dev.azure.com/org/build" };
             var details = new BuildDetails(request, SourceControlType.AzureDevOps);
-            Assert.AreEqual(BuildType.TfsBuild, details.Type);
+            Assert.AreEqual(BuildType.AzureDevOpsBuild, details.Type);
         }
 
         [TestMethod]
-        public void BuildType_GitHub_DefaultSourceControlType_HttpUrl_ReturnsTfsBuild()
+        public void BuildType_GitHub_DefaultSourceControlType_HttpUrl_ReturnsAzureDevOpsBuild()
         {
-            // Without specifying GitHub source control type, http URL should be TFS
+            // Without specifying GitHub source control type, http URL should default to AzureDevOpsBuild
             var request = new RequestDto { BuildUrl = "http://some_url" };
             var details = new BuildDetails(request);
-            Assert.AreEqual(BuildType.TfsBuild, details.Type);
+            Assert.AreEqual(BuildType.AzureDevOpsBuild, details.Type);
         }
 
         [TestMethod]

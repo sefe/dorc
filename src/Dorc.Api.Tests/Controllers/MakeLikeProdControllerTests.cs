@@ -20,7 +20,7 @@ namespace Dorc.Api.Tests.Controllers
     public class MakeLikeProdControllerTests
     {
         private ILogger<MakeLikeProdController> _logger;
-        private IDeployLibrary _deployLibrary;
+        private IDeploymentRequestSubmitter _requestSubmitter;
         private IEnvironmentsPersistentSource _environmentsPersistentSource;
         private ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private IEnvBackups _envBackups;
@@ -38,7 +38,7 @@ namespace Dorc.Api.Tests.Controllers
         public void Setup()
         {
             _logger = Substitute.For<ILogger<MakeLikeProdController>>();
-            _deployLibrary = Substitute.For<IDeployLibrary>();
+            _requestSubmitter = Substitute.For<IDeploymentRequestSubmitter>();
             _environmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
             _securityPrivilegesChecker = Substitute.For<ISecurityPrivilegesChecker>();
             _envBackups = Substitute.For<IEnvBackups>();
@@ -52,7 +52,7 @@ namespace Dorc.Api.Tests.Controllers
 
             _controller = new MakeLikeProdController(
                 _logger,
-                _deployLibrary,
+                _requestSubmitter,
                 _environmentsPersistentSource,
                 _securityPrivilegesChecker,
                 _envBackups,
@@ -128,7 +128,7 @@ namespace Dorc.Api.Tests.Controllers
                     request.Environment == targetEnv &&
                     request.BuildUrl == "http://build.url"),
                 _user);
-            _deployLibrary.DidNotReceiveWithAnyArgs().SubmitRequest(
+            _requestSubmitter.DidNotReceiveWithAnyArgs().SubmitRequest(
                 default!, default!, default!, default!, default!, default!, default!);
             _variableResolver.Received(1).SetPropertyValue("StartingRequestId", "12345");
             _variableResolver.Received(1).SetPropertyValue("AllRequestIds", "12345");
@@ -249,7 +249,7 @@ namespace Dorc.Api.Tests.Controllers
                 .Returns(new RequestStatusDto { Id = 12346 });
             
             // CopyEnvBuild returns two request IDs
-            _deployLibrary.CopyEnvBuildWithComponentIds(Arg.Any<string>(), Arg.Any<string>(), 
+            _requestSubmitter.CopyEnvBuildWithComponentIds(Arg.Any<string>(), Arg.Any<string>(), 
                 Arg.Any<string>(), Arg.Any<int[]>(), Arg.Any<ClaimsPrincipal>())
                 .Returns(new List<int> { 12347, 12348 });
             

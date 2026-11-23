@@ -11,11 +11,10 @@ using Org.OpenAPITools.Model;
 namespace Dorc.Api.Tests
 {
     [TestClass]
-    public class TfsBuildTests
+    public class AzureDevOpsDeployableBuildTests
     {
-        //type: OK pined: no
         [TestMethod]
-        public void TfsBuildValidTest1()
+        public void IsValid_UnpinnedBuildMatchingBuildNumber_ReturnsTrue()
         {
             RequestDto request = new RequestDto
             {
@@ -32,11 +31,11 @@ namespace Dorc.Api.Tests
                 {
                     ProjectName = "someProject",
                     ArtefactsUrl = "http://some_url",
-                    ArtefactsSubPaths = "tfsProject",
+                    ArtefactsSubPaths = "adoProject",
                     ArtefactsBuildRegex = "Something here"
                 });
-            var mockedTfsClient = Substitute.For<IAzureDevOpsServerWebClient>();
-            mockedTfsClient.GetBuildDefinitionsForProjects(Arg.Any<string>(), Arg.Any<string>(),
+            var mockedAdoClient = Substitute.For<IAzureDevOpsServerWebClient>();
+            mockedAdoClient.GetBuildDefinitionsForProjects(Arg.Any<string>(), Arg.Any<string>(),
                         Arg.Any<string>())
                 .Returns(new List<BuildDefinitionReference>
                     {
@@ -46,7 +45,7 @@ namespace Dorc.Api.Tests
                             {Name = "buildText"},
                     });
 
-            mockedTfsClient.GetBuildsFromBuildNumberAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), 10)
+            mockedAdoClient.GetBuildsFromBuildNumberAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), 10)
                 .Returns(Task.Factory.StartNew(() => new List<Build>
                 {
                     new Build
@@ -60,15 +59,14 @@ namespace Dorc.Api.Tests
                 }));
             var mockedLog = new MockedLog<AzureDevOpsDeployableBuild>();
 
-            var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
-            var tfsBuild = new AzureDevOpsDeployableBuild(mockedTfsClient, mockedLog, mockedProjectsPds, mockedDeployLibrary, mockedReqPs);
-            var result = tfsBuild.IsValid(new BuildDetails(request));
+            var mockedRequestSubmitter = Substitute.For<IDeploymentRequestSubmitter>();
+            var adoBuild = new AzureDevOpsDeployableBuild(mockedAdoClient, mockedLog, mockedProjectsPds, mockedRequestSubmitter, mockedReqPs);
+            var result = adoBuild.IsValid(new BuildDetails(request));
             Assert.IsTrue(result);
         }
 
-        //type: OK pined: yes but not found
         [TestMethod]
-        public void TfsBuildValidTest2()
+        public void IsValid_PinnedBuildWhenNoBuildsKeepForever_ReturnsFalse()
         {
             RequestDto request = new RequestDto
             {
@@ -85,11 +83,11 @@ namespace Dorc.Api.Tests
                 {
                     ProjectName = "someProject",
                     ArtefactsUrl = "http://some_url",
-                    ArtefactsSubPaths = "tfsProject",
+                    ArtefactsSubPaths = "adoProject",
                     ArtefactsBuildRegex = "Something here"
                 });
-            var mockedTfsClient = Substitute.For<IAzureDevOpsServerWebClient>();
-            mockedTfsClient.GetBuildDefinitionsForProjects(Arg.Any<string>(), Arg.Any<string>(),
+            var mockedAdoClient = Substitute.For<IAzureDevOpsServerWebClient>();
+            mockedAdoClient.GetBuildDefinitionsForProjects(Arg.Any<string>(), Arg.Any<string>(),
                         Arg.Any<string>())
                 .Returns(new List<BuildDefinitionReference>
                 {
@@ -98,7 +96,7 @@ namespace Dorc.Api.Tests
                     new BuildDefinitionReference
                         {Name = "BuildDef2"},
                 });
-            mockedTfsClient.GetBuildsFromBuildNumberAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), 10)
+            mockedAdoClient.GetBuildsFromBuildNumberAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), 10)
                 .Returns(Task.Factory.StartNew(() => new List<Build>
                 {
                     new Build
@@ -111,15 +109,14 @@ namespace Dorc.Api.Tests
                     },
                 }));
             var mockedLog = new MockedLog<AzureDevOpsDeployableBuild>();
-            var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
-            var tfsBuild = new AzureDevOpsDeployableBuild(mockedTfsClient, mockedLog, mockedProjectsPds, mockedDeployLibrary, mockedReqPs);
-            var result = tfsBuild.IsValid(new BuildDetails(request));
+            var mockedRequestSubmitter = Substitute.For<IDeploymentRequestSubmitter>();
+            var adoBuild = new AzureDevOpsDeployableBuild(mockedAdoClient, mockedLog, mockedProjectsPds, mockedRequestSubmitter, mockedReqPs);
+            var result = adoBuild.IsValid(new BuildDetails(request));
             Assert.IsFalse(result);
         }
 
-        //type: OK pined: yes 
         [TestMethod]
-        public void TfsBuildValidTest3()
+        public void IsValid_PinnedBuildWhenMatchingBuildHasKeepForever_ReturnsTrue()
         {
             RequestDto request = new RequestDto
             {
@@ -136,11 +133,11 @@ namespace Dorc.Api.Tests
                 {
                     ProjectName = "someProject",
                     ArtefactsUrl = "http://some_url",
-                    ArtefactsSubPaths = "tfsProject",
+                    ArtefactsSubPaths = "adoProject",
                     ArtefactsBuildRegex = "Something here"
                 });
-            var mockedTfsClient = Substitute.For<IAzureDevOpsServerWebClient>();
-            mockedTfsClient.GetBuildDefinitionsForProjects(Arg.Any<string>(), Arg.Any<string>(),
+            var mockedAdoClient = Substitute.For<IAzureDevOpsServerWebClient>();
+            mockedAdoClient.GetBuildDefinitionsForProjects(Arg.Any<string>(), Arg.Any<string>(),
                         Arg.Any<string>())
                 .Returns(new List<BuildDefinitionReference>
                 {
@@ -149,7 +146,7 @@ namespace Dorc.Api.Tests
                     new BuildDefinitionReference
                         {Name = "buildText"},
                 });
-            mockedTfsClient.GetBuildsFromBuildNumberAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), 10)
+            mockedAdoClient.GetBuildsFromBuildNumberAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), 10)
                 .Returns(Task.Factory.StartNew(() => new List<Build>
                 {
                         new Build {BuildNumber = "build1", KeepForever = false,Uri = "vstfs://some_path1",
@@ -160,15 +157,14 @@ namespace Dorc.Api.Tests
                         Definition = new DefinitionReference { Name= "Definition1"}},
                 }));
             var mockedLog = new MockedLog<AzureDevOpsDeployableBuild>();
-            var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
-            var tfsBuild = new AzureDevOpsDeployableBuild(mockedTfsClient, mockedLog, mockedProjectsPds, mockedDeployLibrary, mockedReqPs);
-            var result = tfsBuild.IsValid(new BuildDetails(request));
+            var mockedRequestSubmitter = Substitute.For<IDeploymentRequestSubmitter>();
+            var adoBuild = new AzureDevOpsDeployableBuild(mockedAdoClient, mockedLog, mockedProjectsPds, mockedRequestSubmitter, mockedReqPs);
+            var result = adoBuild.IsValid(new BuildDetails(request));
             Assert.IsTrue(result);
         }
 
-        //type: OK pined: no get latest 
         [TestMethod]
-        public void TfsBuildValidTest4()
+        public void IsValid_LatestBuildNum_SelectsFirstReturnedBuild()
         {
             RequestDto request = new RequestDto
             {
@@ -185,11 +181,11 @@ namespace Dorc.Api.Tests
                 {
                     ProjectName = "someProject",
                     ArtefactsUrl = "http://some_url",
-                    ArtefactsSubPaths = "tfsProject",
+                    ArtefactsSubPaths = "adoProject",
                     ArtefactsBuildRegex = "Something here"
                 });
-            var mockedTfsClient = Substitute.For<IAzureDevOpsServerWebClient>();
-            mockedTfsClient.GetBuildDefinitionsForProjects(Arg.Any<string>(), Arg.Any<string>(),
+            var mockedAdoClient = Substitute.For<IAzureDevOpsServerWebClient>();
+            mockedAdoClient.GetBuildDefinitionsForProjects(Arg.Any<string>(), Arg.Any<string>(),
                         Arg.Any<string>())
                 .Returns(new List<BuildDefinitionReference>
                 {
@@ -198,7 +194,7 @@ namespace Dorc.Api.Tests
                     new BuildDefinitionReference
                         {Name = "buildText"},
                 });
-            mockedTfsClient.GetBuildsFromBuildNumberAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), 10)
+            mockedAdoClient.GetBuildsFromBuildNumberAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), 10)
                 .Returns(Task.Factory.StartNew(() => new List<Build>
                 {
                     new Build
@@ -215,16 +211,15 @@ namespace Dorc.Api.Tests
                     },
                 }));
             var mockedLog = new MockedLog<AzureDevOpsDeployableBuild>();
-            var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
-            var tfsBuild = new AzureDevOpsDeployableBuild(mockedTfsClient, mockedLog, mockedProjectsPds, mockedDeployLibrary, mockedReqPs);
-            var result = tfsBuild.IsValid(new BuildDetails(request));
+            var mockedRequestSubmitter = Substitute.For<IDeploymentRequestSubmitter>();
+            var adoBuild = new AzureDevOpsDeployableBuild(mockedAdoClient, mockedLog, mockedProjectsPds, mockedRequestSubmitter, mockedReqPs);
+            var result = adoBuild.IsValid(new BuildDetails(request));
             Assert.IsTrue(result);
-            Assert.AreEqual("vstfs://some_path2", tfsBuild.AzureDevOpsBuildUrl);
+            Assert.AreEqual("vstfs://some_path2", adoBuild.AzureDevOpsBuildUrl);
         }
 
-        //type: OK pined: no get specific build 
         [TestMethod]
-        public void TfsBuildValidTest5()
+        public void IsValid_SpecificBuildNum_SelectsExactMatchingBuildUri()
         {
             RequestDto request = new RequestDto
             {
@@ -241,11 +236,11 @@ namespace Dorc.Api.Tests
                 {
                     ProjectName = "someProject",
                     ArtefactsUrl = "http://some_url",
-                    ArtefactsSubPaths = "tfsProject",
+                    ArtefactsSubPaths = "adoProject",
                     ArtefactsBuildRegex = "Something here"
                 });
-            var mockedTfsClient = Substitute.For<IAzureDevOpsServerWebClient>();
-            mockedTfsClient.GetBuildDefinitionsForProjects(Arg.Any<string>(), Arg.Any<string>(),
+            var mockedAdoClient = Substitute.For<IAzureDevOpsServerWebClient>();
+            mockedAdoClient.GetBuildDefinitionsForProjects(Arg.Any<string>(), Arg.Any<string>(),
                         Arg.Any<string>())
                 .Returns(new List<BuildDefinitionReference>
                 {
@@ -254,7 +249,7 @@ namespace Dorc.Api.Tests
                     new BuildDefinitionReference
                         {Name = "buildText"},
                 });
-            mockedTfsClient.GetBuildsFromBuildNumberAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), 10)
+            mockedAdoClient.GetBuildsFromBuildNumberAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), 10)
                 .Returns(Task.Factory.StartNew(() => new List<Build>
                 {
                     new Build
@@ -271,11 +266,11 @@ namespace Dorc.Api.Tests
                     },
                 }));
             var mockedLog = new MockedLog<AzureDevOpsDeployableBuild>();
-            var mockedDeployLibrary = Substitute.For<IDeployLibrary>();
-            var tfsBuild = new AzureDevOpsDeployableBuild(mockedTfsClient, mockedLog, mockedProjectsPds, mockedDeployLibrary, mockedReqPs);
-            var result = tfsBuild.IsValid(new BuildDetails(request));
+            var mockedRequestSubmitter = Substitute.For<IDeploymentRequestSubmitter>();
+            var adoBuild = new AzureDevOpsDeployableBuild(mockedAdoClient, mockedLog, mockedProjectsPds, mockedRequestSubmitter, mockedReqPs);
+            var result = adoBuild.IsValid(new BuildDetails(request));
             Assert.IsTrue(result);
-            Assert.AreEqual("vstfs://some_path1", tfsBuild.AzureDevOpsBuildUrl);
+            Assert.AreEqual("vstfs://some_path1", adoBuild.AzureDevOpsBuildUrl);
         }
     }
 }

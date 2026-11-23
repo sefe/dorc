@@ -47,7 +47,7 @@ namespace Dorc.Api.Model
             // sniffing below remains as a fallback for projects that haven't been migrated to
             // the new column. GitHub Enterprise URLs ("https://github.acme.local/owner/repo/
             // actions/runs/12345") contain neither "github.com" nor "/repos/" so the legacy
-            // sniff would mis-route them to TfsBuild.
+            // sniff would mis-route them to AzureDevOpsBuild.
             if (SourceControlType == SourceControlType.GitHub)
             {
                 if (long.TryParse(url, out _)) return BuildType.GitHubBuild;
@@ -55,14 +55,14 @@ namespace Dorc.Api.Model
                     return BuildType.GitHubBuild;
             }
 
-            if (url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return BuildType.TfsBuild;
+            if (url.StartsWith("http", StringComparison.OrdinalIgnoreCase)) return BuildType.AzureDevOpsBuild;
             return BuildType.UnknownBuildType;
         }
     }
 
     public enum BuildType
     {
-        TfsBuild,
+        AzureDevOpsBuild,
         FileShareBuild,
         GitHubBuild,
         UnknownBuildType,

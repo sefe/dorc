@@ -22,7 +22,7 @@ namespace Dorc.Api.Controllers
     public class MakeLikeProdController : ControllerBase
     {
         private readonly ILogger _logger;
-        private readonly IDeployLibrary _deployLibrary;
+        private readonly IDeploymentRequestSubmitter _requestSubmitter;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IEnvBackups _envBackups;
@@ -35,7 +35,7 @@ namespace Dorc.Api.Controllers
         private readonly IRequestService _requestService;
 
         public MakeLikeProdController(ILogger<MakeLikeProdController> logger,
-            IDeployLibrary deployLibrary, IEnvironmentsPersistentSource environmentsPersistentSource,
+            IDeploymentRequestSubmitter requestSubmitter, IEnvironmentsPersistentSource environmentsPersistentSource,
             ISecurityPrivilegesChecker securityPrivilegesChecker, IEnvBackups envBackups,
             IBundledRequestsPersistentSource bundledRequestsPersistentSource,
             [FromKeyedServices("BundledRequestVariableResolver")] IVariableResolver variableResolver,
@@ -51,7 +51,7 @@ namespace Dorc.Api.Controllers
             _envBackups = envBackups;
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _environmentsPersistentSource = environmentsPersistentSource;
-            _deployLibrary = deployLibrary;
+            _requestSubmitter = requestSubmitter;
             _logger = logger;
             _claimsPrincipalReader = claimsPrincipalReader;
             _requestsPersistentSource = requestsPersistentSource;
@@ -194,7 +194,7 @@ namespace Dorc.Api.Controllers
                             {
                                 if (copyEnvBuildRequest.Components.Any())
                                 {
-                                    var copyIds = _deployLibrary.CopyEnvBuildWithComponentIds(copyEnvBuildRequest.SourceEnvironmentName,
+                                    var copyIds = _requestSubmitter.CopyEnvBuildWithComponentIds(copyEnvBuildRequest.SourceEnvironmentName,
                                         mlpRequest.TargetEnv, copyEnvBuildRequest.ProjectName,
                                         copyEnvBuildRequest.Components.ToArray(), User);
                                     reqIds.AddRange(copyIds);
@@ -203,7 +203,7 @@ namespace Dorc.Api.Controllers
                                 }
                                 else
                                 {
-                                    var copyIds = _deployLibrary.CopyEnvBuildAllComponents(copyEnvBuildRequest.SourceEnvironmentName,
+                                    var copyIds = _requestSubmitter.CopyEnvBuildAllComponents(copyEnvBuildRequest.SourceEnvironmentName,
                                         mlpRequest.TargetEnv, copyEnvBuildRequest.ProjectName,
                                         User);
                                     reqIds.AddRange(copyIds);
