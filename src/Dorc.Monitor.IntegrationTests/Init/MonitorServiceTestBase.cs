@@ -223,7 +223,7 @@ ALTER TABLE [deploy].[DeploymentRequest] ALTER COLUMN [RequestDetails] XML NULL;
 ");
 
             var dir = new DirectoryInfo(AppContext.BaseDirectory);
-            while (dir != null && !File.Exists(Path.Combine(dir.FullName, "src", "Dorc.sln")))
+            while (dir != null && !File.Exists(Path.Join(dir.FullName, "src", "Dorc.sln")))
             {
                 dir = dir.Parent;
             }
@@ -232,19 +232,19 @@ ALTER TABLE [deploy].[DeploymentRequest] ALTER COLUMN [RequestDetails] XML NULL;
             {
                 var sqlFiles = new[]
                 {
-                    Path.Combine(dir.FullName, "src", "Dorc.Database", "deploy", "Functions", "SplitTagString.sql"),
-                    Path.Combine(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "GetFullEnvironmentChain.sql"),
-                    Path.Combine(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "AppendRequestLog.sql"),
-                    Path.Combine(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "get_global_properties.sql"),
-                    Path.Combine(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "get_environment_properties.sql"),
-                    Path.Combine(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "get_property_values_by_PropertyName.sql"),
-                    Path.Combine(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "get_property_values_for_user.sql"),
-                    Path.Combine(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "get_property_values_for_user_with_inheritance.sql"),
-                    Path.Combine(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "DuplicateEnvironmentPropertyValues.sql"),
-                    Path.Combine(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "InsertComponent.sql"),
-                    Path.Combine(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "MapProjectToComponent.sql"),
-                    Path.Combine(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "MapProjectToEnvironment.sql"),
-                    Path.Combine(dir.FullName, "src", "Dorc.Database", "Scripts", "Post-Deployment", "SeedRefDataAuditActions.sql"),
+                    Path.Join(dir.FullName, "src", "Dorc.Database", "deploy", "Functions", "SplitTagString.sql"),
+                    Path.Join(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "GetFullEnvironmentChain.sql"),
+                    Path.Join(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "AppendRequestLog.sql"),
+                    Path.Join(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "get_global_properties.sql"),
+                    Path.Join(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "get_environment_properties.sql"),
+                    Path.Join(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "get_property_values_by_PropertyName.sql"),
+                    Path.Join(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "get_property_values_for_user.sql"),
+                    Path.Join(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "get_property_values_for_user_with_inheritance.sql"),
+                    Path.Join(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "DuplicateEnvironmentPropertyValues.sql"),
+                    Path.Join(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "InsertComponent.sql"),
+                    Path.Join(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "MapProjectToComponent.sql"),
+                    Path.Join(dir.FullName, "src", "Dorc.Database", "deploy", "Stored Procedures", "MapProjectToEnvironment.sql"),
+                    Path.Join(dir.FullName, "src", "Dorc.Database", "Scripts", "Post-Deployment", "SeedRefDataAuditActions.sql"),
                 };
 
                 using var sqlConn = new SqlConnection(connectionString);

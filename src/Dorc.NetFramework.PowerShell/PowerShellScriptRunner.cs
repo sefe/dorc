@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 using System.Management.Automation.Runspaces;
@@ -275,9 +276,9 @@ namespace Dorc.NetFramework.PowerShell
                         var elements = JsonConvert.DeserializeObject<string[]>(raw);
                         if (elements != null)
                         {
-                            foreach (var element in elements)
+                            foreach (var element in elements.Where(element => !string.IsNullOrWhiteSpace(element)))
                             {
-                                if (!string.IsNullOrWhiteSpace(element) && !values.Contains(element))
+                                if (!values.Contains(element))
                                 {
                                     values.Add(element);
                                 }

@@ -162,7 +162,11 @@ namespace Tests.Acceptance.Support
                 result.IsModelValid = false;
                 result.Message = jsonException.Message;
             }
-            catch (Exception e)
+            catch (NotSupportedException e)
+            {
+                return CreateFailureResult<T>(e.Message);
+            }
+            catch (ArgumentException e)
             {
                 return CreateFailureResult<T>(e.Message);
             }
