@@ -44,7 +44,7 @@ public class RequestControllerCatalogRoutingTests
             .Returns(new RequestStatusDto { Id = 42, Status = "Pending" });
         _controller = new RequestController(
             _service, _security, NullLogger<RequestController>.Instance,
-            Substitute.For<IRequestsManager>(), _requests,
+            Substitute.For<IDeployableArtefactResolver>(), _requests,
             _projects, Substitute.For<IClaimsPrincipalReader>(), Substitute.For<IDeploymentEventsPublisher>(),
             Substitute.For<IConfigurationSettings>(), environments, directoryFactory,
             Substitute.For<IDeploymentLogService>())

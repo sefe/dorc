@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Dorc.Core
 {
-    public class RequestsManager : IRequestsManager
+    public class DeployableArtefactResolver : IDeployableArtefactResolver
     {
         private readonly ILogger _logger;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
@@ -16,7 +16,7 @@ namespace Dorc.Core
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly IBuildServerClientFactory _buildServerClientFactory;
 
-        public RequestsManager(ILoggerFactory loggerFactory,
+        public DeployableArtefactResolver(ILoggerFactory loggerFactory,
             IProjectsPersistentSource projectsPersistentSource, IComponentsPersistentSource componentsPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IBuildServerClientFactory buildServerClientFactory)
@@ -24,7 +24,7 @@ namespace Dorc.Core
             _environmentsPersistentSource = environmentsPersistentSource;
             _componentsPersistentSource = componentsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
-            _logger = loggerFactory.CreateLogger<RequestsManager>();
+            _logger = loggerFactory.CreateLogger<DeployableArtefactResolver>();
             _buildServerClientFactory = buildServerClientFactory;
         }
 

@@ -20,7 +20,7 @@ namespace Dorc.Api.Controllers
         private readonly IRequestService _service;
         private readonly ISecurityPrivilegesChecker _apiSecurityService;
         private readonly ILogger _log;
-        private readonly IRequestsManager _requestsManager;
+        private readonly IDeployableArtefactResolver _artefactResolver;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
@@ -31,7 +31,7 @@ namespace Dorc.Api.Controllers
         private readonly IDeploymentLogService _deploymentLogService;
 
         public RequestController(IRequestService service, ISecurityPrivilegesChecker apiSecurityService, ILogger<RequestController> log,
-            IRequestsManager requestsManager, IRequestsPersistentSource requestsPersistentSource,
+            IDeployableArtefactResolver artefactResolver, IRequestsPersistentSource requestsPersistentSource,
             IProjectsPersistentSource projectsPersistentSource,
             IClaimsPrincipalReader claimsPrincipalReader,
             IDeploymentEventsPublisher deploymentEventsPublisher,
@@ -43,7 +43,7 @@ namespace Dorc.Api.Controllers
         {
             _projectsPersistentSource = projectsPersistentSource;
             _requestsPersistentSource = requestsPersistentSource;
-            _requestsManager = requestsManager;
+            _artefactResolver = artefactResolver;
             _service = service;
             _apiSecurityService = apiSecurityService;
             _log = log;
@@ -96,7 +96,7 @@ namespace Dorc.Api.Controllers
             {
                 var project = _projectsPersistentSource.GetProject(projectId);
 
-                var deplorableArtifacts = _requestsManager.GetBuildDefinitions(project);
+                var deplorableArtifacts = _artefactResolver.GetBuildDefinitions(project);
 
                 if (deplorableArtifacts == null || !deplorableArtifacts.Any())
                 {
@@ -133,7 +133,7 @@ namespace Dorc.Api.Controllers
             try
             {
                 var artifacts =
-                    _requestsManager.GetBuildsAsync(projectId, environment, buildDefinitionName).Result;
+                    _artefactResolver.GetBuildsAsync(projectId, environment, buildDefinitionName).Result;
 
                 if (artifacts == null)
                 {
@@ -175,8 +175,8 @@ namespace Dorc.Api.Controllers
             try
             {
                 var comps = parentId == null
-                    ? _requestsManager.GetComponents(projectId)
-                    : _requestsManager.GetComponents(projectId, parentId);
+                    ? _artefactResolver.GetComponents(projectId)
+                    : _artefactResolver.GetComponents(projectId, parentId);
 
                 var output = comps
                     .Select(component => new DeployComponentDto
@@ -215,7 +215,7 @@ namespace Dorc.Api.Controllers
                     return Ok(new List<string>());
                 }
 
-                var components = await _requestsManager
+                var components = await _artefactResolver
                     .GetBundleComponentsAsync(projectId, buildDefinitionName, buildUrl)
                     .ConfigureAwait(false);
 

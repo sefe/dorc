@@ -46,7 +46,7 @@ namespace Dorc.Api.Services
             For<IFileSystemHelper>().Use<FileSystemHelper>();
             For<IGitHubHostValidator>().Use<GitHubHostValidator>().Singleton();
             For<IBuildServerClientFactory>().Use<BuildServerClientFactory>();
-            For<IRequestsManager>().Use<RequestsManager>();
+            For<IDeployableArtefactResolver>().Use<DeployableArtefactResolver>();
             For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();
             For<IApiServices>().Use<ApiServices>();
             For<IManageUsers>().Use<ManageUsers>();

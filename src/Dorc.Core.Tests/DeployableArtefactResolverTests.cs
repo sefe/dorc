@@ -8,7 +8,7 @@ using NSubstitute;
 namespace Dorc.Core.Tests
 {
     [TestClass]
-    public class RequestsManagerTests
+    public class DeployableArtefactResolverTests
     {
         private ILoggerFactory _loggerFactory = null!;
         private IProjectsPersistentSource _projectsPds = null!;
@@ -30,9 +30,9 @@ namespace Dorc.Core.Tests
             _buildServerClientFactory.Create(Arg.Any<SourceControlType>()).Returns(_mockBuildClient);
         }
 
-        private RequestsManager CreateSut()
+        private DeployableArtefactResolver CreateSut()
         {
-            return new RequestsManager(_loggerFactory, _projectsPds, _componentsPds,
+            return new DeployableArtefactResolver(_loggerFactory, _projectsPds, _componentsPds,
                 _environmentsPds, _buildServerClientFactory);
         }
 
