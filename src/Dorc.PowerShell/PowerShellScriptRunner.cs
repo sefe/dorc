@@ -227,16 +227,47 @@ namespace Dorc.PowerShell
                 evidenceContract?.SensitivePropertyNames ?? Enumerable.Empty<string>(),
                 StringComparer.OrdinalIgnoreCase);
 
-            return combinedProperties
-                .Where(kvp => explicitNames.Contains(kvp.Key)
+            var values = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var kvp in combinedProperties)
+            {
+                var isSensitive = explicitNames.Contains(kvp.Key)
                     || kvp.Key.Contains("Secret", StringComparison.OrdinalIgnoreCase)
                     || kvp.Key.Contains("Password", StringComparison.OrdinalIgnoreCase)
                     || kvp.Key.Contains("Token", StringComparison.OrdinalIgnoreCase)
-                    || kvp.Key.Contains("ApiKey", StringComparison.OrdinalIgnoreCase))
-                .Select(kvp => kvp.Value?.Value?.ToString())
-                .Where(v => !string.IsNullOrEmpty(v))
-                .Select(v => v!)
-                .Distinct(StringComparer.Ordinal)
+                    || kvp.Key.Contains("ApiKey", StringComparison.OrdinalIgnoreCase);
+                if (!isSensitive)
+                {
+                    continue;
+                }
+
+                var raw = kvp.Value?.Value?.ToString();
+                if (string.IsNullOrEmpty(raw))
+                {
+                    continue;
+                }
+
+                values.Add(raw);
+                if (raw.TrimStart().StartsWith("[", StringComparison.Ordinal))
+                {
+                    try
+                    {
+                        var elements = JsonConvert.DeserializeObject<string[]>(raw);
+                        if (elements != null)
+                        {
+                            foreach (var element in elements.Where(e => !string.IsNullOrEmpty(e)))
+                            {
+                                values.Add(element);
+                            }
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Value is not a JSON string array; full string is already collected
+                    }
+                }
+            }
+
+            return values
                 .OrderByDescending(v => v.Length)
                 .ToList();
         }
@@ -399,7 +430,15 @@ namespace Dorc.PowerShell
                     return true;
                 }
             }
-            catch
+            catch (RuntimeException)
+            {
+                // Ignore if runspace variable lookup is unavailable
+            }
+            catch (ObjectDisposedException)
+            {
+                // Ignore if runspace variable lookup is unavailable
+            }
+            catch (InvalidOperationException)
             {
                 // Ignore if runspace variable lookup is unavailable
             }

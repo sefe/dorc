@@ -512,7 +512,19 @@ Write-Output 'Downstream component executed.'
                     System.Security.AccessControl.AccessControlType.Allow));
                 dirInfo.SetAccessControl(security);
             }
-            catch
+            catch (UnauthorizedAccessException)
+            {
+                // Best-effort ACL adjustment for local runner service account
+            }
+            catch (System.Security.SecurityException)
+            {
+                // Best-effort ACL adjustment for local runner service account
+            }
+            catch (IOException)
+            {
+                // Best-effort ACL adjustment for local runner service account
+            }
+            catch (PlatformNotSupportedException)
             {
                 // Best-effort ACL adjustment for local runner service account
             }
@@ -525,9 +537,10 @@ Write-Output 'Downstream component executed.'
             {
                 var envs = DorcApiClient.Deserialize<List<EnvironmentApiModel>>(envsResp.Content);
                 var existingWithOwner = envs?.FirstOrDefault(e =>
-                    !string.IsNullOrWhiteSpace(e?.Details?.EnvironmentOwner) &&
-                    !string.IsNullOrWhiteSpace(e?.Details?.EnvironmentOwnerId));
-                if (existingWithOwner?.Details != null)
+                    e.Details != null &&
+                    !string.IsNullOrWhiteSpace(e.Details.EnvironmentOwner) &&
+                    !string.IsNullOrWhiteSpace(e.Details.EnvironmentOwnerId));
+                if (existingWithOwner != null)
                 {
                     return (existingWithOwner.Details.EnvironmentOwner, existingWithOwner.Details.EnvironmentOwnerId);
                 }
@@ -779,7 +792,11 @@ Write-Output 'Downstream component executed.'
             {
                 caller.ExecuteRaw("Properties", Method.Delete, body: propNames);
             }
-            catch
+            catch (HttpRequestException)
+            {
+                // Best-effort cleanup
+            }
+            catch (InvalidOperationException)
             {
                 // Best-effort cleanup
             }

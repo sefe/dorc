@@ -175,7 +175,7 @@ namespace Dorc.PersistentData.Sources
                 if (property.Secure)
                 {
                     propertyValue.Value = property.IsArray
-                        ? EncryptArrayValue(propertyValueDto.Value, _encrypt)
+                        ? EncryptArrayValue(propertyValue.Value, _encrypt)
                         : _encrypt.EncryptValue(propertyValue.Value);
                 }
                 context.PropertyValues.Add(propertyValue);

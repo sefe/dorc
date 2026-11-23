@@ -27,6 +27,7 @@ namespace Dorc.Monitor
         private bool disposedValue;
         private ConcurrentDictionary<string, int> environmentRequestIdRunning = new ConcurrentDictionary<string, int>();
         private readonly ConcurrentDictionary<string, DateTime> environmentLockBackoff = new ConcurrentDictionary<string, DateTime>();
+        private readonly ConcurrentDictionary<string, HashSet<int>> pendingOrphanRecoveryByEnv = new ConcurrentDictionary<string, HashSet<int>>(StringComparer.OrdinalIgnoreCase);
         // Internal (not private) so the unit tests can pin the backoff window.
         internal static readonly TimeSpan LockBackoffDuration = TimeSpan.FromSeconds(30);
         private const int EnvironmentLockAcquireTimeoutMs = 300000;
@@ -181,11 +182,10 @@ namespace Dorc.Monitor
 
                     int resumedCount = 0;
                     var resumedIds = new List<int>();
-                    foreach (var envGroup in runningRequests.GroupBy(r => r.EnvironmentName, StringComparer.OrdinalIgnoreCase))
+                    foreach (var envGroup in runningRequests
+                        .GroupBy(r => r.EnvironmentName, StringComparer.OrdinalIgnoreCase)
+                        .Where(envGroup => !string.IsNullOrWhiteSpace(envGroup.Key)))
                     {
-                        if (string.IsNullOrWhiteSpace(envGroup.Key))
-                            continue;
-
                         var resourceKey = $"env:{envGroup.Key}";
                         using var envLock = this.distributedLockService
                             .TryAcquireLockAsync(resourceKey, 30000, CancellationToken.None)
@@ -194,12 +194,21 @@ namespace Dorc.Monitor
 
                         if (envLock == null)
                         {
+                            var orphanSet = this.pendingOrphanRecoveryByEnv.GetOrAdd(envGroup.Key, _ => new HashSet<int>());
+                            lock (orphanSet)
+                            {
+                                foreach (var r in envGroup)
+                                {
+                                    orphanSet.Add(r.Id);
+                                }
+                            }
                             this.logger.LogInformation(
-                                "Environment '{EnvironmentName}' lock is held by an active peer Monitor; leaving Running request(s) [{Ids}] untouched.",
+                                "Environment '{EnvironmentName}' lock could not be acquired at startup; queued Running request(s) [{Ids}] for orphan reconciliation on subsequent polls.",
                                 envGroup.Key, string.Join(',', envGroup.Select(r => r.Id)));
                             continue;
                         }
 
+                        this.pendingOrphanRecoveryByEnv.TryRemove(envGroup.Key, out _);
                         foreach (var request in envGroup)
                         {
                             int transitioned = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
@@ -539,6 +548,11 @@ namespace Dorc.Monitor
                 .OrderBy(request => request.Id)
                 .ToList();
 
+            if (this.distributedLockService.IsEnabled && !this.pendingOrphanRecoveryByEnv.IsEmpty)
+            {
+                ReconcileDeferredOrphanRunningRequests(allRelevantRequests, monitorCancellationToken);
+            }
+
             // Group by environment and filter to only environments without Running requests
             // and where the first request (by ID) is not Paused.
             var environmentRequestGroupsToExecute = allRelevantRequests
@@ -713,6 +727,67 @@ namespace Dorc.Monitor
             }
 
             return requestGroupExecutionTasks.ToArray();
+        }
+
+        private void ReconcileDeferredOrphanRunningRequests(List<DeploymentRequestApiModel> allRelevantRequests, CancellationToken monitorCancellationToken)
+        {
+            foreach (var kvp in this.pendingOrphanRecoveryByEnv.ToArray())
+            {
+                var envName = kvp.Key;
+                var orphanIds = kvp.Value;
+                if (this.environmentRequestIdRunning.ContainsKey(envName))
+                {
+                    continue;
+                }
+
+                List<DeploymentRequestApiModel> candidates;
+                lock (orphanIds)
+                {
+                    candidates = allRelevantRequests
+                        .Where(r => string.Equals(r.EnvironmentName, envName, StringComparison.OrdinalIgnoreCase)
+                            && r.Status == DeploymentRequestStatus.Running.ToString()
+                            && orphanIds.Contains(r.Id))
+                        .ToList();
+                }
+
+                if (candidates.Count == 0)
+                {
+                    this.pendingOrphanRecoveryByEnv.TryRemove(envName, out _);
+                    continue;
+                }
+
+                using var envLock = this.distributedLockService
+                    .TryAcquireLockAsync($"env:{envName}", 30000, monitorCancellationToken)
+                    .GetAwaiter()
+                    .GetResult();
+
+                if (envLock == null)
+                {
+                    continue;
+                }
+
+                foreach (var request in candidates)
+                {
+                    int transitioned = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                        new List<DeploymentRequestApiModel> { request },
+                        DeploymentRequestStatus.Running,
+                        DeploymentRequestStatus.Pending);
+
+                    if (transitioned > 0)
+                    {
+                        request.Status = DeploymentRequestStatus.Pending.ToString();
+                        PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
+                            RequestId: request.Id,
+                            Status: DeploymentRequestStatus.Pending.ToString(),
+                            StartedTime: null,
+                            CompletedTime: null,
+                            Timestamp: DateTimeOffset.UtcNow
+                        ));
+                    }
+                }
+
+                this.pendingOrphanRecoveryByEnv.TryRemove(envName, out _);
+            }
         }
 
         private void ExecuteRequest(RequestToProcessDto requestToExecute, CancellationToken requestCancellationToken)

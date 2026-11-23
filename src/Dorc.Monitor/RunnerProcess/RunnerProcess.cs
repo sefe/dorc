@@ -62,9 +62,6 @@ namespace Dorc.Monitor.RunnerProcess
                 if (Volatile.Read(ref terminationRequested) != 0)
                     return ProcessTerminatedExitCode;
 
-                if (exitCode == 0)
-                    job?.ClearKillOnClose();
-
                 return exitCode;
             }
 

@@ -109,6 +109,13 @@ namespace Dorc.PersistentData.Sources
                 .Reference(component => component.Parent)
                 .Load();
 
+            if (component.Script == null)
+            {
+                context.Entry(component)
+                    .Reference(c => c.Script)
+                    .Load();
+            }
+
             var output = new ComponentApiModel
             {
                 Children = new List<ComponentApiModel>(),

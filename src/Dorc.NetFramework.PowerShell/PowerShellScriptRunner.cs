@@ -242,20 +242,52 @@ namespace Dorc.NetFramework.PowerShell
             return combinedProperties;
         }
 
-        private static IReadOnlyList<string> CollectSensitiveValues(IDictionary<string, VariableValue> properties)
+        private IReadOnlyList<string> CollectSensitiveValues(IDictionary<string, VariableValue> properties)
         {
             var values = new List<string>();
             if (properties == null) return values;
+
+            var explicitNames = new HashSet<string>(
+                evidenceContract?.SensitivePropertyNames ?? Array.Empty<string>(),
+                StringComparer.OrdinalIgnoreCase);
+
             foreach (var kvp in properties)
             {
                 var isSecret = kvp.Key != null &&
-                    (kvp.Key.IndexOf("Password", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                     kvp.Key.IndexOf("Secret", StringComparison.OrdinalIgnoreCase) >= 0);
+                    (explicitNames.Contains(kvp.Key) ||
+                     kvp.Key.IndexOf("Password", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     kvp.Key.IndexOf("Secret", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     kvp.Key.IndexOf("Token", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                     kvp.Key.IndexOf("ApiKey", StringComparison.OrdinalIgnoreCase) >= 0);
                 if (!isSecret) continue;
                 var raw = kvp.Value?.Value?.ToString();
-                if (!string.IsNullOrWhiteSpace(raw) && !values.Contains(raw))
+                if (string.IsNullOrWhiteSpace(raw)) continue;
+
+                if (!values.Contains(raw))
                 {
                     values.Add(raw);
+                }
+
+                if (raw.TrimStart().StartsWith("[", StringComparison.Ordinal))
+                {
+                    try
+                    {
+                        var elements = JsonConvert.DeserializeObject<string[]>(raw);
+                        if (elements != null)
+                        {
+                            foreach (var element in elements)
+                            {
+                                if (!string.IsNullOrWhiteSpace(element) && !values.Contains(element))
+                                {
+                                    values.Add(element);
+                                }
+                            }
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Value is not a JSON string array; full string is already collected
+                    }
                 }
             }
             values.Sort((a, b) => b.Length.CompareTo(a.Length));
@@ -419,7 +451,19 @@ namespace Dorc.NetFramework.PowerShell
                     return true;
                 }
             }
-            catch
+            catch (PSInvalidOperationException)
+            {
+                // Ignore if runspace variable lookup is unavailable
+            }
+            catch (ObjectDisposedException)
+            {
+                // Ignore if runspace variable lookup is unavailable
+            }
+            catch (InvalidOperationException)
+            {
+                // Ignore if runspace variable lookup is unavailable
+            }
+            catch (RuntimeException)
             {
                 // Ignore if runspace variable lookup is unavailable
             }
