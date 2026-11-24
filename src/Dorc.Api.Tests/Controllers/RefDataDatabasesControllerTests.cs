@@ -131,6 +131,89 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual(1, returnedDatabase.Id);
             Assert.AreEqual("UniqueDB", returnedDatabase.Name);
             Assert.AreEqual("UniqueServer", returnedDatabase.ServerName);
+            CollectionAssert.AreEqual(new[] { "Application" }, returnedDatabase.Tags.ToArray());
+        }
+
+        [TestMethod]
+        public void UpdateDatabase_WithUpdatedTagsArray_UpdatesDatabaseAndWritesBeforeAfterAuditWithTagsArray()
+        {
+            var beforeDatabase = new DatabaseApiModel
+            {
+                Id = 10,
+                Name = "EndurDB",
+                ServerName = "SQL01",
+                Tags = new[] { "Endur" }
+            };
+            var updatedDatabase = new DatabaseApiModel
+            {
+                Id = 10,
+                Name = "EndurDB",
+                ServerName = "SQL01",
+                Tags = new[] { "Endur", "Endur Reporting" }
+            };
+
+            _databasesPersistentSource.GetEnvironmentNamesForDatabaseId(10)
+                .Returns(new List<string> { "TestEnv" });
+            _environmentsPersistentSource.GetEnvironment("TestEnv", _user)
+                .Returns(new EnvironmentApiModel { EnvironmentName = "TestEnv" });
+            _securityPrivilegesChecker.CanModifyEnvironment(_user, "TestEnv").Returns(true);
+            _databasesPersistentSource.GetDatabase(10).Returns(beforeDatabase, updatedDatabase);
+            _databasesPersistentSource.UpdateDatabase(10, updatedDatabase, _user).Returns(updatedDatabase);
+
+            var result = _controller.Put(10, updatedDatabase) as ObjectResult;
+
+            Assert.IsNotNull(result);
+            Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
+            var returned = result.Value as DatabaseApiModel;
+            Assert.IsNotNull(returned);
+            CollectionAssert.AreEqual(new[] { "Endur", "Endur Reporting" }, returned.Tags.ToArray());
+
+            _databasesAuditPersistentSource.Received(1).InsertDatabaseAudit(
+                "DOMAIN\\TestUser",
+                ActionType.Update,
+                10,
+                Arg.Is<string>(fromJson =>
+                    fromJson.Contains("\"Tags\"") &&
+                    fromJson.Contains("\"Endur\"") &&
+                    !fromJson.Contains("\"Type\"")),
+                Arg.Is<string>(toJson =>
+                    toJson.Contains("\"Tags\"") &&
+                    toJson.Contains("\"Endur Reporting\"") &&
+                    !toJson.Contains("\"Type\"")));
+        }
+
+        [TestMethod]
+        public void DatabaseApiModel_JsonSerializationAndDeserialization_UsesTagsStringArrayAndIgnoresLegacyType()
+        {
+            const string legacyPayload = """
+                {
+                    "Id": 10,
+                    "Name": "EndurDB",
+                    "ServerName": "SQL01",
+                    "Type": "Endur;Endur Reporting"
+                }
+                """;
+            var deserializedFromLegacy = System.Text.Json.JsonSerializer.Deserialize<DatabaseApiModel>(legacyPayload);
+            Assert.IsNotNull(deserializedFromLegacy);
+            Assert.IsEmpty(deserializedFromLegacy.Tags,
+                "Sending the removed Type string property without Tags (string[]) leaves Tags empty.");
+
+            const string validPayload = """
+                {
+                    "Id": 10,
+                    "Name": "EndurDB",
+                    "ServerName": "SQL01",
+                    "Tags": ["Endur", "Endur Reporting"]
+                }
+                """;
+            var deserializedFromTags = System.Text.Json.JsonSerializer.Deserialize<DatabaseApiModel>(validPayload);
+            Assert.IsNotNull(deserializedFromTags);
+            CollectionAssert.AreEqual(new[] { "Endur", "Endur Reporting" }, deserializedFromTags.Tags.ToArray());
+
+            var serialized = System.Text.Json.JsonSerializer.Serialize(deserializedFromTags);
+            StringAssert.Contains(serialized, "\"Tags\":[\"Endur\",\"Endur Reporting\"]");
+            Assert.IsFalse(serialized.Contains("\"Type\"", StringComparison.OrdinalIgnoreCase),
+                "Serialized DatabaseApiModel must never contain the removed Type property.");
         }
     }
 }

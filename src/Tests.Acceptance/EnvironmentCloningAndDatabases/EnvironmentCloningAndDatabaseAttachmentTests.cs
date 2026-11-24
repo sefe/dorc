@@ -246,14 +246,20 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 {
                     Name = serverName,
                     OsName = "Windows Server 2022 Standard",
-                    UserEditable = true
+                    UserEditable = true,
+                    Tags = new[] { "InitialServerTag", "PatchingTag" }
                 });
                 Assert.AreEqual(HttpStatusCode.OK, createSrvResp.StatusCode, $"POST /RefDataServers failed: {createSrvResp.Content}");
+                StringAssert.Contains(createSrvResp.Content ?? string.Empty, "\"Tags\"");
+                Assert.IsFalse((createSrvResp.Content ?? string.Empty).Contains("ApplicationTags", StringComparison.OrdinalIgnoreCase),
+                    "POST /RefDataServers response JSON must emit Tags (string[]) and never ApplicationTags.");
                 var createdSrv = DorcApiClient.Deserialize<ServerApiModel>(createSrvResp.Content);
                 Assert.IsNotNull(createdSrv);
                 Assert.IsGreaterThan(0, createdSrv.ServerId);
                 Assert.AreEqual(serverName, createdSrv.Name);
                 Assert.AreEqual("Windows Server 2022 Standard", createdSrv.OsName);
+                CollectionAssert.Contains(createdSrv.Tags.ToList(), "InitialServerTag");
+                CollectionAssert.Contains(createdSrv.Tags.ToList(), "PatchingTag");
                 serverId = createdSrv.ServerId;
 
                 var dupSrvResp = caller.ExecuteRaw("RefDataServers", Method.Post, body: new ServerApiModel
@@ -274,6 +280,8 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 Assert.IsNotNull(srvByName);
                 Assert.AreEqual(serverId.Value, srvByName.ServerId);
                 Assert.AreEqual(serverName, srvByName.Name);
+                CollectionAssert.Contains(srvByName.Tags.ToList(), "InitialServerTag");
+                CollectionAssert.Contains(srvByName.Tags.ToList(), "PatchingTag");
 
                 var getSrvByIdResp = caller.ExecuteRaw($"RefDataServers/ById/{serverId.Value}", Method.Get);
                 Assert.AreEqual(HttpStatusCode.OK, getSrvByIdResp.StatusCode, getSrvByIdResp.Content);
@@ -281,6 +289,8 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 Assert.IsNotNull(srvById);
                 Assert.AreEqual(serverId.Value, srvById.ServerId);
                 Assert.AreEqual(serverName, srvById.Name);
+                CollectionAssert.Contains(srvById.Tags.ToList(), "InitialServerTag");
+                CollectionAssert.Contains(srvById.Tags.ToList(), "PatchingTag");
 
                 var updateSrvResp = caller.ExecuteRaw(
                     "RefDataServers",
@@ -292,13 +302,19 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                         Name = serverName,
                         OsName = "Windows Server 2022 Standard",
                         UserEditable = true,
-                        Tags = new[] { "DevOpsTest", "AppTier" }
+                        Tags = new[] { "DevOpsTest", "AppTier", "appserv" }
                     });
                 Assert.AreEqual(HttpStatusCode.OK, updateSrvResp.StatusCode, $"PUT /RefDataServers failed: {updateSrvResp.Content}");
+                StringAssert.Contains(updateSrvResp.Content ?? string.Empty, "\"Tags\"");
+                Assert.IsFalse((updateSrvResp.Content ?? string.Empty).Contains("ApplicationTags", StringComparison.OrdinalIgnoreCase),
+                    "PUT /RefDataServers response JSON must emit Tags (string[]) and never ApplicationTags.");
                 var updatedSrv = DorcApiClient.Deserialize<ServerApiModel>(updateSrvResp.Content);
                 Assert.IsNotNull(updatedSrv);
                 CollectionAssert.Contains(updatedSrv.Tags.ToList(), "DevOpsTest");
                 CollectionAssert.Contains(updatedSrv.Tags.ToList(), "AppTier");
+                CollectionAssert.Contains(updatedSrv.Tags.ToList(), "appserv");
+                CollectionAssert.DoesNotContain(updatedSrv.Tags.ToList(), "InitialServerTag",
+                    "PUT /RefDataServers must replace previous Tags with the new Tags string[] array.");
 
                 var attachSrvResp = caller.ExecuteRaw("RefDataEnvironmentsDetails", Method.Put, new Dictionary<string, string>
                 {
@@ -350,6 +366,43 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 var attachedSrv = envSrvsResult.Single(s => s.ServerId == serverIdValue);
                 Assert.AreEqual(serverName, attachedSrv.Name);
                 CollectionAssert.Contains(attachedSrv.Tags.ToList(), "DevOpsTest");
+                CollectionAssert.Contains(attachedSrv.Tags.ToList(), "AppTier");
+                CollectionAssert.Contains(attachedSrv.Tags.ToList(), "appserv");
+
+                var srvByEnvIdResp = caller.ExecuteRaw($"RefDataServers/ByEnvId/{childEnv.EnvironmentId}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, srvByEnvIdResp.StatusCode, srvByEnvIdResp.Content);
+                var srvByEnvIdList = DorcApiClient.Deserialize<List<ServerApiModel>>(srvByEnvIdResp.Content) ?? new List<ServerApiModel>();
+                var srvByEnvIdMatch = srvByEnvIdList.SingleOrDefault(s => s.ServerId == serverIdValue);
+                Assert.IsNotNull(srvByEnvIdMatch, "GET /RefDataServers/ByEnvId/{envId} must include the attached server.");
+                CollectionAssert.Contains(srvByEnvIdMatch.Tags.ToList(), "DevOpsTest");
+
+                var appSrvsByEnvNameResp = caller.ExecuteRaw("RefDataServers/AppServersByEnvName", Method.Get, new Dictionary<string, string>
+                {
+                    ["envName"] = LiveChildEnvName
+                });
+                Assert.AreEqual(HttpStatusCode.OK, appSrvsByEnvNameResp.StatusCode, appSrvsByEnvNameResp.Content);
+                var appSrvsByEnvNameList = DorcApiClient.Deserialize<List<ServerApiModel>>(appSrvsByEnvNameResp.Content) ?? new List<ServerApiModel>();
+                var appSrvMatch = appSrvsByEnvNameList.SingleOrDefault(s => s.ServerId == serverIdValue);
+                Assert.IsNotNull(appSrvMatch, "GET /RefDataServers/AppServersByEnvName must include the attached server tagged with 'appserv'.");
+                CollectionAssert.Contains(appSrvMatch.Tags.ToList(), "appserv");
+
+                var srvByPageResp = caller.ExecuteRaw(
+                    "RefDataServers/ByPage",
+                    Method.Put,
+                    new Dictionary<string, string> { ["page"] = "1", ["limit"] = "20" },
+                    body: new PagedDataOperators
+                    {
+                        Filters = new List<PagedDataFilter>
+                        {
+                            new PagedDataFilter { Path = "Name", FilterValue = serverName }
+                        }
+                    });
+                Assert.AreEqual(HttpStatusCode.OK, srvByPageResp.StatusCode, srvByPageResp.Content);
+                var srvByPage = DorcApiClient.Deserialize<GetServerApiModelListResponseDto>(srvByPageResp.Content);
+                Assert.IsNotNull(srvByPage?.Items);
+                var srvByPageMatch = srvByPage.Items.SingleOrDefault(s => s.ServerId == serverIdValue);
+                Assert.IsNotNull(srvByPageMatch, "PUT /RefDataServers/ByPage must return the server with its Tags array.");
+                CollectionAssert.Contains(srvByPageMatch.Tags.ToList(), "DevOpsTest");
 
                 var srvAuditResp = caller.ExecuteRaw(
                     "ServerAudit",
@@ -392,12 +445,16 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                     Tags = new[] { "DevOpsDbTag" }
                 });
                 Assert.AreEqual(HttpStatusCode.OK, createDbResp.StatusCode, $"POST /RefDataDatabases failed: {createDbResp.Content}");
+                StringAssert.Contains(createDbResp.Content ?? string.Empty, "\"Tags\"");
+                Assert.IsFalse((createDbResp.Content ?? string.Empty).Contains("\"Type\"", StringComparison.OrdinalIgnoreCase),
+                    "POST /RefDataDatabases response JSON must emit Tags (string[]) and never Type.");
                 var createdDb = DorcApiClient.Deserialize<DatabaseApiModel>(createDbResp.Content);
                 Assert.IsNotNull(createdDb);
                 Assert.IsGreaterThan(0, createdDb.Id);
                 Assert.AreEqual(dbName, createdDb.Name);
                 Assert.AreEqual(dbServerName, createdDb.ServerName);
                 Assert.AreEqual("OTHER", createdDb.AdGroup);
+                CollectionAssert.Contains(createdDb.Tags.ToList(), "DevOpsDbTag");
                 var createdDbId = createdDb.Id;
                 dbId = createdDbId;
                 Assert.IsTrue(dbId.HasValue, "Created database id should not be null.");
@@ -412,6 +469,7 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 Assert.HasCount(1, dbList);
                 Assert.AreEqual(dbId.Value, dbList[0].Id);
                 Assert.AreEqual(dbName, dbList[0].Name);
+                CollectionAssert.Contains(dbList[0].Tags.ToList(), "DevOpsDbTag");
 
                 var getDbByIdResp = caller.ExecuteRaw($"RefDataDatabases/{dbId.Value}", Method.Get);
                 Assert.AreEqual(HttpStatusCode.OK, getDbByIdResp.StatusCode, getDbByIdResp.Content);
@@ -419,6 +477,30 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 Assert.IsNotNull(dbById);
                 Assert.AreEqual(dbId.Value, dbById.Id);
                 Assert.AreEqual(dbName, dbById.Name);
+                CollectionAssert.Contains(dbById.Tags.ToList(), "DevOpsDbTag");
+
+                var updateDbResp = caller.ExecuteRaw(
+                    "RefDataDatabases",
+                    Method.Put,
+                    new Dictionary<string, string> { ["id"] = dbId.Value.ToString() },
+                    body: new DatabaseApiModel
+                    {
+                        Id = dbId.Value,
+                        Name = dbName,
+                        ServerName = dbServerName,
+                        DatabaseType = DatabaseType.SqlServer,
+                        AdGroup = "OTHER",
+                        UserEditable = true,
+                        Tags = new[] { "DevOpsDbTag", "ReportingTag" }
+                    });
+                Assert.AreEqual(HttpStatusCode.OK, updateDbResp.StatusCode, $"PUT /RefDataDatabases failed: {updateDbResp.Content}");
+                StringAssert.Contains(updateDbResp.Content ?? string.Empty, "\"Tags\"");
+                Assert.IsFalse((updateDbResp.Content ?? string.Empty).Contains("\"Type\"", StringComparison.OrdinalIgnoreCase),
+                    "PUT /RefDataDatabases response JSON must emit Tags (string[]) and never Type.");
+                var updatedDb = DorcApiClient.Deserialize<DatabaseApiModel>(updateDbResp.Content);
+                Assert.IsNotNull(updatedDb);
+                CollectionAssert.Contains(updatedDb.Tags.ToList(), "DevOpsDbTag");
+                CollectionAssert.Contains(updatedDb.Tags.ToList(), "ReportingTag");
 
                 var unattachedDbUsersResp = caller.ExecuteRaw("RefDataDatabaseUsers", Method.Get, new Dictionary<string, string>
                 {
@@ -517,6 +599,25 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 var dbByTagModel = DorcApiClient.Deserialize<DatabaseApiModel>(dbByTagOkResp.Content);
                 Assert.IsNotNull(dbByTagModel);
                 Assert.AreEqual(dbId.Value, dbByTagModel.Id);
+                CollectionAssert.Contains(dbByTagModel.Tags.ToList(), "DevOpsDbTag");
+                CollectionAssert.Contains(dbByTagModel.Tags.ToList(), "ReportingTag");
+
+                var dbByUpdatedTagResp = caller.ExecuteRaw("RefDataDatabases/ByTag", Method.Get, new Dictionary<string, string>
+                {
+                    ["envName"] = LiveChildEnvName,
+                    ["tag"] = "ReportingTag"
+                });
+                Assert.AreEqual(HttpStatusCode.OK, dbByUpdatedTagResp.StatusCode, dbByUpdatedTagResp.Content);
+                var dbByUpdatedTagModel = DorcApiClient.Deserialize<DatabaseApiModel>(dbByUpdatedTagResp.Content);
+                Assert.IsNotNull(dbByUpdatedTagModel);
+                Assert.AreEqual(dbId.Value, dbByUpdatedTagModel.Id);
+
+                var dbByEnvIdResp = caller.ExecuteRaw($"RefDataDatabases/ByEnvId/{childEnv.EnvironmentId}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, dbByEnvIdResp.StatusCode, dbByEnvIdResp.Content);
+                var dbByEnvIdList = DorcApiClient.Deserialize<List<DatabaseApiModel>>(dbByEnvIdResp.Content) ?? new List<DatabaseApiModel>();
+                var dbByEnvIdMatch = dbByEnvIdList.SingleOrDefault(d => d.Id == createdDbId);
+                Assert.IsNotNull(dbByEnvIdMatch, "GET /RefDataDatabases/ByEnvId/{envId} must include the attached database with its Tags array.");
+                CollectionAssert.Contains(dbByEnvIdMatch.Tags.ToList(), "ReportingTag");
 
                 var dbByTagNotFoundResp = caller.ExecuteRaw("RefDataDatabases/ByTag", Method.Get, new Dictionary<string, string>
                 {

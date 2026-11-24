@@ -174,7 +174,7 @@ namespace Dorc.Core.Tests
             Assert.AreEqual(2, envServers.Length);
             Assert.AreEqual("web01", envServers[0].Name);
             Assert.AreEqual("Win2022", envServers[0].OsName);
-            Assert.AreEqual("appserv;web tier", envServers[0].ApplicationServerName);
+            Assert.AreEqual("appserv;web tier", envServers[0].Tags);
             Assert.AreEqual(1, envServers[0].Services.Length);
             Assert.AreEqual("EndurSvc", envServers[0].Services[0].Name);
             Assert.AreEqual("Endur Service", envServers[0].Services[0].DisplayName);
@@ -182,7 +182,7 @@ namespace Dorc.Core.Tests
             Assert.AreEqual("WindowsService", envServers[0].Services[0].ServiceType);
             Assert.AreEqual("web02", envServers[1].Name);
             Assert.AreEqual("Win2022", envServers[1].OsName);
-            Assert.AreEqual("web tier", envServers[1].ApplicationServerName);
+            Assert.AreEqual("web tier", envServers[1].Tags);
             Assert.AreEqual(0, envServers[1].Services.Length);
 
             Assert.AreEqual(@"\\share\dv07", ValueOf("EndurFileShare"));

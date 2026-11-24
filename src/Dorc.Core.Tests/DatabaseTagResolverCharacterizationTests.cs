@@ -216,39 +216,20 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        public void DatabasePermissions_StillCarryTheSupersededTypeName()
+        public void LegacyTagPropertyNames_AreRemovedAcrossApiAndMonitorRunnerModels()
         {
-            // PowerShell returns $null for a property that no longer exists rather
-            // than throwing, so a deploy script reading $db.Database.Type after the
-            // rename would silently resolve nothing. Both spellings are emitted for
-            // one release and must agree. Delete this test with the property.
-            var (resolver, variableResolver, _, values) = CreateResolver(
-                new DatabaseApiModel { Id = 1, Name = "D1", Tags = new[] { "Endur", "Extra" }, ServerName = "s1" });
-
-            resolver.SetPropertyValues(variableResolver, Environment42());
-
-            var database = ((VariableValueDbPerm[])values["DatabasePermissions"]!.Value).Single().Database;
-#pragma warning disable CS0618 // deliberately asserting the superseded name still works
-            Assert.AreEqual(database.Tags, database.Type);
-#pragma warning restore CS0618
-        }
-
-        [TestMethod]
-        public void EnvironmentServers_StillCarryTheSupersededApplicationServerName()
-        {
-            // Same contract as above, for the server half of the payload.
-            var (resolver, variableResolver, _, values) = CreateResolver(
-                new DatabaseApiModel { Id = 1, Name = "D1", Tags = new[] { "Endur" }, ServerName = "s1" });
-
-            resolver.SetPropertyValues(variableResolver, Environment42());
-
-            var servers = (VariableValueServers[])values["EnvironmentServers"]!.Value;
-            foreach (var server in servers)
-            {
-#pragma warning disable CS0618 // deliberately asserting the superseded name still works
-                Assert.AreEqual(server.Tags, server.ApplicationServerName);
-#pragma warning restore CS0618
-            }
+            Assert.IsNull(typeof(DatabaseDefinition).GetProperty("Type"),
+                "DatabaseDefinition.Type is superseded by Tags and must not remain on the model.");
+            Assert.IsNull(typeof(VariableValueServers).GetProperty("ApplicationServerName"),
+                "VariableValueServers.ApplicationServerName is superseded by Tags and must not remain on the model.");
+            Assert.IsNull(typeof(VariableValueServers).GetProperty("ApplicationTags"),
+                "VariableValueServers.ApplicationTags must not exist.");
+            Assert.IsNull(typeof(ServerApiModel).GetProperty("ApplicationTags"),
+                "ServerApiModel.ApplicationTags is superseded by Tags (string[]) and must not remain on the model.");
+            Assert.IsNull(typeof(DatabaseApiModel).GetProperty("Type"),
+                "DatabaseApiModel.Type is superseded by Tags (string[]) and must not remain on the model.");
+            Assert.IsNull(typeof(UserDbPermissionApiModel).GetProperty("DbType"),
+                "UserDbPermissionApiModel.DbType is superseded by DbTags (string[]) and must not remain on the model.");
         }
 
         [TestMethod]
@@ -272,9 +253,6 @@ namespace Dorc.Core.Tests
             {
                 Assert.IsNotNull(perm.Database.Tags, $"{perm.Database.Name}: Tags must not be null");
                 Assert.AreEqual(string.Empty, perm.Database.Tags);
-#pragma warning disable CS0618 // the superseded spelling must agree
-                Assert.AreEqual(string.Empty, perm.Database.Type);
-#pragma warning restore CS0618
             }
         }
 
@@ -298,9 +276,6 @@ namespace Dorc.Core.Tests
             Assert.AreEqual(string.Empty, servers.Single(s => s.Name == "untagged").Tags);
             Assert.AreEqual(string.Empty, servers.Single(s => s.Name == "nulltags").Tags);
             Assert.AreEqual("appserv;web", servers.Single(s => s.Name == "tagged").Tags);
-#pragma warning disable CS0618 // the superseded spelling must agree
-            Assert.IsTrue(servers.All(s => s.Tags == s.ApplicationServerName));
-#pragma warning restore CS0618
         }
 
         [TestMethod]
