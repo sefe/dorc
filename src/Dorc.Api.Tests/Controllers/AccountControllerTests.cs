@@ -69,9 +69,8 @@ namespace Dorc.Api.Tests.Controllers
                 if (!string.IsNullOrEmpty(expectedExceptionMessage))
                 {
                     var exists = accountController.UserExists(userLanId, accountType);
-                    var failedObjectResult = exists as BadRequestObjectResult;
-
-                    Assert.IsNotNull(failedObjectResult);
+                    Assert.IsInstanceOfType(exists, typeof(BadRequestObjectResult));
+                    var failedObjectResult = (BadRequestObjectResult)exists;
                     Assert.AreEqual(StatusCodes.Status400BadRequest, failedObjectResult.StatusCode);
 
                     if (isExpectedExceptionMessageCustom)
@@ -126,9 +125,8 @@ namespace Dorc.Api.Tests.Controllers
                 if (!string.IsNullOrEmpty(expectedExceptionMessage))
                 {
                     var groupExists = accountController.GroupExists(groupLanId, accountType);
-                    var failedObjectResult = groupExists as BadRequestObjectResult;
-
-                    Assert.IsNotNull(failedObjectResult);
+                    Assert.IsInstanceOfType(groupExists, typeof(BadRequestObjectResult));
+                    var failedObjectResult = (BadRequestObjectResult)groupExists;
                     Assert.AreEqual(StatusCodes.Status400BadRequest, failedObjectResult.StatusCode);
                     if (isExpectedExceptionMessageCustom)
                     {
