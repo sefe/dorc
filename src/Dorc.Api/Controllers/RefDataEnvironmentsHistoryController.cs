@@ -51,14 +51,11 @@ namespace Dorc.Api.Controllers
             if (_securityPrivilegesChecker != null)
             {
                 var persistedEnvName = _environmentHistoryPersistentSource.GetEnvironmentNameForHistoryId(history.Id);
-                var targetEnvName = !string.IsNullOrWhiteSpace(persistedEnvName)
-                    ? persistedEnvName
-                    : history.EnvName;
-                if (!string.IsNullOrWhiteSpace(targetEnvName) &&
-                    !_securityPrivilegesChecker.CanModifyEnvironment(User, targetEnvName))
+                if (string.IsNullOrWhiteSpace(persistedEnvName) ||
+                    !_securityPrivilegesChecker.CanModifyEnvironment(User, persistedEnvName))
                 {
                     return StatusCode(StatusCodes.Status403Forbidden,
-                        $"You do not have permission to modify environment '{targetEnvName}'.");
+                        $"You do not have permission to modify environment '{persistedEnvName ?? history.EnvName}'.");
                 }
             }
 

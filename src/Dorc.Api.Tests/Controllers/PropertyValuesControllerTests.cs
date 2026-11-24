@@ -415,6 +415,13 @@ namespace Dorc.Api.Tests.Controllers
             };
 
             Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)envHistoryController.Put(null!)).StatusCode);
+            // Missing or deleted environment (persistedEnvName is null/empty) must be rejected with 403 even if caller supplies EnvName
+            envHistorySource.GetEnvironmentNameForHistoryId(99).Returns((string?)null);
+            securityChecker.CanModifyEnvironment(nonAdminUser, "Env1").Returns(true);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)envHistoryController.Put(new EnvironmentHistoryApiModel { Id = 99, EnvName = "Env1", Comment = "c" })).StatusCode);
+            Assert.AreEqual(StatusCodes.Status403Forbidden, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)envHistoryController.Put(new EnvironmentHistoryApiModel { Id = 99, EnvName = null, Comment = "c" })).StatusCode);
+
+            envHistorySource.GetEnvironmentNameForHistoryId(1).Returns("Env1");
             securityChecker.CanModifyEnvironment(nonAdminUser, "Env1").Returns(false);
             Assert.AreEqual(StatusCodes.Status403Forbidden, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)envHistoryController.Put(new EnvironmentHistoryApiModel { Id = 1, EnvName = "Env1", Comment = "c" })).StatusCode);
 
