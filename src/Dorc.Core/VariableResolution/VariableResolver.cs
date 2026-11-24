@@ -9,7 +9,9 @@ namespace Dorc.Core.VariableResolution
     {
         private readonly PropertyExpressionEvaluator _expressionEvaluator;
 
-        private readonly ConcurrentDictionary<string, VariableValue?> localProperties = new();
+        private readonly ConcurrentDictionary<string, VariableValue?> localProperties = new(StringComparer.OrdinalIgnoreCase);
+        private readonly ThreadLocal<HashSet<string>> _activeResolutionPath =
+            new(() => new HashSet<string>(StringComparer.OrdinalIgnoreCase));
 
         private readonly RequestSuppliedPropertyTracker _requestSuppliedProperties = new();
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
@@ -56,6 +58,18 @@ namespace Dorc.Core.VariableResolution
 
         public VariableValue? GetPropertyValue(string property)
         {
+            if (string.IsNullOrEmpty(property))
+            {
+                return null;
+            }
+
+            var resolutionPath = _activeResolutionPath.Value!;
+            if (!resolutionPath.Add(property))
+            {
+                _logger.LogError("Detected circular property reference while evaluating property '{Property}'.", property);
+                return null;
+            }
+
             try
             {
                 VariableValue? propertyValue;
@@ -96,6 +110,10 @@ namespace Dorc.Core.VariableResolution
                 _logger.LogError(ex, "Failed to evaluate property '{Property}': {ErrorMessage}", property, ex.Message);
                 return null;
             }
+            finally
+            {
+                resolutionPath.Remove(property);
+            }
         }
 
         public void SetPropertyValue(string property, VariableValue? value)
@@ -131,9 +149,12 @@ namespace Dorc.Core.VariableResolution
         /// </summary>
         private string? RawValueOf(string property)
         {
-            return localProperties.TryGetValue(property, out var stored) && stored?.Value is string raw
-                ? raw
-                : null;
+            if (localProperties.TryGetValue(property, out var stored) && stored?.Value is string raw)
+            {
+                return raw;
+            }
+
+            return _propertyValuesPersistentSource.GetCachedPropertyValue(property)?.Value;
         }
 
         private VariableValue? EvaluatePropertyValue(VariableValue? value)

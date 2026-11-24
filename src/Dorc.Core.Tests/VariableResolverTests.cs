@@ -110,5 +110,47 @@ namespace Dorc.Core.Tests
             Assert.IsFalse(result.ContainsKey(prop2), "Bad expression property should be skipped");
             Assert.AreEqual("abc_xyz", result[prop3].Value);
         }
+
+        [TestMethod]
+        public void GetPropertyValue_CaseInsensitiveCircularReference_DoesNotStackOverflow()
+        {
+            _resolver.SetPropertyValue("PropA", "$propb$");
+            _resolver.SetPropertyValue("PropB", "$PROPA$");
+            _propertyValuesPersistentSource.IsCachedPropertySecure(Arg.Any<string>()).Returns(false);
+
+            var emptyKeyResult = _resolver.GetPropertyValue(string.Empty);
+            Assert.IsNull(emptyKeyResult);
+
+            var result = _resolver.GetPropertyValue("propa");
+            Assert.IsNotNull(result);
+            Assert.AreEqual("$propb$", result.Value);
+
+            // Also verify repository-backed RawValueOf provenance lookup when not in localProperties
+            _resolver.SetRequestSuppliedPropertyValue("ReqInput", "injected");
+            _propertyValuesPersistentSource.GetCachedPropertyValue("RepoExpr")
+                .Returns(new PropertyValueDto
+                {
+                    Value = "fn:\"$reqinput$\"",
+                    Property = new PropertyApiModel { Name = "RepoExpr", Secure = false }
+                });
+            var repoResult = _resolver.GetPropertyValue("RepoExpr");
+            Assert.IsNotNull(repoResult);
+            Assert.AreEqual("fn:\"injected\"", repoResult.Value);
+
+            // Also verify BundledRequestVariableResolver cycle guard
+            var loader = Substitute.For<IBundledRequestVariableLoader>();
+            loader.GetVariables().Returns(new List<PropertyValuePair>
+            {
+                new() { PropertyName = "Cycle1", PropertyValue = "$cycle2$" },
+                new() { PropertyName = "Cycle2", PropertyValue = "$CYCLE1$" }
+            });
+            var exprEval = Substitute.For<IPropertyExpressionEvaluator>();
+            exprEval.Evaluate(Arg.Any<object>()).Returns(ci => ci.Arg<object>());
+            var bundledResolver = new BundledRequestVariableResolver(loader, exprEval, new PropertyEvaluator());
+            Assert.IsNull(bundledResolver.GetPropertyValue(string.Empty));
+            var bundledDict = bundledResolver.LoadProperties();
+            Assert.AreEqual(2, bundledDict.Count);
+            Assert.AreEqual("$cycle2$", bundledDict["Cycle1"].Value);
+        }
     }
 } 

@@ -10,6 +10,8 @@ namespace Dorc.Core.VariableResolution
 
         private readonly ConcurrentDictionary<string, VariableValue?> localProperties = new(StringComparer.OrdinalIgnoreCase);
         private readonly ConcurrentDictionary<string, byte> _pinnedProperties = new(StringComparer.OrdinalIgnoreCase);
+        private readonly ThreadLocal<HashSet<string>> _activeResolutionPath =
+            new(() => new HashSet<string>(StringComparer.OrdinalIgnoreCase));
         private readonly RequestSuppliedPropertyTracker _requestSuppliedProperties = new();
         private readonly IBundledRequestVariableLoader _bundledRequestVariableLoader;
 
@@ -34,7 +36,9 @@ namespace Dorc.Core.VariableResolution
             }
 
             var dictionary = localProperties.Keys.AsParallel()
-                .ToDictionary(x => x, GetPropertyValue);
+                .Select(x => new { Key = x, Value = GetPropertyValue(x) })
+                .Where(x => x.Value != null)
+                .ToDictionary(x => x.Key, x => x.Value!);
 
             return dictionary;
         }
@@ -77,25 +81,43 @@ namespace Dorc.Core.VariableResolution
 
         public VariableValue? GetPropertyValue(string property)
         {
-            VariableValue? propertyValue;
-            if (localProperties.TryGetValue(property, out var localProperty))
-            {
-                propertyValue = EvaluatePropertyValue(localProperty);
-            }
-            else
+            if (string.IsNullOrEmpty(property))
             {
                 return null;
             }
 
-            // As in VariableResolver: expression evaluation compiles and runs C#, so it is
-            // applied only where no request-supplied text can reach the evaluated string.
-            if (_requestSuppliedProperties.IsInfluenced(property, RawValueOf))
+            var resolutionPath = _activeResolutionPath.Value!;
+            if (!resolutionPath.Add(property))
             {
-                return propertyValue;
+                return null;
             }
 
-            var o = _expressionEvaluator.Evaluate(propertyValue.Value);
-            return new VariableValue { Value = o, Type = o.GetType() };
+            try
+            {
+                VariableValue? propertyValue;
+                if (localProperties.TryGetValue(property, out var localProperty))
+                {
+                    propertyValue = EvaluatePropertyValue(localProperty);
+                }
+                else
+                {
+                    return null;
+                }
+
+                // As in VariableResolver: expression evaluation compiles and runs C#, so it is
+                // applied only where no request-supplied text can reach the evaluated string.
+                if (_requestSuppliedProperties.IsInfluenced(property, RawValueOf))
+                {
+                    return propertyValue;
+                }
+
+                var o = _expressionEvaluator.Evaluate(propertyValue.Value);
+                return new VariableValue { Value = o, Type = o.GetType() };
+            }
+            finally
+            {
+                resolutionPath.Remove(property);
+            }
         }
 
         public bool PropertiesLoaded()
