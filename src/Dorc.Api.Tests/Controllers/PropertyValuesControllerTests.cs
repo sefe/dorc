@@ -409,6 +409,7 @@ namespace Dorc.Api.Tests.Controllers
 
             // 6. RefDataEnvironmentsHistoryController RBAC & null guards
             var envHistorySource = Substitute.For<IEnvironmentHistoryPersistentSource>();
+            Assert.Throws<ArgumentNullException>(() => new RefDataEnvironmentsHistoryController(envHistorySource, null!));
             var envHistoryController = new RefDataEnvironmentsHistoryController(envHistorySource, securityChecker)
             {
                 ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = nonAdminUser } }

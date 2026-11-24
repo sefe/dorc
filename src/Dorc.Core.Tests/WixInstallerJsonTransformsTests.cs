@@ -96,6 +96,14 @@ namespace Dorc.Core.Tests
             var path = JoinUnderRoot(GetRepoRoot(), "src", "Setup.Acceptance", "Product.wxs");
             var doc = XDocument.Load(path);
 
+            var directoryNames = doc.Descendants(WixNs + "Directory")
+                .Select(e => (string?)e.Attribute("Name"))
+                .ToList();
+            CollectionAssert.AreEqual(
+                new[] { "DOrc", "Testing" },
+                directoryNames,
+                "Setup.Acceptance Product.wxs must install directly under ProgramFiles64Folder\\DOrc\\Testing.");
+
             var elementPaths = doc.Descendants(JsonNs + "JsonFile")
                 .Select(e => (string?)e.Attribute("ElementPath"))
                 .ToHashSet();

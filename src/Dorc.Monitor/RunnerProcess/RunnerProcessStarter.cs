@@ -66,7 +66,7 @@ namespace Dorc.Monitor.RunnerProcess
 
             var creationFlags = (uint)Interop.Windows.Advapi32.Interop.Advapi32.ProcessCreationFlags.CREATE_NO_WINDOW |
                     (uint)Interop.Windows.Advapi32.Interop.Advapi32.ProcessCreationFlags.CREATE_UNICODE_ENVIRONMENT |
-                    0x00000004; // CREATE_SUSPENDED: assign the job before any PowerShell child processes start.
+                    (uint)Interop.Windows.Advapi32.Interop.Advapi32.ProcessCreationFlags.CREATE_SUSPENDED; // Assign the job before any PowerShell child processes start.
 
             var environment = IntPtr.Zero;
             var currentDirectory = runnerFileInfo.DirectoryName!;

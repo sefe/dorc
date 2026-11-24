@@ -213,7 +213,7 @@ namespace Dorc.Api.Controllers
                             if (createdJobRequest == null || createdJobRequest.Id <= 0)
                             {
                                 return StatusCode(
-                                    StatusCodes.Status400BadRequest,
+                                    StatusCodes.Status500InternalServerError,
                                     createdJobRequest?.Status ?? $"Failed to create job request for project '{job.Project}'.");
                             }
 

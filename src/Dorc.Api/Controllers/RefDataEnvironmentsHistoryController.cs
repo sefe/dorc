@@ -13,14 +13,15 @@ namespace Dorc.Api.Controllers
     public class RefDataEnvironmentsHistoryController : ControllerBase
     {
         private readonly IEnvironmentHistoryPersistentSource _environmentHistoryPersistentSource;
-        private readonly ISecurityPrivilegesChecker? _securityPrivilegesChecker;
+        private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
 
         public RefDataEnvironmentsHistoryController(
             IEnvironmentHistoryPersistentSource environmentHistoryPersistentSource,
-            ISecurityPrivilegesChecker? securityPrivilegesChecker = null)
+            ISecurityPrivilegesChecker securityPrivilegesChecker)
         {
             _environmentHistoryPersistentSource = environmentHistoryPersistentSource;
-            _securityPrivilegesChecker = securityPrivilegesChecker;
+            _securityPrivilegesChecker = securityPrivilegesChecker
+                ?? throw new ArgumentNullException(nameof(securityPrivilegesChecker));
         }
 
         /// <summary>
@@ -48,15 +49,12 @@ namespace Dorc.Api.Controllers
                 return BadRequest("Environment history payload is required.");
             }
 
-            if (_securityPrivilegesChecker != null)
+            var persistedEnvName = _environmentHistoryPersistentSource.GetEnvironmentNameForHistoryId(history.Id);
+            if (string.IsNullOrWhiteSpace(persistedEnvName) ||
+                !_securityPrivilegesChecker.CanModifyEnvironment(User, persistedEnvName))
             {
-                var persistedEnvName = _environmentHistoryPersistentSource.GetEnvironmentNameForHistoryId(history.Id);
-                if (string.IsNullOrWhiteSpace(persistedEnvName) ||
-                    !_securityPrivilegesChecker.CanModifyEnvironment(User, persistedEnvName))
-                {
-                    return StatusCode(StatusCodes.Status403Forbidden,
-                        $"You do not have permission to modify environment '{persistedEnvName ?? history.EnvName}'.");
-                }
+                return StatusCode(StatusCodes.Status403Forbidden,
+                    $"You do not have permission to modify environment '{persistedEnvName ?? history.EnvName}'.");
             }
 
             _environmentHistoryPersistentSource.UpdateEnvironmentDetailHistoryComment(history.Id, history.Comment);
@@ -81,8 +79,7 @@ namespace Dorc.Api.Controllers
                     return StatusCode(StatusCodes.Status400BadRequest, "Environment name is required.");
                 }
 
-                if (_securityPrivilegesChecker != null &&
-                    !_securityPrivilegesChecker.CanModifyEnvironment(User, request.EnvName))
+                if (!_securityPrivilegesChecker.CanModifyEnvironment(User, request.EnvName))
                 {
                     return StatusCode(StatusCodes.Status403Forbidden,
                         $"You do not have permission to modify environment '{request.EnvName}'.");

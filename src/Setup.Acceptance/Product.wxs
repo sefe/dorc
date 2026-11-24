@@ -11,7 +11,6 @@
     <UI />
   
       <StandardDirectory Id="ProgramFiles64Folder">
-        <Directory Id="SefeFolder" Name="SEFE">
           <Directory Id="DOrcFolder" Name="DOrc">
             <Directory Id="TestingDir" Name="Testing">
 
@@ -27,7 +26,6 @@
 
             </Directory>
           </Directory>
-        </Directory>
       </StandardDirectory>
     </Package>
 </Wix>

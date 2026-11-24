@@ -727,7 +727,7 @@ namespace Dorc.Api.Tests.Controllers
                 Components = null!
             };
 
-            // When CreateRequest returns null or Id <= 0, Put returns 400 BadRequest
+            // When CreateRequest returns null or Id <= 0, Put returns 500 InternalServerError
             _bundledRequestsPersistentSource.GetRequestsForBundle("FailBundle").Returns(new List<BundledRequestsApiModel>
             {
                 new BundledRequestsApiModel
@@ -746,7 +746,7 @@ namespace Dorc.Api.Tests.Controllers
                 BundleName = "FailBundle",
                 BundleProperties = null!
             });
-            Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)failResult).StatusCode);
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)failResult).StatusCode);
 
             // When CreateRequest succeeds and CopyEnvBuild has null Components, CopyEnvBuildAllComponents is invoked
             _bundledRequestsPersistentSource.GetRequestsForBundle("CopyAllBundle").Returns(new List<BundledRequestsApiModel>
