@@ -21,14 +21,14 @@ namespace Dorc.Core.Tests
         [TestMethod]
         public void CachedProperties_CaseInsensitiveLookup_MatchesDifferentCasing()
         {
-            var table = new DataTable();
+            using var table = new DataTable();
             table.Columns.Add("Name", typeof(string));
             table.Columns.Add("Secure", typeof(bool));
             table.Columns.Add("IsArray", typeof(bool));
             table.Columns.Add("Value", typeof(string));
             table.Rows.Add("SecureProp", true, false, "enc:secret-val");
 
-            var dataSet = new DataSet();
+            using var dataSet = new DataSet();
             dataSet.Tables.Add(table);
 
             var context = Substitute.For<IDeploymentContext>();
