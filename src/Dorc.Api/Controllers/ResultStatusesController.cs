@@ -67,6 +67,20 @@ namespace Dorc.Api.Controllers
             }
 
             var log = _deploymentLogService.GetLogsForSingleResult(requestId, resultId);
+            var persistedLog = deploymentResult.Log;
+
+            if (!string.IsNullOrWhiteSpace(persistedLog))
+            {
+                const string openSearchUnavailableMessage = "No logs in the OpenSearch or it is unavailable.";
+                if (string.IsNullOrEmpty(log) || string.Equals(log, openSearchUnavailableMessage, StringComparison.Ordinal))
+                {
+                    log = persistedLog;
+                }
+                else if (!log.Contains(persistedLog, StringComparison.Ordinal))
+                {
+                    log = log + Environment.NewLine + persistedLog;
+                }
+            }
 
             return Ok(log);
         }

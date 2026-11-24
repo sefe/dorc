@@ -3,7 +3,7 @@ using OpenSearch.Client;
 
 namespace Dorc.OpenSearchData.Model
 {
-    internal class DeployOpenSearchLogModel
+    public class DeployOpenSearchLogModel
     {
         [JsonProperty("request_id")]
         public int request_id { get; set; }

@@ -38,7 +38,12 @@ namespace Dorc.OpenSearchData.Sources
             {
                 _logger.LogError(e, "Request for the deployment result logs to the OpenSearch failed.");
                 foreach (var deploymentResult in deploymentResults)
-                    deploymentResult.Log = "No logs in the OpenSearch or it is unavailable.";
+                {
+                    if (string.IsNullOrWhiteSpace(deploymentResult.Log))
+                    {
+                        deploymentResult.Log = "No logs in the OpenSearch or it is unavailable.";
+                    }
+                }
             }
         }
 
@@ -88,10 +93,17 @@ namespace Dorc.OpenSearchData.Sources
         {
             foreach (var deploymentResult in deploymentResults)
             {
-                var deploymentResultLogs = logs.Where(d => d.deployment_result_id == deploymentResult.Id && d.request_id == deploymentResult.RequestId)?.OrderBy(d => d.timestamp);
-                if (deploymentResultLogs != null && deploymentResultLogs.Any())
+                var deploymentResultLogs = logs
+                    .Where(d => d.deployment_result_id == deploymentResult.Id && d.request_id == deploymentResult.RequestId)
+                    .OrderBy(d => d.timestamp)
+                    .ToList();
+                if (deploymentResultLogs.Count > 0)
                 {
-                    deploymentResult.Log = String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.ffffff")}] {GetLogLevelString(d)} {d.message}"));
+                    var persistedLog = deploymentResult.Log;
+                    var openSearchLog = String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.ffffff")}] {GetLogLevelString(d)} {d.message}"));
+                    deploymentResult.Log = string.IsNullOrWhiteSpace(persistedLog) || openSearchLog.Contains(persistedLog, StringComparison.Ordinal)
+                        ? openSearchLog
+                        : openSearchLog + Environment.NewLine + persistedLog;
                 }
             }
         }
