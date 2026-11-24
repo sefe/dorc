@@ -73,10 +73,11 @@ namespace Dorc.Core.Tests
         public void GetPropertyValue_ReturnsSecureValue_WithoutEvaluation()
         {
             var propertyName = "secureProp";
-            var secureValue = new VariableValue { Value = "secret", Type = typeof(string) };
+            var secureValue = new VariableValue { Value = "fn:1+1", Type = typeof(string) };
             _resolver.SetPropertyValue(propertyName, secureValue);
-            _propertyValuesPersistentSource.IsCachedPropertySecure(propertyName).Returns(true);
-            var result = _resolver.GetPropertyValue(propertyName);
+            _propertyValuesPersistentSource.IsCachedPropertySecure(
+                Arg.Is<string>(s => string.Equals(s, propertyName, StringComparison.OrdinalIgnoreCase))).Returns(true);
+            var result = _resolver.GetPropertyValue("SECUREPROP");
             Assert.IsNotNull(result);
             Assert.AreEqual(secureValue.Value, result.Value);
         }

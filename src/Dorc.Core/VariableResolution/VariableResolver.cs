@@ -66,7 +66,7 @@ namespace Dorc.Core.VariableResolution
             var resolutionPath = _activeResolutionPath.Value!;
             if (!resolutionPath.Add(property))
             {
-                _logger.LogError("Detected circular property reference while evaluating property '{Property}'.", property);
+                _logger.LogError("Detected circular property reference during variable evaluation.");
                 return null;
             }
 

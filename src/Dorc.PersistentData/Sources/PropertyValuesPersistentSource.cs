@@ -16,7 +16,7 @@ namespace Dorc.PersistentData.Sources
     public class PropertyValuesPersistentSource : IPropertyValuesPersistentSource
     {
         private const string EnvironmentPropertyFilterType = "Environment";
-        private readonly IDictionary<string, PropertyValueDto> _cachedProperties = new ConcurrentDictionary<string, PropertyValueDto>();
+        private readonly IDictionary<string, PropertyValueDto> _cachedProperties = new ConcurrentDictionary<string, PropertyValueDto>(StringComparer.OrdinalIgnoreCase);
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IPropertyEncryptor _encrypt;
         private readonly Dictionary<PropertyFilter, string> _filters = new Dictionary<PropertyFilter, string>();
