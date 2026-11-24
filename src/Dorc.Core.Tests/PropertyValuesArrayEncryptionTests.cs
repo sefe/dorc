@@ -1,6 +1,9 @@
+using System.Data;
 using System.Text.Json;
 using Dorc.PersistentData;
+using Dorc.PersistentData.Contexts;
 using Dorc.PersistentData.Sources;
+using NSubstitute;
 
 namespace Dorc.Core.Tests
 {
@@ -13,6 +16,37 @@ namespace Dorc.Core.Tests
             public string EncryptValue(string value) => "enc:" + value;
             public string? DecryptValue(string value) =>
                 value != null && value.StartsWith("enc:") ? value.Substring(4) : value;
+        }
+
+        [TestMethod]
+        public void CachedProperties_CaseInsensitiveLookup_MatchesDifferentCasing()
+        {
+            var table = new DataTable();
+            table.Columns.Add("Name", typeof(string));
+            table.Columns.Add("Secure", typeof(bool));
+            table.Columns.Add("IsArray", typeof(bool));
+            table.Columns.Add("Value", typeof(string));
+            table.Rows.Add("SecureProp", true, false, "enc:secret-val");
+
+            var dataSet = new DataSet();
+            dataSet.Tables.Add(table);
+
+            var context = Substitute.For<IDeploymentContext>();
+            context.GetGlobalProperties(null).Returns(dataSet);
+            var contextFactory = Substitute.For<IDeploymentContextFactory>();
+            contextFactory.GetContext().Returns(context);
+
+            var source = new PropertyValuesPersistentSource(
+                contextFactory,
+                new ReversibleEncryptor(),
+                Substitute.For<IClaimsPrincipalReader>());
+
+            source.LoadAllPropertiesIntoCache();
+
+            Assert.IsTrue(source.IsCachedPropertySecure("SECUREPROP"));
+            Assert.IsTrue(source.IsCachedPropertySecure("secureprop"));
+            Assert.IsNotNull(source.GetCachedPropertyValue("SECUREPROP"));
+            Assert.AreEqual("secret-val", source.GetCachedPropertyValue("secureprop").Value);
         }
 
         [TestMethod]

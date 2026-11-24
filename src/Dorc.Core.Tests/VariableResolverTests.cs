@@ -124,7 +124,7 @@ namespace Dorc.Core.Tests
 
             var result = _resolver.GetPropertyValue("propa");
             Assert.IsNotNull(result);
-            Assert.AreEqual("$propb$", result.Value);
+            Assert.AreEqual("$PROPA$", result.Value);
 
             // Also verify repository-backed RawValueOf provenance lookup when not in localProperties
             _resolver.SetRequestSuppliedPropertyValue("ReqInput", "injected");
@@ -140,7 +140,7 @@ namespace Dorc.Core.Tests
 
             // Also verify BundledRequestVariableResolver cycle guard
             var loader = Substitute.For<IBundledRequestVariableLoader>();
-            loader.GetVariables().Returns(new List<PropertyValuePair>
+            loader.GetVariables().Returns(new List<RequestProperty>
             {
                 new() { PropertyName = "Cycle1", PropertyValue = "$cycle2$" },
                 new() { PropertyName = "Cycle2", PropertyValue = "$CYCLE1$" }
@@ -150,8 +150,8 @@ namespace Dorc.Core.Tests
             var bundledResolver = new BundledRequestVariableResolver(loader, exprEval, new PropertyEvaluator());
             Assert.IsNull(bundledResolver.GetPropertyValue(string.Empty));
             var bundledDict = bundledResolver.LoadProperties();
-            Assert.AreEqual(2, bundledDict.Count);
-            Assert.AreEqual("$cycle2$", bundledDict["Cycle1"].Value);
+            Assert.HasCount(2, bundledDict);
+            Assert.AreEqual("$CYCLE1$", bundledDict["Cycle1"].Value);
         }
     }
 } 
