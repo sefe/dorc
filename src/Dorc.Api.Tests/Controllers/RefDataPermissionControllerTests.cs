@@ -166,11 +166,14 @@ public class RefDataPermissionControllerTests
         Assert.AreEqual(200, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)sqlController.Post(portDto)).StatusCode);
         Assert.AreEqual(200, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)sqlController.Delete(portDto)).StatusCode);
 
-        // Null/empty/oversized InstanceName (>250) or SqlPort (>10) returns 400 BadRequest before persistence
+        // Null/empty/oversized InstanceName (>250) or SqlPort (>10) or invalid port returns 400 BadRequest before persistence
         Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)sqlController.Post(null!)).StatusCode);
         Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)sqlController.Post(new SqlPortApiModel { InstanceName = "", SqlPort = "1433" })).StatusCode);
         Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)sqlController.Post(new SqlPortApiModel { InstanceName = new string('A', 251), SqlPort = "1433" })).StatusCode);
         Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)sqlController.Post(new SqlPortApiModel { InstanceName = "INST1", SqlPort = "12345678901" })).StatusCode);
+        Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)sqlController.Post(new SqlPortApiModel { InstanceName = "INST1", SqlPort = "abc" })).StatusCode);
+        Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)sqlController.Post(new SqlPortApiModel { InstanceName = "INST1", SqlPort = "0" })).StatusCode);
+        Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)sqlController.Post(new SqlPortApiModel { InstanceName = "INST1", SqlPort = "70000" })).StatusCode);
 
         var realSqlPortsSource = new Dorc.PersistentData.Sources.SqlPortsPersistentSource(
             NSubstitute.Substitute.For<Dorc.PersistentData.Contexts.IDeploymentContextFactory>());
@@ -178,5 +181,8 @@ public class RefDataPermissionControllerTests
         Assert.Throws<ArgumentException>(() => realSqlPortsSource.CreateSqlPort(new SqlPortApiModel { InstanceName = " ", SqlPort = "1433" }));
         Assert.Throws<ArgumentException>(() => realSqlPortsSource.CreateSqlPort(new SqlPortApiModel { InstanceName = new string('X', 251), SqlPort = "1433" }));
         Assert.Throws<ArgumentException>(() => realSqlPortsSource.CreateSqlPort(new SqlPortApiModel { InstanceName = "INST1", SqlPort = new string('9', 11) }));
+        Assert.Throws<ArgumentException>(() => realSqlPortsSource.CreateSqlPort(new SqlPortApiModel { InstanceName = "INST1", SqlPort = "not-a-port" }));
+        Assert.Throws<ArgumentException>(() => realSqlPortsSource.CreateSqlPort(new SqlPortApiModel { InstanceName = "INST1", SqlPort = "0" }));
+        Assert.Throws<ArgumentException>(() => realSqlPortsSource.CreateSqlPort(new SqlPortApiModel { InstanceName = "INST1", SqlPort = "65536" }));
     }
 }

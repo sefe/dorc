@@ -197,12 +197,17 @@ namespace Tools.PropertyValueCreationCLI
                 if (valueResult.Value != null)
                 {
                     var failedItems = new List<string>();
-                    foreach (var result in valueResult.Value)
+                    for (var i = 0; i < valueResult.Value.Count; i++)
                     {
+                        var result = valueResult.Value[i];
                         if (result.Status != "success")
                         {
-                            _log.LogWarning($"Failed to create property value: {result.Item} - {result.Status}");
-                            failedItems.Add($"{result.Item}: {result.Status}");
+                            var pv = i < propertyValuesToCreate.Count ? propertyValuesToCreate[i] : null;
+                            var itemLabel = !string.IsNullOrWhiteSpace(pv?.Property?.Name)
+                                ? $"{pv.Property.Name} ({pv.PropertyValueFilter ?? "Default"})"
+                                : $"Item[{i}]";
+                            _log.LogWarning($"Failed to create property value for {itemLabel} - {result.Status}");
+                            failedItems.Add($"{itemLabel}: {result.Status}");
                         }
                     }
 

@@ -36,8 +36,8 @@ public class ScriptDispatcherTests : MonitorServiceTestBase
         {
             var scriptPath = Path.Join(tempScriptDir, "deploy-step.ps1");
             File.WriteAllText(scriptPath, @"
-$parsedTags = $TagList | ConvertFrom-Json
-$summary = ""Env=$EnvironmentName|Region=$Region|Endpoint=$EndpointUrl|Secret=$ApiSecretKey|Tags=$($parsedTags -join ',')""
+if ($TagList -isnot [string[]]) { throw ""Expected TagList to be [string[]], got $($TagList.GetType().FullName)"" }
+$summary = ""Env=$EnvironmentName|Region=$Region|Endpoint=$EndpointUrl|Secret=$ApiSecretKey|Tags=$($TagList -join ',')""
 Set-Content -Path $OutputMarkerPath -Value $summary -NoNewline
 Write-Information ""Deployed to $EndpointUrl with secret $ApiSecretKey""
 ");

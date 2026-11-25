@@ -54,20 +54,13 @@ namespace Dorc.Api.Tests
                 mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker, mockedLog,
                 mockedClaimsPrincipalReader);
 
-            try
+            var result = testService.GetPropertyValues(propertyName, null, new GenericPrincipal(new GenericIdentity("test-user"), null)).FirstOrDefault();
+            if (result.Property.Name != propertyName ||
+                result.Property.Secure != secure ||
+                result.Value != propertyValue ||
+                result.PropertyValueFilter != environmentName)
             {
-                var result = testService.GetPropertyValues(propertyName, null, new GenericPrincipal(new GenericIdentity("test-user"), null)).FirstOrDefault();
-                if (result.Property.Name != propertyName ||
-                    result.Property.Secure != secure ||
-                    result.Value != propertyValue ||
-                    result.PropertyValueFilter != environmentName)
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
         }
 
@@ -108,20 +101,13 @@ namespace Dorc.Api.Tests
                     }
                 });
 
-            try
+            var result = testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(new GenericIdentity("test-user"), null)).FirstOrDefault();
+            if (result.Property.Name != propertyName ||
+                result.Property.Secure != secure ||
+                result.Value != propertyValue ||
+                result.PropertyValueFilter != environmentName)
             {
-                var result = testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(new GenericIdentity("test-user"), null)).FirstOrDefault();
-                if (result.Property.Name != propertyName ||
-                    result.Property.Secure != secure ||
-                    result.Value != propertyValue ||
-                    result.PropertyValueFilter != environmentName)
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
         }
 
@@ -211,20 +197,13 @@ namespace Dorc.Api.Tests
                     }
                 });
 
-            try
-            {
-                var result = testService.GetPropertyValues(
-                    propertyName: String.Empty,
-                    environmentName: environmentName,
-                    user: new GenericPrincipal(new GenericIdentity("test-user"), null)
-                    );
-                Assert.IsTrue(result.Where(property => property.Property.Secure).All(property => String.IsNullOrEmpty(property.Value)));
-                Assert.IsTrue(result.Where(property => !property.Property.Secure).All(property => !String.IsNullOrEmpty(property.Value)));
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
-            }
+            var result = testService.GetPropertyValues(
+                propertyName: String.Empty,
+                environmentName: environmentName,
+                user: new GenericPrincipal(new GenericIdentity("test-user"), null)
+                );
+            Assert.IsTrue(result.Where(property => property.Property.Secure).All(property => String.IsNullOrEmpty(property.Value)));
+            Assert.IsTrue(result.Where(property => !property.Property.Secure).All(property => !String.IsNullOrEmpty(property.Value)));
         }
 
         [TestMethod]
@@ -265,20 +244,13 @@ namespace Dorc.Api.Tests
                 mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker, mockedLog,
                 mockedClaimsPrincipalReader);
 
-            try
+            var result = testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(new GenericIdentity("test-user"), null));
+            if (result.FirstOrDefault().Property.Name != propertyName ||
+                result.FirstOrDefault().Property.Secure != secure ||
+                result.FirstOrDefault().Value != propertyValue ||
+                result.FirstOrDefault().PropertyValueFilter != environmentName || result.Count() != 1)
             {
-                var result = testService.GetPropertyValues(propertyName, environmentName, new GenericPrincipal(new GenericIdentity("test-user"), null));
-                if (result.FirstOrDefault().Property.Name != propertyName ||
-                    result.FirstOrDefault().Property.Secure != secure ||
-                    result.FirstOrDefault().Value != propertyValue ||
-                    result.FirstOrDefault().PropertyValueFilter != environmentName || result.Count() != 1)
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
         }
 
@@ -324,18 +296,11 @@ namespace Dorc.Api.Tests
                 mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker, mockedLog,
                 mockClaimsPrincipalReader);
 
-            try
+            var result = testService.DeletePropertyValues(new List<PropertyValueDto> { testProperty },
+                new GenericPrincipal(new GenericIdentity("test-user"), null));
+            if (result.FirstOrDefault().Status.Equals("success"))
             {
-                var result = testService.DeletePropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(new GenericIdentity("test-user"), null));
-                if (result.FirstOrDefault().Status.Equals("success"))
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
         }
 
@@ -376,18 +341,11 @@ namespace Dorc.Api.Tests
                 mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker, mockedLog,
                 mockedClaimsPrincipalReader);
 
-            try
+            var result = testService.DeletePropertyValues(new List<PropertyValueDto> { testProperty },
+                new GenericPrincipal(new GenericIdentity("test-user"), null));
+            if (result.FirstOrDefault().Status.Equals("success"))
             {
-                var result = testService.DeletePropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(new GenericIdentity("test-user"), null));
-                if (result.FirstOrDefault().Status.Equals("success"))
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
         }
 
@@ -444,48 +402,27 @@ namespace Dorc.Api.Tests
                 mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker, mockedLog,
                 mockedClaimsPrincipalReader);
 
-            try
+            var result = testService.DeletePropertyValues(new List<PropertyValueDto> { property },
+                new GenericPrincipal(new GenericIdentity("test-user"), null));
+            if (!result.FirstOrDefault().Status.Equals("success"))
             {
-                var result = testService.DeletePropertyValues(new List<PropertyValueDto> { property },
-                    new GenericPrincipal(new GenericIdentity("test-user"), null));
-                if (!result.FirstOrDefault().Status.Equals("success"))
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
 
             mockedPropertyValuesPersistentSource.When(m => m.Remove(Arg.Any<long?>())).Throws(e => new ArgumentException());
-            try
+            var resultErr = testService.DeletePropertyValues(new List<PropertyValueDto> { property },
+                new GenericPrincipal(new GenericIdentity("test-user"), null));
+            if (resultErr.FirstOrDefault().Status.Equals("success"))
             {
-                var result = testService.DeletePropertyValues(new List<PropertyValueDto> { property },
-                    new GenericPrincipal(new GenericIdentity("test-user"), null));
-                if (result.FirstOrDefault().Status.Equals("success"))
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
 
             mockedPropertyValuesPersistentSource.Remove(Arg.Any<long?>());
-            try
+            var resultFalse = testService.DeletePropertyValues(new List<PropertyValueDto> { property },
+                new GenericPrincipal(new GenericIdentity("test-user"), null));
+            if (resultFalse.FirstOrDefault().Status.Equals("success"))
             {
-                var result = testService.DeletePropertyValues(new List<PropertyValueDto> { property },
-                    new GenericPrincipal(new GenericIdentity("test-user"), null));
-                if (result.FirstOrDefault().Status.Equals("success"))
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
         }
 
@@ -537,35 +474,21 @@ namespace Dorc.Api.Tests
                 mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker, mockedLog,
                 mockedClaimsPrincipalReader);
 
-            try
+            var result = testService.DeletePropertyValues(new List<PropertyValueDto> { testProperty },
+                new GenericPrincipal(new GenericIdentity("test-user"), null));
+            if (!result.FirstOrDefault().Status.Equals("success"))
             {
-                var result = testService.DeletePropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(new GenericIdentity("test-user"), null));
-                if (!result.FirstOrDefault().Status.Equals("success"))
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
 
             mockedPropertyValuesPersistentSource.Remove(Arg.Any<long?>())
                 .Returns(false);
-            try
+            IEnumerable<Response> result1 = testService.DeletePropertyValues(new List<PropertyValueDto> { testProperty },
+                new GenericPrincipal(new GenericIdentity("test-user"), null));
+            var first = result1.FirstOrDefault();
+            if (first != null && first.Status.Equals("success"))
             {
-                IEnumerable<Response> result1 = testService.DeletePropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(new GenericIdentity("test-user"), null));
-                var first = result1.FirstOrDefault();
-                if (first != null && first.Status.Equals("success"))
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
         }
 
@@ -604,18 +527,11 @@ namespace Dorc.Api.Tests
                 mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker, mockedLog,
                 mockedClaimsPrincipalReader);
 
-            try
+            var result = testService.PostPropertyValues(new List<PropertyValueDto> { testProperty },
+                new GenericPrincipal(new GenericIdentity("test-user"), null));
+            if (result.FirstOrDefault().Status.Equals("success"))
             {
-                var result = testService.PostPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(new GenericIdentity("test-user"), null));
-                if (result.FirstOrDefault().Status.Equals("success"))
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
         }
 
@@ -657,18 +573,11 @@ namespace Dorc.Api.Tests
                 mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker, mockedLog,
                 mockedClaimsPrincipalReader);
 
-            try
+            var result = testService.PostPropertyValues(new List<PropertyValueDto> { testProperty },
+                new GenericPrincipal(new GenericIdentity("test-user"), null));
+            if (result.FirstOrDefault().Status.Equals("success"))
             {
-                var result = testService.PostPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(new GenericIdentity("test-user"), null));
-                if (result.FirstOrDefault().Status.Equals("success"))
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
         }
 
@@ -726,18 +635,11 @@ namespace Dorc.Api.Tests
                 mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker, mockedLog,
                 mockedClaimsPrincipalReader);
 
-            try
+            var result = testService.PostPropertyValues(new List<PropertyValueDto> { testProperty },
+                new GenericPrincipal(new GenericIdentity("test-user"), null));
+            if (!result.FirstOrDefault().Status.Equals("success"))
             {
-                var result = testService.PostPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(new GenericIdentity("test-user"), null));
-                if (!result.FirstOrDefault().Status.Equals("success"))
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
         }
 
@@ -795,18 +697,11 @@ namespace Dorc.Api.Tests
                 mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker, mockedLog,
                 mockedClaimsPrincipalReader);
 
-            try
+            var result = testService.PostPropertyValues(new List<PropertyValueDto> { testProperty },
+                new GenericPrincipal(new GenericIdentity("test-user"), null));
+            if (!result.FirstOrDefault().Status.Equals("success"))
             {
-                var result = testService.PostPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(new GenericIdentity("test-user"), null));
-                if (!result.FirstOrDefault().Status.Equals("success"))
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
         }
 
@@ -852,18 +747,11 @@ namespace Dorc.Api.Tests
                 mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker, mockedLog,
                 mockedClaimsPrincipalReader);
 
-            try
+            var result = testService.PostPropertyValues(new List<PropertyValueDto> { testProperty },
+                new GenericPrincipal(new GenericIdentity("test-user"), null));
+            if (result.FirstOrDefault().Status.Equals("success"))
             {
-                var result = testService.PostPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(new GenericIdentity("test-user"), null));
-                if (result.FirstOrDefault().Status.Equals("success"))
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
         }
 
@@ -900,18 +788,11 @@ namespace Dorc.Api.Tests
                 mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker, mockedLog,
                 mockedClaimsPrincipalReader);
 
-            try
+            var result = testService.PutPropertyValues(new List<PropertyValueDto> { testProperty },
+                new GenericPrincipal(new GenericIdentity("test-user"), null));
+            if (!result.FirstOrDefault().Status.StartsWith("error") || !result.FirstOrDefault().Status.Contains("permissions"))
             {
-                var result = testService.PutPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(new GenericIdentity("test-user"), null));
-                if (!result.FirstOrDefault().Status.StartsWith("error") || !result.FirstOrDefault().Status.Contains("permissions"))
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
         }
 
@@ -953,18 +834,11 @@ namespace Dorc.Api.Tests
                 mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker, mockedLog,
                 mockedClaimsPrincipalReader);
 
-            try
+            var result = testService.PutPropertyValues(new List<PropertyValueDto> { testProperty },
+                new GenericPrincipal(new GenericIdentity("test-user"), null));
+            if (result.FirstOrDefault().Status.Equals("success"))
             {
-                var result = testService.PutPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(new GenericIdentity("test-user"), null));
-                if (result.FirstOrDefault().Status.Equals("success"))
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
         }
 
@@ -1031,18 +905,11 @@ namespace Dorc.Api.Tests
                 mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker, mockedLog,
                 mockedClaimsPrincipalReader);
 
-            try
+            var result = testService.PutPropertyValues(new List<PropertyValueDto> { testProperty },
+                new GenericPrincipal(new GenericIdentity("test-user"), null));
+            if (!result.FirstOrDefault().Status.Equals("success"))
             {
-                var result = testService.PutPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(new GenericIdentity("test-user"), null));
-                if (!result.FirstOrDefault().Status.Equals("success"))
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
         }
 
@@ -1110,18 +977,11 @@ namespace Dorc.Api.Tests
                 mockedPropertyValuesPersistentSource, mockedAuditsPersistentSource, mockedPrivilegesChecker, mockedLog,
                 mockedClaimsPrincipalReader);
 
-            try
+            var result = testService.PutPropertyValues(new List<PropertyValueDto> { testProperty },
+                new GenericPrincipal(new GenericIdentity("test-user"), null));
+            if (!result.FirstOrDefault().Status.Equals("success"))
             {
-                var result = testService.PutPropertyValues(new List<PropertyValueDto> { testProperty },
-                    new GenericPrincipal(new GenericIdentity("test-user"), null));
-                if (!result.FirstOrDefault().Status.Equals("success"))
-                {
-                    Assert.Fail();
-                }
-            }
-            catch (Exception e)
-            {
-                Assert.Fail(e.Message);
+                Assert.Fail();
             }
         }
 

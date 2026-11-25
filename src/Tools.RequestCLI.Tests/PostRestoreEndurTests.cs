@@ -174,6 +174,17 @@ public class PostRestoreEndurTests
         Assert.AreEqual("backup_2026.bak", historyDto.BackupFile);
         Assert.AreEqual("engineer@sefe.eu", historyDto.UpdatedBy);
 
+        // Verify UpdateEnvironmentHistory throws InvalidOperationException when API fails or returns false
+        api.Call<ApiBoolResult>(Endpoints.RefDataEnvironmentsHistory, Method.Post, Arg.Any<Dictionary<string, string>>(), Arg.Any<string>())
+            .Returns(new ApiResult<ApiBoolResult> { IsModelValid = false, ErrorMessage = "History API error" });
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            refresh.UpdateEnvironmentHistory("DV 01", "backup_2026.bak", "Self service refresh", "engineer@sefe.eu", "SelfService"));
+
+        api.Call<ApiBoolResult>(Endpoints.RefDataEnvironmentsHistory, Method.Post, Arg.Any<Dictionary<string, string>>(), Arg.Any<string>())
+            .Returns(new ApiResult<ApiBoolResult> { IsModelValid = true, Value = new ApiBoolResult { Result = false } });
+        Assert.ThrowsExactly<InvalidOperationException>(() =>
+            refresh.UpdateEnvironmentHistory("DV 01", "backup_2026.bak", "Self service refresh", "engineer@sefe.eu", "SelfService"));
+
         // Verify UpdateEndurUsers returns false when UpdatePasswordDates fails (e.g., personnel table renamed/missing)
         using (var renameCmd = new SqlCommand("EXEC sp_rename 'dbo.personnel', 'personnel_renamed'", db))
         {

@@ -248,12 +248,11 @@ namespace Dorc.PowerShell
 
                 if (kvp.Value.Value is IEnumerable<string> arrayElements)
                 {
-                    foreach (var element in arrayElements.Where(e => !string.IsNullOrEmpty(e)))
+                    foreach (var element in arrayElements.Where(element =>
+                        !string.IsNullOrEmpty(element)
+                        && (isExplicitlySensitive || (matchesKeyNameHeuristic && element.Length >= 4 && !long.TryParse(element, out _)))))
                     {
-                        if (isExplicitlySensitive || (matchesKeyNameHeuristic && element.Length >= 4 && !long.TryParse(element, out _)))
-                        {
-                            values.Add(element);
-                        }
+                        values.Add(element);
                     }
                     continue;
                 }

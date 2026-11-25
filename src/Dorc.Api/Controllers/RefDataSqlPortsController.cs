@@ -68,6 +68,8 @@ namespace Dorc.Api.Controllers
                 return StatusCode(StatusCodes.Status400BadRequest, "InstanceName and SqlPort are required.");
             if (value.InstanceName.Length > 250 || value.SqlPort.Length > 10)
                 return StatusCode(StatusCodes.Status400BadRequest, "InstanceName cannot exceed 250 characters and SqlPort cannot exceed 10 characters.");
+            if (!int.TryParse(value.SqlPort, out var portNumber) || portNumber < 1 || portNumber > 65535)
+                return StatusCode(StatusCodes.Status400BadRequest, "SqlPort must be a valid TCP port number between 1 and 65535.");
 
             try
             {

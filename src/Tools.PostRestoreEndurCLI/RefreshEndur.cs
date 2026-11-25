@@ -729,7 +729,9 @@ namespace Tools.PostRestoreEndurCLI
 
             if (!result.IsModelValid || result.Value == null || !result.Value.Result)
             {
-                Output($"Failed to update environment history: {result.ErrorMessage}");
+                var errorDetail = string.IsNullOrWhiteSpace(result.ErrorMessage) ? "API returned false" : result.ErrorMessage;
+                Output($"Failed to update environment history: {errorDetail}");
+                throw new InvalidOperationException($"Failed to update environment history for '{envName}': {errorDetail}");
             }
         }
 

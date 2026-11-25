@@ -152,12 +152,18 @@ public class PropertyValueCreationTests
                 .Returns(new ApiResult<List<Response>>
                 {
                     IsModelValid = true,
-                    Value = new List<Response> { new() { Item = "App_Port", Status = "User does not have write permission for environment 'DV 01'" } }
+                    Value = new List<Response>
+                    {
+                        new() { Item = new { Value = "SuperSecret123" }, Status = "User does not have write permission for environment 'DV 01'" },
+                        new() { Item = "ExtraItem", Status = "Extra item failed" }
+                    }
                 });
 
             var app = new Tools.PropertyValueCreationCLI.Program.Application(api, NullLogger.Instance);
             var ex = Assert.ThrowsExactly<InvalidOperationException>(() => app.Run(tempCsv));
-            StringAssert.Contains(ex.Message, "App_Port");
+            StringAssert.Contains(ex.Message, "App_Port (DV 01)");
+            StringAssert.Contains(ex.Message, "Item[1]");
+            Assert.IsFalse(ex.Message.Contains("SuperSecret123", StringComparison.Ordinal));
         }
         finally
         {

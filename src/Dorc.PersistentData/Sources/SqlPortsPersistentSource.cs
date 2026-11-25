@@ -45,6 +45,11 @@ namespace Dorc.PersistentData.Sources
                 throw new ArgumentException("InstanceName cannot exceed 250 characters and SqlPort cannot exceed 10 characters.");
             }
 
+            if (!int.TryParse(value.SqlPort, out var portNumber) || portNumber < 1 || portNumber > 65535)
+            {
+                throw new ArgumentException("SqlPort must be a valid TCP port number between 1 and 65535.");
+            }
+
             using (var context = _contextFactory.GetContext())
             {
                 var currentSqlPort = context.SqlPorts.FirstOrDefault(
