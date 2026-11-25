@@ -84,9 +84,23 @@ namespace Dorc.Core.VariableResolution
         {
             try
             {
-                return _parser.Parse(raw)
-                    .OfType<PropertyToken>()
-                    .Select(token => token.Value)
+                var candidates = new List<string> { raw };
+                if (raw.TrimStart().StartsWith("[", StringComparison.Ordinal))
+                {
+                    try
+                    {
+                        var elements = System.Text.Json.JsonSerializer.Deserialize<string[]>(raw)!;
+                        candidates.AddRange(elements);
+                    }
+                    catch (System.Text.Json.JsonException)
+                    {
+                        // Non-string or malformed JSON array; raw parser below handles it.
+                    }
+                }
+
+                return candidates
+                    .SelectMany(candidate => _parser.Parse(candidate).OfType<PropertyToken>().Select(token => token.Value))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
             }
             catch (InvalidOperationException)

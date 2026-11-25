@@ -127,11 +127,11 @@ public class PowerShellEvidenceCaptureTests
     [TestMethod]
     public void PowerShellScriptRunner_ArrayVariables_InjectsStringArraysAndRedactsSecretArrayElements()
     {
-        var tempDir = Path.Combine(AppContext.BaseDirectory, "ps-array-runner-tests", Guid.NewGuid().ToString("N"));
+        var tempDir = Path.Join(AppContext.BaseDirectory, "ps-array-runner-tests", Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(tempDir);
         try
         {
-            var scriptPath = Path.Combine(tempDir, "test-array.ps1");
+            var scriptPath = Path.Join(tempDir, "test-array.ps1");
             File.WriteAllText(scriptPath, @"
 if ($PlainArray -isnot [string[]] -or $PlainArray.Count -ne 2 -or $PlainArray[0] -ne 'item-alpha' -or $PlainArray[1] -ne 'item-beta') {
     throw ""PlainArray type/value mismatch: $($PlainArray.GetType().FullName)""
@@ -139,7 +139,7 @@ if ($PlainArray -isnot [string[]] -or $PlainArray.Count -ne 2 -or $PlainArray[0]
 if ($SecretArray -isnot [string[]] -or $SecretArray.Count -lt 2) {
     throw ""SecretArray type/count mismatch""
 }
-Write-Output ""PlainJoin=$($PlainArray -join '|') SecretLeak=$($SecretArray[0]) and $($SecretArray[1])""
+Write-Output ""PlainJoin=$($PlainArray -join '|') SecretLeak=$($SecretArray[0]) and $($SecretArray[1]) Explicit=$($ExplicitSecretArray -join '|')""
 ");
 
             var logger = Substitute.For<Dorc.Runner.Logger.IRunnerLogger>();
@@ -149,7 +149,7 @@ Write-Output ""PlainJoin=$($PlainArray -join '|') SecretLeak=$($SecretArray[0]) 
                 .Do(ci => loggedMessages.Add(ci.Arg<string>()));
 
             var contract1 = Group();
-            File.WriteAllText(Path.Combine(contract1.PowerShellEvidenceDirectory, "0.json"), JsonSerializer.Serialize(new PowerShellEvidence
+            File.WriteAllText(Path.Join(contract1.PowerShellEvidenceDirectory, "0.json"), JsonSerializer.Serialize(new PowerShellEvidence
             {
                 RequestId = contract1.DefinitionRequestId, ResultId = contract1.DeployResultId,
                 DefinitionRevision = contract1.DefinitionRevision, ScriptOrdinal = 0,
@@ -175,7 +175,7 @@ Write-Output ""PlainJoin=$($PlainArray -join '|') SecretLeak=$($SecretArray[0]) 
 
             var explicitContract = Group();
             explicitContract.SensitivePropertyNames = new List<string> { "ExplicitSecretArray" };
-            File.WriteAllText(Path.Combine(explicitContract.PowerShellEvidenceDirectory, "0.json"), JsonSerializer.Serialize(new PowerShellEvidence
+            File.WriteAllText(Path.Join(explicitContract.PowerShellEvidenceDirectory, "0.json"), JsonSerializer.Serialize(new PowerShellEvidence
             {
                 RequestId = explicitContract.DefinitionRequestId, ResultId = explicitContract.DeployResultId,
                 DefinitionRevision = explicitContract.DefinitionRevision, ScriptOrdinal = 0,
@@ -188,7 +188,11 @@ Write-Output ""PlainJoin=$($PlainArray -join '|') SecretLeak=$($SecretArray[0]) 
                 ["SecretArray"] = new() { Value = new[] { "NonSecretOne", "NonSecretTwo", "NonSecretThree" }, Type = typeof(string[]) },
                 ["ExplicitSecretArray"] = new() { Value = new[] { "ExplicitSecretElem" }, Type = typeof(string[]) }
             };
+            loggedMessages.Clear();
             Assert.AreEqual(0, explicitRunner.Run(tempDir, scriptPath, explicitProps, new Dictionary<string, Dorc.ApiModel.MonitorRunnerApi.VariableValue>()));
+            var explicitOutput = string.Join("\n", loggedMessages);
+            Assert.IsFalse(explicitOutput.Contains("ExplicitSecretElem", StringComparison.Ordinal));
+            StringAssert.Contains(explicitOutput, "Explicit=[REDACTED]");
             Directory.Delete(explicitContract.PowerShellEvidenceDirectory, true);
         }
         finally

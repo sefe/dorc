@@ -684,7 +684,15 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
             }
             finally
             {
-                UpsertPropertyValue(caller, arrayCorrelationProp, secure: false, envFilter: LiveChildEnvName, value: string.Empty, isArray: false);
+                try
+                {
+                    UpsertPropertyValue(caller, arrayCorrelationProp, secure: false, envFilter: LiveChildEnvName, value: string.Empty, isArray: false);
+                }
+                catch
+                {
+                    // Best-effort cleanup of shared correlation marker
+                }
+
                 DeletePropertiesBestEffort(
                     caller,
                     tagProp,

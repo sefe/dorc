@@ -62,9 +62,9 @@ namespace Tools.PostRestoreEndurCLI
                     succeeded &= libRefreshEndur.UpdateTPMConfig(strEnvironment);
                     if (bolFoldDownAppServers || bolOnlyClearSchedules)
                         succeeded &= libRefreshEndur.FoldDownRunsites(strEnvironment, bolOnlyClearSchedules);
+                    succeeded &= libRefreshEndur.UpdateEndurUsers(strEnvironment);
                     libRefreshEndur.UpdateEnvironmentHistory(strEnvironment, strBackupFile, "Self service refresh", strEmailAddress,
                         "SelfService");
-                    succeeded &= libRefreshEndur.UpdateEndurUsers(strEnvironment);
 
                     if (!succeeded)
                     {

@@ -199,6 +199,11 @@ namespace Dorc.Core.Tests
                     Value = "[not-valid-json",
                     Property = new PropertyApiModel { Name = "MalformedJsonArray", Secure = false, IsArray = true }
                 },
+                ["EscapedTaintArray"] = new PropertyValueDto
+                {
+                    Value = "[\"fn:\\u0022\\u0024ReqInput\\u0024\\u0022\"]",
+                    Property = new PropertyApiModel { Name = "EscapedTaintArray", Secure = false, IsArray = true }
+                },
                 ["JoinedSummary"] = new PropertyValueDto
                 {
                     Value = "hosts=$BaseHosts$!",
@@ -246,6 +251,11 @@ namespace Dorc.Core.Tests
 
             _resolver.SetRequestSuppliedPropertyValue("RequestScalarArrayOverride", "fn:1+1");
             CollectionAssert.AreEqual(new[] { "fn:1+1" }, (string[])_resolver.GetPropertyValue("RequestScalarArrayOverride")!.Value);
+
+            // JSON-escaped reference to request-supplied property must still be detected as tainted (no C# evaluation)
+            _resolver.SetRequestSuppliedPropertyValue("ReqInput", "tainted");
+            CollectionAssert.AreEqual(new[] { "fn:\"tainted\"" }, (string[])_resolver.GetPropertyValue("EscapedTaintArray")!.Value);
+            CollectionAssert.AreEqual(new[] { "[not-valid-json" }, (string[])_resolver.GetPropertyValue("MalformedJsonArray")!.Value);
 
             // Repository-backed (not in localProperties) array lookup
             _propertyValuesPersistentSource.GetCachedPropertyValue("RepoOnlyArray")

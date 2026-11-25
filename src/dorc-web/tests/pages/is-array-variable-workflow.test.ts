@@ -194,10 +194,33 @@ describe('IsArray variable UI workflow', () => {
     expect(inlineAddBtn).not.toBeNull();
 
     inlineDraft.value = 'node-c';
-    inlineAddBtn.click();
+    inlineDraft.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+    );
     await settle();
 
     expect(control.value.Value).toBe('["node-a","node-b","node-c"]');
+
+    // Cancel restores the original array items before editing started
+    control._editClick();
+    control.editing = true;
+    await settle();
+    control._removeArrayItem(0);
+    await settle();
+    expect(control.value.Value).toBe('["node-b","node-c"]');
+    control._cancelClick();
+    control.editing = false;
+    await settle();
+    expect(control.value.Value).toBe('["node-a","node-b","node-c"]');
+
+    // Re-enter edit mode, type a pending item without clicking + Item, and verify Save auto-commits it
+    control._editClick();
+    control.editing = true;
+    await settle();
+    const pendingDraft = control.shadowRoot?.querySelector(
+      '#addArrayItemInput42'
+    ) as any;
+    pendingDraft.value = 'node-d';
 
     // Save and verify JSON array payload is sent to PUT /PropertyValues
     const saveBtn = control.shadowRoot?.querySelector(
@@ -210,12 +233,46 @@ describe('IsArray variable UI workflow', () => {
       propertyValueDto: [
         expect.objectContaining({
           Id: 42,
-          Value: '["node-a","node-b","node-c"]'
+          Value: '["node-a","node-b","node-c","node-d"]'
         })
       ]
     });
 
+    // 3. Secure array property uses password input and masks chips & aria-labels
+    const secureControl = document.createElement(
+      'variable-value-controls'
+    ) as VariableValueControls;
+    secureControl.value = {
+      Id: 43,
+      Value: '["secret-one"]',
+      UserEditable: true,
+      Property: { Name: 'SecretTokens', Secure: true, IsArray: true }
+    };
+    document.body.appendChild(secureControl);
+    await settle();
+    secureControl._editClick();
+    secureControl.editing = true;
+    await settle();
+
+    const secureDraft = secureControl.shadowRoot?.querySelector(
+      '#addArrayItemInput43'
+    ) as any;
+    expect(secureDraft?.tagName.toLowerCase()).toBe('vaadin-password-field');
+    secureDraft.value = 'top-secret-item';
+    secureControl._appendArrayItem();
+    await settle();
+
+    const secureChipText = secureControl.shadowRoot?.querySelector(
+      '.array-items-editor .array-item-text'
+    );
+    const secureRemoveBtn = secureControl.shadowRoot?.querySelector(
+      '.array-items-editor .remove-array-item-btn'
+    );
+    expect(secureChipText?.textContent?.trim()).toBe('••••••');
+    expect(secureRemoveBtn?.getAttribute('aria-label')).toBe('Remove item 1');
+
     putValuesSpy.mockRestore();
+    secureControl.remove();
     control.remove();
   });
 });

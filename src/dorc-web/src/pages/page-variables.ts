@@ -935,8 +935,14 @@ export class PageVariables extends PageElement {
       const checkboxArray = this.shadowRoot?.querySelector(
         '#is-variable-array'
       ) as unknown as Checkbox;
+      const newVariableValueInput = this.shadowRoot?.querySelector(
+        '#newVariableValue'
+      ) as unknown as TextField | null;
 
       this.newArrayItems = [];
+      if (newVariableValueInput) {
+        newVariableValueInput.value = '';
+      }
 
       if (existingProperty) {
         this.existingPropertySelected = true;
@@ -996,17 +1002,22 @@ export class PageVariables extends PageElement {
 
   private loadVariableValues() {
     if (this.propertyName !== '') {
+      const requestedPropertyName = this.propertyName;
       this.loadingPropertyValues = true;
       const api = new PropertyValuesApi(dorcApiConfiguration);
-      api.propertyValuesGet({ propertyName: this.propertyName }).subscribe({
+      api.propertyValuesGet({ propertyName: requestedPropertyName }).subscribe({
         next: (data: PropertyValueDto[]) => {
-          this.setVariableValues(data);
+          if (this.propertyName === requestedPropertyName) {
+            this.setVariableValues(data);
+          }
         },
         error: (err: any) => {
-          if (err.status !== 404) {
-            this.errorAlert(err);
+          if (this.propertyName === requestedPropertyName) {
+            if (err.status !== 404) {
+              this.errorAlert(err);
+            }
+            this.setVariableValues([]);
           }
-          this.setVariableValues([]);
         },
         complete: () => console.log('done loading variable values')
       });
@@ -1153,8 +1164,10 @@ export class PageVariables extends PageElement {
     if (existingProperty && propertyName) {
       const originallyArray = existingProperty.IsArray ?? false;
       const revertCheckboxState = () => {
-        checkbox.checked = originallyArray;
-        this.selectedPropertyIsArray = originallyArray;
+        if (this.propertyName === propertyName) {
+          checkbox.checked = originallyArray;
+          this.selectedPropertyIsArray = originallyArray;
+        }
       };
 
       const confirmMessage = !originallyArray
@@ -1178,8 +1191,11 @@ export class PageVariables extends PageElement {
         next: (data: Response[]) => {
           if (data[0]?.Status === 'success') {
             existingProperty.IsArray = !originallyArray;
-            this.selectedPropertyIsArray = !originallyArray;
-            checkbox.checked = !originallyArray;
+            if (this.propertyName === propertyName) {
+              this.selectedPropertyIsArray = !originallyArray;
+              checkbox.checked = !originallyArray;
+              this.loadVariableValues();
+            }
             Notification.show(
               `Property "${propertyName}" updated to ${!originallyArray ? 'Array' : 'Scalar'} successfully.`,
               {
@@ -1187,7 +1203,6 @@ export class PageVariables extends PageElement {
                 theme: 'success'
               }
             );
-            this.loadVariableValues();
           } else {
             revertCheckboxState();
             this.errorAlert([data[0]]);
@@ -1264,8 +1279,7 @@ export class PageVariables extends PageElement {
             combinedItems.push(rawInput);
           }
         }
-        valueToSave =
-          combinedItems.length > 0 ? JSON.stringify(combinedItems) : rawInput;
+        valueToSave = JSON.stringify(combinedItems);
       }
 
       const propertyValueDto: PropertyValueDto = {

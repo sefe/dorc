@@ -305,12 +305,12 @@ namespace Dorc.PersistentData.Sources
 
         public bool IsCachedPropertySecure(string propertyName)
         {
-            return _cachedProperties.ContainsKey(propertyName) && _cachedProperties[propertyName].Property.Secure;
+            return _cachedProperties.TryGetValue(propertyName, out var cachedProperty) && cachedProperty.Property.Secure;
         }
 
         public bool IsCachedPropertyArray(string propertyName)
         {
-            return _cachedProperties.ContainsKey(propertyName) && _cachedProperties[propertyName].Property.IsArray;
+            return _cachedProperties.TryGetValue(propertyName, out var cachedProperty) && cachedProperty.Property.IsArray;
         }
 
         public IDictionary<string, PropertyValueDto> LoadAllPropertiesIntoCache()
@@ -775,9 +775,9 @@ namespace Dorc.PersistentData.Sources
         private static PropertyValue MapToPropertyValue(PropertyValueDto pv, Property prop)
         {
             var rawValue = pv.Value?.ToString() ?? string.Empty;
-            if (prop.IsArray && !IsValidJsonArray(rawValue))
+            if (prop.IsArray)
             {
-                rawValue = JsonSerializer.Serialize(new[] { rawValue });
+                rawValue = NormalizeArrayValue(rawValue);
             }
 
             return new PropertyValue
@@ -796,7 +796,8 @@ namespace Dorc.PersistentData.Sources
             try
             {
                 using var doc = JsonDocument.Parse(value);
-                return doc.RootElement.ValueKind == JsonValueKind.Array;
+                return doc.RootElement.ValueKind == JsonValueKind.Array
+                    && doc.RootElement.EnumerateArray().All(e => e.ValueKind == JsonValueKind.String);
             }
             catch (JsonException)
             {

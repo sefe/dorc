@@ -224,6 +224,10 @@ filter Convert-CsvToCsvProperties([Parameter(Mandatory = $true, ValueFromPipelin
     $property.Environment = $csvProperty.Environment
     $property.Value = $csvProperty.Value
     $property.IsSecured = [bool]::parse($csvProperty.IsSecured)
+    if ($null -ne $csvProperty.PSObject.Properties['IsArray'] -and -not [string]::IsNullOrWhiteSpace([string]$csvProperty.IsArray))
+    {
+        $property.IsArray = [bool]::parse([string]$csvProperty.IsArray)
+    }
     $property.PropertyName = $csvProperty.PropertyName
     $property
 }
@@ -232,6 +236,7 @@ filter Convert-CsvPropertiesToListProperties([Parameter(Mandatory = $true, Value
     $property = [Property]::new()
     $property.Name = $csvProperty.PropertyName
     $property.Secure = $csvProperty.IsSecured
+    $property.IsArray = [bool]$csvProperty.IsArray
     $property
 }
 
@@ -242,6 +247,7 @@ filter Convert-CsvPropertiesToValuesList([Parameter(Mandatory = $true, ValueFrom
     $value.Value = $csvProperty.Value
     $value.Property = [Property]::new()
     $value.Property.Secure = $csvProperty.IsSecured
+    $value.Property.IsArray = [bool]$csvProperty.IsArray
     $value.Property.Name = $csvProperty.PropertyName
     $value
 }
@@ -253,6 +259,7 @@ filter Convert-PropertyValueToCsvProperty([Parameter(Mandatory = $true, ValueFro
     $property.Value = $PropertyValue.Value
     $property.PropertyName = $PropertyValue.Property.Name
     $property.IsSecured = $PropertyValue.Property.Secure
+    $property.IsArray = [bool]$PropertyValue.Property.IsArray
     $property
 }
 

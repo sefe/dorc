@@ -566,7 +566,8 @@ namespace Dorc.Api.Tests
             Assert.AreEqual("success", putBatchResults[2].Status);
             Assert.IsTrue(putBatchResults[3].Status.Contains("does not exist"));
 
-            // EncryptExistingPropertyValues exception branch
+            // EncryptExistingPropertyValues exception branch (verifies UpdateProperty is NOT called when encryption fails)
+            propsSource.ClearReceivedCalls();
             propsSource.GetProperty("EncryptBoom").Returns(new PropertyApiModel { Id = 23, Name = "EncryptBoom", Secure = false });
             propValuesSource.GetPropertyValuesByName("EncryptBoom").Returns(_ => throw new InvalidOperationException("db down"));
             var encBoomRes = editor.PutProperties(new Dictionary<string, PropertyApiModel>
@@ -574,6 +575,17 @@ namespace Dorc.Api.Tests
                 ["EncryptBoom"] = new PropertyApiModel { Name = "EncryptBoom", Secure = true }
             }, _user).Single();
             Assert.IsTrue(encBoomRes.Status.Contains("error: failed to encrypt existing property values - db down"));
+            propsSource.DidNotReceive().UpdateProperty(Arg.Is<PropertyApiModel>(p => p.Name == "EncryptBoom"));
+
+            // EncryptExistingPropertyValues when UpdateProperty returns false
+            propsSource.GetProperty("EncryptCommitFalse").Returns(new PropertyApiModel { Id = 24, Name = "EncryptCommitFalse", Secure = false });
+            propValuesSource.GetPropertyValuesByName("EncryptCommitFalse").Returns(Array.Empty<PropertyValueDto>());
+            propsSource.UpdateProperty(Arg.Is<PropertyApiModel>(p => p.Name == "EncryptCommitFalse")).Returns(false);
+            var encCommitFalseRes = editor.PutProperties(new Dictionary<string, PropertyApiModel>
+            {
+                ["EncryptCommitFalse"] = new PropertyApiModel { Name = "EncryptCommitFalse", Secure = true }
+            }, _user).Single();
+            Assert.AreEqual("error: failed to update variable in the database", encCommitFalseRes.Status);
 
             // PutProperties general exception branch
             propsSource.GetProperty("PutBoom").Returns(_ => throw new InvalidOperationException("put boom"));

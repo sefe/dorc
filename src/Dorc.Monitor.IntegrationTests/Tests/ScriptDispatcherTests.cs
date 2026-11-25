@@ -100,6 +100,9 @@ Write-Information ""Deployed to $EndpointUrl with secret $ApiSecretKey""
             var updatedSecondReq = requestsSource.GetRequest(secondRequestId);
             Assert.AreEqual(DeploymentRequestStatus.Completed.ToString(), updatedSecondReq.Status, $"Expected Completed on file transport but got {updatedSecondReq.Status}: {updatedSecondReq.Log}");
             Assert.IsTrue(File.Exists(outputMarkerFile), "PowerShell script should have executed via ScriptGroupFileReader.");
+            Assert.AreEqual(
+                $"Env={seeded.ChildEnvName}|Region=eu-west-2|Endpoint=https://eu-west-2.{seeded.ChildEnvName}.sefe.internal|Secret=TopSecretValue-{ext}|Tags=alpha,beta",
+                File.ReadAllText(outputMarkerFile));
 
             // 3. Terminating PowerShell exception ('throw $ApiSecretKey') must redact secret values in logs and exception output
             File.WriteAllText(scriptPath, @"

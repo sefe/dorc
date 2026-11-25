@@ -190,6 +190,29 @@ Describe "Convert-CsvToCsvProperties validation" {
         $result.Value | Should -Be "ValidValue"
         $result.Environment | Should -Be "Development"
         $result.IsSecured | Should -Be $false
+        $result.IsArray | Should -Be $false
+    }
+
+    It "Preserves IsArray flag across CSV conversion filters" {
+        $arrayRow = [PSCustomObject]@{
+            PropertyName = "ArrayProperty"
+            Environment  = "Development"
+            Value        = '["a","b"]'
+            IsSecured    = "true"
+            IsArray      = "true"
+        }
+
+        $csvProp = $arrayRow | Convert-CsvToCsvProperties
+        $csvProp.IsArray | Should -Be $true
+
+        $listProp = $csvProp | Convert-CsvPropertiesToListProperties
+        $listProp.IsArray | Should -Be $true
+
+        $valObj = $csvProp | Convert-CsvPropertiesToValuesList
+        $valObj.Property.IsArray | Should -Be $true
+
+        $exported = $valObj | Convert-PropertyValueToCsvProperty
+        $exported.IsArray | Should -Be $true
     }
 
     It "Rejects blank PropertyName" {

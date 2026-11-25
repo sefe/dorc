@@ -152,21 +152,24 @@ namespace Dorc.Api.Properties
 
                     // Check if property is being changed from non-secure to secure
                     bool shouldEncryptExistingValues = !currentProperty.Secure && propertyUpdateEntry.Value.Secure;
+                    if (shouldEncryptExistingValues)
+                    {
+                        var encryptionResult = EncryptExistingPropertyValues(
+                            propertyUpdateEntry.Value.Name,
+                            propertyUpdateEntry.Value.IsArray,
+                            () => _propertiesPersistentSource.UpdateProperty(propertyUpdateEntry.Value));
+                        if (encryptionResult != null)
+                        {
+                            result.Add(encryptionResult);
+                            continue;
+                        }
+
+                        result.Add(new Response { Item = propertyUpdateEntry, Status = "success" });
+                        continue;
+                    }
 
                     if (_propertiesPersistentSource.UpdateProperty(propertyUpdateEntry.Value))
                     {
-                        // If property was changed to secure, encrypt all existing property values
-                        if (shouldEncryptExistingValues)
-                        {
-                            var isArray = currentProperty.IsArray || propertyUpdateEntry.Value.IsArray;
-                            var encryptionResult = EncryptExistingPropertyValues(propertyUpdateEntry.Value.Name, isArray);
-                            if (encryptionResult != null)
-                            {
-                                result.Add(encryptionResult);
-                                continue;
-                            }
-                        }
-
                         result.Add(new Response { Item = propertyUpdateEntry, Status = "success" });
                         continue;
                     }
@@ -275,34 +278,43 @@ namespace Dorc.Api.Properties
             return result;
         }
 
-        private Response? EncryptExistingPropertyValues(string propertyName, bool isArray)
+        private Response? EncryptExistingPropertyValues(string propertyName, bool isArray, Func<bool> commitPropertyUpdate)
         {
             try
             {
-                // Get all property values for this property
                 var propertyValues = _propertyValuesPersistentSource.GetPropertyValuesByName(propertyName);
-                
-                if (propertyValues == null || !propertyValues.Any())
-                {
-                    // No property values exist, nothing to encrypt
-                    return null;
-                }
+                var encryptedUpdates = new List<(long Id, string EncryptedValue)>();
 
-                // Encrypt each property value
-                foreach (var propertyValue in propertyValues)
+                if (propertyValues != null)
                 {
-                    if (!string.IsNullOrEmpty(propertyValue.Value))
+                    foreach (var propertyValue in propertyValues)
                     {
-                        var encryptedValue = isArray
-                            ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.EncryptArrayValue(propertyValue.Value, _propertyEncryptor)
-                            : _propertyEncryptor.EncryptValue(propertyValue.Value);
-                        _propertyValuesPersistentSource.UpdatePropertyValue(propertyValue.Id, encryptedValue);
-                        
-                        _log.LogInformation($"Encrypted property value for property '{propertyName}' (ID: {propertyValue.Id})");
+                        if (!string.IsNullOrEmpty(propertyValue.Value))
+                        {
+                            var encryptedValue = isArray
+                                ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.EncryptArrayValue(propertyValue.Value, _propertyEncryptor)
+                                : _propertyEncryptor.EncryptValue(propertyValue.Value);
+                            encryptedUpdates.Add((propertyValue.Id, encryptedValue));
+                        }
                     }
                 }
 
-                return null; // Success, no error response
+                if (!commitPropertyUpdate())
+                {
+                    return new Response
+                    {
+                        Item = propertyName,
+                        Status = "error: failed to update variable in the database"
+                    };
+                }
+
+                foreach (var (id, encryptedValue) in encryptedUpdates)
+                {
+                    _propertyValuesPersistentSource.UpdatePropertyValue(id, encryptedValue);
+                    _log.LogInformation($"Encrypted property value for property '{propertyName}' (ID: {id})");
+                }
+
+                return null;
             }
             catch (Exception e)
             {
