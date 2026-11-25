@@ -30,7 +30,7 @@
     "audit:renderers": "node tools/gate-check.mjs && node tools/renderer-audit.mjs --check && node tools/renderer-deps.mjs && node tools/confirm-prompt-snapshot.mjs"
   },
   "dependencies": {
-    "@microsoft/signalr": "^10.0.11",
+    "@microsoft/signalr": "^11.0.0",
     "@rollup/plugin-json": "^6.1.0",
     "@rollup/plugin-typescript": "^12.3.1",
     "@types/ace": "^0.0.52",
