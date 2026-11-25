@@ -21,7 +21,7 @@ import {
   parseScriptPathValue,
   serializeScriptPathValue,
   type GenericScriptTemplate
-} from '../helpers/generic-scripts';
+} from '../script-catalog/generic-scripts';
 
 const CUSTOM_SCRIPT_OPTION = '__custom__';
 

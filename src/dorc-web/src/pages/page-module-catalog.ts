@@ -18,7 +18,8 @@ import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import {
   GENERIC_SCRIPT_TEMPLATES,
   serializeScriptPathValue
-} from '../helpers/generic-scripts';
+} from '../script-catalog/generic-scripts';
+import { DEFAULT_POWERSHELL_VERSION } from '../script-catalog/powershell-versions';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import '../components/deploy-from-template-dialog';
 import { BRAND_ICON_PATHS, BrandIcon } from '../icons/brand-icons';
@@ -1185,7 +1186,7 @@ export class PageModuleCatalog extends PageElement {
               .filter(arg => arg.value.length > 0)
           );
           const addHref = projectId
-            ? `/project-ref-data/${projectId}?addScriptName=${encodeURIComponent(template.defaultStepName)}&addScriptPath=${encodeURIComponent(initialPath)}&addPsVersion=5.1&addNonProdOnly=false&addStopOnFailure=true`
+            ? `/project-ref-data/${projectId}?addScriptName=${encodeURIComponent(template.defaultStepName)}&addScriptPath=${encodeURIComponent(initialPath)}&addPsVersion=${encodeURIComponent(DEFAULT_POWERSHELL_VERSION)}&addNonProdOnly=false&addStopOnFailure=true`
             : `/scripts`;
           return html`
             <article class="card">
@@ -1235,7 +1236,7 @@ export class PageModuleCatalog extends PageElement {
         ${scripts.map(item => {
           const comp = item.Component;
           const addHref = projectId
-            ? `/project-ref-data/${projectId}?addScriptName=${encodeURIComponent(comp?.ComponentName ?? 'Script step')}&addScriptPath=${encodeURIComponent(comp?.ScriptPath ?? '')}&addPsVersion=${encodeURIComponent(comp?.PSVersion ?? '5.1')}&addNonProdOnly=${comp?.NonProdOnly ? 'true' : 'false'}&addStopOnFailure=${comp?.StopOnFailure === false ? 'false' : 'true'}`
+            ? `/project-ref-data/${projectId}?addScriptName=${encodeURIComponent(comp?.ComponentName ?? 'Script step')}&addScriptPath=${encodeURIComponent(comp?.ScriptPath ?? '')}&addPsVersion=${encodeURIComponent(comp?.PSVersion ?? DEFAULT_POWERSHELL_VERSION)}&addNonProdOnly=${comp?.NonProdOnly ? 'true' : 'false'}&addStopOnFailure=${comp?.StopOnFailure === false ? 'false' : 'true'}`
             : `/scripts`;
           return html`
             <article class="card">
@@ -1246,7 +1247,9 @@ export class PageModuleCatalog extends PageElement {
                 <div class="card-title">
                   <div class="title-row">
                     <h2>${comp?.ComponentName || 'PowerShell Script'}</h2>
-                    <span class="pill">PS ${comp?.PSVersion || '5.1'}</span>
+                    <span class="pill"
+                      >PS ${comp?.PSVersion || DEFAULT_POWERSHELL_VERSION}</span
+                    >
                   </div>
                   <div class="meta">
                     PowerShell

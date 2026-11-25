@@ -39,7 +39,11 @@ import {
   GENERIC_SCRIPT_TEMPLATES,
   serializeScriptPathValue,
   type GenericScriptTemplate
-} from '../helpers/generic-scripts';
+} from '../script-catalog/generic-scripts';
+import {
+  DEFAULT_POWERSHELL_VERSION,
+  FALLBACK_POWERSHELL_VERSIONS
+} from '../script-catalog/powershell-versions';
 import {
   formatShortSha,
   renderShaBadge,
@@ -101,7 +105,9 @@ export class PageProjectRefData extends PageElement {
   @state() private loading = false;
   @state() private saving = false;
   @state() private error = '';
-  @state() private powerShellVersions: string[] = [];
+  @state() private powerShellVersions: string[] = [
+    ...FALLBACK_POWERSHELL_VERSIONS
+  ];
   @state() private jsonDirty = false;
   @state() private backendEnvironments: EnvironmentApiModel[] = [];
   @state() private backendEnvironmentError = '';
@@ -114,7 +120,7 @@ export class PageProjectRefData extends PageElement {
     GENERIC_SCRIPT_TEMPLATES[0]?.id ?? '';
   @state() private genericDialogStepName =
     GENERIC_SCRIPT_TEMPLATES[0]?.defaultStepName ?? 'Deploy MSI';
-  @state() private genericDialogPsVersion = '5.1';
+  @state() private genericDialogPsVersion = DEFAULT_POWERSHELL_VERSION;
   @state() private genericDialogArgs: Record<string, string> = {};
   @state() private scriptCatalogLoading = false;
   @state() private scriptCatalogItems: DeploymentDefinitionApiModel[] = [];
@@ -636,14 +642,15 @@ export class PageProjectRefData extends PageElement {
       .powerShellVersionsGet()
       .subscribe({
         next: versions => {
-          this.powerShellVersions = versions
+          const loaded = versions
             .map(version => version.Value)
             .filter((version): version is string => Boolean(version));
+          this.powerShellVersions = loaded.length
+            ? loaded
+            : [...FALLBACK_POWERSHELL_VERSIONS];
         },
-        error: error => {
-          this.error =
-            retrieveErrorMessage(error) ||
-            'Could not load supported PowerShell versions.';
+        error: () => {
+          this.powerShellVersions = [...FALLBACK_POWERSHELL_VERSIONS];
         }
       });
   }
@@ -769,7 +776,9 @@ export class PageProjectRefData extends PageElement {
                 ComponentName:
                   searchParams.get('addScriptName') || 'Script step',
                 ScriptPath: addScriptPath,
-                PSVersion: searchParams.get('addPsVersion') || '5.1',
+                PSVersion:
+                  searchParams.get('addPsVersion') ||
+                  DEFAULT_POWERSHELL_VERSION,
                 NonProdOnly: searchParams.get('addNonProdOnly') === 'true',
                 StopOnFailure: searchParams.get('addStopOnFailure') !== 'false',
                 IsEnabled: true
@@ -1006,7 +1015,7 @@ export class PageProjectRefData extends PageElement {
       IsEnabled: true,
       StopOnFailure: true,
       NonProdOnly: false,
-      PSVersion: '5.1',
+      PSVersion: DEFAULT_POWERSHELL_VERSION,
       ParentId: 0,
       Children: []
     });
@@ -1042,7 +1051,7 @@ export class PageProjectRefData extends PageElement {
       IsEnabled: source.IsEnabled ?? true,
       StopOnFailure: source.StopOnFailure ?? true,
       NonProdOnly: source.NonProdOnly ?? false,
-      PSVersion: source.PSVersion ?? '5.1',
+      PSVersion: source.PSVersion ?? DEFAULT_POWERSHELL_VERSION,
       ParentId: source.ParentId ?? 0,
       Children: []
     };
@@ -1075,7 +1084,7 @@ export class PageProjectRefData extends PageElement {
       IsEnabled: target.IsEnabled ?? true,
       StopOnFailure: target.StopOnFailure ?? true,
       NonProdOnly: target.NonProdOnly ?? false,
-      PSVersion: target.PSVersion ?? '5.1',
+      PSVersion: target.PSVersion ?? DEFAULT_POWERSHELL_VERSION,
       ParentId: target.ComponentId ?? 0,
       Children: []
     });
@@ -1145,7 +1154,7 @@ export class PageProjectRefData extends PageElement {
       {
         ComponentName: this.genericDialogStepName || template.defaultStepName,
         ScriptPath: scriptPath,
-        PSVersion: this.genericDialogPsVersion || '5.1',
+        PSVersion: this.genericDialogPsVersion || DEFAULT_POWERSHELL_VERSION,
         IsEnabled: true,
         StopOnFailure: true,
         NonProdOnly: false
@@ -1213,7 +1222,7 @@ export class PageProjectRefData extends PageElement {
       IsEnabled: comp.IsEnabled ?? true,
       StopOnFailure: comp.StopOnFailure ?? true,
       NonProdOnly: comp.NonProdOnly ?? false,
-      PSVersion: comp.PSVersion ?? '5.1',
+      PSVersion: comp.PSVersion ?? DEFAULT_POWERSHELL_VERSION,
       ParentId: 0,
       Children: []
     };
@@ -1897,16 +1906,12 @@ export class PageProjectRefData extends PageElement {
                         ></vaadin-text-field>
                         <vaadin-combo-box
                           label="PowerShell version"
-                          .items=${
-                            this.powerShellVersions.length
-                              ? this.powerShellVersions
-                              : ['5.1', '7.4']
-                          }
+                          .items=${this.powerShellVersions}
                           .value=${this.genericDialogPsVersion}
                           @change=${(event: Event) => {
                             this.genericDialogPsVersion =
                               (event.currentTarget as HTMLInputElement).value ||
-                              '5.1';
+                              DEFAULT_POWERSHELL_VERSION;
                           }}
                         ></vaadin-combo-box>
                         ${activeTemplate.parameters.map(param =>
@@ -2011,7 +2016,7 @@ export class PageProjectRefData extends PageElement {
                                     >
                                     <span
                                       >${item.Component?.ScriptPath ?? ''}
-                                      (${item.Component?.PSVersion ?? '5.1'})</span
+                                      (${item.Component?.PSVersion ?? DEFAULT_POWERSHELL_VERSION})</span
                                     >
                                   </div>
                                   <vaadin-button

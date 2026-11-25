@@ -133,6 +133,7 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
       }
     ],
     requiredEnvironmentProperties: [
+      'DropFolder',
       'SQLPackagePath',
       'DACPACPublishProfile',
       'DACPACBlackList',
@@ -158,11 +159,16 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
       }
     ],
     requiredEnvironmentProperties: [
+      'DropFolder',
       'SQLPackagePath',
       'DACPACPublishProfile',
       'DACPACBlackList',
       'DACPACEnvironmentPostSQL',
-      'DACPACRollbackMode'
+      'DACPACRollbackMode',
+      'DacpacDeployClientId',
+      'DacpacDeployClientSecret',
+      'DacpacDeployTenantDomain',
+      'ResourceUrl'
     ]
   },
   {
@@ -184,6 +190,7 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
       }
     ],
     requiredEnvironmentProperties: [
+      'DropFolder',
       'SQLPackagePath',
       'DACPACPublishProfile',
       'DACPACBlackList',
@@ -264,6 +271,10 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
       'EnvMgtDBName',
       'RestoreMode',
       'RestoreSource',
+      'DORC_DropDBExePath',
+      'CommVaultToken',
+      'DBACommvaultModuleVer',
+      'CommvaultBackupCopy',
       'CommVaultApiURL'
     ]
   },
@@ -284,11 +295,20 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
         helperText: 'XML definition filename to import.'
       },
       {
-        name: 'app',
-        label: 'Application folder (app)',
+        name: 'alt_app',
+        label: 'Application folder override (alt_app)',
         placeholder: 'e.g. MyApp',
         required: false,
-        helperText: 'Target application folder in ActiveBatch.'
+        helperText:
+          'Optional override for the application segment parsed from ABDestinationPath.'
+      },
+      {
+        name: 'alt_vertical',
+        label: 'Vertical folder override (alt_vertical)',
+        placeholder: 'Optional vertical name',
+        required: false,
+        helperText:
+          'Optional override for the vertical segment parsed from ABDestinationPath.'
       },
       {
         name: 'subFolder',
@@ -299,7 +319,7 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
           'Optional child folder under the ActiveBatch application folder.'
       }
     ],
-    requiredEnvironmentProperties: ['ABDestinationPath']
+    requiredEnvironmentProperties: ['DropFolder', 'ABDestinationPath']
   },
   {
     id: 'deploy-activebatch-shared-objects',
@@ -315,15 +335,9 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
         label: 'Config JSON file (JsonFile)',
         placeholder: 'e.g. AB12.APP.ENV.config.json',
         required: true
-      },
-      {
-        name: 'app',
-        label: 'Application name (app)',
-        placeholder: 'Optional app identifier',
-        required: false
       }
     ],
-    requiredEnvironmentProperties: ['ABDestinationPath']
+    requiredEnvironmentProperties: ['DropFolder', 'ABDestinationPath']
   },
   {
     id: 'install-activebatch-v12-agent',
@@ -345,13 +359,21 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
         label: 'Installed product name (productNames)',
         placeholder: 'e.g. ActiveBatch V12',
         required: true
+      },
+      {
+        name: 'productNamesEnvironment',
+        label: 'Environment suffix property (productNamesEnvironment)',
+        placeholder: 'Optional property name',
+        required: false
       }
     ],
     requiredEnvironmentProperties: [
       'AB_Agent_V12_InstallFolder',
       'AB_Agent_UserName',
       'EnvMgtDBServer',
-      'EnvMgtDBName'
+      'EnvMgtDBName',
+      'DeploymentServiceAccount',
+      'DeploymentServiceAccountPassword'
     ]
   },
   {
@@ -379,7 +401,7 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
         name: 'ServiceStartupType',
         label: 'Startup type (ServiceStartupType)',
         placeholder: 'Automatic, Manual, or Disabled',
-        required: false,
+        required: true,
         options: ['Automatic', 'Manual', 'Disabled']
       }
     ]
@@ -412,22 +434,13 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
       'Copies build artifacts from the drop location and extracts them to the target destination path.',
     parameters: [
       {
-        name: 'buildName',
-        label: 'Build name (buildName)',
-        placeholder: 'e.g. MyComponentBuild',
-        required: false
-      },
-      {
-        name: 'artifactName',
-        label: 'Artifact name (artifactName)',
-        placeholder: 'e.g. drop',
-        required: false
-      },
-      {
-        name: 'destinationFolder',
-        label: 'Destination folder (destinationFolder)',
-        placeholder: 'e.g. ConsoleApps\\MyService',
-        required: false
+        name: 'DestinationToCopyPath',
+        label: 'Destination path (DestinationToCopyPath)',
+        placeholder:
+          'e.g. \\\\SERVER\\E$\\Apps\\MyService or ${My_DestinationPath}',
+        required: false,
+        helperText:
+          'Semicolon-delimited target path(s) or ${PropertyName} reference when overriding the environment property per component.'
       }
     ],
     requiredEnvironmentProperties: [
@@ -458,6 +471,14 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
         placeholder: 'Optional encryption parameters',
         required: false
       }
+    ],
+    requiredEnvironmentProperties: [
+      'DropFolder',
+      'Arc_SF_LogFilePath',
+      'Arc_SF_ConnectionEndpoint',
+      'Arc_SF_RelativeDropFolder',
+      'Arc_SF_HistoryPackagesPath',
+      'Arc_SF_SDKSourcePath'
     ]
   },
   {
@@ -473,14 +494,9 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
         label: 'Client MSI file name (ClientMSIName)',
         placeholder: 'e.g. Deploy.ClientInstaller.msi',
         required: true
-      },
-      {
-        name: 'productNames',
-        label: 'Product name (productNames)',
-        placeholder: 'Optional product display name',
-        required: false
       }
-    ]
+    ],
+    requiredEnvironmentProperties: ['DropFolder']
   },
   {
     id: 'deploy-intune-app',
@@ -516,6 +532,12 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
         required: false,
         helperText: 'Can be supplied here or via environment properties.'
       }
+    ],
+    requiredEnvironmentProperties: [
+      'BaseBuildServerType',
+      'Choco_InstallRepo',
+      'ProgetAccount',
+      'ProgetAccountPassword'
     ]
   },
   {
@@ -540,7 +562,12 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
         required: false
       }
     ],
-    requiredEnvironmentProperties: ['Choco_PackageRepo', 'Choco_BinarySource']
+    requiredEnvironmentProperties: [
+      'Choco_PackageRepo',
+      'Choco_BinarySource',
+      'Choco_Packages',
+      'BaseBuildServerType'
+    ]
   },
   {
     id: 'windows-features',
@@ -555,6 +582,12 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
         name: 'BaseBuildServerType',
         label: 'Target server type (BaseBuildServerType)',
         placeholder: 'e.g. WEB',
+        required: false
+      },
+      {
+        name: 'BaseBuildFeatures',
+        label: 'Windows features (BaseBuildFeatures)',
+        placeholder: 'Optional feature names override',
         required: false
       }
     ],
@@ -579,13 +612,20 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
         label: '.NET Framework version (BaseBuildDotNetVersion)',
         placeholder: 'e.g. 4.8',
         required: false
+      },
+      {
+        name: 'Net_TargetServerType',
+        label: 'Target server type (Net_TargetServerType)',
+        placeholder: 'e.g. APP',
+        required: false
       }
     ],
     requiredEnvironmentProperties: [
       'EnvMgtDBName',
       'EnvMgtDBServer',
       'BaseBuildDotNetVersion',
-      'BaseBuildDotNetInstallPath'
+      'BaseBuildDotNetInstallPath',
+      'Net_TargetServerType'
     ]
   },
   {
@@ -605,9 +645,15 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
       }
     ],
     requiredEnvironmentProperties: [
+      'DropFolder',
       'RecycleEnv_Action',
+      'DORC_NonProdDeployUsername',
       'EnvMgtDBServer',
-      'EnvMgtDBName'
+      'EnvMgtDBName',
+      'RecycleEnv_Username',
+      'RecycleEnv_Password',
+      'DeploymentServiceAccount',
+      'DeploymentServiceAccountPassword'
     ]
   },
   {
@@ -631,6 +677,13 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
         placeholder: 'Optional numeric project ID',
         required: false
       }
+    ],
+    requiredEnvironmentProperties: [
+      'RefDataApiUrl',
+      'EnvironmentName',
+      'ConfirmOsPatching',
+      'PatchCloudOrder',
+      'DorcCliSecret'
     ]
   },
   {
@@ -649,7 +702,7 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
         required: false
       }
     ],
-    requiredEnvironmentProperties: ['SSIS_Server', 'SSIS_Db']
+    requiredEnvironmentProperties: ['DropFolder', 'SSIS_Server', 'SSIS_Db']
   },
   {
     id: 'deploy-ssis-packages-azure',
@@ -666,7 +719,13 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
         required: true
       }
     ],
-    requiredEnvironmentProperties: ['SSIS_Server_Azure', 'SSIS_Db_Azure']
+    requiredEnvironmentProperties: [
+      'DropFolder',
+      'SSIS_Server_Azure',
+      'SSIS_Db_Azure',
+      'SSISRunner_Azure_Sql_User',
+      'SSISRunner_Azure_Sql_User_Password'
+    ]
   },
   {
     id: 'configure-ssis-projects',
@@ -684,7 +743,7 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
         required: false
       }
     ],
-    requiredEnvironmentProperties: ['SSIS_Server', 'SSIS_Db']
+    requiredEnvironmentProperties: ['DropFolder', 'SSIS_Server', 'SSIS_Db']
   },
   {
     id: 'deploy-ssrs-reports',
@@ -716,15 +775,21 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
         required: true
       },
       {
-        name: 'BindingPort',
-        label: 'HTTPS binding port (BindingPort)',
+        name: 'CertBindingPort',
+        label: 'HTTPS binding port (CertBindingPort)',
         placeholder: 'e.g. 5257',
         required: true
       },
       {
-        name: 'dnsNames',
-        label: 'DNS names (dnsNames)',
-        placeholder: 'Optional SAN DNS names',
+        name: 'CertSubjectName',
+        label: 'Subject name override (CertSubjectName)',
+        placeholder: 'Optional subject CN override',
+        required: false
+      },
+      {
+        name: 'CertDnsNames',
+        label: 'SAN DNS names override (CertDnsNames)',
+        placeholder: 'Optional comma-separated SAN DNS names',
         required: false
       }
     ],
@@ -743,7 +808,14 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
     category: 'Messaging & Certificates',
     description:
       'Configures RabbitMQ virtual hosts, exchanges, queues, and bindings via the management API.',
-    parameters: [],
+    parameters: [
+      {
+        name: 'RMQConfigFileName',
+        label: 'Config file name override (RMQConfigFileName)',
+        placeholder: 'Optional RabbitMQ JSON config filename',
+        required: false
+      }
+    ],
     requiredEnvironmentProperties: [
       'DropFolder',
       'RMQConfigFileName',
@@ -760,9 +832,17 @@ export const GENERIC_SCRIPT_TEMPLATES: GenericScriptTemplate[] = [
     category: 'Messaging & Certificates',
     description:
       'Applies RabbitMQ broker definitions from the drop folder to the management API.',
-    parameters: [],
+    parameters: [
+      {
+        name: 'RMQ_ConfigFilesToApply',
+        label: 'Config files to apply (RMQ_ConfigFilesToApply)',
+        placeholder: 'Optional semicolon-delimited JSON filenames',
+        required: false
+      }
+    ],
     requiredEnvironmentProperties: [
       'DropFolder',
+      'RMQ_ConfigFilesToApply',
       'RMQManagementApiUrl',
       'RMQConfigUsername',
       'RMQConfigPassword'

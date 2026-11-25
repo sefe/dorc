@@ -149,6 +149,57 @@ namespace Dorc.Monitor.Tests
             Assert.IsNotNull(published);
             _pipeServer.Received(1).Expire(published);
         }
+
+        [TestMethod]
+        [DataRow("v7", "dotnetcore-runner.exe")]
+        [DataRow("", "dotnetcore-runner.exe")]
+        [DataRow(null, "dotnetcore-runner.exe")]
+        [DataRow("5.1", "dotnetcore-runner.exe")]
+        [DataRow("v5.1", "netfx-runner.exe")]
+        public void SelectsTheNetFrameworkRunnerOnlyWhenExplicitlyRequestedAsV5_1(
+            string? powerShellVersionNumber,
+            string expectedExeSuffix)
+        {
+            var originalAppSettings = File.ReadAllText("appsettings.json");
+            var tempDir = Path.Join(Path.GetTempPath(), "dorc-runner-select-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(tempDir);
+            var netfxRunner = Path.Join(tempDir, "netfx-runner.exe");
+            var netcoreRunner = Path.Join(tempDir, "dotnetcore-runner.exe");
+            File.WriteAllText(netfxRunner, string.Empty);
+            File.WriteAllText(netcoreRunner, string.Empty);
+
+            try
+            {
+                File.WriteAllText(
+                    "appsettings.json",
+                    $$"""
+                    {
+                      "AppSettings": {
+                        "RefDataApiUrl": "http://localhost/test",
+                        "DotNetFrameworkDeploymentRunnerPath": "{{netfxRunner.Replace("\\", "\\\\")}}",
+                        "DotNetCoreDeploymentRunnerPath": "{{netcoreRunner.Replace("\\", "\\\\")}}"
+                      }
+                    }
+                    """);
+
+                var method = typeof(ScriptDispatcher).GetMethod(
+                    "GetDeploymentRunnerFileFullName",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+
+                var resolvedPath = (string)method.Invoke(NewDispatcher(), new object?[] { powerShellVersionNumber })!;
+                StringAssert.EndsWith(resolvedPath, expectedExeSuffix);
+
+                File.Delete(resolvedPath);
+                var ex = Assert.ThrowsExactly<System.Reflection.TargetInvocationException>(
+                    () => method.Invoke(NewDispatcher(), new object?[] { powerShellVersionNumber }));
+                Assert.IsInstanceOfType<InvalidOperationException>(ex.InnerException);
+            }
+            finally
+            {
+                File.WriteAllText("appsettings.json", originalAppSettings);
+                Directory.Delete(tempDir, recursive: true);
+            }
+        }
     }
 
     [TestClass]
