@@ -20,10 +20,8 @@ namespace Dorc.Runner
 
         public int Process(string pipeName, int requestId)
         {
-            ScriptGroup scriptGroupProperties = this.scriptGroupPipeClient.GetScriptGroupProperties(pipeName); 
-            var deploymentResultId = scriptGroupProperties.DeployResultId;
             this.logger.SetRequestId(requestId);
-            this.logger.SetDeploymentResultId(deploymentResultId);
+            ScriptGroup scriptGroupProperties = this.scriptGroupPipeClient.GetScriptGroupProperties(pipeName);
 
             if (scriptGroupProperties == null
                 || scriptGroupProperties.CommonProperties == null
@@ -32,6 +30,8 @@ namespace Dorc.Runner
             {
                 throw new Exception("ScriptGroup is not initialized.");
             }
+
+            this.logger.SetDeploymentResultId(scriptGroupProperties.DeployResultId);
 
             var scriptRunner = new PowerShellScriptRunner(this.logger, scriptGroupProperties);
             foreach (var scriptProps in scriptGroupProperties.ScriptProperties)

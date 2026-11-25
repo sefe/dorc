@@ -415,5 +415,162 @@ namespace Dorc.Api.Tests.Sources
                 addedDatabases.Single().TagLinks.Select(t => t.Tag).ToArray());
             Assert.AreEqual("Endur;Ops", addedDatabases.Single().Tags);
         }
+
+        [TestMethod]
+        public void ServersPersistentSource_GetByIdUpdateDeleteAndByEnvId_IncludeEnvironmentNamesAndHandleMissingServerIds()
+        {
+            var context = Substitute.For<IDeploymentContext>();
+            var envObjId = Guid.NewGuid();
+            var env = new Environment { Id = 42, Name = "Endur DV 10", ObjectId = envObjId };
+            var srv = new Server
+            {
+                Id = 10,
+                Name = "SRV01",
+                OsName = "Windows Server 2022",
+                TagLinks = new List<ServerTag> { new() { Tag = "appserv" }, new() { Tag = "Patching" } },
+                Environments = new List<Environment> { env }
+            };
+            env.Servers = new List<Server> { srv };
+
+            var serverList = new List<Server> { srv };
+            var envSet = DbContextMock.GetQueryableMockDbSet(new List<Environment> { env });
+            var srvSet = DbContextMock.GetQueryableMockDbSet(serverList);
+            var acSet = DbContextMock.GetQueryableMockDbSet(new List<AccessControl>
+            {
+                new() { Id = 1, ObjectId = envObjId, Sid = "sid-write", Allow = (int)AccessLevel.Write, Deny = 0 }
+            });
+            context.Environments.Returns(envSet);
+            context.Servers.Returns(srvSet);
+            context.AccessControls.Returns(acSet);
+
+            var roleChecker = Substitute.For<IRolePrivilegesChecker>();
+            var claimsReader = Substitute.For<IClaimsPrincipalReader>();
+            var user = new System.Security.Claims.ClaimsPrincipal();
+            roleChecker.IsAdmin(user).Returns(false);
+            claimsReader.GetSidsForUser(user).Returns(new List<string> { "sid-write" });
+            claimsReader.GetUserLogin(user).Returns("test.user");
+
+            var source = new ServersPersistentSource(FactoryFor(context), roleChecker, claimsReader);
+
+            // 1. GetServer(int, IPrincipal) includes EnvironmentNames and evaluates UserEditable against attached environments
+            var byId = source.GetServer(10, user) ?? throw new InvalidOperationException("Expected GetServer(10) to return a server.");
+            CollectionAssert.AreEqual(new[] { "Endur DV 10" }, byId.EnvironmentNames.ToArray());
+            Assert.IsTrue(byId.UserEditable);
+
+            // When user lacks Write privilege on the attached environment, UserEditable must be false (not vacuously true!)
+            claimsReader.GetSidsForUser(user).Returns(new List<string> { "sid-other" });
+            var byIdUneditable = source.GetServer(10, user) ?? throw new InvalidOperationException("Expected GetServer(10) to return a server.");
+            Assert.IsFalse(byIdUneditable.UserEditable);
+            claimsReader.GetSidsForUser(user).Returns(new List<string> { "sid-write" });
+
+            // 2. GetServersForEnvId and GetEnvContentAppServersForEnvId populate EnvironmentNames and Tags
+            var byEnvId = source.GetServersForEnvId(42).ToList();
+            Assert.AreEqual(1, byEnvId.Count);
+            CollectionAssert.AreEqual(new[] { "Endur DV 10" }, byEnvId[0].EnvironmentNames.ToArray());
+
+            var appSrvs = source.GetEnvContentAppServersForEnvId(42).ToList();
+            Assert.AreEqual(1, appSrvs.Count);
+            CollectionAssert.AreEqual(new[] { "Endur DV 10" }, appSrvs[0].EnvironmentNames.ToArray());
+
+            // 3. UpdateServer returns null when serverId does not exist, and preserves EnvironmentNames when found
+            Assert.IsNull(source.UpdateServer(999, new ServerApiModel { Name = "Missing" }, user));
+
+            var updated = source.UpdateServer(10, new ServerApiModel
+            {
+                ServerId = 10,
+                Name = "SRV01",
+                OsName = "Windows Server 2025",
+                Tags = new[] { "appserv", "UpdatedTag" }
+            }, user) ?? throw new InvalidOperationException("Expected UpdateServer(10) to return updated server.");
+            Assert.AreEqual("Windows Server 2025", updated.OsName);
+            CollectionAssert.AreEqual(new[] { "Endur DV 10" }, updated.EnvironmentNames.ToArray());
+            CollectionAssert.AreEqual(new[] { "appserv", "UpdatedTag" }, updated.Tags.ToArray());
+
+            // 4. DeleteServer returns false when serverId does not exist, and true when deleted
+            Assert.IsFalse(source.DeleteServer(999));
+            Assert.IsTrue(source.DeleteServer(10));
+        }
+
+        [TestMethod]
+        public void DatabasesAndDaemonsPersistentSources_IncludeGroupAndEnvironmentNamesAcrossAllLookups()
+        {
+            var context = Substitute.For<IDeploymentContext>();
+            var adGroup = new AdGroup { Id = 7, Name = "OTHER" };
+            var env = new Environment { Id = 42, Name = "Endur DV 10", ObjectId = Guid.NewGuid() };
+            var db = new Database
+            {
+                Id = 5,
+                Name = "END_DB_DV10",
+                ServerName = "SQL01",
+                DatabaseType = DatabaseType.SqlServer,
+                GroupId = 7,
+                Group = adGroup,
+                TagLinks = DbTags("Endur", "Reporting"),
+                Environments = new List<Environment> { env }
+            };
+            env.Databases = new List<Database> { db };
+
+            var srv = new Server
+            {
+                Id = 10,
+                Name = "SRV01",
+                OsName = "Windows",
+                TagLinks = new List<ServerTag> { new() { Tag = "DaemonHost" } },
+                Environments = new List<Environment> { env }
+            };
+            var daemon = new Daemon { Id = 3, Name = "EndurService", Server = srv };
+
+            context.Environments.Returns(DbContextMock.GetQueryableMockDbSet(new List<Environment> { env }));
+            context.Databases.Returns(DbContextMock.GetQueryableMockDbSet(new List<Database> { db }));
+            context.AdGroups.Returns(DbContextMock.GetQueryableMockDbSet(new List<AdGroup> { adGroup }));
+            context.ServerDaemons.Returns(DbContextMock.GetQueryableMockDbSet(new List<Daemon> { daemon }));
+            context.AccessControls.Returns(DbContextMock.GetQueryableMockDbSet(new List<AccessControl>()));
+
+            var dbSource = DatabasesSource(context);
+            var user = new System.Security.Claims.ClaimsPrincipal();
+
+            // GetDatabase(int), GetDatabases(), GetDatabaseByTag(string, string), GetDatabasesForEnvironmentName(string),
+            // GetApplicationDatabaseForEnvFilter, and UpdateDatabase must all preserve AdGroup ("OTHER") and EnvironmentNames ("Endur DV 10")
+            var byId = dbSource.GetDatabase(5) ?? throw new InvalidOperationException("Expected GetDatabase(5) to return database.");
+            Assert.AreEqual("OTHER", byId.AdGroup);
+            CollectionAssert.AreEqual(new[] { "Endur DV 10" }, byId.EnvironmentNames.ToArray());
+
+            var allDbs = dbSource.GetDatabases().ToList();
+            Assert.AreEqual(1, allDbs.Count);
+            Assert.AreEqual("OTHER", allDbs[0].AdGroup);
+            CollectionAssert.AreEqual(new[] { "Endur DV 10" }, allDbs[0].EnvironmentNames.ToArray());
+
+            var byTag = dbSource.GetDatabaseByTag("Endur DV 10", "Reporting") ?? throw new InvalidOperationException("Expected GetDatabaseByTag to return database.");
+            Assert.AreEqual("OTHER", byTag.AdGroup);
+            CollectionAssert.AreEqual(new[] { "Endur DV 10" }, byTag.EnvironmentNames.ToArray());
+
+            var byEnvName = dbSource.GetDatabasesForEnvironmentName("Endur DV 10").ToList();
+            Assert.AreEqual(1, byEnvName.Count);
+            Assert.AreEqual("OTHER", byEnvName[0].AdGroup);
+            CollectionAssert.AreEqual(new[] { "Endur DV 10" }, byEnvName[0].EnvironmentNames.ToArray());
+
+            var byEnvFilter = dbSource.GetApplicationDatabaseForEnvFilter("Endur", "Endur DV 10", user).ToList();
+            Assert.AreEqual(1, byEnvFilter.Count);
+            Assert.AreEqual("OTHER", byEnvFilter[0].AdGroup);
+            CollectionAssert.AreEqual(new[] { "Endur DV 10" }, byEnvFilter[0].EnvironmentNames.ToArray());
+
+            var updated = dbSource.UpdateDatabase(5, new DatabaseApiModel
+            {
+                Id = 5,
+                Name = "END_DB_DV10",
+                ServerName = "SQL01",
+                AdGroup = "OTHER",
+                Tags = new[] { "Endur", "Reporting" }
+            }, user) ?? throw new InvalidOperationException("Expected UpdateDatabase(5) to return database.");
+            Assert.AreEqual("OTHER", updated.AdGroup);
+            CollectionAssert.AreEqual(new[] { "Endur DV 10" }, updated.EnvironmentNames.ToArray());
+
+            // DaemonsPersistentSource.GetServersForDaemon populates EnvironmentNames and Tags
+            var daemonsSource = new DaemonsPersistentSource(FactoryFor(context));
+            var daemonServers = daemonsSource.GetServersForDaemon(3).ToList();
+            Assert.AreEqual(1, daemonServers.Count);
+            CollectionAssert.AreEqual(new[] { "Endur DV 10" }, daemonServers[0].EnvironmentNames.ToArray());
+            CollectionAssert.AreEqual(new[] { "DaemonHost" }, daemonServers[0].Tags.ToArray());
+        }
     }
 }

@@ -160,12 +160,12 @@ namespace Dorc.Api.Tests.Controllers
             _databasesPersistentSource.GetDatabase(10).Returns(beforeDatabase, updatedDatabase);
             _databasesPersistentSource.UpdateDatabase(10, updatedDatabase, _user).Returns(updatedDatabase);
 
-            var result = _controller.Put(10, updatedDatabase) as ObjectResult;
-
-            Assert.IsNotNull(result);
+            var actionResult = _controller.Put(10, updatedDatabase);
+            Assert.IsInstanceOfType<ObjectResult>(actionResult);
+            var result = (ObjectResult)actionResult;
             Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
-            var returned = result.Value as DatabaseApiModel;
-            Assert.IsNotNull(returned);
+            Assert.IsInstanceOfType<DatabaseApiModel>(result.Value);
+            var returned = (DatabaseApiModel)result.Value;
             CollectionAssert.AreEqual(new[] { "Endur", "Endur Reporting" }, returned.Tags.ToArray());
 
             _databasesAuditPersistentSource.Received(1).InsertDatabaseAudit(

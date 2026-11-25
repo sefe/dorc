@@ -893,20 +893,26 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
             e.Secure = env.EnvironmentSecure;
             e.IsProd = env.EnvironmentIsProd;
 
-            e.Name = env.EnvironmentName;
-            e.Description = env.Details.Description;
-            e.FileShare = env.Details.FileShare;
-            e.LastUpdate = !string.IsNullOrEmpty(env.Details.LastUpdated)
-                ? DateTime.Parse(env.Details.LastUpdated)
-                : DateTime.Now;
-            e.ThinClientServer = env.Details.ThinClient;
-            e.RestoredFromBackup = env.Details.RestoredFromSourceDb;
-            e.EnvNote = env.Details.Notes;
+            if (env.Details != null)
+            {
+                e.Description = env.Details.Description;
+                e.FileShare = env.Details.FileShare;
+                e.LastUpdate = !string.IsNullOrEmpty(env.Details.LastUpdated)
+                    ? DateTime.Parse(env.Details.LastUpdated)
+                    : DateTime.Now;
+                e.ThinClientServer = env.Details.ThinClient;
+                e.RestoredFromBackup = env.Details.RestoredFromSourceDb;
+                e.EnvNote = env.Details.Notes;
+            }
+            else
+            {
+                e.LastUpdate = DateTime.Now;
+            }
 
             var ownerAccess = e.AccessControls.FirstOrDefault(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
 
             // for new environment we have to add owner access control, for old env ownership is not changing via update method
-            if (isNewEnvironment && ownerAccess == null)
+            if (isNewEnvironment && ownerAccess == null && env.Details != null)
             {
                 // TODO: remove this together with supporting AD and Sids
                 bool isSid = !string.IsNullOrEmpty(env.Details.EnvironmentOwnerId) &&

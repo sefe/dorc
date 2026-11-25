@@ -33,7 +33,13 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var oldServer = context.Servers.Include(s => s.TagLinks).First(s => s.Id == id);
+                var oldServer = context.Servers
+                    .Include(s => s.TagLinks)
+                    .Include(s => s.Environments)
+                    .FirstOrDefault(s => s.Id == id);
+                if (oldServer == null)
+                    return null;
+
                 var newServer = MapToServer(server, oldServer);
                 context.SaveChanges();
 
@@ -52,21 +58,21 @@ namespace Dorc.PersistentData.Sources
                     .Include(s => s.Daemons)
                     .FirstOrDefault(s => s.Id == serverId);
 
-                if (server != null)
-                {
-                    foreach (var environmentDetail in server.Environments.ToList())
-                    {
-                        server.Environments.Remove(environmentDetail);
-                    }
-                    foreach (var daemon in server.Daemons.ToList())
-                    {
-                        server.Daemons.Remove(daemon);
-                    }
+                if (server == null)
+                    return false;
 
-                    var daemonObservations = context.DaemonObservations
-                        .Where(d => d.ServerId == serverId);
-                    context.DaemonObservations.RemoveRange(daemonObservations);
+                foreach (var environmentDetail in server.Environments.ToList())
+                {
+                    server.Environments.Remove(environmentDetail);
                 }
+                foreach (var daemon in server.Daemons.ToList())
+                {
+                    server.Daemons.Remove(daemon);
+                }
+
+                var daemonObservations = context.DaemonObservations
+                    .Where(d => d.ServerId == serverId);
+                context.DaemonObservations.RemoveRange(daemonObservations);
 
                 context.Servers.Remove(server);
                 context.SaveChanges();
@@ -344,7 +350,9 @@ namespace Dorc.PersistentData.Sources
             {
                 var envDetail = EnvironmentUnifier.GetEnvironment(context, environmentId);
                 if (envDetail == null) return new List<ServerApiModel>();
-                var result = context.Servers.Include(s => s.TagLinks)
+                var result = context.Servers
+                    .Include(s => s.TagLinks)
+                    .Include(s => s.Environments)
                     .Where(s => s.Environments.Any(e => e.Id == envDetail.Id))
                     .Select(s => s);
                 return result.ToList().Select(MapToServerApiModel).ToList();
@@ -357,7 +365,9 @@ namespace Dorc.PersistentData.Sources
             {
                 var envDetail = EnvironmentUnifier.GetEnvironment(context, environmentId);
                 if (envDetail == null) return new List<ServerApiModel>();
-                var result = context.Servers.Include(s => s.TagLinks)
+                var result = context.Servers
+                    .Include(s => s.TagLinks)
+                    .Include(s => s.Environments)
                     .Where(s => s.Environments.Any(e => e.Id == envDetail.Id))
                     .OrderBy(s => s.Name)
                     .Select(s => s);

@@ -219,7 +219,7 @@ namespace Dorc.Core.Tests
             var dbPerms = (VariableValueDbPerm[])((VariableValue)ValueOf("DatabasePermissions")!).Value;
             Assert.AreEqual(5, dbPerms.Length);
             Assert.AreEqual("END_DB_DV07", dbPerms[0].Database.Name);
-            Assert.AreEqual("Endur", dbPerms[0].Database.Type);
+            Assert.AreEqual("Endur", dbPerms[0].Database.Tags);
             Assert.AreEqual(1, dbPerms[0].Users.Length);
             Assert.AreEqual(@"DOM\alice", dbPerms[0].Users[0].User);
             CollectionAssert.AreEqual(new[] { "db_owner", "db_datareader" }, dbPerms[0].Users[0].Roles);

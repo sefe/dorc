@@ -34,7 +34,9 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 return MapToDatabaseApiModel(context.Databases
+                    .Include(x => x.Group)
                     .Include(x => x.TagLinks)
+                    .Include(x => x.Environments)
                     .SingleOrDefault(x => x.Id == id));
             }
         }
@@ -56,7 +58,11 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                return context.Databases.Include(d => d.Group).Include(d => d.TagLinks).Where(d => d.Name != null).ToList()
+                return context.Databases
+                    .Include(d => d.Group)
+                    .Include(d => d.TagLinks)
+                    .Include(d => d.Environments)
+                    .Where(d => d.Name != null).ToList()
                     .Select(MapToDatabaseApiModel).ToList();
 
             }
@@ -134,7 +140,9 @@ namespace Dorc.PersistentData.Sources
                 // disagree with the DatabaseTagMatch-based one on whether 'endur'
                 // finds a database tagged 'Endur'.
                 var matches = context.Databases
+                    .Include(d => d.Group)
                     .Include(d => d.TagLinks)
+                    .Include(d => d.Environments)
                     .Where(d => d.Environments.Any(e => e.Name == envName))
                     .Where(DatabaseTagMatch.HasTag(tag))
                     .ToList();
@@ -171,7 +179,9 @@ namespace Dorc.PersistentData.Sources
             var database =
                 MapToDatabaseApiModel(
                 context.Databases
+                    .Include(d => d.Group)
                     .Include(d => d.TagLinks)
+                    .Include(d => d.Environments)
                     .SingleOrDefault(d => d.Name.Equals(db.Name)
                                                        &&
                                                        d.ServerName.Equals(db.ServerName)));
@@ -245,6 +255,7 @@ namespace Dorc.PersistentData.Sources
                 var result = context.Databases
                     .Include(d => d.Group)
                     .Include(d => d.TagLinks)
+                    .Include(d => d.Environments)
                     .Where(database => database.Environments
                         .Any(env => env.Name == environmentName))
                     .OrderBy(database => database.Name).ToList();
@@ -434,6 +445,8 @@ namespace Dorc.PersistentData.Sources
 
                 var database = context.EnvironmentUsers
                     .Include(eu => eu.Database).ThenInclude(d => d.TagLinks)
+                    .Include(eu => eu.Database).ThenInclude(d => d.Group)
+                    .Include(eu => eu.Database).ThenInclude(d => d.Environments)
                     .Include(eu => eu.User)
                     .Where(eu =>
                         dbIds.Contains(eu.Database.Id) && eu.User.LoginId.Equals(username) &&
@@ -452,7 +465,9 @@ namespace Dorc.PersistentData.Sources
                 // this it sees an empty set, re-inserts every tag the database
                 // already carries (PK violation) and never issues the deletes.
                 var existingDatabase = context.Databases
+                    .Include(d => d.Group)
                     .Include(d => d.TagLinks)
+                    .Include(d => d.Environments)
                     .FirstOrDefault(d => d.Id == database.Id);
 
                 if (existingDatabase == null)

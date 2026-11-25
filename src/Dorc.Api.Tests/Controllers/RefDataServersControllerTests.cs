@@ -80,12 +80,12 @@ namespace Dorc.Api.Tests.Controllers
             _serversPersistentSource.GetServer("NPVM01", _user).Returns((ServerApiModel)null!);
             _serversPersistentSource.AddServer(newServer, _user).Returns(createdServer);
 
-            var result = _controller.Post(newServer) as OkObjectResult;
-
-            Assert.IsNotNull(result);
+            var actionResult = _controller.Post(newServer);
+            Assert.IsInstanceOfType<OkObjectResult>(actionResult);
+            var result = (OkObjectResult)actionResult;
             Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
-            var returned = result.Value as ServerApiModel;
-            Assert.IsNotNull(returned);
+            Assert.IsInstanceOfType<ServerApiModel>(result.Value);
+            var returned = (ServerApiModel)result.Value;
             Assert.AreEqual(101, returned.ServerId);
             CollectionAssert.AreEqual(new[] { "PATCH", "PATCH_SCOPE_NP", "PATCH_MODE_AUTO" }, returned.Tags.ToArray());
 
@@ -131,12 +131,12 @@ namespace Dorc.Api.Tests.Controllers
             _serversPersistentSource.GetServer(200, _user).Returns(beforeServer, updateRequest);
             _serversPersistentSource.UpdateServer(200, updateRequest, _user).Returns(updateRequest);
 
-            var result = _controller.Put(200, updateRequest) as OkObjectResult;
-
-            Assert.IsNotNull(result);
+            var actionResult = _controller.Put(200, updateRequest);
+            Assert.IsInstanceOfType<OkObjectResult>(actionResult);
+            var result = (OkObjectResult)actionResult;
             Assert.AreEqual(StatusCodes.Status200OK, result.StatusCode);
-            var returned = result.Value as ServerApiModel;
-            Assert.IsNotNull(returned);
+            Assert.IsInstanceOfType<ServerApiModel>(result.Value);
+            var returned = (ServerApiModel)result.Value;
             CollectionAssert.AreEqual(
                 new[] { "AppServer", "PATCH", "PATCH_SCOPE_PR", "PATCH_MODE_MANUAL" },
                 returned.Tags.ToArray());
@@ -172,11 +172,11 @@ namespace Dorc.Api.Tests.Controllers
             _serversPersistentSource.GetAppServerDetails("Endur DV 01")
                 .Returns(new List<Server> { serverEntity });
 
-            var result = _controller.GetAppServersByEnvName("Endur DV 01") as OkObjectResult;
-
-            Assert.IsNotNull(result);
-            var list = result.Value as List<ServerApiModel>;
-            Assert.IsNotNull(list);
+            var actionResult = _controller.GetAppServersByEnvName("Endur DV 01");
+            Assert.IsInstanceOfType<OkObjectResult>(actionResult);
+            var result = (OkObjectResult)actionResult;
+            Assert.IsInstanceOfType<List<ServerApiModel>>(result.Value);
+            var list = (List<ServerApiModel>)result.Value;
             Assert.AreEqual(1, list.Count);
             CollectionAssert.AreEqual(new[] { "appserv", "PATCH" }, list[0].Tags.ToArray());
         }

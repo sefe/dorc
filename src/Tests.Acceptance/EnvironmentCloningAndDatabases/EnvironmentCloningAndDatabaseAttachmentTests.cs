@@ -375,6 +375,22 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 var srvByEnvIdMatch = srvByEnvIdList.SingleOrDefault(s => s.ServerId == serverIdValue);
                 Assert.IsNotNull(srvByEnvIdMatch, "GET /RefDataServers/ByEnvId/{envId} must include the attached server.");
                 CollectionAssert.Contains(srvByEnvIdMatch.Tags.ToList(), "DevOpsTest");
+                CollectionAssert.Contains(srvByEnvIdMatch.EnvironmentNames.ToList(), LiveChildEnvName,
+                    "GET /RefDataServers/ByEnvId/{envId} must populate EnvironmentNames via .Include(s => s.Environments).");
+
+                var getAttachedSrvByNameResp = caller.ExecuteRaw($"RefDataServers/{Uri.EscapeDataString(serverName)}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getAttachedSrvByNameResp.StatusCode, getAttachedSrvByNameResp.Content);
+                var attachedSrvByName = DorcApiClient.Deserialize<ServerApiModel>(getAttachedSrvByNameResp.Content)
+                    ?? throw new InvalidOperationException("Expected attachedSrvByName to deserialize.");
+                CollectionAssert.Contains(attachedSrvByName.EnvironmentNames.ToList(), LiveChildEnvName,
+                    "GET /RefDataServers/{name} must populate EnvironmentNames via .Include(s => s.Environments).");
+
+                var getAttachedSrvByIdResp = caller.ExecuteRaw($"RefDataServers/ById/{serverIdValue}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, getAttachedSrvByIdResp.StatusCode, getAttachedSrvByIdResp.Content);
+                var attachedSrvById = DorcApiClient.Deserialize<ServerApiModel>(getAttachedSrvByIdResp.Content)
+                    ?? throw new InvalidOperationException("Expected attachedSrvById to deserialize.");
+                CollectionAssert.Contains(attachedSrvById.EnvironmentNames.ToList(), LiveChildEnvName,
+                    "GET /RefDataServers/ById/{id} must populate EnvironmentNames via .Include(s => s.Environments).");
 
                 var appSrvsByEnvNameResp = caller.ExecuteRaw("RefDataServers/AppServersByEnvName", Method.Get, new Dictionary<string, string>
                 {
@@ -385,6 +401,8 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 var appSrvMatch = appSrvsByEnvNameList.SingleOrDefault(s => s.ServerId == serverIdValue);
                 Assert.IsNotNull(appSrvMatch, "GET /RefDataServers/AppServersByEnvName must include the attached server tagged with 'appserv'.");
                 CollectionAssert.Contains(appSrvMatch.Tags.ToList(), "appserv");
+                CollectionAssert.Contains(appSrvMatch.EnvironmentNames.ToList(), LiveChildEnvName,
+                    "GET /RefDataServers/AppServersByEnvName must populate EnvironmentNames via .Include(s => s.Environments).");
 
                 var srvByPageResp = caller.ExecuteRaw(
                     "RefDataServers/ByPage",
@@ -399,8 +417,10 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                     });
                 Assert.AreEqual(HttpStatusCode.OK, srvByPageResp.StatusCode, srvByPageResp.Content);
                 var srvByPage = DorcApiClient.Deserialize<GetServerApiModelListResponseDto>(srvByPageResp.Content);
-                Assert.IsNotNull(srvByPage?.Items);
-                var srvByPageMatch = srvByPage.Items.SingleOrDefault(s => s.ServerId == serverIdValue);
+                Assert.IsNotNull(srvByPage);
+                var srvByPageItems = srvByPage.Items;
+                Assert.IsNotNull(srvByPageItems);
+                var srvByPageMatch = srvByPageItems.SingleOrDefault(s => s.ServerId == serverIdValue);
                 Assert.IsNotNull(srvByPageMatch, "PUT /RefDataServers/ByPage must return the server with its Tags array.");
                 CollectionAssert.Contains(srvByPageMatch.Tags.ToList(), "DevOpsTest");
 
@@ -477,6 +497,7 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 Assert.IsNotNull(dbById);
                 Assert.AreEqual(dbId.Value, dbById.Id);
                 Assert.AreEqual(dbName, dbById.Name);
+                Assert.AreEqual("OTHER", dbById.AdGroup, "GET /RefDataDatabases/{id} must populate AdGroup via .Include(d => d.Group).");
                 CollectionAssert.Contains(dbById.Tags.ToList(), "DevOpsDbTag");
 
                 var updateDbResp = caller.ExecuteRaw(
@@ -499,6 +520,7 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                     "PUT /RefDataDatabases response JSON must emit Tags (string[]) and never Type.");
                 var updatedDb = DorcApiClient.Deserialize<DatabaseApiModel>(updateDbResp.Content);
                 Assert.IsNotNull(updatedDb);
+                Assert.AreEqual("OTHER", updatedDb.AdGroup, "PUT /RefDataDatabases must return populated AdGroup.");
                 CollectionAssert.Contains(updatedDb.Tags.ToList(), "DevOpsDbTag");
                 CollectionAssert.Contains(updatedDb.Tags.ToList(), "ReportingTag");
 
@@ -599,6 +621,9 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
                 var dbByTagModel = DorcApiClient.Deserialize<DatabaseApiModel>(dbByTagOkResp.Content);
                 Assert.IsNotNull(dbByTagModel);
                 Assert.AreEqual(dbId.Value, dbByTagModel.Id);
+                Assert.AreEqual("OTHER", dbByTagModel.AdGroup, "GET /RefDataDatabases/ByTag must populate AdGroup via .Include(d => d.Group).");
+                CollectionAssert.Contains(dbByTagModel.EnvironmentNames.ToList(), LiveChildEnvName,
+                    "GET /RefDataDatabases/ByTag must populate EnvironmentNames via .Include(d => d.Environments).");
                 CollectionAssert.Contains(dbByTagModel.Tags.ToList(), "DevOpsDbTag");
                 CollectionAssert.Contains(dbByTagModel.Tags.ToList(), "ReportingTag");
 

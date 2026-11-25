@@ -108,4 +108,19 @@ public class PowerShellEvidenceCaptureTests
         }
         finally { Directory.Delete(group.PowerShellEvidenceDirectory, true); }
     }
+
+    [TestMethod]
+    public void ScriptGroupProcessor_WhenPipeReturnsNullOrUninitializedGroup_SetsRequestIdAndThrowsDescriptiveException()
+    {
+        var logger = Substitute.For<Dorc.Runner.Logger.IRunnerLogger>();
+        var pipeClient = Substitute.For<Dorc.Runner.Pipes.IScriptGroupPipeClient>();
+        pipeClient.GetScriptGroupProperties("pipe-null").Returns((ScriptGroup)null!);
+
+        var processor = new Dorc.Runner.ScriptGroupProcessor(logger, pipeClient);
+
+        var ex = Assert.Throws<Exception>(() => processor.Process("pipe-null", 777));
+        Assert.AreEqual("ScriptGroup is not initialized.", ex.Message);
+        logger.Received(1).SetRequestId(777);
+        logger.DidNotReceiveWithAnyArgs().SetDeploymentResultId(default);
+    }
 }

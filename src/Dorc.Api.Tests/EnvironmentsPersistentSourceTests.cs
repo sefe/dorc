@@ -859,15 +859,32 @@ namespace Dorc.Api.Tests
             }, user);
             Assert.IsNotNull(createdNoOwner);
 
+            var createdNullDetails = _environmentsPersistentSource.CreateEnvironment(new EnvironmentApiModel
+            {
+                EnvironmentName = "BrandNewNullDetailsEnv",
+                Details = null!
+            }, user);
+            Assert.IsNotNull(createdNullDetails);
+
             envList[0].Id = 500;
             envList[1].Id = 501;
             envList[2].Id = 502;
+            envList[3].Id = 503;
             _environmentsPersistentSource.UpdateEnvironment(new EnvironmentApiModel
             {
                 EnvironmentId = 500,
                 EnvironmentName = "BrandNewEnv",
                 Details = new EnvironmentDetailsApiModel { Description = "Updated" }
             }, user);
+            Assert.AreEqual("Updated", envList[0].Description);
+
+            _environmentsPersistentSource.UpdateEnvironment(new EnvironmentApiModel
+            {
+                EnvironmentId = 500,
+                EnvironmentName = "BrandNewEnv",
+                Details = null!
+            }, user);
+            Assert.AreEqual("Updated", envList[0].Description, "UpdateEnvironment with null Details must preserve existing Detail fields rather than throwing NullReferenceException.");
 
             // PagingPersistentSourceBase (via ServersPersistentSource) and PropertyValuesPersistentSource enforce Deny != 0
             var envAllowObj = Guid.NewGuid();

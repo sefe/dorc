@@ -116,11 +116,15 @@ namespace Dorc.Api.Controllers
         /// <param name="content"></param>
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(bool))]
+        [SwaggerResponse(StatusCodes.Status400BadRequest, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status403Forbidden, Type = typeof(string))]
         [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
         [HttpDelete]
         public IActionResult Delete([FromBody] EnvironmentApiModel content)
         {
+            if (content == null || string.IsNullOrWhiteSpace(content.EnvironmentName))
+                return StatusCode(StatusCodes.Status400BadRequest, "Environment name is required.");
+
             // Returning a bare 'false' for both of these told the caller only that the delete had
             // not happened, leaving the user to guess whether they lacked the rights, mistyped the
             // environment or hit a genuine failure.
@@ -147,7 +151,7 @@ namespace Dorc.Api.Controllers
         [HttpPut]
         public IActionResult Put([FromBody] EnvironmentApiModel content)
         {
-            if (content.EnvironmentId <= 0)
+            if (content == null || content.EnvironmentId <= 0)
                 return StatusCode(StatusCodes.Status400BadRequest, "Invalid environment Id specified!");
 
             var existingEnv = environmentsPersistentSource.GetEnvironment(content.EnvironmentId, User);
