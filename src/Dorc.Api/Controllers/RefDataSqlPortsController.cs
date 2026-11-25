@@ -64,6 +64,11 @@ namespace Dorc.Api.Controllers
             var isAdmin = (_rolePrivilegesChecker?.IsAdmin(User) ?? false) || User.IsInRole("Admin");
             if (!isAdmin)
                 throw new UnauthorizedAccessException("User must be part of the 'Admin' group to create new SQL Port");
+            if (value == null || string.IsNullOrWhiteSpace(value.InstanceName) || string.IsNullOrWhiteSpace(value.SqlPort))
+                return StatusCode(StatusCodes.Status400BadRequest, "InstanceName and SqlPort are required.");
+            if (value.InstanceName.Length > 250 || value.SqlPort.Length > 10)
+                return StatusCode(StatusCodes.Status400BadRequest, "InstanceName cannot exceed 250 characters and SqlPort cannot exceed 10 characters.");
+
             try
             {
                 _sqlPortsPersistentSource.CreateSqlPort(value);

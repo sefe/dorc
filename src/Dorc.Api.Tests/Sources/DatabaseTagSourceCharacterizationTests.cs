@@ -435,12 +435,14 @@ namespace Dorc.Api.Tests.Sources
             var serverList = new List<Server> { srv };
             var envSet = DbContextMock.GetQueryableMockDbSet(new List<Environment> { env });
             var srvSet = DbContextMock.GetQueryableMockDbSet(serverList);
+            var obsSet = DbContextMock.GetQueryableMockDbSet(new List<DaemonObservation>());
             var acSet = DbContextMock.GetQueryableMockDbSet(new List<AccessControl>
             {
                 new() { Id = 1, ObjectId = envObjId, Sid = "sid-write", Allow = (int)AccessLevel.Write, Deny = 0 }
             });
             context.Environments.Returns(envSet);
             context.Servers.Returns(srvSet);
+            context.DaemonObservations.Returns(obsSet);
             context.AccessControls.Returns(acSet);
 
             var roleChecker = Substitute.For<IRolePrivilegesChecker>();
@@ -496,7 +498,7 @@ namespace Dorc.Api.Tests.Sources
         {
             var context = Substitute.For<IDeploymentContext>();
             var adGroup = new AdGroup { Id = 7, Name = "OTHER" };
-            var env = new Environment { Id = 42, Name = "Endur DV 10", ObjectId = Guid.NewGuid() };
+            var env = new Environment { Id = 42, Name = "Endur DV 10", ObjectId = Guid.NewGuid(), ThinClientServer = "Endur" };
             var db = new Database
             {
                 Id = 5,
@@ -518,13 +520,26 @@ namespace Dorc.Api.Tests.Sources
                 TagLinks = new List<ServerTag> { new() { Tag = "DaemonHost" } },
                 Environments = new List<Environment> { env }
             };
-            var daemon = new Daemon { Id = 3, Name = "EndurService", Server = srv };
+            var daemon = new Daemon { Id = 3, Name = "EndurService", Server = new List<Server> { srv } };
+            var envUser = new EnvironmentUser
+            {
+                Database = db,
+                User = new User { LoginId = "endur_user", LoginType = "Endur" }
+            };
 
-            context.Environments.Returns(DbContextMock.GetQueryableMockDbSet(new List<Environment> { env }));
-            context.Databases.Returns(DbContextMock.GetQueryableMockDbSet(new List<Database> { db }));
-            context.AdGroups.Returns(DbContextMock.GetQueryableMockDbSet(new List<AdGroup> { adGroup }));
-            context.ServerDaemons.Returns(DbContextMock.GetQueryableMockDbSet(new List<Daemon> { daemon }));
-            context.AccessControls.Returns(DbContextMock.GetQueryableMockDbSet(new List<AccessControl>()));
+            var envSet = DbContextMock.GetQueryableMockDbSet(new List<Environment> { env });
+            var dbSet = DbContextMock.GetQueryableMockDbSet(new List<Database> { db });
+            var adGroupSet = DbContextMock.GetQueryableMockDbSet(new List<AdGroup> { adGroup });
+            var daemonSet = DbContextMock.GetQueryableMockDbSet(new List<Daemon> { daemon });
+            var envUserSet = DbContextMock.GetQueryableMockDbSet(new List<EnvironmentUser> { envUser });
+            var acSet = DbContextMock.GetQueryableMockDbSet(new List<AccessControl>());
+
+            context.Environments.Returns(envSet);
+            context.Databases.Returns(dbSet);
+            context.AdGroups.Returns(adGroupSet);
+            context.Daemons.Returns(daemonSet);
+            context.EnvironmentUsers.Returns(envUserSet);
+            context.AccessControls.Returns(acSet);
 
             var dbSource = DatabasesSource(context);
             var user = new System.Security.Claims.ClaimsPrincipal();
@@ -549,10 +564,10 @@ namespace Dorc.Api.Tests.Sources
             Assert.AreEqual("OTHER", byEnvName[0].AdGroup);
             CollectionAssert.AreEqual(new[] { "Endur DV 10" }, byEnvName[0].EnvironmentNames.ToArray());
 
-            var byEnvFilter = dbSource.GetApplicationDatabaseForEnvFilter("Endur", "Endur DV 10", user).ToList();
-            Assert.AreEqual(1, byEnvFilter.Count);
-            Assert.AreEqual("OTHER", byEnvFilter[0].AdGroup);
-            CollectionAssert.AreEqual(new[] { "Endur DV 10" }, byEnvFilter[0].EnvironmentNames.ToArray());
+            var byEnvFilter = dbSource.GetApplicationDatabaseForEnvFilter("endur_user", "Endur", "Endur DV 10")
+                ?? throw new InvalidOperationException("Expected GetApplicationDatabaseForEnvFilter to return database.");
+            Assert.AreEqual("OTHER", byEnvFilter.AdGroup);
+            CollectionAssert.AreEqual(new[] { "Endur DV 10" }, byEnvFilter.EnvironmentNames.ToArray());
 
             var updated = dbSource.UpdateDatabase(5, new DatabaseApiModel
             {
@@ -566,7 +581,9 @@ namespace Dorc.Api.Tests.Sources
             CollectionAssert.AreEqual(new[] { "Endur DV 10" }, updated.EnvironmentNames.ToArray());
 
             // DaemonsPersistentSource.GetServersForDaemon populates EnvironmentNames and Tags
-            var daemonsSource = new DaemonsPersistentSource(FactoryFor(context));
+            var daemonsSource = new DaemonsPersistentSource(
+                FactoryFor(context),
+                Substitute.For<Dorc.PersistentData.Sources.Interfaces.IDaemonObservationPersistentSource>());
             var daemonServers = daemonsSource.GetServersForDaemon(3).ToList();
             Assert.AreEqual(1, daemonServers.Count);
             CollectionAssert.AreEqual(new[] { "Endur DV 10" }, daemonServers[0].EnvironmentNames.ToArray());

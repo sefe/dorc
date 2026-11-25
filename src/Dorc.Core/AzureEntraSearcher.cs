@@ -237,11 +237,16 @@ namespace Dorc.Core
             throw new ArgumentException($"Failed to locate an entity with ID: {pid}");
         }
 
+        internal static bool IsValidEntraSearchName(string username)
+        {
+            return username != null && Regex.IsMatch(username, @"^[a-zA-Z0-9'_. @-]+(\(External\))?$");
+        }
+
         public UserElementApiModel GetUserData(string username)
         {
-            if (!ActiveDirectorySearcher.IsValidSearchName(username))
+            if (!IsValidEntraSearchName(username))
             {
-                throw new ArgumentException("Invalid search criteria. Search criteria must be \"^[a-zA-Z0-9'_. -]+(\\(External\\))?$\"!");
+                throw new ArgumentException("Invalid search criteria. Search criteria must be \"^[a-zA-Z0-9'_. @-]+(\\(External\\))?$\"!");
             }
 
             var graphClient = GetGraphClient();

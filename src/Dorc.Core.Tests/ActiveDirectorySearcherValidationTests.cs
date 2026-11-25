@@ -44,10 +44,15 @@ namespace Dorc.Core.Tests
         }
 
         [TestMethod]
-        public void AzureEntraSearcher_GetUserData_RejectsInvalidUsernameAndAcceptsDigitsBeforeGraphCall()
+        public void AzureEntraSearcher_GetUserData_RejectsInvalidUsernameAndAcceptsEmailAndUpnBeforeGraphCall()
         {
             var config = Substitute.For<IConfigurationSettings>();
             var searcher = new AzureEntraSearcher(config, NullLogger<AzureEntraSearcher>.Instance);
+
+            Assert.IsTrue(AzureEntraSearcher.IsValidEntraSearchName("alice@example.com"));
+            Assert.IsTrue(AzureEntraSearcher.IsValidEntraSearchName("bob.smith_123@sefe.eu (External)"));
+            Assert.IsFalse(AzureEntraSearcher.IsValidEntraSearchName("invalid*user"));
+            Assert.IsFalse(AzureEntraSearcher.IsValidEntraSearchName(null!));
 
             Assert.Throws<ArgumentException>(() => searcher.GetUserData("invalid*user"));
         }

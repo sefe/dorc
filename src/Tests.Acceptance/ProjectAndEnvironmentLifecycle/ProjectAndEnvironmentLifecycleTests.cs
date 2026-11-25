@@ -483,11 +483,13 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                 Assert.AreEqual(HttpStatusCode.OK, projAuditResp.StatusCode,
                     $"PUT /RefDataProjectAudit failed: {projAuditResp.Content}");
                 var projAuditList = DorcApiClient.Deserialize<GetRefDataAuditListResponseDto>(projAuditResp.Content);
-                Assert.IsNotNull(projAuditList?.Items);
-                Assert.IsNotEmpty(projAuditList.Items,
+                Assert.IsNotNull(projAuditList, "PUT /RefDataProjectAudit returned a null payload.");
+                Assert.IsNotNull(projAuditList.Items, "PUT /RefDataProjectAudit returned null Items.");
+                var projAuditItems = projAuditList.Items;
+                Assert.IsNotEmpty(projAuditItems,
                     "Expected at least one RefDataProjectAudit entry for the newly configured project.");
                 Assert.IsTrue(
-                    projAuditList.Items.Any(a =>
+                    projAuditItems.Any(a =>
                         a.ProjectId == createdProject.ProjectId &&
                         (a.Json?.Contains(componentName, StringComparison.OrdinalIgnoreCase) ?? false) &&
                         !string.IsNullOrWhiteSpace(a.Username)),
@@ -512,14 +514,16 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                 Assert.AreEqual(HttpStatusCode.OK, propAuditResp.StatusCode,
                     $"PUT /PropertyValuesAudit failed: {propAuditResp.Content}");
                 var propAuditList = DorcApiClient.Deserialize<GetPropertyValuesAuditListResponseDto>(propAuditResp.Content);
-                Assert.IsNotNull(propAuditList?.Items);
+                Assert.IsNotNull(propAuditList, "PUT /PropertyValuesAudit returned a null payload.");
+                Assert.IsNotNull(propAuditList.Items, "PUT /PropertyValuesAudit returned null Items.");
+                var propAuditItems = propAuditList.Items;
                 Assert.IsTrue(
-                    propAuditList.Items.Any(a =>
+                    propAuditItems.Any(a =>
                         string.Equals(a.Type, "Insert", StringComparison.OrdinalIgnoreCase) &&
                         string.Equals(a.ToValue, $"ChildVal_V1_{cid}", StringComparison.Ordinal)),
                     "PropertyValuesAudit must record the initial Insert of ChildVal_V1.");
                 Assert.IsTrue(
-                    propAuditList.Items.Any(a =>
+                    propAuditItems.Any(a =>
                         string.Equals(a.Type, "Update", StringComparison.OrdinalIgnoreCase) &&
                         string.Equals(a.FromValue, $"ChildVal_V1_{cid}", StringComparison.Ordinal) &&
                         string.Equals(a.ToValue, $"ChildVal_V2_{cid}", StringComparison.Ordinal)),
@@ -544,9 +548,11 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                 Assert.AreEqual(HttpStatusCode.OK, srvAuditResp.StatusCode,
                     $"PUT /ServerAudit failed: {srvAuditResp.Content}");
                 var srvAuditList = DorcApiClient.Deserialize<GetServerAuditListResponseDto>(srvAuditResp.Content);
-                Assert.IsNotNull(srvAuditList?.Items);
+                Assert.IsNotNull(srvAuditList, "PUT /ServerAudit returned a null payload.");
+                Assert.IsNotNull(srvAuditList.Items, "PUT /ServerAudit returned null Items.");
+                var srvAuditItems = srvAuditList.Items;
                 Assert.IsTrue(
-                    srvAuditList.Items.Any(a =>
+                    srvAuditItems.Any(a =>
                         string.Equals(a.ServerName, serverName, StringComparison.OrdinalIgnoreCase) &&
                         (a.ToValue?.Contains("patched", StringComparison.OrdinalIgnoreCase) ?? false)),
                     "ServerAudit must record the tag update ('patched') for the lifecycle server.");
@@ -570,9 +576,11 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                 Assert.AreEqual(HttpStatusCode.OK, dbAuditResp.StatusCode,
                     $"PUT /DatabaseAudit failed: {dbAuditResp.Content}");
                 var dbAuditList = DorcApiClient.Deserialize<GetDatabaseAuditListResponseDto>(dbAuditResp.Content);
-                Assert.IsNotNull(dbAuditList?.Items);
+                Assert.IsNotNull(dbAuditList, "PUT /DatabaseAudit returned a null payload.");
+                Assert.IsNotNull(dbAuditList.Items, "PUT /DatabaseAudit returned null Items.");
+                var dbAuditItems = dbAuditList.Items;
                 Assert.IsTrue(
-                    dbAuditList.Items.Any(a =>
+                    dbAuditItems.Any(a =>
                         string.Equals(a.DatabaseName, databaseName, StringComparison.OrdinalIgnoreCase) &&
                         (a.ToValue?.Contains("Analytics", StringComparison.OrdinalIgnoreCase) ?? false)),
                     "DatabaseAudit must record the tag update ('Analytics') for the lifecycle database.");
@@ -584,7 +592,18 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                 // =========================================================================
                 if (!string.IsNullOrWhiteSpace(outputJsonPath) && File.Exists(outputJsonPath))
                 {
-                    try { File.Delete(outputJsonPath); } catch { /* best-effort cleanup */ }
+                    try
+                    {
+                        File.Delete(outputJsonPath);
+                    }
+                    catch (IOException)
+                    {
+                        // Best-effort cleanup of local verification output
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                        // Best-effort cleanup of local verification output
+                    }
                 }
 
                 AcceptanceProjectProvisioner.DeletePropertiesBestEffort(caller, createdProps.ToArray());

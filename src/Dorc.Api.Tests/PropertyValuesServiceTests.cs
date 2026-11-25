@@ -1350,10 +1350,11 @@ namespace Dorc.Api.Tests
             Assert.AreEqual("success", putWithRead.Status);
             Assert.AreEqual("updated-secret", ((PropertyValueDto)putWithRead.Item).Value);
 
-            // 5. Idempotent PUT (unchanged value) skips DB/audit writes, returns Status="success", and masks secret when !CanReadSecrets
+            // 5. Idempotent PUT (unchanged value) with a randomized encryptor skips DB/audit writes, returns Status="success", and masks secret when !CanReadSecrets
             mockedPropertyValuesPersistentSource.ClearReceivedCalls();
             mockedAuditsPersistentSource.ClearReceivedCalls();
-            mockedPropertyEncryptor.EncryptValue("decrypted-secret").Returns("encrypted-secret");
+            mockedPropertyEncryptor.EncryptValue(Arg.Any<string>())
+                .Returns(_ => $"randomized-nonce-cipher-{Guid.NewGuid():N}");
             mockedPropertyValuesPersistentSource.GetPropertyValuesByName("SecretProp")
                 .Returns(new[]
                 {
@@ -1363,7 +1364,7 @@ namespace Dorc.Api.Tests
                         Property = new PropertyApiModel { Id = 1, Name = "SecretProp", Secure = true },
                         PropertyValueFilter = "DevEnv",
                         PropertyValueFilterId = 55,
-                        Value = "encrypted-secret"
+                        Value = "stored-cipher-v1"
                     }
                 });
 
@@ -1382,6 +1383,52 @@ namespace Dorc.Api.Tests
             Assert.AreEqual(string.Empty, ((PropertyValueDto)idempotentNoRead.Item).Value);
             mockedPropertyValuesPersistentSource.DidNotReceiveWithAnyArgs().UpdatePropertyValue(default, default!);
             mockedAuditsPersistentSource.DidNotReceiveWithAnyArgs().AddRecord(default, default, default!, default!, default!, default!, default!, default!);
+
+            // 6. Idempotent & Changed PUT for Secure IsArray property with a randomized encryptor
+            mockedPropertiesPersistentSource.GetProperty("SecretArrayProp")
+                .Returns(new PropertyApiModel { Id = 2, Name = "SecretArrayProp", Secure = true, IsArray = true });
+            mockedPropertyEncryptor.DecryptValue("enc-elem-1").Returns("alpha");
+            mockedPropertyEncryptor.DecryptValue("enc-elem-2").Returns("beta");
+            mockedPropertyValuesPersistentSource.GetPropertyValuesByName("SecretArrayProp")
+                .Returns(new[]
+                {
+                    new PropertyValueDto
+                    {
+                        Id = 202,
+                        Property = new PropertyApiModel { Id = 2, Name = "SecretArrayProp", Secure = true, IsArray = true },
+                        PropertyValueFilter = "DevEnv",
+                        PropertyValueFilterId = 56,
+                        Value = "[\"enc-elem-1\",\"enc-elem-2\"]"
+                    }
+                });
+
+            var idempotentArrayPut = testService.PutPropertyValues(new List<PropertyValueDto>
+            {
+                new PropertyValueDto
+                {
+                    Id = 202,
+                    Property = new PropertyApiModel { Name = "SecretArrayProp", Secure = true, IsArray = true },
+                    PropertyValueFilter = "DevEnv",
+                    Value = "[ \"alpha\", \"beta\" ]"
+                }
+            }, user).Single();
+            Assert.AreEqual("success", idempotentArrayPut.Status);
+            mockedPropertyValuesPersistentSource.DidNotReceiveWithAnyArgs().UpdatePropertyValue(default, default!);
+            mockedAuditsPersistentSource.DidNotReceiveWithAnyArgs().AddRecord(default, default, default!, default!, default!, default!, default!, default!);
+
+            var changedArrayPut = testService.PutPropertyValues(new List<PropertyValueDto>
+            {
+                new PropertyValueDto
+                {
+                    Id = 202,
+                    Property = new PropertyApiModel { Name = "SecretArrayProp", Secure = true, IsArray = true },
+                    PropertyValueFilter = "DevEnv",
+                    Value = "[\"alpha\",\"gamma\"]"
+                }
+            }, user).Single();
+            Assert.AreEqual("success", changedArrayPut.Status);
+            mockedPropertyValuesPersistentSource.Received(1).UpdatePropertyValue(202, Arg.Any<string>());
+            mockedAuditsPersistentSource.Received(1).AddRecord(2, 202, "SecretArrayProp", "DevEnv", "[\"enc-elem-1\",\"enc-elem-2\"]", Arg.Any<string>(), Arg.Any<string>(), "Update");
         }
     }
 }

@@ -306,14 +306,32 @@ namespace Dorc.Api.Services
                         continue;
                     }
 
-                    var propertyValueToUpdate = dbPropertyValueModel.Property.Secure
-                        ? (dbPropertyValueModel.Property.IsArray
-                            ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.EncryptArrayValue(propertyValueDto.Value, _propertyEncryptor)
-                            : _propertyEncryptor.EncryptValue(propertyValueDto.Value))
-                        : propertyValueDto.Value;
-
-                    if (dbPropertyValueModel.Value != propertyValueToUpdate)
+                    bool isValueChanged;
+                    if (dbPropertyValueModel.Property.Secure)
                     {
+                        var currentPlaintext = dbPropertyValueModel.Value != null
+                            ? (dbPropertyValueModel.Property.IsArray
+                                ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.DecryptArrayValue(dbPropertyValueModel.Value, _propertyEncryptor)
+                                : _propertyEncryptor.DecryptValue(dbPropertyValueModel.Value))
+                            : null;
+                        var incomingPlaintext = dbPropertyValueModel.Property.IsArray
+                            ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.NormalizeArrayValue(propertyValueDto.Value)
+                            : propertyValueDto.Value;
+                        isValueChanged = currentPlaintext != incomingPlaintext;
+                    }
+                    else
+                    {
+                        isValueChanged = dbPropertyValueModel.Value != propertyValueDto.Value;
+                    }
+
+                    if (isValueChanged)
+                    {
+                        var propertyValueToUpdate = dbPropertyValueModel.Property.Secure
+                            ? (dbPropertyValueModel.Property.IsArray
+                                ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.EncryptArrayValue(propertyValueDto.Value, _propertyEncryptor)
+                                : _propertyEncryptor.EncryptValue(propertyValueDto.Value))
+                            : propertyValueDto.Value;
+
                         _propertyValuesPersistentSource.UpdatePropertyValue(dbPropertyValueModel.Id,
                             propertyValueToUpdate);
 

@@ -35,6 +35,16 @@ namespace Dorc.PersistentData.Sources
 
         public void CreateSqlPort(SqlPortApiModel value)
         {
+            if (value == null || string.IsNullOrWhiteSpace(value.InstanceName) || string.IsNullOrWhiteSpace(value.SqlPort))
+            {
+                throw new ArgumentException("InstanceName and SqlPort are required.");
+            }
+
+            if (value.InstanceName.Length > 250 || value.SqlPort.Length > 10)
+            {
+                throw new ArgumentException("InstanceName cannot exceed 250 characters and SqlPort cannot exceed 10 characters.");
+            }
+
             using (var context = _contextFactory.GetContext())
             {
                 var currentSqlPort = context.SqlPorts.FirstOrDefault(
