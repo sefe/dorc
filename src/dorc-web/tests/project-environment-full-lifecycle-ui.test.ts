@@ -608,10 +608,7 @@ describe('Project & Environment Full Lifecycle UI E2E', () => {
     expect(
       consoleErrorSpy.mock.calls,
       `Expected zero console.error calls during UI lifecycle execution, got: ${JSON.stringify(
-        consoleErrorSpy.mock.calls.map(c => ({
-          message: c[0]?.message,
-          url: c[0]?.request?.url,
-          status: c[0]?.status,
+        consoleErrorSpy.mock.calls.map((c: unknown[]) => ({
           raw: String(c[0])
         }))
       )}`
