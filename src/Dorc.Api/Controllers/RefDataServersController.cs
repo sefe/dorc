@@ -122,7 +122,8 @@ namespace Dorc.Api.Controllers
                 ServerId = s.Id,
                 Name = s.Name ?? string.Empty,
                 OsName = s.OsName ?? string.Empty,
-                Tags = s.TagLinks != null ? s.TagLinks.Select(t => t.Tag).ToArray() : System.Array.Empty<string>()
+                Tags = s.TagLinks != null ? s.TagLinks.Select(t => t.Tag).ToArray() : System.Array.Empty<string>(),
+                EnvironmentNames = s.Environments.Select(e => e.Name).ToList()
             }).ToList();
             return Ok(result);
         }

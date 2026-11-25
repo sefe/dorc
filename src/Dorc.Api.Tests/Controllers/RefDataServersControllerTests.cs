@@ -167,18 +167,33 @@ namespace Dorc.Api.Tests.Controllers
                 {
                     new ServerTag { ServerId = 301, Tag = "appserv" },
                     new ServerTag { ServerId = 301, Tag = "PATCH" }
+                },
+                Environments = new List<Dorc.PersistentData.Model.Environment>
+                {
+                    new Dorc.PersistentData.Model.Environment { Id = 11, Name = "Endur DV 01" }
                 }
             };
+            var serverWithNulls = new Server
+            {
+                Id = 302,
+                Name = null!,
+                OsName = null!,
+                TagLinks = null!
+            };
             _serversPersistentSource.GetAppServerDetails("Endur DV 01")
-                .Returns(new List<Server> { serverEntity });
+                .Returns(new List<Server> { serverEntity, serverWithNulls });
 
             var actionResult = _controller.GetAppServersByEnvName("Endur DV 01");
             Assert.IsInstanceOfType<OkObjectResult>(actionResult);
             var result = (OkObjectResult)actionResult;
             Assert.IsInstanceOfType<List<ServerApiModel>>(result.Value);
             var list = (List<ServerApiModel>)result.Value;
-            Assert.AreEqual(1, list.Count);
+            Assert.AreEqual(2, list.Count);
             CollectionAssert.AreEqual(new[] { "appserv", "PATCH" }, list[0].Tags.ToArray());
+            CollectionAssert.AreEqual(new[] { "Endur DV 01" }, list[0].EnvironmentNames.ToArray());
+            Assert.AreEqual(string.Empty, list[1].Name);
+            Assert.AreEqual(string.Empty, list[1].OsName);
+            Assert.AreEqual(0, list[1].Tags.Length);
         }
 
         [TestMethod]

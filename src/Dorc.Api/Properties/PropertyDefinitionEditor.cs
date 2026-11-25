@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Security.Claims;
 using Dorc.ApiModel;
 using Dorc.PersistentData;
@@ -287,15 +288,12 @@ namespace Dorc.Api.Properties
 
                 if (propertyValues != null)
                 {
-                    foreach (var propertyValue in propertyValues)
+                    foreach (var propertyValue in propertyValues.Where(pv => !string.IsNullOrEmpty(pv.Value)))
                     {
-                        if (!string.IsNullOrEmpty(propertyValue.Value))
-                        {
-                            var encryptedValue = isArray
-                                ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.EncryptArrayValue(propertyValue.Value, _propertyEncryptor)
-                                : _propertyEncryptor.EncryptValue(propertyValue.Value);
-                            encryptedUpdates.Add((propertyValue.Id, encryptedValue));
-                        }
+                        var encryptedValue = isArray
+                            ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.EncryptArrayValue(propertyValue.Value!, _propertyEncryptor)
+                            : _propertyEncryptor.EncryptValue(propertyValue.Value!);
+                        encryptedUpdates.Add((propertyValue.Id, encryptedValue));
                     }
                 }
 

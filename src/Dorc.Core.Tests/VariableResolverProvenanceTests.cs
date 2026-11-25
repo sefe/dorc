@@ -205,6 +205,24 @@ namespace Dorc.Core.Tests
 
             Assert.IsTrue(tracker.IsInfluenced("a", name => values.GetValueOrDefault(name)));
         }
+
+        [TestMethod]
+        public void IgnoresNullElementsInsideJsonArrayCandidatesWhenScanningReferences()
+        {
+            var tracker = new RequestSuppliedPropertyTracker();
+            tracker.Mark("tainted");
+
+            var values = new Dictionary<string, string?>
+            {
+                ["withNullOnly"] = "[null]",
+                ["withNullAndReference"] = "[null,\"$tainted$\"]",
+                ["malformedArrayWithRef"] = "[$tainted$"
+            };
+
+            Assert.IsFalse(tracker.IsInfluenced("withNullOnly", name => values.GetValueOrDefault(name)));
+            Assert.IsTrue(tracker.IsInfluenced("withNullAndReference", name => values.GetValueOrDefault(name)));
+            Assert.IsTrue(tracker.IsInfluenced("malformedArrayWithRef", name => values.GetValueOrDefault(name)));
+        }
     }
 
     /// <summary>

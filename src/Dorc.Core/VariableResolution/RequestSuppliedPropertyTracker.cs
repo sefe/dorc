@@ -89,8 +89,8 @@ namespace Dorc.Core.VariableResolution
                 {
                     try
                     {
-                        var elements = System.Text.Json.JsonSerializer.Deserialize<string[]>(raw)!;
-                        candidates.AddRange(elements);
+                        var elements = System.Text.Json.JsonSerializer.Deserialize<string?[]>(raw)!;
+                        candidates.AddRange(elements.OfType<string>());
                     }
                     catch (System.Text.Json.JsonException)
                     {

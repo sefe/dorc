@@ -84,7 +84,10 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var envDetails = context.Environments.Include(aps => aps.Servers).ThenInclude(sv => sv.TagLinks).Single(x => x.Name == envName);
+                var envDetails = context.Environments
+                    .Include(aps => aps.Servers).ThenInclude(sv => sv.TagLinks)
+                    .Include(aps => aps.Servers).ThenInclude(sv => sv.Environments)
+                    .Single(x => x.Name == envName);
                 var endurAppServers =
                     envDetails.Servers.Where(x => x.TagLinks.Any(t => t.Tag.Contains("appserv"))).ToList();
                 return endurAppServers;
