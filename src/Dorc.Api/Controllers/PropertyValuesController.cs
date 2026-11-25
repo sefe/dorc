@@ -1,4 +1,5 @@
-﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Interfaces;
+using Dorc.Api.Properties;
 using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
@@ -19,7 +20,7 @@ namespace Dorc.Api.Controllers
     [Route("api/[controller]")]
     public class PropertyValuesController : ControllerBase
     {
-        private readonly IPropertyValuesService _propertyValuesService;
+        private readonly IScopedPropertyValueEditor _scopedPropertyValueEditor;
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IVariableResolver _variableResolver;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
@@ -27,7 +28,7 @@ namespace Dorc.Api.Controllers
         private readonly IActiveDirectorySearcher _directorySearcher;
         private readonly ILogger<PropertyValuesController> _logger;
 
-        public PropertyValuesController(IPropertyValuesService propertyValuesService,
+        public PropertyValuesController(IScopedPropertyValueEditor scopedPropertyValueEditor,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             [FromKeyedServices("VariableResolver")] IVariableResolver variableResolver,
             IEnvironmentsPersistentSource environmentsPersistentSource,
@@ -39,7 +40,7 @@ namespace Dorc.Api.Controllers
             _environmentsPersistentSource = environmentsPersistentSource;
             _variableResolver = variableResolver;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
-            _propertyValuesService = propertyValuesService;
+            _scopedPropertyValueEditor = scopedPropertyValueEditor;
             _directorySearcher = directorySearcherFactory.GetEntraSearcher();
             _logger = logger;
         }
@@ -152,7 +153,7 @@ namespace Dorc.Api.Controllers
         {
             try
             {
-                var propertyValues = _propertyValuesService.GetPropertyValues(propertyName, environmentName,
+                var propertyValues = _scopedPropertyValueEditor.GetPropertyValues(propertyName, environmentName,
                     User)
                     .OrderBy(pv => !string.IsNullOrEmpty(pv.PropertyValueFilter))
                     .ThenBy(pv => pv.PropertyValueFilter)
@@ -189,7 +190,7 @@ namespace Dorc.Api.Controllers
 
             try
             {
-                var propertyValues = _propertyValuesService
+                var propertyValues = _scopedPropertyValueEditor
                     .GetPropertyValues(null, environmentName, User)
                     .Where(pv => !(pv.Property?.Secure ?? false))
                     .ToList();
@@ -238,7 +239,7 @@ namespace Dorc.Api.Controllers
         [HttpPut]
         public IActionResult PutPropertyValue(IEnumerable<PropertyValueDto> propertyValuesToUpdate)
         {
-            return Ok(_propertyValuesService.PutPropertyValues(propertyValuesToUpdate, User));
+            return Ok(_scopedPropertyValueEditor.PutPropertyValues(propertyValuesToUpdate, User));
         }
 
         /// <summary>
@@ -250,7 +251,7 @@ namespace Dorc.Api.Controllers
         [HttpPost]
         public IActionResult PostPropertyValue(IEnumerable<PropertyValueDto> propertyValuesToCreate)
         {
-            return Ok(_propertyValuesService.PostPropertyValues(propertyValuesToCreate, User));
+            return Ok(_scopedPropertyValueEditor.PostPropertyValues(propertyValuesToCreate, User));
         }
 
         /// <summary>
@@ -262,7 +263,7 @@ namespace Dorc.Api.Controllers
         [HttpDelete]
         public IActionResult DeletePropertyValue(IEnumerable<PropertyValueDto> propertyValuesToDelete)
         {
-            return Ok(_propertyValuesService.DeletePropertyValues(propertyValuesToDelete, User));
+            return Ok(_scopedPropertyValueEditor.DeletePropertyValues(propertyValuesToDelete, User));
         }
     }
 }

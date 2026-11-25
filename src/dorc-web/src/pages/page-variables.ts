@@ -78,6 +78,10 @@ export class PageVariables extends PageElement {
 
   @state() private _editingValueId: number | undefined;
 
+  @state() newArrayItems: string[] = [];
+
+  @state() selectedPropertyIsArray = false;
+
   private scopeFilterValue = '';
 
   private valueFilterValue = '';
@@ -173,6 +177,50 @@ export class PageVariables extends PageElement {
 
       .variable-selector-actions {
         white-space: nowrap;
+      }
+
+      .array-badge {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: var(--lumo-font-size-xxs);
+        font-weight: 600;
+        background-color: var(--lumo-primary-color-10pct);
+        color: var(--dorc-link-color);
+      }
+
+      .array-builder-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 8px;
+        margin-top: 4px;
+        border-radius: 4px;
+        background-color: var(--lumo-contrast-5pct);
+      }
+
+      .array-item-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: var(--lumo-font-size-xs);
+        background-color: var(--lumo-primary-color-10pct);
+        color: var(--lumo-body-text-color);
+        border: 1px solid var(--lumo-contrast-20pct);
+      }
+
+      .remove-array-item-btn {
+        border: none;
+        background: transparent;
+        color: var(--dorc-error-color);
+        cursor: pointer;
+        font-weight: bold;
+        padding: 0 2px;
+        line-height: 1;
       }
 
       @media (max-width: 768px) {
@@ -305,6 +353,17 @@ export class PageVariables extends PageElement {
                         ?disabled="${!((this.isPowerUser || this.isAdmin) && this.existingPropertySelected)}"
                         @click="${this.updatePropertySecure}"
                       ></vaadin-checkbox>
+                      <vaadin-checkbox
+                        id="is-variable-array"
+                        label="is Array"
+                        .checked="${this.selectedPropertyIsArray}"
+                        ?disabled="${!(
+                          (this.isPowerUser || this.isAdmin) &&
+                          this.existingPropertySelected &&
+                          (this.allPropertyValues?.length ?? 0) === 0
+                        )}"
+                        @click="${this.updatePropertyArray}"
+                      ></vaadin-checkbox>
                     </td>
                   </tr>
                 </table>
@@ -357,13 +416,30 @@ export class PageVariables extends PageElement {
                         ${comboBoxRenderer(this.comboboxRenderer, [])}
                         id="newVariableValue"
                         ?disabled="${!this.existingPropertySelected}"
-                        label="Value"
+                        label="${this.selectedPropertyIsArray ? 'Array Item / Value' : 'Value'}"
                         style="min-width: 400px; width: 100%"
-                        helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
+                        helper-text="${
+                          this.selectedPropertyIsArray
+                            ? "Add items one by one with '+ Add Item' or enter a JSON array [\"a\",\"b\"]"
+                            : 'Include a resolver eg. $AnotherVariable$ or specify value directly'
+                        }"
                       ></vaadin-combo-box>
                     </td>
+                    ${
+                      this.selectedPropertyIsArray
+                        ? html`<td style="vertical-align: center;">
+                            <vaadin-button
+                              id="add-array-item-btn"
+                              ?disabled="${!this.existingPropertySelected}"
+                              @click="${this._addArrayItemClick}"
+                              >+ Add Item</vaadin-button
+                            >
+                          </td>`
+                        : html``
+                    }
                     <td style="vertical-align: center;">
                       <vaadin-button
+                        id="add-variable-value-btn"
                         ?disabled="${!this.existingPropertySelected}"
                         @click="${this._addVariableValueClick}"
                         >Add Variable Value</vaadin-button
@@ -381,6 +457,49 @@ export class PageVariables extends PageElement {
                     </td>
                   </tr>
                 </table>
+                ${
+                  this.selectedPropertyIsArray
+                    ? html`<div
+                        id="new-array-items-list"
+                        class="array-builder-bar"
+                      >
+                        <strong style="font-size: var(--lumo-font-size-xs);">
+                          Array Items (${this.newArrayItems.length}):
+                        </strong>
+                        ${this.newArrayItems.length === 0
+                          ? html`<span
+                              style="font-size: var(--lumo-font-size-xs); color: var(--lumo-secondary-text-color);"
+                              >No items staged yet — type an item and click "+ Add Item", or click "Add Variable Value" to save directly.</span
+                            >`
+                          : this.newArrayItems.map(
+                              (item, idx) => html`
+                                <span class="array-item-chip">
+                                  <span class="array-item-text">${item}</span>
+                                  <button
+                                    type="button"
+                                    class="remove-array-item-btn"
+                                    aria-label="Remove array item ${item}"
+                                    @click="${() =>
+                                      this._removeStagedArrayItem(idx)}"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              `
+                            )}
+                        ${this.newArrayItems.length > 0
+                          ? html`<vaadin-button
+                              id="clear-array-items-btn"
+                              theme="small tertiary error"
+                              @click="${() => {
+                                this.newArrayItems = [];
+                              }}"
+                              >Clear</vaadin-button
+                            >`
+                          : html``}
+                      </div>`
+                    : html``
+                }
               </vaadin-details>
               ${
                 this.loadingPropertyValues
@@ -583,7 +702,12 @@ export class PageVariables extends PageElement {
   `;
 
   private propertyNameRenderer = (property: PropertyApiModel) =>
-    html`<div title="${property.Name}">${property.Name}</div>`;
+    html`<div title="${property.Name}">
+      ${property.Name}
+      ${property.IsArray
+        ? html`<span class="array-badge">[Array]</span>`
+        : html``}
+    </div>`;
 
   validateNewVariable() {
     const textField = this.shadowRoot?.querySelector(
@@ -722,6 +846,9 @@ export class PageVariables extends PageElement {
       'variable-value-deleted',
       this.variableValueDeleted as EventListener
     );
+    this.addEventListener('variable-value-updated', (() => {
+      this.loadVariableValues();
+    }) as EventListener);
     this.addEventListener('editing-started', ((e: CustomEvent) => {
       this._editingValueId = e.detail.id;
     }) as EventListener);
@@ -805,14 +932,23 @@ export class PageVariables extends PageElement {
       const checkboxSecure = this.shadowRoot?.querySelector(
         '#is-variable-secure'
       ) as unknown as Checkbox;
+      const checkboxArray = this.shadowRoot?.querySelector(
+        '#is-variable-array'
+      ) as unknown as Checkbox;
+
+      this.newArrayItems = [];
 
       if (existingProperty) {
         this.existingPropertySelected = true;
-        checkboxSecure.checked = existingProperty?.Secure ?? false;
+        this.selectedPropertyIsArray = existingProperty?.IsArray ?? false;
+        if (checkboxSecure) checkboxSecure.checked = existingProperty?.Secure ?? false;
+        if (checkboxArray) checkboxArray.checked = this.selectedPropertyIsArray;
         this.loadVariableValues();
       } else {
         this.existingPropertySelected = false;
-        checkboxSecure.checked = false;
+        this.selectedPropertyIsArray = false;
+        if (checkboxSecure) checkboxSecure.checked = false;
+        if (checkboxArray) checkboxArray.checked = false;
         this.propertyValues = [];
       }
     }
@@ -1007,6 +1143,104 @@ export class PageVariables extends PageElement {
     this.filteredEnvironments = envs;
   }
 
+  async updatePropertyArray(event: Event) {
+    const checkbox = event.currentTarget as Checkbox;
+    const propertyName = this.propertyName;
+    const existingProperty = this.properties?.find(
+      value => value.Name === propertyName
+    );
+
+    if (existingProperty && propertyName) {
+      const originallyArray = existingProperty.IsArray ?? false;
+      const revertCheckboxState = () => {
+        checkbox.checked = originallyArray;
+        this.selectedPropertyIsArray = originallyArray;
+      };
+
+      const confirmMessage = !originallyArray
+        ? `Are you sure you want to mark property "${propertyName}" as an Array variable?\n\nValues for this variable will be stored as JSON arrays and passed to PowerShell scripts as string[].`
+        : `Are you sure you want to mark property "${propertyName}" as a scalar (non-array) variable?`;
+
+      if (!(await confirmPrompt(confirmMessage))) {
+        revertCheckboxState();
+        return;
+      }
+
+      const updatedProperty: PropertyApiModel = {
+        ...existingProperty,
+        IsArray: !originallyArray
+      };
+
+      const api = new PropertiesApi(dorcApiConfiguration);
+      const requestBody = { [propertyName]: updatedProperty };
+
+      api.propertiesPut({ requestBody }).subscribe({
+        next: (data: Response[]) => {
+          if (data[0]?.Status === 'success') {
+            existingProperty.IsArray = !originallyArray;
+            this.selectedPropertyIsArray = !originallyArray;
+            checkbox.checked = !originallyArray;
+            Notification.show(
+              `Property "${propertyName}" updated to ${!originallyArray ? 'Array' : 'Scalar'} successfully.`,
+              {
+                position: 'bottom-start',
+                theme: 'success'
+              }
+            );
+            this.loadVariableValues();
+          } else {
+            revertCheckboxState();
+            this.errorAlert([data[0]]);
+          }
+        },
+        error: (err: any) => {
+          revertCheckboxState();
+          this.errorAlert(err);
+        }
+      });
+    }
+  }
+
+  _addArrayItemClick() {
+    const textField = this.shadowRoot?.querySelector(
+      '#newVariableValue'
+    ) as unknown as TextField | null;
+    const raw = textField?.value?.trim() ?? '';
+    if (!raw) {
+      return;
+    }
+
+    const parsed = PageVariables.tryParseJsonArray(raw);
+    if (parsed) {
+      this.newArrayItems = [...this.newArrayItems, ...parsed];
+    } else {
+      this.newArrayItems = [...this.newArrayItems, raw];
+    }
+
+    if (textField) {
+      textField.value = '';
+    }
+  }
+
+  _removeStagedArrayItem(index: number) {
+    this.newArrayItems = this.newArrayItems.filter((_, idx) => idx !== index);
+  }
+
+  private static tryParseJsonArray(raw: string): string[] | null {
+    if (!raw.startsWith('[')) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map(item => String(item ?? ''));
+      }
+    } catch {
+      // Not a JSON array
+    }
+    return null;
+  }
+
   _addVariableValueClick() {
     const textField = this.shadowRoot?.querySelector(
       '#newVariableValue'
@@ -1017,9 +1251,26 @@ export class PageVariables extends PageElement {
     );
     if (existingProperty) {
       this.addingVariableValue = true;
+      const rawInput = textField?.value?.trim() ?? '';
+      let valueToSave = rawInput;
+
+      if (existingProperty.IsArray) {
+        const combinedItems = [...this.newArrayItems];
+        if (rawInput !== '') {
+          const parsedInput = PageVariables.tryParseJsonArray(rawInput);
+          if (parsedInput) {
+            combinedItems.push(...parsedInput);
+          } else {
+            combinedItems.push(rawInput);
+          }
+        }
+        valueToSave =
+          combinedItems.length > 0 ? JSON.stringify(combinedItems) : rawInput;
+      }
+
       const propertyValueDto: PropertyValueDto = {
         Property: existingProperty,
-        Value: textField.value.trim(),
+        Value: valueToSave,
         PropertyValueFilter: this.newVariableScope
       };
       if (propertyValueDto.PropertyValueFilter === '') {
@@ -1070,6 +1321,7 @@ export class PageVariables extends PageElement {
                 if (combobox) combobox.value = '';
               }
               if (textField) textField.value = '';
+              this.newArrayItems = [];
 
               this.loadVariableValues();
               this.addingVariableValue = false;

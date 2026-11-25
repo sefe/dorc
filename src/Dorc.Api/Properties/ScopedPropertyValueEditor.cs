@@ -1,4 +1,4 @@
-﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Services;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
@@ -6,9 +6,9 @@ using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.VisualStudio.Services.Common;
 using System.Security.Claims;
 
-namespace Dorc.Api.Services
+namespace Dorc.Api.Properties
 {
-    public class PropertyValuesService : IPropertyValuesService
+    public class ScopedPropertyValueEditor : IScopedPropertyValueEditor
     {
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
@@ -20,13 +20,13 @@ namespace Dorc.Api.Services
         private readonly ILogger _log; 
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
 
-        public PropertyValuesService(ISecurityPrivilegesChecker securityPrivilegesChecker, IPropertyEncryptor propertyEncryptor,
+        public ScopedPropertyValueEditor(ISecurityPrivilegesChecker securityPrivilegesChecker, IPropertyEncryptor propertyEncryptor,
             IPropertiesPersistentSource propertiesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             IPropertyValuesAuditPersistentSource propertyValuesAuditPersistentSource,
             IRolePrivilegesChecker rolePrivilegesChecker,
-            ILogger<PropertyValuesService> log,
+            ILogger<ScopedPropertyValueEditor> log,
             IClaimsPrincipalReader claimsPrincipalReader
             )
         {
@@ -120,7 +120,7 @@ namespace Dorc.Api.Services
                             pv.PropertyValueFilter.Equals(propertyValueDto.PropertyValueFilter,
                                 StringComparison.CurrentCultureIgnoreCase));
 
-                    if (filteredPropertyValues?.Id == 0)
+                    if (filteredPropertyValues == null || filteredPropertyValues.Id == 0)
                     {
                         result.Add(new Response
                         {
@@ -132,9 +132,9 @@ namespace Dorc.Api.Services
 
                     if (propertyValueDto.PropertyValueFilter != null)
                     {
-                        if (!_propertyValuesPersistentSource.RemoveByFilterId(filteredPropertyValues?.PropertyValueFilterId) &&
+                        if (!_propertyValuesPersistentSource.RemoveByFilterId(filteredPropertyValues.PropertyValueFilterId) &&
                             !_propertyValuesPersistentSource.Remove(
-                                filteredPropertyValues?.Id))
+                                filteredPropertyValues.Id))
                         {
                             result.Add(new Response
                             {
@@ -146,7 +146,7 @@ namespace Dorc.Api.Services
                     }
                     else
                     {
-                        if (!_propertyValuesPersistentSource.Remove(filteredPropertyValues?.Id))
+                        if (!_propertyValuesPersistentSource.Remove(filteredPropertyValues.Id))
                         {
                             result.Add(new Response
                             {
@@ -157,13 +157,12 @@ namespace Dorc.Api.Services
                         }
                     }
 
-                    var propertyApiModel = _propertiesPersistentSource.GetProperty(filteredPropertyValues?.Property.Name);
+                    var propertyApiModel = _propertiesPersistentSource.GetProperty(filteredPropertyValues.Property.Name);
                     string username = _claimsPrincipalReader.GetUserFullDomainName(user);
-                    if (filteredPropertyValues != null)
-                        _propertyValuesAuditPersistentSource.AddRecord(propertyApiModel.Id,
-                            filteredPropertyValues.Id, filteredPropertyValues.Property.Name,
-                            filteredPropertyValues.PropertyValueFilter, filteredPropertyValues.Value, string.Empty,
-                            username, "Delete");
+                    _propertyValuesAuditPersistentSource.AddRecord(propertyApiModel.Id,
+                        filteredPropertyValues.Id, filteredPropertyValues.Property.Name,
+                        filteredPropertyValues.PropertyValueFilter, filteredPropertyValues.Value, string.Empty,
+                        username, "Delete");
 
                     result.Add(new Response { Item = propertyValueDto, Status = "success" });
                 }
@@ -219,7 +218,7 @@ namespace Dorc.Api.Services
                             .GetPropertyValuesByName(propertyValueDto.Property.Name)
                             .FirstOrDefault(pv => pv.PropertyValueFilterId == null);
 
-                    if (oldVariableValue?.Id != null)
+                    if (oldVariableValue != null)
                     {
                         result.Add(new Response
                         {
@@ -286,7 +285,7 @@ namespace Dorc.Api.Services
                                 pv.PropertyValueFilter.Equals(propertyValueDto.PropertyValueFilter,
                                     StringComparison.CurrentCultureIgnoreCase));
 
-                    if (dbPropertyValueModel?.Id == null)
+                    if (dbPropertyValueModel == null)
                     {
                         result.Add(new Response
                         {
@@ -306,31 +305,35 @@ namespace Dorc.Api.Services
                         continue;
                     }
 
+                    var incomingPlaintext = dbPropertyValueModel.Property.IsArray
+                        ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.NormalizeArrayValue(propertyValueDto.Value)
+                        : propertyValueDto.Value;
+
                     bool isValueChanged;
                     if (dbPropertyValueModel.Property.Secure)
                     {
-                        var currentPlaintext = dbPropertyValueModel.Value != null
-                            ? (dbPropertyValueModel.Property.IsArray
-                                ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.DecryptArrayValue(dbPropertyValueModel.Value, _propertyEncryptor)
-                                : _propertyEncryptor.DecryptValue(dbPropertyValueModel.Value))
-                            : null;
-                        var incomingPlaintext = dbPropertyValueModel.Property.IsArray
-                            ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.NormalizeArrayValue(propertyValueDto.Value)
-                            : propertyValueDto.Value;
+                        var currentPlaintext = dbPropertyValueModel.Property.IsArray
+                            ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.DecryptArrayValue(dbPropertyValueModel.Value, _propertyEncryptor)
+                            : _propertyEncryptor.DecryptValue(dbPropertyValueModel.Value);
                         isValueChanged = currentPlaintext != incomingPlaintext;
                     }
                     else
                     {
-                        isValueChanged = dbPropertyValueModel.Value != propertyValueDto.Value;
+                        isValueChanged = dbPropertyValueModel.Value != incomingPlaintext;
                     }
 
                     if (isValueChanged)
                     {
                         var propertyValueToUpdate = dbPropertyValueModel.Property.Secure
                             ? (dbPropertyValueModel.Property.IsArray
-                                ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.EncryptArrayValue(propertyValueDto.Value, _propertyEncryptor)
-                                : _propertyEncryptor.EncryptValue(propertyValueDto.Value))
-                            : propertyValueDto.Value;
+                                ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.EncryptArrayValue(incomingPlaintext, _propertyEncryptor)
+                                : _propertyEncryptor.EncryptValue(incomingPlaintext))
+                            : incomingPlaintext;
+
+                        if (!dbPropertyValueModel.Property.Secure)
+                        {
+                            propertyValueDto.Value = propertyValueToUpdate;
+                        }
 
                         _propertyValuesPersistentSource.UpdatePropertyValue(dbPropertyValueModel.Id,
                             propertyValueToUpdate);

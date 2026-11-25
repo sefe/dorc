@@ -256,18 +256,33 @@ namespace Dorc.NetFramework.PowerShell
 
             foreach (var kvp in properties)
             {
-                var raw = kvp.Value?.Value?.ToString();
-                if (string.IsNullOrWhiteSpace(raw)) continue;
-
                 var isExplicitlySecret = kvp.Key != null && explicitNames.Contains(kvp.Key);
-                var isHeuristicSecret = kvp.Key != null
+                var matchesKeyNameHeuristic = kvp.Key != null
                     && explicitNames.Count == 0
-                    && raw.Length >= 4
-                    && !long.TryParse(raw, out _)
                     && (kvp.Key.IndexOf("Password", StringComparison.OrdinalIgnoreCase) >= 0 ||
                         kvp.Key.IndexOf("Secret", StringComparison.OrdinalIgnoreCase) >= 0 ||
                         kvp.Key.IndexOf("Token", StringComparison.OrdinalIgnoreCase) >= 0 ||
                         kvp.Key.IndexOf("ApiKey", StringComparison.OrdinalIgnoreCase) >= 0);
+
+                if (kvp.Value?.Value is IEnumerable<string> arrayElements)
+                {
+                    foreach (var element in arrayElements.Where(element => !string.IsNullOrWhiteSpace(element)))
+                    {
+                        if ((isExplicitlySecret || (matchesKeyNameHeuristic && element.Length >= 4 && !long.TryParse(element, out _)))
+                            && !values.Contains(element))
+                        {
+                            values.Add(element);
+                        }
+                    }
+                    continue;
+                }
+
+                var raw = kvp.Value?.Value?.ToString();
+                if (string.IsNullOrWhiteSpace(raw)) continue;
+
+                var isHeuristicSecret = matchesKeyNameHeuristic
+                    && raw.Length >= 4
+                    && !long.TryParse(raw, out _);
                 if (!isExplicitlySecret && !isHeuristicSecret) continue;
 
                 if (!values.Contains(raw))

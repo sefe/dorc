@@ -1,4 +1,5 @@
-﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Interfaces;
+using Dorc.Api.Properties;
 using Dorc.Core;
 using Dorc.Core.Account;
 using Dorc.Core.BuildServer;
@@ -19,8 +20,8 @@ namespace Dorc.Api.Services
             var configSettings = new ConfigurationSettings(configuration);
             var domain = configSettings.GetConfigurationDomainNameIntra();
 
-            For<IPropertiesService>().Use<PropertiesService>();
-            For<IPropertyValuesService>().Use<PropertyValuesService>();
+            For<IPropertyDefinitionEditor>().Use<PropertyDefinitionEditor>();
+            For<IScopedPropertyValueEditor>().Use<ScopedPropertyValueEditor>();
                 
             For<IRequestService>().Use<RequestService>();
 

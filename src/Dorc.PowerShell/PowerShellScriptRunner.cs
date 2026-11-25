@@ -239,20 +239,34 @@ namespace Dorc.PowerShell
             var values = new HashSet<string>(StringComparer.Ordinal);
             foreach (var kvp in combinedProperties)
             {
+                var isExplicitlySensitive = explicitNames.Contains(kvp.Key);
+                var matchesKeyNameHeuristic = explicitNames.Count == 0
+                    && (kvp.Key.Contains("Secret", StringComparison.OrdinalIgnoreCase)
+                        || kvp.Key.Contains("Password", StringComparison.OrdinalIgnoreCase)
+                        || kvp.Key.Contains("Token", StringComparison.OrdinalIgnoreCase)
+                        || kvp.Key.Contains("ApiKey", StringComparison.OrdinalIgnoreCase));
+
+                if (kvp.Value.Value is IEnumerable<string> arrayElements)
+                {
+                    foreach (var element in arrayElements.Where(e => !string.IsNullOrEmpty(e)))
+                    {
+                        if (isExplicitlySensitive || (matchesKeyNameHeuristic && element.Length >= 4 && !long.TryParse(element, out _)))
+                        {
+                            values.Add(element);
+                        }
+                    }
+                    continue;
+                }
+
                 var raw = kvp.Value?.Value?.ToString();
                 if (string.IsNullOrEmpty(raw))
                 {
                     continue;
                 }
 
-                var isExplicitlySensitive = explicitNames.Contains(kvp.Key);
-                var isHeuristicSensitive = explicitNames.Count == 0
+                var isHeuristicSensitive = matchesKeyNameHeuristic
                     && raw.Length >= 4
-                    && !long.TryParse(raw, out _)
-                    && (kvp.Key.Contains("Secret", StringComparison.OrdinalIgnoreCase)
-                        || kvp.Key.Contains("Password", StringComparison.OrdinalIgnoreCase)
-                        || kvp.Key.Contains("Token", StringComparison.OrdinalIgnoreCase)
-                        || kvp.Key.Contains("ApiKey", StringComparison.OrdinalIgnoreCase));
+                    && !long.TryParse(raw, out _);
                 if (!isExplicitlySensitive && !isHeuristicSensitive)
                 {
                     continue;

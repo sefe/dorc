@@ -527,5 +527,173 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
                 }
             }
         }
+
+        [TestMethod]
+        public void CreateDeploymentRequest_IsArrayPropertiesPlainInterpolatedNestedSecureAndRequestOverride_InjectsStringArraysIntoRunners()
+        {
+            using var caller = new DorcApiClient();
+            var buildUri = EnsureProvisioned(caller);
+            var cid = Guid.NewGuid().ToString("N")[..10];
+
+            var arrayCorrelationProp = "AutoReg_ArrayCorrelationId";
+            var tagProp = $"AutoReg_ArrayTag_{cid}";
+            var baseArrayProp = $"AutoReg_ArrayBase_{cid}";
+            var expandedArrayProp = $"AutoReg_ArrayExpanded_{cid}";
+            var joinedScalarProp = $"AutoReg_ArrayJoined_{cid}";
+            var overrideArrayProp = $"AutoReg_ArrayOverride_{cid}";
+            var secretArrayProp = $"AutoReg_ArraySecret_{cid}";
+            var secretElemA = $"SecArrElemA_{cid}!";
+            var secretElemB = $"SecArrElemB_{cid}!";
+
+            try
+            {
+                EnsurePropertyDefinition(caller, arrayCorrelationProp, secure: false, isArray: false);
+                EnsurePropertyDefinition(caller, tagProp, secure: false, isArray: false);
+
+                // Create baseArrayProp as scalar first, then toggle IsArray=true via PUT /Properties
+                EnsurePropertyDefinition(caller, baseArrayProp, secure: false, isArray: false);
+                var toggleResp = caller.ExecuteRaw("Properties", Method.Put, body: new Dictionary<string, PropertyApiModel>
+                {
+                    [baseArrayProp] = new PropertyApiModel
+                    {
+                        Name = baseArrayProp,
+                        Secure = false,
+                        IsArray = true
+                    }
+                });
+                Assert.AreEqual(HttpStatusCode.OK, toggleResp.StatusCode, $"PUT /Properties IsArray toggle failed: {toggleResp.Content}");
+
+                var verifyPropResp = caller.ExecuteRaw($"Properties/id={Uri.EscapeDataString(baseArrayProp)}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, verifyPropResp.StatusCode, verifyPropResp.Content);
+                var verifiedProp = DorcApiClient.Deserialize<PropertyApiModel>(verifyPropResp.Content);
+                Assert.IsNotNull(verifiedProp);
+                Assert.IsTrue(verifiedProp.IsArray, "Expected PUT /Properties to persist IsArray = true.");
+
+                EnsurePropertyDefinition(caller, expandedArrayProp, secure: false, isArray: true);
+                EnsurePropertyDefinition(caller, joinedScalarProp, secure: false, isArray: false);
+                EnsurePropertyDefinition(caller, overrideArrayProp, secure: false, isArray: true);
+                EnsurePropertyDefinition(caller, secretArrayProp, secure: true, isArray: true);
+
+                UpsertPropertyValue(caller, arrayCorrelationProp, secure: false, envFilter: LiveChildEnvName, value: cid, isArray: false);
+                UpsertPropertyValue(caller, tagProp, secure: false, envFilter: null, value: $"Tag_{cid}", isArray: false);
+                UpsertPropertyValue(
+                    caller,
+                    baseArrayProp,
+                    secure: false,
+                    envFilter: LiveParentEnvName,
+                    value: $"[\"node1-${tagProp}$\",\"node2-${tagProp}$\"]",
+                    isArray: true);
+                UpsertPropertyValue(
+                    caller,
+                    expandedArrayProp,
+                    secure: false,
+                    envFilter: LiveChildEnvName,
+                    value: $"[\"${baseArrayProp}$\",\"node3-${tagProp}$\"]",
+                    isArray: true);
+                UpsertPropertyValue(
+                    caller,
+                    joinedScalarProp,
+                    secure: false,
+                    envFilter: LiveChildEnvName,
+                    value: $"cluster=${baseArrayProp}$",
+                    isArray: false);
+                UpsertPropertyValue(
+                    caller,
+                    overrideArrayProp,
+                    secure: false,
+                    envFilter: LiveChildEnvName,
+                    value: "[\"default-1\",\"default-2\"]",
+                    isArray: true);
+                UpsertPropertyValue(
+                    caller,
+                    secretArrayProp,
+                    secure: true,
+                    envFilter: LiveChildEnvName,
+                    value: $"[\"{secretElemA}\",\"{secretElemB}\"]",
+                    isArray: true);
+
+                var requestPayload = new RequestDto
+                {
+                    Project = LiveProjectName,
+                    Environment = LiveChildEnvName,
+                    BuildNum = BuildFolderName,
+                    BuildUrl = buildUri,
+                    Components = new List<string>
+                    {
+                        DownstreamSkippedComponentName,
+                        NetFxRunnerComponentName
+                    },
+                    RequestProperties = new List<RequestProperty>
+                    {
+                        new RequestProperty
+                        {
+                            PropertyName = overrideArrayProp,
+                            PropertyValue = $"[\"override-1-{cid}\",\"override-2-{cid}\"]"
+                        }
+                    }
+                };
+
+                var createResp = caller.ExecuteRaw("Request", Method.Post, body: requestPayload);
+                Assert.AreEqual(HttpStatusCode.OK, createResp.StatusCode, $"POST /Request failed: {createResp.Content}");
+                var created = DorcApiClient.Deserialize<RequestStatusDto>(createResp.Content);
+                Assert.IsNotNull(created);
+                Assert.IsGreaterThan(0, created.Id);
+
+                var finalRequest = WaitForTerminalRequestStatus(caller, created.Id, TimeSpan.FromMinutes(3));
+                var resultsResp = caller.ExecuteRaw("ResultStatuses", Method.Get, new Dictionary<string, string>
+                {
+                    ["requestId"] = created.Id.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, resultsResp.StatusCode, resultsResp.Content);
+                var results = DorcApiClient.Deserialize<List<DeploymentResultApiModel>>(resultsResp.Content) ?? new List<DeploymentResultApiModel>();
+                Assert.HasCount(2, results, $"Expected 2 component results (.NET 8 PS7 + .NET Framework 4.8 PS5.1) for request {created.Id}.");
+
+                var combinedLogs = new List<string>();
+                foreach (var res in results)
+                {
+                    var logResp = caller.ExecuteRaw("ResultStatuses/Log", Method.Get, new Dictionary<string, string>
+                    {
+                        ["requestId"] = created.Id.ToString(),
+                        ["resultId"] = res.Id.ToString()
+                    });
+                    combinedLogs.Add($"{res.Log}\n{logResp.Content}");
+                }
+
+                var fullLog = string.Join("\n---\n", combinedLogs);
+                Assert.AreEqual(
+                    "Completed",
+                    finalRequest.Status,
+                    $"Expected IsArray multi-runner request {created.Id} to reach Completed, got '{finalRequest.Status}'. Logs:\n{fullLog}");
+
+                StringAssert.Contains(
+                    fullLog,
+                    $"VERIFIED_ISARRAY_NET8_PS7_RUNNER_{cid}",
+                    $"Expected .NET 8 (PS 7) runner to receive and verify string[] variables. Log:\n{fullLog}");
+                StringAssert.Contains(
+                    fullLog,
+                    $"VERIFIED_ISARRAY_PROPERTIES_IN_RUNNER_{cid}",
+                    $"Expected .NET Framework 4.8 (PS 5.1) runner to receive and verify string[] variables. Log:\n{fullLog}");
+                StringAssert.Contains(
+                    fullLog,
+                    "ARRAY_SECRET_PROBE=[REDACTED]|[REDACTED]",
+                    $"Expected both runners to redact every element of a Secure IsArray variable. Log:\n{fullLog}");
+
+                Assert.IsFalse(
+                    fullLog.Contains(secretElemA, StringComparison.Ordinal) || fullLog.Contains(secretElemB, StringComparison.Ordinal),
+                    "Cleartext secure array element leaked in runner log.");
+            }
+            finally
+            {
+                UpsertPropertyValue(caller, arrayCorrelationProp, secure: false, envFilter: LiveChildEnvName, value: string.Empty, isArray: false);
+                DeletePropertiesBestEffort(
+                    caller,
+                    tagProp,
+                    baseArrayProp,
+                    expandedArrayProp,
+                    joinedScalarProp,
+                    overrideArrayProp,
+                    secretArrayProp);
+            }
+        }
     }
 }

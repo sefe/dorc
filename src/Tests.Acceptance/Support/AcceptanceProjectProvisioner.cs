@@ -169,7 +169,7 @@ namespace Tests.Acceptance.Support
             return $"{results[0].Log}\n{logResp.Content}";
         }
 
-        internal static void EnsurePropertyDefinition(DorcApiClient caller, string propName, bool secure)
+        internal static void EnsurePropertyDefinition(DorcApiClient caller, string propName, bool secure, bool isArray = false)
         {
             var getResp = caller.ExecuteRaw($"Properties/id={Uri.EscapeDataString(propName)}", Method.Get);
             if (getResp.StatusCode == HttpStatusCode.OK)
@@ -183,13 +183,13 @@ namespace Tests.Acceptance.Support
                 {
                     Name = propName,
                     Secure = secure,
-                    IsArray = false
+                    IsArray = isArray
                 }
             });
             Assert.AreEqual(HttpStatusCode.OK, postResp.StatusCode, $"POST /Properties for '{propName}' failed: {postResp.Content}");
         }
 
-        internal static void UpsertPropertyValue(DorcApiClient caller, string propName, bool secure, string? envFilter, string value)
+        internal static void UpsertPropertyValue(DorcApiClient caller, string propName, bool secure, string? envFilter, string value, bool isArray = false)
         {
             var query = new Dictionary<string, string> { ["propertyName"] = propName };
             if (!string.IsNullOrWhiteSpace(envFilter))
@@ -220,7 +220,7 @@ namespace Tests.Acceptance.Support
                     {
                         Name = propName,
                         Secure = secure,
-                        IsArray = false
+                        IsArray = isArray
                     },
                     PropertyValueFilter = envFilter,
                     Value = value
@@ -381,6 +381,35 @@ Write-Output 'Finished wait.'
 ");
 
                 WriteScriptIfChanged(Path.Join(scriptSubfolder, "downstream-skipped.ps1"), @"
+$ErrorActionPreference = 'Stop'
+$arrCid = [string](Get-Variable -Name 'AutoReg_ArrayCorrelationId' -ValueOnly -ErrorAction SilentlyContinue)
+if (-not [string]::IsNullOrWhiteSpace($arrCid)) {
+    $baseArr = Get-Variable -Name ""AutoReg_ArrayBase_$arrCid"" -ValueOnly -ErrorAction SilentlyContinue
+    $expandedArr = Get-Variable -Name ""AutoReg_ArrayExpanded_$arrCid"" -ValueOnly -ErrorAction SilentlyContinue
+    $joinedVal = [string](Get-Variable -Name ""AutoReg_ArrayJoined_$arrCid"" -ValueOnly -ErrorAction SilentlyContinue)
+    $overrideArr = Get-Variable -Name ""AutoReg_ArrayOverride_$arrCid"" -ValueOnly -ErrorAction SilentlyContinue
+    $secretArr = Get-Variable -Name ""AutoReg_ArraySecret_$arrCid"" -ValueOnly -ErrorAction SilentlyContinue
+
+    if ($null -ne $baseArr) {
+        if ($baseArr -isnot [string[]] -or $baseArr.Count -ne 2 -or ($baseArr -join '|') -ne ""node1-Tag_$arrCid|node2-Tag_$arrCid"") {
+            throw ""Base array mismatch: type=$($baseArr.GetType().FullName) val=$($baseArr -join '|')""
+        }
+        if ($expandedArr -isnot [string[]] -or $expandedArr.Count -ne 3 -or ($expandedArr -join '|') -ne ""node1-Tag_$arrCid|node2-Tag_$arrCid|node3-Tag_$arrCid"") {
+            throw ""Expanded array mismatch: type=$($expandedArr.GetType().FullName) val=$($expandedArr -join '|')""
+        }
+        if ($joinedVal -ne ""cluster=node1-Tag_$arrCid,node2-Tag_$arrCid"") {
+            throw ""Joined scalar mismatch: '$joinedVal'""
+        }
+        if ($overrideArr -isnot [string[]] -or $overrideArr.Count -ne 2 -or ($overrideArr -join '|') -ne ""override-1-$arrCid|override-2-$arrCid"") {
+            throw ""Override array mismatch: type=$($overrideArr.GetType().FullName) val=$($overrideArr -join '|')""
+        }
+        if ($secretArr -isnot [string[]] -or $secretArr.Count -ne 2 -or $secretArr[0] -ne ""SecArrElemA_$arrCid!"" -or $secretArr[1] -ne ""SecArrElemB_$arrCid!"") {
+            throw ""Secret array mismatch: type=$($secretArr.GetType().FullName) count=$($secretArr.Count)""
+        }
+        Write-Output ""ARRAY_SECRET_PROBE=$($secretArr[0])|$($secretArr[1])""
+        Write-Output ""VERIFIED_ISARRAY_NET8_PS7_RUNNER_$arrCid""
+    }
+}
 Write-Output 'Downstream component executed.'
 ");
 
@@ -394,6 +423,34 @@ if ($edition -ne 'Desktop' -or $major -ne 5) {
 }
 if ($EnvironmentName -ne 'DOrc_Live_Acceptance_Child_Env') {
     throw ""Expected EnvironmentName='DOrc_Live_Acceptance_Child_Env', got '$EnvironmentName'""
+}
+$arrCid = [string](Get-Variable -Name 'AutoReg_ArrayCorrelationId' -ValueOnly -ErrorAction SilentlyContinue)
+if (-not [string]::IsNullOrWhiteSpace($arrCid)) {
+    $baseArr = Get-Variable -Name ""AutoReg_ArrayBase_$arrCid"" -ValueOnly -ErrorAction SilentlyContinue
+    $expandedArr = Get-Variable -Name ""AutoReg_ArrayExpanded_$arrCid"" -ValueOnly -ErrorAction SilentlyContinue
+    $joinedVal = [string](Get-Variable -Name ""AutoReg_ArrayJoined_$arrCid"" -ValueOnly -ErrorAction SilentlyContinue)
+    $overrideArr = Get-Variable -Name ""AutoReg_ArrayOverride_$arrCid"" -ValueOnly -ErrorAction SilentlyContinue
+    $secretArr = Get-Variable -Name ""AutoReg_ArraySecret_$arrCid"" -ValueOnly -ErrorAction SilentlyContinue
+
+    if ($null -ne $baseArr) {
+        if ($baseArr -isnot [string[]] -or $baseArr.Count -ne 2 -or ($baseArr -join '|') -ne ""node1-Tag_$arrCid|node2-Tag_$arrCid"") {
+            throw ""Base array mismatch: type=$($baseArr.GetType().FullName) val=$($baseArr -join '|')""
+        }
+        if ($expandedArr -isnot [string[]] -or $expandedArr.Count -ne 3 -or ($expandedArr -join '|') -ne ""node1-Tag_$arrCid|node2-Tag_$arrCid|node3-Tag_$arrCid"") {
+            throw ""Expanded array mismatch: type=$($expandedArr.GetType().FullName) val=$($expandedArr -join '|')""
+        }
+        if ($joinedVal -ne ""cluster=node1-Tag_$arrCid,node2-Tag_$arrCid"") {
+            throw ""Joined scalar mismatch: '$joinedVal'""
+        }
+        if ($overrideArr -isnot [string[]] -or $overrideArr.Count -ne 2 -or ($overrideArr -join '|') -ne ""override-1-$arrCid|override-2-$arrCid"") {
+            throw ""Override array mismatch: type=$($overrideArr.GetType().FullName) val=$($overrideArr -join '|')""
+        }
+        if ($secretArr -isnot [string[]] -or $secretArr.Count -ne 2 -or $secretArr[0] -ne ""SecArrElemA_$arrCid!"" -or $secretArr[1] -ne ""SecArrElemB_$arrCid!"") {
+            throw ""Secret array mismatch: type=$($secretArr.GetType().FullName) count=$($secretArr.Count)""
+        }
+        Write-Output ""ARRAY_SECRET_PROBE=$($secretArr[0])|$($secretArr[1])""
+        Write-Output ""VERIFIED_ISARRAY_PROPERTIES_IN_RUNNER_$arrCid""
+    }
 }
 Write-Output 'VERIFIED_NETFX_48_POWERSHELL_51_RUNNER'
 ");

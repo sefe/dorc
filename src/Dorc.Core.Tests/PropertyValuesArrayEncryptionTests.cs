@@ -100,5 +100,36 @@ namespace Dorc.Core.Tests
             var legacyDecrypted = PropertyValuesPersistentSource.DecryptArrayValue("enc:legacy-blob", enc);
             Assert.AreEqual("legacy-blob", legacyDecrypted);
         }
+
+        [TestMethod]
+        public void IsCachedPropertyArray_ReturnsTrueOnlyForCachedArrayProperties()
+        {
+            using var table = new DataTable();
+            table.Columns.Add("Name", typeof(string));
+            table.Columns.Add("Secure", typeof(bool));
+            table.Columns.Add("IsArray", typeof(bool));
+            table.Columns.Add("Value", typeof(string));
+            table.Rows.Add("ScalarProp", true, false, "enc:val");
+            table.Rows.Add("ArrayProp", true, true, "[\"enc:a\",\"enc:b\"]");
+
+            using var dataSet = new DataSet();
+            dataSet.Tables.Add(table);
+
+            var context = Substitute.For<IDeploymentContext>();
+            context.GetGlobalProperties(null).Returns(dataSet);
+            var contextFactory = Substitute.For<IDeploymentContextFactory>();
+            contextFactory.GetContext().Returns(context);
+
+            var source = new PropertyValuesPersistentSource(
+                contextFactory,
+                new ReversibleEncryptor(),
+                Substitute.For<IClaimsPrincipalReader>());
+
+            source.LoadAllPropertiesIntoCache();
+
+            Assert.IsFalse(source.IsCachedPropertyArray("NonExistentProp"));
+            Assert.IsFalse(source.IsCachedPropertyArray("ScalarProp"));
+            Assert.IsTrue(source.IsCachedPropertyArray("ARRAYPROP"));
+        }
     }
 }

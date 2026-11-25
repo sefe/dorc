@@ -1,5 +1,6 @@
 using Dorc.Api.Controllers;
 using Dorc.Api.Interfaces;
+using Dorc.Api.Properties;
 using Dorc.ApiModel;
 using Dorc.ApiModel.MonitorRunnerApi;
 using Dorc.Core.Interfaces;
@@ -16,7 +17,7 @@ namespace Dorc.Api.Tests.Controllers
     [TestClass]
     public class PropertyValuesControllerTests
     {
-        private IPropertyValuesService _propertyValuesService = null!;
+        private IScopedPropertyValueEditor _scopedPropertyValueEditor = null!;
         private IPropertyValuesPersistentSource _propertyValuesPersistentSource = null!;
         private IVariableResolver _variableResolver = null!;
         private IEnvironmentsPersistentSource _environmentsPersistentSource = null!;
@@ -29,7 +30,7 @@ namespace Dorc.Api.Tests.Controllers
         [TestInitialize]
         public void Setup()
         {
-            _propertyValuesService = Substitute.For<IPropertyValuesService>();
+            _scopedPropertyValueEditor = Substitute.For<IScopedPropertyValueEditor>();
             _propertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
             _variableResolver = Substitute.For<IVariableResolver>();
             _environmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
@@ -40,7 +41,7 @@ namespace Dorc.Api.Tests.Controllers
             _logger = Substitute.For<ILogger<PropertyValuesController>>();
 
             _controller = new PropertyValuesController(
-                _propertyValuesService,
+                _scopedPropertyValueEditor,
                 _propertyValuesPersistentSource,
                 _variableResolver,
                 _environmentsPersistentSource,
@@ -197,7 +198,7 @@ namespace Dorc.Api.Tests.Controllers
         [TestMethod]
         public void PropertiesController_AllowsPostAndImportForEnvWriters_RestrictsPutAndDeleteToPropertyModifiers()
         {
-            var propService = Substitute.For<IPropertiesService>();
+            var propService = Substitute.For<IPropertyDefinitionEditor>();
             var securityChecker = Substitute.For<ISecurityPrivilegesChecker>();
             var roleChecker = Substitute.For<Dorc.PersistentData.IRolePrivilegesChecker>();
             var propValuesSource = Substitute.For<IPropertyValuesPersistentSource>();
@@ -366,19 +367,19 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual("Port not found", badDelete.Value);
 
             // 4. PropertyValuesController error branches
-            _propertyValuesService.GetPropertyValues("P1", "E1", Arg.Any<ClaimsPrincipal>())
+            _scopedPropertyValueEditor.GetPropertyValues("P1", "E1", Arg.Any<ClaimsPrincipal>())
                 .Returns(_ => throw new Dorc.Api.Services.NonEnoughRightsException("No rights"));
             Assert.AreEqual(StatusCodes.Status403Forbidden, ((ObjectResult)_controller.GetPropertyValues("P1", "E1")).StatusCode);
 
-            _propertyValuesService.GetPropertyValues("P2", "E1", Arg.Any<ClaimsPrincipal>())
+            _scopedPropertyValueEditor.GetPropertyValues("P2", "E1", Arg.Any<ClaimsPrincipal>())
                 .Returns(_ => throw new InvalidOperationException("Unexpected failure"));
             Assert.AreEqual(StatusCodes.Status500InternalServerError, ((ObjectResult)_controller.GetPropertyValues("P2", "E1")).StatusCode);
 
-            _propertyValuesService.GetPropertyValues(null!, "ForbiddenEnv", Arg.Any<ClaimsPrincipal>())
+            _scopedPropertyValueEditor.GetPropertyValues(null!, "ForbiddenEnv", Arg.Any<ClaimsPrincipal>())
                 .Returns(_ => throw new Dorc.Api.Services.NonEnoughRightsException("No export rights"));
             Assert.AreEqual(StatusCodes.Status403Forbidden, ((ObjectResult)_controller.DownloadNonSecurePropertyValues("ForbiddenEnv")).StatusCode);
 
-            _propertyValuesService.GetPropertyValues(null!, "ErrorEnv", Arg.Any<ClaimsPrincipal>())
+            _scopedPropertyValueEditor.GetPropertyValues(null!, "ErrorEnv", Arg.Any<ClaimsPrincipal>())
                 .Returns(_ => throw new InvalidOperationException("Export failure"));
             Assert.AreEqual(StatusCodes.Status500InternalServerError, ((ObjectResult)_controller.DownloadNonSecurePropertyValues("ErrorEnv")).StatusCode);
 

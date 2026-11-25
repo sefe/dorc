@@ -308,6 +308,11 @@ namespace Dorc.PersistentData.Sources
             return _cachedProperties.ContainsKey(propertyName) && _cachedProperties[propertyName].Property.Secure;
         }
 
+        public bool IsCachedPropertyArray(string propertyName)
+        {
+            return _cachedProperties.ContainsKey(propertyName) && _cachedProperties[propertyName].Property.IsArray;
+        }
+
         public IDictionary<string, PropertyValueDto> LoadAllPropertiesIntoCache()
         {
             using (var context = _contextFactory.GetContext())
@@ -836,11 +841,11 @@ namespace Dorc.PersistentData.Sources
         // Secure array values are stored as a JSON array of per-element ciphertexts. Encrypt and
         // decrypt must be symmetric: encrypt each element, decrypt each element. (A previous
         // version encrypted the whole serialized array for every element, corrupting the data.)
-        public static string NormalizeArrayValue(string? serializedArray)
+        public static string NormalizeArrayValue(string serializedArray)
         {
-            var normalized = IsValidJsonArray(serializedArray ?? string.Empty)
-                ? serializedArray!
-                : JsonSerializer.Serialize(new[] { serializedArray ?? string.Empty });
+            var normalized = IsValidJsonArray(serializedArray)
+                ? serializedArray
+                : JsonSerializer.Serialize(new[] { serializedArray });
             var items = JsonSerializer.Deserialize<string[]>(normalized)!;
             return JsonSerializer.Serialize(items);
         }
@@ -855,7 +860,7 @@ namespace Dorc.PersistentData.Sources
 
         public static string DecryptArrayValue(string serializedArray, IPropertyEncryptor encryptor)
         {
-            if (!IsValidJsonArray(serializedArray ?? string.Empty))
+            if (!IsValidJsonArray(serializedArray))
                 return encryptor.DecryptValue(serializedArray);
 
             var items = JsonSerializer.Deserialize<string[]>(serializedArray)!;

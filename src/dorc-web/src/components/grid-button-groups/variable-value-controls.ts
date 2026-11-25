@@ -52,7 +52,62 @@ export class VariableValueControls extends LitElement {
       vaadin-button[disabled] {
         background-color: var(--dorc-border-color);
       }
+      .array-type-badge {
+        display: inline-block;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: var(--lumo-font-size-xxs);
+        font-weight: 600;
+        background-color: var(--lumo-primary-color-10pct);
+        color: var(--dorc-link-color);
+        flex: 0 0 auto;
+      }
+      .array-chips-preview,
+      .array-items-editor {
+        display: inline-flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px;
+        max-width: 60%;
+      }
+      .array-item-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        padding: 1px 7px;
+        border-radius: 10px;
+        font-size: var(--lumo-font-size-xs);
+        background-color: var(--lumo-primary-color-10pct);
+        color: var(--lumo-body-text-color);
+        border: 1px solid var(--lumo-contrast-20pct);
+      }
+      .remove-array-item-btn {
+        border: none;
+        background: transparent;
+        color: var(--dorc-error-color);
+        cursor: pointer;
+        font-weight: bold;
+        padding: 0 2px;
+        line-height: 1;
+      }
     `;
+  }
+
+  static parseArrayItems(raw: string | null | undefined): string[] {
+    if (!raw) return [];
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    if (trimmed.startsWith('[')) {
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.map(item => String(item ?? ''));
+        }
+      } catch {
+        // Fallback to single item below
+      }
+    }
+    return [trimmed];
   }
 
   render() {
@@ -66,7 +121,60 @@ export class VariableValueControls extends LitElement {
         ? 'var(--dorc-error-color)'
         : 'var(--dorc-text-secondary)'
     };
+    const isArray = Boolean(this.value?.Property?.IsArray);
+    const arrayItems = isArray
+      ? VariableValueControls.parseArrayItems(this.value?.Value)
+      : [];
     return html`
+      ${
+        isArray
+          ? html`<span class="array-type-badge" title="Array variable"
+              >[Array]</span
+            >`
+          : html``
+      }
+      ${
+        isArray && !this.value?.Property?.Secure && !this.editing && arrayItems.length > 0
+          ? html`<div class="array-chips-preview">
+              ${arrayItems.map(
+                item => html`<span class="array-item-chip">${item}</span>`
+              )}
+            </div>`
+          : html``
+      }
+      ${
+        isArray && this.editing
+          ? html`<div class="array-items-editor">
+              ${arrayItems.map(
+                (item, idx) => html`
+                  <span class="array-item-chip">
+                    <span class="array-item-text">${item}</span>
+                    <button
+                      type="button"
+                      class="remove-array-item-btn"
+                      aria-label="Remove item ${item}"
+                      @click="${() => this._removeArrayItem(idx)}"
+                    >
+                      ×
+                    </button>
+                  </span>
+                `
+              )}
+              <vaadin-text-field
+                id="${`addArrayItemInput${this.value?.Id}`}"
+                placeholder="New item..."
+                theme="small"
+                style="max-width: 140px; padding: 0px;"
+              ></vaadin-text-field>
+              <vaadin-button
+                id="${`addArrayItemBtn${this.value?.Id}`}"
+                theme="small"
+                @click="${this._appendArrayItem}"
+                >+ Item</vaadin-button
+              >
+            </div>`
+          : html``
+      }
       ${
         this.value?.Property?.Secure
           ? html`<vaadin-password-field
@@ -230,7 +338,48 @@ export class VariableValueControls extends LitElement {
     );
   }
 
+  _appendArrayItem() {
+    const itemInput = this.shadowRoot?.querySelector(
+      `#addArrayItemInput${this.value?.Id}`
+    ) as unknown as TextField | null;
+    const rawItem = itemInput?.value?.trim() ?? '';
+    if (!rawItem || !this.value) return;
+
+    const currentItems = VariableValueControls.parseArrayItems(this.value.Value);
+    const updatedItems = [...currentItems, rawItem];
+    this._syncArrayValue(updatedItems);
+    if (itemInput) {
+      itemInput.value = '';
+    }
+  }
+
+  _removeArrayItem(index: number) {
+    if (!this.value) return;
+    const currentItems = VariableValueControls.parseArrayItems(this.value.Value);
+    const updatedItems = currentItems.filter((_, idx) => idx !== index);
+    this._syncArrayValue(updatedItems);
+  }
+
+  private _syncArrayValue(items: string[]) {
+    if (!this.value) return;
+    const serialized = JSON.stringify(items);
+    this.value.Value = serialized;
+    const textField = this.shadowRoot?.querySelector(
+      `#propValue${this.value?.Id}`
+    ) as unknown as TextField | null;
+    if (textField) {
+      textField.value = serialized;
+    }
+    this.requestUpdate();
+  }
+
   _saveClick() {
+    if (this.value?.Property?.IsArray && this.value.Value) {
+      const normalizedItems = VariableValueControls.parseArrayItems(
+        this.value.Value
+      );
+      this.value.Value = JSON.stringify(normalizedItems);
+    }
     const api = new PropertyValuesApi(dorcApiConfiguration);
     api
       .propertyValuesPut({

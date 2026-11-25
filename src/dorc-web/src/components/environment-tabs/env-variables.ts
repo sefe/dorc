@@ -1192,7 +1192,8 @@ export class EnvVariables extends ResponsiveMixin(PageEnvBase) {
       Property: {
         Id: item.PropertyId,
         Name: item.Property,
-        Secure: item.Secure
+        Secure: item.Secure,
+        IsArray: item.IsArray
       }
     };
 

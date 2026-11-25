@@ -1,4 +1,5 @@
-﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Interfaces;
+using Dorc.Api.Properties;
 using Dorc.ApiModel;
 using Dorc.Core.Interfaces;
 using Dorc.PersistentData;
@@ -14,17 +15,17 @@ namespace Dorc.Api.Controllers
     [Route("api/[controller]")]
     public class PropertiesController : ControllerBase
     {
-        private readonly IPropertiesService _propertiesService;
+        private readonly IPropertyDefinitionEditor _propertyDefinitionEditor;
         private readonly ISecurityPrivilegesChecker _apiSecurityService;
         private readonly IRolePrivilegesChecker _rolePrivilegesChecker;
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
 
-        public PropertiesController(IPropertiesService propertiesService, ISecurityPrivilegesChecker apiSecurityService,
+        public PropertiesController(IPropertyDefinitionEditor propertyDefinitionEditor, ISecurityPrivilegesChecker apiSecurityService,
             IRolePrivilegesChecker rolePrivilegesChecker, IPropertyValuesPersistentSource propertyValuesPersistentSource,
             IEnvironmentsPersistentSource environmentsPersistentSource)
         {
-            _propertiesService = propertiesService;
+            _propertyDefinitionEditor = propertyDefinitionEditor;
             _apiSecurityService = apiSecurityService;
             _rolePrivilegesChecker = rolePrivilegesChecker;
             _propertyValuesPersistentSource = propertyValuesPersistentSource;
@@ -44,7 +45,7 @@ namespace Dorc.Api.Controllers
         [HttpGet]
         public IEnumerable<PropertyApiModel> GetProperties()
         {
-            return _propertiesService.GetProperties();
+            return _propertyDefinitionEditor.GetProperties();
         }
 
         /// <summary>
@@ -56,7 +57,7 @@ namespace Dorc.Api.Controllers
         [Produces(typeof(PropertyApiModel))]
         public IActionResult GetProperty(string id)
         {
-            var property = _propertiesService.GetProperty(id);
+            var property = _propertyDefinitionEditor.GetProperty(id);
             if (property == null)
             {
                 return NotFound();
@@ -76,7 +77,7 @@ namespace Dorc.Api.Controllers
         {
             if (_apiSecurityService.CanModifyProperty(User))
             {
-                return Ok(_propertiesService.PutProperties(propertiesToUpdate, User));
+                return Ok(_propertyDefinitionEditor.PutProperties(propertiesToUpdate, User));
             }
 
             return StatusCode(StatusCodes.Status403Forbidden, "Current user do not have permissions to modify properties");
@@ -93,7 +94,7 @@ namespace Dorc.Api.Controllers
         {
             if (CanCreateProperty())
             {
-                return Ok(_propertiesService.PostProperties(properties, User));
+                return Ok(_propertyDefinitionEditor.PostProperties(properties, User));
             }
 
             return StatusCode(StatusCodes.Status403Forbidden, "Current user do not have permissions to modify properties");
@@ -110,7 +111,7 @@ namespace Dorc.Api.Controllers
         {
             if (CanCreateProperty())
             {
-                return Ok(_propertiesService.ImportProperties(propertiesToImport, User));
+                return Ok(_propertyDefinitionEditor.ImportProperties(propertiesToImport, User));
             }
 
             return StatusCode(StatusCodes.Status403Forbidden, "Current user do not have permissions to modify properties");
@@ -127,7 +128,7 @@ namespace Dorc.Api.Controllers
         {
             if (_rolePrivilegesChecker.IsAdmin(User))
             {
-                return Ok(_propertiesService.DeleteProperties(properties, User));
+                return Ok(_propertyDefinitionEditor.DeleteProperties(properties, User));
             }
 
             if (!_apiSecurityService.CanModifyProperty(User))
@@ -144,7 +145,7 @@ namespace Dorc.Api.Controllers
                     $"Only administrators can delete variables that have values: {string.Join(", ", propertiesWithValues)}");
             }
 
-            return Ok(_propertiesService.DeleteProperties(properties, User));
+            return Ok(_propertyDefinitionEditor.DeleteProperties(properties, User));
         }
     }
 }

@@ -1,30 +1,29 @@
-﻿using System.Security.Claims;
-using Dorc.Api.Interfaces;
+using System.Security.Claims;
 using Dorc.ApiModel;
 using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 
-namespace Dorc.Api.Services
+namespace Dorc.Api.Properties
 {
-    public class PropertiesService : IPropertiesService
+    public class PropertyDefinitionEditor : IPropertyDefinitionEditor
     {
         private readonly ILogger _log;
         private readonly IPropertiesPersistentSource _propertiesPersistentSource;
-        private readonly IPropertyValuesService _propertyValuesService;
+        private readonly IScopedPropertyValueEditor _scopedPropertyValueEditor;
         private readonly IClaimsPrincipalReader _claimsPrincipalReader;
         private readonly IPropertyValuesPersistentSource _propertyValuesPersistentSource;
         private readonly IPropertyEncryptor _propertyEncryptor;
 
-        public PropertiesService(
+        public PropertyDefinitionEditor(
             IPropertiesPersistentSource propertiesPersistentSource,
-            IPropertyValuesService propertyValuesService,
+            IScopedPropertyValueEditor scopedPropertyValueEditor,
             IClaimsPrincipalReader claimsPrincipalReader,
             IPropertyValuesPersistentSource propertyValuesPersistentSource,
             IPropertyEncryptor propertyEncryptor,
-            ILogger<PropertiesService> logger
+            ILogger<PropertyDefinitionEditor> logger
             )
         {
-            _propertyValuesService = propertyValuesService;
+            _scopedPropertyValueEditor = scopedPropertyValueEditor;
             _propertiesPersistentSource = propertiesPersistentSource;
             _log = logger;
             _claimsPrincipalReader = claimsPrincipalReader;
@@ -65,8 +64,8 @@ namespace Dorc.Api.Services
             {
                 try
                 {
-                    var propValues = _propertyValuesService.GetPropertyValues(property, null, User);
-                    result.AddRange(_propertyValuesService.DeletePropertyValues(propValues, User));
+                    var propValues = _scopedPropertyValueEditor.GetPropertyValues(property, null, User);
+                    result.AddRange(_scopedPropertyValueEditor.DeletePropertyValues(propValues, User));
 
                     string username = _claimsPrincipalReader.GetUserFullDomainName(User);
                     if (_propertiesPersistentSource.DeleteProperty(property, username))
@@ -159,7 +158,8 @@ namespace Dorc.Api.Services
                         // If property was changed to secure, encrypt all existing property values
                         if (shouldEncryptExistingValues)
                         {
-                            var encryptionResult = EncryptExistingPropertyValues(propertyUpdateEntry.Value.Name, User);
+                            var isArray = currentProperty.IsArray || propertyUpdateEntry.Value.IsArray;
+                            var encryptionResult = EncryptExistingPropertyValues(propertyUpdateEntry.Value.Name, isArray);
                             if (encryptionResult != null)
                             {
                                 result.Add(encryptionResult);
@@ -193,7 +193,7 @@ namespace Dorc.Api.Services
             ClaimsPrincipal User)
         {
             var result = new List<Response>();
-            var importRows = propertiesToImport?.ToList() ?? new List<PropertyImportCsvDto>();
+            var importRows = propertiesToImport == null ? new List<PropertyImportCsvDto>() : propertiesToImport.ToList();
 
             if (!importRows.Any())
             {
@@ -269,13 +269,13 @@ namespace Dorc.Api.Services
                 .ToArray();
 
             result.AddRange(PostProperties(properties, User));
-            result.AddRange(_propertyValuesService.PostPropertyValues(propertyValues, User));
-            result.AddRange(_propertyValuesService.PutPropertyValues(propertyValues, User));
+            result.AddRange(_scopedPropertyValueEditor.PostPropertyValues(propertyValues, User));
+            result.AddRange(_scopedPropertyValueEditor.PutPropertyValues(propertyValues, User));
 
             return result;
         }
 
-        private Response? EncryptExistingPropertyValues(string propertyName, ClaimsPrincipal user)
+        private Response? EncryptExistingPropertyValues(string propertyName, bool isArray)
         {
             try
             {
@@ -293,7 +293,9 @@ namespace Dorc.Api.Services
                 {
                     if (!string.IsNullOrEmpty(propertyValue.Value))
                     {
-                        var encryptedValue = _propertyEncryptor.EncryptValue(propertyValue.Value);
+                        var encryptedValue = isArray
+                            ? Dorc.PersistentData.Sources.PropertyValuesPersistentSource.EncryptArrayValue(propertyValue.Value, _propertyEncryptor)
+                            : _propertyEncryptor.EncryptValue(propertyValue.Value);
                         _propertyValuesPersistentSource.UpdatePropertyValue(propertyValue.Id, encryptedValue);
                         
                         _log.LogInformation($"Encrypted property value for property '{propertyName}' (ID: {propertyValue.Id})");

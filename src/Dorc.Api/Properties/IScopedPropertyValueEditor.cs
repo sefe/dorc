@@ -1,9 +1,9 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using System.Security.Claims;
 
-namespace Dorc.Api.Interfaces
+namespace Dorc.Api.Properties
 {
-    public interface IPropertyValuesService
+    public interface IScopedPropertyValueEditor
     {
         IEnumerable<PropertyValueDto> GetPropertyValues(string propertyName, string environmentName, ClaimsPrincipal user);
         IEnumerable<Response> DeletePropertyValues(IEnumerable<PropertyValueDto> propertyValuesToDelete,
