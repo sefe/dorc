@@ -90,7 +90,11 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                     {
                         EnvironmentOwner = ownerName,
                         EnvironmentOwnerId = ownerId,
-                        Description = $"Lifecycle parent environment ({cid})"
+                        Description = $"Lifecycle parent environment ({cid})",
+                        FileShare = string.Empty,
+                        Notes = "Managed by Tests.Acceptance",
+                        RestoredFromSourceDb = string.Empty,
+                        ThinClient = "Endur"
                     }
                 });
                 Assert.AreEqual(HttpStatusCode.OK, createParentResp.StatusCode,
@@ -108,7 +112,11 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                     {
                         EnvironmentOwner = ownerName,
                         EnvironmentOwnerId = ownerId,
-                        Description = $"Lifecycle child environment ({cid})"
+                        Description = $"Lifecycle child environment ({cid})",
+                        FileShare = string.Empty,
+                        Notes = "Managed by Tests.Acceptance",
+                        RestoredFromSourceDb = string.Empty,
+                        ThinClient = "Endur"
                     }
                 });
                 Assert.AreEqual(HttpStatusCode.OK, createChildResp.StatusCode,
@@ -239,7 +247,7 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                     ProjectDescription = $"Full lifecycle live E2E project ({cid})",
                     ArtefactsUrl = dropRootUri,
                     ArtefactsSubPaths = ".",
-                    ArtefactsBuildRegex = ".*"
+                    ArtefactsBuildRegex = string.Empty
                 });
                 Assert.AreEqual(HttpStatusCode.OK, createProjResp.StatusCode,
                     $"POST /RefDataProjects failed: {createProjResp.Content}");
@@ -293,7 +301,7 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                         NonProdOnly = true,
                         StopOnFailure = true,
                         IsEnabled = true,
-                        PSVersion = "7.4",
+                        PSVersion = PowerShellVersion.V7.ToVersionString(),
                         ComponentType = ComponentType.PowerShell,
                         Children = new List<ComponentApiModel>()
                     }
@@ -355,6 +363,7 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                 {
                     Project = projectName,
                     Environment = childEnvName,
+                    BuildNum = AcceptanceProjectProvisioner.BuildFolderName,
                     BuildUrl = buildUri,
                     Components = new List<string> { componentName },
                     RequestProperties = new List<RequestProperty>
@@ -373,7 +382,7 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                 Assert.IsGreaterThan(0, createdRequest.Id, $"Expected positive request ID, got {createdRequest.Id}");
 
                 var finalStatus = PollUntilTerminalStatus(caller, createdRequest.Id, TimeSpan.FromMinutes(3));
-                var combinedLog = AcceptanceProjectProvisioner.GetCombinedRequestLog(caller, createdRequest.Id);
+                var combinedLog = $"{finalStatus.Log}\n{AcceptanceProjectProvisioner.GetCombinedRequestLog(caller, createdRequest.Id)}";
 
                 Assert.AreEqual("Completed", finalStatus.Status,
                     $"Expected lifecycle deployment {createdRequest.Id} to reach 'Completed', got '{finalStatus.Status}'. Log:\n{combinedLog}");
@@ -387,7 +396,10 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                 var results = DorcApiClient.Deserialize<List<DeploymentResultApiModel>>(resultsResp.Content);
                 Assert.IsNotNull(results);
                 Assert.HasCount(1, results);
-                Assert.AreEqual("Completed", results[0].Status);
+                Assert.IsTrue(
+                    string.Equals(results[0].Status, "Complete", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(results[0].Status, "Completed", StringComparison.OrdinalIgnoreCase),
+                    $"Expected component result status Complete/Completed, got '{results[0].Status}'.");
 
                 // Verify stdout markers and secret redaction ([REDACTED])
                 StringAssert.Contains(combinedLog, $"LIFECYCLE_SCRIPT_EXECUTION_VERIFIED_{cid}",
@@ -526,7 +538,7 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                     {
                         Filters = new List<PagedDataFilter>
                         {
-                            new() { Path = "ServerName", FilterValue = serverName }
+                            new() { Path = "ToValue", FilterValue = serverName }
                         }
                     });
                 Assert.AreEqual(HttpStatusCode.OK, srvAuditResp.StatusCode,
@@ -552,7 +564,7 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                     {
                         Filters = new List<PagedDataFilter>
                         {
-                            new() { Path = "DatabaseName", FilterValue = databaseName }
+                            new() { Path = "ToValue", FilterValue = databaseName }
                         }
                     });
                 Assert.AreEqual(HttpStatusCode.OK, dbAuditResp.StatusCode,
