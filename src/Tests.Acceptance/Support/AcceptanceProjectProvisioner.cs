@@ -310,7 +310,7 @@ namespace Tests.Acceptance.Support
             return latest!;
         }
 
-        private static (string DropRootUri, string BuildUri) ResolveConfiguredArtefactDrop(DorcApiClient caller)
+        internal static (string DropRootUri, string BuildUri) ResolveConfiguredArtefactDrop(DorcApiClient caller)
         {
             var devOpsResp = caller.ExecuteRaw("RefDataProjects/DevOps", Method.Get);
             if (devOpsResp.StatusCode == HttpStatusCode.OK)
@@ -468,6 +468,62 @@ if ($files.Count -le 0) {
     throw ""Expected extracted GitHub artifact files in $extractedDrop""
 }
 ");
+
+                WriteScriptIfChanged(Path.Join(scriptSubfolder, "verify-project-environment-lifecycle.ps1"), @"
+$ErrorActionPreference = 'Stop'
+$cid = [string]$Lifecycle_CorrelationId
+if ([string]::IsNullOrWhiteSpace($cid)) {
+    throw 'Missing Lifecycle_CorrelationId variable in runner session.'
+}
+
+$globalName   = ""Lifecycle_Global_$cid""
+$parentName   = ""Lifecycle_ParentInherited_$cid""
+$childName    = ""Lifecycle_ChildScoped_$cid""
+$overrideName = ""Lifecycle_RequestOverride_$cid""
+$secretName   = ""Lifecycle_Secret_$cid""
+
+$globalVal   = [string](Get-Variable -Name $globalName   -ValueOnly -ErrorAction SilentlyContinue)
+$parentVal   = [string](Get-Variable -Name $parentName   -ValueOnly -ErrorAction SilentlyContinue)
+$childVal    = [string](Get-Variable -Name $childName    -ValueOnly -ErrorAction SilentlyContinue)
+$overrideVal = [string](Get-Variable -Name $overrideName -ValueOnly -ErrorAction SilentlyContinue)
+$secretVal   = [string](Get-Variable -Name $secretName   -ValueOnly -ErrorAction SilentlyContinue)
+
+if ($globalVal   -ne ""GlobalVal_$cid"")           { throw ""Global variable mismatch: '$globalVal'"" }
+if ($parentVal   -ne ""ParentVal_$cid"")           { throw ""Parent-inherited variable mismatch: '$parentVal'"" }
+if ($childVal    -ne ""ChildVal_V2_$cid"")         { throw ""Child-scoped updated variable mismatch: '$childVal'"" }
+if ($overrideVal -ne ""OverriddenAtRequest_$cid"") { throw ""Request-override variable mismatch: '$overrideVal'"" }
+if ($secretVal   -ne ""Sup3rS3cr3t_$cid!"")        { throw ""Secret variable decryption mismatch (len=$($secretVal.Length))"" }
+
+$outDir = Join-Path $env:PUBLIC 'DOrcLifecycleOutputs'
+if (-not (Test-Path $outDir)) {
+    New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+}
+$outFile = Join-Path $outDir ""lifecycle-output-$cid.json""
+
+$payload = [ordered]@{
+    CorrelationId        = $cid
+    EnvironmentName      = [string]$EnvironmentName
+    BuildNumber          = [string]$BuildNumber
+    DropFolder           = [string]$DropFolder
+    MachineName          = [System.Environment]::MachineName
+    PSEdition            = [string]$PSVersionTable.PSEdition
+    PSVersion            = $PSVersionTable.PSVersion.ToString()
+    GlobalValue          = $globalVal
+    ParentInheritedValue = $parentVal
+    ChildUpdatedValue    = $childVal
+    RequestOverrideValue = $overrideVal
+    SecretLength         = $secretVal.Length
+    SecretVerified       = $true
+    TimestampUtc         = (Get-Date).ToUniversalTime().ToString('o')
+}
+$json = $payload | ConvertTo-Json -Compress
+Set-Content -Path $outFile -Value $json -Encoding UTF8
+
+Write-Output ""LIFECYCLE_SECRET_PROBE=$secretVal""
+Write-Output ""LIFECYCLE_OUTPUT_FILE=$outFile""
+Write-Output ""LIFECYCLE_OUTPUT_JSON=$json""
+Write-Output ""LIFECYCLE_SCRIPT_EXECUTION_VERIFIED_$cid""
+");
             }
             catch (UnauthorizedAccessException)
             {
@@ -481,7 +537,7 @@ if ($files.Count -le 0) {
             }
         }
 
-        private static void WriteScriptIfChanged(string path, string content)
+        internal static void WriteScriptIfChanged(string path, string content)
         {
             if (string.IsNullOrWhiteSpace(path) ||
                 path.Contains("..", StringComparison.Ordinal) ||
@@ -519,7 +575,7 @@ if ($files.Count -le 0) {
             File.WriteAllText(safePath, content);
         }
 
-        private static string GetConfiguredScriptRoot(DorcApiClient caller)
+        internal static string GetConfiguredScriptRoot(DorcApiClient caller)
         {
             var configResp = caller.ExecuteRaw("RefDataConfig", Method.Get);
             Assert.AreEqual(HttpStatusCode.OK, configResp.StatusCode, $"GET /RefDataConfig failed: {configResp.Content}");
@@ -530,7 +586,7 @@ if ($files.Count -le 0) {
             return scriptRootCfg.Value;
         }
 
-        private static (string OwnerName, string OwnerId) ResolveDefaultOwner(DorcApiClient caller)
+        internal static (string OwnerName, string OwnerId) ResolveDefaultOwner(DorcApiClient caller)
         {
             var envsResp = caller.ExecuteRaw("RefDataEnvironments", Method.Get);
             if (envsResp.StatusCode == HttpStatusCode.OK)
