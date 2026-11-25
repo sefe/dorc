@@ -1164,10 +1164,8 @@ export class PageVariables extends PageElement {
     if (existingProperty && propertyName) {
       const originallyArray = existingProperty.IsArray ?? false;
       const revertCheckboxState = () => {
-        if (this.propertyName === propertyName) {
-          checkbox.checked = originallyArray;
-          this.selectedPropertyIsArray = originallyArray;
-        }
+        checkbox.checked = originallyArray;
+        this.selectedPropertyIsArray = originallyArray;
       };
 
       const confirmMessage = !originallyArray
@@ -1191,11 +1189,9 @@ export class PageVariables extends PageElement {
         next: (data: Response[]) => {
           if (data[0]?.Status === 'success') {
             existingProperty.IsArray = !originallyArray;
-            if (this.propertyName === propertyName) {
-              this.selectedPropertyIsArray = !originallyArray;
-              checkbox.checked = !originallyArray;
-              this.loadVariableValues();
-            }
+            this.selectedPropertyIsArray = !originallyArray;
+            checkbox.checked = !originallyArray;
+            this.loadVariableValues();
             Notification.show(
               `Property "${propertyName}" updated to ${!originallyArray ? 'Array' : 'Scalar'} successfully.`,
               {

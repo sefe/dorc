@@ -241,7 +241,7 @@ describe('IsArray variable UI workflow', () => {
     // 3. Secure array property uses password input and masks chips & aria-labels
     const secureControl = document.createElement(
       'variable-value-controls'
-    ) as VariableValueControls;
+    ) as any;
     secureControl.value = {
       Id: 43,
       Value: '["secret-one"]',
