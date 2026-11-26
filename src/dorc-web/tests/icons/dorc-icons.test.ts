@@ -671,6 +671,17 @@ describe('Step 5 legacy icon button & Polymer component retirement', () => {
     );
     await treeNode.updateComplete;
     expect(treeNode.actionsOpen).toBe(false);
+
+    // Re-open and close via trigger click -> restores focus to trigger
+    trigger?.click();
+    await treeNode.updateComplete;
+    await new Promise(resolve => setTimeout(resolve, 0));
+    expect(treeNode.actionsOpen).toBe(true);
+
+    trigger?.click();
+    await treeNode.updateComplete;
+    expect(treeNode.actionsOpen).toBe(false);
+    expect(treeNode.shadowRoot?.activeElement).toBe(trigger);
   });
 
   it('replaces unregistered <paper-listbox> and <paper-item> in edit-database-permissions and add-edit-database', async () => {

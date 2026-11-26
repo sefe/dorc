@@ -257,9 +257,11 @@ export class HegsTreeNode extends LitElement {
   async _toggleActions(event: Event) {
     event.stopPropagation();
     const nextOpen = !this.actionsOpen;
-    this.actionsOpen = nextOpen;
     if (nextOpen) {
+      this.actionsOpen = true;
       await this._focusActionItem(0);
+    } else {
+      this._closeActionsMenu(true);
     }
   }
 
