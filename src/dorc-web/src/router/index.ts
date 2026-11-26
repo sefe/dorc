@@ -1,4 +1,5 @@
 import './style-registrations';
+import '../icons/dorc-icons.js';
 import { routes } from './routes.ts';
 import { router } from './router.ts';
 import { appConfig } from '../app-config';

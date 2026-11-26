@@ -12,6 +12,7 @@ import { GridCellPartNameGenerator } from '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid-sorter';
 import '@vaadin/horizontal-layout';
+import '@vaadin/icon';
 import '@vaadin/item';
 import '@vaadin/list-box';
 import { Notification } from '@vaadin/notification';
@@ -39,7 +40,7 @@ import { RefDataEnvironmentsApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
 import { PropertyValueDtoExtended } from '../components/model-extensions/PropertyValueDtoExtended';
 import GlobalCache from '../global-cache';
-import '@vaadin/icons';
+import '../icons/dorc-icons.js';
 import { navigate } from '../router/router';
 import '@vaadin/tooltip';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
@@ -223,7 +224,7 @@ export class PageVariables extends PageElement {
       >
         <vaadin-tooltip slot="tooltip" text="Value Lookup"></vaadin-tooltip
         ><vaadin-icon
-          icon="vaadin:search"
+          icon="dorc:search"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon
       ></vaadin-button>

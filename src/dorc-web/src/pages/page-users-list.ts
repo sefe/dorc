@@ -3,7 +3,6 @@ import '@vaadin/dialog';
 import '../components/dorc-spinner';
 import type { DialogOpenedChangedEvent } from '@vaadin/dialog';
 import { dialogFooterRenderer, dialogRenderer } from '@vaadin/dialog/lit';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
@@ -15,7 +14,7 @@ import '../components/add-user-or-group/add-user-or-group';
 import { UserApiModel } from '../apis/dorc-api';
 import { RefDataUsersApi } from '../apis/dorc-api';
 import { PageElement } from '../helpers/page-element';
-import '../icons/hardware-icons.js';
+import '../icons/dorc-icons.js';
 import { ref } from 'lit/directives/ref.js';
 import { UnsavedChangesGuard } from '../components/unsaved-changes-guard';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
@@ -77,7 +76,7 @@ export class PageUsersList extends PageElement {
           clear-button-visible
           helper-text="Use | for multiple search terms"
         >
-          <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
+          <vaadin-icon slot="prefix" icon="dorc:search"></vaadin-icon>
         </vaadin-text-field>
         <vaadin-button
           title="Add User or Group"
@@ -85,7 +84,8 @@ export class PageUsersList extends PageElement {
           @click="${this.addUser}"
         >
           <vaadin-icon
-            icon="vaadin:user"
+            slot="prefix"
+            icon="dorc:plus"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon
           >Add User or Group...
@@ -159,19 +159,19 @@ export class PageUsersList extends PageElement {
   renderLoginType(user: UserApiModel) {
     if (user.LoginType?.toLowerCase() === 'windows') {
       return html`<vaadin-icon
-        icon="hardware:desktop-windows"
+        icon="dorc:login-windows"
         style="color: var(--dorc-link-color)"
       ></vaadin-icon>`;
     }
     if (user.LoginType?.toLowerCase() === 'endur') {
       return html`<vaadin-icon
-        icon="vaadin:chart-grid"
+        icon="dorc:login-endur"
         style="color: var(--dorc-link-color)"
       ></vaadin-icon>`;
     }
     if (user.LoginType?.toLowerCase() === 'sql') {
       return html`<vaadin-icon
-        icon="vaadin:database"
+        icon="dorc:login-sql"
         style="color: var(--dorc-link-color)"
       ></vaadin-icon>`;
     }

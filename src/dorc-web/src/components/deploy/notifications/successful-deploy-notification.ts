@@ -4,7 +4,8 @@ import '@vaadin/dialog';
 import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
+import '@vaadin/icon';
+import '../../../icons/dorc-icons.js';
 import '@vaadin/notification';
 import '@vaadin/text-area';
 import '@vaadin/text-field';
@@ -84,7 +85,7 @@ export class SuccessfulDeployNotification extends LitElement {
         }}"
         theme="primary"
       >
-        <vaadin-icon icon="vaadin:clipboard-pulse" slot="prefix"></vaadin-icon>
+        <vaadin-icon icon="dorc:monitor-result" slot="prefix"></vaadin-icon>
         ${this.requestedDeploymentId}
       </vaadin-button>
       <vaadin-button
@@ -92,7 +93,7 @@ export class SuccessfulDeployNotification extends LitElement {
         @click="${() => (this.notificationOpened = false)}"
         aria-label="Close"
       >
-        <vaadin-icon icon="vaadin:close-small"></vaadin-icon>
+        <vaadin-icon icon="dorc:close"></vaadin-icon>
       </vaadin-button>
     </vaadin-horizontal-layout>
   `;

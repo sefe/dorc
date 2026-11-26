@@ -2,8 +2,8 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 import '@vaadin/button';
 import '@vaadin/icon';
-import '@vaadin/icons';
 import '@vaadin/horizontal-layout';
+import '../../icons/dorc-icons.js';
 import { BundledRequestsApiModel } from '../../apis/dorc-api';
 
 @customElement('bundle-request-controls')
@@ -50,7 +50,7 @@ export class BundleRequestControls extends LitElement {
           }}"
           ?disabled="${this.disabled}"
         >
-          <vaadin-icon icon="editor:mode-edit"></vaadin-icon>
+          <vaadin-icon icon="dorc:edit"></vaadin-icon>
         </vaadin-button>
         <vaadin-button
           aria-label="Delete"
@@ -58,7 +58,7 @@ export class BundleRequestControls extends LitElement {
           @click="${this._handleDeleteClick}"
           ?disabled="${this.disabled}"
         >
-          <vaadin-icon icon="icons:clear"></vaadin-icon>
+          <vaadin-icon icon="dorc:trash"></vaadin-icon>
         </vaadin-button>
       </vaadin-horizontal-layout>
     `;

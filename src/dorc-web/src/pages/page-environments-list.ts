@@ -8,7 +8,7 @@ import '@vaadin/grid/vaadin-grid';
 import '@vaadin/grid/vaadin-grid-column';
 import { GridColumn } from '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/grid/vaadin-grid-sort-column';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import '@vaadin/icon';
 import '@vaadin/text-field';
 import '@vaadin/dialog';
@@ -106,15 +106,16 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
             clear-button-visible
             helper-text="Use | for multiple search terms"
           >
-            <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
+            <vaadin-icon slot="prefix" icon="dorc:search"></vaadin-icon>
           </vaadin-text-field>
           <vaadin-button
             title="Add Environment"
-            style="width: 250px; padding-left: 10px"
+            style="width: 250px"
             @click="${this.addEnvironment}"
           >
             <vaadin-icon
-              icon="vaadin:cube"
+              slot="prefix"
+              icon="dorc:plus"
               style="color: var(--dorc-link-color)"
             ></vaadin-icon>
             Add Environment...
@@ -299,7 +300,7 @@ export class PageEnvironmentsList extends ResponsiveMixin(PageElement) {
       return html`<div style="display:flex;align-items:center;gap:4px">
         ${checkbox}
         <vaadin-icon
-          icon="vaadin:warning"
+          icon="dorc:warning"
           title="Production environment without Secure flag"
           style="color:var(--dorc-warning-text);width:var(--lumo-icon-size-s);height:var(--lumo-icon-size-s)"
         ></vaadin-icon>

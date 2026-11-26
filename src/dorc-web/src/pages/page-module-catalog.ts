@@ -1,10 +1,9 @@
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/text-field';
 import '@vaadin/tooltip';
 import { Notification } from '@vaadin/notification';
-import { css, html, nothing, svg } from 'lit';
+import { css, html, nothing } from 'lit';
 import { customElement, query, state } from 'lit/decorators.js';
 import {
   ComponentType,
@@ -21,7 +20,8 @@ import {
 } from '../helpers/generic-scripts';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 import '../components/deploy-from-template-dialog';
-import { BRAND_ICON_PATHS, BrandIcon } from '../icons/brand-icons';
+import '../icons/dorc-icons.js';
+import type { DorcIconId } from '../icons/dorc-icons.js';
 import { DeployFromTemplateDialog } from '../components/deploy-from-template-dialog';
 
 type DetailTab = 'inputs' | 'outputs' | 'code';
@@ -65,36 +65,35 @@ export const compareVersionsDesc = (a: string, b: string): number => {
  * categories the catalog has not seen before, so a new manifest never renders
  * without an identity.
  */
-const CATEGORY_ICONS: Record<string, { icon: string; tone: string }> = {
-  data: { icon: 'vaadin:database', tone: 'primary' },
-  storage: { icon: 'vaadin:storage', tone: 'success' },
-  network: { icon: 'vaadin:connect', tone: 'warning' },
-  compute: { icon: 'vaadin:server', tone: 'contrast' }
+const CATEGORY_ICONS: Record<string, { icon: DorcIconId; tone: string }> = {
+  data: { icon: 'dorc:database', tone: 'primary' },
+  storage: { icon: 'dorc:storage', tone: 'success' },
+  network: { icon: 'dorc:network', tone: 'warning' },
+  compute: { icon: 'dorc:server', tone: 'contrast' }
 };
 
-const categoryVisual = (category?: string | null) =>
+const categoryVisual = (
+  category?: string | null
+): { icon: DorcIconId; tone: string } =>
   CATEGORY_ICONS[(category ?? '').toLowerCase()] ?? {
-    icon: 'vaadin:puzzle-piece',
+    icon: 'dorc:module-catalog',
     tone: 'contrast'
   };
 
+type CatalogBrand =
+  'kafka' | 'clickhouse' | 'postgresql' | 'azure' | 'terraform';
+
 /**
- * Tint per brand mark so modules show the toolset they actually provision
+ * Icon + tint per brand mark so modules show the toolset they actually provision
  * instead of a generic category glyph.
  */
-const BRAND_TONES: Record<BrandIcon, string> = {
-  kafka: 'contrast',
-  clickhouse: 'warning',
-  postgresql: 'primary',
-  azure: 'primary',
-  terraform: 'contrast'
+const BRAND_ICONS: Record<CatalogBrand, { icon: DorcIconId; tone: string }> = {
+  kafka: { icon: 'dorc:brand-kafka', tone: 'contrast' },
+  clickhouse: { icon: 'dorc:brand-clickhouse', tone: 'warning' },
+  postgresql: { icon: 'dorc:brand-postgresql', tone: 'primary' },
+  azure: { icon: 'dorc:brand-azure', tone: 'primary' },
+  terraform: { icon: 'dorc:brand-terraform', tone: 'contrast' }
 };
-
-const brandIconSvg = (key: BrandIcon) => svg`<svg
-  class="brand-icon"
-  viewBox="0 0 24 24"
-  aria-hidden="true"
-><path d=${BRAND_ICON_PATHS[key]}></path></svg>`;
 
 /**
  * Picks the toolset's actual brand mark from the module's tags and required
@@ -105,7 +104,7 @@ const moduleVisual = (t: TerraformTemplateManifest) => {
   const providers = Object.keys(t.RequiredProviders ?? {}).map(p =>
     p.toLowerCase()
   );
-  let brand: BrandIcon | undefined;
+  let brand: CatalogBrand | undefined;
   if (tags.includes('kafka')) brand = 'kafka';
   else if (tags.includes('clickhouse')) brand = 'clickhouse';
   else if (tags.includes('postgresql') || tags.includes('postgres'))
@@ -113,13 +112,13 @@ const moduleVisual = (t: TerraformTemplateManifest) => {
   else if (tags.includes('azure') || providers.includes('azurerm'))
     brand = 'azure';
   else if (providers.length) brand = 'terraform';
-  if (brand) {
-    return { tone: BRAND_TONES[brand], body: brandIconSvg(brand) };
-  }
-  const fallback = categoryVisual(t.Category);
+  const visual = brand ? BRAND_ICONS[brand] : categoryVisual(t.Category);
   return {
-    tone: fallback.tone,
-    body: html`<vaadin-icon icon=${fallback.icon}></vaadin-icon>`
+    tone: visual.tone,
+    body: html`<vaadin-icon
+      icon=${visual.icon}
+      aria-hidden="true"
+    ></vaadin-icon>`
   };
 };
 
@@ -309,15 +308,6 @@ export class PageModuleCatalog extends PageElement {
         height: 22px;
       }
       .icon-tile.small vaadin-icon {
-        width: 18px;
-        height: 18px;
-      }
-      .icon-tile .brand-icon {
-        width: 22px;
-        height: 22px;
-        fill: currentColor;
-      }
-      .icon-tile.small .brand-icon {
         width: 18px;
         height: 18px;
       }
@@ -939,7 +929,7 @@ export class PageModuleCatalog extends PageElement {
       <div class="body">
         <details class="setup">
           <summary>
-            <vaadin-icon icon="vaadin:key"></vaadin-icon>
+            <vaadin-icon icon="dorc:credentials"></vaadin-icon>
             Before you deploy: set the target environment's cloud credentials
             <span class="hint"
               >Environment page &rsaquo; Cloud tab &amp; Properties</span
@@ -1041,7 +1031,7 @@ export class PageModuleCatalog extends PageElement {
             @value-changed=${(e: CustomEvent<{ value: string }>) => (this.search = e.detail.value ?? '')}
             clear-button-visible
           >
-            <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
+            <vaadin-icon slot="prefix" icon="dorc:search"></vaadin-icon>
           </vaadin-text-field>
           <div class="chips" role="group" aria-label="Filter by category">
             ${[ALL_CATEGORIES, ...this.categories, SCRIPTS_CATEGORY].map(
@@ -1074,7 +1064,7 @@ export class PageModuleCatalog extends PageElement {
               slot="tooltip"
               text="Refresh catalog"
             ></vaadin-tooltip>
-            <vaadin-icon icon="vaadin:refresh"></vaadin-icon>
+            <vaadin-icon icon="dorc:refresh"></vaadin-icon>
           </vaadin-button>
         </div>
 
@@ -1100,7 +1090,7 @@ export class PageModuleCatalog extends PageElement {
     if (this.error) {
       return html`
         <div class="state error" role="alert">
-          <vaadin-icon icon="vaadin:warning"></vaadin-icon>
+          <vaadin-icon icon="dorc:warning"></vaadin-icon>
           <strong>Could not load the catalog</strong>
           <span>${this.error}</span>
           <vaadin-button theme="tertiary" @click=${() => this.loadTemplates()}
@@ -1113,7 +1103,7 @@ export class PageModuleCatalog extends PageElement {
     if (!groups.length) {
       return html`
         <div class="state" role="status">
-          <vaadin-icon icon="vaadin:puzzle-piece"></vaadin-icon>
+          <vaadin-icon icon="dorc:module-catalog"></vaadin-icon>
           <strong
             >${this.templates.length ? 'No modules match these filters' : 'The catalog is empty'}</strong
           >
@@ -1160,7 +1150,7 @@ export class PageModuleCatalog extends PageElement {
     if (!predefined.length && !scripts.length) {
       return html`
         <div class="state" role="status">
-          <vaadin-icon icon="vaadin:code"></vaadin-icon>
+          <vaadin-icon icon="dorc:code"></vaadin-icon>
           <strong>No matching PowerShell script components</strong>
           <span
             >Clear the search or browse the global Deployment Definitions
@@ -1191,7 +1181,7 @@ export class PageModuleCatalog extends PageElement {
             <article class="card">
               <div class="card-head">
                 <div class="icon-tile tone-primary">
-                  <vaadin-icon icon="vaadin:code"></vaadin-icon>
+                  <vaadin-icon icon="dorc:code"></vaadin-icon>
                 </div>
                 <div class="card-title">
                   <div class="title-row">
@@ -1220,7 +1210,7 @@ export class PageModuleCatalog extends PageElement {
               <div class="card-actions">
                 <a href=${addHref}>
                   <vaadin-button theme="primary">
-                    <vaadin-icon icon="vaadin:plus" slot="prefix"></vaadin-icon>
+                    <vaadin-icon icon="dorc:plus" slot="prefix"></vaadin-icon>
                     ${
                       projectId
                         ? `Add to ${projectName || 'project'}`
@@ -1241,7 +1231,7 @@ export class PageModuleCatalog extends PageElement {
             <article class="card">
               <div class="card-head">
                 <div class="icon-tile tone-contrast">
-                  <vaadin-icon icon="vaadin:code"></vaadin-icon>
+                  <vaadin-icon icon="dorc:code"></vaadin-icon>
                 </div>
                 <div class="card-title">
                   <div class="title-row">
@@ -1260,7 +1250,7 @@ export class PageModuleCatalog extends PageElement {
               <div class="card-actions">
                 <a href=${addHref}>
                   <vaadin-button theme="primary">
-                    <vaadin-icon icon="vaadin:plus" slot="prefix"></vaadin-icon>
+                    <vaadin-icon icon="dorc:plus" slot="prefix"></vaadin-icon>
                     ${
                       projectId
                         ? `Add to ${projectName || 'project'}`
@@ -1359,7 +1349,7 @@ export class PageModuleCatalog extends PageElement {
               ${
                 secrets
                   ? html`<vaadin-icon
-                      icon="vaadin:lock"
+                      icon="dorc:secret"
                       style="width:14px;height:14px;color:var(--dorc-warning-text)"
                     ></vaadin-icon>`
                   : nothing
@@ -1380,12 +1370,12 @@ export class PageModuleCatalog extends PageElement {
           >
             View inputs &amp; outputs
             <vaadin-icon
-              icon=${selected ? 'vaadin:angle-up' : 'vaadin:angle-down'}
+              icon=${selected ? 'dorc:chevron-up' : 'dorc:chevron-down'}
               slot="suffix"
             ></vaadin-icon>
           </vaadin-button>
           <vaadin-button theme="primary" @click=${() => this.openDeploy(t)}>
-            <vaadin-icon icon="vaadin:play" slot="prefix"></vaadin-icon>
+            <vaadin-icon icon="dorc:plan-deploy" slot="prefix"></vaadin-icon>
             Plan deployment
           </vaadin-button>
         </div>
@@ -1415,7 +1405,7 @@ export class PageModuleCatalog extends PageElement {
           </div>
           <div class="detail-tools">
             <vaadin-button theme="small" @click=${() => this.copyReference(t)}>
-              <vaadin-icon icon="vaadin:copy" slot="prefix"></vaadin-icon>
+              <vaadin-icon icon="dorc:copy" slot="prefix"></vaadin-icon>
               Copy reference
             </vaadin-button>
             <vaadin-button
@@ -1423,7 +1413,7 @@ export class PageModuleCatalog extends PageElement {
               aria-label="Close details"
               @click=${() => (this.detailName = null)}
             >
-              <vaadin-icon icon="vaadin:close"></vaadin-icon>
+              <vaadin-icon icon="dorc:close"></vaadin-icon>
             </vaadin-button>
           </div>
         </div>
@@ -1471,7 +1461,7 @@ export class PageModuleCatalog extends PageElement {
                     ${
                       p.Sensitive
                         ? html`<span class="badge badge-sensitive"
-                            ><vaadin-icon icon="vaadin:lock"></vaadin-icon
+                            ><vaadin-icon icon="dorc:secret"></vaadin-icon
                             >SENSITIVE</span
                           >`
                         : nothing
@@ -1514,7 +1504,7 @@ export class PageModuleCatalog extends PageElement {
                     ${
                       o.Sensitive
                         ? html`<span class="badge badge-sensitive"
-                            ><vaadin-icon icon="vaadin:lock"></vaadin-icon
+                            ><vaadin-icon icon="dorc:secret"></vaadin-icon
                             >SENSITIVE</span
                           >`
                         : html`<span class="muted">no</span>`

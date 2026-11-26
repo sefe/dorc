@@ -1,5 +1,4 @@
 import { columnBodyRenderer } from '@vaadin/grid/lit';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import '@vaadin/button';
 import '@vaadin/grid';

@@ -1,7 +1,6 @@
 import { confirmPrompt } from '../confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
@@ -10,7 +9,7 @@ import {
   DatabaseApiModel,
   RefDataEnvironmentsDetailsApi
 } from '../../apis/dorc-api';
-import '../../icons/social-icons.js';
+import '../../icons/dorc-icons.js';
 import '@vaadin/tooltip';
 import { dorcApiConfiguration } from '../../services/dorc-api-configuration';
 
@@ -58,7 +57,7 @@ export class DatabaseEnvControls extends LitElement {
       >
         <vaadin-tooltip slot="tooltip" text="Detach database"></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:unlink"
+          icon="dorc:unlink"
           style=${styleMap(unlinkStyles)}
         ></vaadin-icon>
       </vaadin-button>
@@ -73,7 +72,7 @@ export class DatabaseEnvControls extends LitElement {
           text="Manage permissions"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="social:group-add"
+          icon="dorc:permissions-manage"
           style=${styleMap(editStyles)}
         ></vaadin-icon>
       </vaadin-button>
@@ -87,7 +86,7 @@ export class DatabaseEnvControls extends LitElement {
           text="View database permissions"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="social:group"
+          icon="dorc:permissions-view"
           style="color: var(--dorc-link-color)"
         ></vaadin-icon>
       </vaadin-button>
@@ -102,7 +101,7 @@ export class DatabaseEnvControls extends LitElement {
           text="Edit Database Tags"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:tags"
+          icon="dorc:tags"
           style=${styleMap(editStyles)}
         ></vaadin-icon>
       </vaadin-button>

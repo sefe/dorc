@@ -5,10 +5,8 @@ import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
-import '../icons/iron-icons.js';
-import '@vaadin/vaadin-lumo-styles/icons.js';
+import '../icons/dorc-icons.js';
 import '../components/add-edit-server';
 import '@vaadin/dialog';
 import '@vaadin/text-field';
@@ -107,7 +105,7 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
           clear-button-visible
           helper-text="Use | for multiple search terms"
         >
-          <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
+          <vaadin-icon slot="prefix" icon="dorc:search"></vaadin-icon>
         </vaadin-text-field>
         <vaadin-button
           title="Add SQL Role"
@@ -115,7 +113,8 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
           @click="${this.addPermission}"
         >
           <vaadin-icon
-            icon="vaadin:key"
+            slot="prefix"
+            icon="dorc:plus"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon
           >Add SQL Role...
@@ -184,7 +183,7 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
     >
       <vaadin-tooltip slot="tooltip" text="Edit Permission"></vaadin-tooltip>
       <vaadin-icon
-        icon="lumo:edit"
+        icon="dorc:edit"
         style="color: var(--dorc-link-color);"
       ></vaadin-icon>
     </vaadin-button>
@@ -195,7 +194,7 @@ export class PagePermissionsList extends ResponsiveMixin(PageElement) {
     >
       <vaadin-tooltip slot="tooltip" text="Delete Permission"></vaadin-tooltip>
       <vaadin-icon
-        icon="icons:delete"
+        icon="dorc:trash"
         style="color: var(--dorc-error-color);"
       ></vaadin-icon>
     </vaadin-button>

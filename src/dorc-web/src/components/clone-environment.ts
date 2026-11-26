@@ -5,7 +5,7 @@ import '@vaadin/button';
 import '@vaadin/checkbox';
 import '@vaadin/text-field';
 import '@vaadin/vertical-layout';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import '@vaadin/icon';
 import { css, LitElement } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
@@ -250,7 +250,7 @@ export class CloneEnvironment extends LitElement {
       <tr>
         <td>
           <vaadin-icon
-            icon="vaadin:copy-o"
+            icon="dorc:clone"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon>
         </td>

@@ -1,13 +1,11 @@
 import { confirmPrompt } from '../confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { styleMap } from 'lit/directives/style-map.js';
-import '../../icons/iron-icons.js';
-import '@vaadin/vaadin-lumo-styles/icons.js';
+import '../../icons/dorc-icons.js';
 import {
   ApiBoolResult,
   DatabaseApiModel,
@@ -65,7 +63,7 @@ export class DatabaseControls extends LitElement {
           text="Edit Database Details"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="lumo:edit"
+          icon="dorc:edit"
           style=${styleMap(editStyles)}
         ></vaadin-icon>
       </vaadin-button>
@@ -81,7 +79,7 @@ export class DatabaseControls extends LitElement {
           text="Edit Database Tags"
         ></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:tags"
+          icon="dorc:tags"
           style=${styleMap(editStyles)}
         ></vaadin-icon>
       </vaadin-button>
@@ -94,7 +92,7 @@ export class DatabaseControls extends LitElement {
       >
         <vaadin-tooltip slot="tooltip" text="Delete database"></vaadin-tooltip>
         <vaadin-icon
-          icon="icons:delete"
+          icon="dorc:trash"
           style=${styleMap(unlinkStyles)}
         ></vaadin-icon>
       </vaadin-button>

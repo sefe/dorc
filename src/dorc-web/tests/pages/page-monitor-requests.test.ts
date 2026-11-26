@@ -20,7 +20,6 @@ vi.mock('@vaadin/grid/vaadin-grid-column', () => ({}));
 vi.mock('@vaadin/grid/vaadin-grid-filter', () => ({}));
 vi.mock('@vaadin/grid/vaadin-grid-sort-column', () => ({}));
 vi.mock('@vaadin/grid/vaadin-grid-sorter', () => ({}));
-vi.mock('@vaadin/icons/vaadin-icons', () => ({}));
 vi.mock('@vaadin/text-field', () => ({}));
 vi.mock('@vaadin/notification', () => ({
   Notification: { show: vi.fn() }
@@ -28,8 +27,6 @@ vi.mock('@vaadin/notification', () => ({
 
 // Internal component side-effect registrations
 vi.mock('../../src/components/grid-button-groups/request-controls', () => ({}));
-vi.mock('../../src/icons/iron-icons.js', () => ({}));
-vi.mock('../../src/icons/custom-icons.js', () => ({}));
 vi.mock('../../src/components/notifications/error-notification', () => ({
   ErrorNotification: class {
     constructor() {

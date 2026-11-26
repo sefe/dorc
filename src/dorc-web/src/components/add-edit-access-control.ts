@@ -26,7 +26,7 @@ import { AccessControlApiModel } from '../apis/dorc-api';
 import '@vaadin/notification';
 import { ErrorNotification } from './notifications/error-notification';
 import { Notification } from '@vaadin/notification';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import '@vaadin/icon';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
 
@@ -534,7 +534,7 @@ export class AddEditAccessControl extends LitElement {
             this.UserEditable
               ? html`
                   <vaadin-icon
-                    icon="vaadin:unlock"
+                    icon="dorc:unlock"
                     role="img"
                     aria-label="Editable"
                     title="Editable"

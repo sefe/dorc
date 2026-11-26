@@ -5,7 +5,7 @@ import '../components/dorc-spinner';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import '@vaadin/icon';
 import '@vaadin/dialog';
 import '@vaadin/text-field';
@@ -152,7 +152,7 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
           clear-button-visible
           helper-text="Use | for multiple search terms"
         >
-          <vaadin-icon slot="prefix" icon="vaadin:search"></vaadin-icon>
+          <vaadin-icon slot="prefix" icon="dorc:search"></vaadin-icon>
         </vaadin-text-field>
         <vaadin-button
           title="Add Config Value"
@@ -160,7 +160,8 @@ export class PageConfigValuesList extends ResponsiveMixin(PageElement) {
           @click="${this.addConfigValue}"
         >
           <vaadin-icon
-            icon="vaadin:options"
+            slot="prefix"
+            icon="dorc:plus"
             style="color: var(--dorc-link-color)"
           ></vaadin-icon>
           Add Config Value...

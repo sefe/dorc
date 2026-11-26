@@ -1,12 +1,12 @@
 import { confirmPrompt } from '../confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { AccessControlApiModel } from '../../apis/dorc-api';
-import '../../icons/iron-icons.js';
+import '@vaadin/icon';
+import '../../icons/dorc-icons.js';
 import '@vaadin/tooltip';
 
 @customElement('access-control-controls')
@@ -49,7 +49,7 @@ export class AccessControlControls extends LitElement {
       >
         <vaadin-tooltip slot="tooltip" text="Remove Access"></vaadin-tooltip>
         <vaadin-icon
-          icon="icons:delete"
+          icon="dorc:permission-revoke"
           style=${styleMap(styles)}
         ></vaadin-icon>
       </vaadin-button>

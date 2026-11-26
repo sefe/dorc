@@ -1,11 +1,10 @@
 import { confirmPrompt } from '../confirm-prompt';
 import { css, LitElement } from 'lit';
 import '@vaadin/button';
-import '@vaadin/icons/vaadin-icons';
 import '@vaadin/icon';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import '../../icons/av-icons.js';
+import '../../icons/dorc-icons.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { RequestApi } from '../../apis/dorc-api';
 import { ajax } from 'rxjs/ajax';
@@ -102,7 +101,7 @@ export class RequestControls extends LitElement {
         >
           <vaadin-tooltip slot="tooltip" text="Cancel Request"></vaadin-tooltip>
           <vaadin-icon
-            icon="av:stop"
+            icon="dorc:cancel-request"
             style=${styleMap(cancelStyles)}
           ></vaadin-icon>
         </vaadin-button>
@@ -117,7 +116,7 @@ export class RequestControls extends LitElement {
             text="Restart Request"
           ></vaadin-tooltip>
           <vaadin-icon
-            icon="av:repeat"
+            icon="dorc:rerun"
             style=${styleMap(restartStyles)}
           ></vaadin-icon>
         </vaadin-button>
@@ -135,7 +134,7 @@ export class RequestControls extends LitElement {
                     text="Pause Request"
                   ></vaadin-tooltip>
                   <vaadin-icon
-                    icon="av:pause"
+                    icon="dorc:pause"
                     style=${styleMap(pauseStyles)}
                   ></vaadin-icon>
                 </vaadin-button>
@@ -150,7 +149,7 @@ export class RequestControls extends LitElement {
                     text="Resume Request"
                   ></vaadin-tooltip>
                   <vaadin-icon
-                    icon="av:play-arrow"
+                    icon="dorc:resume"
                     style=${styleMap(resumeStyles)}
                   ></vaadin-icon>
                 </vaadin-button>

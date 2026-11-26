@@ -7,7 +7,7 @@ import '@vaadin/grid';
 import '@vaadin/grid/vaadin-grid-column';
 import '@vaadin/button';
 import '@vaadin/combo-box';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import '@vaadin/icon';
 import { Notification } from '@vaadin/notification';
 import type { DaemonApiModel, ServerApiModel } from '../apis/dorc-api';
@@ -106,8 +106,9 @@ export class ServerDaemonMapping extends LitElement {
           @click="${this.attachDaemon}"
         >
           <vaadin-icon
-            icon="vaadin:link"
-            style="color: cornflowerblue"
+            slot="prefix"
+            icon="dorc:link"
+            style="color: var(--dorc-link-color)"
           ></vaadin-icon>
           Map
         </vaadin-button>
@@ -159,8 +160,13 @@ export class ServerDaemonMapping extends LitElement {
       >
         <vaadin-tooltip slot="tooltip" text="Unmap daemon"></vaadin-tooltip>
         <vaadin-icon
-          icon="vaadin:unlink"
-          style="color: ${this.readonly ? 'grey' : '#FF3131'}"
+          icon="dorc:unlink"
+          aria-hidden="true"
+          style="color: ${
+            this.readonly
+              ? 'var(--dorc-text-secondary)'
+              : 'var(--dorc-error-color)'
+          }"
         ></vaadin-icon>
       </vaadin-button>
     `;

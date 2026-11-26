@@ -97,7 +97,16 @@ while it remains open preserve the current draft.
 - **`npm run preview`** - Preview production build locally
 - **`npm run format`** - Format code with Prettier
 - **`npm run type-checking`** - Run TypeScript type checking
+- **`npm run audit:icons`** - Verify canonical `dorc:*` icon registry usage and guardrails
 - **`npm run dorc-api-gen`** - Regenerate DOrc API client from swagger.json
+
+### Icons (`dorc:*`)
+
+All UI icons live in the single typed `<vaadin-iconset name="dorc" size="24">` registry at `src/icons/dorc-icons.ts`:
+
+- Render icons exclusively with `<vaadin-icon icon="dorc:<name>">` (plus `import '@vaadin/icon';` in each component) or the typed `dorcIcon('<name>')` / `DorcIconId` exports for dynamic state maps.
+- Color icons via `currentColor` or `var(--dorc-*)` / `var(--lumo-*)` theme tokens so light and dark themes stay consistent; keep SVG definitions in `DORC_ICON_DEFS` monochrome without hardcoded hex fills or inner `id` attributes.
+- Do not add `@vaadin/icons`, `@polymer/*` packages, Polymer `<paper-*>` / `<iron-*>` elements, Line Awesome classes, component-local `<vaadin-iconset>`, or inline `<svg>` markup. `npm run audit:icons` (wired into `npm run build` and `tools/gate-check.mjs`) enforces these invariants, including runtime `@vaadin/icon` registration, theme-token-only icon colors, and zero unreferenced icons in `DORC_ICON_NAMES`.
 
 ### Build for Production
 
@@ -108,6 +117,7 @@ npm run build
 ```
 
 The output is generated in the `dist/` directory and includes:
+
 - Optimized and minified JavaScript bundles
 - Processed CSS
 - Static assets
@@ -242,7 +252,6 @@ https://github.com/MicrosoftDocs/vsts-rest-api-specs
 `ado-build-csharp-gen` regenerates from the committed spec, and
 `ado-build-spec-refresh` is what pulls a newer one down.
 
-
 ## Performance Testing with K6
 
 DOrc uses [K6](https://k6.io/) by Grafana for load and performance testing. K6 can test both the API and browser interactions.
@@ -250,11 +259,13 @@ DOrc uses [K6](https://k6.io/) by Grafana for load and performance testing. K6 c
 ### Installation
 
 **Windows:**
+
 ```bash
 winget install k6 --source winget
 ```
 
 **macOS:**
+
 ```bash
 brew install k6
 ```
@@ -265,6 +276,7 @@ See [K6 installation docs](https://grafana.com/docs/k6/latest/set-up/install-k6/
 ### Configuration
 
 Before running tests, update `k6-tests/test-config.json` with:
+
 - Your DOrc API base URL
 - Authentication credentials if needed
 
@@ -273,11 +285,13 @@ For load tests using multiple users, update `k6-tests/users.json` with test user
 ### Running Tests
 
 Basic test run:
+
 ```bash
 k6 run k6-tests/monitor-request-page-test.js
 ```
 
 Load test with multiple users:
+
 ```bash
 k6 run k6-tests/load-test-many-users.js
 ```
@@ -297,12 +311,14 @@ Access the dashboard at: http://127.0.0.1:5665/
 **HTTP/2 Error:** If you encounter `stream error: HTTP_1_1_REQUIRED`, disable HTTP/2:
 
 Windows:
+
 ```cmd
 SET GODEBUG=http2client=0
 k6 run k6-tests/monitor-request-page-test.js
 ```
 
 Linux/macOS:
+
 ```bash
 GODEBUG=http2client=0 k6 run k6-tests/monitor-request-page-test.js
 ```

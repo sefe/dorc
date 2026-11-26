@@ -4,7 +4,8 @@ import { css, LitElement } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/combo-box';
-import '@vaadin/icons/vaadin-icons';
+import '@vaadin/tooltip';
+import '../icons/dorc-icons.js';
 import '@vaadin/icon';
 import '@vaadin/button';
 import { ComboBox } from '@vaadin/combo-box';
@@ -76,7 +77,28 @@ export class EditDatabasePermissions extends LitElement {
   }
 
   static get styles() {
-    return css``;
+    return css`
+      .permissions-panel {
+        margin-top: var(--lumo-space-s);
+        padding: var(--lumo-space-s);
+        background: var(--dorc-bg-secondary);
+        border: 1px solid var(--dorc-border-color);
+        border-radius: var(--lumo-border-radius-m);
+      }
+      .permissions-list {
+        list-style: none;
+        margin: var(--lumo-space-xs) 0 0 0;
+        padding: 0;
+      }
+      .permission-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--lumo-space-s);
+        width: 100%;
+        padding: var(--lumo-space-xs) 0;
+      }
+    `;
   }
 
   render() {
@@ -110,13 +132,12 @@ export class EditDatabasePermissions extends LitElement {
           >
           </vaadin-combo-box>
           <vaadin-button
-            raised
             .disabled="${!this.canSubmit}"
             @click="${this._addPermissionForUser}"
             >Add</vaadin-button
           >
         </div>
-        <div style="background: aliceblue">
+        <div class="permissions-panel">
           ${
             this.selectedUser !== undefined
               ? html`<span
@@ -124,21 +145,30 @@ export class EditDatabasePermissions extends LitElement {
                 </span>`
               : html``
           }
-          <paper-listbox>
+          <ul class="permissions-list" aria-label="Assigned permissions">
             ${this.userPermissionList.map(
               userPerm => html`
-                <paper-item>
+                <li class="permission-row">
                   <span>${userPerm.Database} - ${userPerm.Role}</span>
-                  <vaadin-icon
-                    icon="vaadin:unlink"
-                    style="color: var(--dorc-error-color)"
-                    @click="${this._remove}"
-                    .data="${userPerm}"
-                  ></vaadin-icon>
-                </paper-item>
+                  <vaadin-button
+                    theme="icon small"
+                    aria-label="Revoke permission"
+                    @click="${() => this._remove(userPerm)}"
+                  >
+                    <vaadin-tooltip
+                      slot="tooltip"
+                      text="Revoke permission"
+                    ></vaadin-tooltip>
+                    <vaadin-icon
+                      icon="dorc:permission-revoke"
+                      aria-hidden="true"
+                      style="color: var(--dorc-error-color)"
+                    ></vaadin-icon>
+                  </vaadin-button>
+                </li>
               `
             )}
-          </paper-listbox>
+          </ul>
         </div>
         <div>
           <span>${this.StatusMessage}</span>
@@ -209,9 +239,19 @@ export class EditDatabasePermissions extends LitElement {
       this.selectedUser !== undefined && this.selectedPermission !== undefined;
   }
 
-  async _remove(e: { target: { data: UserPermDto } }) {
-    const userPerm = e.target.data as UserPermDto;
-    const removeRoleId = userPerm.Id || 0;
+  async _remove(
+    permOrEvent:
+      | UserPermDto
+      | {
+          target?: { data?: UserPermDto };
+          currentTarget?: { data?: UserPermDto };
+        }
+  ) {
+    const userPerm: UserPermDto | undefined =
+      permOrEvent && 'target' in permOrEvent
+        ? (permOrEvent.currentTarget?.data ?? permOrEvent.target?.data)
+        : (permOrEvent as UserPermDto);
+    const removeRoleId = userPerm?.Id || 0;
     // Everything the delete targets is snapshotted before the await: these are
     // component inputs the host can reassign while the confirmation is open.
     const user: number = this?.selectedUser?.Id || 0;

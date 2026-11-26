@@ -1,12 +1,11 @@
 import { LitElement } from 'lit';
-import '@vaadin/icons';
 import '@vaadin/icon';
 import '@vaadin/button';
 import { customElement, property } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
 import type { EnvShortcut } from '../drawer-shortcuts';
 import { urlForName } from '../../router/router';
-import '../../icons/hardware-icons.js';
+import '../../icons/dorc-icons.js';
 
 @customElement('env-detail-tab')
 export class EnvDetailTab extends LitElement {
@@ -37,7 +36,7 @@ export class EnvDetailTab extends LitElement {
       >
         <vaadin-icon
           class="shortcut-icon"
-          icon="hardware:developer-board"
+          icon="dorc:environment-details"
           theme="small"
         ></vaadin-icon>
         <span class="shortcut-label">${name}</span>
@@ -48,7 +47,7 @@ export class EnvDetailTab extends LitElement {
         aria-label="Close ${name} shortcut"
         @click="${this.removeEnvDetail}"
       >
-        <vaadin-icon icon="vaadin:close-small" theme="small"></vaadin-icon>
+        <vaadin-icon icon="dorc:close" theme="small"></vaadin-icon>
       </vaadin-button>
     `;
   }

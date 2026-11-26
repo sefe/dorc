@@ -13,14 +13,11 @@ import './grid-button-groups/database-env-controls.ts';
 import '../components/server-tags';
 import './terraform-plan-dialog';
 import { DeploymentResultApiModel, ResultStatusesApi } from '../apis/dorc-api';
-import '@vaadin/icons/vaadin-icons';
+import '../icons/dorc-icons.js';
 import '@vaadin/icon';
 import { Notification } from '@vaadin/notification';
 import { dorcApiConfiguration } from '../services/dorc-api-configuration';
-import {
-  renderCompactSourceEvidence,
-  shaBadgeStyles
-} from './dorc-sha-badge';
+import { renderCompactSourceEvidence, shaBadgeStyles } from './dorc-sha-badge';
 
 @customElement('component-deployment-results')
 export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
@@ -268,7 +265,7 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
               )}"
           >
             <vaadin-icon
-              icon="vaadin:file-text-o"
+              icon="dorc:file-log"
               style="color: var(--dorc-link-color)"
             ></vaadin-icon>
           </vaadin-button>
@@ -454,7 +451,7 @@ export class ComponentDeploymentResults extends ResponsiveMixin(LitElement) {
           title="View retained Terraform plan and receipt"
           aria-label="View retained Terraform plan and receipt"
         >
-          <vaadin-icon icon="vaadin:file-text"></vaadin-icon>
+          <vaadin-icon icon="dorc:terraform-plan"></vaadin-icon>
         </vaadin-button>
       </div>
     `;

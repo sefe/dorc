@@ -21,7 +21,32 @@ export default [
   {
     files: ['src/**/*.ts', 'tests/**/*.ts'],
     plugins: { 'lit-a11y': pluginLitA11y },
-    rules: litA11yRecommended
+    rules: {
+      ...litA11yRecommended,
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: [
+                '@vaadin/icons',
+                '@vaadin/icons/*',
+                '@vaadin/vaadin-lumo-styles/icons*',
+                '@vaadin/vaadin-lumo-styles/vaadin-icons*',
+                '@vaadin/vaadin-lumo-styles/lumo-icons*',
+                '@polymer/*',
+                '@polymer/**',
+                'line-awesome*',
+                '**/brand-icons',
+                '**/brand-icons.*'
+              ],
+              message:
+                'Legacy icon and Polymer packages are retired. Use Vaadin/Lit components, import src/icons/dorc-icons.js, and render <vaadin-icon icon="dorc:*">.'
+            }
+          ]
+        }
+      ]
+    }
   },
   eslintConfigPrettier,
   { rules: { '@typescript-eslint/no-explicit-any': 0 } },
