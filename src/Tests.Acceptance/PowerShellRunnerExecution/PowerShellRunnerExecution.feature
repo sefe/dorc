@@ -35,8 +35,8 @@ Feature: PowerShell Runner Execution Across .NET 8, .NET Framework 4.8, StopOnFa
     Then the build server and artifact resolution endpoints respond and the installed CLI tools authenticate and execute without missing Scope errors
 
   @LiveEnvironment @PowerShellRunnerExecution
-  Scenario: Inject IsArray string array variables across plain, interpolated, nested, secure, and request-overridden scopes into both runners
-    Given IsArray properties for plain, interpolated, nested, encrypted secure, and request-overridden string arrays are configured via the API
-    When the user updates the array properties, verifies RefDataScopedPropertyValues and Export, and runs PowerShell 7 and Windows PowerShell 5.1 deployments
-    Then both runners receive genuine PowerShell string arrays with exact element counts, interpolated elements, and request overrides
-    And secure array element values are verified in-script and redacted as REDACTED in all runner and deployment logs
+  Scenario: Configure IsArray string array variables in the live Web UI across plain, interpolated, nested, secure, and request-overridden scopes and inject them into both runners
+    Given IsArray properties for plain, interpolated, nested, encrypted secure, and request-overridden string arrays are configured via the live Variables Web UI and API
+    When the user toggles IsArray, builds array items, edits array chips in the live Web UI, and triggers a multi-runner deployment from the live Deploy UI
+    Then both PowerShell 7 and Windows PowerShell 5.1 runners receive genuine PowerShell string arrays with exact element counts, interpolated elements, and request overrides
+    And secure array element values are masked in the live Web UI, verified in-script, and redacted as REDACTED in all runner and deployment logs

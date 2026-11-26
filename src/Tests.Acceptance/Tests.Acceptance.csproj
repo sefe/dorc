@@ -3,6 +3,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
+    <PlaywrightPlatform>win-x64</PlaywrightPlatform>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="Drivers\**" />
@@ -28,6 +29,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.2" />
     <PackageReference Include="Microsoft.SqlServer.DacFx" Version="170.0.0" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.51.0" />
     <PackageReference Include="Reqnroll" Version="3.2.0" />
     <PackageReference Include="Reqnroll.MsTest" Version="3.2.0" />
     <PackageReference Include="Reqnroll.Tools.MsBuild.Generation" Version="3.2.0" />

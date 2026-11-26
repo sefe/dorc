@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.Json;
 using Dorc.ApiModel;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using RestSharp;
@@ -94,21 +95,21 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
             Assert.IsTrue(_buildServersAndCliToolsExecuted);
         }
 
-        [Given("IsArray properties for plain, interpolated, nested, encrypted secure, and request-overridden string arrays are configured via the API")]
+        [Given("IsArray properties for plain, interpolated, nested, encrypted secure, and request-overridden string arrays are configured via the live Variables Web UI and API")]
         public void GivenIsArrayPropertiesAreConfiguredViaTheApi()
         {
             AssertLiveEnvironmentEnabled();
         }
 
-        [When("the user updates the array properties, verifies RefDataScopedPropertyValues and Export, and runs PowerShell 7 and Windows PowerShell 5.1 deployments")]
+        [When("the user toggles IsArray, builds array items, edits array chips in the live Web UI, and triggers a multi-runner deployment from the live Deploy UI")]
         public void WhenTheUserUpdatesArrayPropertiesAndRunsBothRunnerDeployments()
         {
             CreateDeploymentRequest_IsArrayPropertiesPlainInterpolatedNestedSecureAndRequestOverride_InjectsStringArraysIntoRunners();
             _isArrayRunnersExecuted = true;
         }
 
-        [Then("both runners receive genuine PowerShell string arrays with exact element counts, interpolated elements, and request overrides")]
-        [Then("secure array element values are verified in-script and redacted as REDACTED in all runner and deployment logs")]
+        [Then("both PowerShell 7 and Windows PowerShell 5.1 runners receive genuine PowerShell string arrays with exact element counts, interpolated elements, and request overrides")]
+        [Then("secure array element values are masked in the live Web UI, verified in-script, and redacted as REDACTED in all runner and deployment logs")]
         public void ThenBothRunnersReceiveStringArraysAndRedactSecureElements()
         {
             Assert.IsTrue(_isArrayRunnersExecuted);
@@ -626,6 +627,7 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
         public void CreateDeploymentRequest_IsArrayPropertiesPlainInterpolatedNestedSecureAndRequestOverride_InjectsStringArraysIntoRunners()
         {
             using var caller = new DorcApiClient();
+            using var browser = new LiveWebUiBrowserSession(caller);
             var buildUri = EnsureProvisioned(caller);
             var cid = Guid.NewGuid().ToString("N")[..10];
 
@@ -644,25 +646,8 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
                 EnsurePropertyDefinition(caller, arrayCorrelationProp, secure: false, isArray: false);
                 EnsurePropertyDefinition(caller, tagProp, secure: false, isArray: false);
 
-                // Create baseArrayProp as scalar first, then toggle IsArray=true via PUT /Properties
+                // Create baseArrayProp as scalar first, then toggle IsArray=true and add array items via the live <page-variables> Web UI
                 EnsurePropertyDefinition(caller, baseArrayProp, secure: false, isArray: false);
-                var toggleResp = caller.ExecuteRaw("Properties", Method.Put, body: new Dictionary<string, PropertyApiModel>
-                {
-                    [baseArrayProp] = new PropertyApiModel
-                    {
-                        Name = baseArrayProp,
-                        Secure = false,
-                        IsArray = true
-                    }
-                });
-                Assert.AreEqual(HttpStatusCode.OK, toggleResp.StatusCode, $"PUT /Properties IsArray toggle failed: {toggleResp.Content}");
-
-                var verifyPropResp = caller.ExecuteRaw($"Properties/id={Uri.EscapeDataString(baseArrayProp)}", Method.Get);
-                Assert.AreEqual(HttpStatusCode.OK, verifyPropResp.StatusCode, verifyPropResp.Content);
-                var verifiedProp = DorcApiClient.Deserialize<PropertyApiModel>(verifyPropResp.Content);
-                Assert.IsNotNull(verifiedProp);
-                Assert.IsTrue(verifiedProp.IsArray, "Expected PUT /Properties to persist IsArray = true.");
-
                 EnsurePropertyDefinition(caller, expandedArrayProp, secure: false, isArray: true);
                 EnsurePropertyDefinition(caller, joinedScalarProp, secure: false, isArray: false);
                 EnsurePropertyDefinition(caller, overrideArrayProp, secure: false, isArray: true);
@@ -670,13 +655,21 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
 
                 UpsertPropertyValue(caller, arrayCorrelationProp, secure: false, envFilter: LiveChildEnvName, value: cid, isArray: false);
                 UpsertPropertyValue(caller, tagProp, secure: false, envFilter: null, value: $"Tag_{cid}", isArray: false);
-                UpsertPropertyValue(
-                    caller,
+
+                // Drive live <page-variables> Web UI: toggle IsArray on baseArrayProp and build ["node1-$tag$","node2-$tag$"] via the Array Items Builder
+                ToggleIsArrayAndAddArrayItemsInLiveWebUiAsync(
+                    browser,
                     baseArrayProp,
-                    secure: false,
-                    envFilter: LiveParentEnvName,
-                    value: $"[\"node1-${tagProp}$\",\"node2-${tagProp}$\"]",
-                    isArray: true);
+                    LiveParentEnvName,
+                    $"node1-${tagProp}$",
+                    $"node2-${tagProp}$").GetAwaiter().GetResult();
+
+                var verifyPropResp = caller.ExecuteRaw($"Properties/id={Uri.EscapeDataString(baseArrayProp)}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, verifyPropResp.StatusCode, verifyPropResp.Content);
+                var verifiedProp = DorcApiClient.Deserialize<PropertyApiModel>(verifyPropResp.Content);
+                Assert.IsNotNull(verifiedProp);
+                Assert.IsTrue(verifiedProp.IsArray, "Expected live Web UI #is-variable-array toggle to persist IsArray = true via PUT /Properties.");
+
                 UpsertPropertyValue(
                     caller,
                     expandedArrayProp,
@@ -691,12 +684,14 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
                     envFilter: LiveChildEnvName,
                     value: $"cluster=${baseArrayProp}$",
                     isArray: false);
+
+                // Seed overrideArrayProp with ["default-1"] and use the live <variable-value-controls> inline array editor to append "default-2"
                 UpsertPropertyValue(
                     caller,
                     overrideArrayProp,
                     secure: false,
                     envFilter: LiveChildEnvName,
-                    value: "[\"default-1\",\"default-2\"]",
+                    value: "[\"default-1\"]",
                     isArray: true);
                 UpsertPropertyValue(
                     caller,
@@ -706,48 +701,45 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
                     value: $"[\"{secretElemA}\",\"{secretElemB}\"]",
                     isArray: true);
 
-                var requestPayload = new RequestDto
-                {
-                    Project = LiveProjectName,
-                    Environment = LiveChildEnvName,
-                    BuildNum = BuildFolderName,
-                    BuildUrl = buildUri,
-                    Components = new List<string>
-                    {
-                        DownstreamSkippedComponentName,
-                        NetFxRunnerComponentName
-                    },
-                    RequestProperties = new List<RequestProperty>
-                    {
-                        new RequestProperty
-                        {
-                            PropertyName = overrideArrayProp,
-                            PropertyValue = $"[\"override-1-{cid}\",\"override-2-{cid}\"]"
-                        }
-                    }
-                };
+                EditArrayChipsAndVerifySecretMaskingInLiveWebUiAsync(
+                    browser,
+                    overrideArrayProp,
+                    "default-1",
+                    "default-2",
+                    secretArrayProp,
+                    secretElemA,
+                    secretElemB).GetAwaiter().GetResult();
 
-                var createResp = caller.ExecuteRaw("Request", Method.Post, body: requestPayload);
-                Assert.AreEqual(HttpStatusCode.OK, createResp.StatusCode, $"POST /Request failed: {createResp.Content}");
-                var created = DorcApiClient.Deserialize<RequestStatusDto>(createResp.Content);
-                Assert.IsNotNull(created);
-                Assert.IsGreaterThan(0, created.Id);
+                var liveProjResp = caller.ExecuteRaw($"RefDataProjects/{Uri.EscapeDataString(LiveProjectName)}", Method.Get);
+                Assert.AreEqual(HttpStatusCode.OK, liveProjResp.StatusCode, liveProjResp.Content);
+                var liveProject = DorcApiClient.Deserialize<ProjectApiModel>(liveProjResp.Content);
+                Assert.IsNotNull(liveProject);
 
-                var finalRequest = WaitForTerminalRequestStatus(caller, created.Id, TimeSpan.FromMinutes(3));
+                var createdRequestId = TriggerIsArrayMultiRunnerDeploymentFromLiveWebUiAsync(
+                    browser,
+                    liveProject,
+                    LiveChildEnvName,
+                    buildUri,
+                    new[] { DownstreamSkippedComponentName, NetFxRunnerComponentName },
+                    overrideArrayProp,
+                    $"[\"override-1-{cid}\",\"override-2-{cid}\"]").GetAwaiter().GetResult();
+                Assert.IsGreaterThan(0, createdRequestId);
+
+                var finalRequest = WaitForTerminalRequestStatus(caller, createdRequestId, TimeSpan.FromMinutes(3));
                 var resultsResp = caller.ExecuteRaw("ResultStatuses", Method.Get, new Dictionary<string, string>
                 {
-                    ["requestId"] = created.Id.ToString()
+                    ["requestId"] = createdRequestId.ToString()
                 });
                 Assert.AreEqual(HttpStatusCode.OK, resultsResp.StatusCode, resultsResp.Content);
                 var results = DorcApiClient.Deserialize<List<DeploymentResultApiModel>>(resultsResp.Content) ?? new List<DeploymentResultApiModel>();
-                Assert.HasCount(2, results, $"Expected 2 component results (.NET 8 PS7 + .NET Framework 4.8 PS5.1) for request {created.Id}.");
+                Assert.HasCount(2, results, $"Expected 2 component results (.NET 8 PS7 + .NET Framework 4.8 PS5.1) for request {createdRequestId}.");
 
                 var combinedLogs = new List<string>();
                 foreach (var res in results)
                 {
                     var logResp = caller.ExecuteRaw("ResultStatuses/Log", Method.Get, new Dictionary<string, string>
                     {
-                        ["requestId"] = created.Id.ToString(),
+                        ["requestId"] = createdRequestId.ToString(),
                         ["resultId"] = res.Id.ToString()
                     });
                     combinedLogs.Add($"{res.Log}\n{logResp.Content}");
@@ -757,7 +749,13 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
                 Assert.AreEqual(
                     "Completed",
                     finalRequest.Status,
-                    $"Expected IsArray multi-runner request {created.Id} to reach Completed, got '{finalRequest.Status}'. Logs:\n{fullLog}");
+                    $"Expected IsArray multi-runner request {createdRequestId} to reach Completed, got '{finalRequest.Status}'. Logs:\n{fullLog}");
+
+                VerifyIsArrayMonitorResultInLiveWebUiAsync(
+                    browser,
+                    createdRequestId,
+                    secretElemA,
+                    secretElemB).GetAwaiter().GetResult();
 
                 StringAssert.Contains(
                     fullLog,
@@ -796,6 +794,341 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
                     overrideArrayProp,
                     secretArrayProp);
             }
+        }
+
+        private static async Task ToggleIsArrayAndAddArrayItemsInLiveWebUiAsync(
+            LiveWebUiBrowserSession browser,
+            string baseArrayProp,
+            string scopeEnvName,
+            string item1,
+            string item2)
+        {
+            await browser.NavigateToRouteAsync("/variables", "page-variables");
+
+            await browser.Page.EvaluateAsync(
+                $$"""
+                async () => {
+                    const page = document.querySelector('page-variables');
+                    if (!page) {
+                        throw new Error('Could not locate <page-variables> in live DOM');
+                    }
+
+                    const waitDeadline = Date.now() + 30000;
+                    while (Date.now() < waitDeadline) {
+                        if (!page.loadingProperties && Array.isArray(page.properties) && page.properties.length > 0) {
+                            break;
+                        }
+                        await new Promise(r => setTimeout(r, 200));
+                    }
+
+                    const propCombo = page.shadowRoot?.querySelector('#properties');
+                    if (!propCombo) {
+                        throw new Error('Could not locate #properties combo box in <page-variables>');
+                    }
+                    propCombo.value = {{JsonSerializer.Serialize(baseArrayProp)}};
+                    propCombo.dispatchEvent(new CustomEvent('value-changed', { detail: { value: {{JsonSerializer.Serialize(baseArrayProp)}} } }));
+
+                    const loadValsDeadline = Date.now() + 20000;
+                    while (Date.now() < loadValsDeadline) {
+                        if (page.existingPropertySelected && !page.loadingPropertyValues) {
+                            break;
+                        }
+                        await new Promise(r => setTimeout(r, 200));
+                    }
+
+                    const isArrayCheckbox = page.shadowRoot?.querySelector('#is-variable-array');
+                    if (!isArrayCheckbox) {
+                        throw new Error('Could not locate #is-variable-array checkbox in <page-variables>');
+                    }
+
+                    // Click checkbox input to trigger updatePropertyArray + confirmPrompt
+                    const inputEl = isArrayCheckbox.querySelector('input') ?? isArrayCheckbox;
+                    inputEl.click();
+
+                    const dialogDeadline = Date.now() + 10000;
+                    let confirmDialog = null;
+                    while (Date.now() < dialogDeadline) {
+                        confirmDialog = document.querySelector('body > vaadin-confirm-dialog');
+                        if (confirmDialog && confirmDialog.opened) {
+                            break;
+                        }
+                        await new Promise(r => setTimeout(r, 100));
+                    }
+                    if (!confirmDialog) {
+                        throw new Error('Expected confirmPrompt <vaadin-confirm-dialog> when toggling #is-variable-array');
+                    }
+                    confirmDialog.dispatchEvent(new CustomEvent('confirm'));
+
+                    const toggleSavedDeadline = Date.now() + 20000;
+                    while (Date.now() < toggleSavedDeadline) {
+                        if (page.selectedPropertyIsArray === true) {
+                            break;
+                        }
+                        await new Promise(r => setTimeout(r, 200));
+                    }
+                    if (!page.selectedPropertyIsArray) {
+                        throw new Error('Expected page.selectedPropertyIsArray to become true after confirming #is-variable-array');
+                    }
+                    await page.updateComplete;
+
+                    const envScopeCombo = page.shadowRoot?.querySelector('#envScope');
+                    if (envScopeCombo) {
+                        envScopeCombo.value = {{JsonSerializer.Serialize(scopeEnvName)}};
+                        envScopeCombo.dispatchEvent(new CustomEvent('value-changed', { detail: { value: {{JsonSerializer.Serialize(scopeEnvName)}} } }));
+                    }
+                    await page.updateComplete;
+
+                    const newValCombo = page.shadowRoot?.querySelector('#newVariableValue');
+                    const addItemBtn = page.shadowRoot?.querySelector('#add-array-item-btn');
+                    const addVarValBtn = page.shadowRoot?.querySelector('#add-variable-value-btn');
+                    if (!newValCombo || !addItemBtn || !addVarValBtn) {
+                        throw new Error('Missing Array Items Builder controls (#newVariableValue / #add-array-item-btn / #add-variable-value-btn)');
+                    }
+
+                    newValCombo.value = {{JsonSerializer.Serialize(item1)}};
+                    addItemBtn.click();
+                    await page.updateComplete;
+
+                    newValCombo.value = {{JsonSerializer.Serialize(item2)}};
+                    addItemBtn.click();
+                    await page.updateComplete;
+
+                    const chips = page.shadowRoot?.querySelectorAll('#new-array-items-list .array-item-chip') ?? [];
+                    if (chips.length !== 2) {
+                        throw new Error(`Expected 2 staged array item chips in #new-array-items-list, got ${chips.length}`);
+                    }
+
+                    addVarValBtn.click();
+
+                    const saveValDeadline = Date.now() + 20000;
+                    while (Date.now() < saveValDeadline) {
+                        if (!page.addingVariableValue && Array.isArray(page.propertyValues) && page.propertyValues.length > 0) {
+                            break;
+                        }
+                        await new Promise(r => setTimeout(r, 200));
+                    }
+                }
+                """);
+        }
+
+        private static async Task EditArrayChipsAndVerifySecretMaskingInLiveWebUiAsync(
+            LiveWebUiBrowserSession browser,
+            string overrideArrayProp,
+            string existingItem,
+            string appendedItem,
+            string secretArrayProp,
+            string secretElemA,
+            string secretElemB)
+        {
+            await browser.NavigateToRouteAsync("/variables", "page-variables");
+
+            await browser.Page.EvaluateAsync(
+                $$"""
+                async () => {
+                    const page = document.querySelector('page-variables');
+                    const propCombo = page?.shadowRoot?.querySelector('#properties');
+                    if (!page || !propCombo) {
+                        throw new Error('Could not locate <page-variables> or #properties combo box');
+                    }
+
+                    // Ensure properties list includes the newly created properties
+                    page.getProperties?.();
+                    const propWaitDeadline = Date.now() + 20000;
+                    while (Date.now() < propWaitDeadline) {
+                        if (!page.loadingProperties &&
+                            Array.isArray(page.properties) &&
+                            page.properties.some(p => p.Name === {{JsonSerializer.Serialize(overrideArrayProp)}})) {
+                            break;
+                        }
+                        await new Promise(r => setTimeout(r, 200));
+                    }
+
+                    propCombo.value = {{JsonSerializer.Serialize(overrideArrayProp)}};
+                    propCombo.dispatchEvent(new CustomEvent('value-changed', { detail: { value: {{JsonSerializer.Serialize(overrideArrayProp)}} } }));
+
+                    const loadDeadline = Date.now() + 20000;
+                    let control = null;
+                    while (Date.now() < loadDeadline) {
+                        const grid = page.shadowRoot?.querySelector('#grid');
+                        control = grid?.querySelector('variable-value-controls');
+                        if (control && control.value && control.value.Id > 0) {
+                            break;
+                        }
+                        await new Promise(r => setTimeout(r, 200));
+                    }
+                    if (!control) {
+                        throw new Error('Could not locate <variable-value-controls> for overrideArrayProp in <page-variables>');
+                    }
+
+                    const badgeText = control.shadowRoot?.querySelector('.array-type-badge')?.textContent?.trim() ?? '';
+                    if (badgeText !== '[Array]') {
+                        throw new Error(`Expected .array-type-badge to be '[Array]', got '${badgeText}'`);
+                    }
+
+                    const readChips = Array.from(control.shadowRoot?.querySelectorAll('.array-chips-preview .array-item-chip') ?? [])
+                        .map(c => c.textContent?.trim());
+                    if (!readChips.includes({{JsonSerializer.Serialize(existingItem)}})) {
+                        throw new Error(`Expected read-mode array chip '${{{JsonSerializer.Serialize(existingItem)}}}', got ${JSON.stringify(readChips)}`);
+                    }
+
+                    control._editClick();
+                    control.editing = true;
+                    await control.updateComplete;
+
+                    const valId = control.value.Id;
+                    const inlineInput = control.shadowRoot?.querySelector(`#addArrayItemInput${valId}`);
+                    const inlineAddBtn = control.shadowRoot?.querySelector(`#addArrayItemBtn${valId}`);
+                    if (!inlineInput || !inlineAddBtn) {
+                        throw new Error(`Missing inline array editor controls (#addArrayItemInput${valId} / #addArrayItemBtn${valId})`);
+                    }
+
+                    inlineInput.value = {{JsonSerializer.Serialize(appendedItem)}};
+                    inlineAddBtn.click();
+                    await control.updateComplete;
+
+                    const saveBtn = control.shadowRoot?.querySelector('vaadin-button[aria-label="Save"]');
+                    if (!saveBtn) {
+                        throw new Error('Could not locate Save button in <variable-value-controls>');
+                    }
+                    saveBtn.click();
+                    await new Promise(r => setTimeout(r, 800));
+
+                    // Select secretArrayProp and verify masking in <variable-value-controls>
+                    propCombo.value = {{JsonSerializer.Serialize(secretArrayProp)}};
+                    propCombo.dispatchEvent(new CustomEvent('value-changed', { detail: { value: {{JsonSerializer.Serialize(secretArrayProp)}} } }));
+
+                    const secDeadline = Date.now() + 20000;
+                    let secControl = null;
+                    while (Date.now() < secDeadline) {
+                        const grid = page.shadowRoot?.querySelector('#grid');
+                        const candidate = grid?.querySelector('variable-value-controls');
+                        if (candidate?.value?.Property?.Name === {{JsonSerializer.Serialize(secretArrayProp)}}) {
+                            secControl = candidate;
+                            break;
+                        }
+                        await new Promise(r => setTimeout(r, 200));
+                    }
+                    if (!secControl) {
+                        throw new Error('Could not locate <variable-value-controls> for secretArrayProp');
+                    }
+
+                    const secHtml = secControl.shadowRoot?.innerHTML ?? '';
+                    if (secHtml.includes({{JsonSerializer.Serialize(secretElemA)}}) ||
+                        secHtml.includes({{JsonSerializer.Serialize(secretElemB)}})) {
+                        throw new Error('Cleartext secure array element exposed in <variable-value-controls> DOM');
+                    }
+                }
+                """);
+        }
+
+        private static async Task<int> TriggerIsArrayMultiRunnerDeploymentFromLiveWebUiAsync(
+            LiveWebUiBrowserSession browser,
+            ProjectApiModel project,
+            string envName,
+            string buildUri,
+            string[] componentNames,
+            string overrideArrayProp,
+            string overrideArrayJson)
+        {
+            await browser.NavigateToRouteAsync("/deploy", "deploy-env");
+
+            return await browser.Page.EvaluateAsync<int>(
+                $$"""
+                async () => {
+                    const pageDeploy = document.querySelector('page-deploy');
+                    const deployEnv = (pageDeploy?.shadowRoot?.querySelector('deploy-env') ?? document.querySelector('deploy-env'));
+                    if (!deployEnv) {
+                        throw new Error('Could not locate <deploy-env> in live DOM');
+                    }
+
+                    deployEnv.project = {
+                        ProjectId: {{project.ProjectId}},
+                        ProjectName: {{JsonSerializer.Serialize(project.ProjectName)}},
+                        ArtefactsUrl: {{JsonSerializer.Serialize(project.ArtefactsUrl)}},
+                        ArtefactsSubPaths: {{JsonSerializer.Serialize(project.ArtefactsSubPaths)}}
+                    };
+                    await deployEnv.updateComplete;
+
+                    deployEnv.envName = {{JsonSerializer.Serialize(envName)}};
+                    deployEnv.selectedBuildId = {{JsonSerializer.Serialize(buildUri)}};
+                    deployEnv.selectedBuild = {{JsonSerializer.Serialize(BuildFolderName)}};
+                    deployEnv.buildDef = 'FileShareBuild';
+                    deployEnv.propertyOverrides = [
+                        {
+                            PropertyName: {{JsonSerializer.Serialize(overrideArrayProp)}},
+                            PropertyValue: {{JsonSerializer.Serialize(overrideArrayJson)}}
+                        }
+                    ];
+
+                    const compNames = {{JsonSerializer.Serialize(componentNames)}};
+                    const tree = deployEnv.shadowRoot?.querySelector('hegs-tree');
+                    if (tree) {
+                        tree.getCheckedComponents = () => compNames.map(name => ({ data: { name } }));
+                    }
+
+                    const deployBtn = Array.from(deployEnv.shadowRoot?.querySelectorAll('vaadin-button') ?? [])
+                        .find(b => b.textContent?.trim() === 'Deploy' && !b.closest('vaadin-confirm-dialog'));
+                    if (!deployBtn) {
+                        throw new Error('Could not locate Deploy button inside <deploy-env>');
+                    }
+                    deployBtn.click();
+                    await deployEnv.updateComplete;
+
+                    const confirmDialog = deployEnv.shadowRoot?.querySelector('vaadin-confirm-dialog#dialog');
+                    if (!confirmDialog || !confirmDialog.opened) {
+                        throw new Error('Deploy confirmation dialog did not open for IsArray deployment');
+                    }
+                    confirmDialog.dispatchEvent(new CustomEvent('confirm'));
+
+                    const deadline = Date.now() + 30000;
+                    while (Date.now() < deadline) {
+                        const toast = deployEnv.shadowRoot?.querySelector('successful-deploy-notification');
+                        const idAttr = toast?.getAttribute('requestedDeploymentId') ?? toast?.requestedDeploymentId;
+                        const parsed = Number(idAttr);
+                        if (Number.isFinite(parsed) && parsed > 0) {
+                            return parsed;
+                        }
+                        await new Promise(r => setTimeout(r, 250));
+                    }
+
+                    throw new Error('Timed out waiting for <successful-deploy-notification> with requestedDeploymentId');
+                }
+                """);
+        }
+
+        private static async Task VerifyIsArrayMonitorResultInLiveWebUiAsync(
+            LiveWebUiBrowserSession browser,
+            int requestId,
+            string secretElemA,
+            string secretElemB)
+        {
+            await browser.NavigateToRouteAsync($"/monitor-result/{requestId}", "page-monitor-result");
+
+            var deadline = DateTime.UtcNow.AddSeconds(30);
+            var status = string.Empty;
+            while (DateTime.UtcNow < deadline)
+            {
+                status = await browser.Page.EvaluateAsync<string>(
+                    "() => document.querySelector('page-monitor-result')?.deployRequest?.Status ?? ''");
+                if (string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase))
+                {
+                    break;
+                }
+                await Task.Delay(300);
+            }
+
+            Assert.AreEqual("Completed", status, $"Expected live <page-monitor-result> for IsArray request #{requestId} to display Status='Completed'.");
+
+            var monitorHtml = await browser.Page.EvaluateAsync<string>(
+                "() => document.querySelector('page-monitor-result')?.shadowRoot?.innerHTML ?? ''");
+            Assert.IsFalse(
+                monitorHtml.Contains(secretElemA, StringComparison.Ordinal) ||
+                monitorHtml.Contains(secretElemB, StringComparison.Ordinal),
+                "Live <page-monitor-result> DOM must never contain cleartext secure array elements.");
+
+            Assert.IsEmpty(
+                browser.PageErrors,
+                $"Expected zero unhandled browser page errors during IsArray live Web UI workflow, got: {string.Join("; ", browser.PageErrors)}");
         }
     }
 }

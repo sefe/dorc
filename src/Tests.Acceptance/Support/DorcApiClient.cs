@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Dorc.ApiModel;
 using Microsoft.Extensions.Configuration;
 using RestSharp;
 
@@ -21,6 +22,7 @@ namespace Tests.Acceptance.Support
         private bool disposedValue;
 
         public string ApiRoot { get; }
+        public string WebUiRoot { get; }
         public string? BearerToken => _bearerToken;
 
         public DorcApiClient()
@@ -35,6 +37,7 @@ namespace Tests.Acceptance.Support
                 ? configuredDorcBaseUrl
                 : (configuration.GetSection("AppSettings")["BaseAddress"] ?? string.Empty);
             ApiRoot = apiRoot;
+            WebUiRoot = ResolveWebUiRoot(configuration, apiRoot);
 
             _bearerToken = AcquireBearerTokenIfConfigured(configuration, apiRoot);
 
@@ -47,6 +50,29 @@ namespace Tests.Acceptance.Support
             };
 
             _client = new RestClient(options);
+        }
+
+        private static string ResolveWebUiRoot(IConfiguration configuration, string apiRoot)
+        {
+            var configuredWebUrl = Environment.GetEnvironmentVariable("DORC_WEB_BASE_URL")
+                ?? configuration.GetSection("DorcApi")["WebUiBaseUrl"];
+            if (!string.IsNullOrWhiteSpace(configuredWebUrl))
+            {
+                return configuredWebUrl.TrimEnd('/');
+            }
+
+            if (Uri.TryCreate(apiRoot, UriKind.Absolute, out var apiUri))
+            {
+                return $"{apiUri.Scheme}://{apiUri.Host}";
+            }
+
+            return string.Empty;
+        }
+
+        public ApiConfigModel? GetApiConfig()
+        {
+            var response = ExecuteRaw("/ApiConfig", Method.Get);
+            return response.IsSuccessful ? Deserialize<ApiConfigModel>(response.Content) : null;
         }
 
         private static string? AcquireBearerTokenIfConfigured(IConfiguration configuration, string apiRoot)

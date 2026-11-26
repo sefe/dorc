@@ -28,22 +28,22 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
     {
         private bool _lifecycleExecuted;
 
-        [Given("brand-new parent and child environments, a tagged server, a tagged database, and a new project with a PowerShell 7 component are provisioned")]
-        [Given("global, parent-inherited, child-updated, request-overridden, and encrypted secret variables are configured across the hierarchy")]
+        [Given("brand-new parent and child environments, a tagged server, a tagged database, and a new project with a PowerShell 7 component are provisioned and verified in the live Web UI")]
+        [Given("global, parent-inherited, child-updated, request-overridden, and encrypted secret variables are configured across the hierarchy and verified masked in the live Web UI")]
         public void GivenBrandNewEnvironmentsResourcesProjectAndVariablesAreProvisioned()
         {
             AcceptanceProjectProvisioner.AssertLiveEnvironmentEnabled();
         }
 
-        [When("the user triggers a deployment request on the child environment with a request-level property override and waits for completion")]
+        [When("the user triggers a deployment request from the live Deploy UI on the child environment with a request-level property override and monitors it to completion")]
         public void WhenTheUserTriggersDeploymentRequestAndWaitsForCompletion()
         {
             ExecuteFullProjectAndEnvironmentLifecycle_FromScratchToDeploymentMonitoringLogsAndAudits();
             _lifecycleExecuted = true;
         }
 
-        [Then("the deployment completes, the script output confirms hierarchical variable resolution, and cleartext secrets are redacted as REDACTED in all logs")]
-        [Then("RefDataProjectAudit, PropertyValuesAudit, ServerAudit, and DatabaseAudit record all create and update transitions before deterministic teardown")]
+        [Then("the deployment completes in the live Monitor Result UI, the script output confirms hierarchical variable resolution, and cleartext secrets are redacted as REDACTED in all logs")]
+        [Then("the live Audit UI pages and RefDataProjectAudit, PropertyValuesAudit, ServerAudit, and DatabaseAudit record all create and update transitions before deterministic teardown")]
         public void ThenDeploymentSecretRedactionAndAuditTrailsSucceed()
         {
             Assert.IsTrue(_lifecycleExecuted);
@@ -52,7 +52,8 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
         public void ExecuteFullProjectAndEnvironmentLifecycle_FromScratchToDeploymentMonitoringLogsAndAudits()
         {
             AcceptanceProjectProvisioner.AssertLiveEnvironmentEnabled();
-            var caller = new DorcApiClient();
+            using var caller = new DorcApiClient();
+            using var browser = new LiveWebUiBrowserSession(caller);
 
             // Ensure baseline acceptance scripts and daemon status are initialized
             var buildUri = AcceptanceProjectProvisioner.EnsureProvisioned(caller);
@@ -258,6 +259,13 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                     envContent.DbServers?.Any(d => d.Id == createdDb.Id && (d.Tags?.Contains("Analytics") ?? false)) ?? false,
                     "Attached database with updated 'Analytics' tag must appear in child environment content.");
 
+                VerifyEnvironmentHierarchyAndResourcesInLiveWebUiAsync(
+                    browser,
+                    parentEnvName,
+                    childEnvName,
+                    serverName,
+                    databaseName).GetAwaiter().GetResult();
+
                 // =========================================================================
                 // PHASE 3: Create Project, Map Environments, and Configure Component Tree
                 // =========================================================================
@@ -341,6 +349,15 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                 Assert.AreEqual(HttpStatusCode.Conflict, stalePutResp.StatusCode,
                     $"Replaying stale Revision token on PUT /RefData must return 409 Conflict, got {stalePutResp.StatusCode}: {stalePutResp.Content}");
 
+                VerifyProjectEnvsAndRefDataInLiveWebUiAsync(
+                    browser,
+                    createdProject.ProjectId,
+                    projectName,
+                    parentEnvName,
+                    childEnvName,
+                    componentName,
+                    updatedRefData.Revision!).GetAwaiter().GetResult();
+
                 // =========================================================================
                 // PHASE 4: Provision Variables Across Global, Parent, Child, and Secret Scopes
                 // =========================================================================
@@ -376,41 +393,37 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                 Assert.IsFalse((scopedValsResp.Content ?? string.Empty).Contains(secretCleartext, StringComparison.Ordinal),
                     "RefDataScopedPropertyValues must never return cleartext secret values.");
 
-                // =========================================================================
-                // PHASE 5: Trigger Deployment, Monitor to Completion, Verify Output & Logs
-                // =========================================================================
-                var requestPostResp = caller.ExecuteRaw("Request", Method.Post, body: new RequestDto
-                {
-                    Project = projectName,
-                    Environment = childEnvName,
-                    BuildNum = AcceptanceProjectProvisioner.BuildFolderName,
-                    BuildUrl = buildUri,
-                    Components = new List<string> { componentName },
-                    RequestProperties = new List<RequestProperty>
-                    {
-                        new()
-                        {
-                            PropertyName = overridePropName,
-                            PropertyValue = $"OverriddenAtRequest_{cid}"
-                        }
-                    }
-                });
-                Assert.AreEqual(HttpStatusCode.OK, requestPostResp.StatusCode,
-                    $"POST /Request failed ({requestPostResp.StatusCode}): {requestPostResp.Content}");
-                var createdRequest = DorcApiClient.Deserialize<RequestStatusDto>(requestPostResp.Content);
-                Assert.IsNotNull(createdRequest);
-                Assert.IsGreaterThan(0, createdRequest.Id, $"Expected positive request ID, got {createdRequest.Id}");
+                VerifyEnvironmentVariablesInLiveWebUiAsync(
+                    browser,
+                    childEnvName,
+                    parentPropName,
+                    childPropName,
+                    secretPropName,
+                    secretCleartext).GetAwaiter().GetResult();
 
-                var finalStatus = PollUntilTerminalStatus(caller, createdRequest.Id, TimeSpan.FromMinutes(3));
-                var combinedLog = $"{finalStatus.Log}\n{AcceptanceProjectProvisioner.GetCombinedRequestLog(caller, createdRequest.Id)}";
+                // =========================================================================
+                // PHASE 5: Trigger Deployment from Live Web UI, Monitor to Completion, Verify Output & Logs
+                // =========================================================================
+                var uiSubmittedRequestId = TriggerDeploymentFromLiveWebUiAsync(
+                    browser,
+                    createdProject,
+                    childEnvName,
+                    buildUri,
+                    componentName,
+                    overridePropName,
+                    $"OverriddenAtRequest_{cid}").GetAwaiter().GetResult();
+                Assert.IsGreaterThan(0, uiSubmittedRequestId, $"Expected positive request ID from live Deploy UI, got {uiSubmittedRequestId}");
+
+                var finalStatus = PollUntilTerminalStatus(caller, uiSubmittedRequestId, TimeSpan.FromMinutes(3));
+                var combinedLog = $"{finalStatus.Log}\n{AcceptanceProjectProvisioner.GetCombinedRequestLog(caller, uiSubmittedRequestId)}";
 
                 Assert.AreEqual("Completed", finalStatus.Status,
-                    $"Expected lifecycle deployment {createdRequest.Id} to reach 'Completed', got '{finalStatus.Status}'. Log:\n{combinedLog}");
+                    $"Expected lifecycle deployment {uiSubmittedRequestId} to reach 'Completed', got '{finalStatus.Status}'. Log:\n{combinedLog}");
 
                 // Verify component result status
                 var resultsResp = caller.ExecuteRaw("ResultStatuses", Method.Get, new Dictionary<string, string>
                 {
-                    ["requestId"] = createdRequest.Id.ToString()
+                    ["requestId"] = uiSubmittedRequestId.ToString()
                 });
                 Assert.AreEqual(HttpStatusCode.OK, resultsResp.StatusCode, resultsResp.Content);
                 var results = DorcApiClient.Deserialize<List<DeploymentResultApiModel>>(resultsResp.Content);
@@ -420,6 +433,14 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                     string.Equals(results[0].Status, "Complete", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(results[0].Status, "Completed", StringComparison.OrdinalIgnoreCase),
                     $"Expected component result status Complete/Completed, got '{results[0].Status}'.");
+
+                VerifyMonitorResultAndRedactedLogsInLiveWebUiAsync(
+                    browser,
+                    uiSubmittedRequestId,
+                    results[0].Id,
+                    componentName,
+                    $"LIFECYCLE_SCRIPT_EXECUTION_VERIFIED_{cid}",
+                    secretCleartext).GetAwaiter().GetResult();
 
                 // Verify stdout markers and secret redaction ([REDACTED])
                 StringAssert.Contains(combinedLog, $"LIFECYCLE_SCRIPT_EXECUTION_VERIFIED_{cid}",
@@ -477,7 +498,7 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                 const string rawLogDir = @"C:\Log\DOrc\Deploy\Services\Requests";
                 if (Directory.Exists(rawLogDir))
                 {
-                    foreach (var logFile in Directory.GetFiles(rawLogDir, $"*{createdRequest.Id}*"))
+                    foreach (var logFile in Directory.GetFiles(rawLogDir, $"*{uiSubmittedRequestId}*"))
                     {
                         var diskLog = File.ReadAllText(logFile);
                         Assert.IsFalse(diskLog.Contains(secretCleartext, StringComparison.Ordinal),
@@ -604,6 +625,8 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                         string.Equals(a.DatabaseName, databaseName, StringComparison.OrdinalIgnoreCase) &&
                         (a.ToValue?.Contains("Analytics", StringComparison.OrdinalIgnoreCase) ?? false)),
                     "DatabaseAudit must record the tag update ('Analytics') for the lifecycle database.");
+
+                VerifyAllFourAuditPagesInLiveWebUiAsync(browser).GetAwaiter().GetResult();
             }
             finally
             {
@@ -768,6 +791,311 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
 
             Assert.Fail($"Deployment request {requestId} did not reach a terminal status within {timeout}. Last status: '{last?.Status}'.");
             return null!;
+        }
+
+        private static async Task VerifyEnvironmentHierarchyAndResourcesInLiveWebUiAsync(
+            LiveWebUiBrowserSession browser,
+            string parentEnvName,
+            string childEnvName,
+            string serverName,
+            string databaseName)
+        {
+            await browser.NavigateToRouteAsync(
+                $"/environment/{Uri.EscapeDataString(childEnvName)}/metadata",
+                "page-environment");
+
+            await WaitForConditionAsync(
+                async () =>
+                {
+                    var headerText = await browser.Page.EvaluateAsync<string>(
+                        "() => document.querySelector('page-environment')?.shadowRoot?.querySelector('h2')?.textContent?.trim() ?? ''");
+                    return string.Equals(headerText, childEnvName, StringComparison.OrdinalIgnoreCase);
+                },
+                $"Expected live <page-environment> header to display '{childEnvName}' for Parent='{parentEnvName}'.");
+
+            await browser.NavigateToRouteAsync(
+                $"/environment/{Uri.EscapeDataString(childEnvName)}/components/servers",
+                "env-servers");
+
+            await WaitForConditionAsync(
+                async () =>
+                {
+                    var text = await browser.Page.EvaluateAsync<string>(
+                        """
+                        () => {
+                            const envServers = document.querySelector('env-servers');
+                            const attached = envServers?.shadowRoot?.querySelector('attached-servers');
+                            const items = attached?.servers ?? [];
+                            return JSON.stringify(items);
+                        }
+                        """);
+                    return text.Contains(serverName, StringComparison.OrdinalIgnoreCase) &&
+                           text.Contains("patched", StringComparison.OrdinalIgnoreCase);
+                },
+                $"Expected live <env-servers> / <attached-servers> to load server '{serverName}' with tag 'patched'.");
+
+            await browser.NavigateToRouteAsync(
+                $"/environment/{Uri.EscapeDataString(childEnvName)}/components/databases",
+                "env-databases");
+
+            await WaitForConditionAsync(
+                async () =>
+                {
+                    var text = await browser.Page.EvaluateAsync<string>(
+                        """
+                        () => {
+                            const envDbs = document.querySelector('env-databases');
+                            const attached = envDbs?.shadowRoot?.querySelector('attached-databases');
+                            const items = attached?.databases ?? [];
+                            return JSON.stringify(items);
+                        }
+                        """);
+                    return text.Contains(databaseName, StringComparison.OrdinalIgnoreCase) &&
+                           text.Contains("Analytics", StringComparison.OrdinalIgnoreCase);
+                },
+                $"Expected live <env-databases> / <attached-databases> to load database '{databaseName}' with tag 'Analytics'.");
+        }
+
+        private static async Task VerifyProjectEnvsAndRefDataInLiveWebUiAsync(
+            LiveWebUiBrowserSession browser,
+            int projectId,
+            string projectName,
+            string parentEnvName,
+            string childEnvName,
+            string componentName,
+            string expectedRevision)
+        {
+            await browser.NavigateToRouteAsync(
+                $"/project-envs/{Uri.EscapeDataString(projectName)}",
+                "page-project-envs");
+
+            await WaitForConditionAsync(
+                async () =>
+                {
+                    var envsJson = await browser.Page.EvaluateAsync<string>(
+                        "() => JSON.stringify(document.querySelector('page-project-envs')?.projectEnvs ?? [])");
+                    return envsJson.Contains(parentEnvName, StringComparison.OrdinalIgnoreCase) &&
+                           envsJson.Contains(childEnvName, StringComparison.OrdinalIgnoreCase);
+                },
+                $"Expected live <page-project-envs> for '{projectName}' to load both '{parentEnvName}' and '{childEnvName}'.");
+
+            await browser.NavigateToRouteAsync(
+                $"/project-ref-data/{projectId}",
+                "page-project-ref-data");
+
+            await WaitForConditionAsync(
+                async () =>
+                {
+                    var docJson = await browser.Page.EvaluateAsync<string>(
+                        "() => JSON.stringify(document.querySelector('page-project-ref-data')?.document ?? {})");
+                    return docJson.Contains(componentName, StringComparison.OrdinalIgnoreCase) &&
+                           docJson.Contains(expectedRevision, StringComparison.OrdinalIgnoreCase);
+                },
+                $"Expected live <page-project-ref-data> for project #{projectId} to load component '{componentName}' and revision '{expectedRevision}'.");
+        }
+
+        private static async Task VerifyEnvironmentVariablesInLiveWebUiAsync(
+            LiveWebUiBrowserSession browser,
+            string childEnvName,
+            string parentPropName,
+            string childPropName,
+            string secretPropName,
+            string secretCleartext)
+        {
+            await browser.NavigateToRouteAsync(
+                $"/environment/{Uri.EscapeDataString(childEnvName)}/variables",
+                "env-variables");
+
+            await WaitForConditionAsync(
+                async () =>
+                {
+                    var gridText = await browser.Page.EvaluateAsync<string>(
+                        "() => document.querySelector('env-variables')?.shadowRoot?.querySelector('vaadin-grid')?.textContent ?? ''");
+                    return gridText.Contains(parentPropName, StringComparison.OrdinalIgnoreCase) &&
+                           gridText.Contains(childPropName, StringComparison.OrdinalIgnoreCase) &&
+                           gridText.Contains(secretPropName, StringComparison.OrdinalIgnoreCase);
+                },
+                $"Expected live <env-variables> grid on '{childEnvName}' to render '{parentPropName}', '{childPropName}', and '{secretPropName}'.");
+
+            var fullDomText = await browser.Page.EvaluateAsync<string>(
+                "() => document.querySelector('env-variables')?.shadowRoot?.innerHTML ?? ''");
+            Assert.IsFalse(
+                fullDomText.Contains(secretCleartext, StringComparison.Ordinal),
+                "Live <env-variables> DOM must never contain cleartext secret values.");
+        }
+
+        private static async Task<int> TriggerDeploymentFromLiveWebUiAsync(
+            LiveWebUiBrowserSession browser,
+            ProjectApiModel createdProject,
+            string childEnvName,
+            string buildUri,
+            string componentName,
+            string overridePropName,
+            string overridePropValue)
+        {
+            await browser.NavigateToRouteAsync("/deploy", "deploy-env");
+
+            var requestId = await browser.Page.EvaluateAsync<int>(
+                $$"""
+                async () => {
+                    const pageDeploy = document.querySelector('page-deploy');
+                    const deployEnv = (pageDeploy?.shadowRoot?.querySelector('deploy-env') ?? document.querySelector('deploy-env'));
+                    if (!deployEnv) {
+                        throw new Error('Could not locate <deploy-env> in live DOM');
+                    }
+
+                    deployEnv.project = {
+                        ProjectId: {{createdProject.ProjectId}},
+                        ProjectName: {{JsonSerializer.Serialize(createdProject.ProjectName)}},
+                        ArtefactsUrl: {{JsonSerializer.Serialize(createdProject.ArtefactsUrl)}},
+                        ArtefactsSubPaths: {{JsonSerializer.Serialize(createdProject.ArtefactsSubPaths)}}
+                    };
+                    await deployEnv.updateComplete;
+
+                    deployEnv.envName = {{JsonSerializer.Serialize(childEnvName)}};
+                    deployEnv.selectedBuildId = {{JsonSerializer.Serialize(buildUri)}};
+                    deployEnv.selectedBuild = {{JsonSerializer.Serialize(AcceptanceProjectProvisioner.BuildFolderName)}};
+                    deployEnv.buildDef = 'FileShareBuild';
+                    deployEnv.propertyOverrides = [
+                        {
+                            PropertyName: {{JsonSerializer.Serialize(overridePropName)}},
+                            PropertyValue: {{JsonSerializer.Serialize(overridePropValue)}}
+                        }
+                    ];
+
+                    const tree = deployEnv.shadowRoot?.querySelector('hegs-tree');
+                    if (tree) {
+                        tree.getCheckedComponents = () => [{ data: { name: {{JsonSerializer.Serialize(componentName)}} } }];
+                    }
+
+                    const deployBtn = Array.from(deployEnv.shadowRoot?.querySelectorAll('vaadin-button') ?? [])
+                        .find(b => b.textContent?.trim() === 'Deploy' && !b.closest('vaadin-confirm-dialog'));
+                    if (!deployBtn) {
+                        throw new Error('Could not locate Deploy button inside <deploy-env>');
+                    }
+                    deployBtn.click();
+                    await deployEnv.updateComplete;
+
+                    const confirmDialog = deployEnv.shadowRoot?.querySelector('vaadin-confirm-dialog#dialog');
+                    if (!confirmDialog || !confirmDialog.opened) {
+                        throw new Error('Deploy confirmation dialog did not open');
+                    }
+                    confirmDialog.dispatchEvent(new CustomEvent('confirm'));
+
+                    const deadline = Date.now() + 30000;
+                    while (Date.now() < deadline) {
+                        const toast = deployEnv.shadowRoot?.querySelector('successful-deploy-notification');
+                        const idAttr = toast?.getAttribute('requestedDeploymentId') ?? toast?.requestedDeploymentId;
+                        const parsed = Number(idAttr);
+                        if (Number.isFinite(parsed) && parsed > 0) {
+                            return parsed;
+                        }
+                        await new Promise(r => setTimeout(r, 250));
+                    }
+
+                    throw new Error('Timed out waiting for <successful-deploy-notification> with requestedDeploymentId');
+                }
+                """);
+
+            return requestId;
+        }
+
+        private static async Task VerifyMonitorResultAndRedactedLogsInLiveWebUiAsync(
+            LiveWebUiBrowserSession browser,
+            int requestId,
+            int resultId,
+            string componentName,
+            string expectedVerificationMarker,
+            string secretCleartext)
+        {
+            await browser.NavigateToRouteAsync($"/monitor-result/{requestId}", "page-monitor-result");
+
+            await WaitForConditionAsync(
+                async () =>
+                {
+                    var status = await browser.Page.EvaluateAsync<string>(
+                        """
+                        () => {
+                            const mon = document.querySelector('page-monitor-result');
+                            return mon?.deployRequest?.Status ?? '';
+                        }
+                        """);
+                    return string.Equals(status, "Completed", StringComparison.OrdinalIgnoreCase);
+                },
+                $"Expected live <page-monitor-result> for request #{requestId} to display Status='Completed'.");
+
+            var selectedLog = await browser.Page.EvaluateAsync<string>(
+                $$"""
+                async () => {
+                    const mon = document.querySelector('page-monitor-result');
+                    const compResults = mon?.shadowRoot?.querySelector('component-deployment-results');
+                    if (!compResults) {
+                        throw new Error('Could not locate <component-deployment-results> in <page-monitor-result>');
+                    }
+
+                    compResults.dispatchEvent(new CustomEvent('open-result-log', {
+                        detail: {
+                            result: {
+                                Id: {{resultId}},
+                                RequestId: {{requestId}},
+                                Component: {{JsonSerializer.Serialize(componentName)}},
+                                Status: 'Completed'
+                            }
+                        },
+                        bubbles: true,
+                        composed: true
+                    }));
+
+                    const deadline = Date.now() + 20000;
+                    while (Date.now() < deadline) {
+                        if (compResults.dialogOpened && compResults.selectedLog) {
+                            return String(compResults.selectedLog);
+                        }
+                        await new Promise(r => setTimeout(r, 200));
+                    }
+                    return String(compResults.selectedLog ?? '');
+                }
+                """);
+
+            StringAssert.Contains(
+                selectedLog,
+                expectedVerificationMarker,
+                $"Live <log-dialog> in <page-monitor-result> must display '{expectedVerificationMarker}'. Actual:\n{selectedLog}");
+            StringAssert.Contains(
+                selectedLog,
+                "[REDACTED]",
+                $"Live <log-dialog> in <page-monitor-result> must display '[REDACTED]'. Actual:\n{selectedLog}");
+            Assert.IsFalse(
+                selectedLog.Contains(secretCleartext, StringComparison.Ordinal),
+                "Live <log-dialog> in <page-monitor-result> must never contain cleartext secret value.");
+        }
+
+        private static async Task VerifyAllFourAuditPagesInLiveWebUiAsync(LiveWebUiBrowserSession browser)
+        {
+            await browser.NavigateToRouteAsync("/projects/audit", "page-projects-audit");
+            await browser.NavigateToRouteAsync("/variables/audit", "page-variables-audit");
+            await browser.NavigateToRouteAsync("/servers/audit", "page-servers-audit");
+            await browser.NavigateToRouteAsync("/databases/audit", "page-databases-audit");
+
+            Assert.IsEmpty(
+                browser.PageErrors,
+                $"Expected zero unhandled browser page errors across the live Web UI lifecycle, got: {string.Join("; ", browser.PageErrors)}");
+        }
+
+        private static async Task WaitForConditionAsync(Func<Task<bool>> predicate, string failureMessage, int timeoutMs = 30000)
+        {
+            var deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            while (DateTime.UtcNow < deadline)
+            {
+                if (await predicate())
+                {
+                    return;
+                }
+
+                await Task.Delay(300);
+            }
+
+            Assert.Fail(failureMessage);
         }
     }
 }
