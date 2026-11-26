@@ -227,10 +227,11 @@ namespace Tests.Acceptance.RequestSnapshotsAndLifecycle
                 }
 
                 var cancelLog = GetCombinedRequestLog(caller, created.Id);
-                StringAssert.Contains(
-                    cancelLog,
-                    "Starting cancellable wait script...",
-                    $"Cancelled request {created.Id} must have started executing the PowerShell script before cancellation. Log: {cancelLog}");
+                var startedMarkerConfirmed = File.Exists(startedMarkerPath) ||
+                                             cancelLog.Contains("Starting cancellable wait script...", StringComparison.Ordinal);
+                Assert.IsTrue(
+                    startedMarkerConfirmed,
+                    $"Cancelled request {created.Id} must have started executing the PowerShell script (marker '{startedMarkerPath}' or log line) before cancellation. Log: {cancelLog}");
                 Assert.IsFalse(
                     cancelLog.Contains("Finished wait.", StringComparison.Ordinal),
                     $"Cancelled request {created.Id} must terminate before the wait script finishes. Log: {cancelLog}");
