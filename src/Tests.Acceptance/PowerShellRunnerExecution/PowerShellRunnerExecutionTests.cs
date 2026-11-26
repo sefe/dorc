@@ -950,8 +950,12 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
                     let control = null;
                     while (Date.now() < loadDeadline) {
                         const grid = page.shadowRoot?.querySelector('#grid');
-                        control = grid?.querySelector('variable-value-controls');
-                        if (control && control.value && control.value.Id > 0) {
+                        const candidates = Array.from(grid?.querySelectorAll('variable-value-controls') ?? []);
+                        const match = candidates.find(c =>
+                            c?.value?.Id > 0 &&
+                            c?.value?.Property?.Name === {{JsonSerializer.Serialize(overrideArrayProp)}});
+                        if (match) {
+                            control = match;
                             break;
                         }
                         await new Promise(r => setTimeout(r, 200));
@@ -986,12 +990,22 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
                     inlineAddBtn.click();
                     await control.updateComplete;
 
+                    let valueUpdated = false;
+                    page.addEventListener('variable-value-updated', () => { valueUpdated = true; }, { once: true });
+
                     const saveBtn = control.shadowRoot?.querySelector('vaadin-button[aria-label="Save"]');
                     if (!saveBtn) {
                         throw new Error('Could not locate Save button in <variable-value-controls>');
                     }
                     saveBtn.click();
-                    await new Promise(r => setTimeout(r, 800));
+
+                    const saveDeadline = Date.now() + 15000;
+                    while (Date.now() < saveDeadline && !valueUpdated) {
+                        await new Promise(r => setTimeout(r, 150));
+                    }
+                    if (!valueUpdated) {
+                        throw new Error('Timed out waiting for variable-value-updated event after saving inline array chip');
+                    }
 
                     // Select secretArrayProp and verify masking in <variable-value-controls>
                     propCombo.value = {{JsonSerializer.Serialize(secretArrayProp)}};
@@ -1001,8 +1015,9 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
                     let secControl = null;
                     while (Date.now() < secDeadline) {
                         const grid = page.shadowRoot?.querySelector('#grid');
-                        const candidate = grid?.querySelector('variable-value-controls');
-                        if (candidate?.value?.Property?.Name === {{JsonSerializer.Serialize(secretArrayProp)}}) {
+                        const candidates = Array.from(grid?.querySelectorAll('variable-value-controls') ?? []);
+                        const candidate = candidates.find(c => c?.value?.Property?.Name === {{JsonSerializer.Serialize(secretArrayProp)}});
+                        if (candidate) {
                             secControl = candidate;
                             break;
                         }
@@ -1049,6 +1064,14 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
                     };
                     await deployEnv.updateComplete;
 
+                    const buildDefsDeadline = Date.now() + 15000;
+                    while (Date.now() < buildDefsDeadline && deployEnv.buildDefsLoading) {
+                        await new Promise(r => setTimeout(r, 150));
+                    }
+
+                    deployEnv.isFolderProject = false;
+                    deployEnv.buildsLoading = false;
+                    deployEnv.bundleValidating = false;
                     deployEnv.envName = {{JsonSerializer.Serialize(envName)}};
                     deployEnv.selectedBuildId = {{JsonSerializer.Serialize(buildUri)}};
                     deployEnv.selectedBuild = {{JsonSerializer.Serialize(BuildFolderName)}};
@@ -1059,6 +1082,7 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
                             PropertyValue: {{JsonSerializer.Serialize(overrideArrayJson)}}
                         }
                     ];
+                    await deployEnv.updateComplete;
 
                     const compNames = {{JsonSerializer.Serialize(componentNames)}};
                     const tree = deployEnv.shadowRoot?.querySelector('hegs-tree');

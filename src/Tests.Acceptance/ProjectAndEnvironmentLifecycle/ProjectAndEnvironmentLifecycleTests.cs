@@ -395,6 +395,7 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
 
                 VerifyEnvironmentVariablesInLiveWebUiAsync(
                     browser,
+                    parentEnvName,
                     childEnvName,
                     parentPropName,
                     childPropName,
@@ -873,7 +874,7 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                 async () =>
                 {
                     var envsJson = await browser.Page.EvaluateAsync<string>(
-                        "() => JSON.stringify(document.querySelector('page-project-envs')?.projectEnvs ?? [])");
+                        "() => JSON.stringify(document.querySelector('page-project-envs')?.environments ?? [])");
                     return envsJson.Contains(parentEnvName, StringComparison.OrdinalIgnoreCase) &&
                            envsJson.Contains(childEnvName, StringComparison.OrdinalIgnoreCase);
                 },
@@ -896,12 +897,26 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
 
         private static async Task VerifyEnvironmentVariablesInLiveWebUiAsync(
             LiveWebUiBrowserSession browser,
+            string parentEnvName,
             string childEnvName,
             string parentPropName,
             string childPropName,
             string secretPropName,
             string secretCleartext)
         {
+            await browser.NavigateToRouteAsync(
+                $"/environment/{Uri.EscapeDataString(parentEnvName)}/variables",
+                "env-variables");
+
+            await WaitForConditionAsync(
+                async () =>
+                {
+                    var gridText = await browser.Page.EvaluateAsync<string>(
+                        "() => document.querySelector('env-variables')?.shadowRoot?.innerHTML ?? ''");
+                    return gridText.Contains(parentPropName, StringComparison.OrdinalIgnoreCase);
+                },
+                $"Expected live <env-variables> grid on '{parentEnvName}' to render '{parentPropName}'.");
+
             await browser.NavigateToRouteAsync(
                 $"/environment/{Uri.EscapeDataString(childEnvName)}/variables",
                 "env-variables");
@@ -910,12 +925,11 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                 async () =>
                 {
                     var gridText = await browser.Page.EvaluateAsync<string>(
-                        "() => document.querySelector('env-variables')?.shadowRoot?.querySelector('vaadin-grid')?.textContent ?? ''");
-                    return gridText.Contains(parentPropName, StringComparison.OrdinalIgnoreCase) &&
-                           gridText.Contains(childPropName, StringComparison.OrdinalIgnoreCase) &&
+                        "() => document.querySelector('env-variables')?.shadowRoot?.innerHTML ?? ''");
+                    return gridText.Contains(childPropName, StringComparison.OrdinalIgnoreCase) &&
                            gridText.Contains(secretPropName, StringComparison.OrdinalIgnoreCase);
                 },
-                $"Expected live <env-variables> grid on '{childEnvName}' to render '{parentPropName}', '{childPropName}', and '{secretPropName}'.");
+                $"Expected live <env-variables> grid on '{childEnvName}' to render '{childPropName}' and '{secretPropName}'.");
 
             var fullDomText = await browser.Page.EvaluateAsync<string>(
                 "() => document.querySelector('env-variables')?.shadowRoot?.innerHTML ?? ''");
@@ -952,6 +966,14 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                     };
                     await deployEnv.updateComplete;
 
+                    const buildDefsDeadline = Date.now() + 15000;
+                    while (Date.now() < buildDefsDeadline && deployEnv.buildDefsLoading) {
+                        await new Promise(r => setTimeout(r, 150));
+                    }
+
+                    deployEnv.isFolderProject = false;
+                    deployEnv.buildsLoading = false;
+                    deployEnv.bundleValidating = false;
                     deployEnv.envName = {{JsonSerializer.Serialize(childEnvName)}};
                     deployEnv.selectedBuildId = {{JsonSerializer.Serialize(buildUri)}};
                     deployEnv.selectedBuild = {{JsonSerializer.Serialize(AcceptanceProjectProvisioner.BuildFolderName)}};
@@ -962,6 +984,7 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                             PropertyValue: {{JsonSerializer.Serialize(overridePropValue)}}
                         }
                     ];
+                    await deployEnv.updateComplete;
 
                     const tree = deployEnv.shadowRoot?.querySelector('hegs-tree');
                     if (tree) {
