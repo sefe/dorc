@@ -1,5 +1,4 @@
 using System.Collections.Concurrent;
-using System.Net.Http;
 using System.Text.Json;
 using Microsoft.Playwright;
 
@@ -45,7 +44,7 @@ namespace Tests.Acceptance.Support
                 return;
             }
 
-            WebUiBaseUrl = await ResolveReachableWebUiUrlAsync();
+            WebUiBaseUrl = ResolveReachableWebUiUrl();
             var apiConfig = _apiClient.GetApiConfig();
             var bearerToken = _apiClient.BearerToken ?? string.Empty;
             var authority = (apiConfig?.OAuthAuthority ?? string.Empty).Trim();
@@ -162,43 +161,8 @@ namespace Tests.Acceptance.Support
             return locator;
         }
 
-        private async Task<string> ResolveReachableWebUiUrlAsync()
+        private string ResolveReachableWebUiUrl()
         {
-            var candidates = new List<string>();
-            if (!string.IsNullOrWhiteSpace(_apiClient.WebUiRoot))
-            {
-                candidates.Add(_apiClient.WebUiRoot.TrimEnd('/'));
-                if (_apiClient.WebUiRoot.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                {
-                    candidates.Add("http://" + _apiClient.WebUiRoot["https://".Length..].TrimEnd('/'));
-                }
-            }
-
-            candidates.Add("https://localhost");
-            candidates.Add("http://localhost");
-
-            using var handler = new HttpClientHandler
-            {
-                ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator
-            };
-            using var http = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
-
-            foreach (var candidate in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
-            {
-                try
-                {
-                    using var response = await http.GetAsync(candidate);
-                    if ((int)response.StatusCode < 500)
-                    {
-                        return candidate;
-                    }
-                }
-                catch
-                {
-                    // Try next candidate
-                }
-            }
-
             return !string.IsNullOrWhiteSpace(_apiClient.WebUiRoot)
                 ? _apiClient.WebUiRoot.TrimEnd('/')
                 : "https://localhost";

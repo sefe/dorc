@@ -107,7 +107,7 @@ namespace Dorc.Core.VariableResolution
             {
                 // A value that cannot be parsed cannot be shown to be free of
                 // request-supplied references. Report one so evaluation is withheld.
-                return new[] { string.Empty };
+                return _requestSupplied.Keys;
             }
         }
     }
