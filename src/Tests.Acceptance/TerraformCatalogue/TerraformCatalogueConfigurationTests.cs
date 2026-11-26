@@ -7,15 +7,31 @@ using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 
 namespace Tests.Acceptance.TerraformCatalogue
 {
-    [TestClass]
-    [TestCategory("LiveEnvironment")]
-    [TestCategory("TerraformCatalogue")]
+    [Binding]
     public class TerraformCatalogueConfigurationTests
     {
-        [TestInitialize]
-        public void EnsureLiveEnvironmentEnabled() => AssertLiveEnvironmentEnabled();
+        private bool _terraformCatalogueExecuted;
 
-        [TestMethod]
+        [Given("the stock Terraform module catalogue contains the service-bus and kafka-topic templates")]
+        public void GivenTheStockTerraformModuleCatalogueContainsTemplates()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user instantiates a service-bus 1.0.0 component on the synthetic project and tests input validation, revision concurrency, and upgrade guards")]
+        public void WhenTheUserInstantiatesAServiceBusComponentAndTestsValidationAndConcurrency()
+        {
+            GetAndConfigureTerraformTemplate_StockCatalogueResolutionAndOptimisticConcurrency_ValidatesManifestInputsAndRevision();
+            _terraformCatalogueExecuted = true;
+        }
+
+        [Then("template resolution returns the project and environment parameters")]
+        [Then("invalid input patterns and unconfirmed or same-version upgrades return 400 BadRequest while stale configuration revisions return 409 Conflict")]
+        public void ThenTerraformCatalogueValidationAndConcurrencySucceed()
+        {
+            Assert.IsTrue(_terraformCatalogueExecuted);
+        }
+
         public void GetAndConfigureTerraformTemplate_StockCatalogueResolutionAndOptimisticConcurrency_ValidatesManifestInputsAndRevision()
         {
             using var caller = new DorcApiClient();

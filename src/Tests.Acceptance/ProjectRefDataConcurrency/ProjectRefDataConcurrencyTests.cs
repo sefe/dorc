@@ -7,15 +7,51 @@ using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 
 namespace Tests.Acceptance.ProjectRefDataConcurrency
 {
-    [TestClass]
-    [TestCategory("LiveEnvironment")]
-    [TestCategory("ProjectRefDataConcurrency")]
+    [Binding]
     public class ProjectRefDataConcurrencyTests
     {
-        [TestInitialize]
-        public void EnsureLiveEnvironmentEnabled() => AssertLiveEnvironmentEnabled();
+        private bool _refDataConcurrencyExecuted;
+        private bool _projectEnvironmentMappingExecuted;
 
-        [TestMethod]
+        [Given("the synthetic project has a RefData definition with a current Revision concurrency token")]
+        public void GivenTheSyntheticProjectHasARefDataDefinitionWithCurrentRevision()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user submits PUT RefData with a missing revision token, a stale revision token, and a valid revision token with a local script edit")]
+        public void WhenTheUserSubmitsPutRefDataWithMissingStaleAndValidRevisionTokens()
+        {
+            PutRefData_MissingOrStaleRevisionAndLocalScriptEdit_EnforcesOptimisticConcurrencyAndPreservesSharedScripts();
+            _refDataConcurrencyExecuted = true;
+        }
+
+        [Then("missing revision tokens return 428 Precondition Required and stale revision tokens return 409 Conflict without partial writes")]
+        [Then("saving with the current revision token succeeds, advances the revision token, and preserves shared script boundaries")]
+        public void ThenOptimisticConcurrencyAndSharedScriptProtectionSucceed()
+        {
+            Assert.IsTrue(_refDataConcurrencyExecuted);
+        }
+
+        [Given("a temporary environment and project mapping state are prepared for project and environment hierarchy verification")]
+        public void GivenATemporaryEnvironmentAndProjectMappingStateArePrepared()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user queries RefDataProjects, links and unlinks parent-child environments, and maps and unmaps the environment on the project")]
+        public void WhenTheUserQueriesProjectsAndMutatesEnvironmentHierarchyAndMappings()
+        {
+            MapAndUnmapEnvironmentToProject_RefDataProjectsHierarchyAndEnvironmentMappings_VerifiesProjectLookupParentChainAndMappingLifecycle();
+            _projectEnvironmentMappingExecuted = true;
+        }
+
+        [Then("project lookup, environment parent chain validation, and project-environment mapping creation and deletion succeed cleanly")]
+        public void ThenProjectLookupHierarchyAndMappingLifecycleSucceed()
+        {
+            Assert.IsTrue(_projectEnvironmentMappingExecuted);
+        }
+
         public void PutRefData_MissingOrStaleRevisionAndLocalScriptEdit_EnforcesOptimisticConcurrencyAndPreservesSharedScripts()
         {
             using var caller = new DorcApiClient();
@@ -95,7 +131,6 @@ namespace Tests.Acceptance.ProjectRefDataConcurrency
             }
         }
 
-        [TestMethod]
         public void MapAndUnmapEnvironmentToProject_RefDataProjectsHierarchyAndEnvironmentMappings_VerifiesProjectLookupParentChainAndMappingLifecycle()
         {
             using var caller = new DorcApiClient();

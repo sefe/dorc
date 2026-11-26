@@ -7,15 +7,72 @@ using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 
 namespace Tests.Acceptance.RequestSnapshotsAndLifecycle
 {
-    [TestClass]
-    [TestCategory("LiveEnvironment")]
-    [TestCategory("RequestSnapshotsAndLifecycle")]
+    [Binding]
     public class RequestSnapshotAndLifecycleTests
     {
-        [TestInitialize]
-        public void EnsureLiveEnvironmentEnabled() => AssertLiveEnvironmentEnabled();
+        private bool _restartAfterPropertyUpdateExecuted;
+        private bool _cancelInFlightExecuted;
+        private bool _snapshotReplayExecuted;
 
-        [TestMethod]
+        [Given("the gate property is set to fail so that the initial deployment request fails")]
+        public void GivenTheGatePropertyIsSetToFail()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user submits the deployment request, waits for Failed status, updates the gate property to pass, and restarts the request")]
+        public void WhenTheUserSubmitsFailingRequestUpdatesPropertyAndRestarts()
+        {
+            RestartDeploymentRequest_FailedComponentAfterPropertyUpdate_CompletesOnSecondAttempt();
+            _restartAfterPropertyUpdateExecuted = true;
+        }
+
+        [Then("the restarted deployment request executes a second attempt and transitions to Completed")]
+        [Then("the prior failed attempt history is preserved alongside the completed retry")]
+        public void ThenRestartedRequestCompletesAndPreservesAttemptHistory()
+        {
+            Assert.IsTrue(_restartAfterPropertyUpdateExecuted);
+        }
+
+        [Given("a long-running deployment request is submitted on the live child environment")]
+        public void GivenALongRunningDeploymentRequestIsSubmitted()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user cancels the deployment request via PUT Request cancel while it is Pending or Running")]
+        public void WhenTheUserCancelsTheInFlightDeploymentRequest()
+        {
+            CancelDeploymentRequest_InFlightExecution_TransitionsToCancelled();
+            _cancelInFlightExecuted = true;
+        }
+
+        [Then("the deployment request transitions to Cancelled and stops executing")]
+        public void ThenTheDeploymentRequestTransitionsToCancelled()
+        {
+            Assert.IsTrue(_cancelInFlightExecuted);
+        }
+
+        [Given("a deployment request is submitted and completed using version 1 of a project component script")]
+        public void GivenADeploymentRequestIsSubmittedAndCompletedUsingVersion1()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the project owner edits the component script definition to version 2 and restarts the original deployment request while also submitting a new request")]
+        public void WhenTheProjectOwnerEditsTheScriptDefinitionAndRestartsOriginalWhileSubmittingNew()
+        {
+            RestartDeploymentRequest_AfterProjectScriptDefinitionEdit_ReplaysOriginalSnapshotWhileNewRequestRunsUpdatedScript();
+            _snapshotReplayExecuted = true;
+        }
+
+        [Then("the restarted original request replays the immutable version 1 snapshot from when it was submitted")]
+        [Then("the newly submitted deployment request executes the updated version 2 script definition")]
+        public void ThenRestartedRequestReplaysSnapshotWhileNewRequestRunsUpdatedScript()
+        {
+            Assert.IsTrue(_snapshotReplayExecuted);
+        }
+
         public void RestartDeploymentRequest_FailedComponentAfterPropertyUpdate_CompletesOnSecondAttempt()
         {
             using var caller = new DorcApiClient();
@@ -65,7 +122,6 @@ namespace Tests.Acceptance.RequestSnapshotsAndLifecycle
             StringAssert.Contains(attemptsResp.Content ?? string.Empty, FailThenPassComponentName);
         }
 
-        [TestMethod]
         public void CancelDeploymentRequest_InFlightExecution_TransitionsToCancelled()
         {
             using var caller = new DorcApiClient();
@@ -113,7 +169,6 @@ namespace Tests.Acceptance.RequestSnapshotsAndLifecycle
             }
         }
 
-        [TestMethod]
         public void RestartDeploymentRequest_AfterProjectScriptDefinitionEdit_ReplaysOriginalSnapshotWhileNewRequestRunsUpdatedScript()
         {
             using var caller = new DorcApiClient();

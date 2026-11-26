@@ -7,15 +7,52 @@ using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 
 namespace Tests.Acceptance.DaemonStatusAndExecutionLogs
 {
-    [TestClass]
-    [TestCategory("LiveEnvironment")]
-    [TestCategory("DaemonStatusAndExecutionLogs")]
+    [Binding]
     public class DaemonStatusAndExecutionLogTests
     {
-        [TestInitialize]
-        public void EnsureLiveEnvironmentEnabled() => AssertLiveEnvironmentEnabled();
+        private bool _daemonStatusProbeExecuted;
+        private bool _daemonLifecycleAndControlExecuted;
 
-        [TestMethod]
+        [Given("the target DOrc application server is attached to the live child environment")]
+        public void GivenTheTargetDorcApplicationServerIsAttachedToTheLiveChildEnvironment()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user queries DaemonStatus, GetComponentStatues, and PropertyValuesAudit for the child environment")]
+        public void WhenTheUserQueriesDaemonStatusGetComponentStatuesAndPropertyValuesAudit()
+        {
+            GetDaemonStatusAndDeploymentLogs_AttachedEnvironmentServerAndCompletedRequest_ProbesWindowsServicesAndCapturesAttemptLogs();
+            _daemonStatusProbeExecuted = true;
+        }
+
+        [Then("the live daemon probe reports running Windows services including W3SVC")]
+        [Then("the environment component status and property audit endpoints return 200 OK before detaching the server")]
+        public void ThenTheLiveDaemonProbeReportsRunningServicesAndEndpointsReturnOk()
+        {
+            Assert.IsTrue(_daemonStatusProbeExecuted);
+        }
+
+        [Given("a temporary daemon definition and server are prepared for daemon lifecycle verification")]
+        public void GivenATemporaryDaemonDefinitionAndServerArePrepared()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user creates, updates, attaches, detaches, audits, and deletes the daemon and stops and restarts NetTcpActivator on the live server")]
+        public void WhenTheUserManagesDaemonLifecycleAndControlsNetTcpActivator()
+        {
+            CreateAttachProbeAndControlDaemons_RefDataDaemonsServerDaemonsAuditAndServiceState_VerifiesLifecycleAuditAndStopStart();
+            _daemonLifecycleAndControlExecuted = true;
+        }
+
+        [Then("duplicate daemon creation returns 409 Conflict, mismatched IDs return 400 BadRequest, and unknown daemons return 404 NotFound")]
+        [Then("NetTcpActivator transitions cleanly between Stopped and Running with recorded daemon observations, all 12 Analytics endpoints respond, and SignalR negotiation succeeds")]
+        public void ThenDaemonValidationServiceControlAnalyticsAndSignalRSucceed()
+        {
+            Assert.IsTrue(_daemonLifecycleAndControlExecuted);
+        }
+
         public void GetDaemonStatusAndDeploymentLogs_AttachedEnvironmentServerAndCompletedRequest_ProbesWindowsServicesAndCapturesAttemptLogs()
         {
             using var caller = new DorcApiClient();
@@ -82,7 +119,6 @@ namespace Tests.Acceptance.DaemonStatusAndExecutionLogs
             }
         }
 
-        [TestMethod]
         public void CreateAttachProbeAndControlDaemons_RefDataDaemonsServerDaemonsAuditAndServiceState_VerifiesLifecycleAuditAndStopStart()
         {
             using var caller = new DorcApiClient();

@@ -7,15 +7,72 @@ using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 
 namespace Tests.Acceptance.EnvironmentCloningAndDatabases
 {
-    [TestClass]
-    [TestCategory("LiveEnvironment")]
-    [TestCategory("EnvironmentCloningAndDatabases")]
+    [Binding]
     public class EnvironmentCloningAndDatabaseAttachmentTests
     {
-        [TestInitialize]
-        public void EnsureLiveEnvironmentEnabled() => AssertLiveEnvironmentEnabled();
+        private bool _cloneAndTagCollisionExecuted;
+        private bool _serverAndDatabaseLifecycleExecuted;
+        private bool _environmentResourcesAndSqlPortsExecuted;
 
-        [TestMethod]
+        [Given("the live parent environment has properties, project mappings, and tagged databases ready for cloning")]
+        public void GivenTheLiveParentEnvironmentHasResourcesReadyForCloning()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user clones the parent environment with CopyPropertyValues and CopyProjectMappings enabled and queries databases by tag")]
+        public void WhenTheUserClonesTheParentEnvironmentAndQueriesDatabasesByTag()
+        {
+            CloneEnvironmentAndAttachDatabase_CopyFlagsTagLookupAndScopeCollision_IsolatesClonedResourcesAndDetectsTagCollision();
+            _cloneAndTagCollisionExecuted = true;
+        }
+
+        [Then("the cloned environment inherits the properties and project mappings while isolating uncopied servers and databases")]
+        [Then("normalized tag lookup returns the attached database and reports a 409 Conflict when normalized tags collide in the same environment scope")]
+        public void ThenClonedEnvironmentAndNormalizedTagLookupSucceed()
+        {
+            Assert.IsTrue(_cloneAndTagCollisionExecuted);
+        }
+
+        [Given("temporary server and database definitions with tags are prepared for the live child environment")]
+        public void GivenTemporaryServerAndDatabaseDefinitionsArePrepared()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user creates, updates, attaches, queries, detaches, and deletes the server and database and exercises database user membership")]
+        public void WhenTheUserExercisesServerAndDatabaseLifecycle()
+        {
+            CreateAttachDetachAndDeleteServerAndDatabase_RefDataServersAndDatabasesLifecycle_VerifiesTagsAttachmentUsersAuditAndDeletionNoContent();
+            _serverAndDatabaseLifecycleExecuted = true;
+        }
+
+        [Then("GET RefDataServers by environment ID, name, ID, and AppServersByEnvName populate Tags and EnvironmentNames")]
+        [Then("GET RefDataDatabases populates AdGroup and Tags, records ServerAudit and DatabaseAudit entries, and returns 204 NoContent upon deletion")]
+        public void ThenServerAndDatabaseQueriesAuditsAndDeletionSucceed()
+        {
+            Assert.IsTrue(_serverAndDatabaseLifecycleExecuted);
+        }
+
+        [Given("temporary API registration, cloud resource, container, and SQL port payloads are prepared for the child environment")]
+        public void GivenTemporaryEnvironmentResourcePayloadsArePrepared()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user exercises CRUD and attachment workflows on ApiRegistrations, CloudResources, Containers, Audits, AppServers, and SqlPorts")]
+        public void WhenTheUserExercisesEnvironmentResourceAndSqlPortWorkflows()
+        {
+            ManageEnvironmentResourcesAndSqlPorts_ApiRegistrationsCloudResourcesContainersAuditsAppServersAndSqlPorts_PersistsAndCleansUp();
+            _environmentResourcesAndSqlPortsExecuted = true;
+        }
+
+        [Then("all reference data items persist, attach to the environment, appear in query responses, and clean up deterministically")]
+        public void ThenAllReferenceDataItemsPersistAndCleanUp()
+        {
+            Assert.IsTrue(_environmentResourcesAndSqlPortsExecuted);
+        }
+
         public void CloneEnvironmentAndAttachDatabase_CopyFlagsTagLookupAndScopeCollision_IsolatesClonedResourcesAndDetectsTagCollision()
         {
             using var caller = new DorcApiClient();
@@ -222,7 +279,6 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
             }
         }
 
-        [TestMethod]
         public void CreateAttachDetachAndDeleteServerAndDatabase_RefDataServersAndDatabasesLifecycle_VerifiesTagsAttachmentUsersAuditAndDeletionNoContent()
         {
             using var caller = new DorcApiClient();
@@ -861,7 +917,6 @@ namespace Tests.Acceptance.EnvironmentCloningAndDatabases
             }
         }
 
-        [TestMethod]
         public void ManageEnvironmentResourcesAndSqlPorts_ApiRegistrationsCloudResourcesContainersAuditsAppServersAndSqlPorts_PersistsAndCleansUp()
         {
             AssertLiveEnvironmentEnabled();

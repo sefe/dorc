@@ -7,15 +7,52 @@ using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 
 namespace Tests.Acceptance.EnvironmentAccessControl
 {
-    [TestClass]
-    [TestCategory("LiveEnvironment")]
-    [TestCategory("EnvironmentAccessControl")]
+    [Binding]
     public class EnvironmentAccessControlTests
     {
-        [TestInitialize]
-        public void EnsureLiveEnvironmentEnabled() => AssertLiveEnvironmentEnabled();
+        private bool _ownerIntegrityExecuted;
+        private bool _privilegeLifecycleExecuted;
 
-        [TestMethod]
+        [Given("the live parent environment has an access control list with an assigned owner")]
+        public void GivenTheLiveParentEnvironmentHasAnAclWithAssignedOwner()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user searches Active Directory users and groups and attempts to strip all Owner privileges from the environment ACL")]
+        public void WhenTheUserSearchesActiveDirectoryAndAttemptsToStripAllOwnerPrivileges()
+        {
+            GetRefDataAndAccessControl_OAuthActiveDirectoryAndEnvironmentAcl_EnforcesOwnerIntegrity();
+            _ownerIntegrityExecuted = true;
+        }
+
+        [Then("DirectorySearch returns matching users and groups with 200 OK")]
+        [Then("PUT AccessControl rejects removing the last environment owner with 400 BadRequest")]
+        public void ThenDirectorySearchAndOwnerIntegritySucceed()
+        {
+            Assert.IsTrue(_ownerIntegrityExecuted);
+        }
+
+        [Given("registered users, roles, groups, and a temporary environment are available for access control testing")]
+        public void GivenRegisteredUsersRolesGroupsAndTemporaryEnvironmentAreAvailable()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user validates account existence, grants and revokes environment ACL privileges, and assigns and deletes custom database permissions")]
+        public void WhenTheUserValidatesAccountsAndMutatesPrivileges()
+        {
+            SearchUsersAndMutateEnvironmentAccessControl_AccountExistenceRefDataUsersAndPrivilegeLifecycle_VerifiesDirectoryLookupAndPrivilegeGrantRevoke();
+            _privilegeLifecycleExecuted = true;
+        }
+
+        [Then("Account existence checks validate Windows users and groups and reject invalid account types with 400 BadRequest")]
+        [Then("environment ACL privileges and custom database permissions are persisted, verified, and revoked cleanly")]
+        public void ThenAccountExistenceAndPrivilegeLifecycleSucceed()
+        {
+            Assert.IsTrue(_privilegeLifecycleExecuted);
+        }
+
         public void GetRefDataAndAccessControl_OAuthActiveDirectoryAndEnvironmentAcl_EnforcesOwnerIntegrity()
         {
             using var caller = new DorcApiClient();
@@ -69,7 +106,6 @@ namespace Tests.Acceptance.EnvironmentAccessControl
             Assert.AreEqual(HttpStatusCode.BadRequest, badAclResp.StatusCode, "Removing the last owner must return 400 BadRequest.");
         }
 
-        [TestMethod]
         public void SearchUsersAndMutateEnvironmentAccessControl_AccountExistenceRefDataUsersAndPrivilegeLifecycle_VerifiesDirectoryLookupAndPrivilegeGrantRevoke()
         {
             using var caller = new DorcApiClient();

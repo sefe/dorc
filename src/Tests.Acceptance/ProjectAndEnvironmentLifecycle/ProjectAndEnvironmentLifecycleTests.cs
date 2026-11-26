@@ -23,12 +23,32 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
     ///    DatabaseAudit) captured the exact Create/Insert and Update transitions.
     /// 7. Deterministically tear down all created resources in a finally block.
     /// </summary>
-    [TestClass]
-    [TestCategory("LiveEnvironment")]
-    [TestCategory("ProjectAndEnvironmentLifecycle")]
+    [Binding]
     public class ProjectAndEnvironmentLifecycleTests
     {
-        [TestMethod]
+        private bool _lifecycleExecuted;
+
+        [Given("brand-new parent and child environments, a tagged server, a tagged database, and a new project with a PowerShell 7 component are provisioned")]
+        [Given("global, parent-inherited, child-updated, request-overridden, and encrypted secret variables are configured across the hierarchy")]
+        public void GivenBrandNewEnvironmentsResourcesProjectAndVariablesAreProvisioned()
+        {
+            AcceptanceProjectProvisioner.AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user triggers a deployment request on the child environment with a request-level property override and waits for completion")]
+        public void WhenTheUserTriggersDeploymentRequestAndWaitsForCompletion()
+        {
+            ExecuteFullProjectAndEnvironmentLifecycle_FromScratchToDeploymentMonitoringLogsAndAudits();
+            _lifecycleExecuted = true;
+        }
+
+        [Then("the deployment completes, the script output confirms hierarchical variable resolution, and cleartext secrets are redacted as REDACTED in all logs")]
+        [Then("RefDataProjectAudit, PropertyValuesAudit, ServerAudit, and DatabaseAudit record all create and update transitions before deterministic teardown")]
+        public void ThenDeploymentSecretRedactionAndAuditTrailsSucceed()
+        {
+            Assert.IsTrue(_lifecycleExecuted);
+        }
+
         public void ExecuteFullProjectAndEnvironmentLifecycle_FromScratchToDeploymentMonitoringLogsAndAudits()
         {
             AcceptanceProjectProvisioner.AssertLiveEnvironmentEnabled();

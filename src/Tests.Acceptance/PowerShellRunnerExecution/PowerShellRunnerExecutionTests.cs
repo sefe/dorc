@@ -7,15 +7,113 @@ using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 
 namespace Tests.Acceptance.PowerShellRunnerExecution
 {
-    [TestClass]
-    [TestCategory("LiveEnvironment")]
-    [TestCategory("PowerShellRunnerExecution")]
+    [Binding]
     public class PowerShellRunnerExecutionTests
     {
-        [TestInitialize]
-        public void EnsureLiveEnvironmentEnabled() => AssertLiveEnvironmentEnabled();
+        private bool _ps7HierarchyAndRedactionExecuted;
+        private bool _netFx51RunnerExecuted;
+        private bool _stopOnFailureExecuted;
+        private bool _buildServersAndCliToolsExecuted;
+        private bool _isArrayRunnersExecuted;
 
-        [TestMethod]
+        [Given("hierarchical properties, a request override property, and an encrypted secret property are configured for the synthetic project")]
+        public void GivenHierarchicalPropertiesAndSecretAreConfigured()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user submits a PowerShell 7 deployment request on the live child environment with a request property override")]
+        public void WhenTheUserSubmitsAPowerShell7DeploymentRequestWithOverride()
+        {
+            CreateDeploymentRequest_UpdatedPropertyHierarchyInheritanceAndSecretRedaction_InjectsResolvedValuesIntoRunner();
+            _ps7HierarchyAndRedactionExecuted = true;
+        }
+
+        [Then("the runner executes on PowerShell Core, resolves global, parent-inherited, child-updated, and request-overridden values, and completes")]
+        [Then("the secret value is verified inside the script while being redacted as REDACTED in all deployment logs")]
+        public void ThenPowerShell7HierarchyResolutionAndSecretRedactionSucceed()
+        {
+            Assert.IsTrue(_ps7HierarchyAndRedactionExecuted);
+        }
+
+        [Given("the synthetic project includes a component configured for Windows PowerShell 5.1 on the .NET Framework 4.8 runner")]
+        public void GivenTheSyntheticProjectIncludesANetFramework51Component()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user submits a deployment request for the .NET Framework 4.8 runner component on the live child environment")]
+        public void WhenTheUserSubmitsADeploymentRequestForTheNetFrameworkRunnerComponent()
+        {
+            CreateDeploymentRequest_NetFrameworkRunnerPowerShell51_ExecutesDesktopEditionAndInjectsProperties();
+            _netFx51RunnerExecuted = true;
+        }
+
+        [Then("the deployment executes under Windows PowerShell Desktop edition and completes with all resolved properties injected")]
+        public void ThenTheDeploymentExecutesUnderWindowsPowerShellDesktopEdition()
+        {
+            Assert.IsTrue(_netFx51RunnerExecuted);
+        }
+
+        [Given("a two-component deployment sequence where the first component fails and has StopOnFailure enabled")]
+        public void GivenATwoComponentDeploymentSequenceWithStopOnFailure()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user submits a deployment request for both components on the live child environment")]
+        public void WhenTheUserSubmitsADeploymentRequestForBothComponents()
+        {
+            CreateDeploymentRequest_MultiComponentWithStopOnFailure_HaltsDownstreamComponent();
+            _stopOnFailureExecuted = true;
+        }
+
+        [Then("the overall deployment request transitions to Failed")]
+        [Then("the first component is marked Failed while the downstream component is never executed")]
+        public void ThenTheFirstComponentFailsAndHaltsDownstreamComponent()
+        {
+            Assert.IsTrue(_stopOnFailureExecuted);
+        }
+
+        [Given("the synthetic project is configured to query build servers and installed DOrc CLI binaries on the deployment host")]
+        public void GivenTheSyntheticProjectIsConfiguredToQueryBuildServersAndCliTools()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user queries BuildServers and ProjectBuilds endpoints and executes the installed CLI tools with OAuth client credentials")]
+        public void WhenTheUserQueriesBuildServersAndExecutesInstalledCliTools()
+        {
+            BuildServersAndInstalledCliTools_AdoAndGitHubBuildResolutionAndInstalledCliExecution_ResolvesArtifactsAndExecutesInstalledTools();
+            _buildServersAndCliToolsExecuted = true;
+        }
+
+        [Then("the build server and artifact resolution endpoints respond and the installed CLI tools authenticate and execute without missing Scope errors")]
+        public void ThenBuildServerResolutionAndInstalledCliToolsSucceed()
+        {
+            Assert.IsTrue(_buildServersAndCliToolsExecuted);
+        }
+
+        [Given("IsArray properties for plain, interpolated, nested, encrypted secure, and request-overridden string arrays are configured via the API")]
+        public void GivenIsArrayPropertiesAreConfiguredViaTheApi()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user updates the array properties, verifies RefDataScopedPropertyValues and Export, and runs PowerShell 7 and Windows PowerShell 5.1 deployments")]
+        public void WhenTheUserUpdatesArrayPropertiesAndRunsBothRunnerDeployments()
+        {
+            CreateDeploymentRequest_IsArrayPropertiesPlainInterpolatedNestedSecureAndRequestOverride_InjectsStringArraysIntoRunners();
+            _isArrayRunnersExecuted = true;
+        }
+
+        [Then("both runners receive genuine PowerShell string arrays with exact element counts, interpolated elements, and request overrides")]
+        [Then("secure array element values are verified in-script and redacted as REDACTED in all runner and deployment logs")]
+        public void ThenBothRunnersReceiveStringArraysAndRedactSecureElements()
+        {
+            Assert.IsTrue(_isArrayRunnersExecuted);
+        }
+
         public void CreateDeploymentRequest_UpdatedPropertyHierarchyInheritanceAndSecretRedaction_InjectsResolvedValuesIntoRunner()
         {
             using var caller = new DorcApiClient();
@@ -156,7 +254,6 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
             }
         }
 
-        [TestMethod]
         public void CreateDeploymentRequest_NetFrameworkRunnerPowerShell51_ExecutesDesktopEditionAndInjectsProperties()
         {
             using var caller = new DorcApiClient();
@@ -207,7 +304,6 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
                 $"Expected Dorc.NetFramework.Runner to execute Windows PowerShell 5.1 Desktop edition. Log: {combinedLog}");
         }
 
-        [TestMethod]
         public void CreateDeploymentRequest_MultiComponentWithStopOnFailure_HaltsDownstreamComponent()
         {
             using var caller = new DorcApiClient();
@@ -267,7 +363,6 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
             }
         }
 
-        [TestMethod]
         public void BuildServersAndInstalledCliTools_AdoAndGitHubBuildResolutionAndInstalledCliExecution_ResolvesArtifactsAndExecutesInstalledTools()
         {
             using var caller = new DorcApiClient();
@@ -528,7 +623,6 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
             }
         }
 
-        [TestMethod]
         public void CreateDeploymentRequest_IsArrayPropertiesPlainInterpolatedNestedSecureAndRequestOverride_InjectsStringArraysIntoRunners()
         {
             using var caller = new DorcApiClient();

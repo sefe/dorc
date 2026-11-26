@@ -8,15 +8,52 @@ using static Tests.Acceptance.Support.AcceptanceProjectProvisioner;
 
 namespace Tests.Acceptance.BundledRequestsMakeLikeProd
 {
-    [TestClass]
-    [TestCategory("LiveEnvironment")]
-    [TestCategory("BundledRequestsMakeLikeProd")]
+    [Binding]
     public class BundledRequestMakeLikeProdTests
     {
-        [TestInitialize]
-        public void EnsureLiveEnvironmentEnabled() => AssertLiveEnvironmentEnabled();
+        private bool _makeLikeProdBundleExecuted;
+        private bool _bundleManifestAndCopyEnvExecuted;
 
-        [TestMethod]
+        [Given("a Make-Like-Prod bundled job request is configured for the synthetic project with AllRequestIds interpolation")]
+        public void GivenAMakeLikeProdBundledJobRequestIsConfigured()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user triggers Make-Like-Prod against the live child environment using that bundle")]
+        public void WhenTheUserTriggersMakeLikeProdAgainstTheLiveChildEnvironment()
+        {
+            PutMakeLikeProd_ConfiguredBundledJobRequest_DispatchesTargetEnvironmentRequestWithResolvedAllRequestIds();
+            _makeLikeProdBundleExecuted = true;
+        }
+
+        [Then("DOrc dispatches the bundled deployment request to the child environment and executes it to Completed")]
+        [Then("the runner execution log confirms that AllRequestIds was populated and the temporary bundle definition is cleaned up")]
+        public void ThenDorcDispatchesTheBundledDeploymentRequestAndCleansUp()
+        {
+            Assert.IsTrue(_makeLikeProdBundleExecuted);
+        }
+
+        [Given("valid and invalid bundle.json manifests are staged in the local bundle artefact drop folder")]
+        public void GivenValidAndInvalidBundleJsonManifestsAreStaged()
+        {
+            AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user queries BundleComponents, submits a multi-component bundle deployment, requests ReleaseInformation, and triggers CopyEnvBuild")]
+        public void WhenTheUserQueriesBundleComponentsAndSubmitsBundleDeployment()
+        {
+            Request_BundleManifestDiscoveryAndValidation_ResolvesValidComponentsRejectsUnknownComponentsAndExpandsBundleDeployments();
+            _bundleManifestAndCopyEnvExecuted = true;
+        }
+
+        [Then("BundleComponents returns distinct components for a valid manifest and rejects unknown components with 400 BadRequest")]
+        [Then("the bundle deployment expands per component build number, completes, returns release information, and copies the build to the child environment")]
+        public void ThenBundleComponentsAndMultiComponentBundleDeploymentSucceed()
+        {
+            Assert.IsTrue(_bundleManifestAndCopyEnvExecuted);
+        }
+
         public void PutMakeLikeProd_ConfiguredBundledJobRequest_DispatchesTargetEnvironmentRequestWithResolvedAllRequestIds()
         {
             using var caller = new DorcApiClient();
@@ -168,7 +205,6 @@ namespace Tests.Acceptance.BundledRequestsMakeLikeProd
             }
         }
 
-        [TestMethod]
         public void Request_BundleManifestDiscoveryAndValidation_ResolvesValidComponentsRejectsUnknownComponentsAndExpandsBundleDeployments()
         {
             using var caller = new DorcApiClient();

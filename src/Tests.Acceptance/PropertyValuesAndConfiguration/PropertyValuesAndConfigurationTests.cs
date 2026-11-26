@@ -6,12 +6,51 @@ using Tests.Acceptance.Support;
 
 namespace Tests.Acceptance.PropertyValuesAndConfiguration
 {
-    [TestClass]
-    [TestCategory("LiveEnvironment")]
-    [TestCategory("PropertyValuesAndConfiguration")]
+    [Binding]
     public class PropertyValuesAndConfigurationTests
     {
-        [TestMethod]
+        private bool _propertyLifecycleExecuted;
+        private bool _systemConfigurationExecuted;
+
+        [Given("temporary plain, secure, and array property definitions are prepared for multi-environment lifecycle testing")]
+        public void GivenTemporaryPropertyDefinitionsArePrepared()
+        {
+            AcceptanceProjectProvisioner.AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user creates the properties, assigns default and environment-scoped values, searches RefDataScopedPropertyValues, inspects PropertyValuesAudit, and exports the properties")]
+        public void WhenTheUserExercisesMultiEnvironmentPropertyLifecycle()
+        {
+            CreateUpdateDeletePropertiesAndValues_MultiEnvironmentPropertyLifecycleScopedSearchAuditAndExport_PersistsAuditsExportsAndDeletesCleanly();
+            _propertyLifecycleExecuted = true;
+        }
+
+        [Then("duplicate property values are rejected, secure values are masked in scoped queries, and audit records capture Insert, Update, and Delete transitions")]
+        [Then("Export returns the expected property definitions and values before all temporary properties are deleted cleanly")]
+        public void ThenPropertyLifecycleAuditsAndExportSucceed()
+        {
+            Assert.IsTrue(_propertyLifecycleExecuted);
+        }
+
+        [Given("a temporary configuration key-value pair is prepared for RefDataConfig lifecycle testing")]
+        public void GivenATemporaryConfigurationKeyValuePairIsPrepared()
+        {
+            AcceptanceProjectProvisioner.AssertLiveEnvironmentEnabled();
+        }
+
+        [When("the user creates, updates, queries, and deletes the configuration key and requests PowerShellVersions, ApiConfig, and Metadata endpoints")]
+        public void WhenTheUserExercisesRefDataConfigAndRuntimeMetadataEndpoints()
+        {
+            ManageSystemConfigurationAndRuntimeMetadata_RefDataConfigCrudPowerShellVersionsApiConfigAndMetadata_PersistsAndCleansUp();
+            _systemConfigurationExecuted = true;
+        }
+
+        [Then("RefDataConfig persists and deletes the configuration entry and all runtime metadata endpoints return valid responses")]
+        public void ThenRefDataConfigAndRuntimeMetadataEndpointsSucceed()
+        {
+            Assert.IsTrue(_systemConfigurationExecuted);
+        }
+
         public void CreateUpdateDeletePropertiesAndValues_MultiEnvironmentPropertyLifecycleScopedSearchAuditAndExport_PersistsAuditsExportsAndDeletesCleanly()
         {
             AcceptanceProjectProvisioner.AssertLiveEnvironmentEnabled();
@@ -296,7 +335,6 @@ namespace Tests.Acceptance.PropertyValuesAndConfiguration
             }
         }
 
-        [TestMethod]
         public void ManageSystemConfigurationAndRuntimeMetadata_RefDataConfigCrudPowerShellVersionsApiConfigAndMetadata_PersistsAndCleansUp()
         {
             AcceptanceProjectProvisioner.AssertLiveEnvironmentEnabled();
