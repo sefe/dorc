@@ -1,7 +1,6 @@
 import { render } from 'lit';
 import { expect } from '../_helpers';
 import '../../src/pages/page-daemons-list.js';
-import type { PageDaemonsList } from '../../src/pages/page-daemons-list.js';
 import { PageServersList } from '../../src/pages/page-servers-list.js';
 
 describe('PageServersList label colors', () => {
@@ -17,7 +16,7 @@ describe('PageServersList label colors', () => {
 
 describe('PageDaemonsList last seen status colors', () => {
   it('uses --dorc-success-text (not --dorc-success-bg) for running daemons and appropriate tokens for other states', () => {
-    const page = document.createElement('page-daemons-list') as PageDaemonsList & {
+    const page = document.createElement('page-daemons-list') as unknown as {
       _lastSeenRenderer: (d: unknown) => unknown;
     };
     const host = document.createElement('div');
