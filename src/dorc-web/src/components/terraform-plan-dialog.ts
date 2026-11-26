@@ -343,9 +343,11 @@ export class TerraformPlanDialog extends LitElement {
                   <div>
                     <dt>Source commit</dt>
                     <dd>
-                      ${this.plan.Receipt.GitCommitSha
-                        ? renderShaBadge(this.plan.Receipt.GitCommitSha)
-                        : 'Unavailable'}
+                      ${
+                        this.plan.Receipt.GitCommitSha
+                          ? renderShaBadge(this.plan.Receipt.GitCommitSha)
+                          : 'Unavailable'
+                      }
                     </dd>
                   </div>
                   <div>
@@ -691,12 +693,12 @@ export class TerraformPlanDialog extends LitElement {
     }
 
     const lines = content.split(/\r?\n/);
-    return html`<pre class="plan-text">
-${lines.map(line => {
-        const cls = this._classifyPlanLine(line);
-        const masked = TerraformPlanDialog.maskSensitiveValues(line);
-        return html`<span class="plan-line ${cls}">${`${masked}\n`}</span>`;
-      })}</pre>`;
+    const planLines = lines.map(line => {
+      const cls = this._classifyPlanLine(line);
+      const masked = TerraformPlanDialog.maskSensitiveValues(line);
+      return html`<span class="plan-line ${cls}">${`${masked}\n`}</span>`;
+    });
+    return html`<pre class="plan-text">${planLines}</pre>`;
   }
 
   private _classifyPlanLine(line: string): string {

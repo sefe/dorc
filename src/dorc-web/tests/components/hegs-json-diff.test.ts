@@ -27,7 +27,8 @@ describe('hegs-json-diff', () => {
     ).to.equal('+1 -1 lines');
     const removed = root.querySelector('.diff-cell.line-remove')!;
     const added = root.querySelector('.diff-cell.line-add')!;
-    expect(removed.textContent).to.contain('"Name": "Parent",');
+    expect(removed.textContent).to.equal('  "Name": "Parent",');
+    expect(added.textContent).to.equal('  "Name": "Parent 2",');
     expect(added.querySelector('.highlight')?.textContent).to.equal(' 2');
     expect(root.querySelectorAll('.fold')).to.have.length(0);
   });

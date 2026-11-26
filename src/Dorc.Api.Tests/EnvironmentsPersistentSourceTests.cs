@@ -865,6 +865,15 @@ namespace Dorc.Api.Tests
                 Details = null!
             }, user);
             Assert.IsNotNull(createdNullDetails);
+            Assert.AreEqual(1, envList[3].AccessControls.Count, "CreateEnvironment with null Details must still grant AccessLevel.Owner to the creator.");
+            Assert.AreEqual((int)AccessLevel.Owner, envList[3].AccessControls.First().Allow);
+
+            Assert.Throws<ArgumentException>(() =>
+                _environmentsPersistentSource.UpdateEnvironment(new EnvironmentApiModel
+                {
+                    EnvironmentId = 500,
+                    EnvironmentName = "   "
+                }, user));
 
             envList[0].Id = 500;
             envList[1].Id = 501;

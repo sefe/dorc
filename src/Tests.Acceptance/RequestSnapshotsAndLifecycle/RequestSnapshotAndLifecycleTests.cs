@@ -142,6 +142,25 @@ namespace Tests.Acceptance.RequestSnapshotsAndLifecycle
             Assert.IsNotNull(created);
             Assert.IsGreaterThan(0, created.Id);
 
+            var runningDeadline = DateTime.UtcNow.AddSeconds(30);
+            while (DateTime.UtcNow < runningDeadline)
+            {
+                var statusResp = caller.ExecuteRaw("RequestStatuses", Method.Get, new Dictionary<string, string>
+                {
+                    ["requestId"] = created.Id.ToString()
+                });
+                if (statusResp.StatusCode == HttpStatusCode.OK)
+                {
+                    var statusModel = DorcApiClient.Deserialize<DeploymentRequestApiModel>(statusResp.Content);
+                    if (string.Equals(statusModel?.Status, "Running", StringComparison.OrdinalIgnoreCase))
+                    {
+                        break;
+                    }
+                }
+
+                Thread.Sleep(500);
+            }
+
             var cancelResp = caller.ExecuteRaw("Request/cancel", Method.Put, new Dictionary<string, string>
             {
                 ["requestId"] = created.Id.ToString()
@@ -167,6 +186,11 @@ namespace Tests.Acceptance.RequestSnapshotsAndLifecycle
                     result.Status,
                     $"Cancelled request {created.Id} must never promote component '{result.ComponentName}' to Completed.");
             }
+
+            var cancelLog = GetCombinedRequestLog(caller, created.Id);
+            Assert.IsFalse(
+                cancelLog.Contains("Finished wait.", StringComparison.Ordinal),
+                $"Cancelled request {created.Id} must terminate before the wait script finishes. Log: {cancelLog}");
         }
 
         public void RestartDeploymentRequest_AfterProjectScriptDefinitionEdit_ReplaysOriginalSnapshotWhileNewRequestRunsUpdatedScript()

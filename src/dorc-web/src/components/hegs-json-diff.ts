@@ -253,24 +253,22 @@ export class HegsJsonDiff extends LitElement {
   private renderRow(row: SideBySideRow) {
     if (row.kind === 'change' && row.left !== null && row.right !== null) {
       const charOps = computeCharDiff(row.left, row.right);
-      return html`<div class="diff-cell line-remove">
-          ${charOps.map(op =>
-            op.type === 'keep'
-              ? op.value
-              : op.type === 'delete'
-                ? html`<span class="highlight-removed">${op.value}</span>`
-                : nothing
-          )}
-        </div>
-        <div class="diff-cell right line-add">
-          ${charOps.map(op =>
-            op.type === 'keep'
-              ? op.value
-              : op.type === 'insert'
-                ? html`<span class="highlight">${op.value}</span>`
-                : nothing
-          )}
-        </div>`;
+      const leftFrags = charOps.map(op =>
+        op.type === 'keep'
+          ? op.value
+          : op.type === 'delete'
+            ? html`<span class="highlight-removed">${op.value}</span>`
+            : nothing
+      );
+      const rightFrags = charOps.map(op =>
+        op.type === 'keep'
+          ? op.value
+          : op.type === 'insert'
+            ? html`<span class="highlight">${op.value}</span>`
+            : nothing
+      );
+      return html`<div class="diff-cell line-remove">${leftFrags}</div>
+        <div class="diff-cell right line-add">${rightFrags}</div>`;
     }
     const leftCls =
       row.kind === 'delete' ? 'diff-cell line-remove' : 'diff-cell';

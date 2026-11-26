@@ -158,6 +158,9 @@ namespace Dorc.Api.Controllers
             if (existingEnv == null)
                 return StatusCode(StatusCodes.Status404NotFound, $"Environment with ID {content.EnvironmentId} not found.");
 
+            if (string.IsNullOrWhiteSpace(content.EnvironmentName))
+                return StatusCode(StatusCodes.Status400BadRequest, "Environment name is required.");
+
             if (!_securityPrivilegesChecker.CanModifyEnvironment(User, existingEnv.EnvironmentName))
                 return StatusCode(StatusCodes.Status403Forbidden, "User does not have sufficient privileges to write environment " + existingEnv.EnvironmentName);
 
