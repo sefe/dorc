@@ -139,7 +139,7 @@ namespace Dorc.Core.Tests
         public void ArrayPropertyWithUnparseableElementAndRequestSuppliedReference_IsNotEvaluated()
         {
             _resolver.SetRequestSuppliedPropertyValue("tainted", "abc");
-            _resolver.MarkArrayProperty("arr");
+            _propertyValuesPersistentSource.IsCachedPropertyArray("arr").Returns(true);
             _resolver.SetPropertyValue("arr", "[\"price $5\", \"fn:\\\"$tainted$\\\".ToUpper()\"]");
 
             var result = _resolver.GetPropertyValue("arr");
