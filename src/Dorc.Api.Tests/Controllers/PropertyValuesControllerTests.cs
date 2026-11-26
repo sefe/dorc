@@ -333,6 +333,11 @@ namespace Dorc.Api.Tests.Controllers
             var nullOwnerResult = (ObjectResult)envUsersController.GetOwner(11);
             Assert.AreEqual(string.Empty, ((EnvironmentOwnerApiModel)nullOwnerResult.Value!).DisplayName);
 
+            envSource.GetEnvironmentOwnerId(11).Returns("dorc-cli");
+            adSearcher.GetUserDataById("dorc-cli").Returns(_ => throw new ArgumentException("User with ID 'dorc-cli' not found in any source"));
+            var m2mOwnerResult = (ObjectResult)envUsersController.GetOwner(11);
+            Assert.AreEqual("dorc-cli", ((EnvironmentOwnerApiModel)m2mOwnerResult.Value!).DisplayName);
+
             Assert.IsInstanceOfType<BadRequestObjectResult>(envUsersController.UpdateOwner(11, null!));
             Assert.IsInstanceOfType<BadRequestObjectResult>(envUsersController.UpdateOwner(11, new EnvironmentOwnerApiModel { DisplayName = " " }));
 

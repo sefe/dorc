@@ -77,9 +77,16 @@ namespace Dorc.Api.Controllers
                 return StatusCode(StatusCodes.Status200OK, new EnvironmentOwnerApiModel { DisplayName = string.Empty });
             }
 
-            var userIdActiveDirectory = _activeDirectorySearcher.GetUserDataById(ownerId);
+            try
+            {
+                var userIdActiveDirectory = _activeDirectorySearcher.GetUserDataById(ownerId);
 
-            return StatusCode(StatusCodes.Status200OK, new EnvironmentOwnerApiModel { DisplayName = userIdActiveDirectory?.DisplayName ?? string.Empty });
+                return StatusCode(StatusCodes.Status200OK, new EnvironmentOwnerApiModel { DisplayName = userIdActiveDirectory?.DisplayName ?? string.Empty });
+            }
+            catch (Exception ex) when (ex is ArgumentException or InvalidOperationException)
+            {
+                return StatusCode(StatusCodes.Status200OK, new EnvironmentOwnerApiModel { DisplayName = ownerId });
+            }
         }
 
         /// <summary>
