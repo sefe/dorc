@@ -291,7 +291,7 @@ export class PageDaemonsList extends ResponsiveMixin(PageElement) {
     const status = daemon.LastSeenStatus?.toLowerCase();
     const color =
       status === 'running'
-        ? 'var(--dorc-success-bg, inherit)'
+        ? 'var(--dorc-success-text, inherit)'
         : status === 'stopped'
           ? 'inherit'
           : status == null || status === ''
