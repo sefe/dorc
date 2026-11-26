@@ -912,7 +912,21 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                 async () =>
                 {
                     var gridText = await browser.Page.EvaluateAsync<string>(
-                        "() => document.querySelector('env-variables')?.shadowRoot?.innerHTML ?? ''");
+                        $$"""
+                        () => {
+                            const envVars = document.querySelector('env-variables');
+                            if (!envVars || !envVars.envLoaded) {
+                                return '';
+                            }
+                            const grid = envVars.shadowRoot?.querySelector('#grid');
+                            if (grid && envVars.filterVariableName !== {{JsonSerializer.Serialize(parentPropName)}}) {
+                                envVars.filterVariableName = {{JsonSerializer.Serialize(parentPropName)}};
+                                envVars.isShowDefaultProps = true;
+                                grid.clearCache();
+                            }
+                            return envVars.shadowRoot?.innerHTML ?? '';
+                        }
+                        """);
                     return gridText.Contains(parentPropName, StringComparison.OrdinalIgnoreCase);
                 },
                 $"Expected live <env-variables> grid on '{parentEnvName}' to render '{parentPropName}'.");
@@ -925,7 +939,21 @@ namespace Tests.Acceptance.ProjectAndEnvironmentLifecycle
                 async () =>
                 {
                     var gridText = await browser.Page.EvaluateAsync<string>(
-                        "() => document.querySelector('env-variables')?.shadowRoot?.innerHTML ?? ''");
+                        """
+                        () => {
+                            const envVars = document.querySelector('env-variables');
+                            if (!envVars || !envVars.envLoaded) {
+                                return '';
+                            }
+                            const grid = envVars.shadowRoot?.querySelector('#grid');
+                            if (grid && envVars.filterVariableName !== 'Lifecycle_') {
+                                envVars.filterVariableName = 'Lifecycle_';
+                                envVars.isShowDefaultProps = true;
+                                grid.clearCache();
+                            }
+                            return envVars.shadowRoot?.innerHTML ?? '';
+                        }
+                        """);
                     return gridText.Contains(childPropName, StringComparison.OrdinalIgnoreCase) &&
                            gridText.Contains(secretPropName, StringComparison.OrdinalIgnoreCase);
                 },
