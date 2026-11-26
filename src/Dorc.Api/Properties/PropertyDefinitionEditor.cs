@@ -156,7 +156,7 @@ namespace Dorc.Api.Properties
                     if (shouldEncryptExistingValues)
                     {
                         var encryptionResult = EncryptExistingPropertyValues(
-                            propertyUpdateEntry.Value.Name,
+                            currentProperty.Name,
                             propertyUpdateEntry.Value.IsArray,
                             () => _propertiesPersistentSource.UpdateProperty(propertyUpdateEntry.Value));
                         if (encryptionResult != null)

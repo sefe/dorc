@@ -418,6 +418,61 @@ namespace Dorc.Api.Tests
         }
 
         [TestMethod]
+        public void PutPropertiesEncryptsExistingValuesUsingCurrentNameWhenRenamedAndChangedToSecure()
+        {
+            var mockPropertiesPersistentSource = Substitute.For<IPropertiesPersistentSource>();
+            var mockPvs = Substitute.For<IScopedPropertyValueEditor>();
+            var mockClaimsPrincipalReader = Substitute.For<IClaimsPrincipalReader>();
+            var mockPropertyValuesPersistentSource = Substitute.For<IPropertyValuesPersistentSource>();
+            var mockPropertyEncryptor = Substitute.For<IPropertyEncryptor>();
+            var mockLogger = Substitute.For<ILogger<PropertyDefinitionEditor>>();
+
+            var existingProperty = new PropertyApiModel
+            {
+                Id = 77,
+                Name = "OldPlainName",
+                Secure = false,
+                IsArray = false
+            };
+            var renamedAndSecuredPayload = new PropertyApiModel
+            {
+                Id = 0,
+                Name = "NewSecureName",
+                Secure = true,
+                IsArray = false
+            };
+
+            mockPropertiesPersistentSource.GetProperty("OldPlainName").Returns(existingProperty);
+            mockPropertiesPersistentSource
+                .UpdateProperty(Arg.Is<PropertyApiModel>(p => p.Id == 77 && p.Name == "NewSecureName" && p.Secure))
+                .Returns(true);
+            mockPropertyValuesPersistentSource.GetPropertyValuesByName("OldPlainName").Returns(new[]
+            {
+                new PropertyValueDto { Id = 888, Value = "plaintext-secret", Property = existingProperty }
+            });
+            mockPropertyEncryptor.EncryptValue("plaintext-secret").Returns("enc:plaintext-secret");
+
+            var editor = new PropertyDefinitionEditor(
+                mockPropertiesPersistentSource,
+                mockPvs,
+                mockClaimsPrincipalReader,
+                mockPropertyValuesPersistentSource,
+                mockPropertyEncryptor,
+                mockLogger);
+
+            var result = editor.PutProperties(new Dictionary<string, PropertyApiModel>
+            {
+                ["OldPlainName"] = renamedAndSecuredPayload
+            }, _user).ToList();
+
+            Assert.HasCount(1, result);
+            Assert.AreEqual("success", result[0].Status);
+            mockPropertyValuesPersistentSource.Received(1).GetPropertyValuesByName("OldPlainName");
+            mockPropertyValuesPersistentSource.DidNotReceive().GetPropertyValuesByName("NewSecureName");
+            mockPropertyValuesPersistentSource.Received(1).UpdatePropertyValue(888, "enc:plaintext-secret");
+        }
+
+        [TestMethod]
         public void ImportPropertiesReturnsErrorWhenPropertyNameOrValueBlank()
         {
             var service = new PropertyDefinitionEditor(

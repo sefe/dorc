@@ -328,10 +328,70 @@ namespace Tests.Acceptance.PropertyValuesAndConfiguration
                     }
                 });
                 Assert.AreEqual(HttpStatusCode.OK, reimportResp.StatusCode, $"Re-import POST /PropertyValues failed: {reimportResp.Content}");
+
+                // 12. Simultaneous property rename + Secure=true promotion encrypts all existing values
+                var renamedAndSecuredProp = $"AutoReg_PostmanPropSecured_{suffix}";
+                var renameAndSecureResp = caller.ExecuteRaw("Properties", Method.Put, body: new Dictionary<string, PropertyApiModel>
+                {
+                    [plainProp] = new PropertyApiModel { Id = singleProp.Id, Name = renamedAndSecuredProp, Secure = true, IsArray = false }
+                });
+                Assert.AreEqual(HttpStatusCode.OK, renameAndSecureResp.StatusCode, $"PUT /Properties (rename + secure) failed: {renameAndSecureResp.Content}");
+                Assert.IsFalse(
+                    (renameAndSecureResp.Content ?? string.Empty).Contains("error", StringComparison.OrdinalIgnoreCase),
+                    $"PUT /Properties (rename + secure) returned error: {renameAndSecureResp.Content}");
+                plainProp = renamedAndSecuredProp;
+
+                var scopedAfterSecureResp = caller.ExecuteRaw(
+                    "RefDataScopedPropertyValues",
+                    Method.Put,
+                    new Dictionary<string, string>
+                    {
+                        ["scope"] = AcceptanceProjectProvisioner.LiveChildEnvName,
+                        ["page"] = "1",
+                        ["limit"] = "50"
+                    },
+                    body: new PagedDataOperators
+                    {
+                        Filters = new List<PagedDataFilter>
+                        {
+                            new PagedDataFilter { Path = "Property", FilterValue = plainProp }
+                        }
+                    });
+                Assert.AreEqual(HttpStatusCode.OK, scopedAfterSecureResp.StatusCode, scopedAfterSecureResp.Content);
+                var scopedAfterSecurePage = DorcApiClient.Deserialize<GetScopedPropertyValuesResponseDto>(scopedAfterSecureResp.Content);
+                Assert.IsNotNull(scopedAfterSecurePage?.Items);
+                var securedScopedItem = scopedAfterSecurePage.Items.FirstOrDefault(i =>
+                    string.Equals(i.Property, plainProp, StringComparison.OrdinalIgnoreCase));
+                Assert.IsNotNull(securedScopedItem, $"Expected '{plainProp}' in RefDataScopedPropertyValues after rename + secure.");
+                Assert.IsTrue(securedScopedItem.Secure, $"Expected '{plainProp}' to be marked Secure=true.");
+                Assert.AreNotEqual($"ChildUpdated_{suffix}", securedScopedItem.PropertyValue,
+                    "Existing property value must be encrypted/masked after renaming and enabling Secure=true.");
+
+                var decryptedValsAfterSecureResp = caller.ExecuteRaw("PropertyValues", Method.Get, new Dictionary<string, string>
+                {
+                    ["propertyName"] = plainProp,
+                    ["environmentName"] = AcceptanceProjectProvisioner.LiveChildEnvName
+                });
+                Assert.AreEqual(HttpStatusCode.OK, decryptedValsAfterSecureResp.StatusCode,
+                    $"GET /PropertyValues after rename + secure failed (existing value was not encrypted properly): {decryptedValsAfterSecureResp.Content}");
+                var decryptedValsAfterSecure = DorcApiClient.Deserialize<List<PropertyValueDto>>(decryptedValsAfterSecureResp.Content);
+                Assert.IsNotNull(decryptedValsAfterSecure);
+                var decryptedChildVal = decryptedValsAfterSecure.FirstOrDefault(v =>
+                    string.Equals(v.PropertyValueFilter, AcceptanceProjectProvisioner.LiveChildEnvName, StringComparison.OrdinalIgnoreCase));
+                Assert.IsNotNull(decryptedChildVal);
+                Assert.AreEqual($"ChildUpdated_{suffix}", decryptedChildVal.Value,
+                    "Authorized ReadSecrets caller must decrypt the existing value cleanly after rename + Secure=true promotion.");
             }
             finally
             {
-                AcceptanceProjectProvisioner.DeletePropertiesBestEffort(caller, plainProp, $"AutoReg_PostmanProp_{suffix}", arrayProp, secureProp);
+                AcceptanceProjectProvisioner.DeletePropertiesBestEffort(
+                    caller,
+                    plainProp,
+                    $"AutoReg_PostmanProp_{suffix}",
+                    $"AutoReg_PostmanPropRenamed_{suffix}",
+                    $"AutoReg_PostmanPropSecured_{suffix}",
+                    arrayProp,
+                    secureProp);
             }
         }
 
