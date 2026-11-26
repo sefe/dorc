@@ -4,8 +4,6 @@ import { css, LitElement } from 'lit';
 import '@vaadin/grid/vaadin-grid-sort-column';
 import '@vaadin/grid/vaadin-grid';
 import '@vaadin/combo-box';
-import '@vaadin/item';
-import '@vaadin/list-box';
 import '@vaadin/tooltip';
 import '../icons/dorc-icons.js';
 import '@vaadin/icon';
@@ -87,12 +85,18 @@ export class EditDatabasePermissions extends LitElement {
         border: 1px solid var(--dorc-border-color);
         border-radius: var(--lumo-border-radius-m);
       }
+      .permissions-list {
+        list-style: none;
+        margin: var(--lumo-space-xs) 0 0 0;
+        padding: 0;
+      }
       .permission-row {
         display: flex;
         align-items: center;
         justify-content: space-between;
         gap: var(--lumo-space-s);
         width: 100%;
+        padding: var(--lumo-space-xs) 0;
       }
     `;
   }
@@ -141,32 +145,30 @@ export class EditDatabasePermissions extends LitElement {
                 </span>`
               : html``
           }
-          <vaadin-list-box>
+          <ul class="permissions-list" aria-label="Assigned permissions">
             ${this.userPermissionList.map(
               userPerm => html`
-                <vaadin-item>
-                  <div class="permission-row">
-                    <span>${userPerm.Database} - ${userPerm.Role}</span>
-                    <vaadin-button
-                      theme="icon small"
-                      aria-label="Revoke permission"
-                      @click="${() => this._remove(userPerm)}"
-                    >
-                      <vaadin-tooltip
-                        slot="tooltip"
-                        text="Revoke permission"
-                      ></vaadin-tooltip>
-                      <vaadin-icon
-                        icon="dorc:permission-revoke"
-                        aria-hidden="true"
-                        style="color: var(--dorc-error-color)"
-                      ></vaadin-icon>
-                    </vaadin-button>
-                  </div>
-                </vaadin-item>
+                <li class="permission-row">
+                  <span>${userPerm.Database} - ${userPerm.Role}</span>
+                  <vaadin-button
+                    theme="icon small"
+                    aria-label="Revoke permission"
+                    @click="${() => this._remove(userPerm)}"
+                  >
+                    <vaadin-tooltip
+                      slot="tooltip"
+                      text="Revoke permission"
+                    ></vaadin-tooltip>
+                    <vaadin-icon
+                      icon="dorc:permission-revoke"
+                      aria-hidden="true"
+                      style="color: var(--dorc-error-color)"
+                    ></vaadin-icon>
+                  </vaadin-button>
+                </li>
               `
             )}
-          </vaadin-list-box>
+          </ul>
         </div>
         <div>
           <span>${this.StatusMessage}</span>

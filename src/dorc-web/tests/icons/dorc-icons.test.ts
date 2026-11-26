@@ -698,11 +698,11 @@ describe('Step 5 legacy icon button & Polymer component retirement', () => {
     expect(editPerms.shadowRoot?.querySelector('paper-listbox')).toBeNull();
     expect(editPerms.shadowRoot?.querySelector('paper-item')).toBeNull();
     expect(
-      editPerms.shadowRoot?.querySelector('vaadin-list-box')
+      editPerms.shadowRoot?.querySelector('ul.permissions-list')
     ).not.toBeNull();
-    expect(editPerms.shadowRoot?.querySelectorAll('vaadin-item').length).toBe(
-      1
-    );
+    expect(
+      editPerms.shadowRoot?.querySelectorAll('li.permission-row').length
+    ).toBe(1);
 
     const revokeBtn = editPerms.shadowRoot?.querySelector(
       'vaadin-button[aria-label="Revoke permission"]'
