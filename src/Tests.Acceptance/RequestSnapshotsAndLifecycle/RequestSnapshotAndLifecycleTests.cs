@@ -126,71 +126,133 @@ namespace Tests.Acceptance.RequestSnapshotsAndLifecycle
         {
             using var caller = new DorcApiClient();
             var buildUri = EnsureProvisioned(caller);
+            var cancelCid = Guid.NewGuid().ToString("N")[..10];
+            const string cancelCidProp = "AutoReg_CancelCorrelationId";
 
-            var requestPayload = new RequestDto
+            EnsurePropertyDefinition(caller, cancelCidProp, secure: false);
+            UpsertPropertyValue(caller, cancelCidProp, secure: false, envFilter: LiveChildEnvName, value: cancelCid);
+
+            var publicFolder = Environment.GetFolderPath(Environment.SpecialFolder.CommonDocuments);
+            var publicRoot = Directory.GetParent(publicFolder)?.FullName ?? @"C:\Users\Public";
+            var startedMarkerPath = Path.Join(publicRoot, "DOrcLifecycleOutputs", $"cancel-started-{cancelCid}.txt");
+            var finishedMarkerPath = Path.Join(publicRoot, "DOrcLifecycleOutputs", $"cancel-finished-{cancelCid}.txt");
+
+            try
             {
-                Project = LiveProjectName,
-                Environment = LiveChildEnvName,
-                BuildNum = BuildFolderName,
-                BuildUrl = buildUri,
-                Components = new List<string> { CancelWaitComponentName }
-            };
+                var requestPayload = new RequestDto
+                {
+                    Project = LiveProjectName,
+                    Environment = LiveChildEnvName,
+                    BuildNum = BuildFolderName,
+                    BuildUrl = buildUri,
+                    Components = new List<string> { CancelWaitComponentName }
+                };
 
-            var createResp = caller.ExecuteRaw("Request", Method.Post, body: requestPayload);
-            Assert.AreEqual(HttpStatusCode.OK, createResp.StatusCode, $"POST /Request failed: {createResp.Content}");
-            var created = DorcApiClient.Deserialize<RequestStatusDto>(createResp.Content);
-            Assert.IsNotNull(created);
-            Assert.IsGreaterThan(0, created.Id);
+                var createResp = caller.ExecuteRaw("Request", Method.Post, body: requestPayload);
+                Assert.AreEqual(HttpStatusCode.OK, createResp.StatusCode, $"POST /Request failed: {createResp.Content}");
+                var created = DorcApiClient.Deserialize<RequestStatusDto>(createResp.Content);
+                Assert.IsNotNull(created);
+                Assert.IsGreaterThan(0, created.Id);
 
-            var runningDeadline = DateTime.UtcNow.AddSeconds(30);
-            while (DateTime.UtcNow < runningDeadline)
-            {
-                var statusResp = caller.ExecuteRaw("RequestStatuses", Method.Get, new Dictionary<string, string>
+                var scriptStartedInFlight = false;
+                var lastObservedStatus = created.Status ?? string.Empty;
+                var runningDeadline = DateTime.UtcNow.AddSeconds(60);
+                while (DateTime.UtcNow < runningDeadline)
+                {
+                    var statusResp = caller.ExecuteRaw("RequestStatuses", Method.Get, new Dictionary<string, string>
+                    {
+                        ["requestId"] = created.Id.ToString()
+                    });
+                    if (statusResp.StatusCode == HttpStatusCode.OK)
+                    {
+                        var statusModel = DorcApiClient.Deserialize<DeploymentRequestApiModel>(statusResp.Content);
+                        lastObservedStatus = statusModel?.Status ?? lastObservedStatus;
+                        if (string.Equals(statusModel?.Status, "Running", StringComparison.OrdinalIgnoreCase))
+                        {
+                            if (File.Exists(startedMarkerPath))
+                            {
+                                scriptStartedInFlight = true;
+                                break;
+                            }
+
+                            var liveLog = GetCombinedRequestLog(caller, created.Id);
+                            if (liveLog.Contains("Starting cancellable wait script...", StringComparison.Ordinal))
+                            {
+                                scriptStartedInFlight = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    Thread.Sleep(400);
+                }
+
+                Assert.IsTrue(
+                    scriptStartedInFlight,
+                    $"Expected request {created.Id} to reach Running with PowerShell script actively executing before issuing PUT /Request/cancel, but last status was '{lastObservedStatus}'.");
+
+                var cancelStopwatch = System.Diagnostics.Stopwatch.StartNew();
+                var cancelResp = caller.ExecuteRaw("Request/cancel", Method.Put, new Dictionary<string, string>
                 {
                     ["requestId"] = created.Id.ToString()
                 });
-                if (statusResp.StatusCode == HttpStatusCode.OK)
+                Assert.AreEqual(HttpStatusCode.OK, cancelResp.StatusCode, $"PUT /Request/cancel failed: {cancelResp.Content}");
+
+                var finalState = WaitForTerminalRequestStatus(caller, created.Id, TimeSpan.FromMinutes(2));
+                cancelStopwatch.Stop();
+                Assert.AreEqual(
+                    "Cancelled",
+                    finalState.Status,
+                    $"Expected cancelled request {created.Id} to reach Cancelled, but got '{finalState.Status}'.");
+                Assert.IsLessThan(
+                    45.0,
+                    cancelStopwatch.Elapsed.TotalSeconds,
+                    $"Expected in-flight cancellation of request {created.Id} to terminate the active PowerShell runner well before the 60s script sleep completed, but took {cancelStopwatch.Elapsed.TotalSeconds:F1}s.");
+                Assert.IsFalse(
+                    File.Exists(finishedMarkerPath),
+                    $"Cancelled request {created.Id} must terminate before creating post-sleep marker '{finishedMarkerPath}'.");
+
+                var resultsResp = caller.ExecuteRaw("ResultStatuses", Method.Get, new Dictionary<string, string>
                 {
-                    var statusModel = DorcApiClient.Deserialize<DeploymentRequestApiModel>(statusResp.Content);
-                    if (string.Equals(statusModel?.Status, "Running", StringComparison.OrdinalIgnoreCase))
-                    {
-                        break;
-                    }
+                    ["requestId"] = created.Id.ToString()
+                });
+                Assert.AreEqual(HttpStatusCode.OK, resultsResp.StatusCode, resultsResp.Content);
+                var results = DorcApiClient.Deserialize<List<DeploymentResultApiModel>>(resultsResp.Content) ?? new List<DeploymentResultApiModel>();
+                foreach (var result in results)
+                {
+                    Assert.AreNotEqual(
+                        "Completed",
+                        result.Status,
+                        $"Cancelled request {created.Id} must never promote component '{result.ComponentName}' to Completed.");
                 }
 
-                Thread.Sleep(500);
+                var cancelLog = GetCombinedRequestLog(caller, created.Id);
+                StringAssert.Contains(
+                    cancelLog,
+                    "Starting cancellable wait script...",
+                    $"Cancelled request {created.Id} must have started executing the PowerShell script before cancellation. Log: {cancelLog}");
+                Assert.IsFalse(
+                    cancelLog.Contains("Finished wait.", StringComparison.Ordinal),
+                    $"Cancelled request {created.Id} must terminate before the wait script finishes. Log: {cancelLog}");
             }
-
-            var cancelResp = caller.ExecuteRaw("Request/cancel", Method.Put, new Dictionary<string, string>
+            finally
             {
-                ["requestId"] = created.Id.ToString()
-            });
-            Assert.AreEqual(HttpStatusCode.OK, cancelResp.StatusCode, $"PUT /Request/cancel failed: {cancelResp.Content}");
-
-            var finalState = WaitForTerminalRequestStatus(caller, created.Id, TimeSpan.FromMinutes(2));
-            Assert.AreEqual(
-                "Cancelled",
-                finalState.Status,
-                $"Expected cancelled request {created.Id} to reach Cancelled, but got '{finalState.Status}'.");
-
-            var resultsResp = caller.ExecuteRaw("ResultStatuses", Method.Get, new Dictionary<string, string>
-            {
-                ["requestId"] = created.Id.ToString()
-            });
-            Assert.AreEqual(HttpStatusCode.OK, resultsResp.StatusCode, resultsResp.Content);
-            var results = DorcApiClient.Deserialize<List<DeploymentResultApiModel>>(resultsResp.Content) ?? new List<DeploymentResultApiModel>();
-            foreach (var result in results)
-            {
-                Assert.AreNotEqual(
-                    "Completed",
-                    result.Status,
-                    $"Cancelled request {created.Id} must never promote component '{result.ComponentName}' to Completed.");
+                try
+                {
+                    if (File.Exists(startedMarkerPath))
+                    {
+                        File.Delete(startedMarkerPath);
+                    }
+                    if (File.Exists(finishedMarkerPath))
+                    {
+                        File.Delete(finishedMarkerPath);
+                    }
+                }
+                catch (IOException)
+                {
+                    // Best-effort cleanup
+                }
             }
-
-            var cancelLog = GetCombinedRequestLog(caller, created.Id);
-            Assert.IsFalse(
-                cancelLog.Contains("Finished wait.", StringComparison.Ordinal),
-                $"Cancelled request {created.Id} must terminate before the wait script finishes. Log: {cancelLog}");
         }
 
         public void RestartDeploymentRequest_AfterProjectScriptDefinitionEdit_ReplaysOriginalSnapshotWhileNewRequestRunsUpdatedScript()

@@ -375,8 +375,20 @@ Write-Output 'Deployment succeeded after property update and restart.'
 ");
 
                 WriteScriptIfChanged(Path.Join(scriptSubfolder, "cancel-wait.ps1"), @"
-Write-Output 'Starting cancellable wait script...'
-Start-Sleep -Seconds 25
+$ErrorActionPreference = 'Stop'
+$cid = [string](Get-Variable -Name 'AutoReg_CancelCorrelationId' -ValueOnly -ErrorAction SilentlyContinue)
+$outDir = Join-Path $env:PUBLIC 'DOrcLifecycleOutputs'
+if (-not (Test-Path $outDir)) {
+    New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+}
+if (-not [string]::IsNullOrWhiteSpace($cid)) {
+    Set-Content -Path (Join-Path $outDir ""cancel-started-$cid.txt"") -Value $PID -Encoding UTF8
+}
+Write-Output ""Starting cancellable wait script... CID=$cid""
+Start-Sleep -Seconds 60
+if (-not [string]::IsNullOrWhiteSpace($cid)) {
+    Set-Content -Path (Join-Path $outDir ""cancel-finished-$cid.txt"") -Value 'completed' -Encoding UTF8
+}
 Write-Output 'Finished wait.'
 ");
 

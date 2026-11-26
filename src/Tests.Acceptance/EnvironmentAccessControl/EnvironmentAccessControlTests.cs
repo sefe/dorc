@@ -372,7 +372,7 @@ namespace Tests.Acceptance.EnvironmentAccessControl
                 Assert.AreEqual(HttpStatusCode.OK, createPermDbResp.StatusCode, createPermDbResp.Content);
                 var createdPermDb = DorcApiClient.Deserialize<DatabaseApiModel>(createPermDbResp.Content);
                 Assert.IsNotNull(createdPermDb);
-                Assert.IsTrue(createdPermDb.Id > 0);
+                Assert.IsGreaterThan(0, createdPermDb.Id);
                 var permDbId = createdPermDb.Id;
 
                 try

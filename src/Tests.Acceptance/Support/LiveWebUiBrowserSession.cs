@@ -136,6 +136,36 @@ namespace Tests.Acceptance.Support
                     State = WaitForSelectorState.Attached,
                     Timeout = timeoutMs
                 });
+
+                var apiConfig = _apiClient.GetApiConfig();
+                var authority = (apiConfig?.OAuthAuthority ?? string.Empty).Trim().TrimEnd('/');
+                if (!string.IsNullOrWhiteSpace(authority))
+                {
+                    var discoveryUrl = $"{authority}/.well-known/openid-configuration";
+                    var escapedDiscoveryUrl = JsonSerializer.Serialize(discoveryUrl);
+                    var oidcCheckResult = await Page.EvaluateAsync<string>($$"""
+                        async () => {
+                            const url = {{escapedDiscoveryUrl}};
+                            try {
+                                const resp = await fetch(url, { mode: 'cors' });
+                                if (!resp.ok) {
+                                    return `HTTP_${resp.status}`;
+                                }
+                                const json = await resp.json();
+                                return json && json.authorization_endpoint ? 'OK' : 'MISSING_AUTH_ENDPOINT';
+                            } catch (err) {
+                                return `CORS_OR_FETCH_ERROR:${err && err.message ? err.message : String(err)}`;
+                            }
+                        }
+                        """);
+                    if (!string.Equals(oidcCheckResult, "OK", StringComparison.Ordinal))
+                    {
+                        throw new InvalidOperationException(
+                            $"Browser OIDC discovery check from Web UI origin '{WebUiBaseUrl}' to '{discoveryUrl}' failed with '{oidcCheckResult}'. " +
+                            $"Ensure '{WebUiBaseUrl}' is registered in AllowedCorsOrigins on '{authority}'.");
+                    }
+                }
+
                 _appBootstrapped = true;
             }
 
