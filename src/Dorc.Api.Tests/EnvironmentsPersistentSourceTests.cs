@@ -797,15 +797,18 @@ namespace Dorc.Api.Tests
             Assert.AreEqual(objA, acSource.DeleteAccessControl(55, objA, user));
             acList.Add(acRow);
 
-            // RequestsStatusPersistentSource.GetDeploymentRequestApiModels enforces Deny != 0
+            // RequestsStatusPersistentSource.GetDeploymentRequestApiModels enforces Deny != 0 and retains historical requests when environment is deleted/renamed
             var env = new Environment { Id = 1, Name = "DeniedEnv", ObjectId = objA };
             var req = new DeploymentRequest { Id = 100, Environment = "DeniedEnv", Project = "Proj", Status = "Pending" };
+            var orphanedReq = new DeploymentRequest { Id = 101, Environment = "DeletedOrRenamedEnv", Project = "Proj", Status = "Completed" };
             envList.Add(env);
             reqList.Add(req);
+            reqList.Add(orphanedReq);
 
             var reqModels = RequestsStatusPersistentSource.GetDeploymentRequestApiModels(_context, "user1", new List<string> { "sid-1" }).ToList();
-            Assert.AreEqual(1, reqModels.Count);
-            Assert.IsFalse(reqModels[0].UserEditable);
+            Assert.AreEqual(2, reqModels.Count);
+            Assert.IsFalse(reqModels.Single(r => r.Id == 100).UserEditable);
+            Assert.IsFalse(reqModels.Single(r => r.Id == 101).UserEditable);
 
             // IsEnvironmentOwner all principal match branches (Pid == userId, Pid == userOid, Sid == userId, Sid == userlogin, Sid in userSids, null userSids)
             var claimUser = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("oid", "oid-claim") }));

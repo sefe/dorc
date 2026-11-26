@@ -178,8 +178,8 @@ steps:
       }
       Import-Module Pester -MinimumVersion 5.0.0 -ErrorAction Stop
       $res = Invoke-Pester -Path .\DOrc.Cmdlet.tests.ps1 -PassThru
-      if (-not $res -or $res.TotalCount -le 0 -or $res.FailedCount -gt 0) {
-        throw "DOrc.Cmdlet Pester tests failed ($($res.FailedCount) failures)."
+      if (-not $res -or $res.TotalCount -le 0 -or $res.FailedCount -gt 0 -or $res.FailedBlocksCount -gt 0 -or $res.FailedContainersCount -gt 0 -or $res.Result -ne 'Passed') {
+        throw "DOrc.Cmdlet Pester tests failed ($($res.FailedCount) test failures, $($res.FailedBlocksCount) block failures, $($res.FailedContainersCount) container failures)."
       }
   
 - task: sonarsource.sonarqube.6D01813A-9589-4B15-8491-8164AEB38055.SonarQubeAnalyze@6.3.2
