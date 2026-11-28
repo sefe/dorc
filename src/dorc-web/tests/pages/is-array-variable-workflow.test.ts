@@ -275,4 +275,279 @@ describe('IsArray variable UI workflow', () => {
     secureControl.remove();
     control.remove();
   });
+
+  it('creates a brand-new array variable after viewing an existing default variable, handles Enter/input text clearing, and appends to or guards existing default values', async () => {
+    const { PropertiesApi, PropertyValuesApi } = await import(
+      '../../src/apis/dorc-api'
+    );
+    const { throwError } = await import('rxjs');
+
+    const postPropertySpy = vi
+      .spyOn(PropertiesApi.prototype, 'propertiesPost')
+      .mockReturnValue(
+        of([
+          {
+            Status: 'success',
+            Item: { Id: 99, Name: 'BrandNewArrayVar', Secure: false, IsArray: true }
+          }
+        ] as any)
+      );
+
+    let currentRemoteValues: any[] = [];
+    const getPropertyValuesSpy = vi
+      .spyOn(PropertyValuesApi.prototype, 'propertyValuesGet')
+      .mockImplementation(() => of(currentRemoteValues as any));
+
+    const postPropertyValuesSpy = vi
+      .spyOn(PropertyValuesApi.prototype, 'propertyValuesPost')
+      .mockImplementation(({ propertyValueDto }: any) => {
+        const saved = {
+          Id: 501,
+          Value: propertyValueDto[0].Value,
+          PropertyValueFilter: propertyValueDto[0].PropertyValueFilter ?? null,
+          Property: propertyValueDto[0].Property,
+          UserEditable: true
+        };
+        currentRemoteValues = [saved];
+        return of([{ Status: 'success', Item: saved }] as any);
+      });
+
+    const putPropertyValuesSpy = vi
+      .spyOn(PropertyValuesApi.prototype, 'propertyValuesPut')
+      .mockImplementation(({ propertyValueDto }: any) => {
+        const updated = {
+          ...propertyValueDto[0],
+          UserEditable: true
+        };
+        currentRemoteValues = [updated];
+        return of([{ Status: 'success', Item: updated }] as any);
+      });
+
+    const page = document.createElement('page-variables') as any;
+    page.isAdmin = true;
+    document.body.appendChild(page);
+    await settle();
+
+    // Simulate having previously viewed an existing variable with a (default) value and environments list
+    page.environments = ['DEV-01', 'QA-01'];
+    page.filteredEnvironments = ['DEV-01', 'QA-01'];
+    page.properties = [
+      { Id: 1, Name: 'ExistingVar', Secure: false, IsArray: false }
+    ];
+    page.propertyValues = [
+      {
+        Id: 10,
+        Value: 'old-default-value',
+        PropertyValueFilter: null,
+        Property: { Id: 1, Name: 'ExistingVar', Secure: false, IsArray: false }
+      }
+    ];
+    page.allPropertyValues = [...page.propertyValues];
+    page.newVariableScope = 'DEV-01';
+    page.propertyValueScopeOptions = [{ ValueOption: 'opt1' }];
+
+    // Switch to 'Create New' and create BrandNewArrayVar with IsArray = true
+    page.radioValue = 'create';
+    await settle();
+
+    page.newVariableName = 'BrandNewArrayVar';
+    const arrayCheckbox = page.shadowRoot?.querySelector(
+      '#variable-array'
+    ) as any;
+    expect(arrayCheckbox).not.toBeNull();
+    arrayCheckbox.checked = true;
+
+    page.createVariable();
+    await settle();
+
+    expect(postPropertySpy).toHaveBeenCalledWith({
+      propertyApiModel: [
+        expect.objectContaining({
+          Name: 'BrandNewArrayVar',
+          IsArray: true,
+          Secure: false
+        })
+      ]
+    });
+    expect(page.radioValue).toBe('existing');
+    expect(page.propertyName).toBe('BrandNewArrayVar');
+    expect(page.selectedPropertyIsArray).toBe(true);
+    expect(page.newVariableName).toBe('');
+    expect(page.newVariableScope).toBe('');
+    expect(page.propertyValueScopeOptions).toEqual([]);
+    // loadVariableValues should only be invoked once during auto-selection of the newly created variable
+    expect(getPropertyValuesSpy).toHaveBeenCalledTimes(1);
+
+    // Clearing scope in _newVariableValueScopeChanged resets propertyValueScopeOptions
+    page.propertyValueScopeOptions = [{ ValueOption: 'temp' }];
+    page._newVariableValueScopeChanged({
+      target: { value: '' }
+    } as unknown as CustomEvent);
+    expect(page.propertyValueScopeOptions).toEqual([]);
+
+    const newValCombo = page.shadowRoot?.querySelector(
+      '#newVariableValue'
+    ) as any;
+    expect(newValCombo).not.toBeNull();
+
+    // Non-Enter keydown on #newVariableValue should not stage an item
+    newValCombo._inputElementValue = 'item-one';
+    newValCombo.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Tab', bubbles: true })
+    );
+    expect(page.newArrayItems).toEqual([]);
+
+    // Enter keydown when selectedPropertyIsArray is false should not stage an item
+    page.selectedPropertyIsArray = false;
+    newValCombo.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    );
+    expect(page.newArrayItems).toEqual([]);
+    page.selectedPropertyIsArray = true;
+
+    // Clicking + Add Item when input is empty is a no-op
+    newValCombo.value = '';
+    newValCombo._inputElementValue = '';
+    page._addArrayItemClick();
+    expect(page.newArrayItems).toEqual([]);
+    newValCombo._inputElementValue = 'item-one';
+
+    // Pressing Enter on #newVariableValue when selectedPropertyIsArray is true stages the item and clears _inputElementValue
+    newValCombo.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true })
+    );
+    await settle();
+    expect(page.newArrayItems).toEqual(['item-one']);
+    expect(newValCombo.value).toBe('');
+    expect(newValCombo._inputElementValue).toBe('');
+
+    // Type a second item into _inputElementValue without clicking '+ Add Item' and click 'Add Variable Value'
+    newValCombo._inputElementValue = 'item-two';
+    const addVariableValueBtn = page.shadowRoot?.querySelector(
+      '#add-variable-value-btn'
+    ) as HTMLElement;
+    addVariableValueBtn.click();
+    await settle();
+
+    // Should have posted the default array value without any duplicate default error and without splicing filteredEnvironments
+    expect(postPropertyValuesSpy).toHaveBeenCalledTimes(1);
+    expect(postPropertyValuesSpy).toHaveBeenCalledWith({
+      propertyValueDto: [
+        expect.objectContaining({
+          Value: '["item-one","item-two"]',
+          PropertyValueFilter: undefined
+        })
+      ]
+    });
+    expect(page.filteredEnvironments).toEqual(['DEV-01', 'QA-01']);
+    expect(page.newArrayItems).toEqual([]);
+
+    // Now that BrandNewArrayVar has a default array value, adding another item with blank scope appends via PUT
+    newValCombo._inputElementValue = '["item-three","item-four"]';
+    addVariableValueBtn.click();
+    await settle();
+
+    expect(putPropertyValuesSpy).toHaveBeenCalledTimes(1);
+    expect(putPropertyValuesSpy).toHaveBeenCalledWith({
+      propertyValueDto: [
+        expect.objectContaining({
+          Id: 501,
+          Value: '["item-one","item-two","item-three","item-four"]',
+          PropertyValueFilter: undefined
+        })
+      ]
+    });
+
+    // Test non-success response and error response on PUT when appending to default array value
+    const errorAlertSpy = vi
+      .spyOn(page, 'errorAlert')
+      .mockImplementation(() => {});
+    putPropertyValuesSpy.mockReturnValueOnce(
+      of([{ Status: 'error', Message: 'update failed' }] as any)
+    );
+    newValCombo.value = 'item-five';
+    addVariableValueBtn.click();
+    await settle();
+    expect(errorAlertSpy).toHaveBeenCalled();
+
+    putPropertyValuesSpy.mockReturnValueOnce(
+      throwError(() => new Error('network error'))
+    );
+    newValCombo.value = 'item-six';
+    addVariableValueBtn.click();
+    await settle();
+    expect(errorAlertSpy).toHaveBeenCalledTimes(2);
+
+    // Attempting to add an empty default array value when a default already exists still shows the duplicate default error notification
+    newValCombo.value = '';
+    newValCombo._inputElementValue = '';
+    page.newArrayItems = [];
+    addVariableValueBtn.click();
+    await settle();
+    let errorNotification = page.shadowRoot?.querySelector(
+      'error-notification'
+    );
+    expect(errorNotification?.getAttribute('errorMessage')).toBe(
+      'This variable already contains a default scoped value!'
+    );
+    errorNotification?.remove();
+
+    // Secure array variable and scalar variable with an existing default value also show the duplicate default error notification
+    const brandNewProp = page.properties.find(
+      (p: any) => p.Name === 'BrandNewArrayVar'
+    );
+    brandNewProp.Secure = true;
+    newValCombo.value = 'secret-item';
+    addVariableValueBtn.click();
+    await settle();
+    errorNotification = page.shadowRoot?.querySelector('error-notification');
+    expect(errorNotification?.getAttribute('errorMessage')).toBe(
+      'This variable already contains a default scoped value!'
+    );
+    errorNotification?.remove();
+
+    brandNewProp.Secure = false;
+    brandNewProp.IsArray = false;
+    newValCombo.value = 'scalar-val';
+    addVariableValueBtn.click();
+    await settle();
+    errorNotification = page.shadowRoot?.querySelector('error-notification');
+    expect(errorNotification?.getAttribute('errorMessage')).toBe(
+      'This variable already contains a default scoped value!'
+    );
+    errorNotification?.remove();
+
+    brandNewProp.IsArray = true;
+
+    // Adding a scoped array value (e.g. 'DEV-01') removes 'DEV-01' from filteredEnvironments (findIndex > -1)
+    page.newVariableScope = 'DEV-01';
+    newValCombo.value = 'dev-item';
+    addVariableValueBtn.click();
+    await settle();
+    expect(page.filteredEnvironments).toEqual(['QA-01']);
+
+    // Adding a scoped value when filteredEnvironments is undefined handles findIndex === undefined cleanly
+    page.filteredEnvironments = undefined;
+    page.newVariableScope = 'QA-01';
+    newValCombo.value = 'qa-item';
+    addVariableValueBtn.click();
+    await settle();
+
+    // When newVariableName does not match any property in _propNameValueChanged (including while in 'create' view where #newVariableValue is absent), it resets newVariableName and falls through cleanly
+    page.radioValue = 'create';
+    await settle();
+    page.newVariableName = 'NonExistentProp';
+    page._propNameValueChanged({
+      target: { value: 'UnknownProp', title: '' }
+    } as unknown as CustomEvent);
+    expect(page.newVariableName).toBe('');
+    expect(page.existingPropertySelected).toBe(false);
+
+    errorAlertSpy.mockRestore();
+    postPropertySpy.mockRestore();
+    getPropertyValuesSpy.mockRestore();
+    postPropertyValuesSpy.mockRestore();
+    putPropertyValuesSpy.mockRestore();
+    page.remove();
+  });
 });

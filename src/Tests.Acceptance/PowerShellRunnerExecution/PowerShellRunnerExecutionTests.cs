@@ -650,15 +650,17 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
                 EnsurePropertyDefinition(caller, baseArrayProp, secure: false, isArray: false);
                 EnsurePropertyDefinition(caller, expandedArrayProp, secure: false, isArray: true);
                 EnsurePropertyDefinition(caller, joinedScalarProp, secure: false, isArray: false);
-                EnsurePropertyDefinition(caller, overrideArrayProp, secure: false, isArray: true);
                 EnsurePropertyDefinition(caller, secretArrayProp, secure: true, isArray: true);
 
                 UpsertPropertyValue(caller, arrayCorrelationProp, secure: false, envFilter: LiveChildEnvName, value: cid, isArray: false);
                 UpsertPropertyValue(caller, tagProp, secure: false, envFilter: null, value: $"Tag_{cid}", isArray: false);
 
-                // Drive live <page-variables> Web UI: toggle IsArray on baseArrayProp and build ["node1-$tag$","node2-$tag$"] via the Array Items Builder
+                // Drive live <page-variables> Web UI: view tagProp (which has a default value), create overrideArrayProp as a brand-new IsArray variable with a default array value ["default-1"], then toggle IsArray on baseArrayProp and build ["node1-$tag$","node2-$tag$"]
                 ToggleIsArrayAndAddArrayItemsInLiveWebUiAsync(
                     browser,
+                    tagProp,
+                    overrideArrayProp,
+                    "default-1",
                     baseArrayProp,
                     LiveParentEnvName,
                     $"node1-${tagProp}$",
@@ -685,14 +687,6 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
                     value: $"cluster=${baseArrayProp}$",
                     isArray: false);
 
-                // Seed overrideArrayProp with ["default-1"] and use the live <variable-value-controls> inline array editor to append "default-2"
-                UpsertPropertyValue(
-                    caller,
-                    overrideArrayProp,
-                    secure: false,
-                    envFilter: LiveChildEnvName,
-                    value: "[\"default-1\"]",
-                    isArray: true);
                 UpsertPropertyValue(
                     caller,
                     secretArrayProp,
@@ -798,6 +792,9 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
 
         private static async Task ToggleIsArrayAndAddArrayItemsInLiveWebUiAsync(
             LiveWebUiBrowserSession browser,
+            string existingDefaultProp,
+            string brandNewArrayProp,
+            string defaultItem1,
             string baseArrayProp,
             string scopeEnvName,
             string item1,
@@ -821,10 +818,75 @@ namespace Tests.Acceptance.PowerShellRunnerExecution
                         await new Promise(r => setTimeout(r, 200));
                     }
 
-                    const propCombo = page.shadowRoot?.querySelector('#properties');
+                    let propCombo = page.shadowRoot?.querySelector('#properties');
                     if (!propCombo) {
                         throw new Error('Could not locate #properties combo box in <page-variables>');
                     }
+
+                    // 1. Select an existing variable that has a (default) value first
+                    propCombo.value = {{JsonSerializer.Serialize(existingDefaultProp)}};
+                    propCombo.dispatchEvent(new CustomEvent('value-changed', { detail: { value: {{JsonSerializer.Serialize(existingDefaultProp)}} } }));
+
+                    const initialLoadDeadline = Date.now() + 20000;
+                    while (Date.now() < initialLoadDeadline) {
+                        if (page.existingPropertySelected && !page.loadingPropertyValues && Array.isArray(page.propertyValues) && page.propertyValues.length > 0) {
+                            break;
+                        }
+                        await new Promise(r => setTimeout(r, 200));
+                    }
+
+                    // 2. Switch to 'Create New' and create brandNewArrayProp with IsArray = true
+                    page.radioValue = 'create';
+                    await page.updateComplete;
+
+                    page.newVariableName = {{JsonSerializer.Serialize(brandNewArrayProp)}};
+                    const createArrayCheckbox = page.shadowRoot?.querySelector('#variable-array');
+                    if (!createArrayCheckbox) {
+                        throw new Error('Could not locate #variable-array checkbox in Create New form');
+                    }
+                    createArrayCheckbox.checked = true;
+                    page.createVariable();
+
+                    const createDeadline = Date.now() + 20000;
+                    while (Date.now() < createDeadline) {
+                        if (!page.creatingVariable && page.radioValue === 'existing' && page.propertyName === {{JsonSerializer.Serialize(brandNewArrayProp)}} && !page.loadingPropertyValues) {
+                            break;
+                        }
+                        await new Promise(r => setTimeout(r, 200));
+                    }
+                    await page.updateComplete;
+
+                    // 3. With blank #envScope (default scope), type into #newVariableValue.inputElement and add a default array value
+                    const defaultValCombo = page.shadowRoot?.querySelector('#newVariableValue');
+                    const defaultAddItemBtn = page.shadowRoot?.querySelector('#add-array-item-btn');
+                    const defaultAddVarValBtn = page.shadowRoot?.querySelector('#add-variable-value-btn');
+                    if (!defaultValCombo || !defaultAddItemBtn || !defaultAddVarValBtn) {
+                        throw new Error('Missing Array Items Builder controls for brand-new array variable');
+                    }
+                    if (defaultValCombo.inputElement) {
+                        defaultValCombo.inputElement.value = {{JsonSerializer.Serialize(defaultItem1)}};
+                        defaultValCombo.inputElement.dispatchEvent(new Event('input', { bubbles: true }));
+                    } else {
+                        defaultValCombo.value = {{JsonSerializer.Serialize(defaultItem1)}};
+                    }
+                    defaultAddItemBtn.click();
+                    await page.updateComplete;
+
+                    defaultAddVarValBtn.click();
+                    const saveDefaultDeadline = Date.now() + 20000;
+                    while (Date.now() < saveDefaultDeadline) {
+                        if (!page.addingVariableValue && Array.isArray(page.propertyValues) && page.propertyValues.length > 0) {
+                            break;
+                        }
+                        await new Promise(r => setTimeout(r, 200));
+                    }
+                    const duplicateError = page.shadowRoot?.querySelector('error-notification');
+                    if (duplicateError) {
+                        throw new Error(`Unexpected error-notification when adding default array value to brand-new variable: ${duplicateError.getAttribute('errorMessage')}`);
+                    }
+
+                    // 4. Select baseArrayProp and toggle IsArray=true
+                    propCombo = page.shadowRoot?.querySelector('#properties');
                     propCombo.value = {{JsonSerializer.Serialize(baseArrayProp)}};
                     propCombo.dispatchEvent(new CustomEvent('value-changed', { detail: { value: {{JsonSerializer.Serialize(baseArrayProp)}} } }));
 
