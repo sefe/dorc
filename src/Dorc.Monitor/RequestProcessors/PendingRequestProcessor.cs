@@ -258,9 +258,9 @@ namespace Dorc.Monitor.RequestProcessors
                                         if (deploymentResult.Status == DeploymentResultStatus.Running.ToString() ||
                                             deploymentResult.Status == DeploymentResultStatus.Cancelled.ToString())
                                         {
-                                            const string interrupted = "The previous component execution was interrupted because the active monitor stopped or lost its lock. Reconcile infrastructure/state and submit a fresh deployment; it will not be replayed automatically.";
+                                            const string interrupted = "Component's execution was interrupted because the active monitor stopped or lost its lock. If this keeps happening reach out to DORC's support team.";
                                             logger.LogError("Component {ComponentId}: {Reason}", componentId, interrupted);
-                                            var formattedInterruptedLog = $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.ffffff}] [ERROR]   {interrupted}";
+                                            var formattedInterruptedLog = $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.ffffff}] [ERROR] {interrupted}";
                                             var existingLog = string.IsNullOrEmpty(deploymentResult.Log)
                                                 ? formattedInterruptedLog
                                                 : deploymentResult.Log + System.Environment.NewLine + formattedInterruptedLog;

@@ -43,10 +43,8 @@ namespace Dorc.Api.Tests.Controllers
             _requestsPersistentSource.GetRequestForUser(100, Arg.Any<ClaimsPrincipal>())
                 .Returns((DeploymentRequestApiModel?)null);
 
-            var actionResult = _sut.GetComponents(100) as OkObjectResult;
-
-            Assert.IsNotNull(actionResult);
-            var results = actionResult.Value as IEnumerable<DeploymentResultApiModel>;
+            var actionResult = (OkObjectResult)_sut.GetComponents(100);
+            var results = (IEnumerable<DeploymentResultApiModel>)actionResult.Value!;
             Assert.IsNotNull(results);
             Assert.AreEqual(0, results.Count());
         }
@@ -62,9 +60,7 @@ namespace Dorc.Api.Tests.Controllers
             };
             _requestsPersistentSource.GetDeploymentResultsForRequest(100).Returns(models);
 
-            var actionResult = _sut.GetComponents(100) as OkObjectResult;
-
-            Assert.IsNotNull(actionResult);
+            var actionResult = (OkObjectResult)_sut.GetComponents(100);
             _deploymentLogService.Received(1).EnrichDeploymentResultsWithLogs(models, 3);
             Assert.AreSame(models, actionResult.Value);
         }
@@ -101,15 +97,13 @@ namespace Dorc.Api.Tests.Controllers
         {
             _requestsPersistentSource.GetRequestForUser(2105132, Arg.Any<ClaimsPrincipal>())
                 .Returns(new DeploymentRequestApiModel { Id = 2105132 });
-            const string interruptedLine = "[2026-11-24 15:23:10.000000] [ERROR]   The previous component execution was interrupted because the active monitor stopped or lost its lock. Reconcile infrastructure/state and submit a fresh deployment; it will not be replayed automatically.";
+            const string interruptedLine = "[2026-11-24 15:23:10.000000] [ERROR] Component's execution was interrupted because the active monitor stopped or lost its lock. If this keeps happening reach out to DORC's support team.";
             _requestsPersistentSource.GetDeploymentResults(10)
                 .Returns(new DeploymentResultApiModel { Id = 10, RequestId = 2105132, Log = interruptedLine });
             _deploymentLogService.GetLogsForSingleResult(2105132, 10)
                 .Returns("[2026-11-24 15:19:40.938692] [INFO]   Online and available for deployment");
 
-            var actionResult = _sut.GetLog(2105132, 10) as OkObjectResult;
-
-            Assert.IsNotNull(actionResult);
+            var actionResult = (OkObjectResult)_sut.GetLog(2105132, 10);
             var expected = "[2026-11-24 15:19:40.938692] [INFO]   Online and available for deployment"
                 + Environment.NewLine
                 + interruptedLine;
@@ -125,13 +119,11 @@ namespace Dorc.Api.Tests.Controllers
                 .Returns(new DeploymentResultApiModel { Id = 10, RequestId = 100, Log = "Persisted SQL log" });
 
             _deploymentLogService.GetLogsForSingleResult(100, 10).Returns(string.Empty);
-            var emptyResult = _sut.GetLog(100, 10) as OkObjectResult;
-            Assert.IsNotNull(emptyResult);
+            var emptyResult = (OkObjectResult)_sut.GetLog(100, 10);
             Assert.AreEqual("Persisted SQL log", emptyResult.Value);
 
             _deploymentLogService.GetLogsForSingleResult(100, 10).Returns("No logs in the OpenSearch or it is unavailable.");
-            var unavailableResult = _sut.GetLog(100, 10) as OkObjectResult;
-            Assert.IsNotNull(unavailableResult);
+            var unavailableResult = (OkObjectResult)_sut.GetLog(100, 10);
             Assert.AreEqual("Persisted SQL log", unavailableResult.Value);
         }
 
@@ -145,14 +137,12 @@ namespace Dorc.Api.Tests.Controllers
 
             _requestsPersistentSource.GetDeploymentResults(10)
                 .Returns(new DeploymentResultApiModel { Id = 10, RequestId = 100, Log = "Persisted SQL log" });
-            var duplicateResult = _sut.GetLog(100, 10) as OkObjectResult;
-            Assert.IsNotNull(duplicateResult);
+            var duplicateResult = (OkObjectResult)_sut.GetLog(100, 10);
             Assert.AreEqual("Line 1\nPersisted SQL log", duplicateResult.Value);
 
             _requestsPersistentSource.GetDeploymentResults(10)
                 .Returns(new DeploymentResultApiModel { Id = 10, RequestId = 100, Log = "   " });
-            var blankResult = _sut.GetLog(100, 10) as OkObjectResult;
-            Assert.IsNotNull(blankResult);
+            var blankResult = (OkObjectResult)_sut.GetLog(100, 10);
             Assert.AreEqual("Line 1\nPersisted SQL log", blankResult.Value);
         }
 
@@ -196,6 +186,37 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual("SQL only log", resultWithNoOpenSearchLogs.Log);
         }
 
+        [TestMethod]
+        public void DeploymentLogService_EnrichDeploymentResultsWithLogs_WithPreviewLimit_AppendsOnlyLastPersistedLine()
+        {
+            var openSearchClient = Substitute.For<IOpenSearchClient>();
+            var logger = Substitute.For<ILogger<DeploymentLogService>>();
+            var service = new DeploymentLogService(openSearchClient, logger, "deployment-result-*");
+
+            var searchResponse = Substitute.For<ISearchResponse<DeployOpenSearchLogModel>>();
+            searchResponse.IsValid.Returns(true);
+            searchResponse.Documents.Returns(new List<DeployOpenSearchLogModel>
+            {
+                new(100, 10, "Runner line 1", OpenSearch.Client.LogLevel.Info)
+                {
+                    timestamp = new DateTime(2026, 11, 24, 15, 19, 40, DateTimeKind.Utc)
+                }
+            });
+            openSearchClient.Search(Arg.Any<Func<SearchDescriptor<DeployOpenSearchLogModel>, ISearchRequest>>())
+                .Returns(searchResponse);
+
+            var result = new DeploymentResultApiModel
+            {
+                Id = 10,
+                RequestId = 100,
+                Log = "[1] old line" + Environment.NewLine + "[2] [ERROR] Interrupted" + Environment.NewLine
+            };
+
+            service.EnrichDeploymentResultsWithLogs(new[] { result }, 3);
+
+            StringAssert.EndsWith(result.Log, Environment.NewLine + "[2] [ERROR] Interrupted");
+            Assert.IsFalse(result.Log!.Contains("old line"));
+        }
         [TestMethod]
         public void DeploymentLogService_EnrichDeploymentResultsWithLogs_WhenOpenSearchThrows_PreservesExistingLogOrSetsFallback()
         {

@@ -506,7 +506,7 @@ namespace Dorc.Monitor.Tests
                 cancelledResult,
                 Arg.Is<string>(log =>
                     log.Contains("Job 41835857 Running - 95%") &&
-                    log.Contains("[ERROR]   The previous component execution was interrupted because the active monitor stopped or lost its lock.")));
+                    log.Contains("[ERROR] Component's execution was interrupted because the active monitor stopped or lost its lock.")));
             mockRequestsPersistentSource.Received(1).UpdateResultStatus(
                 cancelledResult,
                 Arg.Is<DeploymentResultStatus>(s => s.Value == DeploymentResultStatus.Failed.Value),
@@ -664,7 +664,7 @@ namespace Dorc.Monitor.Tests
 
             mockRequestsPersistentSource.Received(1).UpdateResultLog(
                 runningResult1,
-                Arg.Is<string>(log => log.Contains("[ERROR]   The previous component execution was interrupted because the active monitor stopped or lost its lock.")));
+                Arg.Is<string>(log => log.Contains("[ERROR] Component's execution was interrupted because the active monitor stopped or lost its lock.")));
             mockComponentsPersistentSource.Received(1).SaveEnvComponentStatus(
                 1,
                 comp1,
