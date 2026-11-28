@@ -28,6 +28,7 @@ namespace Dorc.Monitor.RequestProcessors
         private readonly ILoggerFactory _loggerFactory;
         private readonly IDeploymentNotificationSink _notificationSink;
         private readonly IGitHubArtifactDownloader _gitHubArtifactDownloader;
+        private readonly IComponentsPersistentSource _componentsPersistentSource;
 
         public PendingRequestProcessor(
             ILoggerFactory loggerFactory,
@@ -41,12 +42,14 @@ namespace Dorc.Monitor.RequestProcessors
             IPropertyEvaluator propertyEvaluator,
             IDeploymentEventsPublisher eventPublisher,
             IDeploymentNotificationSink notificationSink,
-            IGitHubArtifactDownloader gitHubArtifactDownloader)
+            IGitHubArtifactDownloader gitHubArtifactDownloader,
+            IComponentsPersistentSource? componentsPersistentSource = null)
         {
             _loggerFactory = loggerFactory;
             _propertyEvaluator = propertyEvaluator;
             _configValuesPersistentSource = configValuesPersistentSource;
             _gitHubArtifactDownloader = gitHubArtifactDownloader;
+            _componentsPersistentSource = componentsPersistentSource!;
             this.logger = _loggerFactory.CreateLogger<PendingRequestProcessor>();
 
             this.componentProcessor = componentProcessor;
@@ -249,18 +252,40 @@ namespace Dorc.Monitor.RequestProcessors
                                         deploymentRequestStatus == DeploymentRequestStatus.Completed)
                                         deploymentRequestStatus = DeploymentRequestStatus.WaitingConfirmation;
                                     else if (deploymentResult.Status == DeploymentResultStatus.Failed.ToString() ||
-                                             deploymentResult.Status == DeploymentResultStatus.Running.ToString())
+                                             deploymentResult.Status == DeploymentResultStatus.Running.ToString() ||
+                                             deploymentResult.Status == DeploymentResultStatus.Cancelled.ToString())
                                     {
-                                        deploymentRequestStatus = DeploymentRequestStatus.Failed;
-                                        if (deploymentResult.Status == DeploymentResultStatus.Running.ToString())
+                                        if (deploymentResult.Status == DeploymentResultStatus.Running.ToString() ||
+                                            deploymentResult.Status == DeploymentResultStatus.Cancelled.ToString())
                                         {
-                                            const string interrupted = "The previous component execution was interrupted. Reconcile infrastructure/state and submit a fresh deployment; it will not be replayed automatically.";
+                                            const string interrupted = "Component's execution was interrupted because the active monitor stopped or lost its lock. If this keeps happening reach out to DORC's support team.";
                                             logger.LogError("Component {ComponentId}: {Reason}", componentId, interrupted);
-                                            requestsPersistentSource.UpdateResultLog(deploymentResult,
-                                                deploymentResult.Log + System.Environment.NewLine + interrupted);
-                                            requestsPersistentSource.UpdateResultStatus(deploymentResult,
-                                                DeploymentResultStatus.Failed, DeploymentResultStatus.Running);
+                                            var formattedInterruptedLog = $"[{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss.ffffff}] [ERROR] {interrupted}";
+                                            var existingLog = string.IsNullOrEmpty(deploymentResult.Log)
+                                                ? formattedInterruptedLog
+                                                : deploymentResult.Log + System.Environment.NewLine + formattedInterruptedLog;
+                                            requestsPersistentSource.UpdateResultLog(deploymentResult, existingLog);
+                                            var priorStatus = deploymentResult.Status == DeploymentResultStatus.Cancelled.ToString()
+                                                ? DeploymentResultStatus.Cancelled
+                                                : DeploymentResultStatus.Running;
+                                            var transitionedToFailed = requestsPersistentSource.UpdateResultStatus(deploymentResult,
+                                                DeploymentResultStatus.Failed, priorStatus);
+                                            if (transitionedToFailed)
+                                            {
+                                                _componentsPersistentSource?.SaveEnvComponentStatus(
+                                                    environment.EnvironmentId,
+                                                    enabledNonSkippedComponent,
+                                                    DeploymentResultStatus.Failed.ToString(),
+                                                    requestToExecute.Request.Id);
+
+                                                eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                                                {
+                                                    Status = DeploymentResultStatus.Failed.ToString()
+                                                }).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                                                    "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
+                                            }
                                         }
+                                        deploymentRequestStatus = DeploymentRequestStatus.Failed;
                                         if (enabledNonSkippedComponent.StopOnFailure)
                                             break;
                                     }
@@ -299,7 +324,57 @@ namespace Dorc.Monitor.RequestProcessors
                             }
                             catch (OperationCanceledException)
                             {
-                                var currentDbRequestStatus = requestsPersistentSource.GetRequest(requestToExecute.Request.Id).Status;
+                                string? currentDbRequestStatus;
+                                try
+                                {
+                                    currentDbRequestStatus = requestsPersistentSource.GetRequest(requestToExecute.Request.Id)?.Status;
+                                }
+                                catch (Exception statusEx)
+                                {
+                                    logger.LogWarning(
+                                        statusEx,
+                                        "Failed to read request {RequestId} status after cancellation; leaving request for startup recovery.",
+                                        requestToExecute.Request.Id);
+                                    return;
+                                }
+
+                                if (string.Equals(currentDbRequestStatus, DeploymentRequestStatus.Running.ToString(), StringComparison.OrdinalIgnoreCase))
+                                {
+                                    try
+                                    {
+                                        var resumed = requestsPersistentSource.ResumeInterruptedRunningRequest(
+                                            requestToExecute.Request.Id,
+                                            deploymentStartedTime);
+
+                                        if (resumed > 0)
+                                        {
+                                            requestToExecute.Request.Status = DeploymentRequestStatus.Pending.ToString();
+                                            eventsPublisher.PublishRequestStatusChangedAsync(new DeploymentRequestEventData(
+                                                RequestId: requestToExecute.Request.Id,
+                                                Status: DeploymentRequestStatus.Pending.ToString(),
+                                                StartedTime: null,
+                                                CompletedTime: null,
+                                                Timestamp: DateTimeOffset.UtcNow
+                                            )).ContinueWith(t => logger.LogWarning(t.Exception!.InnerException,
+                                                "fire-and-forget publish failed for requestId={RequestId}", requestToExecute.Request.Id),
+                                                TaskContinuationOptions.OnlyOnFaulted);
+                                        }
+
+                                        logger.LogWarning(
+                                            "Request {RequestId} execution was interrupted while still Running in DB (monitor shutdown or lock loss); transitioned Running -> Pending for recovery.",
+                                            requestToExecute.Request.Id);
+                                    }
+                                    catch (Exception resumeEx)
+                                    {
+                                        logger.LogWarning(
+                                            resumeEx,
+                                            "Failed to immediately resume interrupted Running request {RequestId}; leaving Running for startup recovery.",
+                                            requestToExecute.Request.Id);
+                                    }
+
+                                    return;
+                                }
+
                                 deploymentRequestStatus = currentDbRequestStatus != DeploymentRequestStatus.Pending.ToString()
                                     ? DeploymentRequestStatus.Cancelled
                                     : DeploymentRequestStatus.Pending;
@@ -457,11 +532,15 @@ namespace Dorc.Monitor.RequestProcessors
         {
             try
             {
+                var includeRunningResults = requestStatus == DeploymentRequestStatus.Cancelled ||
+                    requestStatus == DeploymentRequestStatus.Pending;
+
                 var pendingResults = requestsPersistentSource
                     .GetDeploymentResultsForRequest(requestId)
                     .Where(r => r.Status == DeploymentResultStatus.Pending.ToString() ||
                         r.Status == DeploymentResultStatus.WaitingConfirmation.ToString() ||
-                        r.Status == DeploymentResultStatus.Confirmed.ToString())
+                        r.Status == DeploymentResultStatus.Confirmed.ToString() ||
+                        (includeRunningResults && r.Status == DeploymentResultStatus.Running.ToString()))
                     .ToList();
 
                 if (pendingResults.Count == 0)
@@ -473,7 +552,17 @@ namespace Dorc.Monitor.RequestProcessors
 
                 foreach (var pendingResult in pendingResults)
                 {
-                    requestsPersistentSource.UpdateResultStatus(pendingResult, DeploymentResultStatus.Cancelled);
+                    var updated = pendingResult.Status == DeploymentResultStatus.Running.ToString()
+                        ? requestsPersistentSource.UpdateResultStatus(
+                            pendingResult,
+                            DeploymentResultStatus.Cancelled,
+                            DeploymentResultStatus.Running)
+                        : requestsPersistentSource.UpdateResultStatus(
+                            pendingResult,
+                            DeploymentResultStatus.Cancelled);
+
+                    if (!updated)
+                        continue;
 
                     eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(pendingResult)
                     {

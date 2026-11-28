@@ -32,13 +32,15 @@ namespace Dorc.OpenSearchData.Sources
 
                 var logs = GetLogsFromOpenSearch(requestIds, deploymentResultIds, maxLogsPerResult);
 
-                MapLogsToDeploymentResults(deploymentResults, logs);
+                MapLogsToDeploymentResults(deploymentResults, logs, maxLogsPerResult.HasValue);
             }
             catch (Exception e)
             {
                 _logger.LogError(e, "Request for the deployment result logs to the OpenSearch failed.");
-                foreach (var deploymentResult in deploymentResults)
+                foreach (var deploymentResult in deploymentResults.Where(r => string.IsNullOrWhiteSpace(r.Log)))
+                {
                     deploymentResult.Log = "No logs in the OpenSearch or it is unavailable.";
+                }
             }
         }
 
@@ -84,16 +86,29 @@ namespace Dorc.OpenSearchData.Sources
             return logs;
         }
 
-        private void MapLogsToDeploymentResults(IEnumerable<DeploymentResultApiModel> deploymentResults, IEnumerable<DeployOpenSearchLogModel> logs)
+        private void MapLogsToDeploymentResults(IEnumerable<DeploymentResultApiModel> deploymentResults, IEnumerable<DeployOpenSearchLogModel> logs, bool isPreview)
         {
             foreach (var deploymentResult in deploymentResults)
             {
-                var deploymentResultLogs = logs.Where(d => d.deployment_result_id == deploymentResult.Id && d.request_id == deploymentResult.RequestId)?.OrderBy(d => d.timestamp);
-                if (deploymentResultLogs != null && deploymentResultLogs.Any())
+                var deploymentResultLogs = logs
+                    .Where(d => d.deployment_result_id == deploymentResult.Id && d.request_id == deploymentResult.RequestId)
+                    .OrderBy(d => d.timestamp)
+                    .ToList();
+                if (deploymentResultLogs.Count > 0)
                 {
-                    deploymentResult.Log = String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.ffffff")}] {GetLogLevelString(d)} {d.message}"));
+                    var persistedLog = isPreview ? GetLastLine(deploymentResult.Log) : deploymentResult.Log;
+                    var openSearchLog = String.Join(Environment.NewLine, deploymentResultLogs.Select(d => $"[{d.timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss.ffffff")}] {GetLogLevelString(d)} {d.message}"));
+                    deploymentResult.Log = string.IsNullOrWhiteSpace(persistedLog) || openSearchLog.Contains(persistedLog, StringComparison.Ordinal)
+                        ? openSearchLog
+                        : openSearchLog + Environment.NewLine + persistedLog;
                 }
             }
+        }
+
+        // Previews only need the most recent persisted entry (the monitor interruption diagnostic is appended last).
+        private static string? GetLastLine(string? log)
+        {
+            return log?.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).LastOrDefault();
         }
 
         private string GetLogLevelString(DeployOpenSearchLogModel logModel)

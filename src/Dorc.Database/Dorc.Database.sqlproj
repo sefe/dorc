@@ -22,6 +22,9 @@
     <BaseOutputPath>sql\</BaseOutputPath>
     <OutputPath>sql\$(Configuration)\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <!-- MSBuild.Sdk.SqlProj 4.2.0 only lists net8.0/net9.0/net10.0 tool assemblies; clamp
+         BundledNETCoreAppTargetFrameworkVersion when building under a .NET 11+ SDK. -->
+    <BundledNETCoreAppTargetFrameworkVersion Condition="'$(BundledNETCoreAppTargetFrameworkVersion)' == '11.0'">10.0</BundledNETCoreAppTargetFrameworkVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
     <TargetDatabase>Deploy.Database</TargetDatabase>
