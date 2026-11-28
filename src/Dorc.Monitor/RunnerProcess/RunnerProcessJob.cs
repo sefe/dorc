@@ -8,6 +8,8 @@ namespace Dorc.Monitor.RunnerProcess;
 // Closing the Monitor's handle also kills descendants after Monitor failure.
 internal sealed class RunnerProcessJob : SafeHandleZeroOrMinusOneIsInvalid
 {
+    private const uint JobObjectLimitKillOnJobClose = 0x00002000;
+
     private RunnerProcessJob() : base(true) { }
 
     public static RunnerProcessJob Create()
@@ -15,7 +17,7 @@ internal sealed class RunnerProcessJob : SafeHandleZeroOrMinusOneIsInvalid
         var job = CreateJobObject(IntPtr.Zero, null);
         if (job.IsInvalid) throw new Win32Exception(Marshal.GetLastWin32Error());
         var information = new ExtendedLimitInformation();
-        information.BasicLimitInformation.LimitFlags = 0x2000; // KILL_ON_JOB_CLOSE
+        information.BasicLimitInformation.LimitFlags = JobObjectLimitKillOnJobClose;
         if (!SetInformationJobObject(job, 9, ref information, (uint)Marshal.SizeOf<ExtendedLimitInformation>()))
         {
             var error = Marshal.GetLastWin32Error();

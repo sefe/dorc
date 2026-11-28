@@ -16,7 +16,7 @@ namespace Dorc.PersistentData.Sources
     public class PropertyValuesPersistentSource : IPropertyValuesPersistentSource
     {
         private const string EnvironmentPropertyFilterType = "Environment";
-        private readonly IDictionary<string, PropertyValueDto> _cachedProperties = new ConcurrentDictionary<string, PropertyValueDto>();
+        private readonly IDictionary<string, PropertyValueDto> _cachedProperties = new ConcurrentDictionary<string, PropertyValueDto>(StringComparer.OrdinalIgnoreCase);
         private readonly IDeploymentContextFactory _contextFactory;
         private readonly IPropertyEncryptor _encrypt;
         private readonly Dictionary<PropertyFilter, string> _filters = new Dictionary<PropertyFilter, string>();
@@ -108,7 +108,8 @@ namespace Dorc.PersistentData.Sources
                 var propertyValue = context.PropertyValues
                     .Include(pv => pv.Filters)
                     .Include(pv => pv.Property)
-                    .First(pv => pv.Id == propertyValueId);
+                    .FirstOrDefault(pv => pv.Id == propertyValueId)
+                    ?? throw new ArgumentException($"PropertyValue with ID {propertyValueId} not found.");
                 propertyValue.Value = newValue;
 
                 context.SaveChanges();
@@ -124,9 +125,10 @@ namespace Dorc.PersistentData.Sources
                 {
                     var envProps = GetEnvironmentProperties(environmentName, propertyName).ToList();
                     
-                    if (!envProps.Any(p => p.Property.Name == propertyName))
+                    if (!envProps.Any(p => string.Equals(p.Property.Name, propertyName, StringComparison.OrdinalIgnoreCase)))
                     {
-                        var environmentSecure = context.Environments.First(e => e.Name.Equals(environmentName)).Secure;
+                        var environment = context.Environments.FirstOrDefault(e => e.Name.Equals(environmentName));
+                        var environmentSecure = environment == null || environment.Secure;
                         if (!environmentSecure)
                         {
                             var globalProperties = GetGlobalProperties(propertyName);
@@ -175,7 +177,7 @@ namespace Dorc.PersistentData.Sources
                 if (property.Secure)
                 {
                     propertyValue.Value = property.IsArray
-                        ? EncryptArrayValue(propertyValueDto.Value, _encrypt)
+                        ? EncryptArrayValue(propertyValue.Value, _encrypt)
                         : _encrypt.EncryptValue(propertyValue.Value);
                 }
                 context.PropertyValues.Add(propertyValue);
@@ -303,7 +305,12 @@ namespace Dorc.PersistentData.Sources
 
         public bool IsCachedPropertySecure(string propertyName)
         {
-            return _cachedProperties.ContainsKey(propertyName) && _cachedProperties[propertyName].Property.Secure;
+            return _cachedProperties.TryGetValue(propertyName, out var cachedProperty) && cachedProperty.Property.Secure;
+        }
+
+        public bool IsCachedPropertyArray(string propertyName)
+        {
+            return _cachedProperties.TryGetValue(propertyName, out var cachedProperty) && cachedProperty.Property.IsArray;
         }
 
         public IDictionary<string, PropertyValueDto> LoadAllPropertiesIntoCache()
@@ -767,11 +774,35 @@ namespace Dorc.PersistentData.Sources
 
         private static PropertyValue MapToPropertyValue(PropertyValueDto pv, Property prop)
         {
+            var rawValue = pv.Value?.ToString() ?? string.Empty;
+            if (prop.IsArray)
+            {
+                rawValue = NormalizeArrayValue(rawValue);
+            }
+
             return new PropertyValue
             {
-                Value = prop.IsArray ? JsonSerializer.Serialize(pv.Value) : pv.Value.ToString(),
+                Value = rawValue,
                 Property = prop,
             };
+        }
+
+        private static bool IsValidJsonArray(string value)
+        {
+            var trimmed = value.TrimStart();
+            if (!trimmed.StartsWith("[", StringComparison.Ordinal))
+                return false;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(value);
+                return doc.RootElement.ValueKind == JsonValueKind.Array
+                    && doc.RootElement.EnumerateArray().All(e => e.ValueKind == JsonValueKind.String);
+            }
+            catch (JsonException)
+            {
+                return false;
+            }
         }
 
         private string? GetPropertyValue(PropertyValue propertyValue)
@@ -811,22 +842,29 @@ namespace Dorc.PersistentData.Sources
         // Secure array values are stored as a JSON array of per-element ciphertexts. Encrypt and
         // decrypt must be symmetric: encrypt each element, decrypt each element. (A previous
         // version encrypted the whole serialized array for every element, corrupting the data.)
-        internal static string EncryptArrayValue(string serializedArray, IPropertyEncryptor encryptor)
+        public static string NormalizeArrayValue(string serializedArray)
         {
-            var items = JsonSerializer.Deserialize<string[]>(serializedArray);
-            if (items == null)
-                return serializedArray;
+            var normalized = IsValidJsonArray(serializedArray)
+                ? serializedArray
+                : JsonSerializer.Serialize(new[] { serializedArray });
+            var items = JsonSerializer.Deserialize<string[]>(normalized)!;
+            return JsonSerializer.Serialize(items);
+        }
 
+        public static string EncryptArrayValue(string serializedArray, IPropertyEncryptor encryptor)
+        {
+            var normalized = NormalizeArrayValue(serializedArray);
+            var items = JsonSerializer.Deserialize<string[]>(normalized)!;
             var encrypted = items.Select(encryptor.EncryptValue).ToList();
             return JsonSerializer.Serialize(encrypted);
         }
 
-        internal static string DecryptArrayValue(string serializedArray, IPropertyEncryptor encryptor)
+        public static string DecryptArrayValue(string serializedArray, IPropertyEncryptor encryptor)
         {
-            var items = JsonSerializer.Deserialize<string[]>(serializedArray);
-            if (items == null)
-                return serializedArray;
+            if (!IsValidJsonArray(serializedArray))
+                return encryptor.DecryptValue(serializedArray);
 
+            var items = JsonSerializer.Deserialize<string[]>(serializedArray)!;
             var decrypted = items.Select(encryptor.DecryptValue).ToList();
             return JsonSerializer.Serialize(decrypted);
         }

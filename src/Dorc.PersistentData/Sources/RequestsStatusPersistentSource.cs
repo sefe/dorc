@@ -181,12 +181,13 @@ namespace Dorc.PersistentData.Sources
         public static IQueryable<DeploymentRequestApiModel> GetDeploymentRequestApiModels(IDeploymentContext context, string userName, List<string> userSids)
         {
             var reqStatusesQueryable = from req in context.DeploymentRequests
-                                       join environment in context.Environments on req.Environment equals
-                                           environment.Name
+                                       join envJoin in context.Environments on req.Environment equals
+                                           envJoin.Name into envGroup
+                                       from environment in envGroup.DefaultIfEmpty()
                                        let permissions =
                                            (from env in context.Environments
                                             join ac in context.AccessControls on env.ObjectId equals ac.ObjectId
-                                            where env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid))
+                                            where environment != null && env.Name == environment.Name && (EF.Constant(userSids).Contains(ac.Sid) || ac.Pid != null && EF.Constant(userSids).Contains(ac.Pid))
                                             select new { ac.Allow, ac.Deny }).ToList()
                                        let hasDeny = permissions.Any(p => p.Deny != 0)
                                        let isPermissioned =

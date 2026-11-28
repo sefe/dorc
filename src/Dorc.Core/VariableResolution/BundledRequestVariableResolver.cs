@@ -8,7 +8,10 @@ namespace Dorc.Core.VariableResolution
         private readonly IPropertyEvaluator _evaluator;
         private readonly IPropertyExpressionEvaluator _expressionEvaluator;
 
-        private readonly ConcurrentDictionary<string, VariableValue?> localProperties = new();
+        private readonly ConcurrentDictionary<string, VariableValue?> localProperties = new(StringComparer.OrdinalIgnoreCase);
+        private readonly ConcurrentDictionary<string, byte> _pinnedProperties = new(StringComparer.OrdinalIgnoreCase);
+        private readonly ThreadLocal<HashSet<string>> _activeResolutionPath =
+            new(() => new HashSet<string>(StringComparer.OrdinalIgnoreCase));
         private readonly RequestSuppliedPropertyTracker _requestSuppliedProperties = new();
         private readonly IBundledRequestVariableLoader _bundledRequestVariableLoader;
 
@@ -22,21 +25,31 @@ namespace Dorc.Core.VariableResolution
 
         public IDictionary<string, VariableValue> LoadProperties()
         {
-            foreach (var propertyValuePair in _bundledRequestVariableLoader.GetVariables())
+            foreach (var existingKey in localProperties.Keys.Where(existingKey => !_pinnedProperties.ContainsKey(existingKey)).ToList())
             {
-                if (!localProperties.ContainsKey(propertyValuePair.PropertyName))
-                {
-                    SetPropertyValue(propertyValuePair.PropertyName, propertyValuePair.PropertyValue);
-                }
+                localProperties.TryRemove(existingKey, out _);
+            }
+
+            foreach (var propertyValuePair in _bundledRequestVariableLoader.GetVariables().Where(p => !_pinnedProperties.ContainsKey(p.PropertyName)))
+            {
+                SetUnpinnedPropertyValue(propertyValuePair.PropertyName, propertyValuePair.PropertyValue);
             }
 
             var dictionary = localProperties.Keys.AsParallel()
-                .ToDictionary(x => x, GetPropertyValue);
+                .Select(x => new { Key = x, Value = GetPropertyValue(x) })
+                .Where(x => x.Value != null)
+                .ToDictionary(x => x.Key, x => x.Value!);
 
             return dictionary;
         }
 
         public void SetPropertyValue(string property, VariableValue? value)
+        {
+            _pinnedProperties[property] = 0;
+            SetUnpinnedPropertyValue(property, value);
+        }
+
+        private void SetUnpinnedPropertyValue(string property, VariableValue? value)
         {
             if (localProperties.TryAdd(property, value))
             {
@@ -48,10 +61,16 @@ namespace Dorc.Core.VariableResolution
 
         public void SetPropertyValue(string property, string value)
         {
+            _pinnedProperties[property] = 0;
+            SetUnpinnedPropertyValue(property, value);
+        }
+
+        private void SetUnpinnedPropertyValue(string property, string value)
+        {
             value ??= string.Empty;
             var variableValue = new VariableValue { Value = value, Type = value.GetType() };
 
-            SetPropertyValue(property, variableValue);
+            SetUnpinnedPropertyValue(property, variableValue);
         }
 
         public void SetRequestSuppliedPropertyValue(string property, string value)
@@ -62,25 +81,43 @@ namespace Dorc.Core.VariableResolution
 
         public VariableValue? GetPropertyValue(string property)
         {
-            VariableValue? propertyValue;
-            if (localProperties.TryGetValue(property, out var localProperty))
-            {
-                propertyValue = EvaluatePropertyValue(localProperty);
-            }
-            else
+            if (string.IsNullOrEmpty(property))
             {
                 return null;
             }
 
-            // As in VariableResolver: expression evaluation compiles and runs C#, so it is
-            // applied only where no request-supplied text can reach the evaluated string.
-            if (_requestSuppliedProperties.IsInfluenced(property, RawValueOf))
+            var resolutionPath = _activeResolutionPath.Value!;
+            if (!resolutionPath.Add(property))
             {
-                return propertyValue;
+                return null;
             }
 
-            var o = _expressionEvaluator.Evaluate(propertyValue.Value);
-            return new VariableValue { Value = o, Type = o.GetType() };
+            try
+            {
+                VariableValue? propertyValue;
+                if (localProperties.TryGetValue(property, out var localProperty))
+                {
+                    propertyValue = EvaluatePropertyValue(localProperty);
+                }
+                else
+                {
+                    return null;
+                }
+
+                // As in VariableResolver: expression evaluation compiles and runs C#, so it is
+                // applied only where no request-supplied text can reach the evaluated string.
+                if (_requestSuppliedProperties.IsInfluenced(property, RawValueOf))
+                {
+                    return propertyValue;
+                }
+
+                var o = _expressionEvaluator.Evaluate(propertyValue.Value);
+                return new VariableValue { Value = o, Type = o.GetType() };
+            }
+            finally
+            {
+                resolutionPath.Remove(property);
+            }
         }
 
         public bool PropertiesLoaded()

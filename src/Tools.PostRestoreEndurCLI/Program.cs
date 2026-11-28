@@ -1,9 +1,12 @@
-﻿using System;
+using System;
 using System.IO;
+using System.Runtime.CompilerServices;
 using Dorc.Core;
 using Dorc.Core.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+
+[assembly: InternalsVisibleTo("Tools.RequestCLI.Tests")]
 
 namespace Tools.PostRestoreEndurCLI
 {
@@ -11,10 +14,10 @@ namespace Tools.PostRestoreEndurCLI
     {
         private static ILogger _logger;
 
-        private static void Main(string[] args)
+        internal static int Main(string[] args)
         {
             var configuration = new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
+                .SetBasePath(AppContext.BaseDirectory)
                 .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                 .Build();
 
@@ -48,25 +51,35 @@ namespace Tools.PostRestoreEndurCLI
             {
                 try
                 {
-                    var apiCaller = new ApiCaller(new DorcOAuthClientConfiguration(configuration));
-                    var libRefreshEndur = new RefreshEndur(_logger, apiCaller);
+                    var apiClient = new DorcApiClient(new DorcOAuthClientConfiguration(configuration));
+                    var libRefreshEndur = new RefreshEndur(_logger, apiClient);
 
                     Output("Updating User tables to Dummy Values for: " + strEnvironment);
-                    libRefreshEndur.UpdateUserTablesToDummyValues(strEnvironment);
+                    var succeeded = libRefreshEndur.UpdateUserTablesToDummyValues(strEnvironment);
 
-                    libRefreshEndur.UpdateAppServerDetails(strEnvironment, strSVCAccount);
-                    libRefreshEndur.UpdateEndurDBVars(strEnvironment);
-                    libRefreshEndur.UpdateTPMConfig(strEnvironment);
+                    succeeded &= libRefreshEndur.UpdateAppServerDetails(strEnvironment, strSVCAccount);
+                    succeeded &= libRefreshEndur.UpdateEndurDBVars(strEnvironment);
+                    succeeded &= libRefreshEndur.UpdateTPMConfig(strEnvironment);
                     if (bolFoldDownAppServers || bolOnlyClearSchedules)
-                        libRefreshEndur.FoldDownRunsites(strEnvironment, bolOnlyClearSchedules);
+                        succeeded &= libRefreshEndur.FoldDownRunsites(strEnvironment, bolOnlyClearSchedules);
+                    succeeded &= libRefreshEndur.UpdateEndurUsers(strEnvironment);
                     libRefreshEndur.UpdateEnvironmentHistory(strEnvironment, strBackupFile, "Self service refresh", strEmailAddress,
                         "SelfService");
-                    libRefreshEndur.UpdateEndurUsers(strEnvironment);
+
+                    if (!succeeded)
+                    {
+                        Environment.ExitCode = 1;
+                        return 1;
+                    }
+
+                    return 0;
                 }
                 catch (InvalidOperationException configEx) when (configEx.Message.Contains("not configured"))
                 {
                     Output("Configuration Error: " + configEx.Message);
                     Output("appsettings error");
+                    Environment.ExitCode = 1;
+                    return 1;
                 }
                 catch (Exception e)
                 {
@@ -75,11 +88,15 @@ namespace Tools.PostRestoreEndurCLI
                     {
                         Output("Inner Error: " + e.InnerException.Message);
                     }
+                    Environment.ExitCode = 1;
+                    return 1;
                 }
             }
             else
             {
                 Console.WriteLine("Invalid parameters...");
+                Environment.ExitCode = 1;
+                return 1;
             }
         }
 

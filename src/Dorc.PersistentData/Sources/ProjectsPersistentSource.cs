@@ -510,6 +510,14 @@ namespace Dorc.PersistentData.Sources
                 if (project == null)
                     throw new ArgumentException($"Project with ID {projectId} not found.");
 
+                var projectAccessControls = context.AccessControls
+                    ?.Where(ac => ac.ObjectId == project.ObjectId)
+                    .ToList();
+                if (projectAccessControls is { Count: > 0 })
+                {
+                    context.AccessControls!.RemoveRange(projectAccessControls);
+                }
+
                 // Remove relationships before deleting the project
                 project.Components.Clear();
                 project.Environments.Clear();

@@ -374,12 +374,31 @@ namespace Dorc.Api.Tests.Controllers
         [TestMethod]
         public void Put_CoversAllValidationAndHierarchyCovenantBranches()
         {
+            // 0. Null body or whitespace EnvironmentName on Delete and Put -> 400
+            var delNull = _controller.Delete(null!);
+            Assert.IsInstanceOfType<ObjectResult>(delNull);
+            Assert.AreEqual(StatusCodes.Status400BadRequest, ((ObjectResult)delNull).StatusCode);
+
+            var delBlank = _controller.Delete(new EnvironmentApiModel { EnvironmentName = "   " });
+            Assert.IsInstanceOfType<ObjectResult>(delBlank);
+            Assert.AreEqual(StatusCodes.Status400BadRequest, ((ObjectResult)delBlank).StatusCode);
+
+            var putNull = _controller.Put(null!);
+            Assert.IsInstanceOfType<ObjectResult>(putNull);
+            Assert.AreEqual(StatusCodes.Status400BadRequest, ((ObjectResult)putNull).StatusCode);
+
             // 1. Invalid EnvironmentId <= 0 -> 400
             Assert.AreEqual(StatusCodes.Status400BadRequest, (_controller.Put(new EnvironmentApiModel { EnvironmentId = 0 }) as ObjectResult)?.StatusCode);
 
             // 2. Environment not found -> 404
             _environmentsPersistentSource.GetEnvironment(404, Arg.Any<ClaimsPrincipal>()).Returns((EnvironmentApiModel)null!);
             Assert.AreEqual(StatusCodes.Status404NotFound, (_controller.Put(new EnvironmentApiModel { EnvironmentId = 404 }) as ObjectResult)?.StatusCode);
+
+            // 2b. Blank/whitespace EnvironmentName on Put -> 400
+            _environmentsPersistentSource.GetEnvironment(10, Arg.Any<ClaimsPrincipal>())
+                .Returns(new EnvironmentApiModel { EnvironmentId = 10, EnvironmentName = "OldName" });
+            Assert.AreEqual(StatusCodes.Status400BadRequest,
+                (_controller.Put(new EnvironmentApiModel { EnvironmentId = 10, EnvironmentName = "   " }) as ObjectResult)?.StatusCode);
 
             // 3. Non-owner renaming environment -> 403
             _environmentsPersistentSource.GetEnvironment(10, Arg.Any<ClaimsPrincipal>())

@@ -1,4 +1,5 @@
 ﻿using Dorc.ApiModel;
+using Dorc.PersistentData;
 using Dorc.PersistentData.Sources.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -12,10 +13,14 @@ namespace Dorc.Api.Controllers
     public class RefDataSqlPortsController : ControllerBase
     {
         private readonly ISqlPortsPersistentSource _sqlPortsPersistentSource;
+        private readonly IRolePrivilegesChecker? _rolePrivilegesChecker;
 
-        public RefDataSqlPortsController(ISqlPortsPersistentSource sqlPortsPersistentSource)
+        public RefDataSqlPortsController(
+            ISqlPortsPersistentSource sqlPortsPersistentSource,
+            IRolePrivilegesChecker? rolePrivilegesChecker = null)
         {
             _sqlPortsPersistentSource = sqlPortsPersistentSource;
+            _rolePrivilegesChecker = rolePrivilegesChecker;
         }
 
         /// <summary>
@@ -56,15 +61,27 @@ namespace Dorc.Api.Controllers
         [HttpPost]
         public IActionResult Post([FromBody] SqlPortApiModel value)
         {
-            if (!User.IsInRole("Admin"))
+            var isAdmin = (_rolePrivilegesChecker?.IsAdmin(User) ?? false) || User.IsInRole("Admin");
+            if (!isAdmin)
                 throw new UnauthorizedAccessException("User must be part of the 'Admin' group to create new SQL Port");
+            if (value == null || string.IsNullOrWhiteSpace(value.InstanceName) || string.IsNullOrWhiteSpace(value.SqlPort))
+                return StatusCode(StatusCodes.Status400BadRequest, "InstanceName and SqlPort are required.");
+            if (value.InstanceName.Length > 250 || value.SqlPort.Length > 10)
+                return StatusCode(StatusCodes.Status400BadRequest, "InstanceName cannot exceed 250 characters and SqlPort cannot exceed 10 characters.");
+            if (!int.TryParse(value.SqlPort, out var portNumber) || portNumber < 1 || portNumber > 65535)
+                return StatusCode(StatusCodes.Status400BadRequest, "SqlPort must be a valid TCP port number between 1 and 65535.");
+
             try
             {
                 _sqlPortsPersistentSource.CreateSqlPort(value);
 
                 return StatusCode(StatusCodes.Status200OK);
             }
-            catch (Exception ex)
+            catch (ArgumentException ex)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, ex.Message);
+            }
+            catch (InvalidOperationException ex)
             {
                 return StatusCode(StatusCodes.Status400BadRequest, ex.Message);
             }
@@ -79,10 +96,23 @@ namespace Dorc.Api.Controllers
         [HttpDelete]
         public IActionResult Delete([FromBody] SqlPortApiModel value)
         {
-            if (!User.IsInRole("Admin"))
+            var isAdmin = (_rolePrivilegesChecker?.IsAdmin(User) ?? false) || User.IsInRole("Admin");
+            if (!isAdmin)
                 throw new UnauthorizedAccessException("User must be part of the 'Admin' group to delete Permissions");
 
-            return StatusCode(StatusCodes.Status501NotImplemented);
+            try
+            {
+                _sqlPortsPersistentSource.DeleteSqlPort(value);
+                return StatusCode(StatusCodes.Status200OK);
+            }
+            catch (ArgumentException ex)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, ex.Message);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return StatusCode(StatusCodes.Status400BadRequest, ex.Message);
+            }
         }
     }
 }

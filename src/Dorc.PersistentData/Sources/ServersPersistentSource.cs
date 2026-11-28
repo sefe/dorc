@@ -33,7 +33,13 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var oldServer = context.Servers.Include(s => s.TagLinks).First(s => s.Id == id);
+                var oldServer = context.Servers
+                    .Include(s => s.TagLinks)
+                    .Include(s => s.Environments)
+                    .FirstOrDefault(s => s.Id == id);
+                if (oldServer == null)
+                    return null;
+
                 var newServer = MapToServer(server, oldServer);
                 context.SaveChanges();
 
@@ -52,21 +58,21 @@ namespace Dorc.PersistentData.Sources
                     .Include(s => s.Daemons)
                     .FirstOrDefault(s => s.Id == serverId);
 
-                if (server != null)
-                {
-                    foreach (var environmentDetail in server.Environments.ToList())
-                    {
-                        server.Environments.Remove(environmentDetail);
-                    }
-                    foreach (var daemon in server.Daemons.ToList())
-                    {
-                        server.Daemons.Remove(daemon);
-                    }
+                if (server == null)
+                    return false;
 
-                    var daemonObservations = context.DaemonObservations
-                        .Where(d => d.ServerId == serverId);
-                    context.DaemonObservations.RemoveRange(daemonObservations);
+                foreach (var environmentDetail in server.Environments.ToList())
+                {
+                    server.Environments.Remove(environmentDetail);
                 }
+                foreach (var daemon in server.Daemons.ToList())
+                {
+                    server.Daemons.Remove(daemon);
+                }
+
+                var daemonObservations = context.DaemonObservations
+                    .Where(d => d.ServerId == serverId);
+                context.DaemonObservations.RemoveRange(daemonObservations);
 
                 context.Servers.Remove(server);
                 context.SaveChanges();
@@ -78,7 +84,10 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var envDetails = context.Environments.Include(aps => aps.Servers).ThenInclude(sv => sv.TagLinks).Single(x => x.Name == envName);
+                var envDetails = context.Environments
+                    .Include(aps => aps.Servers).ThenInclude(sv => sv.TagLinks)
+                    .Include(aps => aps.Servers).ThenInclude(sv => sv.Environments)
+                    .Single(x => x.Name == envName);
                 var endurAppServers =
                     envDetails.Servers.Where(x => x.TagLinks.Any(t => t.Tag.Contains("appserv"))).ToList();
                 return endurAppServers;
@@ -236,7 +245,9 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
-                var servers = context.Servers.Include(s => s.TagLinks)
+                var servers = context.Servers
+                    .Include(s => s.TagLinks)
+                    .Include(s => s.Environments)
                     .Where(server => EF.Functions.Collate(server.Name, DeploymentContext.CaseInsensitiveCollation)
                         == EF.Functions.Collate(serverName, DeploymentContext.CaseInsensitiveCollation)).ToList();
                 var svr = servers.FirstOrDefault();
@@ -260,7 +271,7 @@ namespace Dorc.PersistentData.Sources
                                  select privilegeInfo.IsOwner || privilegeInfo.HasPermission ||
                                         isAdmin).ToList();
 
-                serverApiModel.UserEditable = totalEdit.All(e => e);
+                serverApiModel.UserEditable = isAdmin || (totalEdit.Count > 0 && totalEdit.All(e => e));
                 return serverApiModel;
             }
         }
@@ -271,7 +282,10 @@ namespace Dorc.PersistentData.Sources
             {
                 var isAdmin = _rolePrivilegesChecker.IsAdmin(user);
 
-                var servers = context.Servers.Include(s => s.TagLinks).Where(s => s.Id == serverId).ToList();
+                var servers = context.Servers
+                    .Include(s => s.TagLinks)
+                    .Include(s => s.Environments)
+                    .Where(s => s.Id == serverId).ToList();
                 var svr = servers.FirstOrDefault();
                 if (svr == null) return null;
 
@@ -293,7 +307,7 @@ namespace Dorc.PersistentData.Sources
                                  select privilegeInfo.IsOwner || privilegeInfo.HasPermission ||
                                         isAdmin).ToList();
 
-                serverApiModel.UserEditable = totalEdit.All(e => e);
+                serverApiModel.UserEditable = isAdmin || (totalEdit.Count > 0 && totalEdit.All(e => e));
                 return serverApiModel;
             }
         }
@@ -339,7 +353,9 @@ namespace Dorc.PersistentData.Sources
             {
                 var envDetail = EnvironmentUnifier.GetEnvironment(context, environmentId);
                 if (envDetail == null) return new List<ServerApiModel>();
-                var result = context.Servers.Include(s => s.TagLinks)
+                var result = context.Servers
+                    .Include(s => s.TagLinks)
+                    .Include(s => s.Environments)
                     .Where(s => s.Environments.Any(e => e.Id == envDetail.Id))
                     .Select(s => s);
                 return result.ToList().Select(MapToServerApiModel).ToList();
@@ -352,7 +368,9 @@ namespace Dorc.PersistentData.Sources
             {
                 var envDetail = EnvironmentUnifier.GetEnvironment(context, environmentId);
                 if (envDetail == null) return new List<ServerApiModel>();
-                var result = context.Servers.Include(s => s.TagLinks)
+                var result = context.Servers
+                    .Include(s => s.TagLinks)
+                    .Include(s => s.Environments)
                     .Where(s => s.Environments.Any(e => e.Id == envDetail.Id))
                     .OrderBy(s => s.Name)
                     .Select(s => s);

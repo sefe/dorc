@@ -20,7 +20,7 @@ namespace Dorc.Api.Tests.Controllers
     public class MakeLikeProdControllerTests
     {
         private ILogger<MakeLikeProdController> _logger;
-        private IDeployLibrary _deployLibrary;
+        private IDeploymentRequestSubmitter _requestSubmitter;
         private IEnvironmentsPersistentSource _environmentsPersistentSource;
         private ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private IEnvBackups _envBackups;
@@ -38,7 +38,7 @@ namespace Dorc.Api.Tests.Controllers
         public void Setup()
         {
             _logger = Substitute.For<ILogger<MakeLikeProdController>>();
-            _deployLibrary = Substitute.For<IDeployLibrary>();
+            _requestSubmitter = Substitute.For<IDeploymentRequestSubmitter>();
             _environmentsPersistentSource = Substitute.For<IEnvironmentsPersistentSource>();
             _securityPrivilegesChecker = Substitute.For<ISecurityPrivilegesChecker>();
             _envBackups = Substitute.For<IEnvBackups>();
@@ -52,7 +52,7 @@ namespace Dorc.Api.Tests.Controllers
 
             _controller = new MakeLikeProdController(
                 _logger,
-                _deployLibrary,
+                _requestSubmitter,
                 _environmentsPersistentSource,
                 _securityPrivilegesChecker,
                 _envBackups,
@@ -128,7 +128,7 @@ namespace Dorc.Api.Tests.Controllers
                     request.Environment == targetEnv &&
                     request.BuildUrl == "http://build.url"),
                 _user);
-            _deployLibrary.DidNotReceiveWithAnyArgs().SubmitRequest(
+            _requestSubmitter.DidNotReceiveWithAnyArgs().SubmitRequest(
                 default!, default!, default!, default!, default!, default!, default!);
             _variableResolver.Received(1).SetPropertyValue("StartingRequestId", "12345");
             _variableResolver.Received(1).SetPropertyValue("AllRequestIds", "12345");
@@ -249,7 +249,7 @@ namespace Dorc.Api.Tests.Controllers
                 .Returns(new RequestStatusDto { Id = 12346 });
             
             // CopyEnvBuild returns two request IDs
-            _deployLibrary.CopyEnvBuildWithComponentIds(Arg.Any<string>(), Arg.Any<string>(), 
+            _requestSubmitter.CopyEnvBuildWithComponentIds(Arg.Any<string>(), Arg.Any<string>(), 
                 Arg.Any<string>(), Arg.Any<int[]>(), Arg.Any<ClaimsPrincipal>())
                 .Returns(new List<int> { 12347, 12348 });
             
@@ -696,6 +696,87 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual(
                 "Bundle Requests cannot be run against production environment 'Endur PROD'.",
                 result.Value);
+        }
+
+        [TestMethod]
+        public void Put_ValidatesInputsTargetEnvNullPropertiesAndFailedCreateRequest()
+        {
+            Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)_controller.Put(null!)).StatusCode);
+            Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)_controller.Put(new MakeLikeProdRequest { TargetEnv = "", BundleName = "B1" })).StatusCode);
+            Assert.AreEqual(400, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)_controller.Put(new MakeLikeProdRequest { TargetEnv = "Env1", BundleName = " " })).StatusCode);
+
+            _environmentsPersistentSource.GetEnvironment("MissingEnv").Returns((EnvironmentApiModel)null!);
+            _securityPrivilegesChecker.IsEnvironmentOwnerOrAdmin(_user, "MissingEnv").Returns(true);
+            Assert.AreEqual(404, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)_controller.Put(new MakeLikeProdRequest { TargetEnv = "MissingEnv", BundleName = "B1" })).StatusCode);
+
+            _environmentsPersistentSource.GetEnvironment("Env1").Returns(new EnvironmentApiModel { EnvironmentName = "Env1", EnvironmentIsProd = false });
+            _securityPrivilegesChecker.CanModifyEnvironment(_user, "Env1").Returns(true);
+            _claimsPrincipalReader.GetUserEmail(_user).Returns("testuser@example.com");
+
+            var jobWithoutProps = new RequestDto
+            {
+                Project = "TestProj",
+                BuildUrl = "http://build.url",
+                Components = new List<string> { "Comp1" },
+                RequestProperties = null!
+            };
+            var copyWithoutComps = new CopyEnvBuildRequest
+            {
+                SourceEnvironmentName = "SrcEnv",
+                ProjectName = "TestProj",
+                Components = null!
+            };
+
+            // When CreateRequest returns null or Id <= 0, Put returns 500 InternalServerError
+            _bundledRequestsPersistentSource.GetRequestsForBundle("FailBundle").Returns(new List<BundledRequestsApiModel>
+            {
+                new BundledRequestsApiModel
+                {
+                    Type = BundledRequestType.JobRequest,
+                    Request = System.Text.Json.JsonSerializer.Serialize(jobWithoutProps),
+                    Sequence = 1
+                }
+            });
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 0, Status = "Failed to submit" });
+
+            var failResult = _controller.Put(new MakeLikeProdRequest
+            {
+                TargetEnv = "Env1",
+                BundleName = "FailBundle",
+                BundleProperties = null!
+            });
+            Assert.AreEqual(StatusCodes.Status500InternalServerError, ((Microsoft.AspNetCore.Mvc.Infrastructure.IStatusCodeActionResult)failResult).StatusCode);
+
+            // When CreateRequest succeeds and CopyEnvBuild has null Components, CopyEnvBuildAllComponents is invoked
+            _bundledRequestsPersistentSource.GetRequestsForBundle("CopyAllBundle").Returns(new List<BundledRequestsApiModel>
+            {
+                new BundledRequestsApiModel
+                {
+                    Type = BundledRequestType.JobRequest,
+                    Request = System.Text.Json.JsonSerializer.Serialize(jobWithoutProps),
+                    Sequence = 1
+                },
+                new BundledRequestsApiModel
+                {
+                    Type = BundledRequestType.CopyEnvBuild,
+                    Request = System.Text.Json.JsonSerializer.Serialize(copyWithoutComps),
+                    Sequence = 2
+                }
+            });
+            _requestService.CreateRequest(Arg.Any<RequestDto>(), Arg.Any<ClaimsPrincipal>())
+                .Returns(new RequestStatusDto { Id = 9001, Status = "Pending" });
+            _requestSubmitter.CopyEnvBuildAllComponents("SrcEnv", "Env1", "TestProj", _user)
+                .Returns(new List<int> { 9002 });
+
+            var okResult = _controller.Put(new MakeLikeProdRequest
+            {
+                TargetEnv = "Env1",
+                BundleName = "CopyAllBundle",
+                BundleProperties = null!
+            });
+            Assert.IsInstanceOfType<OkObjectResult>(okResult);
+            _requestSubmitter.Received(1).CopyEnvBuildAllComponents("SrcEnv", "Env1", "TestProj", _user);
         }
     }
 }

@@ -5,12 +5,12 @@ using Dorc.Runner.Pipes;
 
 namespace Dorc.Runner
 {
-    internal class ScriptGroupProcessor : IScriptGroupProcessor
+    public class ScriptGroupProcessor : IScriptGroupProcessor
     {
         private IRunnerLogger logger;
         private readonly IScriptGroupPipeClient scriptGroupPipeClient;
 
-        internal ScriptGroupProcessor(
+        public ScriptGroupProcessor(
         IRunnerLogger logger,
         IScriptGroupPipeClient scriptGroupPipeClient)
         {
@@ -20,10 +20,8 @@ namespace Dorc.Runner
 
         public int Process(string pipeName, int requestId)
         {
-            ScriptGroup scriptGroupProperties = this.scriptGroupPipeClient.GetScriptGroupProperties(pipeName); 
-            var deploymentResultId = scriptGroupProperties.DeployResultId;
             this.logger.SetRequestId(requestId);
-            this.logger.SetDeploymentResultId(deploymentResultId);
+            ScriptGroup scriptGroupProperties = this.scriptGroupPipeClient.GetScriptGroupProperties(pipeName);
 
             if (scriptGroupProperties == null
                 || scriptGroupProperties.CommonProperties == null
@@ -33,18 +31,23 @@ namespace Dorc.Runner
                 throw new Exception("ScriptGroup is not initialized.");
             }
 
+            this.logger.SetDeploymentResultId(scriptGroupProperties.DeployResultId);
+
             var scriptRunner = new PowerShellScriptRunner(this.logger, scriptGroupProperties);
-            int sumResult = 0;
             foreach (var scriptProps in scriptGroupProperties.ScriptProperties)
             {
-                sumResult += scriptRunner.Run(
+                int result = scriptRunner.Run(
                     scriptGroupProperties.ScriptsLocation,
                     scriptProps.ScriptPath,
                     scriptProps.Properties,
                     scriptGroupProperties.CommonProperties);
+                if (result != 0)
+                {
+                    return result;
+                }
             }
 
-            return sumResult;            
+            return 0;
         }
     }
 }

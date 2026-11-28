@@ -27,6 +27,7 @@ namespace Dorc.Monitor
         private readonly IScriptGroupPipeServer scriptGroupPipeServer;
         private readonly IConfigurationSettings configurationSettingsEngine;
         private readonly IRequestsPersistentSource requestsPersistentSource;
+        private readonly IPropertiesPersistentSource? propertiesPersistentSource;
         private readonly IPowerShellEvidenceCapture evidenceCapture;
 
         private bool isScriptExecutionSuccessful; // This field is needed to be instance-wide since Runner process errors are processed as instance-wide events.
@@ -40,7 +41,8 @@ namespace Dorc.Monitor
             IScriptGroupPipeServer scriptGroupPipeServer,
             IConfigurationSettings configurationSettingsEngine,
             IRequestsPersistentSource requestsPersistentSource,
-            IPowerShellEvidenceCapture evidenceCapture = null)
+            IPowerShellEvidenceCapture evidenceCapture = null,
+            IPropertiesPersistentSource? propertiesPersistentSource = null)
         {
             this.processesPersistentSource = processesPersistentSource;
             this._configValuesPersistentSource = configValuesPersistentSource;
@@ -49,6 +51,7 @@ namespace Dorc.Monitor
             this.configurationSettingsEngine = configurationSettingsEngine;
             this.requestsPersistentSource = requestsPersistentSource;
             this.evidenceCapture = evidenceCapture ?? new PowerShellEvidenceCapture();
+            this.propertiesPersistentSource = propertiesPersistentSource;
         }
 
         public bool Dispatch(string scriptsLocation,
@@ -85,11 +88,22 @@ namespace Dorc.Monitor
                 properties,
                 deploymentRequestId);
 
+            var domainName = configurationSettingsEngine.GetConfigurationDomainNameIntra();
+            var requestRecord = requestsPersistentSource.GetRequest(requestId);
+            var sensitivePropertyNames = RequestPropertyRedaction
+                .GetSensitivePropertyNames(requestRecord?.RequestDetails ?? string.Empty)
+                .Concat((propertiesPersistentSource?.GetAllProperties() ?? Enumerable.Empty<PropertyApiModel>())
+                    .Where(p => p.Secure && !string.IsNullOrWhiteSpace(p.Name))
+                    .Select(p => p.Name))
+                .Concat((_configValuesPersistentSource.GetAllConfigValues(false) ?? Enumerable.Empty<ConfigValueApiModel>())
+                    .Where(c => c.Secure && !string.IsNullOrWhiteSpace(c.Key))
+                    .Select(c => c.Key))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
             var ordinalOffset = 0;
             foreach (ScriptGroup scriptGroup in scriptGroups)
             {
-                var domainName = configurationSettingsEngine.GetConfigurationDomainNameIntra();
-
                 //Create named pipe server for each process that is for each script group
                 using (var pipeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
                 {
@@ -100,7 +114,8 @@ namespace Dorc.Monitor
                     // process security context below rather than assumed to be the Monitor's
                     // own identity.
                     var readerIdentity = new ScriptGroupReaderIdentity(domainName, processAccountName);
-                    scriptGroup.SourceBuildIdentity = requestsPersistentSource.GetRequest(requestId)?.BuildNumber;
+                    scriptGroup.SourceBuildIdentity = requestRecord?.BuildNumber;
+                    scriptGroup.SensitivePropertyNames = sensitivePropertyNames;
                     evidenceCapture.Prepare(scriptGroup, script.Revision, requestId,
                         ordinalOffset, readerIdentity.QualifiedAccountName);
                     ordinalOffset += scriptGroup.ScriptProperties.Count;
@@ -124,8 +139,8 @@ namespace Dorc.Monitor
 
                         using (var securityContext = contextBuilder.Build())
                         {
-                            var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                            .GetSection("AppSettings")["RunnerLogPath"]!;
+                            var runnerLogPathSetting = configurationSettingsEngine.GetRunnerLogPath()
+                                ?? new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["RunnerLogPath"]!;
                             var runnerLogPath = runnerLogPathSetting + $"\\{startedScriptGroupPipeName}.txt";
                             var uncLogPath = runnerLogPath.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
 
@@ -346,13 +361,13 @@ namespace Dorc.Monitor
             if (string.IsNullOrEmpty(powerShellVersionNumber)
                 || powerShellVersionNumber.Equals(PowerShellVersion.V5_1.ToVersionString()))     
             {
-                deploymentRunnerPath = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                .GetSection("AppSettings")["DotNetFrameworkDeploymentRunnerPath"]!;
+                deploymentRunnerPath = configurationSettingsEngine.GetDotNetFrameworkDeploymentRunnerPath()
+                    ?? new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["DotNetFrameworkDeploymentRunnerPath"]!;
             }
             else
             {
-                deploymentRunnerPath = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                .GetSection("AppSettings")["DotNetCoreDeploymentRunnerPath"]!;
+                deploymentRunnerPath = configurationSettingsEngine.GetDotNetCoreDeploymentRunnerPath()
+                    ?? new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["DotNetCoreDeploymentRunnerPath"]!;
             }
 
             if (!File.Exists(deploymentRunnerPath))

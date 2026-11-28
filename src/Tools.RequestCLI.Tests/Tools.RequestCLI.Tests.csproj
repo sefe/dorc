@@ -10,9 +10,14 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.4">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.0" />
     <PackageReference Include="MSTest.TestAdapter" Version="4.0.1" />
     <PackageReference Include="MSTest.TestFramework" Version="4.0.1" />
+    <PackageReference Include="NSubstitute" Version="5.3.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -21,7 +26,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Tools.RequestCLI\Tools.RequestCLI.csproj" />
+    <ProjectReference Include="..\Tools.PropertyValueCreationCLI\Tools.PropertyValueCreationCLI.csproj" />
+    <ProjectReference Include="..\Tools.DeployCopyEnvBuildCLI\Tools.DeployCopyEnvBuildCLI.csproj" />
+    <ProjectReference Include="..\Tools.PostRestoreEndurCLI\Tools.PostRestoreEndurCLI.csproj" />
     <ProjectReference Include="..\Dorc.ApiModel\Dorc.ApiModel.csproj" />
+    <ProjectReference Include="..\Dorc.Core\Dorc.Core.csproj" />
   </ItemGroup>
 
 </Project>

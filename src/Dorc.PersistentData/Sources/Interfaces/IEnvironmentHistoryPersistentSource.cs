@@ -8,6 +8,7 @@ namespace Dorc.PersistentData.Sources.Interfaces
             string updateType);
 
         List<EnvironmentHistoryApiModel> GetEnvironmentDetailHistory(int envId);
+        string? GetEnvironmentNameForHistoryId(int id);
         void UpdateEnvironmentDetailHistoryComment(int id, string comment);
     }
 }

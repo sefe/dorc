@@ -1,4 +1,5 @@
-﻿using Dorc.Api.Interfaces;
+using Dorc.Api.Interfaces;
+using Dorc.Api.Properties;
 using Dorc.Core;
 using Dorc.Core.Account;
 using Dorc.Core.BuildServer;
@@ -19,8 +20,8 @@ namespace Dorc.Api.Services
             var configSettings = new ConfigurationSettings(configuration);
             var domain = configSettings.GetConfigurationDomainNameIntra();
 
-            For<IPropertiesService>().Use<PropertiesService>();
-            For<IPropertyValuesService>().Use<PropertyValuesService>();
+            For<IPropertyDefinitionEditor>().Use<PropertyDefinitionEditor>();
+            For<IScopedPropertyValueEditor>().Use<ScopedPropertyValueEditor>();
                 
             For<IRequestService>().Use<RequestService>();
 
@@ -34,9 +35,7 @@ namespace Dorc.Api.Services
                 return new ActiveDirectorySearchService(directorySearcher);
             }).Scoped();
             
-            For<IDirectorySearcherFactory>().Use<DirectorySearcherFactory>().Singleton()
-                .Ctor<string>().Is(configSettings.GetConfigurationDomainNameIntra())
-                .Ctor<TimeSpan?>().Is(configSettings.GetADUserCacheTimeSpan());
+            For<IDirectorySearcherFactory>().Use<DirectorySearcherFactory>().Singleton();
             For<IActiveDirectorySearcher>().Use(context =>
             {
                 var factory = context.GetRequiredService<IDirectorySearcherFactory>();
@@ -48,7 +47,7 @@ namespace Dorc.Api.Services
             For<IFileSystemHelper>().Use<FileSystemHelper>();
             For<IGitHubHostValidator>().Use<GitHubHostValidator>().Singleton();
             For<IBuildServerClientFactory>().Use<BuildServerClientFactory>();
-            For<IRequestsManager>().Use<RequestsManager>();
+            For<IDeployableArtefactResolver>().Use<DeployableArtefactResolver>();
             For<ISqlUserPasswordReset>().Use<SqlUserPasswordReset>();
             For<IApiServices>().Use<ApiServices>();
             For<IManageUsers>().Use<ManageUsers>();

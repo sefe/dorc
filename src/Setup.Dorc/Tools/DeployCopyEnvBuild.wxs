@@ -5,6 +5,7 @@
         <Json:JsonFile Id="ToolsDeployCopyEnvBuildConfigDorcApiUrl" ElementPath="$.DorcApi.BaseUrl" Value="[DEPLOYAPI.ENDPOINT]" File="[#ToolsDeployCopyEnvBuildConfig]" />
         <Json:JsonFile Id="ToolsDeployCopyEnvBuildConfigDorcApiClientId" ElementPath="$.DorcApi.ClientId" Value="[DORC.API.CLIENTID]" File="[#ToolsDeployCopyEnvBuildConfig]" />
         <Json:JsonFile Id="ToolsDeployCopyEnvBuildConfigDorcApiClientSecret" ElementPath="$.DorcApi.ClientSecret" Value="[DORC.API.CLIENTSECRET]" File="[#ToolsDeployCopyEnvBuildConfig]" />
+        <Json:JsonFile Id="ToolsDeployCopyEnvBuildConfigDorcApiScope" ElementPath="$.DorcApi.Scope" Value="[DORC.API.SCOPE]" File="[#ToolsDeployCopyEnvBuildConfig]" />
       </Component>
     </DirectoryRef>
   </Fragment>

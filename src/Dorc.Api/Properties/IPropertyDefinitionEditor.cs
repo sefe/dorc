@@ -1,0 +1,15 @@
+using Dorc.ApiModel;
+using System.Security.Claims;
+
+namespace Dorc.Api.Properties
+{
+    public interface IPropertyDefinitionEditor
+    {
+        PropertyApiModel GetProperty(string propertyName);
+        IEnumerable<PropertyApiModel> GetProperties();
+        IEnumerable<Response> DeleteProperties(IEnumerable<string> properties, ClaimsPrincipal User);
+        IEnumerable<Response> PostProperties(IEnumerable<PropertyApiModel> properties, ClaimsPrincipal User);
+        IEnumerable<Response> PutProperties(IDictionary<string, PropertyApiModel> propertiesToUpdate, ClaimsPrincipal User);
+        IEnumerable<Response> ImportProperties(IEnumerable<PropertyImportCsvDto> propertiesToImport, ClaimsPrincipal User);
+    }
+}

@@ -76,7 +76,12 @@ namespace Dorc.Api.Tests.Sources
             contextFactory.GetContext().Returns(context);
 
             var matching = new Server
-            { Id = 1, Name = "app01", TagLinks = ServerTagsFor(1, ManyTags("appserver-node")) };
+            {
+                Id = 1,
+                Name = "app01",
+                TagLinks = ServerTagsFor(1, ManyTags("appserver-node")),
+                Environments = new List<Environment> { new() { Id = 5, Name = "DV 01" } }
+            };
             var nonMatching = new Server
             { Id = 2, Name = "web01", TagLinks = ServerTagsFor(2, ManyTags()) };
             var envList = new List<Environment>
@@ -97,6 +102,7 @@ namespace Dorc.Api.Tests.Sources
             // tag — the documented semantics — within a large tag set.
             Assert.AreEqual(1, result.Count);
             Assert.AreEqual("app01", result[0].Name);
+            CollectionAssert.AreEqual(new[] { "DV 01" }, result[0].Environments.Select(e => e.Name).ToArray());
         }
     }
 }

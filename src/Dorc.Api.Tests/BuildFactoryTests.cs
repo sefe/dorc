@@ -14,7 +14,7 @@ namespace Dorc.Api.Tests
     public class BuildFactoryTests
     {
         private IProjectsPersistentSource _mockedProjectsPds = null!;
-        private IDeployLibrary _mockedDeployLibrary = null!;
+        private IDeploymentRequestSubmitter _mockedRequestSubmitter = null!;
         private IFileSystemHelper _mockedFileSystemHelper = null!;
         private ILoggerFactory _mockedLoggerFactory = null!;
         private IRequestsPersistentSource _mockedReqPs = null!;
@@ -25,7 +25,7 @@ namespace Dorc.Api.Tests
         public void Setup()
         {
             _mockedProjectsPds = Substitute.For<IProjectsPersistentSource>();
-            _mockedDeployLibrary = Substitute.For<IDeployLibrary>();
+            _mockedRequestSubmitter = Substitute.For<IDeploymentRequestSubmitter>();
             _mockedFileSystemHelper = Substitute.For<IFileSystemHelper>();
             _mockedLoggerFactory = Substitute.For<ILoggerFactory>();
             _mockedReqPs = Substitute.For<IRequestsPersistentSource>();
@@ -36,13 +36,13 @@ namespace Dorc.Api.Tests
             var mockedLog = new MockedLog<GitHubDeployableBuild>();
             _mockedGitHubDeployableBuildFactory = () => new GitHubDeployableBuild(
                 _mockedBuildServerClientFactory, mockedLog,
-                _mockedProjectsPds, _mockedDeployLibrary, _mockedReqPs);
+                _mockedProjectsPds, _mockedRequestSubmitter, _mockedReqPs);
         }
 
         private DeployableBuildFactory CreateFactory()
         {
             return new DeployableBuildFactory(_mockedFileSystemHelper, _mockedLoggerFactory,
-                _mockedProjectsPds, _mockedDeployLibrary, _mockedReqPs, _mockedGitHubDeployableBuildFactory);
+                _mockedProjectsPds, _mockedRequestSubmitter, _mockedReqPs, _mockedGitHubDeployableBuildFactory);
         }
 
         [TestMethod]
@@ -56,8 +56,8 @@ namespace Dorc.Api.Tests
             var fileShareBuild = factory.CreateInstance(new RequestDto { BuildUrl = "file://some_path", Project = "myProject" });
             Assert.IsTrue(fileShareBuild is FileShareDeployableBuild);
 
-            var tfsBuild = factory.CreateInstance(new RequestDto { BuildUrl = "http://some_path", Project = "myProject" });
-            Assert.IsTrue(tfsBuild is AzureDevOpsDeployableBuild);
+            var azureDevOpsBuild = factory.CreateInstance(new RequestDto { BuildUrl = "http://some_path", Project = "myProject" });
+            Assert.IsTrue(azureDevOpsBuild is AzureDevOpsDeployableBuild);
 
             var unknownBuild = factory.CreateInstance(new RequestDto { BuildUrl = "ftp://some_path", Project = "myProject" });
             Assert.IsNull(unknownBuild);

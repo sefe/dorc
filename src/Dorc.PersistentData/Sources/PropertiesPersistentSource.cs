@@ -133,11 +133,25 @@ namespace Dorc.PersistentData.Sources
 
         public bool UpdateProperty(PropertyApiModel prop)
         {
+            return UpdateProperty(prop.Name, prop);
+        }
+
+        public bool UpdateProperty(string currentPropertyName, PropertyApiModel prop)
+        {
             using (var context = _contextFactory.GetContext())
             {
-                var property = context.Properties.FirstOrDefault(p => p.Name.Equals(prop.Name));
+                var lookupName = string.IsNullOrWhiteSpace(currentPropertyName) ? prop.Name : currentPropertyName;
+                var property = (prop.Id > 0
+                        ? context.Properties.FirstOrDefault(p => p.Id == prop.Id)
+                        : null)
+                    ?? context.Properties.FirstOrDefault(p => p.Name.Equals(lookupName));
                 if (property == null)
                     return false;
+
+                if (property.IsArray != prop.IsArray && context.PropertyValues.Any(pv => pv.Property != null && pv.Property.Id == property.Id))
+                {
+                    throw new InvalidOperationException($"Cannot change IsArray flag on property '{property.Name}' while property values exist.");
+                }
 
                 MapToProperty(prop, property);
                 context.SaveChanges();
@@ -262,15 +276,23 @@ namespace Dorc.PersistentData.Sources
             {
                 Id = prop.Id,
                 Name = prop.Name,
-                Secure = prop.Secure
+                Secure = prop.Secure,
+                IsArray = prop.IsArray
             };
         }
 
         Property MapToProperty(PropertyApiModel prop, Property p)
         {
-            p.Id = prop.Id;
-            p.Name = prop.Name;
+            if (prop.Id > 0)
+            {
+                p.Id = prop.Id;
+            }
+            if (!string.IsNullOrWhiteSpace(prop.Name))
+            {
+                p.Name = prop.Name;
+            }
             p.Secure = prop.Secure;
+            p.IsArray = prop.IsArray;
             return p;
         }
     }

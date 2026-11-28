@@ -28,6 +28,8 @@
     <ProjectReference Include="..\Dorc.TerraformRunner\Dorc.TerraformRunner.csproj" />
     <ProjectReference Include="..\Dorc.Terraform.Catalog\Dorc.Terraform.Catalog.csproj" />
     <ProjectReference Include="..\Dorc.Runner.Logger\Dorc.Runner.Logger.csproj" />
+    <ProjectReference Include="..\Dorc.Runner\Dorc.Runner.csproj" />
+    <ProjectReference Include="..\Dorc.PowerShell\Dorc.PowerShell.csproj" />
   </ItemGroup>
 
   <ItemGroup>

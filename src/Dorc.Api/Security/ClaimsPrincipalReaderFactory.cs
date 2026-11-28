@@ -38,7 +38,7 @@ namespace Dorc.Api.Security
 
         public string GetUserId(ClaimsPrincipal user)
         {
-            if (_config.GetIsUseAdSidsForAccessControl())
+            if (_config.GetIsUseAdSidsForAccessControl() && !IsM2MAuthentication(user))
             {
                 var data = _adUserGroupsReader.GetUserData(GetUserName(user));
                 return data.Sid;
@@ -87,13 +87,19 @@ namespace Dorc.Api.Security
 
         public List<string> GetSidsForUser(IPrincipal user)
         {
-            if (_config.GetIsUseAdSidsForAccessControl())
+            if (_config.GetIsUseAdSidsForAccessControl() && !IsM2MAuthentication(user))
             {
                 return _adUserGroupsReader.GetSidsForUser(GetUserLogin(user));
             }
 
             var reader = ResolveReader();
             return reader.GetSidsForUser(user);
+        }
+
+        private static bool IsM2MAuthentication(IPrincipal user)
+        {
+            return user is ClaimsPrincipal claimsPrincipal &&
+                   string.Equals(claimsPrincipal.FindFirstValue("m2m"), "true", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

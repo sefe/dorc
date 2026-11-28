@@ -41,11 +41,17 @@ namespace Dorc.Api.Controllers
         /// <param name="name"></param>
         /// <returns></returns>
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(GroupApiModel))]
+        [SwaggerResponse(StatusCodes.Status404NotFound, Type = typeof(string))]
         [HttpGet("{name}")]
 
         public IActionResult Get(string name)
         {
             var group = _adGroupPersistentSource.GetAdGroup(name);
+            if (group == null)
+            {
+                return NotFound($"Group '{name}' not found.");
+            }
+
             var result = new GroupApiModel
             {
                 GroupName = group.Name,

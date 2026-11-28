@@ -2,11 +2,13 @@ Class Property
 {
     [string]$Name;
     [bool]$Secure;
+    [bool]$IsArray;
 }
 class CsvProperties
 {
     [string]$PropertyName;
     [bool]$IsSecured;
+    [bool]$IsArray;
     [string]$Value;
     [string]$Environment;
 }

@@ -608,11 +608,18 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                         ObjectId = Guid.NewGuid()
                     };
 
-                    MapToEnvironment(env, e, isNewEnvironment: true);
+                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
+                    string fallbackOwnerId = _claimsPrincipalReader.GetUserId(user);
+                    string fallbackOwnerName = _claimsPrincipalReader.GetUserLogin(user);
+                    if (string.IsNullOrWhiteSpace(fallbackOwnerName))
+                    {
+                        fallbackOwnerName = username;
+                    }
+
+                    MapToEnvironment(env, e, isNewEnvironment: true, fallbackOwnerName, fallbackOwnerId);
 
                     context.Environments.Add(e);
 
-                    string username = _claimsPrincipalReader.GetUserFullDomainName(user);
                     EnvironmentHistoryPersistentSource.AddHistory(e, string.Empty,
                         "Environment created",
                         username, "Create Environment", context);
@@ -626,6 +633,11 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
 
         public EnvironmentApiModel UpdateEnvironment(EnvironmentApiModel env, IPrincipal user)
         {
+            if (string.IsNullOrWhiteSpace(env.EnvironmentName))
+            {
+                throw new ArgumentException("EnvironmentName not set");
+            }
+
             using (var context = contextFactory.GetContext())
             {
                 var environment = EnvironmentUnifier.GetFullEnvironment(context, env.EnvironmentId);
@@ -887,37 +899,55 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
         /// </summary>
         /// <param name="env">model to set values from</param>
         /// <param name="e">model to set values to. DTO for DB</param>
-        private static void MapToEnvironment(EnvironmentApiModel env, Environment e, bool isNewEnvironment = false)
+        private static void MapToEnvironment(
+            EnvironmentApiModel env,
+            Environment e,
+            bool isNewEnvironment = false,
+            string? fallbackOwnerName = null,
+            string? fallbackOwnerId = null)
         {
             e.Name = env.EnvironmentName;
             e.Secure = env.EnvironmentSecure;
             e.IsProd = env.EnvironmentIsProd;
 
-            e.Name = env.EnvironmentName;
-            e.Description = env.Details.Description;
-            e.FileShare = env.Details.FileShare;
-            e.LastUpdate = !string.IsNullOrEmpty(env.Details.LastUpdated)
-                ? DateTime.Parse(env.Details.LastUpdated)
-                : DateTime.Now;
-            e.ThinClientServer = env.Details.ThinClient;
-            e.RestoredFromBackup = env.Details.RestoredFromSourceDb;
-            e.EnvNote = env.Details.Notes;
+            if (env.Details != null)
+            {
+                e.Description = env.Details.Description;
+                e.FileShare = env.Details.FileShare;
+                e.LastUpdate = !string.IsNullOrEmpty(env.Details.LastUpdated)
+                    ? DateTime.Parse(env.Details.LastUpdated)
+                    : DateTime.Now;
+                e.ThinClientServer = env.Details.ThinClient;
+                e.RestoredFromBackup = env.Details.RestoredFromSourceDb;
+                e.EnvNote = env.Details.Notes;
+            }
+            else
+            {
+                e.LastUpdate = DateTime.Now;
+            }
 
             var ownerAccess = e.AccessControls.FirstOrDefault(ac => ac.Allow.HasAccessLevel(AccessLevel.Owner));
 
             // for new environment we have to add owner access control, for old env ownership is not changing via update method
             if (isNewEnvironment && ownerAccess == null)
             {
+                var ownerId = !string.IsNullOrWhiteSpace(env.Details?.EnvironmentOwnerId)
+                    ? env.Details.EnvironmentOwnerId
+                    : fallbackOwnerId;
+                var ownerName = !string.IsNullOrWhiteSpace(env.Details?.EnvironmentOwner)
+                    ? env.Details.EnvironmentOwner
+                    : fallbackOwnerName;
+
                 // TODO: remove this together with supporting AD and Sids
-                bool isSid = !string.IsNullOrEmpty(env.Details.EnvironmentOwnerId) &&
-                env.Details.EnvironmentOwnerId.StartsWith("S-1-5-");
+                bool isSid = !string.IsNullOrEmpty(ownerId) &&
+                    ownerId.StartsWith("S-1-5-");
 
                 e.AccessControls.Add(new AccessControl
                 {
                     ObjectId = e.ObjectId,
-                    Name = env.Details.EnvironmentOwner,
-                    Pid = isSid ? null : env.Details.EnvironmentOwnerId,
-                    Sid = isSid ? env.Details.EnvironmentOwnerId : null,
+                    Name = ownerName,
+                    Pid = isSid ? null : ownerId,
+                    Sid = isSid ? ownerId : null,
                     Allow = (int)AccessLevel.Owner
                 });
             }
@@ -1039,7 +1069,7 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                     .ThenInclude(p => p.Environments)
                     .Where(e => e.Id == id)
                     .SelectMany(e => e.Projects.SelectMany(p => p.Environments)) // Get all environments from all related projects
-                    .Where(e => e.Id != id && e.ParentId == null); // Exclude the parent and all children
+                    .Where(e => e.Id != id && e.ParentId == null && !e.ChildEnvironments.Any()); // Exclude the parent, children, and environments that already have children
 
                 var filteredByAccessLevelEnvs = allRelatedEnvs
                     .Where(environment =>
@@ -1093,6 +1123,11 @@ WHERE [Id] IN (SELECT [Id] FROM @DeletedPropertyValues);";
                     if (parentEnv.ParentId is not null)
                     {
                         throw new ArgumentException($"Not allowed to have more than 1 level of environment hierarchy. Environment {parentEnv.Name} is already a child ");
+                    }
+
+                    if (childEnv.ChildEnvironments?.Any() == true || context.Environments.Any(e => e.ParentId == childEnvId))
+                    {
+                        throw new ArgumentException($"Not allowed to have more than 1 level of environment hierarchy. Environment {childEnv.Name} cannot have both parent and children.");
                     }
 
                     childEnv.ParentId = parentEnvId;

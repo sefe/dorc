@@ -54,6 +54,22 @@ steps:
     verbose: true
     customCommand: 'run build'
 
+- task: Npm@1
+  displayName: 'Install Playwright Browsers'
+  inputs:
+    command: custom
+    workingDir: 'src/dorc-web'
+    verbose: true
+    customCommand: 'exec playwright install chromium firefox webkit'
+
+- task: Npm@1
+  displayName: 'Run Web Regression Tests'
+  inputs:
+    command: custom
+    workingDir: 'src/dorc-web'
+    verbose: true
+    customCommand: 'test'
+
 - task: PowerShell@1
   displayName: 'Version AssemblyInfo Files'
   inputs:
@@ -141,15 +157,30 @@ steps:
 # switched on, since it collects per-test diagnostic data at a real cost and
 # nothing has ever consumed it.
 - task: VSTest@2
-  displayName: 'Test Assemblies **\*tests.dll;-:**\obj\**'
+  displayName: 'Test Assemblies **\*tests.dll;-:**\*Kafka*IntegrationTests*.dll;-:**\obj\**'
   inputs:
     testAssemblyVer2: |
       **\*tests.dll
+      !**\*Kafka*IntegrationTests*.dll
       !**\obj\**
-      !**\IntegrationTests\**
     runInParallel: true
     codeCoverageEnabled: true
-  continueOnError: true
+
+- task: PowerShell@2
+  displayName: 'Run DOrc.Cmdlet Pester Tests'
+  inputs:
+    targetType: 'inline'
+    pwsh: true
+    script: |
+      Set-Location "$(Build.SourcesDirectory)\src\Tools.DOrc.Cmdlet"
+      if (-not (Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -ge [version]'5.0.0' })) {
+        Install-Module -Name Pester -MinimumVersion 5.0.0 -Scope CurrentUser -Force -SkipPublisherCheck
+      }
+      Import-Module Pester -MinimumVersion 5.0.0 -ErrorAction Stop
+      $res = Invoke-Pester -Path .\DOrc.Cmdlet.tests.ps1 -PassThru
+      if (-not $res -or $res.TotalCount -le 0 -or $res.FailedCount -gt 0 -or $res.FailedBlocksCount -gt 0 -or $res.FailedContainersCount -gt 0 -or $res.Result -ne 'Passed') {
+        throw "DOrc.Cmdlet Pester tests failed ($($res.FailedCount) test failures, $($res.FailedBlocksCount) block failures, $($res.FailedContainersCount) container failures)."
+      }
   
 - task: sonarsource.sonarqube.6D01813A-9589-4B15-8491-8164AEB38055.SonarQubeAnalyze@6.3.2
   displayName: 'Complete the SonarQube analysis'

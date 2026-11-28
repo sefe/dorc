@@ -22,6 +22,10 @@
     <BaseOutputPath>sql\</BaseOutputPath>
     <OutputPath>sql\$(Configuration)\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <!-- GitHub Actions runners preinstall the .NET 11 SDK alongside .NET 8, setting
+         BundledNETCoreAppTargetFrameworkVersion=11.0 which MSBuild.Sdk.SqlProj 4.2.0
+         rejects. Clamp to 8.0 (DOrc's current .NET 8 version) so SqlProj loads its net8.0 task. -->
+    <BundledNETCoreAppTargetFrameworkVersion Condition="'$(BundledNETCoreAppTargetFrameworkVersion)' == '11.0'">8.0</BundledNETCoreAppTargetFrameworkVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|AnyCPU'">
     <TargetDatabase>Deploy.Database</TargetDatabase>

@@ -3,7 +3,6 @@ using Dorc.Core.Account.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
-using System.Net;
 using System.Runtime.Versioning;
 
 namespace Dorc.Api.Controllers
@@ -15,13 +14,8 @@ namespace Dorc.Api.Controllers
     public class AccountController : Controller
     {
         internal const string UserLanIdIsRequiredExplanation = "User LanId is required.";
-        internal const string UserLanIdIsNotSpecifiedMessage = "User LanId is not specified.";
-
         internal const string GroupLanIdIsRequiredExplanation = "Group LanId is required.";
-        internal const string GroupLanIdIsNotSpecifiedMessage = "Group LanId is not specified.";
-
         internal const string AccountTypeIsRequiredExplanation = "Account type is required.";
-        internal const string AccountTypeIsNotSpecifiedMessage = "Account type is not specified.";
         internal const string InvalidAccountTypeMessage = "Invalid account type.";
 
         private readonly IAccountExistenceChecker accountExistenceChecker;
@@ -42,43 +36,21 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(bool))]
         public IActionResult UserExists([FromQuery] string userLanId, [FromQuery] string accountType)
         {
-            #region Input verification
-            if (string.IsNullOrEmpty(userLanId))
+            if (string.IsNullOrWhiteSpace(userLanId))
             {
-                var internalServerError = new HttpResponseMessage(HttpStatusCode.InternalServerError)
-                {
-                    Content = new StringContent(UserLanIdIsRequiredExplanation),
-                    ReasonPhrase = UserLanIdIsNotSpecifiedMessage
-                };
-                return StatusCode(StatusCodes.Status500InternalServerError, internalServerError);
+                return BadRequest(UserLanIdIsRequiredExplanation);
             }
 
-            if (string.IsNullOrEmpty(accountType))
+            if (string.IsNullOrWhiteSpace(accountType))
             {
-                var internalServerError = new HttpResponseMessage(HttpStatusCode.InternalServerError)
-                {
-                    Content = new StringContent(AccountTypeIsRequiredExplanation),
-                    ReasonPhrase = AccountTypeIsNotSpecifiedMessage
-                };
-                return StatusCode(StatusCodes.Status500InternalServerError, internalServerError);
+                return BadRequest(AccountTypeIsRequiredExplanation);
             }
 
-            AccountType accountTypeEnum = default;
-
-            try
+            if (!Enum.TryParse<AccountType>(accountType, true, out var accountTypeEnum) ||
+                !Enum.IsDefined(typeof(AccountType), accountTypeEnum))
             {
-                accountTypeEnum = (AccountType)Enum.Parse(typeof(AccountType), accountType, true);
+                return BadRequest(InvalidAccountTypeMessage);
             }
-            catch (Exception exception)
-            {
-                var internalServerError = new HttpResponseMessage(HttpStatusCode.InternalServerError)
-                {
-                    Content = new StringContent(exception.Message),
-                    ReasonPhrase = AccountTypeIsNotSpecifiedMessage
-                };
-                return StatusCode(StatusCodes.Status500InternalServerError, internalServerError);
-            }
-            #endregion
 
             return Ok(accountExistenceChecker.UserExists(userLanId, accountTypeEnum));
         }
@@ -94,43 +66,21 @@ namespace Dorc.Api.Controllers
         [SwaggerResponse(StatusCodes.Status200OK, Type = typeof(bool))]
         public IActionResult GroupExists([FromQuery] string groupLanId, [FromQuery] string accountType)
         {
-            #region Input verification
-            if (string.IsNullOrEmpty(groupLanId))
+            if (string.IsNullOrWhiteSpace(groupLanId))
             {
-                var internalServerError = new HttpResponseMessage(HttpStatusCode.InternalServerError)
-                {
-                    Content = new StringContent(GroupLanIdIsRequiredExplanation),
-                    ReasonPhrase = GroupLanIdIsNotSpecifiedMessage
-                };
-                return StatusCode(StatusCodes.Status500InternalServerError, internalServerError);
+                return BadRequest(GroupLanIdIsRequiredExplanation);
             }
 
-            if (string.IsNullOrEmpty(accountType))
+            if (string.IsNullOrWhiteSpace(accountType))
             {
-                var internalServerError = new HttpResponseMessage(HttpStatusCode.InternalServerError)
-                {
-                    Content = new StringContent(AccountTypeIsRequiredExplanation),
-                    ReasonPhrase = AccountTypeIsNotSpecifiedMessage
-                };
-                return StatusCode(StatusCodes.Status500InternalServerError, internalServerError);
+                return BadRequest(AccountTypeIsRequiredExplanation);
             }
 
-            AccountType accountTypeEnum = default;
-
-            try
+            if (!Enum.TryParse<AccountType>(accountType, true, out var accountTypeEnum) ||
+                !Enum.IsDefined(typeof(AccountType), accountTypeEnum))
             {
-                accountTypeEnum = (AccountType)Enum.Parse(typeof(AccountType), accountType, true);
+                return BadRequest(InvalidAccountTypeMessage);
             }
-            catch (Exception exception)
-            {
-                var internalServerError = new HttpResponseMessage(HttpStatusCode.InternalServerError)
-                {
-                    Content = new StringContent(exception.Message),
-                    ReasonPhrase = AccountTypeIsNotSpecifiedMessage
-                };
-                return StatusCode(StatusCodes.Status500InternalServerError, internalServerError);
-            }
-            #endregion
 
             return Ok(accountExistenceChecker.GroupExists(groupLanId, accountTypeEnum));
         }

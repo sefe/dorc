@@ -25,6 +25,11 @@ export interface ResetAppPasswordForUserPutRequest {
     username?: string;
 }
 
+export interface ResetAppPasswordPutRequest {
+    envFilter?: string;
+    envName?: string;
+}
+
 /**
  * no description
  */
@@ -54,6 +59,35 @@ export class ResetAppPasswordApi extends BaseAPI {
 
         return this.request<ApiBoolResult>({
             url: '/ResetAppPassword/ForUser',
+            method: 'PUT',
+            headers,
+            query,
+        }, opts?.responseOpts);
+    };
+
+    /**
+     */
+    resetAppPasswordPut({ envFilter, envName }: ResetAppPasswordPutRequest): Observable<ApiBoolResult>
+    resetAppPasswordPut({ envFilter, envName }: ResetAppPasswordPutRequest, opts?: OperationOpts): Observable<AjaxResponse<ApiBoolResult>>
+    resetAppPasswordPut({ envFilter, envName }: ResetAppPasswordPutRequest, opts?: OperationOpts): Observable<ApiBoolResult | AjaxResponse<ApiBoolResult>> {
+
+        const headers: HttpHeaders = {
+            // oauth required
+            ...(this.configuration.accessToken != null
+                ? { Authorization: typeof this.configuration.accessToken === 'function'
+                    ? this.configuration.accessToken('oauth2', ['dorc-api-np.manage'])
+                    : this.configuration.accessToken }
+                : undefined
+            ),
+        };
+
+        const query: HttpQuery = {};
+
+        if (envFilter != null) { query['envFilter'] = envFilter; }
+        if (envName != null) { query['envName'] = envName; }
+
+        return this.request<ApiBoolResult>({
+            url: '/ResetAppPassword',
             method: 'PUT',
             headers,
             query,

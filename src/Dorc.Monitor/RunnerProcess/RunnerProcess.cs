@@ -59,7 +59,10 @@ namespace Dorc.Monitor.RunnerProcess
                 // Managed whole-tree termination uses an OS-specific exit code.
                 // Keep the cancellation contract used by ScriptDispatcher, even
                 // when the waiter wakes before the Kill call has returned.
-                return Volatile.Read(ref terminationRequested) != 0 ? ProcessTerminatedExitCode : exitCode;
+                if (Volatile.Read(ref terminationRequested) != 0)
+                    return ProcessTerminatedExitCode;
+
+                return exitCode;
             }
 
             Interop.Windows.Kernel32.Interop.Kernel32.CloseHandle(this.processHandle);

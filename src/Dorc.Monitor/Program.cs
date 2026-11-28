@@ -36,6 +36,7 @@ var builder = Host.CreateApplicationBuilder(args);
 var configurationRoot = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json")
     .AddJsonFile("loggerSettings.json", optional: false, reloadOnChange: true)
+    .AddConfiguration(builder.Configuration)
     .Build();
 var monitorConfiguration = new MonitorConfiguration(configurationRoot);
 

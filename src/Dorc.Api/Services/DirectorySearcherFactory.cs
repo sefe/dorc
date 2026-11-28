@@ -30,6 +30,7 @@ namespace Dorc.Api.Services
                 var identityServerSearcher = new IdentityServerSearcher(config, secretsReader, loggerFactory.CreateLogger<IdentityServerSearcher>(), loggerFactory);
                 searchersList.Add(identityServerSearcher);
                 searchersList.Add(_azEntraSearcher);
+                searchersList.Add(_adSearcher);
             }
 
             var compositeOauthSearcher = new CompositeActiveDirectorySearcher(

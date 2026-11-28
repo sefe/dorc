@@ -15,14 +15,17 @@ namespace Tools.RequestCLI
             int status = 0;
             AppDomain.CurrentDomain.UnhandledException += CatchAllUnhandledExceptions;
 
-            var config = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+            var config = new ConfigurationBuilder()
+                .SetBasePath(AppContext.BaseDirectory)
+                .AddJsonFile("appsettings.json")
+                .Build();
 
             Output("=== Execution started ===");
 
             try
             {
                 var cliArgs = new CliArgs(args);
-                var api = new ApiCaller(new DorcOAuthClientConfiguration(config));
+                var api = new DorcApiClient(new DorcOAuthClientConfiguration(config));
 
                 Output("============================= Requesting Deploy =============================");
                 Output("=== Project            : " + cliArgs.Request.Project);

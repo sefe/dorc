@@ -24,7 +24,7 @@ ELSE IF @ComponentID is null
 		RETURN;
 	END
 
-SET @recordsCount =  (SELECT COUNT(id) FROM [deploy].[ProjectComponent] WHERE ProjectId = @ProjectID AND ComponentId = @ComponentID)
+SET @recordsCount =  (SELECT COUNT(*) FROM [deploy].[ProjectComponent] WHERE ProjectId = @ProjectID AND ComponentId = @ComponentID)
 IF @recordsCount = 0
 	BEGIN
 		INSERT INTO [Deploy].[ProjectComponent] (ProjectId, ComponentId)

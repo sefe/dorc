@@ -109,12 +109,21 @@ namespace Dorc.PersistentData.Sources
                 .Reference(component => component.Parent)
                 .Load();
 
+            if (component.Script == null)
+            {
+                context.Entry(component)
+                    .Reference(c => c.Script)
+                    .Load();
+            }
+
             var output = new ComponentApiModel
             {
                 Children = new List<ComponentApiModel>(),
                 ComponentId = component.Id,
                 ComponentName = component.Name,
                 ScriptPath = component.Script?.Path ?? "",
+                NonProdOnly = component.Script?.NonProdOnly ?? true,
+                StopOnFailure = component.StopOnFailure,
                 ParentId = component.Parent?.Id ?? 0,
                 IsEnabled = component.IsEnabled,
                 ComponentType = component.ComponentType,
@@ -123,6 +132,7 @@ namespace Dorc.PersistentData.Sources
                 TerraformSubPath = component.TerraformSubPath,
                 TerraformTemplateName = component.TerraformTemplateName,
                 TerraformTemplateVersion = component.TerraformTemplateVersion,
+                PSVersion = component.Script?.PowerShellVersionNumber
             };
 
             context.Entry(component)

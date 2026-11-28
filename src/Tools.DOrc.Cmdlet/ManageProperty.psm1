@@ -1,5 +1,5 @@
 using module ".\Models.psm1"
-using module ".\ApiCaller.psm1"
+using module ".\DorcApiClient.psm1"
 Class ManageProperty
 {
     [ApiConnection]$Connection;
@@ -20,11 +20,11 @@ Class ManageProperty
             # hits GET /Properties (get-all), which ignores the filter and returns
             # every property with HTTP 200 - making PropertyExists always true.
             $path = $this.Connection.Property + "/id=" + [uri]::EscapeDataString($name)
-            $property = [ApiCaller]::InvokeGet($path, "")
+            $property = [DorcApiClient]::InvokeGet($path, "")
         }
         else
         {
-            $property = [ApiCaller]::InvokeGet($this.Connection.Property, "")
+            $property = [DorcApiClient]::InvokeGet($this.Connection.Property, "")
         }
 
         return $property
@@ -56,7 +56,7 @@ Class ManageProperty
     [ApiResult]
     AddProperties([string]$body)
     {
-        [ApiResult]$result = [ApiCaller]::InvokePost($this.Connection.Property, $body)
+        [ApiResult]$result = [DorcApiClient]::InvokePost($this.Connection.Property, $body)
         return $result
     }
 
@@ -64,7 +64,7 @@ Class ManageProperty
     GetPropertyValue([string]$Environment, [string]$PropertyName)
     {
         $queryString = "environmentName=" + $Environment + "&propertyName=" + $PropertyName
-        [ApiResult]$result = [ApiCaller]::InvokeGet($this.Connection.PropertyValues, $queryString)
+        [ApiResult]$result = [DorcApiClient]::InvokeGet($this.Connection.PropertyValues, $queryString)
         return $result
     }
 
@@ -90,14 +90,14 @@ Class ManageProperty
     [ApiResult]
     AddPropertyValue([string]$Body)
     {
-        [ApiResult]$result = [ApiCaller]::InvokePost($this.Connection.PropertyValues, $Body)
+        [ApiResult]$result = [DorcApiClient]::InvokePost($this.Connection.PropertyValues, $Body)
         return $result
     }
 
     [ApiResult]
     UpdatePropertyValue([string]$Body)
     {
-        [ApiResult]$result = [ApiCaller]::InvokePut($this.Connection.PropertyValues, $Body)
+        [ApiResult]$result = [DorcApiClient]::InvokePut($this.Connection.PropertyValues, $Body)
         return $result
     }
 
@@ -105,7 +105,7 @@ Class ManageProperty
     GetEnvironmentProperties([string]$Environment)
     {
         [string]$query = "environmentName=" + $Environment
-        [ApiResult]$result = [ApiCaller]::InvokeGet($this.Connection.PropertyValues, $query)
+        [ApiResult]$result = [DorcApiClient]::InvokeGet($this.Connection.PropertyValues, $query)
         return $result
     }
 

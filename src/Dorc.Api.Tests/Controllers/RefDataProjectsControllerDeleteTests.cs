@@ -159,5 +159,162 @@ namespace Dorc.Api.Tests.Controllers
             Assert.AreEqual(404, objectResult.StatusCode);
             _projectsPersistentSource.DidNotReceive().DeleteProject(Arg.Any<int>());
         }
+
+        [TestMethod]
+        public void PostProject_WhenM2MClientNotInDirectory_FallsBackToClaimsPrincipalIdentity()
+        {
+            // Arrange
+            var project = new ProjectApiModel
+            {
+                ProjectName = "M2MProject",
+                ArtefactsUrl = "file://depapp01dv/DropFolder"
+            };
+
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
+            _projectsPersistentSource.GetProject("M2MProject").Returns((ProjectApiModel?)null);
+            _projectsPersistentSource.ProjectArtifactsUriHttpValid(project).Returns(false);
+            _projectsPersistentSource.ProjectArtifactsUriFileValid(project).Returns(true);
+            _claimsPrincipalReader.GetUserLogin(_user).Returns("dorc-cli");
+            _claimsPrincipalReader.GetUserId(_user).Returns("dorc-cli");
+            _claimsPrincipalReader.GetUserName(_user).Returns(string.Empty);
+            _claimsPrincipalReader.GetUserFullDomainName(_user).Returns("dorc-cli");
+            _activeDirectorySearcher
+                .When(s => s.GetUserData("dorc-cli"))
+                .Do(_ => throw new ArgumentException("User with name 'dorc-cli' not found in any source"));
+            _definitions
+                .CreateProject(project, "dorc-cli", Arg.Any<AccessControlApiModel>(), Arg.Any<Action>())
+                .Returns(project);
+
+            // Act
+            var result = _controller.Post(project);
+
+            // Assert
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            _definitions.Received(1).CreateProject(
+                project,
+                "dorc-cli",
+                Arg.Is<AccessControlApiModel>(ac =>
+                    ac.Sid == "dorc-cli" &&
+                    ac.Pid == "dorc-cli" &&
+                    ac.Name == "dorc-cli" &&
+                    ac.Allow == (int)(AccessLevel.Owner | AccessLevel.Write)),
+                Arg.Any<Action>());
+        }
+
+        [TestMethod]
+        public void PostProject_WhenDirectoryThrowsInvalidOperationAndClaimHasDisplayName_UsesClaimDisplayName()
+        {
+            // Arrange
+            var project = new ProjectApiModel
+            {
+                ProjectName = "M2MProjectNamed",
+                ArtefactsUrl = "file://depapp01dv/DropFolder"
+            };
+
+            _rolePrivilegesChecker.IsAdmin(_user).Returns(true);
+            _projectsPersistentSource.GetProject("M2MProjectNamed").Returns((ProjectApiModel?)null);
+            _projectsPersistentSource.ProjectArtifactsUriHttpValid(project).Returns(true);
+            _claimsPrincipalReader.GetUserLogin(_user).Returns("dorc-cli");
+            _claimsPrincipalReader.GetUserId(_user).Returns("dorc-cli-id");
+            _claimsPrincipalReader.GetUserName(_user).Returns("DOrc CLI M2M");
+            _claimsPrincipalReader.GetUserFullDomainName(_user).Returns("dorc-cli");
+            _activeDirectorySearcher
+                .When(s => s.GetUserData("dorc-cli"))
+                .Do(_ => throw new InvalidOperationException("IdentityServer unavailable"));
+            _definitions
+                .CreateProject(project, "dorc-cli", Arg.Any<AccessControlApiModel>(), Arg.Any<Action>())
+                .Returns(project);
+
+            // Act
+            var result = _controller.Post(project);
+
+            // Assert
+            Assert.IsInstanceOfType(result, typeof(OkObjectResult));
+            _definitions.Received(1).CreateProject(
+                project,
+                "dorc-cli",
+                Arg.Is<AccessControlApiModel>(ac =>
+                    ac.Sid == "dorc-cli-id" &&
+                    ac.Pid == "dorc-cli-id" &&
+                    ac.Name == "DOrc CLI M2M"),
+                Arg.Any<Action>());
+        }
+
+        [TestMethod]
+        public void ClaimsPrincipalReaderFactory_WhenUseAdSidsEnabledAndM2MClient_UsesOAuthClientClaimsWithoutQueryingAd()
+        {
+            var config = Substitute.For<Dorc.Core.Configuration.IConfigurationSettings>();
+            config.GetIsUseAdSidsForAccessControl().Returns(true);
+
+            var httpContext = new DefaultHttpContext();
+            httpContext.Request.Headers["Authorization"] = "Bearer test-token";
+            var m2mIdentity = new ClaimsIdentity(
+                new[]
+                {
+                    new Claim("m2m", "True"),
+                    new Claim("client_id", "dorc-cli")
+                },
+                Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerDefaults.AuthenticationScheme);
+            var m2mPrincipal = new ClaimsPrincipal(m2mIdentity);
+            httpContext.User = m2mPrincipal;
+
+            var httpContextAccessor = Substitute.For<IHttpContextAccessor>();
+            httpContextAccessor.HttpContext.Returns(httpContext);
+
+            var adReader = Substitute.For<Dorc.Api.Interfaces.IUserGroupReader>();
+            var oauthReader = Substitute.For<Dorc.Api.Interfaces.IUserGroupReader>();
+            var readerFactory = Substitute.For<Dorc.Api.Interfaces.IUserGroupsReaderFactory>();
+            readerFactory.GetWinAuthUserGroupsReader().Returns(adReader);
+            readerFactory.GetOAuthUserGroupsReader().Returns(oauthReader);
+
+            var sut = new Dorc.Api.Security.ClaimsPrincipalReaderFactory(config, httpContextAccessor, readerFactory);
+
+            var userId = sut.GetUserId(m2mPrincipal);
+            var sids = sut.GetSidsForUser(m2mPrincipal);
+
+            Assert.AreEqual("dorc-cli", userId);
+            CollectionAssert.Contains(sids, "dorc-cli");
+            adReader.DidNotReceiveWithAnyArgs().GetUserData(default!);
+            adReader.DidNotReceiveWithAnyArgs().GetSidsForUser(default!);
+        }
+
+        [TestMethod]
+        public void ClaimsPrincipalReaderFactory_WhenUseAdSidsEnabledAndNonM2MUser_QueriesAdUserGroupReader()
+        {
+            var config = Substitute.For<Dorc.Core.Configuration.IConfigurationSettings>();
+            config.GetIsUseAdSidsForAccessControl().Returns(true);
+
+            var httpContext = new DefaultHttpContext();
+            var winIdentity = new ClaimsIdentity(
+                new[]
+                {
+                    new Claim(ClaimTypes.Name, "DOMAIN\\testuser")
+                },
+                Microsoft.AspNetCore.Authentication.Negotiate.NegotiateDefaults.AuthenticationScheme);
+            var winPrincipal = new ClaimsPrincipal(winIdentity);
+            httpContext.User = winPrincipal;
+
+            var httpContextAccessor = Substitute.For<IHttpContextAccessor>();
+            httpContextAccessor.HttpContext.Returns(httpContext);
+
+            var adReader = Substitute.For<Dorc.Api.Interfaces.IUserGroupReader>();
+            adReader.GetUserData("testuser").Returns(new UserElementApiModel { Sid = "S-1-5-21-999" });
+            adReader.GetSidsForUser("testuser").Returns(new List<string> { "S-1-5-21-999" });
+
+            var oauthReader = Substitute.For<Dorc.Api.Interfaces.IUserGroupReader>();
+            var readerFactory = Substitute.For<Dorc.Api.Interfaces.IUserGroupsReaderFactory>();
+            readerFactory.GetWinAuthUserGroupsReader().Returns(adReader);
+            readerFactory.GetOAuthUserGroupsReader().Returns(oauthReader);
+
+            var sut = new Dorc.Api.Security.ClaimsPrincipalReaderFactory(config, httpContextAccessor, readerFactory);
+
+            var userId = sut.GetUserId(winPrincipal);
+            var sids = sut.GetSidsForUser(winPrincipal);
+
+            Assert.AreEqual("S-1-5-21-999", userId);
+            CollectionAssert.Contains(sids, "S-1-5-21-999");
+            adReader.Received(1).GetUserData("testuser");
+            adReader.Received(1).GetSidsForUser("testuser");
+        }
     }
 }

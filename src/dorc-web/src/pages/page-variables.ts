@@ -22,7 +22,7 @@ import { TextField } from '@vaadin/text-field';
 import { css, PropertyValueMap } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { html } from 'lit/html.js';
-import '../components/grid-button-groups/variable-value-controls';
+import { VariableValueControls } from '../components/grid-button-groups/variable-value-controls';
 import { retrieveErrorMessage } from '../helpers/errorMessage-retriever';
 import { ErrorNotification } from '../components/notifications/error-notification';
 import { WarningNotification } from '../components/notifications/warning-notification';
@@ -53,7 +53,7 @@ export class PageVariables extends PageElement {
   @property({ type: Boolean }) deletingVariable = false;
 
   @property({ type: Array })
-  propertyValueScopeOptions!: PropertyValueScopeOptionApiModel[];
+  propertyValueScopeOptions: PropertyValueScopeOptionApiModel[] = [];
 
   @property({ type: Boolean }) loadingScopes = true;
 
@@ -77,6 +77,10 @@ export class PageVariables extends PageElement {
   private allPropertyValues: PropertyValueDtoExtended[] | undefined;
 
   @state() private _editingValueId: number | undefined;
+
+  @state() newArrayItems: string[] = [];
+
+  @state() selectedPropertyIsArray = false;
 
   private scopeFilterValue = '';
 
@@ -173,6 +177,50 @@ export class PageVariables extends PageElement {
 
       .variable-selector-actions {
         white-space: nowrap;
+      }
+
+      .array-badge {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-size: var(--lumo-font-size-xxs);
+        font-weight: 600;
+        background-color: var(--lumo-primary-color-10pct);
+        color: var(--dorc-link-color);
+      }
+
+      .array-builder-bar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 8px;
+        margin-top: 4px;
+        border-radius: 4px;
+        background-color: var(--lumo-contrast-5pct);
+      }
+
+      .array-item-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: var(--lumo-font-size-xs);
+        background-color: var(--lumo-primary-color-10pct);
+        color: var(--lumo-body-text-color);
+        border: 1px solid var(--lumo-contrast-20pct);
+      }
+
+      .remove-array-item-btn {
+        border: none;
+        background: transparent;
+        color: var(--dorc-error-color);
+        cursor: pointer;
+        font-weight: bold;
+        padding: 0 2px;
+        line-height: 1;
       }
 
       @media (max-width: 768px) {
@@ -305,6 +353,17 @@ export class PageVariables extends PageElement {
                         ?disabled="${!((this.isPowerUser || this.isAdmin) && this.existingPropertySelected)}"
                         @click="${this.updatePropertySecure}"
                       ></vaadin-checkbox>
+                      <vaadin-checkbox
+                        id="is-variable-array"
+                        label="is Array"
+                        .checked="${this.selectedPropertyIsArray}"
+                        ?disabled="${!(
+                          (this.isPowerUser || this.isAdmin) &&
+                          this.existingPropertySelected &&
+                          (this.allPropertyValues?.length ?? 0) === 0
+                        )}"
+                        @click="${this.updatePropertyArray}"
+                      ></vaadin-checkbox>
                     </td>
                   </tr>
                 </table>
@@ -357,13 +416,36 @@ export class PageVariables extends PageElement {
                         ${comboBoxRenderer(this.comboboxRenderer, [])}
                         id="newVariableValue"
                         ?disabled="${!this.existingPropertySelected}"
-                        label="Value"
+                        label="${this.selectedPropertyIsArray ? 'Array Item / Value' : 'Value'}"
                         style="min-width: 400px; width: 100%"
-                        helper-text="Include a resolver eg. $AnotherVariable$ or specify value directly"
+                        @keydown="${(e: KeyboardEvent) => {
+                          if (e.key === 'Enter' && this.selectedPropertyIsArray) {
+                            e.preventDefault();
+                            this._addArrayItemClick();
+                          }
+                        }}"
+                        helper-text="${
+                          this.selectedPropertyIsArray
+                            ? "Add items one by one with '+ Add Item' or enter a JSON array [\"a\",\"b\"]"
+                            : 'Include a resolver eg. $AnotherVariable$ or specify value directly'
+                        }"
                       ></vaadin-combo-box>
                     </td>
+                    ${
+                      this.selectedPropertyIsArray
+                        ? html`<td style="vertical-align: center;">
+                            <vaadin-button
+                              id="add-array-item-btn"
+                              ?disabled="${!this.existingPropertySelected}"
+                              @click="${this._addArrayItemClick}"
+                              >+ Add Item</vaadin-button
+                            >
+                          </td>`
+                        : html``
+                    }
                     <td style="vertical-align: center;">
                       <vaadin-button
+                        id="add-variable-value-btn"
                         ?disabled="${!this.existingPropertySelected}"
                         @click="${this._addVariableValueClick}"
                         >Add Variable Value</vaadin-button
@@ -381,6 +463,49 @@ export class PageVariables extends PageElement {
                     </td>
                   </tr>
                 </table>
+                ${
+                  this.selectedPropertyIsArray
+                    ? html`<div
+                        id="new-array-items-list"
+                        class="array-builder-bar"
+                      >
+                        <strong style="font-size: var(--lumo-font-size-xs);">
+                          Array Items (${this.newArrayItems.length}):
+                        </strong>
+                        ${this.newArrayItems.length === 0
+                          ? html`<span
+                              style="font-size: var(--lumo-font-size-xs); color: var(--lumo-secondary-text-color);"
+                              >No items staged yet — type an item and click "+ Add Item", or click "Add Variable Value" to save directly.</span
+                            >`
+                          : this.newArrayItems.map(
+                              (item, idx) => html`
+                                <span class="array-item-chip">
+                                  <span class="array-item-text">${item}</span>
+                                  <button
+                                    type="button"
+                                    class="remove-array-item-btn"
+                                    aria-label="Remove array item ${item}"
+                                    @click="${() =>
+                                      this._removeStagedArrayItem(idx)}"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              `
+                            )}
+                        ${this.newArrayItems.length > 0
+                          ? html`<vaadin-button
+                              id="clear-array-items-btn"
+                              theme="small tertiary error"
+                              @click="${() => {
+                                this.newArrayItems = [];
+                              }}"
+                              >Clear</vaadin-button
+                            >`
+                          : html``}
+                      </div>`
+                    : html``
+                }
               </vaadin-details>
               ${
                 this.loadingPropertyValues
@@ -583,7 +708,12 @@ export class PageVariables extends PageElement {
   `;
 
   private propertyNameRenderer = (property: PropertyApiModel) =>
-    html`<div title="${property.Name}">${property.Name}</div>`;
+    html`<div title="${property.Name}">
+      ${property.Name}
+      ${property.IsArray
+        ? html`<span class="array-badge">[Array]</span>`
+        : html``}
+    </div>`;
 
   validateNewVariable() {
     const textField = this.shadowRoot?.querySelector(
@@ -691,6 +821,11 @@ export class PageVariables extends PageElement {
     api.propertiesPost({ propertyApiModel: [prop] }).subscribe({
       next: (data: Response[]) => {
         if (data[0].Status === 'success') {
+          this.allPropertyValues = [];
+          this.propertyValues = [];
+          this.newArrayItems = [];
+          this.newVariableScope = '';
+          this.propertyValueScopeOptions = [];
           this.radioValue = 'existing';
 
           const newProp = data[0].Item as PropertyApiModel;
@@ -722,6 +857,9 @@ export class PageVariables extends PageElement {
       'variable-value-deleted',
       this.variableValueDeleted as EventListener
     );
+    this.addEventListener('variable-value-updated', (() => {
+      this.loadVariableValues();
+    }) as EventListener);
     this.addEventListener('editing-started', ((e: CustomEvent) => {
       this._editingValueId = e.detail.id;
     }) as EventListener);
@@ -788,13 +926,15 @@ export class PageVariables extends PageElement {
       this.valueFilterValue = '';
 
       if (this.newVariableName !== '') {
+        const targetVariableName = this.newVariableName;
+        this.newVariableName = '';
         const newfoundProp = this.properties?.find(
-          value => value.Name === this.newVariableName
+          value => value.Name === targetVariableName
         );
-        if (combo) {
+        if (newfoundProp) {
           combo.selectedItem = newfoundProp;
           combo.title = combo.value;
-          this.newVariableName = '';
+          return;
         }
       }
 
@@ -805,15 +945,26 @@ export class PageVariables extends PageElement {
       const checkboxSecure = this.shadowRoot?.querySelector(
         '#is-variable-secure'
       ) as unknown as Checkbox;
+      const checkboxArray = this.shadowRoot?.querySelector(
+        '#is-variable-array'
+      ) as unknown as Checkbox;
+
+      this.newArrayItems = [];
+      this.allPropertyValues = [];
+      this.propertyValues = [];
+      this.clearNewVariableValueInput();
 
       if (existingProperty) {
         this.existingPropertySelected = true;
-        checkboxSecure.checked = existingProperty?.Secure ?? false;
+        this.selectedPropertyIsArray = existingProperty?.IsArray ?? false;
+        if (checkboxSecure) checkboxSecure.checked = existingProperty?.Secure ?? false;
+        if (checkboxArray) checkboxArray.checked = this.selectedPropertyIsArray;
         this.loadVariableValues();
       } else {
         this.existingPropertySelected = false;
-        checkboxSecure.checked = false;
-        this.propertyValues = [];
+        this.selectedPropertyIsArray = false;
+        if (checkboxSecure) checkboxSecure.checked = false;
+        if (checkboxArray) checkboxArray.checked = false;
       }
     }
   }
@@ -823,6 +974,7 @@ export class PageVariables extends PageElement {
       const combo = data.target as ComboBox;
       this.newVariableScope = combo.value;
       if (!this.newVariableScope) {
+        this.propertyValueScopeOptions = [];
         return;
       }
       this.loadingScopeOptions = true;
@@ -860,17 +1012,22 @@ export class PageVariables extends PageElement {
 
   private loadVariableValues() {
     if (this.propertyName !== '') {
+      const requestedPropertyName = this.propertyName;
       this.loadingPropertyValues = true;
       const api = new PropertyValuesApi(dorcApiConfiguration);
-      api.propertyValuesGet({ propertyName: this.propertyName }).subscribe({
+      api.propertyValuesGet({ propertyName: requestedPropertyName }).subscribe({
         next: (data: PropertyValueDto[]) => {
-          this.setVariableValues(data);
+          if (this.propertyName === requestedPropertyName) {
+            this.setVariableValues(data);
+          }
         },
         error: (err: any) => {
-          if (err.status !== 404) {
-            this.errorAlert(err);
+          if (this.propertyName === requestedPropertyName) {
+            if (err.status !== 404) {
+              this.errorAlert(err);
+            }
+            this.setVariableValues([]);
           }
-          this.setVariableValues([]);
         },
         complete: () => console.log('done loading variable values')
       });
@@ -1007,31 +1164,195 @@ export class PageVariables extends PageElement {
     this.filteredEnvironments = envs;
   }
 
-  _addVariableValueClick() {
-    const textField = this.shadowRoot?.querySelector(
+  async updatePropertyArray(event: Event) {
+    const checkbox = event.currentTarget as Checkbox;
+    const propertyName = this.propertyName;
+    const existingProperty = this.properties?.find(
+      value => value.Name === propertyName
+    );
+
+    if (existingProperty && propertyName) {
+      const originallyArray = existingProperty.IsArray ?? false;
+      const revertCheckboxState = () => {
+        checkbox.checked = originallyArray;
+        this.selectedPropertyIsArray = originallyArray;
+      };
+
+      const confirmMessage = !originallyArray
+        ? `Are you sure you want to mark property "${propertyName}" as an Array variable?\n\nValues for this variable will be stored as JSON arrays and passed to PowerShell scripts as string[].`
+        : `Are you sure you want to mark property "${propertyName}" as a scalar (non-array) variable?`;
+
+      if (!(await confirmPrompt(confirmMessage))) {
+        revertCheckboxState();
+        return;
+      }
+
+      const updatedProperty: PropertyApiModel = {
+        ...existingProperty,
+        IsArray: !originallyArray
+      };
+
+      const api = new PropertiesApi(dorcApiConfiguration);
+      const requestBody = { [propertyName]: updatedProperty };
+
+      api.propertiesPut({ requestBody }).subscribe({
+        next: (data: Response[]) => {
+          if (data[0]?.Status === 'success') {
+            existingProperty.IsArray = !originallyArray;
+            this.selectedPropertyIsArray = !originallyArray;
+            checkbox.checked = !originallyArray;
+            this.loadVariableValues();
+            Notification.show(
+              `Property "${propertyName}" updated to ${!originallyArray ? 'Array' : 'Scalar'} successfully.`,
+              {
+                position: 'bottom-start',
+                theme: 'success'
+              }
+            );
+          } else {
+            revertCheckboxState();
+            this.errorAlert([data[0]]);
+          }
+        },
+        error: (err: any) => {
+          revertCheckboxState();
+          this.errorAlert(err);
+        }
+      });
+    }
+  }
+
+  private getNewVariableValueInputText(): string {
+    const combo = this.shadowRoot?.querySelector(
       '#newVariableValue'
-    ) as unknown as TextField;
+    ) as (ComboBox & { _inputElementValue?: string }) | null;
+    const value = combo?.value || combo?._inputElementValue || '';
+    return value.trim();
+  }
+
+  private clearNewVariableValueInput(): void {
+    const combo = this.shadowRoot?.querySelector(
+      '#newVariableValue'
+    ) as (ComboBox & {
+      _inputElementValue?: string;
+      _lastCustomValue?: string;
+    }) | null;
+    if (combo) {
+      combo.selectedItem = null;
+      combo.value = '';
+      combo._inputElementValue = '';
+      delete combo._lastCustomValue;
+    }
+  }
+
+  _addArrayItemClick() {
+    const raw = this.getNewVariableValueInputText();
+    if (!raw) {
+      return;
+    }
+
+    const parsed = PageVariables.tryParseJsonArray(raw);
+    if (parsed) {
+      this.newArrayItems = [...this.newArrayItems, ...parsed];
+    } else {
+      this.newArrayItems = [...this.newArrayItems, raw];
+    }
+
+    this.clearNewVariableValueInput();
+  }
+
+  _removeStagedArrayItem(index: number) {
+    this.newArrayItems = this.newArrayItems.filter((_, idx) => idx !== index);
+  }
+
+  private static tryParseJsonArray(raw: string): string[] | null {
+    if (!raw.startsWith('[')) {
+      return null;
+    }
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map(item => String(item ?? ''));
+      }
+    } catch {
+      // Not a JSON array
+    }
+    return null;
+  }
+
+  _addVariableValueClick() {
     const api = new PropertyValuesApi(dorcApiConfiguration);
     const existingProperty = this.properties?.find(
       value => value.Name === this.propertyName
     );
     if (existingProperty) {
       this.addingVariableValue = true;
+      const rawInput = this.getNewVariableValueInputText();
+      let valueToSave = rawInput;
+      const combinedItems = [...this.newArrayItems];
+
+      if (existingProperty.IsArray) {
+        if (rawInput !== '') {
+          const parsedInput = PageVariables.tryParseJsonArray(rawInput);
+          if (parsedInput) {
+            combinedItems.push(...parsedInput);
+          } else {
+            combinedItems.push(rawInput);
+          }
+        }
+        valueToSave = JSON.stringify(combinedItems);
+      }
+
       const propertyValueDto: PropertyValueDto = {
         Property: existingProperty,
-        Value: textField.value.trim(),
+        Value: valueToSave,
         PropertyValueFilter: this.newVariableScope
       };
       if (propertyValueDto.PropertyValueFilter === '') {
         propertyValueDto.PropertyValueFilter = undefined;
-        if (
-          this.propertyValues?.find(
-            pv =>
-              pv.PropertyValueFilter === '' ||
-              pv.PropertyValueFilter === undefined ||
-              pv.PropertyValueFilter === null
-          )
-        ) {
+        const existingDefaultValue = this.propertyValues?.find(
+          pv =>
+            pv.PropertyValueFilter === '' ||
+            pv.PropertyValueFilter === undefined ||
+            pv.PropertyValueFilter === null
+        );
+        if (existingDefaultValue) {
+          if (
+            existingProperty.IsArray &&
+            !existingProperty.Secure &&
+            combinedItems.length > 0
+          ) {
+            const existingItems = VariableValueControls.parseArrayItems(
+              existingDefaultValue.Value
+            );
+            const updatedDefaultDto: PropertyValueDto = {
+              ...existingDefaultValue,
+              Property: existingProperty,
+              Value: JSON.stringify([...existingItems, ...combinedItems]),
+              PropertyValueFilter: undefined
+            };
+            api
+              .propertyValuesPut({
+                propertyValueDto: [updatedDefaultDto]
+              })
+              .subscribe({
+                next: (value: Response[]) => {
+                  if (value[0].Status === 'success') {
+                    this.clearNewVariableValueInput();
+                    this.newArrayItems = [];
+                    this.loadVariableValues();
+                  } else {
+                    this.errorAlert(value);
+                  }
+                  this.addingVariableValue = false;
+                },
+                error: (err: any) => {
+                  this.addingVariableValue = false;
+                  this.errorAlert(err);
+                }
+              });
+            return;
+          }
           const notification = new ErrorNotification();
           notification.setAttribute(
             'errorMessage',
@@ -1058,7 +1379,7 @@ export class PageVariables extends PageElement {
               const findIndex = this.filteredEnvironments?.findIndex(
                 env => env === pv.PropertyValueFilter
               );
-              if (findIndex !== undefined) {
+              if (findIndex !== undefined && findIndex > -1) {
                 this.filteredEnvironments?.splice(findIndex, 1);
                 this.filteredEnvironments?.sort();
                 this.filteredEnvironments = JSON.parse(
@@ -1069,7 +1390,8 @@ export class PageVariables extends PageElement {
                 ) as unknown as ComboBox;
                 if (combobox) combobox.value = '';
               }
-              if (textField) textField.value = '';
+              this.clearNewVariableValueInput();
+              this.newArrayItems = [];
 
               this.loadVariableValues();
               this.addingVariableValue = false;

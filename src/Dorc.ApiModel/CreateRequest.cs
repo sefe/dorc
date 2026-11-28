@@ -14,7 +14,7 @@ namespace Dorc.ApiModel
 
         // Catalog-mode deploy: no build artifact; the runner resolves each
         // component's Terraform source from its manifest. Suppresses
-        // artifact-URL resolution in DeployLibrary.CreateRequestAsync.
+        // artifact-URL resolution in DeploymentRequestSubmitter.CreateRequestAsync.
         public bool IsCatalog { get; set; }
         [System.Text.Json.Serialization.JsonIgnore]
         [System.Runtime.Serialization.IgnoreDataMember]

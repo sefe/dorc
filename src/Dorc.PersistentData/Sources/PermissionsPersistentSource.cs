@@ -27,7 +27,7 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                return context.Permissions.Where(u => u.Id == userId).OrderBy(p => p.DisplayName).Select(MapToPermssionDto).First();
+                return context.Permissions.Where(u => u.Id == userId).OrderBy(p => p.DisplayName).Select(MapToPermssionDto).FirstOrDefault();
             }
         }
 
@@ -35,11 +35,15 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
+                var found = context.Permissions.FirstOrDefault(u => u.Id == id)
+                            ?? throw new ArgumentException($"Permission with ID {id} not found");
+
                 if (!context.Permissions.Any(u => u.Id != id 
-                    && EF.Functions.Collate(perm.DisplayName, DeploymentContext.CaseInsensitiveCollation)
-                    == EF.Functions.Collate(u.DisplayName, DeploymentContext.CaseInsensitiveCollation)))
+                    && (EF.Functions.Collate(perm.DisplayName, DeploymentContext.CaseInsensitiveCollation)
+                        == EF.Functions.Collate(u.DisplayName, DeploymentContext.CaseInsensitiveCollation)
+                        || EF.Functions.Collate(perm.PermissionName, DeploymentContext.CaseInsensitiveCollation)
+                        == EF.Functions.Collate(u.Name, DeploymentContext.CaseInsensitiveCollation))))
                 {
-                    var found = context.Permissions.First(u => u.Id == id);
                     found.DisplayName = perm.DisplayName;
                     found.Name = perm.PermissionName;
                     context.SaveChanges();
@@ -47,7 +51,7 @@ namespace Dorc.PersistentData.Sources
                 }
                 else
                 {
-                    throw new ArgumentException($"Permission with display name \"{perm.DisplayName}\" already exists");
+                    throw new ArgumentException($"Permission with display name \"{perm.DisplayName}\" or name \"{perm.PermissionName}\" already exists");
                 }
             }
         }
@@ -56,7 +60,12 @@ namespace Dorc.PersistentData.Sources
         {
             using (var context = _contextFactory.GetContext())
             {
-                var found = context.Permissions.First(u => u.Id == permId);
+                var found = context.Permissions.FirstOrDefault(u => u.Id == permId);
+                if (found == null)
+                {
+                    return;
+                }
+
                 context.Permissions.Remove(found);
                 context.SaveChanges();
             }
@@ -67,7 +76,9 @@ namespace Dorc.PersistentData.Sources
             using (var context = _contextFactory.GetContext())
             {
                 if (!context.Permissions.Any(u => EF.Functions.Collate(perm.DisplayName, DeploymentContext.CaseInsensitiveCollation)
-                                                == EF.Functions.Collate(u.DisplayName, DeploymentContext.CaseInsensitiveCollation)))
+                                                == EF.Functions.Collate(u.DisplayName, DeploymentContext.CaseInsensitiveCollation)
+                                                || EF.Functions.Collate(perm.PermissionName, DeploymentContext.CaseInsensitiveCollation)
+                                                == EF.Functions.Collate(u.Name, DeploymentContext.CaseInsensitiveCollation)))
                 {
                     var added = context.Permissions.Add(MapToPermssion(perm));
                     context.SaveChanges();
@@ -75,7 +86,7 @@ namespace Dorc.PersistentData.Sources
                 }
                 else
                 {
-                    throw new ArgumentException($"Permission with display name \"{perm.DisplayName}\" already exists");
+                    throw new ArgumentException($"Permission with display name \"{perm.DisplayName}\" or name \"{perm.PermissionName}\" already exists");
                 }
             }
         }

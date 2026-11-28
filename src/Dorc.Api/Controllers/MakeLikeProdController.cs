@@ -22,7 +22,7 @@ namespace Dorc.Api.Controllers
     public class MakeLikeProdController : ControllerBase
     {
         private readonly ILogger _logger;
-        private readonly IDeployLibrary _deployLibrary;
+        private readonly IDeploymentRequestSubmitter _requestSubmitter;
         private readonly IEnvironmentsPersistentSource _environmentsPersistentSource;
         private readonly ISecurityPrivilegesChecker _securityPrivilegesChecker;
         private readonly IEnvBackups _envBackups;
@@ -35,7 +35,7 @@ namespace Dorc.Api.Controllers
         private readonly IRequestService _requestService;
 
         public MakeLikeProdController(ILogger<MakeLikeProdController> logger,
-            IDeployLibrary deployLibrary, IEnvironmentsPersistentSource environmentsPersistentSource,
+            IDeploymentRequestSubmitter requestSubmitter, IEnvironmentsPersistentSource environmentsPersistentSource,
             ISecurityPrivilegesChecker securityPrivilegesChecker, IEnvBackups envBackups,
             IBundledRequestsPersistentSource bundledRequestsPersistentSource,
             [FromKeyedServices("BundledRequestVariableResolver")] IVariableResolver variableResolver,
@@ -51,7 +51,7 @@ namespace Dorc.Api.Controllers
             _envBackups = envBackups;
             _securityPrivilegesChecker = securityPrivilegesChecker;
             _environmentsPersistentSource = environmentsPersistentSource;
-            _deployLibrary = deployLibrary;
+            _requestSubmitter = requestSubmitter;
             _logger = logger;
             _claimsPrincipalReader = claimsPrincipalReader;
             _requestsPersistentSource = requestsPersistentSource;
@@ -125,6 +125,15 @@ namespace Dorc.Api.Controllers
         {
             try
             {
+                if (mlpRequest == null ||
+                    string.IsNullOrWhiteSpace(mlpRequest.TargetEnv) ||
+                    string.IsNullOrWhiteSpace(mlpRequest.BundleName))
+                {
+                    return StatusCode(
+                        StatusCodes.Status400BadRequest,
+                        "TargetEnv and BundleName are required.");
+                }
+
                 var targetEnv = _environmentsPersistentSource.GetEnvironment(mlpRequest.TargetEnv);
 
                 if (targetEnv?.EnvironmentIsProd == true)
@@ -143,13 +152,23 @@ namespace Dorc.Api.Controllers
                         $"You do not have Write or Owner permission on environment '{mlpRequest.TargetEnv}'{ownerText}. Only an Environment Writer, Owner, or DOrc Admin can queue a Bundle Request.");
                 }
 
-                var requestsForBundle = _bundledRequestsPersistentSource.GetRequestsForBundle(mlpRequest.BundleName).OrderBy(br => br.Sequence);
+                if (targetEnv == null)
+                {
+                    return StatusCode(
+                        StatusCodes.Status404NotFound,
+                        $"Environment '{mlpRequest.TargetEnv}' does not exist.");
+                }
+
+                var requestsForBundle = _bundledRequestsPersistentSource
+                    .GetRequestsForBundle(mlpRequest.BundleName)
+                    .OrderBy(br => br.Sequence)
+                    .ToList();
 
                 _variableResolver.SetPropertyValue("CreatedByUserEmail", this.GetUserEmail(User));
                 _variableResolver.SetRequestSuppliedPropertyValue("DataBackup", mlpRequest.DataBackup);
                 _variableResolver.SetRequestSuppliedPropertyValue("TargetEnvironmentName", mlpRequest.TargetEnv);
 
-                foreach (var mlpRequestBundleProperty in mlpRequest.BundleProperties)
+                foreach (var mlpRequestBundleProperty in mlpRequest.BundleProperties ?? Enumerable.Empty<RequestProperty>())
                 {
                     _variableResolver.SetRequestSuppliedPropertyValue(
                         mlpRequestBundleProperty.PropertyName,
@@ -167,7 +186,14 @@ namespace Dorc.Api.Controllers
                     {
                         case BundledRequestType.JobRequest:
                             var job = System.Text.Json.JsonSerializer.Deserialize<RequestDto>(req.Request);
+                            if (job == null)
+                            {
+                                return StatusCode(
+                                    StatusCodes.Status400BadRequest,
+                                    $"Bundle '{mlpRequest.BundleName}' Sequence {req.Sequence} has an invalid JobRequest payload.");
+                            }
 
+                            job.RequestProperties ??= new List<RequestProperty>();
                             _bundledRequestVariableLoader.SetVariables(job.RequestProperties.ToList());
                             _variableResolver.LoadProperties();
                             List<RequestProperty> variables = new();
@@ -176,14 +202,22 @@ namespace Dorc.Api.Controllers
                                 variables.Add(new RequestProperty
                                 {
                                     PropertyName = variable.PropertyName,
-                                    PropertyValue = _variableResolver.GetPropertyValue(variable.PropertyName).Value
-                                        .ToString()
+                                    PropertyValue = _variableResolver.GetPropertyValue(variable.PropertyName)?.Value?
+                                        .ToString() ?? string.Empty
                                 });
                             }
 
                             job.Environment = mlpRequest.TargetEnv;
                             job.RequestProperties = variables;
-                            var jobRequestId = _requestService.CreateRequest(job, User).Id;
+                            var createdJobRequest = _requestService.CreateRequest(job, User);
+                            if (createdJobRequest == null || createdJobRequest.Id <= 0)
+                            {
+                                return StatusCode(
+                                    StatusCodes.Status500InternalServerError,
+                                    createdJobRequest?.Status ?? $"Failed to create job request for project '{job.Project}'.");
+                            }
+
+                            var jobRequestId = createdJobRequest.Id;
                             reqIds.Add(jobRequestId);
                             _logger.LogInformation("Bundle '{BundleName}' Sequence {Sequence}: JobRequest for project '{Project}' created request ID {RequestId}",
                                 mlpRequest.BundleName, req.Sequence, job.Project, jobRequestId);
@@ -192,9 +226,9 @@ namespace Dorc.Api.Controllers
                             var copyEnvBuildRequest = System.Text.Json.JsonSerializer.Deserialize<CopyEnvBuildRequest>(req.Request);
                             if (copyEnvBuildRequest != null)
                             {
-                                if (copyEnvBuildRequest.Components.Any())
+                                if (copyEnvBuildRequest.Components != null && copyEnvBuildRequest.Components.Any())
                                 {
-                                    var copyIds = _deployLibrary.CopyEnvBuildWithComponentIds(copyEnvBuildRequest.SourceEnvironmentName,
+                                    var copyIds = _requestSubmitter.CopyEnvBuildWithComponentIds(copyEnvBuildRequest.SourceEnvironmentName,
                                         mlpRequest.TargetEnv, copyEnvBuildRequest.ProjectName,
                                         copyEnvBuildRequest.Components.ToArray(), User);
                                     reqIds.AddRange(copyIds);
@@ -203,7 +237,7 @@ namespace Dorc.Api.Controllers
                                 }
                                 else
                                 {
-                                    var copyIds = _deployLibrary.CopyEnvBuildAllComponents(copyEnvBuildRequest.SourceEnvironmentName,
+                                    var copyIds = _requestSubmitter.CopyEnvBuildAllComponents(copyEnvBuildRequest.SourceEnvironmentName,
                                         mlpRequest.TargetEnv, copyEnvBuildRequest.ProjectName,
                                         User);
                                     reqIds.AddRange(copyIds);
@@ -239,7 +273,7 @@ namespace Dorc.Api.Controllers
             catch (Exception e)
             {
                 _logger.LogError(e, "An error occurred while processing MakeLikeProd request for TargetEnv: {TargetEnv}. Request: {@Request}", mlpRequest?.TargetEnv, mlpRequest);
-                return StatusCode(StatusCodes.Status500InternalServerError, e);
+                return StatusCode(StatusCodes.Status500InternalServerError, e.Message);
             }
         }
 

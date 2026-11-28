@@ -19,6 +19,12 @@ namespace Dorc.Api.Security
                 return JwtBearerDefaults.AuthenticationScheme;
             }
 
+            if (httpContext.Request.Path.StartsWithSegments("/hubs", StringComparison.OrdinalIgnoreCase) &&
+                !string.IsNullOrEmpty(httpContext.Request.Query["access_token"]))
+            {
+                return JwtBearerDefaults.AuthenticationScheme;
+            }
+
             return NegotiateDefaults.AuthenticationScheme;
         }
     }

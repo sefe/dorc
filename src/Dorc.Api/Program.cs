@@ -93,6 +93,7 @@ builder.Services.AddTransient<Dorc.PersistentData.Sources.Interfaces.IDeployment
 var configBuilder = new ConfigurationBuilder()
     .AddJsonFile("appsettings.json")
     .AddJsonFile("loggerSettings.json", optional:false, reloadOnChange: true)
+    .AddConfiguration(builder.Configuration)
     .Build();
 
 var configurationSettings = new ConfigurationSettings(configBuilder);
@@ -259,6 +260,21 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
             options.ClientId = dorcApiResourceName;
             options.ClientSecret = dorcApiSecret;
             options.NameClaimType = "name";
+            options.TokenRetriever = request =>
+            {
+                var headerToken = IdentityModel.AspNetCore.OAuth2Introspection.TokenRetrieval.FromAuthorizationHeader()(request);
+                if (!string.IsNullOrEmpty(headerToken))
+                {
+                    return headerToken;
+                }
+
+                if (request.Path.StartsWithSegments("/hubs", StringComparison.OrdinalIgnoreCase))
+                {
+                    return IdentityModel.AspNetCore.OAuth2Introspection.TokenRetrieval.FromQueryString("access_token")(request);
+                }
+
+                return null;
+            };
         });
 
     builder.Services.AddAuthorization(options =>
@@ -281,13 +297,15 @@ static void ConfigureOAuth(WebApplicationBuilder builder, IConfigurationSettings
             // RequireClaim it replaces.
             policy.RequireAssertion(context =>
             {
-                if (context.Resource is HttpContext httpContext &&
+                if (!registerOwnReader &&
+                    context.Resource is HttpContext httpContext &&
                     httpContext.GetAuthenticationScheme() != JwtBearerDefaults.AuthenticationScheme)
                 {
                     return true;
                 }
 
-                return context.User.HasClaim("scope", dorcApiGlobalScope);
+                return context.User.FindAll("scope").Any(c =>
+                    c.Value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Contains(dorcApiGlobalScope));
             });
         });
     });
@@ -543,8 +561,9 @@ app.UseAuthorization();
 app.UseMiddleware<WinAuthLoggingMiddleware>();
 
 var endpointConventionBuilder = app.MapControllers();
+var hubEndpointBuilder = app.MapHub<DeploymentsHub>("/hubs/deployments");
 // Enforce Authorization Policy [see constant 'apiScopeAuthorizationPolicy'] on all the
-// Controllers. This must cover ConfigAuthScheme.Both as well as OAuth: Both is the distinct
+// Controllers and SignalR Hubs. This must cover ConfigAuthScheme.Both as well as OAuth: Both is the distinct
 // string "OAuth+WinAuth", so an exact match against OAuth alone silently skipped the policy
 // and left bearer tokens unchecked for scope in combined mode. The policy itself exempts
 // Windows-authenticated requests, so applying it in Both mode does not deny them. This only
@@ -553,9 +572,13 @@ var endpointConventionBuilder = app.MapControllers();
 if (authenticationScheme is ConfigAuthScheme.OAuth or ConfigAuthScheme.Both)
 {
     endpointConventionBuilder.RequireAuthorization(apiScopeAuthorizationPolicy);
+    hubEndpointBuilder.RequireAuthorization(apiScopeAuthorizationPolicy);
+}
+else
+{
+    hubEndpointBuilder.RequireAuthorization();
 }
 
-// Map SignalR hub
-app.MapHub<DeploymentsHub>("/hubs/deployments");
-
 app.Run();
+
+public partial class Program { }

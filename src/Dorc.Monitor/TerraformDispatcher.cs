@@ -185,8 +185,8 @@ namespace Dorc.Monitor
                             pipeCancellationTokenSource.Token);
                     logger.LogInformation("Server named pipe {PipeName} has started.", startedScriptGroupPipeName);
 
-                    var runnerLogPathSetting = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                    .GetSection("AppSettings")["RunnerLogPath"]!;
+                    var runnerLogPathSetting = _configurationSettingsEngine.GetRunnerLogPath()
+                        ?? new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["RunnerLogPath"]!;
                     var runnerLogPath = runnerLogPathSetting + $"\\{startedScriptGroupPipeName}.txt";
                     var uncLogPath = runnerLogPath.Replace("c:", @"\\" + System.Environment.GetEnvironmentVariable("COMPUTERNAME"));
 
@@ -254,7 +254,8 @@ namespace Dorc.Monitor
 
                     var processStarter = new TerraformRunnerProcessStarter(logger)
                     {
-                        RunnerExecutableFullName = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["TerraformDeploymentRunnerPath"],
+                        RunnerExecutableFullName = _configurationSettingsEngine.GetTerraformDeploymentRunnerPath()
+                            ?? new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["TerraformDeploymentRunnerPath"],
                         ScriptGroupPipeName = startedScriptGroupPipeName,
                         RunnerLogPath = runnerLogPath,
                         PlanFilePath = terraformPlanFilePath,

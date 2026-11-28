@@ -38,18 +38,27 @@
         {
             var header = context.Request.Headers["Authorization"].FirstOrDefault();
 
-            if (string.IsNullOrEmpty(header))
+            if (!string.IsNullOrEmpty(header))
             {
+                var parts = header.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length == 2)
+                {
+                    return (parts[0], parts[1]);
+                }
+
                 return ("", "");
             }
 
-            var parts = header.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length != 2)
+            if (context.Request.Path.StartsWithSegments("/hubs", StringComparison.OrdinalIgnoreCase))
             {
-                return ("", "");
+                var accessToken = context.Request.Query["access_token"].FirstOrDefault();
+                if (!string.IsNullOrEmpty(accessToken))
+                {
+                    return ("Bearer", accessToken);
+                }
             }
 
-            return (parts[0], parts[1]);
+            return ("", "");
         }
     }
 }

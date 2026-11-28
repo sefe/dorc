@@ -11,7 +11,7 @@
 						<util:ServiceConfig FirstFailureActionType="restart" SecondFailureActionType="restart" ThirdFailureActionType="restart" />
 					</ServiceInstall>
 
-					<ServiceControl Id="DeployMonitorServiceProdStartService" Wait="yes" Stop="both" Remove="uninstall" Name="DeployMonitorServiceProd" />
+					<ServiceControl Id="DeployMonitorServiceProdStartService" Wait="yes" Stop="both" Remove="uninstall" Name="DeploymentActionServiceProd" />
 
 					<File Id="ProdDeployMonitorExe" KeyPath="yes" Source="$(var.Dorc.Monitor.TargetDir)DOrc.Monitor.exe" />
 

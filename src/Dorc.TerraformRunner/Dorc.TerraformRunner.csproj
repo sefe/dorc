@@ -28,6 +28,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="Dorc.Core.Tests" />
     <InternalsVisibleTo Include="Dorc.TerraformRunner.Tests" />
+    <InternalsVisibleTo Include="Dorc.Monitor.IntegrationTests" />
   </ItemGroup>
 
   <ItemGroup>

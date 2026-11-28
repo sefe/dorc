@@ -13,6 +13,7 @@ namespace Dorc.PowerShell
         private readonly IRunnerLogger logger;
         private readonly ScriptGroup evidenceContract;
         private int ordinal;
+        private IReadOnlyList<string> sensitiveValues = Array.Empty<string>();
 
         public PowerShellScriptRunner(IRunnerLogger logger, ScriptGroup evidenceContract = null)
         {
@@ -29,10 +30,12 @@ namespace Dorc.PowerShell
             logger.FileLogger.LogInformation("Starting execution of script '{0}'", scriptName);
 
             IDictionary<string, VariableValue> combinedProperties = CombineProperties(scriptProperties, commonProperties);
+            sensitiveValues = CollectSensitiveValues(combinedProperties);
 
             try
             {
-                using (var runspace = RunspaceFactory.CreateRunspace(InitialSessionState.CreateDefault()))
+                var host = new CustomHost();
+                using (var runspace = RunspaceFactory.CreateRunspace(host, InitialSessionState.CreateDefault()))
                 {
                     runspace.InitialSessionState.AuthorizationManager = new AuthorizationManager("Microsoft.PowerShell");
                     runspace.Open();
@@ -86,10 +89,12 @@ namespace Dorc.PowerShell
 
                             if (string.IsNullOrEmpty(exceptionMessage))
                             {
-                                throw;
+                                throw new InvalidOperationException(RedactSensitiveValues(exception.Message));
                             }
-                            logger.FileLogger.LogInformation("Execution of the powershell Script {0} has Errored : {1}", scriptName, exception.Message);
-                            throw new RemoteException(exceptionMessage, exception);
+                            var redactedExceptionMessage = RedactSensitiveValues(exceptionMessage);
+                            var redactedReason = RedactSensitiveValues(exception.Message);
+                            logger.FileLogger.LogInformation("Execution of the powershell Script {0} has Errored : {1}", scriptName, redactedReason);
+                            throw new RemoteException(redactedExceptionMessage, new InvalidOperationException(redactedReason));
                         }
 
                         logger.FileLogger.LogDebug("Checking runspace State");
@@ -106,13 +111,23 @@ namespace Dorc.PowerShell
                         {
                             throw new Exception("PowerShell completed abnormally due to an error. Reason: " + powerShell.InvocationStateInfo.Reason);
                         }
+                        if (host.ShouldExit && host.ExitCode != 0)
+                        {
+                            throw new Exception($"PowerShell script exited with non-zero exit code: {host.ExitCode}");
+                        }
+                        if (TryGetNonZeroLastExitCode(runspace, out int lastExitCode))
+                        {
+                            throw new Exception($"PowerShell script completed with non-zero exit code: {lastExitCode}");
+                        }
                         logger.FileLogger.LogDebug("Checking InvocationStateInfo...Done");
                     }
                 }
             }
             catch (Exception e)
             {
-                logger.FileLogger.LogError(e, "Exception occured in the powershell execution of script {0}", scriptName);
+                var sanitizedError = new InvalidOperationException(RedactSensitiveValues(e.ToString()));
+                logger.FileLogger.LogError(sanitizedError, "Exception occured in the powershell execution of script {0}", scriptName);
+                logger.Error(sanitizedError.Message);
                 return -1;
             }
             finally
@@ -128,7 +143,7 @@ namespace Dorc.PowerShell
             try
             {
                 if (string.IsNullOrWhiteSpace(message)) return;
-                var psMessage = $"[PS] {message}";
+                var psMessage = $"[PS] {RedactSensitiveValues(message)}";
                 switch (type)
                 {
                     case MessageType.None:
@@ -213,6 +228,85 @@ namespace Dorc.PowerShell
             }
 
             return combinedProperties;
+        }
+
+        private IReadOnlyList<string> CollectSensitiveValues(IDictionary<string, VariableValue> combinedProperties)
+        {
+            var explicitNames = new HashSet<string>(
+                evidenceContract?.SensitivePropertyNames ?? Enumerable.Empty<string>(),
+                StringComparer.OrdinalIgnoreCase);
+
+            var values = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var kvp in combinedProperties)
+            {
+                var isExplicitlySensitive = explicitNames.Contains(kvp.Key);
+                var matchesKeyNameHeuristic = explicitNames.Count == 0
+                    && (kvp.Key.Contains("Secret", StringComparison.OrdinalIgnoreCase)
+                        || kvp.Key.Contains("Password", StringComparison.OrdinalIgnoreCase)
+                        || kvp.Key.Contains("Token", StringComparison.OrdinalIgnoreCase)
+                        || kvp.Key.Contains("ApiKey", StringComparison.OrdinalIgnoreCase));
+
+                if (kvp.Value.Value is IEnumerable<string> arrayElements)
+                {
+                    foreach (var element in arrayElements.Where(element =>
+                        !string.IsNullOrEmpty(element)
+                        && (isExplicitlySensitive || (matchesKeyNameHeuristic && element.Length >= 4 && !long.TryParse(element, out _)))))
+                    {
+                        values.Add(element);
+                    }
+                    continue;
+                }
+
+                var raw = kvp.Value?.Value?.ToString();
+                if (string.IsNullOrEmpty(raw))
+                {
+                    continue;
+                }
+
+                var isHeuristicSensitive = matchesKeyNameHeuristic
+                    && raw.Length >= 4
+                    && !long.TryParse(raw, out _);
+                if (!isExplicitlySensitive && !isHeuristicSensitive)
+                {
+                    continue;
+                }
+
+                values.Add(raw);
+                if (raw.TrimStart().StartsWith("[", StringComparison.Ordinal))
+                {
+                    try
+                    {
+                        var elements = JsonConvert.DeserializeObject<string[]>(raw);
+                        if (elements != null)
+                        {
+                            foreach (var element in elements.Where(e => !string.IsNullOrEmpty(e)))
+                            {
+                                values.Add(element);
+                            }
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Value is not a JSON string array; full string is already collected
+                    }
+                }
+            }
+
+            return values
+                .OrderByDescending(v => v.Length)
+                .ToList();
+        }
+
+        private string RedactSensitiveValues(string text)
+        {
+            if (string.IsNullOrEmpty(text) || sensitiveValues.Count == 0)
+                return text;
+
+            foreach (var secret in sensitiveValues)
+            {
+                text = text.Replace(secret, RequestPropertyRedaction.Marker, StringComparison.Ordinal);
+            }
+            return text;
         }
 
         private void AddProperties(Runspace runspace, IDictionary<string, VariableValue> properties)
@@ -343,6 +437,37 @@ namespace Dorc.PowerShell
             }
 
             return debugInformation;
+        }
+
+        private static bool TryGetNonZeroLastExitCode(Runspace runspace, out int exitCode)
+        {
+            exitCode = 0;
+            try
+            {
+                var raw = runspace.SessionStateProxy.GetVariable("LASTEXITCODE");
+                if (raw is PSObject psObj)
+                {
+                    raw = psObj.BaseObject;
+                }
+                if (raw is int code && code != 0)
+                {
+                    exitCode = code;
+                    return true;
+                }
+            }
+            catch (RuntimeException)
+            {
+                // Ignore if runspace variable lookup is unavailable
+            }
+            catch (ObjectDisposedException)
+            {
+                // Ignore if runspace variable lookup is unavailable
+            }
+            catch (InvalidOperationException)
+            {
+                // Ignore if runspace variable lookup is unavailable
+            }
+            return false;
         }
     }
 }

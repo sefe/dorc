@@ -27,7 +27,7 @@ namespace Dorc.Api.Tests
         private const string ArtefactRoot = @"\\buildserver\drops\TestProject";
 
         private IFileSystemHelper _fileSystemHelper = null!;
-        private IDeployLibrary _deployLibrary = null!;
+        private IDeploymentRequestSubmitter _requestSubmitter = null!;
         private IRequestsPersistentSource _requestsPersistentSource = null!;
         private IProjectsPersistentSource _projectsPersistentSource = null!;
 
@@ -37,7 +37,7 @@ namespace Dorc.Api.Tests
             _fileSystemHelper = Substitute.For<IFileSystemHelper>();
             _fileSystemHelper.DirectoryExists(Arg.Any<string>()).Returns(true);
 
-            _deployLibrary = Substitute.For<IDeployLibrary>();
+            _requestSubmitter = Substitute.For<IDeploymentRequestSubmitter>();
             _requestsPersistentSource = Substitute.For<IRequestsPersistentSource>();
             _projectsPersistentSource = Substitute.For<IProjectsPersistentSource>();
 
@@ -49,7 +49,7 @@ namespace Dorc.Api.Tests
         }
 
         private FileShareDeployableBuild NewBuild() =>
-            new(_fileSystemHelper, _deployLibrary, _requestsPersistentSource, _projectsPersistentSource);
+            new(_fileSystemHelper, _requestSubmitter, _requestsPersistentSource, _projectsPersistentSource);
 
         private static BuildDetails BuildAt(string url) =>
             new(new RequestDto

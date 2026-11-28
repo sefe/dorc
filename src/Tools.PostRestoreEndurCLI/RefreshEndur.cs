@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -13,17 +13,17 @@ namespace Tools.PostRestoreEndurCLI
     public class RefreshEndur
     {
         private readonly ILogger _logger;
-        private readonly IApiCaller _apiCaller;
+        private readonly IDorcApiClient _apiClient;
 
-        public RefreshEndur(ILogger logger, IApiCaller apiCaller)
+        public RefreshEndur(ILogger logger, IDorcApiClient apiClient)
         {
             _logger = logger;
-            _apiCaller = apiCaller;
+            _apiClient = apiClient;
         }
 
         private DatabaseApiModel GetEndurDatabase(string envName)
         {
-            var result = _apiCaller.Call<DatabaseApiModel>(
+            var result = _apiClient.Call<DatabaseApiModel>(
                 Endpoints.RefDataDatabasesByTag,
                 Method.Get,
                 new Dictionary<string, string> { { "envName", envName }, { "tag", "Endur" } },
@@ -37,7 +37,7 @@ namespace Tools.PostRestoreEndurCLI
 
         private List<ServerApiModel> GetAppServers(string envName)
         {
-            var result = _apiCaller.Call<List<ServerApiModel>>(
+            var result = _apiClient.Call<List<ServerApiModel>>(
                 Endpoints.RefDataServersAppServersByEnvName,
                 Method.Get,
                 new Dictionary<string, string> { { "envName", envName } },
@@ -51,7 +51,7 @@ namespace Tools.PostRestoreEndurCLI
 
         private string GetSqlPort(string instanceName)
         {
-            var result = _apiCaller.Call<string>(
+            var result = _apiClient.Call<string>(
                 Endpoints.RefDataSqlPortsByInstance,
                 Method.Get,
                 new Dictionary<string, string> { { "instanceName", instanceName } },
@@ -674,9 +674,9 @@ namespace Tools.PostRestoreEndurCLI
                 var SQLConnection = new SqlConnection(SQLConStr.ConnectionString);
                 SQLConnection.Open();
 
-                UpdatePasswordDates(SQLConnection);
+                var updated = UpdatePasswordDates(SQLConnection);
                 SQLConnection.Close();
-                return true;
+                return updated;
             }
             catch (Exception ex)
             {
@@ -721,7 +721,7 @@ namespace Tools.PostRestoreEndurCLI
                 UpdateType = updateType
             };
             var body = JsonSerializer.Serialize(request);
-            var result = _apiCaller.Call<ApiBoolResult>(
+            var result = _apiClient.Call<ApiBoolResult>(
                 Endpoints.RefDataEnvironmentsHistory,
                 Method.Post,
                 null,
@@ -729,7 +729,9 @@ namespace Tools.PostRestoreEndurCLI
 
             if (!result.IsModelValid || result.Value == null || !result.Value.Result)
             {
-                Output($"Failed to update environment history: {result.ErrorMessage}");
+                var errorDetail = string.IsNullOrWhiteSpace(result.ErrorMessage) ? "API returned false" : result.ErrorMessage;
+                Output($"Failed to update environment history: {errorDetail}");
+                throw new InvalidOperationException($"Failed to update environment history for '{envName}': {errorDetail}");
             }
         }
 

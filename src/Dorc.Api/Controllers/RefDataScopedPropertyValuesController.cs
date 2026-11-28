@@ -45,6 +45,8 @@ namespace Dorc.Api.Controllers
                 return StatusCode(StatusCodes.Status400BadRequest, "'scope' must include a valid environment name, '" + scope + "' not located");
 
             var env = _environmentsPersistentSource.GetEnvironment(scope, User);
+            if (env == null)
+                return StatusCode(StatusCodes.Status403Forbidden, $"You do not have permission to access environment '{scope}'");
 
             var getScopedPropertyValuesResponseDto = _propertyValuesPersistentSource.GetPropertyValuesForScopeByPage(limit,
                 page, operators, env, User);

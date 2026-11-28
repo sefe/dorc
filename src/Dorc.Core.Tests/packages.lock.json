@@ -2421,6 +2421,16 @@
           "RestSharp": "[112.1.0, )",
           "System.Text.RegularExpressions": "[4.3.1, )"
         }
+      },
+      "tools.encryptionmigrationcli": {
+        "type": "Project",
+        "dependencies": {
+          "Dorc.Core": "[1.0.0, )",
+          "Dorc.PersistentData": "[1.0.0, )",
+          "Microsoft.Extensions.Configuration": "[9.0.10, )",
+          "Microsoft.Extensions.Configuration.Json": "[9.0.10, )",
+          "System.Text.RegularExpressions": "[4.3.1, )"
+        }
       }
     }
   }

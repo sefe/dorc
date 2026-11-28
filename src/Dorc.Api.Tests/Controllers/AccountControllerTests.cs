@@ -24,7 +24,8 @@ namespace Dorc.Api.Tests.Controllers
                     new object[] { "testUserLanId", "Endur", AccountType.Endur, true, null, false },
                     new object[] { string.Empty, "Endur", AccountType.Endur, false, "User LanId is required.", true },
                     new object[] { "testUserLanId", string.Empty, AccountType.Endur, false, "Account type is required.", true },
-                    new object[] { "testUserLanId", "invalidAccountType", AccountType.Endur, false, "test exception message", false },
+                    new object[] { "testUserLanId", "invalidAccountType", AccountType.Endur, false, "Invalid account type.", true },
+                    new object[] { "testUserLanId", "999", AccountType.Endur, false, "Invalid account type.", true },
                 };
             }
         }
@@ -68,15 +69,13 @@ namespace Dorc.Api.Tests.Controllers
                 if (!string.IsNullOrEmpty(expectedExceptionMessage))
                 {
                     var exists = accountController.UserExists(userLanId, accountType);
-                    var failedObjectResult = exists as ObjectResult;
-
-                    Assert.IsNotNull(failedObjectResult);
-                    Assert.AreEqual(failedObjectResult.StatusCode, StatusCodes.Status500InternalServerError);
-                    var responseMsg = failedObjectResult.Value as HttpResponseMessage;
+                    Assert.IsInstanceOfType(exists, typeof(BadRequestObjectResult));
+                    var failedObjectResult = (BadRequestObjectResult)exists;
+                    Assert.AreEqual(StatusCodes.Status400BadRequest, failedObjectResult.StatusCode);
 
                     if (isExpectedExceptionMessageCustom)
                     {
-                        Assert.AreEqual(responseMsg?.Content.ReadAsStringAsync().Result, expectedExceptionMessage);
+                        Assert.AreEqual(expectedExceptionMessage, failedObjectResult.Value);
                     }
 
                     return;
@@ -102,7 +101,8 @@ namespace Dorc.Api.Tests.Controllers
                     new object[] { "testGroupLanId", "Endur", AccountType.Endur, true, null, false },
                     new object[] { string.Empty, "Endur", AccountType.Endur, false, "Group LanId is required.", true },
                     new object[] { "testGroupLanId", string.Empty, AccountType.Endur, false, "Account type is required.", true },
-                    new object[] { "testGroupLanId", "invalidAccountType", AccountType.Endur, false, "test exception message", false },
+                    new object[] { "testGroupLanId", "invalidAccountType", AccountType.Endur, false, "Invalid account type.", true },
+                    new object[] { "testGroupLanId", "999", AccountType.Endur, false, "Invalid account type.", true },
                 };
             }
         }
@@ -125,14 +125,12 @@ namespace Dorc.Api.Tests.Controllers
                 if (!string.IsNullOrEmpty(expectedExceptionMessage))
                 {
                     var groupExists = accountController.GroupExists(groupLanId, accountType);
-                    var failedObjectResult = groupExists as ObjectResult;
-
-                    Assert.IsNotNull(failedObjectResult);
-                    Assert.AreEqual(failedObjectResult.StatusCode, StatusCodes.Status500InternalServerError);
-                    var responseMsg = failedObjectResult.Value as HttpResponseMessage;
+                    Assert.IsInstanceOfType(groupExists, typeof(BadRequestObjectResult));
+                    var failedObjectResult = (BadRequestObjectResult)groupExists;
+                    Assert.AreEqual(StatusCodes.Status400BadRequest, failedObjectResult.StatusCode);
                     if (isExpectedExceptionMessageCustom)
                     {
-                        Assert.AreEqual(responseMsg?.Content.ReadAsStringAsync().Result, expectedExceptionMessage);
+                        Assert.AreEqual(expectedExceptionMessage, failedObjectResult.Value);
                     }
 
                     return;

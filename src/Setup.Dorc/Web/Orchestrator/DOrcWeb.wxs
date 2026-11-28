@@ -58,7 +58,7 @@
 		           Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
 			<util:User Id="DOrcWebServiceUserProd" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no"
 			           RemoveOnUninstall="no" LogonAsService="yes" />
-			<iis:WebAppPool Id="DOrcWebAppPoolProd" Name="DOrcWeb" Identity="other" User="DOrcWebServiceUser" RecycleMinutes="0"
+			<iis:WebAppPool Id="DOrcWebAppPoolProd" Name="DOrcWeb" Identity="other" User="DOrcWebServiceUserProd" RecycleMinutes="0"
 			                ManagedPipelineMode="integrated" ManagedRuntimeVersion="v4.0">
 				<iis:RecycleTime Value="2:00" />
 			</iis:WebAppPool>

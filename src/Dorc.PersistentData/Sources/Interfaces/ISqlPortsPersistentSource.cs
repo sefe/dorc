@@ -7,5 +7,6 @@ namespace Dorc.PersistentData.Sources.Interfaces
         IEnumerable<SqlPortApiModel> GetSqlPorts();
         string GetSqlPort(string targetInstance);
         void CreateSqlPort(SqlPortApiModel value);
+        void DeleteSqlPort(SqlPortApiModel value);
     }
 }

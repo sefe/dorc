@@ -7,6 +7,7 @@
         <Json:JsonFile Id="PREDorcApiUrl" ElementPath="$.DorcApi.BaseUrl" Value="[DEPLOYAPI.ENDPOINT]" File="[#PostRestoreEndurConfig]" />
         <Json:JsonFile Id="PREDorcApiClientId" ElementPath="$.DorcApi.ClientId" Value="[DORC.API.CLIENTID]" File="[#PostRestoreEndurConfig]" />
         <Json:JsonFile Id="PREDorcApiClientSecret" ElementPath="$.DorcApi.ClientSecret" Value="[DORC.API.CLIENTSECRET]" File="[#PostRestoreEndurConfig]" />
+        <Json:JsonFile Id="PREDorcApiScope" ElementPath="$.DorcApi.Scope" Value="[DORC.API.SCOPE]" File="[#PostRestoreEndurConfig]" />
       </Component>
     </DirectoryRef>
   </Fragment>

@@ -11,16 +11,16 @@ namespace Dorc.Api.Tests
     [TestClass]
     public class CatalogDeployableBuildTests
     {
-        private IDeployLibrary _mockedDeployLibrary = null!;
+        private IDeploymentRequestSubmitter _mockedRequestSubmitter = null!;
         private IRequestsPersistentSource _mockedReqPs = null!;
         private CatalogDeployableBuild _catalogBuild = null!;
 
         [TestInitialize]
         public void Setup()
         {
-            _mockedDeployLibrary = Substitute.For<IDeployLibrary>();
+            _mockedRequestSubmitter = Substitute.For<IDeploymentRequestSubmitter>();
             _mockedReqPs = Substitute.For<IRequestsPersistentSource>();
-            _catalogBuild = new CatalogDeployableBuild(_mockedDeployLibrary, _mockedReqPs);
+            _catalogBuild = new CatalogDeployableBuild(_mockedRequestSubmitter, _mockedReqPs);
         }
 
         [TestMethod]
@@ -59,7 +59,7 @@ namespace Dorc.Api.Tests
 
             Assert.AreEqual(0, result.Id);
             Assert.AreEqual("Catalog request has no components.", result.Status);
-            _mockedDeployLibrary.DidNotReceiveWithAnyArgs().SubmitRequest(
+            _mockedRequestSubmitter.DidNotReceiveWithAnyArgs().SubmitRequest(
                 default!, default!, default!, default!, default!, default!, default!);
         }
 
@@ -78,7 +78,7 @@ namespace Dorc.Api.Tests
 
             Assert.AreEqual(0, result.Id);
             Assert.AreEqual("Catalog request has no components.", result.Status);
-            _mockedDeployLibrary.DidNotReceiveWithAnyArgs().SubmitRequest(
+            _mockedRequestSubmitter.DidNotReceiveWithAnyArgs().SubmitRequest(
                 default!, default!, default!, default!, default!, default!, default!);
         }
 
@@ -96,7 +96,7 @@ namespace Dorc.Api.Tests
 
             // Stubbed only for isCatalog == true: an isCatalog:false call
             // would return 0 and take the "zero result" branch instead.
-            _mockedDeployLibrary.SubmitRequest(
+            _mockedRequestSubmitter.SubmitRequest(
                     Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
                     Arg.Any<List<string>>(), Arg.Any<List<RequestProperty>>(), Arg.Any<ClaimsPrincipal>(), true)
                 .Returns(777);
@@ -107,14 +107,14 @@ namespace Dorc.Api.Tests
             var result = _catalogBuild.Process(request, user);
 
             Assert.AreSame(expectedStatus, result);
-            _mockedDeployLibrary.Received(1).SubmitRequest(
+            _mockedRequestSubmitter.Received(1).SubmitRequest(
                 "MyProject", "MyEnv", string.Empty, string.Empty,
                 Arg.Is<List<string>>(c => c.Count == 1 && c[0] == "CompA"),
                 Arg.Any<List<RequestProperty>>(), user, true);
         }
 
         [TestMethod]
-        public void Process_DeployLibraryReturnsZero_ReturnsZeroResultStatus()
+        public void Process_RequestSubmitterReturnsZero_ReturnsZeroResultStatus()
         {
             var request = new RequestDto
             {
@@ -124,7 +124,7 @@ namespace Dorc.Api.Tests
                 Components = new List<string> { "CompA" }
             };
 
-            _mockedDeployLibrary.SubmitRequest(
+            _mockedRequestSubmitter.SubmitRequest(
                     Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string>(),
                     Arg.Any<List<string>>(), Arg.Any<List<RequestProperty>>(), Arg.Any<ClaimsPrincipal>(), true)
                 .Returns(0);
@@ -132,7 +132,7 @@ namespace Dorc.Api.Tests
             var result = _catalogBuild.Process(request, new ClaimsPrincipal());
 
             Assert.AreEqual(0, result.Id);
-            Assert.AreEqual("DeployLibrary has returned zero result", result.Status);
+            Assert.AreEqual("DeploymentRequestSubmitter has returned zero result", result.Status);
         }
     }
 }

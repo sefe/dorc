@@ -71,6 +71,7 @@ namespace Dorc.Monitor
             _logger.LogInformation($"Deploying component with the name '{component.ComponentName}' and id '{component.ComponentId}' of type '{component.ComponentType}' (Enum Value: {(int)component.ComponentType}).");
 
             var deploymentResultStatus = DeploymentResultStatus.StatusNotSet;
+            var preserveRunningStatusOnInterruption = false;
             StringBuilder componentResultLogBuilder = new StringBuilder();
 
             try
@@ -194,8 +195,19 @@ namespace Dorc.Monitor
 
             catch (OperationCanceledException)
             {
-                deploymentResultStatus = DeploymentResultStatus.Cancelled;
-                _logger.LogInformation($"Processing of the component '{component.ComponentName}' is cancelled.");
+                if (IsUserRequestedCancellation(requestId))
+                {
+                    deploymentResultStatus = DeploymentResultStatus.Cancelled;
+                    _logger.LogInformation($"Processing of the component '{component.ComponentName}' is cancelled.");
+                }
+                else
+                {
+                    preserveRunningStatusOnInterruption = true;
+                    _logger.LogWarning(
+                        "Processing of the component '{ComponentName}' was interrupted while request {RequestId} is still Running (monitor shutdown or lock loss); keeping component status Running for recovery.",
+                        component.ComponentName,
+                        requestId);
+                }
                 throw;
             }
             catch (Exception)
@@ -206,26 +218,62 @@ namespace Dorc.Monitor
             }
             finally
             {
-                deploymentResult.Log = componentResultLogBuilder.ToString();
-                requestsPersistentSource.UpdateResultStatus(
-                    deploymentResult,
-                    deploymentResultStatus);
-
-                componentsPersistentSource.SaveEnvComponentStatus(
-                    environmentId,
-                    component,
-                    deploymentResultStatus.ToString(),
-                    requestId);
-
-                eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                if (preserveRunningStatusOnInterruption)
                 {
-                    Status = deploymentResultStatus.ToString()
-                }).ContinueWith(t => _logger.LogWarning(t.Exception!.InnerException,
-                    "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
+                    if (componentResultLogBuilder.Length > 0)
+                    {
+                        deploymentResult.Log = componentResultLogBuilder.ToString();
+                        requestsPersistentSource.UpdateResultLog(deploymentResult, deploymentResult.Log);
+                    }
+                }
+                else
+                {
+                    deploymentResult.Log = componentResultLogBuilder.ToString();
+                    if (componentResultLogBuilder.Length > 0)
+                    {
+                        requestsPersistentSource.UpdateResultLog(deploymentResult, deploymentResult.Log);
+                    }
+                    requestsPersistentSource.UpdateResultStatus(
+                        deploymentResult,
+                        deploymentResultStatus);
+
+                    componentsPersistentSource.SaveEnvComponentStatus(
+                        environmentId,
+                        component,
+                        deploymentResultStatus.ToString(),
+                        requestId);
+
+                    eventsPublisher.PublishResultStatusChangedAsync(new DeploymentResultEventData(deploymentResult)
+                    {
+                        Status = deploymentResultStatus.ToString()
+                    }).ContinueWith(t => _logger.LogWarning(t.Exception!.InnerException,
+                        "fire-and-forget publish failed for result"), TaskContinuationOptions.OnlyOnFaulted);
+                }
             }
 
             return deploymentResultStatus != DeploymentResultStatus.Failed;
         }
 
+        private bool IsUserRequestedCancellation(int requestId)
+        {
+            try
+            {
+                var currentStatus = requestsPersistentSource.GetRequest(requestId)?.Status
+                    ?? requestsPersistentSource.GetRequestStatus(requestId)?.Status;
+
+                // Default to true only when no request status is wired (e.g. unit tests) or when explicitly Cancelling/Cancelled/Abandoned
+                if (string.IsNullOrEmpty(currentStatus))
+                {
+                    return true;
+                }
+
+                return !string.Equals(currentStatus, DeploymentRequestStatus.Running.ToString(), StringComparison.OrdinalIgnoreCase);
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException)
+            {
+                _logger.LogWarning(ex, "Failed to check request {RequestId} status during component cancellation.", requestId);
+                return false;
+            }
+        }
     }
 }

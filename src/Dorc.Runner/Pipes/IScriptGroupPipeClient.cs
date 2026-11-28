@@ -2,7 +2,7 @@
 
 namespace Dorc.Runner.Pipes
 {
-    internal interface IScriptGroupPipeClient
+    public interface IScriptGroupPipeClient
     {
         ScriptGroup GetScriptGroupProperties(string pipeName);
     }

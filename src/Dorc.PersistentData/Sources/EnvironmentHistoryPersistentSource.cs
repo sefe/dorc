@@ -153,6 +153,17 @@ namespace Dorc.PersistentData.Sources
         }
 
 
+        public string? GetEnvironmentNameForHistoryId(int id)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                return context.EnvironmentHistories
+                    .Include(h => h.Environment)
+                    .FirstOrDefault(h => h.Id == id)
+                    ?.Environment?.Name;
+            }
+        }
+
         public void UpdateEnvironmentDetailHistoryComment(int id, string comment)
         {
             using (var context = _contextFactory.GetContext())

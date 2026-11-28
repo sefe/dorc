@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Management.Automation;
 using System.Management.Automation.Host;
 using System.Management.Automation.Runspaces;
@@ -18,6 +19,7 @@ namespace Dorc.NetFramework.PowerShell
         private int deploymentResultId;
         private readonly ScriptGroup evidenceContract;
         private int ordinal;
+        private IReadOnlyList<string> sensitiveValues = Array.Empty<string>();
 
         public StringWriter OutputObjects { get; private set; }
 
@@ -40,6 +42,7 @@ namespace Dorc.NetFramework.PowerShell
 
                 IDictionary<string, VariableValue> scriptProperties = script.Item2;
                 IDictionary<string, VariableValue> combinedProperties = this.CombineProperties(scriptProperties, commonProperties);
+                this.sensitiveValues = CollectSensitiveValues(combinedProperties);
                 try
                 {
 
@@ -103,10 +106,12 @@ namespace Dorc.NetFramework.PowerShell
 
                                 if (string.IsNullOrEmpty(exceptionMessage))
                                 {
-                                    throw;
+                                    throw new InvalidOperationException(RedactSensitiveValues(exception.Message));
                                 }
+                                exceptionMessage = RedactSensitiveValues(exceptionMessage);
+                                var redactedReason = RedactSensitiveValues(exception.Message);
                                 logger.FileLogger.LogInformation($"Execution of the powershell Script {scriptName} has Errored : {exceptionMessage}");
-                                throw new RemoteException(exceptionMessage, exception);
+                                throw new RemoteException(exceptionMessage, new InvalidOperationException(redactedReason));
                             }
 
                             logger.FileLogger.LogDebug("Checking runspace State");
@@ -124,6 +129,14 @@ namespace Dorc.NetFramework.PowerShell
                             {
                                 throw new Exception("PowerShell completed abnormally due to an error. Reason: " + powerShell.InvocationStateInfo.Reason);
                             }
+                            if (host.ShouldExit && host.ExitCode != 0)
+                            {
+                                throw new Exception($"PowerShell script exited with non-zero exit code: {host.ExitCode}");
+                            }
+                            if (TryGetNonZeroLastExitCode(runspace, out int lastExitCode))
+                            {
+                                throw new Exception($"PowerShell script completed with non-zero $LASTEXITCODE: {lastExitCode}");
+                            }
                             logger.FileLogger.LogDebug("Checking InvocationStateInfo...Done");
                         }
                     }
@@ -131,8 +144,9 @@ namespace Dorc.NetFramework.PowerShell
                 }
                 catch (Exception e)
                 {
-                    logger.FileLogger.LogError(e, $"Exception occured in the powershell execution of script {scriptName}");
-                    throw;
+                    var sanitizedError = new InvalidOperationException(RedactSensitiveValues(e.ToString()));
+                    logger.FileLogger.LogError(sanitizedError, $"Exception occured in the powershell execution of script {scriptName}");
+                    throw sanitizedError;
                 }
                 logger.FileLogger.LogInformation($" Execution of the powershell Script {scriptName} was successful");
             }
@@ -143,6 +157,7 @@ namespace Dorc.NetFramework.PowerShell
             try
             {
                 if (string.IsNullOrWhiteSpace(msg)) return;
+                msg = RedactSensitiveValues(msg);
                 switch (type)
                 {
                     case MessageType.Info:
@@ -184,7 +199,7 @@ namespace Dorc.NetFramework.PowerShell
                 var data = (PSDataCollection<PSObject>)sender;
                 var msg = GetOutput(data[e.Index]);
                 if (string.IsNullOrWhiteSpace(msg)) return;
-                logger.Information(msg);
+                logger.Information(RedactSensitiveValues(msg));
             }
             catch (Exception exception)
             {
@@ -228,6 +243,84 @@ namespace Dorc.NetFramework.PowerShell
             }
 
             return combinedProperties;
+        }
+
+        private IReadOnlyList<string> CollectSensitiveValues(IDictionary<string, VariableValue> properties)
+        {
+            var values = new List<string>();
+            if (properties == null) return values;
+
+            var explicitNames = new HashSet<string>(
+                evidenceContract?.SensitivePropertyNames ?? Array.Empty<string>(),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (var kvp in properties)
+            {
+                var isExplicitlySecret = kvp.Key != null && explicitNames.Contains(kvp.Key);
+                var matchesKeyNameHeuristic = kvp.Key != null
+                    && explicitNames.Count == 0
+                    && (kvp.Key.IndexOf("Password", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        kvp.Key.IndexOf("Secret", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        kvp.Key.IndexOf("Token", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                        kvp.Key.IndexOf("ApiKey", StringComparison.OrdinalIgnoreCase) >= 0);
+
+                if (kvp.Value?.Value is IEnumerable<string> arrayElements)
+                {
+                    foreach (var element in arrayElements.Where(element =>
+                        !string.IsNullOrWhiteSpace(element)
+                        && (isExplicitlySecret || (matchesKeyNameHeuristic && element.Length >= 4 && !long.TryParse(element, out _)))
+                        && !values.Contains(element)))
+                    {
+                        values.Add(element);
+                    }
+                    continue;
+                }
+
+                var raw = kvp.Value?.Value?.ToString();
+                if (string.IsNullOrWhiteSpace(raw)) continue;
+
+                var isHeuristicSecret = matchesKeyNameHeuristic
+                    && raw.Length >= 4
+                    && !long.TryParse(raw, out _);
+                if (!isExplicitlySecret && !isHeuristicSecret) continue;
+
+                if (!values.Contains(raw))
+                {
+                    values.Add(raw);
+                }
+
+                if (raw.TrimStart().StartsWith("[", StringComparison.Ordinal))
+                {
+                    try
+                    {
+                        var elements = JsonConvert.DeserializeObject<string[]>(raw);
+                        if (elements != null)
+                        {
+                            foreach (var element in elements.Where(element => !string.IsNullOrWhiteSpace(element) && !values.Contains(element)))
+                            {
+                                values.Add(element);
+                            }
+                        }
+                    }
+                    catch (JsonException)
+                    {
+                        // Value is not a JSON string array; full string is already collected
+                    }
+                }
+            }
+            values.Sort((a, b) => b.Length.CompareTo(a.Length));
+            return values;
+        }
+
+        private string RedactSensitiveValues(string message)
+        {
+            if (string.IsNullOrEmpty(message) || sensitiveValues.Count == 0) return message;
+            var redacted = message;
+            foreach (var secret in sensitiveValues)
+            {
+                redacted = redacted.Replace(secret, "[REDACTED]");
+            }
+            return redacted;
         }
 
         private void AddProperties(Runspace runspace, IDictionary<string, VariableValue> properties)
@@ -358,6 +451,41 @@ namespace Dorc.NetFramework.PowerShell
             }
 
             return debugInformation;
+        }
+
+        private static bool TryGetNonZeroLastExitCode(Runspace runspace, out int exitCode)
+        {
+            exitCode = 0;
+            try
+            {
+                var raw = runspace.SessionStateProxy.GetVariable("LASTEXITCODE");
+                if (raw is PSObject psObj)
+                {
+                    raw = psObj.BaseObject;
+                }
+                if (raw is int code && code != 0)
+                {
+                    exitCode = code;
+                    return true;
+                }
+            }
+            catch (PSInvalidOperationException)
+            {
+                // Ignore if runspace variable lookup is unavailable
+            }
+            catch (ObjectDisposedException)
+            {
+                // Ignore if runspace variable lookup is unavailable
+            }
+            catch (InvalidOperationException)
+            {
+                // Ignore if runspace variable lookup is unavailable
+            }
+            catch (RuntimeException)
+            {
+                // Ignore if runspace variable lookup is unavailable
+            }
+            return false;
         }
 
 

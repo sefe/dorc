@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Logging;
+﻿using Dorc.Core.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Swashbuckle.AspNetCore.Annotations;
@@ -11,10 +12,12 @@ namespace Dorc.Api.Controllers
     public class MetadataController : ControllerBase
     {
         private readonly ILogger _logger;
+        private readonly IConfigurationSettings? _configurationSettings;
 
-        public MetadataController(ILogger<MetadataController> logger)
+        public MetadataController(ILogger<MetadataController> logger, IConfigurationSettings? configurationSettings = null)
         {
             _logger = logger;
+            _configurationSettings = configurationSettings;
         }
 
         /// <summary>
@@ -25,8 +28,9 @@ namespace Dorc.Api.Controllers
         [HttpGet]
         public IResult Get()
         {
-            var env = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")[
-                "environment"] ?? "nd";
+            var env = _configurationSettings?.GetEnvironment()
+                ?? new ConfigurationBuilder().AddJsonFile("appsettings.json").Build().GetSection("AppSettings")["environment"]
+                ?? "nd";
             var envAndVersion = $"{env} - {GetType().Assembly.GetName().Version}";
 
             _logger.LogDebug("Starting with " + envAndVersion);

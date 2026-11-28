@@ -104,7 +104,7 @@
 
 	  <Component Id="RequestApiComponentProd" Guid="{2B641300-DCCB-4817-90D8-2A5B0C59AD11}" KeyPath="yes" Directory="RequestApi" Condition="ENVIRONMENTISPRODUCTION = &quot;TRUE&quot;">
 		  <util:User Id="ApiUserProd" Name="[SERVICE.IDENTITY]" Password="[SERVICE.PASSWORD]" CreateUser="no" RemoveOnUninstall="no" LogonAsService="yes" />
-		  <iis:WebAppPool Id="DeployApiPoolProd" Name="DeployApi" Identity="other" RecycleMinutes="0" ManagedRuntimeVersion="v4.0" ManagedPipelineMode="Integrated" User="ApiUser">
+		  <iis:WebAppPool Id="DeployApiPoolProd" Name="DeployApi" Identity="other" RecycleMinutes="0" ManagedRuntimeVersion="v4.0" ManagedPipelineMode="Integrated" User="ApiUserProd">
 			  <iis:RecycleTime Value="2:00" />
 		  </iis:WebAppPool>
 
@@ -161,6 +161,13 @@
 
 			<Json:JsonFile Id="AzureSignalRUseProd" ElementPath="$.Azure.SignalR.IsUseAzureSignalR" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.USE]" />
 			<Json:JsonFile Id="AzureSignalRConnectionStringProd" ElementPath="$.Azure.SignalR.ConnectionString" File="[#DeployApiWebConfig]" Value="[AZURE.SIGNALR.CONNECTIONSTRING]" />
+			<Json:JsonFile Id="RequestApiAzureStorageAccountTenantIdProd" ElementPath="$.AzureStorageAccount.TenantId" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.TENANTID]" />
+			<Json:JsonFile Id="RequestApiAzureStorageAccountClientIdProd" ElementPath="$.AzureStorageAccount.ClientId" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTID]" />
+			<Json:JsonFile Id="RequestApiAzureStorageAccountClientSecretProd" ElementPath="$.AzureStorageAccount.ClientSecret" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.CLIENTSECRET]" />
+			<Json:JsonFile Id="RequestApiAzureStorageAccountUriProd" ElementPath="$.AzureStorageAccount.StorageAccountUri" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.URI]" />
+			<Json:JsonFile Id="RequestApiAzureStorageAccountTerraformBlobsContainerNameProd" ElementPath="$.AzureStorageAccount.TerraformBlobsContainerName" File="[#DeployApiWebConfig]" Value="[AZURESTORAGEACCOUNT.TERRAFORMBLOBSCONTAINERNAME]" />
+
+			<Json:JsonFile Id="ApiOtelUrlProd" ElementPath="$.OpenTelemetry.OtlpEndpoint" Value="[OTEL.COLLECTOR.URL]" File="[#DeployApiWebConfig]" />
 			<Json:JsonFile Id="PauseDeploymentEnabledApiProd" ElementPath="$.AppSettings.PauseDeploymentEnabled" Value="[PAUSE.DEPLOYMENT.ENABLED]" File="[#DeployApiWebConfig]" />
 			<Json:JsonFile Id="IsProductionApiProd" ElementPath="$.AppSettings.IsProduction" Value="True" File="[#DeployApiWebConfig]" />
 			<!-- Empty (unset pipeline property) writes "", which the API reads as null =

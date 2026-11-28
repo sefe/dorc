@@ -13,13 +13,13 @@ namespace Dorc.Api.Services
         private readonly IFileSystemHelper _helper;
         private string _validationMessage;
         private readonly IRequestsPersistentSource _requestsPersistentSource;
-        private readonly IDeployLibrary _deployLibrary;
+        private readonly IDeploymentRequestSubmitter _requestSubmitter;
         private readonly IProjectsPersistentSource _projectsPersistentSource;
 
-        public FileShareDeployableBuild(IFileSystemHelper helper, IDeployLibrary deployLibrary,
+        public FileShareDeployableBuild(IFileSystemHelper helper, IDeploymentRequestSubmitter requestSubmitter,
             IRequestsPersistentSource requestsPersistentSource, IProjectsPersistentSource projectsPersistentSource)
         {
-            _deployLibrary = deployLibrary;
+            _requestSubmitter = requestSubmitter;
             _requestsPersistentSource = requestsPersistentSource;
             _projectsPersistentSource = projectsPersistentSource;
             _helper = helper;
@@ -90,7 +90,7 @@ namespace Dorc.Api.Services
 
         public RequestStatusDto Process(RequestDto request, ClaimsPrincipal user)
         {
-            var sId = _deployLibrary.SubmitRequest(request.Project, request.Environment, request.BuildUrl, string.Empty,
+            var sId = _requestSubmitter.SubmitRequest(request.Project, request.Environment, request.BuildUrl, string.Empty,
                 request.Components.ToList(), request.RequestProperties.ToList(), user);
             int id;
             try
@@ -103,7 +103,7 @@ namespace Dorc.Api.Services
             }
 
             return id <= 0
-                ? new RequestStatusDto() { Id = 0, Status = "DeployLibrary has returned zero result" }
+                ? new RequestStatusDto() { Id = 0, Status = "DeploymentRequestSubmitter has returned zero result" }
                 : _requestsPersistentSource.GetRequestStatus(id);
         }
     }

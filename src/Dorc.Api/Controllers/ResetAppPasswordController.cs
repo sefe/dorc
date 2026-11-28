@@ -46,6 +46,20 @@ namespace Dorc.Api.Controllers
         }
 
         /// <summary>
+        /// Reset the password for the current user
+        /// </summary>
+        /// <param name="envFilter"></param>
+        /// <param name="envName"></param>
+        /// <returns></returns>
+        [Produces(typeof(ApiBoolResult))]
+        [HttpPut]
+        public IActionResult Put(string envFilter, string envName)
+        {
+            string username = _claimsPrincipalReader.GetUserLogin(User);
+            return ResetPassword(envFilter, envName, username);
+        }
+
+        /// <summary>
         /// Reset the password for the specified user
         /// </summary>
         /// <param name="envFilter"></param>
@@ -79,8 +93,11 @@ namespace Dorc.Api.Controllers
             }
             catch (Exception e)
             {
-                _logger.LogError(e, "Failed to reset password for user '{Username}' in environment '{EnvName}' with filter '{EnvFilter}'", username, envName, envFilter);
-                return StatusCode(StatusCodes.Status500InternalServerError, e);
+                var safeUsername = (username ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty);
+                var safeEnvName = (envName ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty);
+                var safeEnvFilter = (envFilter ?? string.Empty).Replace("\r", string.Empty).Replace("\n", string.Empty);
+                _logger.LogError(e, "Failed to reset password for user '{Username}' in environment '{EnvName}' with filter '{EnvFilter}'", safeUsername, safeEnvName, safeEnvFilter);
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while resetting the application password.");
             }
         }
 
@@ -109,10 +126,13 @@ namespace Dorc.Api.Controllers
                 throw new System.ComponentModel.Win32Exception(ret);
             }
 
-            return WindowsIdentity.RunImpersonated(
-                safeAccessTokenHandle,
-                // User action  
-                () => _sqlUserPasswordReset.ResetSqlUserPassword(serverName, username));
+            using (safeAccessTokenHandle)
+            {
+                return WindowsIdentity.RunImpersonated(
+                    safeAccessTokenHandle,
+                    // User action  
+                    () => _sqlUserPasswordReset.ResetSqlUserPassword(serverName, username));
+            }
         }
     }
 }

@@ -18,13 +18,19 @@ namespace Dorc.PersistentData
             For<IDeploymentContext>().Use(_ => _.GetInstance<DeploymentContext>()).Scoped();
 
             var configuration = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
-            var connectionString = configuration.GetConnectionString("DOrcConnectionString");
-            For<IDeploymentContextFactory>().Use(new DeploymentContextFactory(connectionString));
+            For<IDeploymentContextFactory>().Use(ctx =>
+            {
+                var configRoot = ctx.TryGetInstance<IConfigurationRoot>() ?? configuration;
+                return new DeploymentContextFactory(configRoot.GetConnectionString("DOrcConnectionString"));
+            });
 
-            // Read the same way as the connection string above rather than through the host's
-            // IConfiguration, so the allow-list resolves identically in every process that
-            // loads this registry. Settings do not change at runtime, so one instance serves.
-            For<ISourceHostAllowList>().Use(new SourceHostAllowList(configuration)).Singleton();
+            // Read the same way as the connection string above, preferring the host's
+            // IConfigurationRoot when registered so tests and environment overrides apply.
+            For<ISourceHostAllowList>().Use(ctx =>
+            {
+                var configRoot = ctx.TryGetInstance<IConfigurationRoot>() ?? configuration;
+                return new SourceHostAllowList(configRoot);
+            }).Singleton();
 
             For<IAccessControlPersistentSource>().Use<AccessControlPersistentSource>().Scoped();
             For<IAccountPersistentSource>().Use<AccountPersistentSource>().Scoped();

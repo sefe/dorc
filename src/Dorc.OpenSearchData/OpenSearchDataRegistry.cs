@@ -10,16 +10,24 @@ namespace Dorc.OpenSearchData
     {
         public OpenSearchDataRegistry()
         {
-            var config = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build()
-                .GetSection("OpenSearchSettings");
-            For<IOpenSearchClient>().Use(InitializeOpenSearchLogger(config));
+            var fallbackConfigRoot = new ConfigurationBuilder().AddJsonFile("appsettings.json").Build();
+            For<IOpenSearchClient>().Use(ctx =>
+            {
+                var configRoot = ctx.TryGetInstance<IConfigurationRoot>() ?? fallbackConfigRoot;
+                return InitializeOpenSearchLogger(configRoot.GetSection("OpenSearchSettings"));
+            }).Singleton();
 
-            var deploymentResultIndex = config["DeploymentResultIndex"];
-
-            if (String.IsNullOrEmpty(deploymentResultIndex))
-                throw new Exception("'OpenSearchSettings.DeploymentResultIndex' not set in the Runner appsettings");
-
-            For<IDeploymentLogService>().Use<DeploymentLogService>().Ctor<string>("deploymentResultIndex").Is(deploymentResultIndex).Scoped();
+            For<IDeploymentLogService>().Use(ctx =>
+            {
+                var configRoot = ctx.TryGetInstance<IConfigurationRoot>() ?? fallbackConfigRoot;
+                var deploymentResultIndex = configRoot.GetSection("OpenSearchSettings")["DeploymentResultIndex"];
+                if (String.IsNullOrEmpty(deploymentResultIndex))
+                    throw new Exception("'OpenSearchSettings.DeploymentResultIndex' not set in the Runner appsettings");
+                return new DeploymentLogService(
+                    ctx.GetInstance<IOpenSearchClient>(),
+                    ctx.GetInstance<Microsoft.Extensions.Logging.ILogger<DeploymentLogService>>(),
+                    deploymentResultIndex);
+            }).Scoped();
         }
 
         private IOpenSearchClient InitializeOpenSearchLogger(IConfigurationSection config)

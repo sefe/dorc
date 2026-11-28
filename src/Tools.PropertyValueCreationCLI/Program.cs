@@ -1,4 +1,4 @@
-﻿using Dorc.ApiModel;
+using Dorc.ApiModel;
 using Dorc.Core;
 using Dorc.Core.Configuration;
 using Microsoft.Extensions.Configuration;
@@ -9,19 +9,22 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using ILogger = Microsoft.Extensions.Logging.ILogger;
+
+[assembly: InternalsVisibleTo("Tools.RequestCLI.Tests")]
 
 namespace Tools.PropertyValueCreationCLI
 {
     internal class Program
     {
-        private static void Main(string[] args)
+        internal static int Main(string[] args)
         {
             try
             {
                 var configuration = new ConfigurationBuilder()
-                    .SetBasePath(Directory.GetCurrentDirectory())
+                    .SetBasePath(AppContext.BaseDirectory)
                     .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                     .AddJsonFile("loggerSettings.json", optional: false, reloadOnChange: true)
                     .Build();
@@ -33,15 +36,18 @@ namespace Tools.PropertyValueCreationCLI
                 var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole().AddSerilog(Log.Logger));
                 var logger = loggerFactory.CreateLogger("PropertyValueCreationCLI");
 
-                var api = new ApiCaller(new DorcOAuthClientConfiguration(configuration));
+                var api = new DorcApiClient(new DorcOAuthClientConfiguration(configuration));
                 var app = new Application(api, logger);
                 app.CheckFile(args[0]);
                 app.Run(args[0]);
+                return 0;
             }
             catch (InvalidOperationException configEx) when (configEx.Message.Contains("not configured"))
             {
                 Console.WriteLine(DateTime.Now + " - Configuration Error: " + configEx.Message);
                 Console.WriteLine(DateTime.Now + " - appsettings error");
+                Environment.ExitCode = 1;
+                return 1;
             }
             catch (Exception e)
             {
@@ -50,15 +56,17 @@ namespace Tools.PropertyValueCreationCLI
                 {
                     Console.WriteLine(DateTime.Now + " - Inner Error: " + e.InnerException.Message);
                 }
+                Environment.ExitCode = 1;
+                return 1;
             }
         }
 
         public class Application
         {
             private readonly ILogger _log;
-            private readonly IApiCaller _api;
+            private readonly IDorcApiClient _api;
 
-            public Application(IApiCaller api, ILogger log)
+            public Application(IDorcApiClient api, ILogger log)
             {
                 _log = log;
                 _api = api;
@@ -188,12 +196,25 @@ namespace Tools.PropertyValueCreationCLI
 
                 if (valueResult.Value != null)
                 {
-                    foreach (var result in valueResult.Value)
+                    var failedItems = new List<string>();
+                    for (var i = 0; i < valueResult.Value.Count; i++)
                     {
+                        var result = valueResult.Value[i];
                         if (result.Status != "success")
                         {
-                            _log.LogWarning($"Failed to create property value: {result.Item} - {result.Status}");
+                            var pv = i < propertyValuesToCreate.Count ? propertyValuesToCreate[i] : null;
+                            var itemLabel = !string.IsNullOrWhiteSpace(pv?.Property?.Name)
+                                ? $"{pv.Property.Name} ({pv.PropertyValueFilter ?? "Default"})"
+                                : $"Item[{i}]";
+                            _log.LogWarning($"Failed to create property value for {itemLabel} - {result.Status}");
+                            failedItems.Add($"{itemLabel}: {result.Status}");
                         }
+                    }
+
+                    if (failedItems.Count > 0)
+                    {
+                        throw new InvalidOperationException(
+                            $"Failed to create {failedItems.Count} property value(s): {string.Join("; ", failedItems)}");
                     }
                 }
             }

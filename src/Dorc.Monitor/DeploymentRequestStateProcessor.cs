@@ -27,6 +27,7 @@ namespace Dorc.Monitor
         private bool disposedValue;
         private ConcurrentDictionary<string, int> environmentRequestIdRunning = new ConcurrentDictionary<string, int>();
         private readonly ConcurrentDictionary<string, DateTime> environmentLockBackoff = new ConcurrentDictionary<string, DateTime>();
+        private readonly ConcurrentDictionary<string, HashSet<int>> pendingOrphanRecoveryByEnv = new ConcurrentDictionary<string, HashSet<int>>(StringComparer.OrdinalIgnoreCase);
         // Internal (not private) so the unit tests can pin the backoff window.
         internal static readonly TimeSpan LockBackoffDuration = TimeSpan.FromSeconds(30);
         private const int EnvironmentLockAcquireTimeoutMs = 300000;
@@ -172,41 +173,108 @@ namespace Dorc.Monitor
             {
                 var runningIdsString = string.Join(',', runningRequests.Select(r => r.Id));
 
-                this.logger.LogWarning(
-                    "Found {Count} requests in 'Running' state from a previous instance. Resuming as Pending: [{Ids}]",
-                    runningRequests.Count, runningIdsString);
-
-                // Per-request transitions to ensure events are only published for requests this
-                // instance actually transitioned. A batch call returns only a count, making it
-                // impossible to determine which specific IDs were transitioned vs already handled
-                // by a concurrent startup instance (AC-7: event per transition, not per attempt).
-                int resumedCount = 0;
-                var resumedIds = new List<int>();
-                foreach (var request in runningRequests)
-                {
-                    int transitioned = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
-                        new List<DeploymentRequestApiModel> { request },
-                        DeploymentRequestStatus.Running,
-                        DeploymentRequestStatus.Pending);
-
-                    if (transitioned == 0) continue;
-
-                    resumedCount++;
-                    resumedIds.Add(request.Id);
-                    PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
-                        RequestId: request.Id,
-                        Status: DeploymentRequestStatus.Pending.ToString(),
-                        StartedTime: null,
-                        CompletedTime: null,
-                        Timestamp: DateTimeOffset.UtcNow
-                    ));
-                }
-
-                if (resumedCount > 0)
+                if (this.distributedLockService.IsEnabled)
                 {
                     this.logger.LogWarning(
-                        "Resumed {ResumedCount} of {TotalFound} stale Running request(s) as Pending. IDs [{Ids}]",
-                        resumedCount, runningRequests.Count, string.Join(',', resumedIds));
+                        "Found {Count} requests in 'Running' state ({Ids}) with distributed locking enabled. " +
+                        "Attempting per-environment lock acquisition so only orphaned requests (not held by an active peer Monitor) are resumed as Pending.",
+                        runningRequests.Count, runningIdsString);
+
+                    int resumedCount = 0;
+                    var resumedIds = new List<int>();
+                    foreach (var envGroup in runningRequests
+                        .GroupBy(r => r.EnvironmentName, StringComparer.OrdinalIgnoreCase)
+                        .Where(envGroup => !string.IsNullOrWhiteSpace(envGroup.Key)))
+                    {
+                        var resourceKey = $"env:{envGroup.Key}";
+                        using var envLock = this.distributedLockService
+                            .TryAcquireLockAsync(resourceKey, 30000, CancellationToken.None)
+                            .GetAwaiter()
+                            .GetResult();
+
+                        if (envLock == null)
+                        {
+                            var orphanSet = this.pendingOrphanRecoveryByEnv.GetOrAdd(envGroup.Key, _ => new HashSet<int>());
+                            lock (orphanSet)
+                            {
+                                foreach (var r in envGroup)
+                                {
+                                    orphanSet.Add(r.Id);
+                                }
+                            }
+                            this.logger.LogInformation(
+                                "Environment '{EnvironmentName}' lock could not be acquired at startup; queued Running request(s) [{Ids}] for orphan reconciliation on subsequent polls.",
+                                envGroup.Key, string.Join(',', envGroup.Select(r => r.Id)));
+                            continue;
+                        }
+
+                        this.pendingOrphanRecoveryByEnv.TryRemove(envGroup.Key, out _);
+                        foreach (var request in envGroup)
+                        {
+                            int transitioned = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                                new List<DeploymentRequestApiModel> { request },
+                                DeploymentRequestStatus.Running,
+                                DeploymentRequestStatus.Pending);
+
+                            if (transitioned == 0) continue;
+
+                            resumedCount++;
+                            resumedIds.Add(request.Id);
+                            PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
+                                RequestId: request.Id,
+                                Status: DeploymentRequestStatus.Pending.ToString(),
+                                StartedTime: null,
+                                CompletedTime: null,
+                                Timestamp: DateTimeOffset.UtcNow
+                            ));
+                        }
+                    }
+
+                    if (resumedCount > 0)
+                    {
+                        this.logger.LogWarning(
+                            "Resumed {ResumedCount} of {TotalFound} orphaned Running request(s) as Pending under per-environment lock. IDs [{Ids}]",
+                            resumedCount, runningRequests.Count, string.Join(',', resumedIds));
+                    }
+                }
+                else
+                {
+                    this.logger.LogWarning(
+                        "Found {Count} requests in 'Running' state from a previous instance. Resuming as Pending: [{Ids}]",
+                        runningRequests.Count, runningIdsString);
+
+                    // Per-request transitions to ensure events are only published for requests this
+                    // instance actually transitioned. A batch call returns only a count, making it
+                    // impossible to determine which specific IDs were transitioned vs already handled
+                    // by a concurrent startup instance (AC-7: event per transition, not per attempt).
+                    int resumedCount = 0;
+                    var resumedIds = new List<int>();
+                    foreach (var request in runningRequests)
+                    {
+                        int transitioned = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                            new List<DeploymentRequestApiModel> { request },
+                            DeploymentRequestStatus.Running,
+                            DeploymentRequestStatus.Pending);
+
+                        if (transitioned == 0) continue;
+
+                        resumedCount++;
+                        resumedIds.Add(request.Id);
+                        PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
+                            RequestId: request.Id,
+                            Status: DeploymentRequestStatus.Pending.ToString(),
+                            StartedTime: null,
+                            CompletedTime: null,
+                            Timestamp: DateTimeOffset.UtcNow
+                        ));
+                    }
+
+                    if (resumedCount > 0)
+                    {
+                        this.logger.LogWarning(
+                            "Resumed {ResumedCount} of {TotalFound} stale Running request(s) as Pending. IDs [{Ids}]",
+                            resumedCount, runningRequests.Count, string.Join(',', resumedIds));
+                    }
                 }
             }
 
@@ -426,6 +494,12 @@ namespace Dorc.Monitor
                 var restartedIds = requestsRestartedByThisMonitor.Select(r => r.Id).ToList();
                 var restartedIdsString = string.Join(',', restartedIds);
 
+                restartedIds.ForEach(id =>
+                {
+                    TerminateRequestExecution(id, requestCancellationSources);
+                    TerminateRunnerProcesses(id);
+                });
+
                 // Clear deployment results only for requests we actually restarted.
                 try
                 {
@@ -440,8 +514,6 @@ namespace Dorc.Monitor
 
                 restartedIds.ForEach(id =>
                 {
-                    TerminateRequestExecution(id, requestCancellationSources);
-                    TerminateRunnerProcesses(id);
                     PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
                         RequestId: id,
                         Status: DeploymentRequestStatus.Pending.ToString(),
@@ -477,10 +549,17 @@ namespace Dorc.Monitor
                         DeploymentRequestStatus.Confirmed,
                         DeploymentRequestStatus.Paused,
                         isProduction)
+                .Concat(this.requestsPersistentSource
+                    .GetRequestsWithStatus(DeploymentRequestStatus.WaitingConfirmation, isProduction))
                 .OrderBy(request => request.Id)
                 .ToList();
 
-            // Group by environment and filter to only environments without Running requests
+            if (this.distributedLockService.IsEnabled && !this.pendingOrphanRecoveryByEnv.IsEmpty)
+            {
+                ReconcileDeferredOrphanRunningRequests(allRelevantRequests, monitorCancellationToken);
+            }
+
+            // Group by environment and filter to only environments without Running or WaitingConfirmation requests
             // and where the first request (by ID) is not Paused.
             var environmentRequestGroupsToExecute = allRelevantRequests
                 .GroupBy(
@@ -489,9 +568,10 @@ namespace Dorc.Monitor
                         request,
                         this.serializer.Deserialize(request.RequestDetails)))
                 .Where(environmentRequestGroup =>
-                    // No Running requests in this environment
+                    // No Running or WaitingConfirmation requests in this environment
                     environmentRequestGroup.All(envRequest =>
-                        envRequest.Request.Status != DeploymentRequestStatus.Running.ToString()) &&
+                        envRequest.Request.Status != DeploymentRequestStatus.Running.ToString() &&
+                        envRequest.Request.Status != DeploymentRequestStatus.WaitingConfirmation.ToString()) &&
                     // The first (earliest by ID) request must not be Paused.
                     // If Request 3 is Paused, Requests 4,5 are blocked.
                     // But if Request 4 is Paused, Request 3 can still run (it's before the pause).
@@ -656,6 +736,67 @@ namespace Dorc.Monitor
             return requestGroupExecutionTasks.ToArray();
         }
 
+        private void ReconcileDeferredOrphanRunningRequests(List<DeploymentRequestApiModel> allRelevantRequests, CancellationToken monitorCancellationToken)
+        {
+            foreach (var kvp in this.pendingOrphanRecoveryByEnv.ToArray())
+            {
+                var envName = kvp.Key;
+                var orphanIds = kvp.Value;
+                if (this.environmentRequestIdRunning.ContainsKey(envName))
+                {
+                    continue;
+                }
+
+                List<DeploymentRequestApiModel> candidates;
+                lock (orphanIds)
+                {
+                    candidates = allRelevantRequests
+                        .Where(r => string.Equals(r.EnvironmentName, envName, StringComparison.OrdinalIgnoreCase)
+                            && r.Status == DeploymentRequestStatus.Running.ToString()
+                            && orphanIds.Contains(r.Id))
+                        .ToList();
+                }
+
+                if (candidates.Count == 0)
+                {
+                    this.pendingOrphanRecoveryByEnv.TryRemove(envName, out _);
+                    continue;
+                }
+
+                using var envLock = this.distributedLockService
+                    .TryAcquireLockAsync($"env:{envName}", 30000, monitorCancellationToken)
+                    .GetAwaiter()
+                    .GetResult();
+
+                if (envLock == null)
+                {
+                    continue;
+                }
+
+                foreach (var request in candidates)
+                {
+                    int transitioned = this.requestsPersistentSource.SwitchDeploymentRequestStatuses(
+                        new List<DeploymentRequestApiModel> { request },
+                        DeploymentRequestStatus.Running,
+                        DeploymentRequestStatus.Pending);
+
+                    if (transitioned > 0)
+                    {
+                        request.Status = DeploymentRequestStatus.Pending.ToString();
+                        PublishRequestStatusChangedSafe(new DeploymentRequestEventData(
+                            RequestId: request.Id,
+                            Status: DeploymentRequestStatus.Pending.ToString(),
+                            StartedTime: null,
+                            CompletedTime: null,
+                            Timestamp: DateTimeOffset.UtcNow
+                        ));
+                    }
+                }
+
+                this.pendingOrphanRecoveryByEnv.TryRemove(envName, out _);
+            }
+        }
+
         private void ExecuteRequest(RequestToProcessDto requestToExecute, CancellationToken requestCancellationToken)
         {
             this.logger.LogDebug($"---------------begin execution of request {requestToExecute.Request.Id}---------------");
@@ -795,7 +936,33 @@ namespace Dorc.Monitor
         private static System.Diagnostics.Process? GetProcByID(int id)
         {
             System.Diagnostics.Process[] processlist = System.Diagnostics.Process.GetProcesses();
-            return processlist.FirstOrDefault(pr => pr.Id == id);
+            var proc = processlist.FirstOrDefault(pr => pr.Id == id);
+            if (proc == null)
+                return null;
+
+            try
+            {
+                var name = proc.ProcessName;
+                if (!name.Contains("Dorc", StringComparison.OrdinalIgnoreCase) &&
+                    !name.Contains("Runner", StringComparison.OrdinalIgnoreCase))
+                {
+                    return null;
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                return null;
+            }
+            catch (System.ComponentModel.Win32Exception)
+            {
+                return null;
+            }
+            catch (NotSupportedException)
+            {
+                return null;
+            }
+
+            return proc;
         }
     }
 }

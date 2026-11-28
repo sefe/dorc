@@ -35,6 +35,21 @@ namespace Dorc.PersistentData.Sources
 
         public void CreateSqlPort(SqlPortApiModel value)
         {
+            if (value == null || string.IsNullOrWhiteSpace(value.InstanceName) || string.IsNullOrWhiteSpace(value.SqlPort))
+            {
+                throw new ArgumentException("InstanceName and SqlPort are required.");
+            }
+
+            if (value.InstanceName.Length > 250 || value.SqlPort.Length > 10)
+            {
+                throw new ArgumentException("InstanceName cannot exceed 250 characters and SqlPort cannot exceed 10 characters.");
+            }
+
+            if (!int.TryParse(value.SqlPort, out var portNumber) || portNumber < 1 || portNumber > 65535)
+            {
+                throw new ArgumentException("SqlPort must be a valid TCP port number between 1 and 65535.");
+            }
+
             using (var context = _contextFactory.GetContext())
             {
                 var currentSqlPort = context.SqlPorts.FirstOrDefault(
@@ -46,6 +61,23 @@ namespace Dorc.PersistentData.Sources
                 }
 
                 context.SqlPorts.Add(MapToSqlPort(value));
+                context.SaveChanges();
+            }
+        }
+
+        public void DeleteSqlPort(SqlPortApiModel value)
+        {
+            using (var context = _contextFactory.GetContext())
+            {
+                var currentSqlPort = context.SqlPorts.FirstOrDefault(
+                    sqlPort => sqlPort.Instance_Name == value.InstanceName
+                    && sqlPort.SQL_Port == value.SqlPort);
+                if (currentSqlPort == null)
+                {
+                    throw new ArgumentException($"Pair {value.InstanceName} - {value.SqlPort} does not exist");
+                }
+
+                context.SqlPorts.Remove(currentSqlPort);
                 context.SaveChanges();
             }
         }

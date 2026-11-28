@@ -73,10 +73,11 @@ namespace Dorc.Core.Tests
         public void GetPropertyValue_ReturnsSecureValue_WithoutEvaluation()
         {
             var propertyName = "secureProp";
-            var secureValue = new VariableValue { Value = "secret", Type = typeof(string) };
+            var secureValue = new VariableValue { Value = "fn:1+1", Type = typeof(string) };
             _resolver.SetPropertyValue(propertyName, secureValue);
-            _propertyValuesPersistentSource.IsCachedPropertySecure(propertyName).Returns(true);
-            var result = _resolver.GetPropertyValue(propertyName);
+            _propertyValuesPersistentSource.IsCachedPropertySecure(
+                Arg.Is<string>(s => string.Equals(s, propertyName, StringComparison.OrdinalIgnoreCase))).Returns(true);
+            var result = _resolver.GetPropertyValue("SECUREPROP");
             Assert.IsNotNull(result);
             Assert.AreEqual(secureValue.Value, result.Value);
         }
@@ -109,6 +110,163 @@ namespace Dorc.Core.Tests
             Assert.IsTrue(result.ContainsKey(prop3), "prop3 should be loaded");
             Assert.IsFalse(result.ContainsKey(prop2), "Bad expression property should be skipped");
             Assert.AreEqual("abc_xyz", result[prop3].Value);
+        }
+
+        [TestMethod]
+        public void GetPropertyValue_CaseInsensitiveCircularReference_DoesNotStackOverflow()
+        {
+            _resolver.SetPropertyValue("PropA", "$propb$");
+            _resolver.SetPropertyValue("PropB", "$PROPA$");
+            _propertyValuesPersistentSource.IsCachedPropertySecure(Arg.Any<string>()).Returns(false);
+
+            var emptyKeyResult = _resolver.GetPropertyValue(string.Empty);
+            Assert.IsNull(emptyKeyResult);
+
+            var result = _resolver.GetPropertyValue("propa");
+            Assert.IsNotNull(result);
+            Assert.AreEqual("$PROPA$", result.Value);
+
+            // Also verify repository-backed RawValueOf provenance lookup when not in localProperties
+            _resolver.SetRequestSuppliedPropertyValue("ReqInput", "injected");
+            _propertyValuesPersistentSource.GetCachedPropertyValue("RepoExpr")
+                .Returns(new PropertyValueDto
+                {
+                    Value = "fn:\"$reqinput$\"",
+                    Property = new PropertyApiModel { Name = "RepoExpr", Secure = false }
+                });
+            var repoResult = _resolver.GetPropertyValue("RepoExpr");
+            Assert.IsNotNull(repoResult);
+            Assert.AreEqual("fn:\"injected\"", repoResult.Value);
+
+            // Also verify BundledRequestVariableResolver cycle guard
+            var loader = Substitute.For<IBundledRequestVariableLoader>();
+            loader.GetVariables().Returns(new List<RequestProperty>
+            {
+                new() { PropertyName = "Cycle1", PropertyValue = "$cycle2$" },
+                new() { PropertyName = "Cycle2", PropertyValue = "$CYCLE1$" }
+            });
+            var exprEval = Substitute.For<IPropertyExpressionEvaluator>();
+            exprEval.Evaluate(Arg.Any<object>()).Returns(ci => ci.Arg<object>());
+            var bundledResolver = new BundledRequestVariableResolver(loader, exprEval, new PropertyEvaluator());
+            Assert.IsNull(bundledResolver.GetPropertyValue(string.Empty));
+            var bundledDict = bundledResolver.LoadProperties();
+            Assert.HasCount(2, bundledDict);
+            Assert.AreEqual("$CYCLE1$", bundledDict["Cycle1"].Value);
+        }
+
+        [TestMethod]
+        public void GetPropertyValue_ResolvesArrayPropertiesAndInterpolatesElements()
+        {
+            var properties = new Dictionary<string, PropertyValueDto>
+            {
+                ["EnvTag"] = new PropertyValueDto
+                {
+                    Value = "dv01",
+                    Property = new PropertyApiModel { Name = "EnvTag", Secure = false, IsArray = false }
+                },
+                ["BaseHosts"] = new PropertyValueDto
+                {
+                    Value = "[\"host1.$EnvTag$.local\",\"host2.$EnvTag$.local\"]",
+                    Property = new PropertyApiModel { Name = "BaseHosts", Secure = false, IsArray = true }
+                },
+                ["ExpandedHosts"] = new PropertyValueDto
+                {
+                    Value = "[\"$BaseHosts$\",\"host3.$EnvTag$.local\"]",
+                    Property = new PropertyApiModel { Name = "ExpandedHosts", Secure = false, IsArray = true }
+                },
+                ["SecureTokens"] = new PropertyValueDto
+                {
+                    Value = "[\"sec-$EnvTag$-1\",\"fn:1+1\"]",
+                    Property = new PropertyApiModel { Name = "SecureTokens", Secure = true, IsArray = true }
+                },
+                ["SecureScalarFallback"] = new PropertyValueDto
+                {
+                    Value = "raw-secret-element",
+                    Property = new PropertyApiModel { Name = "SecureScalarFallback", Secure = true, IsArray = true }
+                },
+                ["PlainScalarFallback"] = new PropertyValueDto
+                {
+                    Value = "node-$EnvTag$",
+                    Property = new PropertyApiModel { Name = "PlainScalarFallback", Secure = false, IsArray = true }
+                },
+                ["AliasedArray"] = new PropertyValueDto
+                {
+                    Value = "$BaseHosts$",
+                    Property = new PropertyApiModel { Name = "AliasedArray", Secure = false, IsArray = true }
+                },
+                ["MalformedJsonArray"] = new PropertyValueDto
+                {
+                    Value = "[not-valid-json",
+                    Property = new PropertyApiModel { Name = "MalformedJsonArray", Secure = false, IsArray = true }
+                },
+                ["EscapedTaintArray"] = new PropertyValueDto
+                {
+                    Value = "[\"fn:\\u0022\\u0024ReqInput\\u0024\\u0022\"]",
+                    Property = new PropertyApiModel { Name = "EscapedTaintArray", Secure = false, IsArray = true }
+                },
+                ["JoinedSummary"] = new PropertyValueDto
+                {
+                    Value = "hosts=$BaseHosts$!",
+                    Property = new PropertyApiModel { Name = "JoinedSummary", Secure = false, IsArray = false }
+                }
+            };
+
+            _propertyValuesPersistentSource.LoadAllPropertiesIntoCache().Returns(properties);
+            _propertyValuesPersistentSource.IsCachedPropertySecure(Arg.Is<string>(s =>
+                s.Equals("SecureTokens", StringComparison.OrdinalIgnoreCase) ||
+                s.Equals("SecureScalarFallback", StringComparison.OrdinalIgnoreCase))).Returns(true);
+            _propertyValuesPersistentSource.IsCachedPropertyArray(Arg.Is<string>(s =>
+                s.Equals("RequestArrayOverride", StringComparison.OrdinalIgnoreCase) ||
+                s.Equals("RequestScalarArrayOverride", StringComparison.OrdinalIgnoreCase))).Returns(true);
+
+            var loaded = _resolver.LoadProperties();
+
+            Assert.AreEqual(typeof(string[]), loaded["BaseHosts"].Type);
+            CollectionAssert.AreEqual(new[] { "host1.dv01.local", "host2.dv01.local" }, (string[])loaded["BaseHosts"].Value);
+
+            Assert.AreEqual(typeof(string[]), loaded["ExpandedHosts"].Type);
+            CollectionAssert.AreEqual(
+                new[] { "host1.dv01.local", "host2.dv01.local", "host3.dv01.local" },
+                (string[])loaded["ExpandedHosts"].Value);
+
+            // Secure array elements are NOT interpolated or C#-evaluated
+            CollectionAssert.AreEqual(new[] { "sec-$EnvTag$-1", "fn:1+1" }, (string[])loaded["SecureTokens"].Value);
+            CollectionAssert.AreEqual(new[] { "raw-secret-element" }, (string[])loaded["SecureScalarFallback"].Value);
+
+            // Non-JSON scalar fallback for IsArray=true still wraps into string[]
+            CollectionAssert.AreEqual(new[] { "node-dv01" }, (string[])loaded["PlainScalarFallback"].Value);
+            CollectionAssert.AreEqual(new[] { "host1.dv01.local", "host2.dv01.local" }, (string[])loaded["AliasedArray"].Value);
+            CollectionAssert.AreEqual(new[] { "[not-valid-json" }, (string[])loaded["MalformedJsonArray"].Value);
+
+            // Interpolating an array inside a composite scalar string joins with commas
+            Assert.AreEqual("hosts=host1.dv01.local,host2.dv01.local!", loaded["JoinedSummary"].Value);
+
+            // Pre-resolved string[] value stored via SetPropertyValue
+            _resolver.SetPropertyValue("BaseHosts", new VariableValue { Value = new[] { "pre1", "pre2" }, Type = typeof(string[]) });
+            CollectionAssert.AreEqual(new[] { "pre1", "pre2" }, (string[])_resolver.GetPropertyValue("BaseHosts")!.Value);
+
+            // Request-supplied array skips C# expression evaluation
+            _resolver.SetRequestSuppliedPropertyValue("RequestArrayOverride", "[\"fn:1+1\",\"$EnvTag$\"]");
+            CollectionAssert.AreEqual(new[] { "fn:1+1", "dv01" }, (string[])_resolver.GetPropertyValue("RequestArrayOverride")!.Value);
+
+            _resolver.SetRequestSuppliedPropertyValue("RequestScalarArrayOverride", "fn:1+1");
+            CollectionAssert.AreEqual(new[] { "fn:1+1" }, (string[])_resolver.GetPropertyValue("RequestScalarArrayOverride")!.Value);
+
+            // JSON-escaped reference to request-supplied property must still be detected as tainted (no C# evaluation)
+            _resolver.SetRequestSuppliedPropertyValue("ReqInput", "tainted");
+            CollectionAssert.AreEqual(new[] { "fn:\"tainted\"" }, (string[])_resolver.GetPropertyValue("EscapedTaintArray")!.Value);
+            CollectionAssert.AreEqual(new[] { "[not-valid-json" }, (string[])_resolver.GetPropertyValue("MalformedJsonArray")!.Value);
+
+            // Repository-backed (not in localProperties) array lookup
+            _propertyValuesPersistentSource.GetCachedPropertyValue("RepoOnlyArray")
+                .Returns(new PropertyValueDto
+                {
+                    Value = "[\"repo-$EnvTag$\"]",
+                    Property = new PropertyApiModel { Name = "RepoOnlyArray", Secure = false, IsArray = true }
+                });
+            var repoArray = _resolver.GetPropertyValue("RepoOnlyArray");
+            Assert.IsNotNull(repoArray);
+            CollectionAssert.AreEqual(new[] { "repo-dv01" }, (string[])repoArray.Value);
         }
     }
 } 

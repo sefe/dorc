@@ -26,8 +26,14 @@ namespace Dorc.NetFramework.PowerShell
 
         public override CultureInfo CurrentUICulture { get; } = Thread.CurrentThread.CurrentUICulture;
 
+        public bool ShouldExit { get; private set; }
+
+        public int ExitCode { get; private set; }
+
         public override void SetShouldExit(int exitCode)
         {
+            ShouldExit = true;
+            ExitCode = exitCode;
         }
 
         public override void EnterNestedPrompt()

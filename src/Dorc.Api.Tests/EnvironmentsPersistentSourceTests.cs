@@ -797,15 +797,18 @@ namespace Dorc.Api.Tests
             Assert.AreEqual(objA, acSource.DeleteAccessControl(55, objA, user));
             acList.Add(acRow);
 
-            // RequestsStatusPersistentSource.GetDeploymentRequestApiModels enforces Deny != 0
+            // RequestsStatusPersistentSource.GetDeploymentRequestApiModels enforces Deny != 0 and retains historical requests when environment is deleted/renamed
             var env = new Environment { Id = 1, Name = "DeniedEnv", ObjectId = objA };
             var req = new DeploymentRequest { Id = 100, Environment = "DeniedEnv", Project = "Proj", Status = "Pending" };
+            var orphanedReq = new DeploymentRequest { Id = 101, Environment = "DeletedOrRenamedEnv", Project = "Proj", Status = "Completed" };
             envList.Add(env);
             reqList.Add(req);
+            reqList.Add(orphanedReq);
 
             var reqModels = RequestsStatusPersistentSource.GetDeploymentRequestApiModels(_context, "user1", new List<string> { "sid-1" }).ToList();
-            Assert.AreEqual(1, reqModels.Count);
-            Assert.IsFalse(reqModels[0].UserEditable);
+            Assert.AreEqual(2, reqModels.Count);
+            Assert.IsFalse(reqModels.Single(r => r.Id == 100).UserEditable);
+            Assert.IsFalse(reqModels.Single(r => r.Id == 101).UserEditable);
 
             // IsEnvironmentOwner all principal match branches (Pid == userId, Pid == userOid, Sid == userId, Sid == userlogin, Sid in userSids, null userSids)
             var claimUser = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim("oid", "oid-claim") }));
@@ -859,15 +862,41 @@ namespace Dorc.Api.Tests
             }, user);
             Assert.IsNotNull(createdNoOwner);
 
+            var createdNullDetails = _environmentsPersistentSource.CreateEnvironment(new EnvironmentApiModel
+            {
+                EnvironmentName = "BrandNewNullDetailsEnv",
+                Details = null!
+            }, user);
+            Assert.IsNotNull(createdNullDetails);
+            Assert.AreEqual(1, envList[3].AccessControls.Count, "CreateEnvironment with null Details must still grant AccessLevel.Owner to the creator.");
+            Assert.AreEqual((int)AccessLevel.Owner, envList[3].AccessControls.First().Allow);
+
+            Assert.Throws<ArgumentException>(() =>
+                _environmentsPersistentSource.UpdateEnvironment(new EnvironmentApiModel
+                {
+                    EnvironmentId = 500,
+                    EnvironmentName = "   "
+                }, user));
+
             envList[0].Id = 500;
             envList[1].Id = 501;
             envList[2].Id = 502;
+            envList[3].Id = 503;
             _environmentsPersistentSource.UpdateEnvironment(new EnvironmentApiModel
             {
                 EnvironmentId = 500,
                 EnvironmentName = "BrandNewEnv",
                 Details = new EnvironmentDetailsApiModel { Description = "Updated" }
             }, user);
+            Assert.AreEqual("Updated", envList[0].Description);
+
+            _environmentsPersistentSource.UpdateEnvironment(new EnvironmentApiModel
+            {
+                EnvironmentId = 500,
+                EnvironmentName = "BrandNewEnv",
+                Details = null!
+            }, user);
+            Assert.AreEqual("Updated", envList[0].Description, "UpdateEnvironment with null Details must preserve existing Detail fields rather than throwing NullReferenceException.");
 
             // PagingPersistentSourceBase (via ServersPersistentSource) and PropertyValuesPersistentSource enforce Deny != 0
             var envAllowObj = Guid.NewGuid();

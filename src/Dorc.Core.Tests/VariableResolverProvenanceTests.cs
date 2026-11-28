@@ -134,6 +134,22 @@ namespace Dorc.Core.Tests
 
             Assert.AreEqual("ABC", _resolver.GetPropertyValue("b")!.Value);
         }
+
+        [TestMethod]
+        public void ArrayPropertyWithUnparseableElementAndRequestSuppliedReference_IsNotEvaluated()
+        {
+            _resolver.SetRequestSuppliedPropertyValue("tainted", "abc");
+            _propertyValuesPersistentSource.IsCachedPropertyArray("arr").Returns(true);
+            _resolver.SetPropertyValue("arr", "[\"price $5\", \"fn:\\\"$tainted$\\\".ToUpper()\"]");
+
+            var result = _resolver.GetPropertyValue("arr");
+
+            Assert.IsNotNull(result);
+            var elements = (string[])result.Value;
+            CollectionAssert.AreEqual(
+                new[] { "price $5", "fn:\"abc\".ToUpper()" },
+                elements);
+        }
     }
 
     [TestClass]
@@ -204,6 +220,40 @@ namespace Dorc.Core.Tests
             };
 
             Assert.IsTrue(tracker.IsInfluenced("a", name => values.GetValueOrDefault(name)));
+        }
+
+        [TestMethod]
+        public void IgnoresNullElementsInsideJsonArrayCandidatesWhenScanningReferences()
+        {
+            var tracker = new RequestSuppliedPropertyTracker();
+            tracker.Mark("tainted");
+
+            var values = new Dictionary<string, string?>
+            {
+                ["withNullOnly"] = "[null]",
+                ["withNullAndReference"] = "[null,\"$tainted$\"]",
+                ["malformedArrayWithRef"] = "[$tainted$"
+            };
+
+            Assert.IsFalse(tracker.IsInfluenced("withNullOnly", name => values.GetValueOrDefault(name)));
+            Assert.IsTrue(tracker.IsInfluenced("withNullAndReference", name => values.GetValueOrDefault(name)));
+            Assert.IsTrue(tracker.IsInfluenced("malformedArrayWithRef", name => values.GetValueOrDefault(name)));
+        }
+
+        [TestMethod]
+        public void TreatsParseFailureInScalarOrArrayAsInfluencedWhenRequestSuppliedPropertiesExist()
+        {
+            var tracker = new RequestSuppliedPropertyTracker();
+            tracker.Mark("tainted");
+
+            var values = new Dictionary<string, string?>
+            {
+                ["unclosedDollarScalar"] = "price $5",
+                ["arrayWithUnclosedDollarAndFn"] = "[\"price $5\", \"fn:\\\"$tainted$\\\".ToUpper()\"]"
+            };
+
+            Assert.IsTrue(tracker.IsInfluenced("unclosedDollarScalar", name => values.GetValueOrDefault(name)));
+            Assert.IsTrue(tracker.IsInfluenced("arrayWithUnclosedDollarAndFn", name => values.GetValueOrDefault(name)));
         }
     }
 

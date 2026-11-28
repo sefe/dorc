@@ -7,6 +7,7 @@
         <Json:JsonFile Id="PropertyValueCreationBuildConfigDorcApiUrl" ElementPath="$.DorcApi.BaseUrl" Value="[DEPLOYAPI.ENDPOINT]" File="[#PropertyValueCreationConfig]" />
         <Json:JsonFile Id="PropertyValueCreationEnvBuildConfigDorcApiClientId" ElementPath="$.DorcApi.ClientId" Value="[DORC.API.CLIENTID]" File="[#PropertyValueCreationConfig]" />
         <Json:JsonFile Id="PropertyValueCreationCopyEnvBuildConfigDorcApiClientSecret" ElementPath="$.DorcApi.ClientSecret" Value="[DORC.API.CLIENTSECRET]" File="[#PropertyValueCreationConfig]" />
+        <Json:JsonFile Id="PropertyValueCreationCopyEnvBuildConfigDorcApiScope" ElementPath="$.DorcApi.Scope" Value="[DORC.API.SCOPE]" File="[#PropertyValueCreationConfig]" />
       </Component>
     </DirectoryRef>
   </Fragment>

@@ -35,6 +35,9 @@
     <ProjectReference Include="..\Dorc.Runner.Logger\Dorc.Runner.Logger.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="Dorc.Monitor.IntegrationTests" />
+  </ItemGroup>
+  <ItemGroup>
     <None Update="loggerSettings.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
